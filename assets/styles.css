@@ -122,6 +122,31 @@ footer,
 
 [data-testid="stToolbar"] { right: var(--s2); }
 
+/* The little anchor-link icon Streamlit adds beside every heading. */
+[data-testid="stHeaderActionElements"] { display: none; }
+
+/* ---------------------------------------------------------------------
+   Streamlit Community Cloud platform chrome (Share / Star / Edit / avatar,
+   the "Manage app" pill, the viewer badge).
+
+   NOTE: none of this exists when running locally -- it is injected by the
+   *.streamlit.app host page, so these selectors are written from Streamlit's
+   published testids and are NOT verified against a live render. They are
+   harmless no-ops if the names have changed. If an icon survives, inspect it
+   in DevTools and add its testid here.
+
+   Whether hiding Cloud's own branding is permitted by Streamlit's terms is a
+   question for their ToS, not a technical one.
+   --------------------------------------------------------------------- */
+[data-testid="stToolbarActions"],
+[data-testid="stAppDeployButton"],
+[data-testid="stStatusWidget"],
+#ManageAppButton,
+.viewerBadge_container__1QSob,
+[class*="viewerBadge"] {
+    display: none !important;
+}
+
 /* Belt and braces: whatever Streamlit calls the sidebar toggle, keep it. */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="stExpandSidebarButton"],
