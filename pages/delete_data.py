@@ -44,7 +44,7 @@ def render():
     else:
         data = data.reset_index(drop=True)
         data.insert(0, "delete_id", data.index)
-        st.dataframe(data, use_container_width=True)
+        st.dataframe(data, width="stretch")
         delete_ids_text = st.text_input("Enter delete_id numbers to delete", placeholder="Example: 0, 4, 7")
         if st.button("Delete Selected Rows", type="primary"):
             if delete_ids_text.strip():

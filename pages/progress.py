@@ -35,4 +35,4 @@ def render():
         target = get_target("1RM", exercise)
         if target:
             render_target_bar(f"{exercise.upper()} 1RM TARGET", float(ex["estimated_1rm"].max()), target, "kg", lower_is_better=False, action_label="Adjust Strength Target →", action_page="Goals", action_key=f"qol_progress_target_{exercise}")
-        st.dataframe(ex.sort_values(["date", "set"], ascending=False), use_container_width=True)
+        st.dataframe(ex.sort_values(["date", "set"], ascending=False), width="stretch")

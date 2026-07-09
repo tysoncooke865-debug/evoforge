@@ -74,4 +74,4 @@ def render():
     if targets.empty:
         st.info("No targets saved yet.")
     else:
-        st.dataframe(targets, use_container_width=True)
+        st.dataframe(targets, width="stretch")

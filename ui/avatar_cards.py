@@ -2,38 +2,35 @@ import streamlit as st
 
 from domain.profile import rank_name
 from domain.physique_ratings import safe_num
-from domain.workouts import load_log, workout_summary
-from domain.xp_leveling import current_level_xp, avatar_stage_rows
+from domain.xp_leveling import avatar_stage_rows
 from domain.avatar_stats import (
     avatar_asset_for_stats, evolution_name, branch_display_name, rarity_badge_html,
-    next_evolution_info,
+    next_evolution_info, avatar_rarity,
 )
-from ui.avatar_images import avatar_img_tag, get_avatar_image_object, make_locked_silhouette_image
+from ui.avatar_images import (
+    avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image,
+)
 
 
-def avatar_inline_stat(label, value, icon):
+def _rarity_slug(level):
+    try:
+        return avatar_rarity(int(level))[0].lower()
+    except Exception:
+        return "common"
+
+
+def render_avatar_stat(label, value, delta=None):
+    """A single labelled stat bar. `delta` renders a rising +N surge chip."""
     value = int(max(0, min(safe_num(value, 0), 100)))
-    return f"""
-        <div class="avatar-inline-stat">
-            <div class="avatar-inline-stat-top">
-                <span>{icon} {label}</span>
-                <b>{value}</b>
-            </div>
-            <div class="avatar-inline-track">
-                <div class="avatar-inline-fill" style="--inline-progress:{value}%;"></div>
-            </div>
-        </div>
-    """
-
-
-def render_avatar_stat(label, value):
-    value = int(max(0, min(safe_num(value, 0), 100)))
+    delta_html = ""
+    if delta:
+        delta_html = f'<span class="ef-stat-delta">+{int(delta)}</span>'
     st.markdown(
         f"""
         <div class="avatar-stat">
             <div class="avatar-stat-top">
                 <span>{label}</span>
-                <b>{value}</b>
+                <b>{value}{delta_html}</b>
             </div>
             <div class="avatar-track">
                 <div class="avatar-fill" style="--avatar-progress:{value}%;"></div>
@@ -46,33 +43,25 @@ def render_avatar_stat(label, value):
 
 def render_avatar_image_panel(stats, compact=False):
     branch, stage, path = avatar_asset_for_stats(stats)
-    img_tag = avatar_img_tag(path, css_class="avatar-image-native-img")
+    level = int(stats.get("level", 1))
+    rarity = _rarity_slug(level)
 
-    if not img_tag:
+    stage_html = avatar_stage_html(path, rarity=rarity, size="lg", alt="Current form")
+    if not stage_html:
         st.error("Avatar image could not load. Check the avatar_assets folder.")
         st.write(f"Expected path: `{path}`")
         return
 
-    level = int(stats.get("level", 1))
     evo = evolution_name(branch, level)
     branch_name = branch_display_name(branch)
     rank = str(stats.get("rank", rank_name(level)))
     weak = str(stats.get("weak_point_focus", "Balanced"))
 
-    st.markdown(
-        """
-        <div class="avatar-section-header">
-            <div class="avatar-section-glow"></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     col_img, col_stats = st.columns([1.05, 0.95], vertical_alignment="center")
 
     with col_img:
         st.markdown(
-            f'<div class="avatar-image-native-wrap">{img_tag}</div>',
+            f'<div class="avatar-image-native-wrap rarity-{rarity}">{stage_html}</div>',
             unsafe_allow_html=True,
         )
 
@@ -80,7 +69,8 @@ def render_avatar_image_panel(stats, compact=False):
         st.markdown(
             f"""
             <div class="avatar-side-card-clean">
-                <div class="avatar-kicker">CURRENT FORM</div>\n                {rarity_badge_html(level)}
+                <div class="avatar-kicker">CURRENT FORM</div>
+                {rarity_badge_html(level)}
                 <div class="avatar-clean-title">{evo}</div>
                 <div class="avatar-clean-sub">{branch_name} • Level {level}</div>
                 <div class="avatar-clean-pills">
@@ -104,11 +94,11 @@ def render_next_evolution_card(stats):
     target_name, target_level, reqs = next_evolution_info(branch, stats)
     level = int(stats.get("level", 1))
 
-    # Preview uses the NEXT avatar image. If locked, we bake the image into
-    # a black silhouette with cyan outline before rendering.
+    # The preview shows the NEXT form. While locked it is baked into a black
+    # silhouette with a cyan rim before rendering.
     preview_stats = dict(stats)
     preview_stats["level"] = int(target_level)
-    preview_branch, preview_stage, preview_path = avatar_asset_for_stats(preview_stats)
+    _, _, preview_path = avatar_asset_for_stats(preview_stats)
     preview_img = get_avatar_image_object(preview_path)
 
     complete_count = sum(1 for _, _, _, complete in reqs if complete)
@@ -119,7 +109,16 @@ def render_next_evolution_card(stats):
     if preview_img is not None and not unlocked:
         preview_img = make_locked_silhouette_image(preview_img)
 
-    preview_tag = avatar_img_tag(preview_img, css_class="next-evo-preview-img") if preview_img is not None else ""
+    preview_rarity = _rarity_slug(target_level)
+    stage_html = ""
+    if preview_img is not None:
+        stage_html = avatar_stage_html(
+            preview_img,
+            rarity=preview_rarity,
+            size="md",
+            locked=not unlocked,
+            alt=f"Next form: {target_name}",
+        )
 
     st.markdown(
         f"""
@@ -132,6 +131,9 @@ def render_next_evolution_card(stats):
                 </div>
                 <div class="next-evo-level">LVL {target_level}</div>
             </div>
+            <div class="next-evo-ready-track">
+                <div class="next-evo-ready-fill" style="--progress:{ready_pct}%;"></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -143,27 +145,28 @@ def render_next_evolution_card(stats):
         stage_class = "unlocked-stage" if unlocked else "locked-stage"
         badge = "✅ UNLOCKED" if unlocked else "🔒 LOCKED"
         mystery = target_name if unlocked else "NEXT FORM"
-
-        preview_body = preview_tag or '<div class="locked-silhouette">?</div>'
-        st.markdown(
-            f"""
-            <div class="true-silhouette-panel {stage_class}">
-                <div class="locked-badge">{badge}</div>
-                {preview_body}
-                <div class="hidden-class">{mystery}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        preview_body = stage_html or '<div class="locked-silhouette">?</div>'
 
         reward_text = "+ Armour • + Aura • + Title"
         if branch == "mass":
             reward_text = "+ Heavy Armour • + Power Aura • + Titan Title"
         elif branch == "hybrid":
             reward_text = "+ Tactical Gear • + Speed Aura • + Apex Title"
-        st.markdown(f'<div class="unlock-reward">Reward: {reward_text}</div>', unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <div class="true-silhouette-panel {stage_class}">
+                <div class="locked-badge">{badge}</div>
+                {preview_body}
+                <div class="hidden-class">{mystery}</div>
+                <div class="unlock-reward">Reward: {reward_text}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     with col_req:
+        rows = []
         for label, current, target, complete in reqs:
             if label == "Body Fat":
                 current_label = f"{current:.1f}%" if current else "No scan"
@@ -175,52 +178,27 @@ def render_next_evolution_card(stats):
                 progress = max(0, min((safe_num(current, 0) / safe_num(target, 1)) * 100, 100))
 
             icon = "✅" if complete else "⬜"
-            st.markdown(
-                f"""
-                <div class="evo-req-row">
-                    <div class="evo-req-label">{icon} {label}</div>
-                    <div class="evo-req-value">{current_label} / {target_label}</div>
-                </div>
-                <div class="avatar-track evo-track">
-                    <div class="avatar-fill" style="--avatar-progress:{progress}%;"></div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            done = "is-complete" if complete else ""
+            rows.append(
+                f'<div class="evo-req {done}">'
+                f'<div class="evo-req-row">'
+                f'<div class="evo-req-label">{icon} {label}</div>'
+                f'<div class="evo-req-value">{current_label} / {target_label}</div>'
+                f"</div>"
+                f'<div class="avatar-track evo-track">'
+                f'<div class="avatar-fill" style="--avatar-progress:{progress}%;"></div>'
+                f"</div>"
+                f"</div>"
             )
-
-
-def render_xp_level_card(summary=None):
-    if summary is None:
-        summary = workout_summary(load_log())
-
-    level, xp_now, xp_need = current_level_xp(summary)
-    pct = max(0, min((xp_now / xp_need) * 100, 100))
-    to_next = max(0, xp_need - xp_now)
-
-    st.markdown(
-        f"""
-        <div class="xp-level-card">
-            <div class="xp-card-top">
-                <div>
-                    <div class="avatar-kicker">LEVEL PROGRESS</div>
-                    <div class="xp-level-title">Level {level}</div>
-                </div>
-                <div class="xp-pill">{to_next} XP left</div>
-            </div>
-            <div class="avatar-track xp-track">
-                <div class="avatar-fill xp-fill" style="--avatar-progress:{pct}%;"></div>
-            </div>
-            <div class="xp-caption">{xp_now} / {xp_need} XP to Level {level + 1}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(f'<div class="evo-req-list">{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
 def render_workout_xp_toast():
-    # Trigger this after saves by setting:
-    # st.session_state["last_xp_gain"] = 450
-    # st.session_state["show_xp_toast"] = True
+    """Render the +XP burst set by mark_xp_gain(), then clear the flag.
+
+    Must be called once per run from the router; nothing else reads
+    session_state["show_xp_toast"].
+    """
     if not st.session_state.get("show_xp_toast", False):
         return
 
@@ -258,7 +236,7 @@ def render_evolution_path(stats):
             f'<div class="evo-node-icon">{status}</div>'
             f'<div class="evo-node-name">{r["name"]}</div>'
             f'<div class="evo-node-level">LVL {r["level"]}</div>'
-            f'</div>'
+            f"</div>"
         )
 
     # One markdown call: the grid must actually contain its nodes as children,
@@ -268,8 +246,6 @@ def render_evolution_path(stats):
         f'<div class="avatar-kicker">EVOLUTION PATH</div>'
         f'<div class="evolution-path-title">{branch_display_name(branch)}</div>'
         f'<div class="evolution-path-grid">{"".join(nodes)}</div>'
-        f'</div>',
+        f"</div>",
         unsafe_allow_html=True,
     )
-
-

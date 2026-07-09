@@ -5,11 +5,18 @@ from data.supabase_client import supabase_enabled
 from domain.workouts import load_log, workout_summary, normalise_workout_log
 from domain.avatar_stats import (
     calculate_avatar_stats, avatar_asset_for_stats, evolution_name, branch_display_name,
-    rarity_badge_html, next_evolution_info,
+    rarity_badge_html, next_evolution_info, avatar_rarity,
 )
 from domain.xp_leveling import current_level_xp
-from ui.avatar_images import avatar_img_tag, get_avatar_image_object, make_locked_silhouette_image
+from ui.avatar_images import avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image
 from ui.nav import route_button
+
+
+def _rarity_slug(level):
+    try:
+        return avatar_rarity(int(level))[0].lower()
+    except Exception:
+        return "common"
 
 
 def render_forge_signature():
@@ -41,7 +48,6 @@ def render_today_quest_card(stats=None):
     weak = str(stats.get("weak_point_focus", "Balanced"))
     form = evolution_name(branch, level)
 
-    # Simple default quest logic based on weak point.
     focus = weak.lower()
     if "lat" in focus or "back" in focus:
         quest = "V-Taper Quest"
@@ -80,16 +86,15 @@ def render_today_quest_card(stats=None):
 
 def render_forge_micro_status():
     connected = supabase_enabled()
-
     status = "CLOUD SYNC" if connected else "LOCAL BACKUP"
-    icon = "🟢" if connected else "🟡"
+    dot = "is-online" if connected else "is-local"
 
     st.markdown(
         f"""
         <div class="forge-micro-status">
-            <span>{icon} {status}</span>
-            <span>XP ENGINE ACTIVE</span>
-            <span>AVATAR CORE READY</span>
+            <span class="fms-item"><i class="fms-dot {dot}"></i>{status}</span>
+            <span class="fms-item">XP ENGINE ACTIVE</span>
+            <span class="fms-item">AVATAR CORE READY</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -115,51 +120,25 @@ def get_fast_snapshot():
     return snap
 
 
-def clear_fast_snapshot():
-    from data.csv_store import cached_read_csv_file
-    from ui.avatar_images import cached_img_to_base64
-
-    st.session_state.pop("_fast_snapshot", None)
-    try:
-        cached_read_csv_file.clear()
-    except Exception:
-        pass
-    try:
-        cached_img_to_base64.clear()
-    except Exception:
-        pass
-
-
 def ui_toast_area():
+    """Render and clear the one-shot save / PR / achievement toasts."""
     if st.session_state.get("just_saved_message"):
         st.markdown(
-            f"""
-            <div class="floating-toast save-toast">
-                ✅ {st.session_state.get("just_saved_message")}
-            </div>
-            """,
+            f'<div class="floating-toast save-toast">✅ {st.session_state.get("just_saved_message")}</div>',
             unsafe_allow_html=True,
         )
         st.session_state.just_saved_message = ""
 
     if st.session_state.get("pr_message"):
         st.markdown(
-            f"""
-            <div class="floating-toast pr-toast">
-                🏆 PR DETECTED — {st.session_state.get("pr_message")}
-            </div>
-            """,
+            f'<div class="floating-toast pr-toast">🏆 PR DETECTED — {st.session_state.get("pr_message")}</div>',
             unsafe_allow_html=True,
         )
         st.session_state.pr_message = ""
 
     if st.session_state.get("achievement_message"):
         st.markdown(
-            f"""
-            <div class="floating-toast achievement-toast">
-                🎖️ {st.session_state.get("achievement_message")}
-            </div>
-            """,
+            f'<div class="floating-toast achievement-toast">🎖️ {st.session_state.get("achievement_message")}</div>',
             unsafe_allow_html=True,
         )
         st.session_state.achievement_message = ""
@@ -170,23 +149,11 @@ def page_hero(title, subtitle="", badge=""):
     st.markdown(
         f"""
         <div class="hero-panel">
-            <div>
+            <div class="hero-copy">
                 <div class="hero-title">{title}</div>
                 <div class="hero-subtitle">{subtitle}</div>
             </div>
             {badge_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def section_card(title, body="", icon=""):
-    st.markdown(
-        f"""
-        <div class="section-card">
-            <div class="section-card-title">{icon} {title}</div>
-            <div class="section-card-body">{body}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -207,10 +174,11 @@ def compact_metric(label, value, helper=""):
 
 
 def render_base_console_panel(stats=None):
-    """
-    Render the Base console without raw HTML leakage.
-    The previous version split one <div> across multiple Streamlit elements and
-    used heavily indented HTML, which Streamlit rendered as a code block on mobile.
+    """The Forge Console: avatar stage + level/branch/stage tiles + attributes.
+
+    Every sub-block is emitted as one balanced markdown call. Splitting a <div>
+    across separate st.markdown calls does not nest -- Streamlit sanitizes each
+    call independently and auto-closes the tag.
     """
     if stats is None:
         try:
@@ -222,6 +190,7 @@ def render_base_console_panel(stats=None):
     branch = stats.get("avatar_branch", "aesthetic")
     branch_name = branch_display_name(branch)
     stage_name = evolution_name(branch, level)
+    rarity = _rarity_slug(level)
 
     try:
         summary = get_fast_snapshot().get("summary", {})
@@ -232,51 +201,43 @@ def render_base_console_panel(stats=None):
 
     try:
         _, _, avatar_path = avatar_asset_for_stats(stats)
-        img_tag = avatar_img_tag(avatar_path, css_class="ef-console-avatar-img")
+        stage_html = avatar_stage_html(avatar_path, rarity=rarity, size="lg", alt="Current form")
     except Exception:
-        img_tag = ""
+        stage_html = ""
 
-    rarity = rarity_badge_html(level)
+    rarity_badge = rarity_badge_html(level)
 
     st.markdown('<div class="ef-console-heading">FORGE CONSOLE</div>', unsafe_allow_html=True)
 
     left, right = st.columns([0.92, 1.5], gap="large")
 
     with left:
-        avatar_body = img_tag or '<div class="ef-avatar-placeholder">⚡</div>'
+        avatar_body = stage_html or '<div class="ef-avatar-placeholder">⚡</div>'
         st.markdown(
-            f'<div class="ef-console-image-card">'
-            f'{avatar_body}'
-            f'<div class="ef-rarity-pill">{rarity}</div>'
-            f'</div>',
+            f'<div class="ef-console-image-card rarity-{rarity}">'
+            f"{avatar_body}"
+            f'<div class="ef-rarity-pill">{rarity_badge}</div>'
+            f"</div>",
             unsafe_allow_html=True,
         )
 
     with right:
         st.markdown(
-            '<div class="ef-stat-grid">'
+            f'<div class="ef-stat-grid">'
             f'<div class="ef-stat-tile"><span>LEVEL</span><b>{level}</b></div>'
             f'<div class="ef-stat-tile"><span>BRANCH</span><b>{branch_name}</b></div>'
             f'<div class="ef-stat-tile"><span>STAGE</span><b>{stage_name}</b></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            '<div class="ef-section-kicker">XP PROGRESS</div>'
-            f'<div class="ef-xp-track"><div style="width:{xp_pct:.1f}%"></div></div>'
-            f'<div class="ef-xp-caption">{xp_now} XP • Level {level} → {level + 1}</div>',
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            '<div class="ef-attribute-list">'
+            f"</div>"
+            f'<div class="ef-section-kicker">XP PROGRESS</div>'
+            f'<div class="ef-xp-track"><div class="ef-xp-fill" style="--xp:{xp_pct:.1f}%"></div></div>'
+            f'<div class="ef-xp-caption">{xp_now} / {xp_need} XP • Level {level} → {level + 1}</div>'
+            f'<div class="ef-attribute-list">'
             f'<div><span>💪 Strength</span><b>{int(stats.get("strength_score", 0))}</b></div>'
             f'<div><span>📐 Size</span><b>{int(stats.get("size_score", 0))}</b></div>'
             f'<div><span>🔥 Leanness</span><b>{int(stats.get("leanness_score", 0))}</b></div>'
             f'<div><span>💗 Conditioning</span><b>{int(stats.get("conditioning_score", 0))}</b></div>'
             f'<div><span>✨ Aesthetic</span><b>{int(stats.get("aesthetic_score", 0))}</b></div>'
-            '</div>',
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -293,9 +254,11 @@ def render_evolution_showcase(stats=None):
 
     try:
         _, _, current_path = avatar_asset_for_stats(stats)
-        current_img = get_avatar_image_object(current_path)
+        current_html = avatar_stage_html(
+            current_path, rarity=_rarity_slug(level), size="md", alt="Current form"
+        )
     except Exception:
-        current_img = None
+        current_html = ""
 
     try:
         target_name, target_level, _ = next_evolution_info(branch, stats)
@@ -303,28 +266,34 @@ def render_evolution_showcase(stats=None):
         preview_stats["level"] = int(target_level)
         _, _, next_path = avatar_asset_for_stats(preview_stats)
         next_img = get_avatar_image_object(next_path)
-        if next_img is not None and level < int(target_level):
+        locked = level < int(target_level)
+        if next_img is not None and locked:
             next_img = make_locked_silhouette_image(next_img)
+        next_html = (
+            avatar_stage_html(
+                next_img, rarity=_rarity_slug(target_level), size="md",
+                locked=locked, alt=f"Next form: {target_name}",
+            )
+            if next_img is not None else ""
+        )
     except Exception:
-        target_name, target_level, next_img = "Next Evolution", 25, None
-
-    current_tag = avatar_img_tag(current_img, css_class="ef-evo-img") if current_img is not None else ""
-    next_tag = avatar_img_tag(next_img, css_class="ef-evo-img") if next_img is not None else ""
+        target_name, target_level, next_html, locked = "Next Evolution", 25, "", True
 
     col1, col2 = st.columns(2, gap="large")
     with col1:
         st.markdown(
             f'<div class="ef-evo-panel">'
-            f'<div class="ef-evo-title">CURRENT FORM</div>{current_tag}'
-            f'</div>',
+            f'<div class="ef-evo-title">CURRENT FORM</div>{current_html}'
+            f"</div>",
             unsafe_allow_html=True,
         )
     with col2:
-        locked_text = "LOCKED" if level < int(target_level) else "UNLOCKED"
+        locked_text = "LOCKED" if locked else "UNLOCKED"
         st.markdown(
-            f'<div class="ef-evo-panel">'
-            f'<div class="ef-evo-title">NEXT FORM — {target_name.upper()} ({locked_text})</div>{next_tag}'
-            f'</div>',
+            f'<div class="ef-evo-panel {"is-locked" if locked else "is-unlocked"}">'
+            f'<div class="ef-evo-title">NEXT FORM — {target_name.upper()} ({locked_text})</div>'
+            f"{next_html}"
+            f"</div>",
             unsafe_allow_html=True,
         )
 
@@ -346,10 +315,13 @@ def render_qol_action_card(title, description, button_text, target_page, key, ic
 
 
 def render_target_bar(title, current, target, unit, lower_is_better=False, action_label=None, action_page=None, action_key=None):
-    if current is None or target is None:
-        st.info(f"{title}: Set a target to begin.")
+    def _action():
         if action_label and action_page and action_key:
             route_button(action_label, action_page, key=action_key)
+
+    if current is None or target is None:
+        st.info(f"{title}: Set a target to begin.")
+        _action()
         return
 
     try:
@@ -357,14 +329,12 @@ def render_target_bar(title, current, target, unit, lower_is_better=False, actio
         target = float(target)
     except Exception:
         st.info(f"{title}: Waiting for valid target/data.")
-        if action_label and action_page and action_key:
-            route_button(action_label, action_page, key=action_key)
+        _action()
         return
 
     if target <= 0:
         st.info(f"{title}: Target must be above 0.")
-        if action_label and action_page and action_key:
-            route_button(action_label, action_page, key=action_key)
+        _action()
         return
 
     if lower_is_better:
@@ -373,10 +343,11 @@ def render_target_bar(title, current, target, unit, lower_is_better=False, actio
         progress = (current / target) * 100 if target else 0
 
     progress = max(0, min(progress, 100))
+    hit = "is-complete" if progress >= 100 else ""
 
     st.markdown(
         f"""
-        <div class="mission-card target-action-card">
+        <div class="mission-card target-action-card {hit}">
             <div class="mission-title">{title}</div>
             <div class="progress-track">
                 <div class="progress-fill" style="--progress:{progress:.1f}%;"></div>
@@ -387,17 +358,15 @@ def render_target_bar(title, current, target, unit, lower_is_better=False, actio
         unsafe_allow_html=True,
     )
 
-    if action_label and action_page and action_key:
-        route_button(action_label, action_page, key=action_key)
+    _action()
 
 
 def completed_sets_for_day_unique(log_df, workout_date, workout):
     """
     Count actual completed sets once only.
 
-    Critical fix:
-    workout_log rows are normalised to the column 'set'. The previous function
-    looked for 'set_number', so it only found 'exercise' and counted an entire
+    workout_log rows normalise to the column 'set'. An earlier version looked
+    for 'set_number', so it only matched 'exercise' and counted a whole
     completed exercise as 1 set. This counts exercise + set number.
     """
     from domain.workouts import completed_sets_for_day
@@ -426,12 +395,7 @@ def completed_sets_for_day_unique(log_df, workout_date, workout):
         if dfc.empty:
             return 0
 
-        # Correct set-level dedupe: set 1 + set 2 of the same exercise count as 2.
-        dfc = dfc.drop_duplicates(
-            subset=["date", "workout", "exercise", "set"],
-            keep="last"
-        )
-
+        dfc = dfc.drop_duplicates(subset=["date", "workout", "exercise", "set"], keep="last")
         return int(len(dfc))
     except Exception:
         try:

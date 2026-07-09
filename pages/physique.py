@@ -139,11 +139,11 @@ def render():
     if ratings.empty:
         st.info("No physique ratings saved yet.")
     else:
-        st.dataframe(ratings.sort_values("date", ascending=False), use_container_width=True)
+        st.dataframe(ratings.sort_values("date", ascending=False), width="stretch")
 
     st.subheader("Current Custom Workout Plan")
     plan_df = load_custom_plan()
     if plan_df.empty:
         st.info("No custom plan generated yet.")
     else:
-        st.dataframe(plan_df, use_container_width=True)
+        st.dataframe(plan_df, width="stretch")

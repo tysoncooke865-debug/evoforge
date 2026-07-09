@@ -19,7 +19,7 @@ def render():
             st.write(f"Custom plan rows loaded: {len(_plan_check)}")
             st.caption(f"Plan source: {st.session_state.get('last_custom_plan_source', 'unknown')}")
             if not _plan_check.empty:
-                st.dataframe(_plan_check.head(20), use_container_width=True)
+                st.dataframe(_plan_check.head(20), width="stretch")
             if st.session_state.get("last_supabase_error"):
                 st.warning(st.session_state.get("last_supabase_error"))
     except Exception as e:
@@ -75,7 +75,7 @@ def render():
             with st.expander("Available AI Custom Plans", expanded=False):
                 overview_cols = [c for c in ["plan_id", "plan_name", "goal", "timestamp", "created_at", "workout", "exercise"] if c in load_custom_plan().columns]
                 overview = load_custom_plan()[overview_cols].copy() if overview_cols else load_custom_plan().copy()
-                st.dataframe(overview, use_container_width=True)
+                st.dataframe(overview, width="stretch")
 
             active_routine = {}
             for workout_name in custom_plan_df["workout"].dropna().astype(str).unique():

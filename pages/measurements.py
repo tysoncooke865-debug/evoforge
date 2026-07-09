@@ -58,7 +58,7 @@ def render():
     if mlog.empty:
         st.info("No measurements logged yet.")
     else:
-        st.dataframe(mlog.sort_values("date", ascending=False), use_container_width=True)
+        st.dataframe(mlog.sort_values("date", ascending=False), width="stretch")
         chart_cols = [c for c in ["bodyweight", "bicep_cm", "chest_cm", "waist_cm", "shoulders_cm"] if c in mlog.columns]
         if chart_cols:
             for col in chart_cols:

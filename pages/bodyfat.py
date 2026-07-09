@@ -223,4 +223,4 @@ def render():
     else:
         bf_log["bf_mid"] = pd.to_numeric(bf_log["bf_mid"], errors="coerce").fillna(0)
         st.line_chart(bf_log, x="date", y="bf_mid")
-        st.dataframe(bf_log.sort_values("date", ascending=False), use_container_width=True)
+        st.dataframe(bf_log.sort_values("date", ascending=False), width="stretch")

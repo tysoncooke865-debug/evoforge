@@ -44,4 +44,4 @@ def render():
         c3.metric("Calories", f"{cardio['calories'].sum():.0f}")
         daily = cardio.groupby("date", as_index=False)["minutes"].sum()
         st.line_chart(daily, x="date", y="minutes")
-        st.dataframe(cardio.sort_values("date", ascending=False), use_container_width=True)
+        st.dataframe(cardio.sort_values("date", ascending=False), width="stretch")

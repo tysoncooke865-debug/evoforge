@@ -75,7 +75,7 @@ def render():
         model_name = st.text_input("AI model for avatar analysis", value="gpt-5.1", key="avatar_model")
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("Generate AI Avatar Analysis", type="primary", use_container_width=True):
+            if st.button("Generate AI Avatar Analysis", type="primary", width="stretch"):
                 with st.spinner("Evolving avatar profile..."):
                     ai_data, err = run_ai_avatar_analysis(stats, model_name)
                 if err:
@@ -95,7 +95,7 @@ def render():
                     st.rerun()
 
         with col_b:
-            if st.button("Save Avatar Core Readout", type="secondary", use_container_width=True):
+            if st.button("Save Avatar Core Readout", type="secondary", width="stretch"):
                 stats["ai_summary"] = default_avatar_summary(stats)
                 save_avatar_snapshot({k: stats[k] for k in [
                     "date", "level", "rank", "character_class", "build_type",

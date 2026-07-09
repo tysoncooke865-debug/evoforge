@@ -1,4 +1,6 @@
-streamlit
+# width="stretch" (replacing the deprecated use_container_width) needs a
+# reasonably recent Streamlit, as does st.container(key=...) and :has() styling.
+streamlit>=1.49
 pandas
 Pillow
 supabase

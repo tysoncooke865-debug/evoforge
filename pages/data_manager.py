@@ -104,7 +104,7 @@ def render():
             else:
                 st.write(f"Rows found in Supabase {selected_test_table}: {len(data)}")
                 if data:
-                    st.dataframe(pd.DataFrame(data).tail(10), use_container_width=True)
+                    st.dataframe(pd.DataFrame(data).tail(10), width="stretch")
 
     if st.button("Test Cardio Insert With type/cardio_type Fallback"):
         test_cardio = {
@@ -129,7 +129,7 @@ def render():
         for table, row in sample_rows.items():
             ok, err = sb_insert(table, row)
             results.append({"table": table, "ok": ok, "error": err or ""})
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
+        st.dataframe(pd.DataFrame(results), width="stretch")
 
     st.subheader("Detected Data Files")
 
@@ -161,7 +161,7 @@ def render():
                 "last_modified": "",
             })
 
-    st.dataframe(pd.DataFrame(file_rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(file_rows), width="stretch")
 
     st.subheader("Download Individual CSV Files")
 
@@ -304,7 +304,7 @@ def render():
         try:
             preview_df = pd.read_csv(preview_path)
             st.caption(f"Showing last 50 rows from {preview_file}")
-            st.dataframe(preview_df.tail(50), use_container_width=True)
+            st.dataframe(preview_df.tail(50), width="stretch")
         except Exception as e:
             st.error(f"Could not preview {preview_file}: {e}")
     else:

@@ -114,6 +114,55 @@ def avatar_img_tag(source, *, css_class="", alt="Avatar"):
         return ""
 
 
+# Avatar art is tall portrait (~350x800) with a transparent background.
+# Sizes are expressed as a max-height on the <img>; the stage sizes to it.
+AVATAR_SIZES = ("sm", "md", "lg")
+
+
+def avatar_stage_html(
+    source,
+    *,
+    rarity="common",
+    size="md",
+    locked=False,
+    alt="Avatar",
+    extra_class="",
+):
+    """Build the layered avatar stage as a single HTML string.
+
+    Structure (all CSS-driven, no image files change):
+
+        .ef-avatar-stage            positioning context + hover target
+          .ef-avatar-aura           radial cyan aura, pulses behind character
+          .ef-avatar-flare          rarity-tinted flicker, elite/legendary only
+          .ef-avatar-ground         elliptical ground shadow, pulses in sync
+          .ef-avatar-img            the PNG: idle float + breathing scale
+
+    Returns "" when the image cannot be loaded so callers can fall back.
+    """
+    if size not in AVATAR_SIZES:
+        size = "md"
+
+    img = avatar_img_tag(source, css_class="ef-avatar-img", alt=alt)
+    if not img:
+        return ""
+
+    rarity_class = f"rarity-{str(rarity).lower()}"
+    state_class = "is-locked" if locked else "is-unlocked"
+    classes = " ".join(
+        c for c in ["ef-avatar-stage", f"size-{size}", rarity_class, state_class, extra_class] if c
+    )
+
+    return (
+        f'<div class="{classes}">'
+        f'<div class="ef-avatar-aura" aria-hidden="true"></div>'
+        f'<div class="ef-avatar-flare" aria-hidden="true"></div>'
+        f'<div class="ef-avatar-ground" aria-hidden="true"></div>'
+        f"{img}"
+        f"</div>"
+    )
+
+
 def make_locked_silhouette_image(img):
     """
     Convert a transparent PNG avatar into a true locked silhouette image.

@@ -21,4 +21,4 @@ def render():
         bw_df["bodyweight"] = pd.to_numeric(bw_df["bodyweight"], errors="coerce").fillna(0)
         st.metric("Latest bodyweight", f"{bw_df.iloc[-1]['bodyweight']:.1f} kg")
         st.line_chart(bw_df, x="date", y="bodyweight")
-        st.dataframe(bw_df.sort_values("date", ascending=False), use_container_width=True)
+        st.dataframe(bw_df.sort_values("date", ascending=False), width="stretch")
