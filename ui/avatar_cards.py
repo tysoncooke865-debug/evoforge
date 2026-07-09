@@ -8,7 +8,7 @@ from domain.avatar_stats import (
     avatar_asset_for_stats, evolution_name, branch_display_name, rarity_badge_html,
     next_evolution_info,
 )
-from ui.avatar_images import get_avatar_image_object, make_locked_silhouette_image
+from ui.avatar_images import avatar_img_tag, get_avatar_image_object, make_locked_silhouette_image
 
 
 def avatar_inline_stat(label, value, icon):
@@ -46,10 +46,10 @@ def render_avatar_stat(label, value):
 
 def render_avatar_image_panel(stats, compact=False):
     branch, stage, path = avatar_asset_for_stats(stats)
-    avatar_img = get_avatar_image_object(path)
+    img_tag = avatar_img_tag(path, css_class="avatar-image-native-img")
 
-    if avatar_img is None:
-        st.error("Avatar image could not load. Check avatar_assets folder or embedded fallback images.")
+    if not img_tag:
+        st.error("Avatar image could not load. Check the avatar_assets folder.")
         st.write(f"Expected path: `{path}`")
         return
 
@@ -71,9 +71,10 @@ def render_avatar_image_panel(stats, compact=False):
     col_img, col_stats = st.columns([1.05, 0.95], vertical_alignment="center")
 
     with col_img:
-        st.markdown('<div class="avatar-image-native-wrap">', unsafe_allow_html=True)
-        st.image(avatar_img, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="avatar-image-native-wrap">{img_tag}</div>',
+            unsafe_allow_html=True,
+        )
 
     with col_stats:
         st.markdown(
@@ -118,6 +119,8 @@ def render_next_evolution_card(stats):
     if preview_img is not None and not unlocked:
         preview_img = make_locked_silhouette_image(preview_img)
 
+    preview_tag = avatar_img_tag(preview_img, css_class="next-evo-preview-img") if preview_img is not None else ""
+
     st.markdown(
         f"""
         <div class="next-evo-preview-card clean-next-evo-card">
@@ -141,21 +144,12 @@ def render_next_evolution_card(stats):
         badge = "✅ UNLOCKED" if unlocked else "🔒 LOCKED"
         mystery = target_name if unlocked else "NEXT FORM"
 
+        preview_body = preview_tag or '<div class="locked-silhouette">?</div>'
         st.markdown(
             f"""
             <div class="true-silhouette-panel {stage_class}">
                 <div class="locked-badge">{badge}</div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if preview_img is not None:
-            st.image(preview_img, use_container_width=True)
-        else:
-            st.markdown('<div class="locked-silhouette">?</div>', unsafe_allow_html=True)
-
-        st.markdown(
-            f"""
+                {preview_body}
                 <div class="hidden-class">{mystery}</div>
             </div>
             """,
@@ -254,91 +248,28 @@ def render_evolution_path(stats):
     level = int(stats.get("level", 1))
     rows = avatar_stage_rows(branch, level)
 
-    st.markdown(
-        f"""
-        <div class="evolution-path-card">
-            <div class="avatar-kicker">EVOLUTION PATH</div>
-            <div class="evolution-path-title">{branch_display_name(branch)}</div>
-            <div class="evolution-path-grid">
-        """,
-        unsafe_allow_html=True,
-    )
-
+    nodes = []
     for r in rows:
         status = "✅" if r["unlocked"] else "🔒"
         current = "current-evo" if r["current"] else ""
         locked = "locked-evo" if not r["unlocked"] else ""
-        st.markdown(
-            f"""
-            <div class="evolution-node {current} {locked}">
-                <div class="evo-node-icon">{status}</div>
-                <div class="evo-node-name">{r['name']}</div>
-                <div class="evo-node-level">LVL {r['level']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        nodes.append(
+            f'<div class="evolution-node {current} {locked}">'
+            f'<div class="evo-node-icon">{status}</div>'
+            f'<div class="evo-node-name">{r["name"]}</div>'
+            f'<div class="evo-node-level">LVL {r["level"]}</div>'
+            f'</div>'
         )
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-
-def render_home_avatar_compact(stats):
-    branch, stage, path = avatar_asset_for_stats(stats)
-    avatar_img = get_avatar_image_object(path)
-    if avatar_img is None:
-        render_avatar_image_panel(stats, compact=True)
-        return
-
-    level = int(stats.get("level", 1))
-    evo = evolution_name(branch, level)
-
-    try:
-        from app import get_fast_snapshot
-        summary = get_fast_snapshot().get("summary", {})
-    except Exception:
-        summary = workout_summary(load_log())
-
-    lvl, xp_now, xp_need = current_level_xp(summary)
-    pct = max(0, min((xp_now / xp_need) * 100, 100))
-
+    # One markdown call: the grid must actually contain its nodes as children,
+    # otherwise `.evolution-path-grid` lays out nothing.
     st.markdown(
-        f"""
-        <div class="home-avatar-card">
-            <div class="home-avatar-top">
-                <div>
-                    <div class="avatar-kicker">CURRENT FORM</div>
-                    <div class="home-avatar-title">{evo}</div>
-                    <div class="home-avatar-sub">{branch_display_name(branch)} • Level {level}</div>
-                    <div class="home-rarity">{rarity_badge_html(level)}</div>
-                </div>
-                <div class="home-avatar-level">LVL {level}</div>
-            </div>
-        </div>
-        """,
+        f'<div class="evolution-path-card">'
+        f'<div class="avatar-kicker">EVOLUTION PATH</div>'
+        f'<div class="evolution-path-title">{branch_display_name(branch)}</div>'
+        f'<div class="evolution-path-grid">{"".join(nodes)}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
-    col_img, col_stats = st.columns([0.78, 1.0], vertical_alignment="center")
-    with col_img:
-        st.markdown('<div class="home-avatar-img-wrap">', unsafe_allow_html=True)
-        st.image(avatar_img, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_stats:
-        st.markdown(
-            f"""
-            <div class="home-avatar-statbox">
-                <div class="home-mini-row"><span>⚔️ STR</span><b>{int(stats.get("strength_score", 0))}</b></div>
-                <div class="home-mini-row"><span>🦍 SIZE</span><b>{int(stats.get("size_score", 0))}</b></div>
-                <div class="home-mini-row"><span>💎 LEAN</span><b>{int(stats.get("leanness_score", 0))}</b></div>
-                <div class="home-mini-row"><span>🔥 AESTH</span><b>{int(stats.get("aesthetic_score", 0))}</b></div>
-                <div class="home-xp-label">{xp_now} / {xp_need} XP</div>
-                <div class="avatar-track home-xp-track">
-                    <div class="avatar-fill" style="--avatar-progress:{pct}%;"></div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("</div>", unsafe_allow_html=True)

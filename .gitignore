@@ -4,3 +4,6 @@ __pycache__/
 *.csv
 .venv/
 venv/
+
+# local rollback reference during the UI rebuild (not shipped)
+assets/styles_legacy.css

@@ -7,11 +7,11 @@ from domain.bodyweight import latest_bodyweight_value
 from domain.bodyfat import latest_bodyfat_mid
 from domain.workouts import current_exercise_best_1rm
 from ui.nav import route_button
-from ui.components import render_target_bar
+from ui.components import page_hero, render_target_bar
 
 
 def render():
-    st.header("Targets")
+    page_hero("Targets", "Set body-composition and strength goals, then track progress toward them.", "Quests")
     gqa1, gqa2, gqa3 = st.columns(3)
     with gqa1:
         route_button("Get AI Body Fat Estimate →", "Body Fat", key="qol_goals_bodyfat_page")

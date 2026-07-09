@@ -10,11 +10,11 @@ from domain.bodyfat import (
 )
 from domain.targets import get_target
 from services.ai_bodyfat import run_ai_bodyfat_estimate
-from ui.components import render_target_bar
+from ui.components import page_hero, render_target_bar
 
 
 def render():
-    st.header("Body Fat Estimator")
+    page_hero("Body Fat Estimator", "Measurement, AI photo, or combined body-fat trend tracking.", "Scan")
     st.info("Use this as a trend tool, not an exact medical measurement. For best results, use the same lighting, pose, and time of day each check.")
 
     mode = st.radio("Estimate method", ["Measurement estimate", "AI photo estimate", "Combined estimate"], horizontal=True)
@@ -47,8 +47,9 @@ def render():
         else:
             navy_bf = navy_body_fat_male(height_cm, waist_cm, neck_cm)
 
-        if navy_bf is None and waist_cm > 0 and neck_cm > 0:
-            st.warning("Enter valid waist/neck/height values. Waist must be larger than neck.")
+        if navy_bf is None:
+            if waist_cm > 0 and neck_cm > 0:
+                st.warning("Enter valid waist/neck/height values. Waist must be larger than neck.")
         else:
             bf_low = max(navy_bf - 1.0, 3)
             bf_high = navy_bf + 1.0

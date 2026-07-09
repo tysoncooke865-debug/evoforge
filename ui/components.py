@@ -8,17 +8,21 @@ from domain.avatar_stats import (
     rarity_badge_html, next_evolution_info,
 )
 from domain.xp_leveling import current_level_xp
-from ui.avatar_images import get_avatar_image_object, make_locked_silhouette_image
+from ui.avatar_images import avatar_img_tag, get_avatar_image_object, make_locked_silhouette_image
 from ui.nav import route_button
 
 
 def render_forge_signature():
+    """Status strip. The brand wordmark lives in the nav, not here.
+
+    Live sync state is rendered by render_forge_micro_status(); this strip
+    carries the tagline and the always-on engine indicator.
+    """
     st.markdown(
         """
         <div class="forge-signature">
             <div class="forge-sigil">⚡</div>
-            <div>
-                <div class="forge-title">EVOFORGE</div>
+            <div class="forge-signature-copy">
                 <div class="forge-subtitle">Body-to-build progression engine</div>
             </div>
             <div class="forge-status">ONLINE</div>
@@ -202,22 +206,6 @@ def compact_metric(label, value, helper=""):
     )
 
 
-def render_page_header(title, subtitle="", badge=None):
-    badge_html = f'<div class="ef-page-badge">{badge}</div>' if badge else ""
-    st.markdown(
-        f"""
-        <div class="ef-page-header">
-            <div>
-                <h1>{title}</h1>
-                <p>{subtitle}</p>
-            </div>
-            {badge_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_base_console_panel(stats=None):
     """
     Render the Base console without raw HTML leakage.
@@ -244,9 +232,9 @@ def render_base_console_panel(stats=None):
 
     try:
         _, _, avatar_path = avatar_asset_for_stats(stats)
-        avatar_img = get_avatar_image_object(avatar_path)
+        img_tag = avatar_img_tag(avatar_path, css_class="ef-console-avatar-img")
     except Exception:
-        avatar_img = None
+        img_tag = ""
 
     rarity = rarity_badge_html(level)
 
@@ -255,13 +243,14 @@ def render_base_console_panel(stats=None):
     left, right = st.columns([0.92, 1.5], gap="large")
 
     with left:
-        st.markdown('<div class="ef-console-image-card">', unsafe_allow_html=True)
-        if avatar_img is not None:
-            st.image(avatar_img, use_container_width=True)
-        else:
-            st.markdown('<div class="ef-avatar-placeholder">⚡</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ef-rarity-pill">{rarity}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        avatar_body = img_tag or '<div class="ef-avatar-placeholder">⚡</div>'
+        st.markdown(
+            f'<div class="ef-console-image-card">'
+            f'{avatar_body}'
+            f'<div class="ef-rarity-pill">{rarity}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
     with right:
         st.markdown(
@@ -319,16 +308,25 @@ def render_evolution_showcase(stats=None):
     except Exception:
         target_name, target_level, next_img = "Next Evolution", 25, None
 
+    current_tag = avatar_img_tag(current_img, css_class="ef-evo-img") if current_img is not None else ""
+    next_tag = avatar_img_tag(next_img, css_class="ef-evo-img") if next_img is not None else ""
+
     col1, col2 = st.columns(2, gap="large")
     with col1:
-        st.markdown('<div class="ef-evo-title">CURRENT FORM</div>', unsafe_allow_html=True)
-        if current_img is not None:
-            st.image(current_img, use_container_width=True)
+        st.markdown(
+            f'<div class="ef-evo-panel">'
+            f'<div class="ef-evo-title">CURRENT FORM</div>{current_tag}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with col2:
         locked_text = "LOCKED" if level < int(target_level) else "UNLOCKED"
-        st.markdown(f'<div class="ef-evo-title">NEXT FORM — {target_name.upper()} ({locked_text})</div>', unsafe_allow_html=True)
-        if next_img is not None:
-            st.image(next_img, use_container_width=True)
+        st.markdown(
+            f'<div class="ef-evo-panel">'
+            f'<div class="ef-evo-title">NEXT FORM — {target_name.upper()} ({locked_text})</div>{next_tag}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_qol_action_card(title, description, button_text, target_page, key, icon="⚡"):

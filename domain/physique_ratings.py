@@ -1,3 +1,4 @@
+import json
 import math
 
 import pandas as pd
@@ -29,11 +30,34 @@ def safe_num(value, default=0.0):
         return default
 
 
+def _as_display_text(value):
+    """Flatten a weak_points/improvements cell to a single string.
+
+    Supabase returns these jsonb columns as Python lists; the CSV fallback
+    stores them as JSON strings. Mixing both in one column makes pyarrow
+    (and therefore st.dataframe) raise. Normalise on read.
+    """
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            return value
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value)
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return str(value)
+
+
 def load_physique_ratings():
     columns = ["date", "physique_score", "leanness_score", "symmetry_score",
                "muscularity_score", "confidence", "weak_points", "improvements",
                "summary", "timestamp"]
-    return df_from_supabase("physique_ratings", PHYSIQUE_RATING_FILE, columns)
+    df = df_from_supabase("physique_ratings", PHYSIQUE_RATING_FILE, columns)
+    for col in ("weak_points", "improvements"):
+        if col in df.columns:
+            df[col] = df[col].map(_as_display_text)
+    return df
 
 
 def save_physique_rating(row):

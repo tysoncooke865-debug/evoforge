@@ -1,10 +1,9 @@
-import pandas as pd
 import streamlit as st
 
 from config.constants import APP_TITLE
-from domain.workouts import load_log
 from ui.nav import ALL_PAGES, resolve_page_from_state, route_button, render_sidebar_navigation, render_mobile_navigation
 from ui.styles import load_app_styles
+from ui.components import ui_toast_area
 import pages.routine as pages_routine
 import pages.profile as pages_profile
 import pages.measurements as pages_measurements
@@ -24,36 +23,29 @@ import pages.home as pages_home
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 load_app_styles()
 
-st.markdown("""
-<div class="nw-hero">
-    <div class="nw-hero-title">⚡ EVOFORGE</div>
-    <div class="nw-hero-sub">Body-to-build progression</div>
-    <span class="nw-badge">Forge • Quests • Class • Ascension</span>
-    <div class="nw-scanline"></div>
-</div>
-""", unsafe_allow_html=True)
-
 if "active_page" not in st.session_state or st.session_state.active_page not in ALL_PAGES:
     st.session_state.active_page = "Home"
 
 PERFORMANCE_MODE = st.sidebar.toggle(
     "Performance mode",
     value=True,
-    help="Keeps the glow style but reduces the heaviest animations/database refresh lag."
+    help="Keeps the glow style but reduces the heaviest animations."
 )
+
+# Tag the DOM so CSS can gate heavy animation on .perf-mode.
+# Streamlit gives us no body hook, so mark a sentinel element and let the
+# stylesheet key off :has(). Kept as one balanced markdown call.
+if PERFORMANCE_MODE:
+    st.markdown('<div class="ef-perf-mode" data-perf-mode="1"></div>', unsafe_allow_html=True)
 
 page = resolve_page_from_state()
 
-try:
-    df = load_log()
-except Exception:
-    df = pd.DataFrame()
-
-if df is None:
-    df = pd.DataFrame()
-
 render_sidebar_navigation(page)
 render_mobile_navigation(page)
+
+# Surfaces just_saved_message / pr_message / achievement_message, which pages
+# set on save. Without this call those toasts are silently swallowed.
+ui_toast_area()
 
 if page == "Home":
     pages_home.render()

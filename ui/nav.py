@@ -308,28 +308,35 @@ def render_sidebar_navigation(active_page):
 
 
 def render_mobile_navigation(active_page):
+    """Mobile-only brand bar + page picker.
+
+    Wrapped in a keyed container so CSS can hide *this* selectbox on desktop
+    (via .st-key-ef-mobile-nav) without hiding every selectbox in the app.
+    """
     current_label = PAGE_LABELS.get(active_page, PAGE_LABELS["Home"])
     if "single_working_navigation" not in st.session_state:
         st.session_state["single_working_navigation"] = current_label
 
-    st.markdown(
-        f"""
-        <div class="ef-mobile-header">
-            <div>
-                <div class="ef-mobile-title">EVOFORGE</div>
-                <div class="ef-mobile-sub">BODY-TO-BUILD ENGINE</div>
+    with st.container(key="ef-mobile-nav"):
+        st.markdown(
+            f"""
+            <div class="ef-mobile-header">
+                <div>
+                    <div class="ef-mobile-title">EVOFORGE</div>
+                    <div class="ef-mobile-sub">BODY-TO-BUILD ENGINE</div>
+                </div>
+                <div class="ef-mobile-active">{current_label}</div>
             </div>
-            <div class="ef-mobile-active">{current_label}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    selected_label = st.selectbox(
-        "Navigation",
-        options=[PAGE_LABELS[p] for p in ALL_PAGES],
-        key="single_working_navigation",
-    )
+        selected_label = st.selectbox(
+            "Navigation",
+            options=[PAGE_LABELS[p] for p in ALL_PAGES],
+            key="single_working_navigation",
+        )
+
     selected_page = LABEL_TO_PAGE.get(selected_label, active_page)
     if selected_page != active_page:
         route_to(selected_page)

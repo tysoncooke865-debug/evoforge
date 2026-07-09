@@ -68,6 +68,52 @@ def get_avatar_image_object(path):
         return None
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_pil_to_base64(_img, cache_key):
+    """Encode a PIL image to base64 PNG. `_img` is excluded from the hash
+    (leading underscore); `cache_key` is what actually keys the cache."""
+    try:
+        buf = BytesIO()
+        _img.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception:
+        return ""
+
+
+def pil_to_base64(img):
+    """Base64-encode an in-memory PIL image (e.g. a locked silhouette)."""
+    try:
+        cache_key = f"{img.size}:{hash(img.tobytes())}"
+        return _cached_pil_to_base64(img, cache_key)
+    except Exception:
+        return ""
+
+
+def avatar_img_tag(source, *, css_class="", alt="Avatar"):
+    """Return a single <img src="data:image/png;base64,..."> tag.
+
+    Accepts a file path (str/Path) or an in-memory PIL image. Returning a
+    tag -- rather than calling st.image -- lets a caller emit an entire card
+    in ONE st.markdown call, so the image is a real child of its wrapper.
+    Splitting a <div> across separate st.markdown calls does NOT work:
+    Streamlit sanitizes each call independently and auto-closes the tag,
+    producing an empty styled box plus an orphaned sibling image.
+
+    Returns "" if the image cannot be loaded (caller decides the fallback).
+    """
+    try:
+        if isinstance(source, Image.Image):
+            b64 = pil_to_base64(source)
+        else:
+            b64 = img_to_base64(source)
+        if not b64:
+            return ""
+        cls = f' class="{css_class}"' if css_class else ""
+        return f'<img src="data:image/png;base64,{b64}"{cls} alt="{alt}" />'
+    except Exception:
+        return ""
+
+
 def make_locked_silhouette_image(img):
     """
     Convert a transparent PNG avatar into a true locked silhouette image.

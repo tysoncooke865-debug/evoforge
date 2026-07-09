@@ -7,10 +7,11 @@ from config.constants import (
 )
 from data.csv_store import load_csv
 from domain.workouts import normalise_workout_log
+from ui.components import page_hero
 
 
 def render():
-    st.header("Delete Logged Data")
+    page_hero("Delete Logged Data", "Remove accidental entries from any log.", "Admin")
     st.warning("Use this to remove accidental entries. This permanently edits the CSV file.")
     log_type = st.selectbox("Choose log", ["Workout", "Cardio", "Body Fat", "Bodyweight", "Measurements", "Physique Ratings", "Custom Plan", "Targets", "Profile", "Achievements"])
     if log_type == "Workout":
