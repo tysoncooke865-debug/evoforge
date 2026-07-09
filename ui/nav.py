@@ -144,6 +144,10 @@ def render_sidebar_navigation(active_page):
     rarity_name, rarity_icon, _ = avatar_rarity(level)
     rarity_class = f"rarity-{rarity_name.lower()}"
 
+    # branch_display_name() already carries its own emoji ("💎 Aesthetic"), so
+    # printing the rarity icon beside it renders a doubled glyph. Strip it.
+    branch_plain = branch_name.split(" ", 1)[-1] if " " in branch_name else branch_name
+
     avatar_inner = (
         f'<img src="{avatar_src}" class="ef-side-avatar-img" alt="Avatar" />'
         if avatar_src else '<div class="ef-side-avatar-fallback">⚡</div>'
@@ -163,7 +167,7 @@ def render_sidebar_navigation(active_page):
             </div>
             <div class="ef-side-avatar-meta">
                 <div class="ef-side-lv">LV {level}</div>
-                <div class="ef-side-rank">{rarity_icon} {branch_name}</div>
+                <div class="ef-side-rank">{rarity_icon} {rarity_name} · {branch_plain}</div>
             </div>
         </div>
 

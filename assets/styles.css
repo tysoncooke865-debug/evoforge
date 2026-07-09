@@ -155,8 +155,28 @@ hr { border-color: var(--border); opacity: .5; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-deep); }
 
 /* ------------------------------------------------------- 03 TYPOGRAPHY */
-.stApp, .stApp p, .stApp span, .stApp div, .stApp label {
+/* Set the face on the root and let it inherit.
+   Do NOT blanket-set font-family on span/div: Streamlit renders its icons as
+   Material Symbols *ligatures* (the element's text is literally
+   "keyboard_double_arrow_left"). Overriding the icon font makes that text
+   render as words -- and the overlong text is what forced the sidebar to
+   scroll horizontally. */
+.stApp {
     font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Never let the app font leak onto icon glyphs. */
+[data-testid="stIconMaterial"],
+.material-symbols-rounded,
+.material-symbols-outlined,
+span[class*="material-symbols"],
+[data-testid="stIconMaterial"] * {
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined" !important;
+    font-variation-settings: inherit;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .stApp h1, .stApp h2, .stApp h3 {
@@ -709,6 +729,20 @@ section[data-testid="stSidebar"] {
 }
 section[data-testid="stSidebar"] > div { padding: var(--s5) var(--s3); }
 
+/* Vertical scrolling only. `clip` rather than `hidden`: hidden still permits
+   programmatic/trackpad sideways scroll, clip forbids it outright. */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div {
+    overflow-x: clip;
+}
+
+/* Long labels ellipsize rather than force a sideways scroll. */
+section[data-testid="stSidebar"] .stButton > button p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .ef-sidebar-brand { margin-bottom: var(--s4); text-align: center; }
 
 .ef-logo {
@@ -730,6 +764,7 @@ section[data-testid="stSidebar"] > div { padding: var(--s5) var(--s3); }
 }
 
 .ef-side-avatar-card {
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: var(--s3);
@@ -746,6 +781,9 @@ section[data-testid="stSidebar"] > div { padding: var(--s5) var(--s3); }
     place-items: center;
     width: 54px; height: 54px;
     flex-shrink: 0;
+    /* Contain the aura's -4px inset + 1.06 scale. */
+    overflow: hidden;
+    border-radius: 50%;
 }
 
 .ef-side-avatar-aura {
@@ -776,6 +814,31 @@ section[data-testid="stSidebar"] > div { padding: var(--s5) var(--s3); }
 .ef-side-nav-title { margin: var(--s4) 0 var(--s2); padding-left: var(--s1); }
 
 /* sidebar nav buttons: left-aligned, active one is the only glowing item */
+
+/* Streamlit centres the label inside the button, so aligning the <button>
+   alone is not enough -- the inner markdown container must be pushed left. */
+section[data-testid="stSidebar"] .stButton > button > div,
+section[data-testid="stSidebar"] .stButton > button [data-testid="stMarkdownContainer"] {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+}
+section[data-testid="stSidebar"] .stButton > button p { text-align: left; }
+
+/* A chunky scrollbar in a 236px rail reads as a UI seam. */
+section[data-testid="stSidebar"] ::-webkit-scrollbar { width: 5px; }
+section[data-testid="stSidebar"] ::-webkit-scrollbar-track { background: transparent; }
+section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border: none;
+}
+
+/* The floating sidebar-expand control sits at the top-left on phones; keep the
+   mobile brand bar from sliding under it. */
+@media (max-width: 1023px) {
+    [data-testid="stMainBlockContainer"] { padding-top: var(--s10); }
+}
+
 section[data-testid="stSidebar"] .stButton > button {
     justify-content: flex-start;
     text-align: left;

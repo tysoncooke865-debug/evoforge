@@ -8,3 +8,7 @@ font = "sans serif"
 
 [client]
 toolbarMode = "minimal"
+# Belt and braces. The page modules live in views/, not pages/, so Streamlit's
+# multipage magic is already off -- a top-level pages/ dir made Streamlit build
+# its own sidebar nav on top of ours, which read as a duplicated sidebar.
+showSidebarNavigation = false
