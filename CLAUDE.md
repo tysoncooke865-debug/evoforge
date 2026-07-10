@@ -98,13 +98,14 @@ than migrated: the staging project, which already had `001` applied and had pass
 the full `verify_rls.py`, was adopted as the new production. The old one is
 **paused, not deleted** — it holds the only copy of those 646 rows.
 
-- `verify_rls.py --anon-only` prints `ANON LOCKED OUT` — **re-verified 2026-07-10
-  against populated tables**, after two real users signed up and onboarded. An
-  anonymous client read 0 rows from tables that demonstrably held rows. That is a
-  denial, not an empty table.
-- The first `--anon-only` green was measured on an *empty* database and proved
-  nothing: zero rows is consistent with RLS off. Keep the habit — *an error is not
-  a denial; zero rows is not a denial either, when there are zero rows.*
+- `verify_rls.py --anon-only` now **refuses to conclude without a positive control.**
+  Reaching a pass means every table read empty, and "the stranger saw nothing" is
+  the same observation as "there was nothing to see". Only a key that bypasses RLS
+  can tell them apart. Pass `SUPABASE_SECRET_KEY` **as an env var for the run** — it
+  does not belong in `secrets.toml` (T4). Without it: exit 2, `INCONCLUSIVE`.
+- *An error is not a denial; zero rows is not a denial either, when there are zero
+  rows.* Every exception in the anon loop is now inconclusive. It used to `continue`
+  — silently passing — whenever the message merely mentioned `jwt`, `401` or `403`.
 - User-vs-user isolation comes from the full `verify_rls.py` run against this same
   project (two users, neither reading the other's rows, forged `user_id` rejected).
   The policies have not changed since. **Do not run the full test now** — it writes
@@ -228,12 +229,13 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all six:
-   `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` · `verify_css`
+4. Before committing, run all seven:
+   `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
+   `verify_css` · `verify_isolation`
    For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 
-**CI is authoritative.** `.github/workflows/verify.yml` runs the six on every push
+**CI is authoritative.** `.github/workflows/verify.yml` runs the seven on every push
 and PR, over Python 3.11 and 3.13. The `commit-msg` hook guards *which files* you
 touch; `pre-push` is convenience and only runs where `core.hooksPath` is set.
 

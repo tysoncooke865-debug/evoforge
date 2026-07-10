@@ -8,11 +8,12 @@ tests, docs · `[human]` anything needing a dashboard login or a decision.
 **Definition of done, every task:**
 ```bash
 python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py \
-  && python tools/verify_xp.py && python tools/verify_goals.py && python tools/verify_css.py
+  && python tools/verify_xp.py && python tools/verify_goals.py && python tools/verify_css.py \
+  && python tools/verify_isolation.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.
-CI runs all six on every push and PR. **A new guard is not accepted until it has
+CI runs all seven on every push and PR. **A new guard is not accepted until it has
 been falsified** — delete the fix, watch it go red, restore.
 
 ---
@@ -47,19 +48,17 @@ in the Supabase dashboard:
   tables and creates accounts. It is a staging tool, and this is production now.
 - Project refs are deliberately not recorded here. This repo is public.
 
-### T1d · Verify per-user isolation *in the app*, not just in the database `[claude]` 🟠
-RLS is proven at the SQL layer. The app has a second, independent way to leak one
-user's data to another: Streamlit's caches are **process-global**, and Cloud serves
-many browser sessions from one process. `cached_sb_select` is keyed on `user_id` and
-`_sb_client` is per-session and never `@st.cache_resource`d — both correct, both
-untested by anything in `tools/`.
+### T4 · Remove and rotate the unused service-role key `[human]` 🟠
+`.streamlit/secrets.toml` contains `SUPABASE_SECRET_KEY` and `SUPABASE_JWKS_URL`.
+Neither is read by any code (`data/supabase_client.py` reads only `SUPABASE_URL` +
+`SUPABASE_KEY`).
 
-- Now testable for the first time: there are two real accounts on one Cloud process.
-- **Cheapest check, do it today:** you and your mate load Home at the same time.
-  Each must see *your own* level, avatar and XP. If either sees the other's, the
-  bug is in the cache key, not in RLS.
-- **Acceptance:** a harness that runs two AppTest sessions with different `user_id`s
-  and asserts no row crosses over.
+- **Nuance added by `verify_rls`:** the secret key *is* now used, as the positive
+  control for `--anon-only` — but as an **env var for that run only**. It still must
+  not live in `secrets.toml`, and the app must never see it.
+- **Acceptance:** both removed from the file; the secret key rotated in the Supabase
+  dashboard; app still boots. Also remove them from Streamlit Cloud's secrets.
+- Never committed to git (verified across all history), so this is hygiene, not incident.
 
 ### T3b · Apply the `xp_events` ledger `[human]` 🟠 `[architect]`
 **The code is written, verified and committed.** All that remains is running the
@@ -91,15 +90,6 @@ Run `migrations/002_xp_events.sql` in the Supabase SQL editor, then check its
   `workout_summary()["xp_drift"] == 0`.
 - **Do not** start T15 (leaderboards) or T17 (PvP) before this lands. A leaderboard
   must refuse to rank any account whose `xp_drift` is non-zero.
-
-### T4 · Remove and rotate the unused service-role key `[human]` 🟠
-`.streamlit/secrets.toml` contains `SUPABASE_SECRET_KEY` and `SUPABASE_JWKS_URL`.
-Neither is read by any code (`data/supabase_client.py` reads only `SUPABASE_URL` +
-`SUPABASE_KEY`).
-
-- **Acceptance:** both removed from the file; the secret key rotated in the Supabase
-  dashboard; app still boots. Also remove them from Streamlit Cloud's secrets.
-- Never committed to git (verified across all history), so this is hygiene, not incident.
 
 ### T6 · Make `domain/` framework-free `[claude]` 🟡
 Only 2 of 13 modules import `streamlit`, both shallow:
@@ -139,6 +129,33 @@ paths — that is intended. Hand those tasks to Claude.**
 ---
 
 ## DONE
+- **Process hardening.** CI (`.github/workflows/verify.yml`) runs all seven checks on
+  every push and PR, over Python 3.11 and 3.13. Nothing ran automatically before; the
+  definition of done was prose. The `commit-msg` hook now protects `.github/` and every
+  verify script — a weakened check could previously be written and self-merged in the
+  same afternoon. `pre-push` runs the suite locally and says in its own header that it
+  is convenience, not enforcement: an uninstalled hook cannot verify its installation.
+  - **The doctrine, earned the hard way.** Four checks passed while testing nothing.
+    Every negative check needs a paired positive; execute the code rather than grep its
+    source; **a guard is not accepted until it has been falsified.** Two of the positive
+    controls written that same day were themselves vacuous — one measured the sidebar,
+    one the mobile brand bar. Only falsification caught them.
+  - `verify_deep` §3 asserts each page drew its own `.hero-panel`; §4 floors the emitted
+    class set; §6 **executes** `clear_data_cache()` against substituted globals.
+  - `verify_rls --anon-only` demands a positive control (`SUPABASE_SECRET_KEY`, env var
+    only) and exits 2 INCONCLUSIVE without one. `_is_authorization_error()` — which read
+    any exception mentioning `jwt`/`401`/`403` as a *denial*, i.e. a pass — is gone.
+- **T1d · Per-user isolation proven in the process, not just in Postgres.**
+  `tools/verify_isolation.py`. Streamlit Cloud multiplexes sessions into one process and
+  `st.cache_data`/`st.cache_resource` are process-global; by the time a row is cached,
+  RLS was satisfied with somebody else's JWT. Asserts `cached_sb_select` is keyed on
+  `user_id`, `get_supabase_client()` is not cached and a new session gets a new client,
+  and two AppTest sessions share no rows. Falsified 3/3: renaming `user_id` → `_user_id`
+  (Streamlit skips underscore-prefixed args) serves Bob Alice's rows, `user_id` and all.
+- **T1c item 1 — ACCEPTED RISK, not fixed.** "Confirm email" is OFF on the live app, so
+  anyone can register an address they do not own and write data under that identity.
+  Accepted 2026-07-10 on the grounds that the app is unadvertised. Revisit before any
+  public launch. Items 2-4 of T1c remain open.
 - **T1 · `migrations/001` applied; RLS enforced.** The old production project (646
   rows, RLS off) was **abandoned, not migrated**: the staging project already had
   `001` applied and had passed the full `verify_rls.py`, so it was adopted as the new

@@ -36,13 +36,9 @@ CHECKS=(
     tools/verify_ordering.py
     tools/verify_xp.py
     tools/verify_goals.py
+    tools/verify_css.py
+    tools/verify_isolation.py
 )
-
-# verify_isolation.py and verify_css.py are added as they land. Skip silently if
-# absent so this hook keeps working on older branches.
-for optional in tools/verify_isolation.py tools/verify_css.py; do
-    [ -f "$optional" ] && CHECKS+=("$optional")
-done
 
 echo ""
 echo "pre-push: running ${#CHECKS[@]} checks..."

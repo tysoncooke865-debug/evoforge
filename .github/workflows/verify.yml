@@ -65,3 +65,6 @@ jobs:
 
       - name: verify_css — no !important outside the allow-list
         run: python tools/verify_css.py
+
+      - name: verify_isolation — one user's rows never reach another's screen
+        run: python tools/verify_isolation.py

@@ -62,8 +62,16 @@ jobs:
             exit 1
           fi
 
+      # SUPABASE_SECRET_KEY is the POSITIVE CONTROL. It bypasses RLS, so the check
+      # can prove which tables hold rows before concluding that a stranger reading
+      # zero from them is a denial. Without it `--anon-only` exits 2 INCONCLUSIVE --
+      # correctly, because an empty database also reads empty.
+      #
+      # It is used ONLY here, only to read, and only against staging. It must never
+      # be placed in .streamlit/secrets.toml (see T4) or handed to the app.
       - name: verify_rls --anon-only (read-only)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python tools/verify_rls.py --anon-only

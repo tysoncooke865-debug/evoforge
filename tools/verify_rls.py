@@ -127,18 +127,35 @@ def make_user(url, key):
     return client, response.user.id, email
 
 
-def _is_authorization_error(exc):
-    """True only for an explicit permission denial from Postgres/PostgREST.
+def describe_error(exc):
+    """A short label for the log. NEVER a verdict.
 
-    Under RLS a denied SELECT normally returns HTTP 200 with an empty array, not
-    an error. So an exception here is almost always infrastructure, and must NOT
-    be read as "securely denied".
+    ###########################################################################
+    #  AN ERROR IS NOT A DENIAL.                                              #
+    ###########################################################################
+
+    This used to return a boolean, and every caller treated True as "securely
+    denied" -- a PASS. It matched any exception whose text merely contained "jwt",
+    "401", "403" or "unauthorized". An expired token, a rejected key, a proxy
+    returning 403, a transport error mentioning a JWT: all counted as proof that
+    RLS was doing its job.
+
+    That is the same reasoning error that shipped `preflight()` probing an endpoint
+    the app's key may not use: an exception is evidence that we could not ask the
+    question, not evidence of the answer.
+
+    Under RLS a genuine denial returns HTTP 200 with an EMPTY ARRAY. It never
+    raises. So every exception now routes to `inconclusive`, and this function only
+    annotates the log line.
     """
     text = f"{getattr(exc, 'code', '')} {getattr(exc, 'message', '')} {exc}".lower()
-    return any(s in text for s in (
-        "permission denied", "42501", "not authorized", "unauthorized",
-        "jwt", "401", "403",
-    ))
+    if any(s in text for s in ("permission denied", "42501")):
+        return "permission denied by postgres"
+    if any(s in text for s in ("not authorized", "unauthorized", "401", "403")):
+        return "rejected the credential"
+    if "jwt" in text:
+        return "jwt problem"
+    return f"{type(exc).__name__}"
 
 
 def preflight(url, key):
@@ -189,14 +206,45 @@ def preflight(url, key):
     return None
 
 
+def populated_tables(url, secret_key):
+    """Which tables actually hold rows, read with a key that BYPASSES RLS.
+
+    The positive control. Without it, `--anon-only` reading zero rows proves
+    nothing: an empty database also reads zero rows. Returns None when no secret
+    key is available.
+    """
+    from supabase import create_client
+
+    admin = create_client(url, secret_key)
+    found = []
+    for table in TABLES:
+        try:
+            if admin.table(table).select("*").limit(1).execute().data:
+                found.append(table)
+        except Exception as exc:
+            print(f"  control: could not read {table}: {describe_error(exc)}")
+    return found
+
+
 def anon_only(url, key):
     """Read-only check: an unauthenticated publishable-key client reads nothing.
 
     Writes nothing, creates no accounts. Safe to point at PRODUCTION. Weaker than
     the full test -- it cannot prove user A is hidden from user B, only that a
-    stranger holding the publishable key sees zero rows. That is nonetheless the
-    single most important property, and the one that went unverified for the
-    whole life of this project.
+    stranger holding the publishable key sees zero rows.
+
+    ###########################################################################
+    #  ZERO ROWS IS NOT A DENIAL WHEN THERE ARE ZERO ROWS.                    #
+    ###########################################################################
+
+    On 2026-07-10 this printed ANON LOCKED OUT against a freshly truncated
+    database. Every table was empty, so of course the anonymous key read nothing.
+    The green said only that the tables were empty, which we already knew.
+
+    So the check now demands a POSITIVE CONTROL. Set SUPABASE_SECRET_KEY and it
+    reads the tables with a key that bypasses RLS, establishing which ones hold
+    rows; the anon client must then read zero from EXACTLY THOSE. Without a secret
+    key, an all-empty result is reported INCONCLUSIVE and exits 2, because it is.
     """
     problem = preflight(url, key)
     if problem:
@@ -204,21 +252,26 @@ def anon_only(url, key):
         sys.exit(2)
     print("  preflight: project reachable, key accepted\n")
 
+    secret = os.getenv("SUPABASE_SECRET_KEY")
+    control = populated_tables(url, secret) if secret else None
+    if control is not None:
+        print(f"  control ({len(control)}/{len(TABLES)} tables hold rows): "
+              f"{', '.join(control) if control else 'NONE'}\n")
+
     from supabase import create_client
 
     anon = create_client(url, key)
-    leaks, unreachable, denied, empty = [], [], 0, 0
+    leaks, inconclusive, empty = [], [], 0
 
     for table in TABLES:
         try:
             rows = anon.table(table).select("*").limit(1).execute().data or []
         except Exception as exc:
-            if _is_authorization_error(exc):
-                denied += 1
-                print(f"  {table:<22} denied by policy")
-            else:
-                unreachable.append(f"{table}: {type(exc).__name__}: {str(exc)[:60]}")
-                print(f"  {table:<22} ERROR -- cannot conclude ({str(exc)[:40]})")
+            # An error is not a denial. Under RLS a real denial is HTTP 200 with an
+            # empty array -- it never raises. Every exception is a question we could
+            # not ask, so it can never contribute to a pass.
+            inconclusive.append(f"{table}: {describe_error(exc)}")
+            print(f"  {table:<22} ERROR -- cannot conclude ({describe_error(exc)})")
             continue
 
         if rows:
@@ -226,14 +279,15 @@ def anon_only(url, key):
             print(f"  {table:<22} LEAK -- {len(rows)} row(s) readable")
         else:
             empty += 1
-            print(f"  {table:<22} 0 rows")
+            marker = "  <- control says this table HAS rows" if control and table in control else ""
+            print(f"  {table:<22} 0 rows{marker}")
 
-    print(f"\n{len(TABLES)} tables: {empty} empty, {denied} denied, "
-          f"{len(leaks)} leaking, {len(unreachable)} inconclusive")
+    print(f"\n{len(TABLES)} tables: {empty} empty, "
+          f"{len(leaks)} leaking, {len(inconclusive)} inconclusive")
 
-    if unreachable:
+    if inconclusive:
         print("\nCANNOT VERIFY -- these tables could not be queried:")
-        for u in unreachable:
+        for u in inconclusive:
             print(f"  - {u}")
         print("\nAn error is not a denial. Fix the connection and re-run.")
         sys.exit(2)
@@ -244,8 +298,29 @@ def anon_only(url, key):
             print(f"  - LEAK: {t}")
         sys.exit(1)
 
-    print("\nANON LOCKED OUT: the publishable key alone reads nothing.")
-    print("Note: this does not prove user-vs-user isolation. Run the full test")
+    # The positive control decides whether "zero rows" means anything at all.
+    #
+    # Note there is no passing path without it. Reaching here means no leaks and
+    # nothing inconclusive, which means EVERY table read empty. "The stranger saw
+    # nothing" and "there was nothing to see" are the same observation. Only a key
+    # that bypasses RLS can tell them apart.
+    if control is None:
+        print("\nINCONCLUSIVE: every table read empty, and nothing proved that any table")
+        print("holds rows. An empty database reads empty to a stranger too.")
+        print("\nSet SUPABASE_SECRET_KEY -- it bypasses RLS -- so this check can establish")
+        print("which tables have data. Pass it as an env var for the run; it does not")
+        print("belong in .streamlit/secrets.toml (see T4).")
+        sys.exit(2)
+
+    if not control:
+        print("\nINCONCLUSIVE: the control key proved that NO table holds rows.")
+        print("A stranger reading nothing from an empty database proves nothing.")
+        print("Sign up, log a set, and run this again.")
+        sys.exit(2)
+
+    print(f"\nANON LOCKED OUT: {len(control)} table(s) demonstrably hold rows, and the")
+    print("publishable key alone read zero from every one of them. That is a denial.")
+    print("\nNote: this does not prove user-vs-user isolation. Run the full test")
     print("against staging for that.")
 
 
@@ -326,10 +401,10 @@ def main():
                 rows = anon.table(table).select("*").limit(1).execute().data or []
             except Exception as exc:
                 # An error is NOT a denial. Under RLS a denied SELECT returns 200
-                # with an empty array; an exception means we could not ask.
-                if _is_authorization_error(exc):
-                    continue
-                failures.append(f"INCONCLUSIVE: anon read of {table} errored: {str(exc)[:60]}")
+                # with an empty array; an exception means we could not ask. This
+                # used to `continue` -- silently passing -- whenever the exception
+                # text mentioned "jwt", "401", "403" or "unauthorized".
+                failures.append(f"INCONCLUSIVE: anon read of {table} errored: {describe_error(exc)}")
                 continue
             if rows:
                 failures.append(f"LEAK: the anonymous publishable key reads {table}")

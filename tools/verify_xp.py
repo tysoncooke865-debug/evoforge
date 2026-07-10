@@ -153,8 +153,16 @@ else:
     check("backfill grants XP_PER_CARDIO_MINUTE per cardio minute",
           bool(m_cardio) and int(m_cardio.group(1)) == XP_PER_CARDIO_MINUTE,
           f"migration says {m_cardio.group(1) if m_cardio else '?'}, code says {XP_PER_CARDIO_MINUTE}")
+    # A negative alone ("no update policy") is satisfied by a migration that grants
+    # no policies at all -- or by an empty file. Pair it with positives that the
+    # owner CAN select and insert, or "append-only" would be indistinguishable from
+    # "unusable".
+    low = src.lower()
+    check("owner has a select policy", "xp_events_owner_select" in src and "for select" in low)
+    check("owner has an insert policy", "xp_events_owner_insert" in src and "for insert" in low)
+    check("insert policy carries `with check` (not `using` alone)", "with check" in low)
     check("ledger is append-only: no update/delete policy",
-          "for update" not in src.lower() and "for delete" not in src.lower())
+          "for update" not in low and "for delete" not in low)
 
 print()
 print("=" * 72)

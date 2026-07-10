@@ -3,6 +3,23 @@
 Verification harness. **Run these before every commit.** They exist because
 each one caught a real bug that a green HTTP 200 hid.
 
+`.github/workflows/verify.yml` runs all seven on every push and PR, over Python
+3.11 and 3.13. **CI is the gate**; the `pre-push` hook is convenience.
+
+## The rule
+
+> Every check that enumerates bad things over a collection must also assert the
+> collection is non-empty. `any([])` is `False`: a page that renders nothing has no
+> unbalanced `<div>`, an empty table leaks no rows, an empty class set is fully
+> styled. **Pair every negative with a positive.** Prefer executing the code to
+> grepping its source.
+>
+> **A guard is not accepted until it has been falsified.** Delete the fix, watch it
+> go red, restore it. On 2026-07-10 four checks passed while testing nothing — and
+> two of the "positive controls" written that same day were themselves vacuous (one
+> measured the sidebar, one measured the mobile brand bar). Only falsification found
+> them.
+
 ## Setup
 
 ```bash
@@ -76,11 +93,67 @@ which is the only evidence that RLS policies carry `with check` and not just
 > app, connecting with that same publishable key, worked fine. Probe on the
 > credential the app actually uses.
 
-> **`--anon-only` against an empty database proves nothing.** Zero rows is
-> consistent with RLS enforced *and* with RLS off on an empty table. The full test
-> is the real evidence, because it writes rows first. Run `--anon-only` again once
-> there is data. *An error is not a denial — and zero rows is not a denial either,
-> when there are zero rows.*
+> **`--anon-only` against an empty database proves nothing**, so it no longer tries.
+> Reaching a pass means every table read empty, and "the stranger saw nothing" is the
+> same observation as "there was nothing to see". It now demands a **positive
+> control**: set `SUPABASE_SECRET_KEY` (it bypasses RLS) and the check first
+> establishes which tables hold rows, then requires the anon client to read zero from
+> exactly those. Without it, exit 2 `INCONCLUSIVE`. Pass the key as an env var for
+> the run — it must never live in `.streamlit/secrets.toml` (T4).
+>
+> **An error is not a denial.** `_is_authorization_error()` used to return True for
+> any exception whose text mentioned `jwt`, `401`, `403` or `unauthorized`, and every
+> caller read True as "securely denied" — a pass. An expired token, a rejected key, a
+> proxy 403 all counted as proof that RLS worked. It is now `describe_error()`, which
+> returns a *label for the log* and never a verdict; every exception routes to
+> inconclusive. Under RLS a genuine denial is HTTP 200 with an empty array. It never
+> raises.
+
+### `verify_goals.py` — pure, no database
+```bash
+python tools/verify_goals.py
+```
+`journey_percent(baseline, current, target)` measures the distance travelled, not a
+ratio. Also pins that the rank ladder is derived from `RANK_TIERS`, not restated.
+
+> **Why this exists:** the bodyweight bar used `current / target`. Cutting 85kg → 75kg
+> it read **100% at 85kg** — full before a gram was lost — and **98.7% at 74kg**, so
+> the bar went *down* on beating the goal. `lower_is_better=True` breaks the athlete
+> who is bulking. A ratio cannot know where you started; direction is a property of
+> the starting point, not of the metric.
+> *Falsify:* restore the ratio → ten checks red.
+
+### `verify_css.py` — pure, no database
+```bash
+python tools/verify_css.py
+```
+Fails if `!important` appears outside the documented allow-list.
+
+> **The trap:** `grep -c '!important' assets/styles.css` returns **16**, but line 6
+> is inside the file's own header comment (`"!important 678 -> 16"`). The real count
+> is **15**. A guard counting raw matches is off by one from birth and lets exactly
+> one real `!important` through. Comments are stripped first.
+> *Falsify:* add an `!important` to a non-allow-listed rule → red. Add a *comment*
+> mentioning it → stays green.
+
+### `verify_isolation.py` — no database, no browser
+```bash
+python tools/verify_isolation.py
+```
+`migrations/001` proves isolation in **Postgres**. This proves it in the **process**.
+Streamlit Cloud multiplexes every browser session into one Python process, and
+`st.cache_data` / `st.cache_resource` are process-global. By the time a row is in a
+module-level cache, RLS has already been satisfied — with somebody else's JWT.
+
+Asserts: `cached_sb_select` is keyed on `user_id` (`_sb` is excluded from the hash by
+its underscore); `get_supabase_client()` is not a cached function and a new session
+gets a new client; and two AppTest sessions with different users share no rows.
+
+> *Falsify, all three:* rename `user_id` → `_user_id` (Streamlit then skips it) and
+> Bob's read returns Alice's rows, carrying Alice's `user_id`. Add `@st.cache_resource`
+> to `get_supabase_client` and one user's JWT is served to the next. Memoise
+> `get_fast_snapshot()` into a module global and Bob's session never stores its own
+> snapshot — the **absence** is the symptom.
 
 ### `shot.py` — real browser, sees pixels
 ```bash
@@ -115,6 +188,14 @@ with the wrong font, or Streamlit's auto multipage nav appearing.
 | An `AppTest` that seeds `_auth_user` has an identity but no JWT, so under RLS every read returns 0 rows, the onboarding wizard swallows all 15 pages, and the brand/avatar assertions fail. Before `001` the shared-bucket database hid this. | `verify_ui.py` / `verify_deep.py` :: `stub_onboarded()` |
 | `.streamlit/secrets.toml` is gitignored; `.streamlit/secrets.toml.example` is **tracked**, in a **public** repo, and the names differ by eight characters. | `git status` before any commit touching `.streamlit/` |
 | Parsing `secrets.toml` by splitting on `=` corrupts any value with an inline comment, producing a 401 indistinguishable from a wrong key. | use `tomllib`, as Streamlit does |
+| `any(...)` over an empty collection is `False`. A page that renders nothing has no unbalanced `<div>`; an empty class set is fully styled; an empty table leaks no rows. | `verify_deep` §3 hero control + §4 floor; `verify_rls` positive control |
+| A substring check against `inspect.getsource()` matches the **docstring**. Stripping it with `ast.unparse` still leaves string literals. | `verify_deep` §6 **executes** `clear_data_cache()` against substituted globals |
+| An exception whose text says `jwt` / `401` / `403` is **not** a denial. Under RLS a denial is HTTP 200 with an empty array and never raises. | `verify_rls :: describe_error()` labels, never verdicts |
+| Streamlit excludes an argument from a cache key when its name starts with `_`. Renaming `user_id` → `_user_id` silently serves one user's rows to the next. | `verify_isolation` §1 |
+| `st.cache_resource` is process-global. On it, `get_supabase_client()` hands one visitor's JWT to the next. | `verify_isolation` §2 |
+| A ratio cannot express a goal approached from either side. `current / target` reads 100% for an athlete cutting toward a lower target. | `verify_goals` — measure the journey from a baseline |
+| `--text-dim` (#93a6c4) is **brighter** than `--text-mute` (#64758f). The names read backwards. | check computed styles, don't trust the token name |
+| `tools/shot.py` only ever reaches the **signed-out gate**. It cannot see any page behind the login. | it proves the app boots; nothing more |
 
 ## Hooks
 
