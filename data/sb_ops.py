@@ -10,8 +10,26 @@ from data.supabase_client import get_supabase_client
 
 
 def clear_data_cache():
+    """Invalidate every read-through cache after a write. Both of them.
+
+    `cached_sb_select` is an `st.cache_data` and clearing it is obvious. The other
+    one is not: `ui/components.py :: get_fast_snapshot()` memoises `df` + `summary`
+    into `st.session_state["_fast_snapshot"]`, which Home, the sidebar and the
+    stat panels all read.
+
+    Nothing invalidated it on write. It was cleared only on sign-out. So logging a
+    set stored the row, minted the XP grant -- and then every surface kept rendering
+    the summary computed before the set existed. The XP was correct in the database
+    and stale on the screen for the rest of the session. Cache invalidation belongs
+    where the write is, not where the reader hopes.
+    """
     try:
         cached_sb_select.clear()
+    except Exception:
+        pass
+
+    try:
+        st.session_state.pop("_fast_snapshot", None)
     except Exception:
         pass
 

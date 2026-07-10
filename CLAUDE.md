@@ -178,6 +178,11 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   orphaned sibling. Build the whole card in one f-string. Use
   `ui/avatar_images.py :: avatar_img_tag()` / `avatar_stage_html()` to embed images
   as real children.
+- **There are TWO caches over the same rows.** `cached_sb_select` (`st.cache_data`)
+  and `get_fast_snapshot()` (`st.session_state["_fast_snapshot"]`, read by Home, the
+  sidebar and the stat panels). `clear_data_cache()` drops both, and every write
+  calls it. Add a third cache and you must clear it there too — a write that
+  invalidates only one leaves the app right in the database and stale on screen.
 - **Never set `font-family` on `.stApp span`** — it clobbers Material Symbols and
   icons render as the literal word `keyboard_double_arrow_left`.
 - **Never hide `header[data-testid="stHeader"]`** — on mobile it hosts the sidebar

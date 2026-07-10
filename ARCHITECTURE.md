@@ -39,7 +39,7 @@ after `st.rerun()`. Remove either call and every save confirmation silently vani
 | Supabase reads | `@st.cache_data(ttl=20)` on `cached_sb_select(_sb, table, user_id)` | process-global, keyed on `(table, user_id)` | Drop `user_id` from the key and one user's rows are served to another. `_sb` is underscore-prefixed so Streamlit excludes it from the hash. |
 | Supabase client | `st.session_state["_sb_client"]` | **per session** | Holds the user's JWT. `@st.cache_resource` here would hand it to the next visitor. |
 | Decoded avatars | `@st.cache_resource` on `cached_avatar_image` | process-global | Safe — images are shipped assets, not user data. |
-| Page snapshot | `session_state["_fast_snapshot"]` via `get_fast_snapshot()` | per session | Safe. Cleared on sign-out. |
+| Page snapshot | `session_state["_fast_snapshot"]` via `get_fast_snapshot()` | per session | Cleared on sign-out **and on every write**, via `clear_data_cache()`. It was once cleared only on sign-out, so a logged set never moved the XP on screen — right in the database, stale on every surface that reads it. |
 
 ### Styling
 One stylesheet, `assets/styles.css` (~1.4k lines), injected once by `ui/styles.py`.

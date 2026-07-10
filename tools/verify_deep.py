@@ -160,6 +160,43 @@ for decl in re.findall(r"animation:\s*([^;]+);", css_nc):
 undefined = sorted(r for r in refs if r not in set(kf) and r not in KEYWORDS)
 check("all animations defined", not undefined, f"undefined: {undefined}")
 
+section("6. WRITE INVALIDATES EVERY READ CACHE")
+# There are TWO caches over the same rows, and only one of them is obvious.
+# `get_fast_snapshot()` memoises df + summary into session_state["_fast_snapshot"];
+# Home, the sidebar and the stat panels read it. It used to be cleared only on
+# sign-out, so a logged set was stored, its XP granted, and every surface kept
+# rendering the summary computed before the set existed -- correct in the database,
+# stale on the screen for the whole session.
+import ast  # noqa: E402
+import inspect  # noqa: E402
+import textwrap  # noqa: E402
+
+from data.sb_ops import clear_data_cache  # noqa: E402
+
+
+def _body_without_docstring(fn):
+    """The executable source of `fn`, with its docstring removed.
+
+    Reading `inspect.getsource()` raw is a trap: the docstring below documents this
+    very invariant, so a substring check matched the PROSE and passed with the fix
+    deleted. A guard that cannot fail is not a guard. Verified by removing the line
+    and watching this check go red.
+    """
+    node = ast.parse(textwrap.dedent(inspect.getsource(fn))).body[0]
+    body = node.body
+    if (body and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)):
+        body = body[1:]
+    return "\n".join(ast.unparse(n) for n in body)
+
+
+src = _body_without_docstring(clear_data_cache)
+check("clear_data_cache clears the st.cache_data read cache", "cached_sb_select.clear" in src)
+check("clear_data_cache also drops the session_state page snapshot",
+      "_fast_snapshot" in src,
+      "a write must invalidate get_fast_snapshot(), not just cached_sb_select")
+
 print("\n" + "=" * 72)
 if failures:
     print(f"FAILURES ({len(failures)}):")
