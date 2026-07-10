@@ -56,15 +56,25 @@ def render():
                    "Be the first: opt in from your Profile.")
         return
 
+    # RANK BY AVATAR LEVEL, not raw XP. The level shown in each row is
+    # level_and_progress(base_level, xp), and two athletes with the same XP but
+    # different base levels sit at different levels -- so XP order and level order
+    # can disagree, and the board must follow the level. The curve lives in
+    # domain/xp.py; rank here rather than duplicate it into the SQL function. XP is
+    # the tiebreak within a level (more progress ranks higher), then name.
+    ranked = []
+    for row in rows:
+        xp = _safe_int(row.get("xp"))
+        base_level = _safe_int(row.get("base_level"), 1)
+        level = level_and_progress(base_level, xp)[0]
+        ranked.append((level, xp, str(row.get("display_name") or ""), row))
+    ranked.sort(key=lambda t: (-t[0], -t[1], t[2]))
+
     # Build the whole table as ONE balanced markdown string. A <div> split across two
     # st.markdown calls does not nest. Every interpolated value is escaped: the names
     # are user-supplied, and even the numbers go through esc() as defence in depth.
     body_rows = []
-    for row in rows:
-        position = _safe_int(row.get("rank_position"))
-        xp = _safe_int(row.get("xp"))
-        base_level = _safe_int(row.get("base_level"), 1)
-        level = level_and_progress(base_level, xp)[0]
+    for position, (level, xp, _name, row) in enumerate(ranked, start=1):
         display = esc(row.get("display_name"))
         rank = esc(rank_name(level))
         medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(position, "")

@@ -124,6 +124,36 @@ if board_rendered:
     check("the payload opened no <img> tag", "img" not in parsed.tags,
           f"tags: {sorted(set(parsed.tags))[:10]}")
 
+# ---------------------------------------------------------------------------
+print()
+print("=" * 72)
+print("RANKED BY AVATAR LEVEL, NOT RAW XP")
+print("=" * 72)
+# The level shown is level_and_progress(base_level, xp). Two athletes with the same
+# XP but different base levels rank differently, so XP order and LEVEL order can
+# disagree -- and the board must follow the level. These two rows are constructed so
+# the orders are OPPOSITE: HighLevel has more level but less XP than LowLevel.
+#
+# level_and_progress(base_level=90, 0)   -> level 90
+# level_and_progress(base_level=1, 400)  -> level 1  (first level costs 500)
+DIVERGENT_ROWS = [
+    {"display_name": "LowLevelBigXP", "xp": 400, "base_level": 1, "rank_position": 1},
+    {"display_name": "HighLevelNoXP", "xp": 0, "base_level": 90, "rank_position": 2},
+]
+public_profile.sb_rpc = lambda fn, params=None: (DIVERGENT_ROWS, None)
+
+at2 = render_leaderboard()
+html2 = "\n".join(m.value for m in at2.main.markdown if "<style>" not in m.value)
+
+both = "HighLevelNoXP" in html2 and "LowLevelBigXP" in html2
+check("both divergent rows rendered (positive control)", both, html2[:0])
+if both:
+    hi = html2.index("HighLevelNoXP")
+    lo = html2.index("LowLevelBigXP")
+    check("the higher-LEVEL athlete ranks above the higher-XP one",
+          hi < lo,
+          "the board is ordered by XP, not by avatar level")
+
 print()
 if failures:
     print(f"FAILED: {len(failures)} check(s)")
