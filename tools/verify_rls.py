@@ -120,40 +120,115 @@ def make_user(url, key):
     return client, response.user.id, email
 
 
+def _is_authorization_error(exc):
+    """True only for an explicit permission denial from Postgres/PostgREST.
+
+    Under RLS a denied SELECT normally returns HTTP 200 with an empty array, not
+    an error. So an exception here is almost always infrastructure, and must NOT
+    be read as "securely denied".
+    """
+    text = f"{getattr(exc, 'code', '')} {getattr(exc, 'message', '')} {exc}".lower()
+    return any(s in text for s in (
+        "permission denied", "42501", "not authorized", "unauthorized",
+        "jwt", "401", "403",
+    ))
+
+
+def preflight(url, key):
+    """Prove the project is REACHABLE before concluding anything about RLS.
+
+    A paused, deleted or misspelled project fails DNS. Without this, every table
+    raised `getaddrinfo failed`, the old code counted each as "a hard denial",
+    and the tool printed ANON LOCKED OUT while talking to nothing. A security
+    check that passes when it cannot reach the database is worse than no check.
+
+    Returns an error string, or None when the project answered.
+    """
+    import socket
+    from urllib.parse import urlparse
+
+    import httpx  # a supabase dependency; always present
+
+    host = urlparse(url).hostname
+    if not host:
+        return f"cannot parse a hostname out of {url!r}"
+
+    try:
+        socket.getaddrinfo(host, 443)
+    except socket.gaierror:
+        return (f"{host} does not resolve. The project is paused or deleted, or the "
+                f"URL is wrong. Nothing can be concluded about RLS.")
+
+    try:
+        # PostgREST's root answers with the schema, independent of any table policy.
+        resp = httpx.get(f"{url.rstrip('/')}/rest/v1/",
+                         headers={"apikey": key, "Authorization": f"Bearer {key}"},
+                         timeout=20.0)
+    except Exception as exc:
+        return f"could not reach {host}: {type(exc).__name__}: {str(exc)[:80]}"
+
+    if resp.status_code >= 500:
+        return f"{host} returned HTTP {resp.status_code}; the API is unhealthy"
+    if resp.status_code in (401, 403):
+        return f"{host} rejected the key (HTTP {resp.status_code}). Wrong or rotated key?"
+    return None
+
+
 def anon_only(url, key):
     """Read-only check: an unauthenticated publishable-key client reads nothing.
 
-    Writes nothing, creates no accounts. This is the check that is safe to point
-    at PRODUCTION. It is weaker than the full test -- it cannot prove that user A
-    is hidden from user B, only that a stranger with the publishable key sees
-    zero rows -- but that is the single most important property, and it is the
-    one that was unverified for the whole life of this project.
+    Writes nothing, creates no accounts. Safe to point at PRODUCTION. Weaker than
+    the full test -- it cannot prove user A is hidden from user B, only that a
+    stranger holding the publishable key sees zero rows. That is nonetheless the
+    single most important property, and the one that went unverified for the
+    whole life of this project.
     """
+    problem = preflight(url, key)
+    if problem:
+        print(f"CANNOT VERIFY: {problem}")
+        sys.exit(2)
+    print("  preflight: project reachable, key accepted\n")
+
     from supabase import create_client
 
     anon = create_client(url, key)
-    failures, checked = [], 0
+    leaks, unreachable, denied, empty = [], [], 0, 0
+
     for table in TABLES:
         try:
             rows = anon.table(table).select("*").limit(1).execute().data or []
         except Exception as exc:
-            # A hard denial is the ideal outcome, not an error.
-            print(f"  {table:<22} denied ({str(exc)[:40]})")
-            checked += 1
+            if _is_authorization_error(exc):
+                denied += 1
+                print(f"  {table:<22} denied by policy")
+            else:
+                unreachable.append(f"{table}: {type(exc).__name__}: {str(exc)[:60]}")
+                print(f"  {table:<22} ERROR -- cannot conclude ({str(exc)[:40]})")
             continue
+
         if rows:
-            failures.append(f"LEAK: the anonymous publishable key reads {table}")
+            leaks.append(table)
             print(f"  {table:<22} LEAK -- {len(rows)} row(s) readable")
         else:
+            empty += 1
             print(f"  {table:<22} 0 rows")
-        checked += 1
 
-    print(f"\n{checked}/{len(TABLES)} tables checked")
-    if failures:
-        print(f"\nFAILED -- {len(failures)} problem(s):")
-        for f in failures:
-            print(f"  - {f}")
+    print(f"\n{len(TABLES)} tables: {empty} empty, {denied} denied, "
+          f"{len(leaks)} leaking, {len(unreachable)} inconclusive")
+
+    if unreachable:
+        print("\nCANNOT VERIFY -- these tables could not be queried:")
+        for u in unreachable:
+            print(f"  - {u}")
+        print("\nAn error is not a denial. Fix the connection and re-run.")
+        sys.exit(2)
+
+    if leaks:
+        print(f"\nFAILED -- the anonymous publishable key reads {len(leaks)} table(s):")
+        for t in leaks:
+            print(f"  - LEAK: {t}")
         sys.exit(1)
+
     print("\nANON LOCKED OUT: the publishable key alone reads nothing.")
     print("Note: this does not prove user-vs-user isolation. Run the full test")
     print("against staging for that.")
@@ -178,6 +253,11 @@ def main():
         sys.exit(2)
 
     print(f"Target: {url}")
+    problem = preflight(url, key)
+    if problem:
+        print(f"CANNOT VERIFY: {problem}")
+        sys.exit(2)
+
     if "localhost" not in url:
         confirm = input("Type the project ref to confirm this is STAGING: ").strip()
         if not confirm or confirm not in url:
@@ -229,8 +309,13 @@ def main():
         for table in TABLES:
             try:
                 rows = anon.table(table).select("*").limit(1).execute().data or []
-            except Exception:
-                rows = []  # a hard denial is the ideal outcome
+            except Exception as exc:
+                # An error is NOT a denial. Under RLS a denied SELECT returns 200
+                # with an empty array; an exception means we could not ask.
+                if _is_authorization_error(exc):
+                    continue
+                failures.append(f"INCONCLUSIVE: anon read of {table} errored: {str(exc)[:60]}")
+                continue
             if rows:
                 failures.append(f"LEAK: the anonymous publishable key reads {table}")
 
