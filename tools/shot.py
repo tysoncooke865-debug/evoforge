@@ -74,10 +74,47 @@ DIAG = r"""
     // the last-loaded avatar, level and XP.
     authScreens: q('.ef-auth-hero').length,
     onboardingSteps: q('.ef-onb-dot').length,
+
+    // Did the app render ANYTHING of ours? Every reachable state produces one of
+    // these three. Zero means a dead app -- and every other check below passes
+    // vacuously on a blank page, so this must be its own failure.
+    appRendered: q('.hero-panel, .ef-auth-hero, .ef-onb-header').length,
+
+    // Streamlit Cloud replaces a startup traceback with its own error card,
+    // which is NOT [data-testid="stException"]. Without this, a completely
+    // broken deploy reports zero exceptions.
+    cloudErrorPage: /This app has encountered an error/i.test(
+      document.body.innerText || '') ? 1 : 0,
+
     pageScrollsSideways: document.documentElement.scrollWidth > vw + 2,
   };
 }
 """
+
+
+def app_frame(pg, timeout_ms=20000):
+    """Return the frame the Streamlit app lives in.
+
+    On localhost the app IS the top document. On Streamlit Cloud it is served
+    inside an <iframe> at `<host>/~/+/` -- the Fork button and viewer badge
+    belong to the host page. Evaluating DIAG against the main frame there
+    measures the wrapper: every selector returns 0 and every check passes
+    vacuously, including the exception check. That is how a completely dead
+    deploy reported "NO PROBLEMS DETECTED".
+
+    The iframe attaches a second or two after domcontentloaded, so poll.
+    """
+    waited = 0
+    while waited < timeout_ms:
+        for frame in pg.frames:
+            try:
+                if frame.evaluate("() => !!document.querySelector('.stApp')"):
+                    return frame
+            except Exception:
+                continue  # cross-origin or torn-down frame
+        pg.wait_for_timeout(500)
+        waited += 500
+    return pg.main_frame
 
 
 def main():
@@ -89,23 +126,34 @@ def main():
             js_errors = []
             pg.on("pageerror", lambda e: js_errors.append(str(e)[:90]))
             pg.goto(URL, wait_until="domcontentloaded", timeout=60000)
+
+            frame = app_frame(pg)
+            if frame is pg.main_frame:
+                print(f"[{name}] app is the top document (localhost)")
+            else:
+                print(f"[{name}] app is in an iframe (Streamlit Cloud); measuring that frame")
+
             try:
                 # A signed-out visitor gets .ef-auth-hero and never a .hero-panel;
                 # the onboarding wizard gets neither. Wait for whichever arrives.
-                pg.wait_for_selector(".hero-panel, .ef-auth-hero, .ef-onb-header", timeout=45000)
-                pg.wait_for_function(
+                frame.wait_for_selector(".hero-panel, .ef-auth-hero, .ef-onb-header", timeout=45000)
+                frame.wait_for_function(
                     "() => document.querySelectorAll('[data-testid=\"stSkeleton\"]').length === 0",
                     timeout=30000)
             except Exception as e:
                 print(f"[{name}] wait warning: {str(e)[:90]}")
             pg.wait_for_timeout(2500)  # let CSS animations settle
 
-            diag = pg.evaluate(DIAG)
+            diag = frame.evaluate(DIAG)
             diag["jsErrors"] = js_errors
             print(f"\n===== {name.upper()} ({vp['width']}px) =====")
             print(json.dumps(diag, indent=2))
 
             sbd = diag.get("sidebar") or {}
+            if diag["cloudErrorPage"]:
+                problems.append(f"{name}: Streamlit Cloud error page -- the app failed to start")
+            if not diag["appRendered"]:
+                problems.append(f"{name}: the app rendered nothing (no hero, login or wizard)")
             if diag["exceptions"]:
                 problems.append(f"{name}: {diag['exceptions']} exception(s)")
             if diag["iconsWithWrongFont"]:
