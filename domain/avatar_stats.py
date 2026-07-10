@@ -106,7 +106,12 @@ def evolution_name(branch, level):
         if level >= 50: return "Tactical Athlete"
         if level >= 25: return "Hybrid Rookie"
         return "Cyber Recruit"
-    if level >= 90: return "True Adam"
+    # True Adam is the level-100 final form. This read `>= 90` and disagreed with
+    # every other statement of the same rule: the `true_adam` achievement says
+    # "Reached level 100.", `profile.RANK_TIERS` grants it at 100 (90 is "Chad"),
+    # and `xp_leveling.avatar_stage_rows` unlocks it at 100. Levels 90-99 rendered
+    # a final form the athlete had not earned.
+    if level >= 100: return "True Adam"
     if level >= 75: return "Chad-Lite"
     if level >= 50: return "Elite Aesthetic"
     if level >= 25: return "Rising Aesthetic"
