@@ -24,7 +24,8 @@ auth/             session.py -> sign_up/sign_in/sign_out/current_user. Identity.
 migrations/       numbered .sql, run by hand in the Supabase SQL editor
 config/           constants.py -> SUPABASE_TABLE_SCHEMAS is the schema contract
 data/             supabase_client · sb_ops (CRUD+cache). Supabase is the ONLY store.
-domain/           pure business logic. 12 modules. ~80% of a portable service layer.
+domain/           pure business logic. ~80% of a portable service layer.
+                  xp.py is THE XP contract: one curve, no streamlit, no pandas.
 services/         openai_client + ai_avatar / ai_bodyfat / ai_physique
 ui/               nav · components · avatar_cards · avatar_images · styles
 views/            15 page modules, each exposing render()
@@ -89,15 +90,28 @@ Supabase Auth, email + password. `auth/session.py` is the only entry point.
 **It has not been run yet.** Until it has, tenancy is not enforced.
 
 ## The XP / evolution contract
-- **XP is derived, not stored.** A pure function of `workout_log` + `cardio_log`,
-  recomputed each render. Idempotent, but no ledger → no timestamps, no anti-cheat.
-- `workout_summary()` (`domain/workouts.py`): `xp = sets*10 + cardio_min*2`,
-  `level = base_level + xp//500`, capped at 100. `base_level` comes from `profile`.
+**`domain/xp.py` is the single source of truth. It is pure — no streamlit, no
+pandas, no database. Never compute a level or a progress bar anywhere else.**
+
+- **Earning:** a set is `XP_PER_SET` (10). A cardio minute is 2. `activity_xp()`
+  is the only place XP is minted.
+- **The curve:** advancing *from* level `L` costs `500 + (L-1)*25`.
+  L1→2 = 500. L42→43 = 1525. Levels get dearer, as an RPG should.
+- `level_and_progress(base_level, total_xp)` returns `(level, xp_into_level,
+  xp_needed)`. The bar divides by the same number that grants the level, so it
+  reaches exactly 100% at level-up. Use `progress_percent()`, never `/` by hand.
+- `base_level` comes from `profile`. A character starts *at* `base_level` with 0
+  XP toward the next, not at level 1.
+- **XP is derived, not stored** — recomputed from `workout_log` + `cardio_log`
+  each render. Idempotent, but no timestamps and no anti-cheat.
+  `migrations/002_xp_events.sql` adds the append-only ledger. **Not applied.**
+  Apply it before leaderboards, seasons or PvP — not before.
 - Rarity by level: COMMON <25 · RARE <50 · EPIC <75 · LEGENDARY <100 · MYTHIC 100
 - Branch (`determine_avatar_branch`): mass / hybrid / aesthetic, from stat mix.
 - Stage → which PNG renders. 4 aesthetic stages, 3 each for mass/hybrid.
 
-⚠️ **Three competing XP formulas exist.** See #6. Do not build ranking on this yet.
+`tools/verify_xp.py` pins all of it, including that `002`'s hard-coded backfill
+literals still match `XP_PER_SET` / `XP_PER_CARDIO_MINUTE`.
 
 ## Known problems
 Ordered by what blocks what. Full detail: ARCHITECTURE.md.
@@ -109,8 +123,8 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 3 | **RLS is OFF on production.** Measured 2026-07-10 with `verify_rls.py --anon-only`: an unauthenticated publishable-key client read all 11 tables, 646 rows. The key is a skeleton key. Never committed to git, so exposure requires the key itself | 🔴 **run `migrations/001` on whichever project is production** |
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
-| 6 | Three XP formulas: `workout_summary` grants a level per flat 500 XP; `xp_to_next_level` = `500+(level-1)*25`; `current_level_xp` falls back to `sets*35+reps*2`. **The progress bar can never fill at level-up**, and you cannot rank on this | fix before leaderboards |
-| 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | needed for PvP/seasons |
+| 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
+| 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | `migrations/002_xp_events.sql` written, **not applied**. Needed for PvP/seasons |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
 | 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
 | 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
@@ -141,8 +155,9 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   icons live in the **host page** — no app CSS can reach them. Don't try.
 
 ## Protected paths — require `[architect]` in the commit message
-`data/` · `auth/` · `config/constants.py` · `migrations/` · `services/payments*` ·
-`domain/xp_leveling.py` · `domain/avatar_stats.py` · `.streamlit/` · `tools/hooks/`
+`data/` · `auth/` · `views/auth.py` · `views/onboarding.py` · `config/constants.py` ·
+`migrations/` · `services/payments*` · `domain/xp.py` · `domain/xp_leveling.py` ·
+`domain/avatar_stats.py` · `.streamlit/` · `tools/hooks/` · `tools/verify_rls.py`
 
 Enforced by `tools/hooks/commit-msg`. Install once: `git config core.hooksPath tools/hooks`
 The junior AI must never touch these. See LOCAL_AI.md.
@@ -152,7 +167,7 @@ The junior AI must never touch these. See LOCAL_AI.md.
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
 4. Before committing:
-   `python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py`
+   `python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py && python tools/verify_xp.py`
    For anything visual, also `python tools/shot.py` — it sees what AppTest cannot.
 5. Update the affected doc **in the same commit**.
 

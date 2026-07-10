@@ -7,6 +7,7 @@ from domain.avatar_stats import (
     calculate_avatar_stats, avatar_asset_for_stats, evolution_name, branch_display_name,
     rarity_badge_html, next_evolution_info, avatar_rarity,
 )
+from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
 from ui.avatar_images import avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image
 from ui.nav import route_button
@@ -195,9 +196,9 @@ def render_base_console_panel(stats=None):
     try:
         summary = get_fast_snapshot().get("summary", {})
         _, xp_now, xp_need = current_level_xp(summary)
-        xp_pct = max(0, min((xp_now / xp_need) * 100, 100))
+        xp_pct = progress_percent(xp_now, xp_need)
     except Exception:
-        xp_now, xp_need, xp_pct = 0, 500, 0
+        xp_now, xp_need, xp_pct = 0, xp_for_level(1), 0.0
 
     try:
         _, _, avatar_path = avatar_asset_for_stats(stats)

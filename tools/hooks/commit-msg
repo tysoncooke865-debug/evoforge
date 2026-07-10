@@ -30,7 +30,8 @@ PROTECTED_PATTERNS=(
     '^config/constants\.py$'      # SUPABASE_TABLE_SCHEMAS is the schema contract
     '^migrations/'                # database migrations
     '^services/payments'          # future: billing
-    '^domain/xp_leveling\.py$'    # XP contract -> leaderboard integrity
+    '^domain/xp\.py$'             # THE XP contract -> leaderboard integrity
+    '^domain/xp_leveling\.py$'    # its UI shim
     '^domain/avatar_stats\.py$'   # evolution contract
     '^\.streamlit/'               # secrets + runtime config
     '^tools/hooks/'               # the guard must not disable itself

@@ -1,5 +1,6 @@
 import streamlit as st
 
+from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
 from domain.avatar_stats import (
     calculate_avatar_stats, branch_display_name, avatar_asset_for_stats, avatar_rarity,
@@ -117,9 +118,9 @@ def get_sidebar_avatar_payload():
 
     try:
         _, xp_now, xp_need = current_level_xp(summary)
-        xp_pct = max(0, min((xp_now / xp_need) * 100, 100))
+        xp_pct = progress_percent(xp_now, xp_need)
     except Exception:
-        xp_now, xp_need, xp_pct = 0, 500, 0
+        xp_now, xp_need, xp_pct = 0, xp_for_level(1), 0.0
 
     avatar_src = ""
     try:

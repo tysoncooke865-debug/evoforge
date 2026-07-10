@@ -1,32 +1,41 @@
+"""Streamlit-facing XP helpers.
+
+The XP *contract* lives in `domain/xp.py` and is pure. This module only adapts it
+to the UI: reading a summary dict, and setting the session_state flags the +XP
+toast reads. Keep it that way -- a leaderboard must never import Streamlit.
+"""
+
 import streamlit as st
 
-from domain.physique_ratings import safe_num
+from domain.xp import XP_PER_SET, level_and_progress, xp_for_level
 from domain.workouts import load_log, workout_summary
 
 
 def xp_to_next_level(level):
-    try:
-        level = int(level)
-    except Exception:
-        level = 1
-    return 500 + max(0, level - 1) * 25
+    """XP to advance from `level`. Re-exported from domain/xp.py."""
+    return xp_for_level(level)
 
 
 def current_level_xp(summary=None):
+    """(level, xp_into_level, xp_needed) for the progress bar.
+
+    Reads what `workout_summary()` already computed. It does NOT recompute, and
+    there is no fallback formula: the old `sets*35 + reps*2` estimate produced a
+    different XP total than the one that granted the level, so the bar measured
+    progress toward a level-up that would never arrive.
+    """
     if summary is None:
         summary = workout_summary(load_log())
-    level = int(summary.get("level", 1))
-    total_xp = int(summary.get("xp", 0) or summary.get("total_xp", 0) or 0)
 
-    # If the app summary does not expose total XP, estimate from level progress safely.
-    needed = xp_to_next_level(level)
-    if total_xp <= 0:
-        total_sets = int(summary.get("total_sets", 0) or 0)
-        total_reps = int(summary.get("total_reps", 0) or 0)
-        total_xp = (total_sets * 35) + (total_reps * 2)
+    level = summary.get("level")
+    into = summary.get("xp_into_level")
+    needed = summary.get("xp_needed")
 
-    xp_this_level = total_xp % needed
-    return level, xp_this_level, needed
+    if level is None or into is None or not needed:
+        # Older/partial summaries: derive from the same single source of truth.
+        return level_and_progress(summary.get("base_level", 1), summary.get("xp", 0))
+
+    return int(level), int(into), int(needed)
 
 
 def avatar_stage_rows(branch, current_level):
@@ -72,19 +81,13 @@ def avatar_stage_rows(branch, current_level):
     return out
 
 
-def estimate_workout_xp_from_row(row=None):
-    try:
-        # Conservative default for a completed session/set save.
-        if row is None:
-            return 75
-        reps = safe_num(row.get("reps", 0), 0)
-        weight = safe_num(row.get("weight", 0), 0)
-        return int(max(50, min(250, 50 + reps * 3 + weight * 0.25)))
-    except Exception:
-        return 75
+def mark_xp_gain(gain=XP_PER_SET, title="QUEST COMPLETE", subtitle="Workout logged successfully"):
+    """Flag the +XP burst. `gain` must be XP the athlete actually earned.
 
-
-def mark_xp_gain(gain=450, title="QUEST COMPLETE", subtitle="Workout logged successfully"):
+    It used to default to 450 and be called with 75 for a set worth 10. A toast
+    announcing XP that never lands is the same class of bug as a bar that never
+    fills -- the UI telling a story the model does not support.
+    """
     st.session_state["last_xp_gain"] = int(gain)
     st.session_state["last_xp_title"] = title
     st.session_state["last_xp_subtitle"] = subtitle

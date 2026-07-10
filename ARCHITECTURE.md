@@ -97,8 +97,15 @@ schema contract and static game data (routine, exercise library, achievements).
 **`domain/` is ~80% of a portable service layer** — the single most valuable asset in
 this repo. It is what a future FastAPI backend reuses verbatim.
 
-Exactly **2 of 13** domain modules still import `streamlit`, and both are shallow:
-- `domain/xp_leveling.py` — `mark_xp_gain()` writes `st.session_state` toast flags.
+**`domain/xp.py` is the XP contract.** One curve, pure — no `streamlit`, no `pandas`,
+no database. Advancing from level `L` costs `500 + (L-1)*25`, and
+`level_and_progress()` returns the level *and* the bar's numerator and denominator
+together, so they cannot disagree. Three formulas used to exist and the bar divided
+by a different number than the one granting the level; it could never fill. Nothing
+outside this module may compute a level or a percentage.
+
+Exactly **2 of 14** domain modules still import `streamlit`, and both are shallow:
+- `domain/xp_leveling.py` — the UI shim: `mark_xp_gain()` writes toast flags.
 - `domain/custom_plan.py` — writes `st.session_state["last_supabase_error"]`.
 
 Both are UI signalling, not business logic. Return values or raise; let `views/` set

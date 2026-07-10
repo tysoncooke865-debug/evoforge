@@ -18,7 +18,7 @@ No new features. Make the foundation safe to build on.
 | 2 | **Delete the CSV fallback** (`data/csv_store.py`, 7 domain call sites) | ✅ done — Supabase is the only store |
 | 5 | Fix `Delete Data` to delete from Supabase, not only CSV | ✅ done |
 | 1 | **Run `migrations/001_add_user_id_and_rls.sql`, then `tools/verify_rls.py`** | 🔴 **The only thing left before a public launch.** Auth exists; tenancy does not. Today every signed-in user reads every row. |
-| 3 | **Unify XP + add an append-only `xp_events` ledger** | Three formulas exist. The progress bar can never fill. You cannot rank on this, and fixing it after a leaderboard exists invalidates every historic rank. |
+| 3 | **Unify XP** | ✅ done — one curve in `domain/xp.py`. The ledger (`migrations/002_xp_events.sql`) is written but **not applied**; it is T3b and blocked by 1. |
 | 4 | Remove + rotate the unused `SUPABASE_SECRET_KEY` | Dead service-role credential sitting on disk. |
 | 6 | Decouple `domain/xp_leveling.py` + `domain/custom_plan.py` from `streamlit` | The last two blockers to a framework-free service layer. Cheap now. |
 

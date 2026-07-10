@@ -4,6 +4,7 @@ import pandas as pd
 
 from config.constants import MUSCLE_MAP
 from data.sb_ops import df_from_supabase, sb_insert, sb_delete_matching, store_supabase_result
+from domain.xp import XP_PER_SET, activity_xp, level_and_progress
 from domain.profile import get_base_level, rank_name
 from domain.bodyweight import load_bodyweight_log
 from domain.cardio import load_cardio_log
@@ -170,7 +171,8 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
     store_supabase_result("workout_log", ok, err)
 
     check_achievements()
-    mark_xp_gain(75, "QUEST COMPLETE", "Set logged successfully")
+    # The real value of a set. Announcing +75 for 10 XP is a lie the bar exposes.
+    mark_xp_gain(XP_PER_SET, "QUEST COMPLETE", "Set logged successfully")
     return True, is_pr, current_1rm, previous_best
 
 
@@ -194,10 +196,12 @@ def current_exercise_best_1rm(exercise_name):
 def workout_summary(df):
     df = normalise_workout_log(df.copy())
     if df.empty:
+        base = get_base_level()
+        level, xp_into_level, xp_needed = level_and_progress(base, 0)
         return {
             "total_sets": 0, "total_reps": 0, "best_bench_1rm": 0, "latest_bw": 0,
-            "xp": 0, "level": get_base_level(), "rank": rank_name(get_base_level()), "base_level": get_base_level(),
-            "xp_into_level": 0, "xp_needed": 500
+            "xp": 0, "level": level, "rank": rank_name(level), "base_level": base,
+            "xp_into_level": xp_into_level, "xp_needed": xp_needed
         }
 
     df["weight"] = pd.to_numeric(df["weight"], errors="coerce").fillna(0)
@@ -224,11 +228,13 @@ def workout_summary(df):
     else:
         cardio_minutes = 0
 
-    xp = int(total_sets * 10 + cardio_minutes * 2)
+    # One curve, one place: domain/xp.py. `xp_into_level` and `xp_needed` come
+    # from the SAME function that decides the level, so the bar reaches exactly
+    # 100% when the level is granted. Previously they were computed by three
+    # different formulas and the bar could never fill.
+    xp = activity_xp(total_sets, cardio_minutes)
     base_level = get_base_level()
-    earned_levels = xp // 500
-    level = max(1, min(base_level + earned_levels, 100))
-    xp_into_level = xp % 500
+    level, xp_into_level, xp_needed = level_and_progress(base_level, xp)
 
     bw_df = load_bodyweight_log()
     latest_bw = 0
@@ -239,7 +245,7 @@ def workout_summary(df):
     return {
         "total_sets": total_sets, "total_reps": total_reps, "best_bench_1rm": best_bench_1rm,
         "latest_bw": latest_bw, "xp": xp, "level": level, "rank": rank_name(level), "base_level": base_level,
-        "xp_into_level": xp_into_level, "xp_needed": 500
+        "xp_into_level": xp_into_level, "xp_needed": xp_needed
     }
 
 

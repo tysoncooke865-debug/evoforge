@@ -32,10 +32,12 @@ Read `CLAUDE.md` first. It is short and tells you what this project is.
 | `migrations/` | Irreversible against production. |
 | `views/auth.py`, `views/onboarding.py` | The login gate. |
 | `services/payments*` (future) | Money. |
-| `domain/xp_leveling.py` | The XP contract. Leaderboard and ranking integrity. |
+| `domain/xp.py` | **The XP contract.** One curve. Leaderboard and ranking integrity. |
+| `domain/xp_leveling.py` | Its Streamlit shim. |
 | `domain/avatar_stats.py` | The evolution contract. |
 | `.streamlit/` | Secrets and runtime config. |
 | `tools/hooks/` | The guard must not disable itself. |
+| `tools/verify_rls.py` | The security test must not be weakened. |
 
 Also **never**: make architecture decisions, add a dependency, change the database,
 touch anything handling personal data (physique photos, body measurements), or
@@ -57,6 +59,7 @@ git checkout -b junior/J1-avatar-showcase-order   # one task per branch
 python tools/verify_ui.py       # must pass: 15/15 pages, zero exceptions
 python tools/verify_deep.py     # must pass: all checks
 python tools/verify_ordering.py # must pass: "latest" really is the latest row
+python tools/verify_xp.py       # must pass: one XP curve, bar fills at level-up
 python tools/shot.py            # if the change is visual — it sees what the others cannot
 
 git commit -m "J1: move evolution showcase below the page title"
@@ -109,6 +112,11 @@ These are not style preferences. Each one caused a real, shipped bug.
 
 9. **Use the design tokens** in the single `:root` of `assets/styles.css`. Do not
    introduce new hex colours, spacing values, or `!important`.
+
+10. **Never compute a level or an XP percentage yourself.** `domain/xp.py` owns the
+    curve; use `level_and_progress()` and `progress_percent()`. Three formulas once
+    coexisted and the progress bar divided by a different number than the one that
+    granted the level — it could not reach 100%.
 
 ---
 

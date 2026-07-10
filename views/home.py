@@ -3,6 +3,7 @@ import streamlit as st
 
 from config.constants import ACHIEVEMENTS
 from domain.workouts import load_log, workout_summary, muscle_heat_map, current_exercise_best_1rm
+from domain.xp import progress_percent
 from domain.profile import rank_name
 from domain.bodyfat import load_bodyfat_log, latest_bodyfat_mid
 from domain.bodyweight import latest_bodyweight_value
@@ -79,7 +80,8 @@ def render():
     with m4:
         compact_metric("Achievements", f'{achievement_count()}/{len(ACHIEVEMENTS)}', "unique unlocks")
 
-    xp_percent = min((summary["xp_into_level"] / summary["xp_needed"]) * 100, 100)
+    # One place decides what the bar reads. Clamps to 0-100, never divides by zero.
+    xp_percent = progress_percent(summary["xp_into_level"], summary["xp_needed"])
     bench_percent = min((summary["best_bench_1rm"] / 100) * 100, 100)
 
     c1, c2, c3 = st.columns(3)

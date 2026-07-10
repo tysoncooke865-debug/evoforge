@@ -7,7 +7,7 @@ tests, docs · `[human]` anything needing a dashboard login or a decision.
 
 **Definition of done, every task:**
 ```bash
-python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py
+python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py && python tools/verify_xp.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.
@@ -37,43 +37,42 @@ Plus: the doc describing the change is updated **in the same commit**.
 > onboarding wizard rather than a level-43 character.
 >
 > Project refs are deliberately not recorded here. This repo is public.
-The app now has authentication. It does **not** yet have tenancy: no table has a
-`user_id`, so every signed-in user reads every other user's rows. Auth without RLS
-is a doorman with no walls.
 
-1. Open `migrations/001_add_user_id_and_rls.sql`. Read the header.
-2. **Run it against a staging project first.** Steps 3 and 6 are not reversible.
-3. STEP 0 → STEP 1. Then sign up in the app (this creates the owner account).
-4. Get the owner's UUID: `select id, email from auth.users order by created_at limit 5;`
-5. Paste it into STEP 2, run STEP 2 → STEP 7.
-6. `python tools/verify_rls.py --i-understand-this-writes-to-the-database`
-   against staging. It must print `RLS VERIFIED`.
-7. Repeat against production.
+Auth without RLS is a doorman with no walls. The chosen plan is to **adopt the
+staging project as the new production**, since it already has `001` applied and
+verified, and to pause the old project so its 646 rows survive as a backup.
 
-- **Acceptance:** `verify_rls.py` passes; signing in as the owner still shows level
-  43, the full history and the avatar; a second account sees an empty app and the
-  onboarding wizard.
-- Claude was correctly blocked from probing production, so steps 2–7 need you.
+Remaining, all in the Supabase dashboard:
+1. `truncate` staging's 11 tables — they hold `000`'s seed rows.
+2. Delete the `rls-verify-*` accounts and the throwaway owner.
+3. **Rotate staging's publishable key** — it was exposed in a chat transcript.
+4. Repoint **Streamlit Cloud → Settings → Secrets** *and* `.streamlit/secrets.toml`.
+5. Reboot the app (Cloud keeps stale modules across a pull).
+6. Sign up. `_just_signed_up` is set, so the wizard runs immediately.
+7. **Re-enable "Confirm email"** — it was turned off so `verify_rls.py` could sign in.
+8. Pause the old project. Delete the third, empty one.
 
-### T3 · Unify XP and add an `xp_events` ledger `[claude]` 🔴 `[architect]`
-Three formulas exist today:
-| Where | Formula |
-|---|---|
-| `workout_summary()` | `xp = sets*10 + cardio_min*2`; level = `base + xp//500` (flat 500/level) |
-| `xp_to_next_level()` | `500 + (level-1)*25` — **1550 at level 43** |
-| `current_level_xp()` fallback | `sets*35 + reps*2` |
+- **Acceptance:** `python tools/verify_rls.py --anon-only` prints `ANON LOCKED OUT`;
+  `python tools/shot.py https://evoforge.streamlit.app/ live` is clean.
+- Claude was correctly blocked from probing production, so all of this needs you.
 
-The progress bar divides by a different number than the one that grants the level, so
-**it can mathematically never fill.**
+### T3b · Apply the `xp_events` ledger `[claude]` + `[human]` 🟠 `[architect]`
+`migrations/002_xp_events.sql` is written and **not applied**. XP is still derived
+from `workout_log` + `cardio_log`, which is correct and idempotent but has no
+timestamps and no anti-cheat: the score is a pure function of rows the user can
+insert at will, with any `date` they like.
 
-- **Design:** pick one curve. Add append-only `xp_events(id, user_id, kind, amount,
-  source_id, created_at)`. Derive level from the ledger sum. Keep the recompute path
-  as a one-off backfill.
-- **Why now:** ranking on an inconsistent metric is unfixable later — leaderboards and
-  seasons built on it would all be invalidated by the fix.
-- **Acceptance:** one formula in one place; bar reaches 100% exactly at level-up; a
-  unit test asserts `sum(xp_events) == derived_level_xp`.
-- **Do not** start T15 (leaderboards) before this lands.
+- **Blocked by:** T1. `002` depends on `001`'s `user_id` + RLS.
+- **The migration:** append-only by construction — the owner gets `select` and
+  `insert` policies and no `update`/`delete`, so RLS refuses both. A partial unique
+  index on `(user_id, source_table, source_id)` makes the backfill re-runnable and
+  stops a workout minting XP twice.
+- **Then, in code:** `save_set_auto()` inserts an `xp_event`; `domain/xp.py` grows
+  `level_from_ledger()`; `workout_summary()` reads the ledger sum. Keep the derived
+  path as the reconciliation oracle — it is the only thing that can detect drift.
+- **Acceptance:** `002`'s STEP 4 reconciliation query returns `reconciles = true`
+  for every user.
+- **Do not** start T15 (leaderboards) or T17 (PvP) before this lands.
 
 ### T4 · Remove and rotate the unused service-role key `[human]` 🟠
 `.streamlit/secrets.toml` contains `SUPABASE_SECRET_KEY` and `SUPABASE_JWKS_URL`.
@@ -115,6 +114,15 @@ paths — that is intended. Hand those tasks to Claude.**
 ---
 
 ## DONE
+- **T3 · Unified XP.** One curve in `domain/xp.py`, pure and portable. Advancing from
+  level `L` costs `500 + (L-1)*25`; the progress bar divides by the same number that
+  grants the level, so it reaches exactly 100% at level-up — previously impossible.
+  Deleted `sets*35 + reps*2` and the flat-500 level grant. `mark_xp_gain` announced
+  `+75` for a set worth 10; it now reports what the athlete actually earned.
+  Consolidated four hand-rolled bar calculations (`views/home.py`, `ui/nav.py`,
+  `ui/components.py`, `domain/xp_leveling.py`) onto `progress_percent()`.
+  `tools/verify_xp.py` pins the curve, the cap, monotonicity, and that
+  `migrations/002`'s backfill literals still match the code's constants.
 - **Login & onboarding.** Supabase Auth (email + password) in `auth/session.py`.
   Session-scoped Supabase client — the JWT lives on the client instance, so it must
   never be `@st.cache_resource`d. `cached_sb_select` is now keyed on `user_id`.

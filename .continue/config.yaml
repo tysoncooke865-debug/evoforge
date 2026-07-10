@@ -54,8 +54,15 @@ rules:
     making changes. Claude is the architect; defer to it on anything structural.
 
   - >-
+    Never compute a level or an XP percentage yourself. domain/xp.py owns the curve:
+    use level_and_progress() and progress_percent(). Three formulas once coexisted and
+    the progress bar divided by a different number than the one that granted the level,
+    so it could never reach 100%.
+
+  - >-
     HARD BOUNDARY — never modify: data/, auth/, views/auth.py, views/onboarding.py,
-    config/constants.py, migrations/, services/payments*, domain/xp_leveling.py,
+    config/constants.py, migrations/, services/payments*, domain/xp.py,
+    domain/xp_leveling.py,
     domain/avatar_stats.py, .streamlit/, tools/hooks/, tools/verify_rls.py. These
     carry security, schema, identity, payments, and ranking integrity. A commit-msg
     git hook will block you. If blocked, stop and hand the task to Claude. Never add
