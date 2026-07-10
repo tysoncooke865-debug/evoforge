@@ -103,12 +103,15 @@ Toward T15, done honestly. See `plan-...rustling-dusk.md` for the full chain. St
    correct before `003` is applied: a missing function reads as `None` → derived.
    **Human:** apply `003` on staging, run its STEP 3 checks, then production.
 2. `display_name` + opt-in `public_profile` (T12).
-3. `leaderboard_top(n)` read surface (4 columns only) + the anti-cheat trigger
-   (`006`). **The hole:** `xp_events`'s insert policy checks only ownership, so a user
-   can POST `{"kind":"adjustment","amount":999999}` with their own JWT. `006`'s trigger
-   closes mint-from-nothing; it is **trust-on-first-use** until workout *writes* are
-   validated. Staging-gate `006` before production; RPC fallback if the trigger cannot
-   see `auth.uid()`.
+3. ✅ `leaderboard_top(n)` read surface (4 columns only) + the anti-cheat trigger.
+   **`006` applied and validated in production 2026-07-11**: a logged set produced an
+   `xp_events` row with `amount=10` set by the trigger, proving `auth.uid()` resolves
+   inside it. A raw `{"kind":"adjustment",...}` POST is now rejected — the
+   mint-from-nothing hole is closed, so the RPC fallback was not needed.
+   **Still true, and honest:** `workout_log` is user-writable by design, so a user can
+   fabricate plausible sets and legitimately earn matching XP. Validating workout
+   *writes* (rate limits / plausibility bounds) is a separate later task; until then the
+   board is trust-on-first-use against a known user base for *that* vector only.
 4. ✅ **Trim the reads.** `cached_sb_select`/`df_from_supabase` take an optional
    PostgREST projection; `load_log()` reads only its columns (keeps `id`, drops the
    four heavy ones). Row cap still there — server-side `activity_totals()` RPC is the
