@@ -10,11 +10,12 @@ tests, docs · `[human]` anything needing a dashboard login or a decision.
 python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py \
   && python tools/verify_xp.py && python tools/verify_goals.py && python tools/verify_css.py \
   && python tools/verify_isolation.py && python tools/verify_perf.py \
-  && python tools/verify_escape.py && python tools/verify_session.py
+  && python tools/verify_escape.py && python tools/verify_session.py \
+  && python tools/verify_leaderboard.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.
-CI runs all ten on every push and PR. **A new guard is not accepted until it has
+CI runs all eleven on every push and PR. **A new guard is not accepted until it has
 been falsified** — delete the fix, watch it go red, restore.
 
 ---
@@ -108,7 +109,10 @@ Toward T15, done honestly. See `plan-...rustling-dusk.md` for the full chain. St
    closes mint-from-nothing; it is **trust-on-first-use** until workout *writes* are
    validated. Staging-gate `006` before production; RPC fallback if the trigger cannot
    see `auth.uid()`.
-4. Trim the 2500-row table reads (minimal projection).
+4. ✅ **Trim the reads.** `cached_sb_select`/`df_from_supabase` take an optional
+   PostgREST projection; `load_log()` reads only its columns (keeps `id`, drops the
+   four heavy ones). Row cap still there — server-side `activity_totals()` RPC is the
+   follow-up if a real user nears 2500 rows. `verify_perf` pins the projection.
 
 ### T7 · Serve the avatars from `static/` instead of base64 `[claude]` 🟡 `[architect]`
 The ten PNGs are 4.8 MB. Inlined as `data:image/png;base64,...` they become ~6.4 MB

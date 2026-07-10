@@ -120,7 +120,7 @@ check("the payload is still visible, as inert text", "&lt;img" in escaped)
 section("2. RENDERED HTML: an AI exercise name cannot inject")
 import data.sb_ops as sb_ops  # noqa: E402
 
-sb_ops.sb_select = lambda table: (ROWS.get(table, []), None)
+sb_ops.sb_select = lambda table, select_cols="*": (ROWS.get(table, []), None)
 
 from tools.verify_ui import stub_onboarded  # noqa: E402
 

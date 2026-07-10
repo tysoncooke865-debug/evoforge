@@ -157,7 +157,7 @@ import data.sb_ops as sb_ops  # noqa: E402
 from tools.verify_ui import stub_onboarded  # noqa: E402
 
 
-def _current_user_rows(table):
+def _current_user_rows(table, select_cols="*"):
     import streamlit as st
     if table != "workout_log":
         return [], None

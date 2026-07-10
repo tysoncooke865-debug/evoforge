@@ -120,17 +120,22 @@ def clean_supabase_row(row, table_name):
 
 
 @st.cache_data(ttl=20, show_spinner=False)
-def cached_sb_select(_sb, table_name, user_id, limit_rows=2500):
+def cached_sb_select(_sb, table_name, user_id, limit_rows=2500, select_cols="*"):
     """Cached table read.
 
     `st.cache_data` is PROCESS-GLOBAL, shared by every browser session. `user_id`
     is therefore part of the key: without it, one user's rows are served to the
     next. `_sb` is underscore-prefixed so Streamlit excludes it from the hash --
     the client is unhashable and differs per session, but the rows it returns are
-    fully determined by (table_name, user_id).
+    fully determined by (table_name, user_id, select_cols).
 
     Row filtering itself is Postgres's job, not this function's: RLS restricts
     the result to `user_id = auth.uid()`. `user_id` here only keys the cache.
+
+    `select_cols` is a PostgREST projection string. It defaults to "*" -- every
+    caller unchanged -- and lets a hot path (`load_log`) ask for only the columns it
+    reads, so `workout_log`'s muscle/volume/estimated_1rm/notes never cross the wire.
+    It is part of the cache key, so a projected read and a full read never collide.
     """
     if _sb is None:
         return None, "Supabase not configured"
@@ -138,21 +143,21 @@ def cached_sb_select(_sb, table_name, user_id, limit_rows=2500):
     try:
         # Most recent rows first where timestamp/created_at exists.
         try:
-            res = _sb.table(table_name).select("*").order("timestamp", desc=True).limit(limit_rows).execute()
+            res = _sb.table(table_name).select(select_cols).order("timestamp", desc=True).limit(limit_rows).execute()
         except Exception:
             try:
-                res = _sb.table(table_name).select("*").order("created_at", desc=True).limit(limit_rows).execute()
+                res = _sb.table(table_name).select(select_cols).order("created_at", desc=True).limit(limit_rows).execute()
             except Exception:
-                res = _sb.table(table_name).select("*").limit(limit_rows).execute()
+                res = _sb.table(table_name).select(select_cols).limit(limit_rows).execute()
         return res.data or [], None
     except Exception as e:
         return None, str(e)
 
 
-def sb_select(table_name):
+def sb_select(table_name, select_cols="*"):
     from auth.session import current_user_id
 
-    return cached_sb_select(get_supabase_client(), table_name, current_user_id())
+    return cached_sb_select(get_supabase_client(), table_name, current_user_id(), select_cols=select_cols)
 
 
 def sb_rpc(fn_name, params=None):
@@ -377,7 +382,7 @@ def _df_memo_put(key, df):
         pass
 
 
-def df_from_supabase(table_name, columns):
+def df_from_supabase(table_name, columns, select_cols="*"):
     """Read a table into a DataFrame. Supabase is the only source of truth.
 
     On error, surfaces the message and returns an EMPTY frame with the expected
@@ -385,18 +390,23 @@ def df_from_supabase(table_name, columns):
     is ephemeral and shared by every visitor, so stale local rows would be served
     across users.
 
+    `select_cols` is a PostgREST projection ("*" by default). A caller that reads
+    only some columns passes them to keep the rest off the wire; it is part of both
+    the network cache key and the render memo key, so a projected read and a full
+    read of the same table never serve each other's (narrower) rows.
+
     Memoised for the duration of a render. Callers mutate what they get back
     (`normalise_workout_log` assigns columns, `workout_summary` coerces dtypes), so
     the memo hands out a `.copy()` -- copying a frame is far cheaper than rebuilding,
     sorting and de-duplicating it, and a shared frame would let one caller's
     coercion corrupt the next caller's read.
     """
-    memo_key = (table_name, tuple(columns))
+    memo_key = (table_name, tuple(columns), select_cols)
     memoised = _df_memo_get(memo_key)
     if memoised is not None:
         return memoised.copy()
 
-    data, err = sb_select(table_name)
+    data, err = sb_select(table_name, select_cols=select_cols)
     if data is None:
         st.session_state["last_supabase_error"] = f"{table_name} read failed: {err}"
         # Deliberately NOT memoised. A failed read must not pin an empty frame for

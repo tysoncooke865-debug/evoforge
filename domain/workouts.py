@@ -37,7 +37,14 @@ def normalise_workout_log(df):
 
 def load_log():
     columns = ["date", "workout", "exercise", "set", "weight", "reps", "timestamp"]
-    return normalise_workout_log(df_from_supabase("workout_log", columns))
+    # Project the read: workout_log also has muscle, volume, estimated_1rm and notes,
+    # and NONE of them is read from this frame (muscle is recomputed by
+    # infer_muscle_group, e1RM by e1rm_series). `id` IS needed -- save_set_auto()
+    # updates a set in place by its id -- so it stays in the wire projection even
+    # though it is not a display column. Verified valid PostgREST against the live
+    # API (`set` and `timestamp` are SQL keywords but PostgREST accepts them).
+    select_cols = "id,date,workout,exercise,set,weight,reps,timestamp"
+    return normalise_workout_log(df_from_supabase("workout_log", columns, select_cols=select_cols))
 
 
 def estimated_1rm(weight, reps):

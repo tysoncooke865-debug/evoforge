@@ -49,7 +49,7 @@ ROWS = {
 
 def main():
     import data.sb_ops as sb_ops
-    sb_ops.sb_select = lambda table: (ROWS.get(table, []), None)
+    sb_ops.sb_select = lambda table, select_cols="*": (ROWS.get(table, []), None)
 
     from domain.bodyweight import latest_bodyweight_value, get_bodyweight_stats
     from domain.bodyfat import latest_bodyfat_mid

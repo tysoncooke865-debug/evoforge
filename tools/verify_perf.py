@@ -118,7 +118,7 @@ def install_counters():
 
 def stub_data():
     import data.sb_ops as sb_ops
-    sb_ops.sb_select = lambda table: (ROWS.get(table, []), None)
+    sb_ops.sb_select = lambda table, select_cols="*": (ROWS.get(table, []), None)
 
 
 def run_page(page):
@@ -183,7 +183,7 @@ def check_achievement_sweep():
         # `check_achievements` reads no achievements rows -> everything is unearned,
         # so the seeded workout log unlocks several at once. That is the case that
         # used to thrash the cache.
-        sb_ops.sb_select = lambda table: (ROWS.get(table, []), None)
+        sb_ops.sb_select = lambda table, select_cols="*": (ROWS.get(table, []), None)
 
         unlocked = achievements.check_achievements()
     finally:
@@ -206,6 +206,43 @@ def check_achievement_sweep():
           f"{seen['batch_rows']} rows for {len(unlocked)} unlocks")
     check("no duplicate achievement_id in the batch", seen["batch_rows"] == len(set(unlocked)),
           "001 puts a unique (user_id, achievement_id) index on this table")
+
+
+def check_log_projection():
+    """`load_log()` must read only the columns it uses, not `select *`.
+
+    workout_log carries muscle, volume, estimated_1rm and notes that this frame
+    never reads. But `id` MUST stay in the projection -- save_set_auto() updates a
+    set in place by its id -- so this asserts both: the heavy columns are gone AND
+    id is present.
+    """
+    print()
+    print("=" * 72)
+    print("load_log() PROJECTS THE READ (keeps id, drops the heavy columns)")
+    print("=" * 72)
+
+    import data.sb_ops as sb_ops
+    import domain.workouts as workouts
+
+    seen = {}
+
+    def spy(table, columns, select_cols="*"):
+        seen[table] = select_cols
+        return __import__("pandas").DataFrame(columns=columns)
+
+    real = workouts.df_from_supabase
+    try:
+        workouts.df_from_supabase = spy
+        workouts.load_log()
+    finally:
+        workouts.df_from_supabase = real
+
+    proj = seen.get("workout_log", "*")
+    cols = {c.strip() for c in proj.split(",")}
+    check("load_log projects, it does not select *", proj != "*", f"select_cols={proj!r}")
+    check("id stays in the projection (save_set_auto needs it)", "id" in cols, proj)
+    for heavy in ("muscle", "volume", "estimated_1rm", "notes"):
+        check(f"the heavy column '{heavy}' is off the wire", heavy not in cols, proj)
 
 
 def main():
@@ -254,6 +291,7 @@ def main():
               f"{seen['df_calls']} calls but {seen['df_builds']} builds -- memo not working")
 
     check_achievement_sweep()
+    check_log_projection()
 
     print()
     if REPORT_ONLY:

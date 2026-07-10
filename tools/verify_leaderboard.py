@@ -74,7 +74,7 @@ import domain.public_profile as public_profile  # noqa: E402
 # `leaderboard_top()` reads through the sb_rpc bound INTO domain.public_profile.
 public_profile.sb_rpc = lambda fn, params=None: (POISONED_ROWS, None)
 # The rest of the page reads the log; make those empty so the athlete isn't "drifting".
-sb_ops.sb_select = lambda table: ([], None)
+sb_ops.sb_select = lambda table, select_cols="*": ([], None)
 
 from tools.verify_ui import stub_onboarded  # noqa: E402
 
