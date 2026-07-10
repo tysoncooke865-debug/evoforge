@@ -7,6 +7,7 @@ from domain.avatar_stats import (
     calculate_avatar_stats, avatar_asset_for_stats, evolution_name, branch_display_name,
     rarity_badge_html, next_evolution_info, avatar_rarity,
 )
+from domain.targets import journey_percent
 from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
 from ui.avatar_images import avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image
@@ -317,19 +318,26 @@ def render_qol_action_card(title, description, button_text, target_page, key, ic
 
 def render_target_bar(title, current, target, unit, lower_is_better=False,
                       action_label=None, action_page=None, action_key=None,
-                      helper=None, decimals=1):
+                      helper=None, decimals=1, baseline=None):
     """THE progress-bar primitive. Every "x of y" bar in the app renders through here.
 
     Hand-rolling `.mission-card` + `.progress-track` + `.progress-fill` was the most
     duplicated markup in the codebase -- five copies across `home`, `bodyfat` and
     `today`, each free to drift in rounding, clamping and class names. Use this.
 
-    `lower_is_better` inverts the ratio, for targets you shrink toward (body fat,
-    waist). Progress is clamped to 0-100 and never divides by zero.
+    THREE WAYS TO MEASURE, in order of preference:
 
-    `helper` adds a second line under the bar -- the "Base level 42" that the XP
-    card needs. `decimals` controls the numbers in the label: XP is a whole number,
-    kilograms are not.
+    * `baseline` -- the journey. Progress is the distance travelled from where the
+      athlete started toward where they are going: `domain.targets.journey_percent`.
+      This is the ONLY correct mode for a goal that can move in either direction.
+      A bodyweight target of 75kg means opposite things to someone at 85kg and
+      someone at 70kg, and no ratio can tell them apart.
+    * `lower_is_better` -- a ratio you shrink toward, with no meaningful start
+      (body fat as a share of the target).
+    * neither -- a ratio you grow toward from zero (sets completed, 1RM, XP).
+
+    `helper` adds a second line under the bar. `decimals` controls the numbers in
+    the label: XP is a whole number, kilograms are not.
 
     Falls back to `st.info` rather than a broken bar when the target is missing or
     non-numeric, because "no target set" and "target of zero" are different states
@@ -357,7 +365,13 @@ def render_target_bar(title, current, target, unit, lower_is_better=False,
         _action()
         return
 
-    if lower_is_better:
+    if baseline is not None:
+        progress = journey_percent(baseline, current, target)
+        if progress is None:
+            st.info(f"{title}: Waiting for valid target/data.")
+            _action()
+            return
+    elif lower_is_better:
         progress = 100 if current <= target else ((target / current) * 100 if current > 0 else 0)
     else:
         progress = (current / target) * 100 if target else 0

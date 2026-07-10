@@ -47,6 +47,7 @@ PROTECTED_PATTERNS=(
     '^tools/verify_deep\.py$'
     '^tools/verify_ordering\.py$'
     '^tools/verify_xp\.py$'
+    '^tools/verify_goals\.py$'
     '^tools/verify_isolation\.py$'
     '^tools/verify_css\.py$'
 )

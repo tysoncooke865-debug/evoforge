@@ -5,8 +5,8 @@ from config.constants import ACHIEVEMENTS
 from domain.workouts import load_log, workout_summary, muscle_heat_map, current_exercise_best_1rm
 from domain.profile import rank_name
 from domain.bodyfat import load_bodyfat_log, latest_bodyfat_mid
-from domain.bodyweight import latest_bodyweight_value
-from domain.targets import get_target
+from domain.bodyweight import latest_bodyweight_value, bodyweight_at
+from domain.targets import get_target, get_target_created_at
 from domain.achievements import load_achievements, achievement_count
 from domain.avatar_stats import calculate_avatar_stats
 from ui.components import (
@@ -129,7 +129,17 @@ def render():
     squat_target = get_target("1RM", "Barbell Back Squat")
 
     render_target_bar("BODY FAT TARGET", latest_bodyfat_mid(), bf_target, "%", lower_is_better=True, action_label="Get AI Estimate →", action_page="Body Fat", action_key="qol_home_bodyfat_estimate")
-    render_target_bar("BODYWEIGHT TARGET", latest_bodyweight_value(), bw_target, "kg", lower_is_better=False, action_label="Log Bodyweight →", action_page="Bodyweight", action_key="qol_home_bodyweight_log")
+
+    # Bodyweight is the one target that can be approached from either side. Measure
+    # the journey from what the athlete weighed when they set it -- a ratio reports
+    # 107% (clamped to a "complete" bar) for someone cutting 85 -> 75 who is at 80.
+    bw_baseline = bodyweight_at(get_target_created_at("Bodyweight", "Bodyweight"))
+    render_target_bar(
+        "BODYWEIGHT TARGET", latest_bodyweight_value(), bw_target, "kg",
+        baseline=bw_baseline,
+        helper=f"from {bw_baseline:.1f}kg when you set this goal" if bw_baseline else None,
+        action_label="Log Bodyweight →", action_page="Bodyweight", action_key="qol_home_bodyweight_log",
+    )
     render_target_bar("BENCH 1RM TARGET", current_exercise_best_1rm("Barbell Bench Press (Strength)"), bench_target, "kg", lower_is_better=False, action_label="Edit Bench Target →", action_page="Goals", action_key="qol_home_bench_target")
     render_target_bar("SQUAT 1RM TARGET", current_exercise_best_1rm("Barbell Back Squat"), squat_target, "kg", lower_is_better=False, action_label="Edit Squat Target →", action_page="Goals", action_key="qol_home_squat_target")
 

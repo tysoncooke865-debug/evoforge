@@ -35,6 +35,7 @@ CHECKS=(
     tools/verify_deep.py
     tools/verify_ordering.py
     tools/verify_xp.py
+    tools/verify_goals.py
 )
 
 # verify_isolation.py and verify_css.py are added as they land. Skip silently if

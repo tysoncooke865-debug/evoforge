@@ -2,8 +2,8 @@ import pandas as pd
 import streamlit as st
 
 from config.constants import ROUTINE
-from domain.targets import load_targets, save_or_update_target, get_target
-from domain.bodyweight import latest_bodyweight_value
+from domain.targets import load_targets, save_or_update_target, get_target, get_target_created_at
+from domain.bodyweight import latest_bodyweight_value, bodyweight_at
 from domain.bodyfat import latest_bodyfat_mid
 from domain.workouts import current_exercise_best_1rm
 from ui.nav import route_button
@@ -59,7 +59,13 @@ def render():
 
     st.subheader("Target Progress")
     render_target_bar("BODY FAT TARGET", latest_bodyfat_mid(), get_target("Body Fat", "Body Fat %"), "%", lower_is_better=True)
-    render_target_bar("BODYWEIGHT TARGET", latest_bodyweight_value(), get_target("Bodyweight", "Bodyweight"), "kg", lower_is_better=False)
+    # Journey, not ratio: bodyweight goals are approached from above or below.
+    bw_baseline = bodyweight_at(get_target_created_at("Bodyweight", "Bodyweight"))
+    render_target_bar(
+        "BODYWEIGHT TARGET", latest_bodyweight_value(), get_target("Bodyweight", "Bodyweight"), "kg",
+        baseline=bw_baseline,
+        helper=f"from {bw_baseline:.1f}kg when you set this goal" if bw_baseline else None,
+    )
 
     targets = load_targets()
     one_rm_targets = targets[targets["target_type"].astype(str) == "1RM"] if not targets.empty else pd.DataFrame()
