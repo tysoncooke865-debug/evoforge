@@ -65,6 +65,25 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Fail fast, with an actionable message, when a secret was pasted with
+      # decoration (quotes, or the whole NAME="value" line). Prints derived
+      # properties only -- lengths and booleans -- never the value itself.
+      - name: Validate Supabase env shape
+        run: |
+          node -e '
+            const u = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+            const k = process.env.EXPO_PUBLIC_SUPABASE_KEY || "";
+            const um = u.match(/https?:\/\/[^\s"'"'"']+/);
+            const report = (name, v, ok, hint) => {
+              const msg = `${name}: len=${v.length} startsHttps=${v.startsWith("https://")} hasQuotes=${/["'\'']/.test(v)} hasEquals=${v.includes("=")}`;
+              if (ok) console.log("OK  " + msg);
+              else console.log(`::warning title=${name}::${msg} -- ${hint} (the client extracts the value anyway, but re-enter the secret as the bare value)`);
+            };
+            report("EXPO_PUBLIC_SUPABASE_URL", u, !!um && um[0] === u, "should be exactly https://<ref>.supabase.co");
+            report("EXPO_PUBLIC_SUPABASE_KEY", k, /^sb_publishable_[A-Za-z0-9_-]+$/.test(k) || /^eyJ/.test(k), "should be exactly the publishable key, no quotes or NAME= prefix");
+            if (!um) { console.log("::error title=EXPO_PUBLIC_SUPABASE_URL::contains no URL at all -- export cannot succeed"); process.exit(1); }
+          '
+
       - name: verify-tokens — tokens.js equals assets/styles.css :root, both directions
         run: node scripts/verify-tokens.mjs
 

@@ -4,15 +4,25 @@ import 'react-native-url-polyfill/auto';
 
 import { LargeSecureStore } from './large-secure-store';
 
-// Trim and strip accidental wrapping quotes: these values transit dashboards,
-// .env files and CI secret forms, and a copy-paste from secrets.toml carries
-// TOML's double quotes along. createClient rejects `"https://...` as an
-// invalid URL -- in CI that surfaced only as a mid-export crash.
-const clean = (value: string | undefined) =>
-  value?.trim().replace(/^['"]+|['"]+$/g, '') || undefined;
+// These values transit dashboards, .env files and CI secret forms, and every
+// paste variant has now been seen in the wild: wrapping quotes from TOML, and
+// the WHOLE secrets.toml line (`SUPABASE_URL = "https://..."`) as the value.
+// So parse, don't pray: extract the URL / key from whatever surrounds them.
+// Neither is a secret -- both compile into the shipped bundle by design.
+const extractUrl = (value: string | undefined) =>
+  value?.match(/https?:\/\/[^\s"']+/)?.[0];
 
-const supabaseUrl = clean(process.env.EXPO_PUBLIC_SUPABASE_URL);
-const supabaseKey = clean(process.env.EXPO_PUBLIC_SUPABASE_KEY);
+const extractKey = (value: string | undefined) => {
+  const trimmed = value?.trim().replace(/^['"]+|['"]+$/g, '');
+  // New-style publishable key pasted with any decoration.
+  const m = trimmed?.match(/sb_publishable_[A-Za-z0-9_-]+/);
+  if (m) return m[0];
+  // Legacy JWT-style anon key, or already-bare value: last whitespace-split token.
+  return trimmed?.split(/\s+/).pop() || undefined;
+};
+
+const supabaseUrl = extractUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
+const supabaseKey = extractKey(process.env.EXPO_PUBLIC_SUPABASE_KEY);
 
 if (!supabaseUrl || !supabaseKey) {
   // EXPO_PUBLIC_ vars are inlined at build time; a missing one means .env.local
