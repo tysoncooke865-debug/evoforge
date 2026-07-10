@@ -38,10 +38,10 @@
 
 create or replace function public.leaderboard_top(n integer default 50)
 returns table (
-  display_name text,
-  xp           bigint,
-  base_level   integer,
-  position     bigint
+  display_name  text,
+  xp            bigint,
+  base_level    integer,
+  rank_position bigint          -- NOT `position`: that is a SQL reserved word
 )
 language sql
 security definer
@@ -93,7 +93,7 @@ as $$
     display_name,
     xp,
     base_level,
-    row_number() over (order by xp desc, display_name asc) as position
+    row_number() over (order by xp desc, display_name asc) as rank_position
   from ranked
   order by xp desc, display_name asc
   limit greatest(0, least(coalesce(n, 50), 200));

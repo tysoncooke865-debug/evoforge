@@ -61,7 +61,7 @@ def render():
     # are user-supplied, and even the numbers go through esc() as defence in depth.
     body_rows = []
     for row in rows:
-        position = _safe_int(row.get("position"))
+        position = _safe_int(row.get("rank_position"))
         xp = _safe_int(row.get("xp"))
         base_level = _safe_int(row.get("base_level"), 1)
         level = level_and_progress(base_level, xp)[0]

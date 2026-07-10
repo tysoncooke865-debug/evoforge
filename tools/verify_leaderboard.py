@@ -29,9 +29,9 @@ NAME_PAYLOAD = '<img src=x onerror=alert(1)>" onmouseover="alert(2)'
 # Rows as the RPC returns them -- PLUS two fields the function must never expose, to
 # prove the view cannot accidentally pass a whole row through.
 POISONED_ROWS = [
-    {"display_name": "Alice", "xp": 5000, "base_level": 42, "position": 1,
+    {"display_name": "Alice", "xp": 5000, "base_level": 42, "rank_position": 1,
      "email": "alice@secret.test", "bodyweight": 82.5},
-    {"display_name": NAME_PAYLOAD, "xp": 3000, "base_level": 30, "position": 2,
+    {"display_name": NAME_PAYLOAD, "xp": 3000, "base_level": 30, "rank_position": 2,
      "email": "attacker@secret.test", "bodyweight": 91.1},
 ]
 
