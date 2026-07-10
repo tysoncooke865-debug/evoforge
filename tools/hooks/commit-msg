@@ -36,7 +36,19 @@ PROTECTED_PATTERNS=(
     '^domain/avatar_stats\.py$'   # evolution contract
     '^\.streamlit/'               # secrets + runtime config
     '^tools/hooks/'               # the guard must not disable itself
+    '^\.github/'                  # CI is the only real enforcement; gutting it is deliberate
+    # The checks themselves. On 2026-07-10 four of them passed while testing
+    # nothing, and only verify_rls.py was guarded -- a weakened check could be
+    # written and self-merged in the same afternoon. Weakening a test is a change
+    # to the safety of this project, so it costs an [architect] marker like any
+    # other. See CLAUDE.md: a guard is not accepted until it has been falsified.
     '^tools/verify_rls\.py$'      # the security test must not be weakened
+    '^tools/verify_ui\.py$'
+    '^tools/verify_deep\.py$'
+    '^tools/verify_ordering\.py$'
+    '^tools/verify_xp\.py$'
+    '^tools/verify_isolation\.py$'
+    '^tools/verify_css\.py$'
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)

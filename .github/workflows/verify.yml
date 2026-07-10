@@ -1,0 +1,61 @@
+# EvoForge verification suite.
+#
+# This is the ONLY enforcement that survives a clone where nobody ran
+#     git config core.hooksPath tools/hooks
+# The commit-msg hook guards which FILES you touch; it runs no checks. The
+# pre-push hook runs the suite, but only if it was installed. CI is the gate.
+#
+# Four checks passed while testing nothing on 2026-07-10. Every one of them lived
+# in code that nothing forced anyone to run. That is what this file fixes.
+#
+# Not here, and why:
+#   tools/verify_rls.py  needs a live database + secrets  -> verify-rls.yml, manual
+#   tools/shot.py        needs a browser + a running app  -> run locally for visual work
+#
+# No secrets are needed. `data/supabase_client.py :: _credentials()` returns None
+# when `.streamlit/secrets.toml` is absent and no env vars are set, so the app
+# boots with `get_supabase_client() -> None` and every table read comes back empty
+# -- exactly how the suite runs on a developer's machine against an empty project.
+
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 matches .devcontainer; 3.13 is what the maintainer runs locally.
+        # A check that only passes on one of them is a check we want to know about.
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # Separate steps on purpose: a failure names the culprit in the checks UI
+      # instead of collapsing five checks into one red "run the suite".
+      - name: verify_ui — every page renders, brand exactly once, auth gate holds
+        run: python tools/verify_ui.py
+
+      - name: verify_deep — toasts, avatar layers, div balance, CSS coverage, cache invalidation
+        run: python tools/verify_deep.py
+
+      - name: verify_ordering — "latest" really is the latest row
+        run: python tools/verify_ordering.py
+
+      - name: verify_xp — one curve; the ledger and derived paths agree
+        run: python tools/verify_xp.py

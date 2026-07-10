@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+#
+# EvoForge pre-push: run the no-database verification suite before anything
+# leaves this machine.
+#
+# ###########################################################################
+# #  THIS IS CONVENIENCE, NOT ENFORCEMENT.                                  #
+# #                                                                         #
+# #  It only runs where someone remembered:                                 #
+# #      git config core.hooksPath tools/hooks                              #
+# #  An uninstalled hook cannot verify its own installation, and a GUI git  #
+# #  client may not invoke it at all. Do not build machinery to prove it is #
+# #  installed -- that is what .github/workflows/verify.yml is for.         #
+# #                                                                         #
+# #  CI is the gate. This just tells you sooner.                            #
+# ###########################################################################
+#
+# Install once:
+#     git config core.hooksPath tools/hooks
+#
+# Escape hatch, for when you know what you are doing:
+#     git push --no-verify
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+PYTHON="${PYTHON:-python}"
+
+# The suite that needs neither a database nor a browser. verify_rls.py wants a
+# live project; shot.py wants a real browser and a running app. Run those by hand.
+CHECKS=(
+    tools/verify_ui.py
+    tools/verify_deep.py
+    tools/verify_ordering.py
+    tools/verify_xp.py
+)
+
+# verify_isolation.py and verify_css.py are added as they land. Skip silently if
+# absent so this hook keeps working on older branches.
+for optional in tools/verify_isolation.py tools/verify_css.py; do
+    [ -f "$optional" ] && CHECKS+=("$optional")
+done
+
+echo ""
+echo "pre-push: running ${#CHECKS[@]} checks..."
+echo ""
+
+FAILED=()
+for check in "${CHECKS[@]}"; do
+    printf '  %-28s ' "$(basename "$check")"
+    if "$PYTHON" "$check" >/dev/null 2>&1; then
+        echo "PASS"
+    else
+        echo "FAIL"
+        FAILED+=("$check")
+    fi
+done
+
+if [ ${#FAILED[@]} -eq 0 ]; then
+    echo ""
+    echo "pre-push: suite green. Pushing."
+    echo ""
+    exit 0
+fi
+
+echo ""
+echo "=============================================================="
+echo " PUSH BLOCKED: ${#FAILED[@]} check(s) failed."
+echo "=============================================================="
+for f in "${FAILED[@]}"; do
+    echo "  ${f}"
+done
+echo ""
+echo " Run it directly to see why:"
+echo "     python ${FAILED[0]}"
+echo ""
+echo " If the change is visual, also run:"
+echo "     python tools/shot.py"
+echo ""
+echo " Escape hatch: git push --no-verify"
+echo "=============================================================="
+exit 1
