@@ -109,9 +109,21 @@ rules:
 
   - >-
     HTTP 200 is not a health check — Streamlit returns 200 while rendering a traceback.
-    Before every commit run `python tools/verify_ui.py` and `python tools/verify_deep.py`.
-    If the change is visual, also run `python tools/shot.py`. If a check fails, the
-    change is not done. Never disable a check.
+    Before every commit run `python tools/verify_ui.py`, `python tools/verify_deep.py`
+    and `python tools/verify_ordering.py`. If the change is visual, also run
+    `python tools/shot.py`. If a check fails, the change is not done. Never disable
+    a check.
+
+  - >-
+    cached_sb_select orders rows DESCENDING so that limit() keeps the most recent
+    ones. df_from_supabase then re-sorts ASCENDING so that `.iloc[-1]` means the
+    latest record, which is what every caller assumes. Never remove that sort, and
+    never use `.iloc[0]` to mean "latest".
+
+  - >-
+    An RLS denial from Supabase returns HTTP 200 with an empty array, so "this user
+    has no rows" and "this user may not see the rows" are indistinguishable. Never
+    treat an empty table as proof of a new user, a reset, or missing data.
 
   - >-
     Work on a branch named junior/<id>-<slug>, one task per branch, and open a PR.

@@ -151,7 +151,8 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing: `python tools/verify_ui.py && python tools/verify_deep.py`.
+4. Before committing:
+   `python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py`
    For anything visual, also `python tools/shot.py` — it sees what AppTest cannot.
 5. Update the affected doc **in the same commit**.
 

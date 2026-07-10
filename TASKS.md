@@ -7,7 +7,7 @@ tests, docs · `[human]` anything needing a dashboard login or a decision.
 
 **Definition of done, every task:**
 ```bash
-python tools/verify_ui.py && python tools/verify_deep.py   # must pass
+python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.

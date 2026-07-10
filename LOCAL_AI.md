@@ -54,9 +54,10 @@ touching these paths unless the message contains `[architect]`. If it blocks you
 git checkout -b junior/J1-avatar-showcase-order   # one task per branch
 # ... make the change ...
 
-python tools/verify_ui.py      # must pass: 15/15 pages, zero exceptions
-python tools/verify_deep.py    # must pass: all checks
-python tools/shot.py           # if the change is visual — it sees what the others cannot
+python tools/verify_ui.py       # must pass: 15/15 pages, zero exceptions
+python tools/verify_deep.py     # must pass: all checks
+python tools/verify_ordering.py # must pass: "latest" really is the latest row
+python tools/shot.py            # if the change is visual — it sees what the others cannot
 
 git commit -m "J1: move evolution showcase below the page title"
 git push -u origin junior/J1-avatar-showcase-order

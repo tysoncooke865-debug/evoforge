@@ -10,7 +10,10 @@ pip install -r requirements-dev.txt
 python -m playwright install chromium     # only needed for shot.py
 ```
 
-## The three tools
+## The tools
+
+Before every commit: `verify_ui.py`, `verify_deep.py`, `verify_ordering.py`.
+If the change is visual, also `shot.py`. `verify_rls.py` is for the database.
 
 ### `verify_ui.py` — fast, no browser
 ```bash
@@ -31,6 +34,39 @@ python tools/verify_deep.py
 Toasts fire and self-clear · avatar stage has all four layers with the image as a
 real child · no unbalanced `<div>` · every emitted CSS class has a rule · one
 `:root`, no duplicate `@keyframes`, `!important` bounded.
+
+### `verify_ordering.py` — fast, no database
+```bash
+python tools/verify_ordering.py
+```
+Asserts that "the latest record" really is the latest. Stubs the Supabase layer
+with rows in the order Supabase actually returns them, then checks
+`latest_bodyweight_value`, `get_base_level`, `latest_bodyfat_mid`,
+`latest_measurements` and `latest_physique_rating_values`.
+
+> **Why this exists:** `cached_sb_select` orders **descending** so `limit(2500)`
+> keeps recent rows. Every consumer then read `.iloc[-1]` to mean "latest" — which
+> on a descending frame is the *oldest* row. The app showed the first bodyweight
+> ever logged as the current one, and derived avatar stats from the oldest
+> measurements. `df_from_supabase` now re-sorts ascending. Delete that sort and
+> this file fails; that was checked.
+
+### `verify_rls.py` — hits a real database
+```bash
+# read-only, safe against production:
+python tools/verify_rls.py --anon-only
+
+# the full test. STAGING ONLY. It signs up two users and writes to all 11 tables:
+python tools/verify_rls.py --i-understand-this-writes-to-the-database
+```
+The full test asserts each user reads only their own rows, that an unauthenticated
+publishable-key client reads **zero**, and that a forged `user_id` is rejected —
+which is the only evidence that RLS policies carry `with check` and not just
+`using`.
+
+> **Why this exists:** on 2026-07-10 `--anon-only` read all 11 production tables,
+> 646 rows, with no session at all. RLS was off. It had been "unverified" for the
+> life of the project because nobody had run the query.
 
 ### `shot.py` — real browser, sees pixels
 ```bash
@@ -56,7 +92,11 @@ with the wrong font, or Streamlit's auto multipage nav appearing.
 | A top-level `pages/` directory makes Streamlit build its own multipage sidebar nav. Our page modules live in `views/`. | `shot.py` `streamlitAutoNav` |
 | `overflow-x: hidden` still permits programmatic sideways scroll. Use `clip`. | `shot.py` `canScrollSideways` |
 | Globally squashing `animation-duration` fast-forwards one-shot toasts to their `opacity: 0` end state, making them invisible. | `verify_deep.py` toast checks |
-| Screenshotting before Streamlit finishes streaming photographs skeleton placeholders. | `shot.py` waits for `.hero-panel` and zero skeletons |
+| Screenshotting before Streamlit finishes streaming photographs skeleton placeholders. | `shot.py` waits for a hero, login or wizard, and zero skeletons |
+| On Streamlit Cloud the app is inside an `<iframe>` at `<host>/~/+/`. Querying the main frame measures the wrapper: every selector returns 0 and every check passes vacuously. A dead deploy reported "NO PROBLEMS DETECTED". | `shot.py` `app_frame()` finds the frame holding `.stApp` |
+| A blank page satisfies every check that counts something bad. | `shot.py` `appRendered` + `cloudErrorPage` |
+| `cached_sb_select` orders **descending**; `.iloc[-1]` is therefore the *oldest* row, not the latest. | `verify_ordering.py` |
+| An RLS denial returns HTTP 200 with an empty array. "No rows" and "you may not see the rows" are indistinguishable — so emptiness must never be read as "new user". | `views/onboarding.py :: gate_decision()` |
 
 ## Hooks
 
