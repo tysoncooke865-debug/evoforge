@@ -220,6 +220,18 @@ def df_from_supabase(table_name, columns):
         if col not in df.columns:
             df[col] = ""
 
+    # cached_sb_select orders DESCENDING (newest first) so that `limit` keeps the
+    # most recent rows. But every consumer reads `.iloc[-1]` to mean "the latest
+    # record" -- latest_bodyweight_value, get_base_level, latest_measurements,
+    # latest_bodyfat_mid, latest_physique_rating_values, views/profile.py ...
+    # On a descending frame `.iloc[-1]` is the OLDEST row. Flip to ascending here,
+    # once, so `.iloc[-1]` means what all of them already assume it means.
+    if not df.empty:
+        for sort_col in ("timestamp", "created_at", "date"):
+            if sort_col in df.columns and df[sort_col].notna().any():
+                df = df.sort_values(sort_col, ascending=True, kind="stable").reset_index(drop=True)
+                break
+
     # For workout logs, de-dupe early to reduce downstream workload.
     if table_name == "workout_log" and not df.empty:
         if "set" in df.columns:

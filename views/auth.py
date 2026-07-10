@@ -78,6 +78,11 @@ def _sign_up_tab():
         st.success("Account created. Check your inbox for the confirmation link, then sign in.")
         return
 
+    # The ONLY trustworthy signal that this account is new. An empty `profile`
+    # table is not: an RLS denial returns 200 with zero rows, so a user whose
+    # data merely cannot be read looks identical to one who has none. Without
+    # this flag, views/onboarding.py asks before starting a character.
+    st.session_state["_just_signed_up"] = True
     st.session_state.just_saved_message = "CHARACTER CREATED"
     st.rerun()
 

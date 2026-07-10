@@ -19,6 +19,8 @@ from ui.avatar_cards import render_avatar_image_panel
 from ui.nav import route_to
 
 STEP_KEY = "_onboarding_step"
+CONFIRM_KEY = "_onboarding_confirmed"
+JUST_SIGNED_UP_KEY = "_just_signed_up"
 TOTAL_STEPS = 3
 
 
@@ -29,6 +31,63 @@ def is_onboarded():
     the read is already cached, so this costs nothing extra.
     """
     return not load_profile().empty
+
+
+def profile_read_failed():
+    """True when the `profile` read raised, rather than returning zero rows."""
+    return "profile read failed" in str(st.session_state.get("last_supabase_error", ""))
+
+
+def render_read_error():
+    st.error(
+        "Could not read your profile from the database. **Nothing has been "
+        "changed.** This is not a fresh account — do not re-enter your stats."
+    )
+    st.caption(st.session_state.get("last_supabase_error", ""))
+
+
+def render_confirm():
+    """An empty `profile` is NOT proof of a new user. Ask before overwriting.
+
+    An RLS denial returns HTTP 200 with an empty array -- `cached_sb_select`
+    yields `([], None)` -- so "no rows" and "you are not allowed to see the rows"
+    are indistinguishable to the application. Inferring "new user" from emptiness
+    invites a user with years of history to re-enter their stats over the top.
+
+    That is not hypothetical: enabling auth flipped the Postgres role from `anon`
+    to `authenticated`, an RLS policy stopped matching, and the owner was shown a
+    fresh-start wizard on an account holding a level-43 character.
+
+    So the wizard auto-runs only for an account created in THIS session
+    (`_just_signed_up`). Anyone else has to say so out loud.
+    """
+    from auth.session import current_user_email, sign_out
+
+    st.warning(
+        f"No character found for **{current_user_email()}**, but this account "
+        "was not created just now."
+    )
+    st.markdown(
+        "That means one of two things:\n\n"
+        "- This really is a new account, and you should set up your character.\n"
+        "- Your data exists but the database is refusing to show it to you — "
+        "usually a row-level-security policy that does not cover the "
+        "`authenticated` role.\n\n"
+        "**Setting up a character will not delete anything.** But if it is the "
+        "second case, you will be building a second character beside your real "
+        "one. Sign out and check first if you are unsure."
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("This is a new account — set up my character", type="primary", width="stretch"):
+            st.session_state[CONFIRM_KEY] = True
+            st.session_state[STEP_KEY] = 1
+            st.rerun()
+    with c2:
+        if st.button("Sign out", width="stretch"):
+            sign_out()
+            st.rerun()
 
 
 def should_render():
@@ -142,12 +201,41 @@ def _step_three():
     render_avatar_image_panel(stats)
 
     if st.button("Enter EvoForge", type="primary", width="stretch"):
-        st.session_state.pop(STEP_KEY, None)
+        for key in (STEP_KEY, CONFIRM_KEY, JUST_SIGNED_UP_KEY):
+            st.session_state.pop(key, None)
         st.session_state.just_saved_message = "CHARACTER FORGED"
         route_to("Home")
 
 
+def gate_decision(state):
+    """Pure: which screen the wizard shows. `state` is a mapping (session_state).
+
+    Returns "error" | "confirm" | "wizard". Kept free of Streamlit so
+    tools/verify_ordering.py's sibling checks can exercise every branch without
+    a browser or a database.
+    """
+    mid_wizard = bool(state.get(STEP_KEY))
+    if mid_wizard:
+        return "wizard"
+    if "profile read failed" in str(state.get("last_supabase_error", "")):
+        return "error"
+    if state.get(JUST_SIGNED_UP_KEY) or state.get(CONFIRM_KEY):
+        return "wizard"
+    return "confirm"
+
+
 def render():
+    screen = gate_decision(st.session_state)
+
+    # A failed read must never be answered with "let's create your character",
+    # and nor may an empty one unless we know the account is new.
+    if screen == "error":
+        render_read_error()
+        return
+    if screen == "confirm":
+        render_confirm()
+        return
+
     step = min(max(_step(), 1), TOTAL_STEPS)
     _progress_rail(step)
 
