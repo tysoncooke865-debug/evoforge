@@ -108,7 +108,17 @@ for page in ("Home", "Avatar"):
     check(f"{page}: aura", "ef-avatar-aura" in html)
     check(f"{page}: flare", "ef-avatar-flare" in html)
     check(f"{page}: ground shadow", "ef-avatar-ground" in html)
-    check(f"{page}: img is data-uri child", 'class="ef-avatar-img"' in html and "data:image" in html)
+    # The avatar <img> must be a real CHILD of the stage, with a real src.
+    #
+    # It used to assert `"data:image" in html` -- true anywhere on the page, which an
+    # <img> with NO src would satisfy as long as some other image had one. The src is
+    # now matched INSIDE the ef-avatar-img tag. If the PNGs ever move to `static/`,
+    # widen this to accept `src="app/static/` too -- but keep it inside the tag.
+    img_tag = re.search(r'<img[^>]*class="ef-avatar-img"[^>]*>', html)
+    check(f"{page}: img is a real child of the stage", bool(img_tag))
+    if img_tag:
+        tag = img_tag.group(0)
+        check(f"{page}: the avatar img carries a src", 'src="data:image' in tag, tag[:90])
     check(f"{page}: rarity class", bool(re.search(r"rarity-(common|rare|epic|legendary|mythic)", html)))
     check(f"{page}: no exceptions", not at.exception)
 

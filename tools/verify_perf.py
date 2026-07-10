@@ -139,6 +139,75 @@ def run_page(page):
     return at, dict(counts)
 
 
+def check_achievement_sweep():
+    """`check_achievements()` runs on EVERY set save. It must be one read, one write.
+
+    It used to call `load_achievements()` once per candidate -- about sixty table
+    reads -- and `sb_insert` per unlock, each of which calls `clear_data_cache()`.
+    The wipe happened INSIDE the loop, so a set that earned three achievements went
+    back to the network between each one.
+    """
+    print()
+    print("=" * 72)
+    print("ACHIEVEMENT SWEEP: one read, one batch write")
+    print("=" * 72)
+
+    import data.sb_ops as sb_ops
+    import domain.achievements as achievements
+
+    seen = {"loads": 0, "single_inserts": 0, "batch_inserts": 0, "batch_rows": 0}
+
+    real_load = achievements.load_achievements
+    real_single = achievements.sb_insert
+    real_batch = achievements.sb_insert_many
+    real_store = achievements.store_supabase_result
+
+    def fake_load():
+        seen["loads"] += 1
+        return real_load()
+
+    def fake_single(table, row, **kw):
+        seen["single_inserts"] += 1
+        return True, None
+
+    def fake_batch(table, rows):
+        seen["batch_inserts"] += 1
+        seen["batch_rows"] += len(rows)
+        return True, None
+
+    try:
+        achievements.load_achievements = fake_load
+        achievements.sb_insert = fake_single
+        achievements.sb_insert_many = fake_batch
+        achievements.store_supabase_result = lambda *a, **k: None
+        # `check_achievements` reads no achievements rows -> everything is unearned,
+        # so the seeded workout log unlocks several at once. That is the case that
+        # used to thrash the cache.
+        sb_ops.sb_select = lambda table: (ROWS.get(table, []), None)
+
+        unlocked = achievements.check_achievements()
+    finally:
+        achievements.load_achievements = real_load
+        achievements.sb_insert = real_single
+        achievements.sb_insert_many = real_batch
+        achievements.store_supabase_result = real_store
+
+    # Positive control: the sweep must actually have unlocked something, or the
+    # "one insert" assertions below pass because nothing happened.
+    check("the sweep unlocked at least one achievement", len(unlocked) >= 1,
+          f"unlocked={unlocked}")
+    check("the achievements table is read exactly once", seen["loads"] == 1,
+          f"read {seen['loads']}x -- one read per candidate is the N+1")
+    check("no per-achievement single inserts", seen["single_inserts"] == 0,
+          f"{seen['single_inserts']} single inserts; each one wipes the cache mid-loop")
+    check("exactly one batch insert", seen["batch_inserts"] == 1,
+          f"{seen['batch_inserts']} batch inserts")
+    check("the batch carried every unlock", seen["batch_rows"] == len(unlocked),
+          f"{seen['batch_rows']} rows for {len(unlocked)} unlocks")
+    check("no duplicate achievement_id in the batch", seen["batch_rows"] == len(set(unlocked)),
+          "001 puts a unique (user_id, achievement_id) index on this table")
+
+
 def main():
     install_counters()
     stub_data()
@@ -183,6 +252,8 @@ def main():
         check(f"{page}: the render memo is actually hitting",
               seen["df_calls"] > seen["df_builds"],
               f"{seen['df_calls']} calls but {seen['df_builds']} builds -- memo not working")
+
+    check_achievement_sweep()
 
     print()
     if REPORT_ONLY:

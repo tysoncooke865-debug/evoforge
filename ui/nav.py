@@ -123,6 +123,10 @@ def get_sidebar_avatar_payload():
     except Exception:
         xp_now, xp_need, xp_pct = 0, xp_for_level(1), 0.0
 
+    # The sidebar renders on EVERY rerun, so this ~0.5 MB of base64 goes into the
+    # DOM every time. Serving the PNG from `static/` instead would fix it; that was
+    # written, worked locally, and was rolled back for want of a way to verify it on
+    # Cloud. See ui/avatar_images.py.
     avatar_src = ""
     try:
         _, _, avatar_path = avatar_asset_for_stats(stats)

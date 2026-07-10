@@ -3,10 +3,10 @@ from datetime import datetime
 import pandas as pd
 
 from config.constants import ACHIEVEMENTS
-from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
+from data.sb_ops import df_from_supabase, sb_insert, sb_insert_many, store_supabase_result
 from domain.workouts import (
     load_log, workout_summary, muscle_heat_map, unique_training_days,
-    logged_all_ppppla_days, muscle_sets_count, estimated_1rm,
+    logged_all_ppppla_days, muscle_sets_count, e1rm_series,
 )
 from domain.bodyweight import get_bodyweight_stats
 from domain.bodyfat import get_bodyfat_stats
@@ -36,18 +36,34 @@ def load_achievements():
     return df[["achievement_id", "name", "description", "date_unlocked"]]
 
 
-def save_achievement(achievement_id):
+def unlocked_achievement_ids():
+    """The set of achievement_ids this athlete already holds. Read once, not sixty times."""
     ach = load_achievements()
-    if achievement_id in ach["achievement_id"].astype(str).tolist():
-        return False
+    if ach.empty or "achievement_id" not in ach.columns:
+        return set()
+    return set(ach["achievement_id"].astype(str))
+
+
+def _achievement_row(achievement_id):
     name, desc = ACHIEVEMENTS[achievement_id]
-    row = {
+    return {
         "achievement_id": achievement_id,
         "name": name,
         "description": desc,
         "date_unlocked": datetime.now().isoformat(timespec="seconds"),
     }
-    ok, err = sb_insert("achievements", row)
+
+
+def save_achievement(achievement_id):
+    """Grant one achievement. Kept for single, ad-hoc grants.
+
+    `check_achievements()` no longer uses this: it called `load_achievements()` per
+    candidate -- sixty table reads -- and each successful `sb_insert` wiped the
+    cache mid-loop, forcing a network round trip before the next read.
+    """
+    if achievement_id in unlocked_achievement_ids():
+        return False
+    ok, err = sb_insert("achievements", _achievement_row(achievement_id))
     store_supabase_result("achievements", ok, err)
     return True
 
@@ -60,6 +76,13 @@ def achievement_count():
 
 
 def check_achievements():
+    """Sweep every achievement condition. Runs on EVERY set save -- keep it cheap.
+
+    One read of the achievements table, one batch insert, one cache invalidation.
+    It used to do a table read per candidate (~60) and an insert-plus-cache-wipe per
+    unlock, so a set that earned three achievements re-read the table from the
+    network three times mid-loop.
+    """
     df = load_log()
     summary = workout_summary(df)
     heat = muscle_heat_map(df)
@@ -67,11 +90,20 @@ def check_achievements():
     bf = get_bodyfat_stats()
     cardio = get_cardio_stats()
 
+    already_held = unlocked_achievement_ids()
     unlocked = []
+    pending = []
 
     def unlock(key):
-        if key in ACHIEVEMENTS and save_achievement(key):
-            unlocked.append(ACHIEVEMENTS[key][0])
+        # `already_held` is read once, above. `pending` guards the case where two
+        # conditions name the same achievement in one sweep -- without it the batch
+        # would carry a duplicate and trip 001's unique (user_id, achievement_id).
+        if key not in ACHIEVEMENTS or key in already_held:
+            return
+        if any(row["achievement_id"] == key for row in pending):
+            return
+        pending.append(_achievement_row(key))
+        unlocked.append(ACHIEVEMENTS[key][0])
 
     # Basic logging
     if summary["total_sets"] >= 1: unlock("first_set")
@@ -114,7 +146,7 @@ def check_achievements():
     if not squat.empty:
         squat["weight"] = pd.to_numeric(squat["weight"], errors="coerce").fillna(0)
         squat["reps"] = pd.to_numeric(squat["reps"], errors="coerce").fillna(0)
-        squat["estimated_1rm"] = squat.apply(lambda x: estimated_1rm(float(x["weight"]), int(x["reps"])), axis=1)
+        squat["estimated_1rm"] = e1rm_series(squat["weight"], squat["reps"])
         squat_e1rm = float(squat["estimated_1rm"].max())
         max_squat = squat["weight"].max()
         if max_squat >= 100: unlock("squat_100")
@@ -177,5 +209,15 @@ def check_achievements():
     if summary["level"] >= 75: unlock("chad_lite")
     if summary["level"] >= 90: unlock("chad")
     if summary["level"] >= 100: unlock("true_adam")
+
+    # One round trip, one cache wipe, at the end.
+    if pending:
+        ok, err = sb_insert_many("achievements", pending)
+        store_supabase_result("achievements", ok, err)
+        if not ok:
+            # The sweep is idempotent -- `already_held` will exclude anything that
+            # did land, and the next save retries the rest. Do not claim unlocks the
+            # database never accepted.
+            return []
 
     return unlocked

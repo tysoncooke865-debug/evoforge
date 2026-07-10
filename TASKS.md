@@ -91,6 +91,29 @@ Run `migrations/002_xp_events.sql` in the Supabase SQL editor, then check its
 - **Do not** start T15 (leaderboards) or T17 (PvP) before this lands. A leaderboard
   must refuse to rank any account whose `xp_drift` is non-zero.
 
+### T7 · Serve the avatars from `static/` instead of base64 `[claude]` 🟡 `[architect]`
+The ten PNGs are 4.8 MB. Inlined as `data:image/png;base64,...` they become ~6.4 MB
+of **text re-serialized into the DOM on every rerun** — and the Avatar page renders
+three at once. Serving them as `<img src="app/static/…">` means the browser fetches
+each once.
+
+**This was written, it worked, and it was rolled back** — not because it was wrong,
+but because it shipped without a way to verify it on Cloud. Locally:
+`/app/static/aesthetic_stage_1.png → HTTP 200, image/png, 308409 bytes`, and 5/5
+`<img>` elements loaded with `naturalWidth > 0`.
+
+- **The unknown:** on Cloud the app runs inside an iframe at `<host>/~/+/`, and
+  `app/static/…` is a **relative** URL. It may resolve to `/~/app/static/…`.
+- **Do not re-land it without a way to test that.** `shot.py` only ever reaches the
+  signed-out gate, and the avatars are behind the login. Options: a temporary
+  unauthenticated page that renders one `<img>`, or a `naturalWidth` probe run by a
+  human after deploy.
+- Streamlit resolves `static/` relative to the **entrypoint script**, not the CWD.
+- Only `.png/.jpg/.gif` (plus fonts, pdf, xml, json) get an image content-type. A
+  `.webp` arrives as `text/plain` and will not render.
+- `tools/verify_deep.py` asserts `src="data:image` **inside** the `ef-avatar-img`
+  tag; widen it to accept `app/static/` in the same commit.
+
 ### T6 · Make `domain/` framework-free `[claude]` 🟡
 Only 2 of 13 modules import `streamlit`, both shallow:
 - `domain/xp_leveling.py :: mark_xp_gain()` writes `st.session_state` toast flags.
