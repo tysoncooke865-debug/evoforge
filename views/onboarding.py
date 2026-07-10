@@ -150,11 +150,28 @@ def _step_one():
     preview = calculate_starting_level(bench_e1rm, squat_e1rm, training_years, physique_score, leanness_score)
     st.metric("Your starting level", f"Level {preview} — {rank_name(preview)}")
 
+    display_name = st.text_input(
+        "Display name (optional)", max_chars=24, placeholder="3–24 characters",
+        help="Shown only if you later opt into the public leaderboard. Leave blank to skip.",
+        key="onboarding_display_name",
+    )
+
     if st.button("Continue", type="primary", width="stretch"):
         save_profile(
             height_cm, bodyweight_kg, bench_e1rm, squat_e1rm,
             training_years, physique_score, leanness_score,
         )
+        # The name is optional and saved PRIVATE (is_public=False). It must NEVER
+        # block onboarding: a saved profile row is the onboarded flag, and if the
+        # public_profile table is absent (migrations/004 not applied) or the name is
+        # taken, the athlete still lands on Home. Best-effort, swallow the result.
+        if display_name and display_name.strip():
+            try:
+                from domain.public_profile import save_public_profile
+
+                save_public_profile(display_name, is_public=False)
+            except Exception:
+                pass
         # The first bodyweight entry seeds the Progress and Body Fat pages.
         save_bodyweight_row({
             "date": str(date.today()),

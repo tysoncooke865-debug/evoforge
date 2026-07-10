@@ -207,6 +207,28 @@ def sb_insert(table_name, row, show_error=False):
         return False, msg
 
 
+def sb_upsert(table_name, row, on_conflict):
+    """Insert or update on a conflict column. Returns (True, None) or (False, err).
+
+    `public_profile` is keyed on `user_id` (the PK, filled by DEFAULT auth.uid()), so
+    a second save must UPDATE, not INSERT -- a plain insert would violate the PK. No
+    upsert helper existed before this; `sb_insert` would fail on the second save.
+
+    `on_conflict` names the conflict target column(s), e.g. "user_id".
+    """
+    sb = get_supabase_client()
+    if sb is None:
+        return False, "Supabase not configured"
+
+    clean = clean_supabase_row(row, table_name)
+    try:
+        sb.table(table_name).upsert(clean, on_conflict=on_conflict).execute()
+        clear_data_cache()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def sb_insert_many(table_name, rows):
     """Insert several rows in ONE round trip, then invalidate the caches ONCE.
 

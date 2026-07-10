@@ -1,6 +1,7 @@
 import streamlit as st
 
 from domain.profile import load_profile, save_profile, calculate_starting_level, rank_name, rank_ladder
+from domain.public_profile import get_public_identity, save_public_profile
 from domain.bodyweight import latest_bodyweight_value
 from domain.workouts import current_exercise_best_1rm
 from domain.achievements import check_achievements
@@ -33,6 +34,30 @@ def render():
         check_achievements()
         st.session_state.just_saved_message = f"PROFILE SAVED — LEVEL {level}"
         st.rerun()
+
+    st.divider()
+    st.subheader("Public Profile")
+    st.caption("Only your display name, level and XP are ever shown to others. Your "
+               "measurements, photos and body-fat data are never shared.")
+
+    current_name, is_public_now = get_public_identity()
+    # `st.text_input` and `st.toggle` are Streamlit widgets, which Streamlit escapes.
+    # The XSS surface for this name is the leaderboard view, not here.
+    display_name = st.text_input(
+        "Display name", value=current_name or "", max_chars=24,
+        placeholder="3–24 characters", key="public_display_name",
+    )
+    show_me = st.toggle(
+        "Show me on the leaderboard", value=is_public_now, key="public_is_public",
+        help="Off by default. Turn on to appear in the public rankings.",
+    )
+    if st.button("Save public profile"):
+        ok, err = save_public_profile(display_name, show_me)
+        if ok:
+            st.session_state.just_saved_message = "PUBLIC PROFILE SAVED"
+            st.rerun()
+        else:
+            st.error(err or "Could not save. The leaderboard may not be live yet.")
 
     # Derived from domain.profile.RANK_TIERS, never restated here. The athlete's own
     # tier is marked, so the ladder answers "where am I?" and not only "what exists?".

@@ -23,6 +23,9 @@ SUPABASE_TABLE_SCHEMAS = {
     # Append-only XP ledger (migrations/002). `created_at` is listed so a backfilled
     # event can carry its source row's timestamp; omit it and Postgres uses now().
     "xp_events": ["kind", "amount", "source_table", "source_id", "created_at"],
+    # Opt-in public display name (migrations/004). NOT on `profile` -- the leaderboard
+    # reads this across users, so it must never sit beside bodyweight or 1RMs.
+    "public_profile": ["display_name", "is_public", "updated_at"],
 }
 
 ROUTINE = {
