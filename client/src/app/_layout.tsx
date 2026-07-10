@@ -1,18 +1,28 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
+import { useState } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AuthProvider } from '@/data/auth-context';
 
-SplashScreen.preventAutoHideAsync();
+import '@/global.css';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  // useState, not module scope: one QueryClient per app instance, never shared
+  // across static-render passes. Per-user isolation inside it is by auth state
+  // (RLS on the server is the real guard; the client cache is cleared on
+  // sign-out in auth-context).
+  const [queryClient] = useState(() => new QueryClient());
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#070b14' }, // --bg, behind route transitions
+          }}
+        />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
