@@ -50,6 +50,11 @@ pyarrow==18.1.0
 
 pillow==11.3.0
 supabase==2.31.0    # supabase_auth 2.31 -> set_session / refresh_session
+
+# Writes the session cookie. Pure Python -- no compiled code, so it cannot join the
+# ABI argument above. `st.context.cookies` is read-only, so without this the athlete
+# is signed out every time the browser reconnects. See auth/persistence.py.
+extra-streamlit-components==0.1.81
 openai==2.44.0      # `client.responses.create` -- the Responses API. Do NOT
                     # downgrade to 1.x: `responses` does not exist there and every
                     # AI feature (avatar, physique, body fat) breaks.

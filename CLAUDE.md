@@ -87,10 +87,22 @@ Supabase Auth, email + password. `auth/session.py` is the only entry point.
 - `cached_sb_select(_sb, table, user_id)` — `_sb` is excluded from the hash by
   its underscore; `user_id` must stay in the key or `@st.cache_data` (also
   process-global) serves one user's rows to another.
-- **A page refresh signs the user out.** `st.context.cookies` is read-only, so
-  Streamlit cannot persist a session. Fixing it needs a cookie component. Do
-  **not** put the refresh token in a query param — it leaks into history and
-  `Referer`.
+- **A page refresh no longer signs the user out.** `auth/persistence.py` stores the
+  Supabase **refresh token** (never the access token) in a cookie written by
+  `extra-streamlit-components`, and `restore_session()` exchanges it for a fresh
+  session in `app.py` **before** the gate. Do **not** put the token in a query param —
+  it leaks into history and `Referer`.
+  - **Supabase ROTATES the refresh token on every use.** Every successful auth —
+    `sign_in`, `sign_up`, `restore_session` — must rewrite the cookie via
+    `persist_session()`. Miss it and sign-outs are *intermittent*: the first reopen
+    works, the second fails. `tools/verify_session.py` pins this.
+  - The cookie is **JS-readable**; Streamlit components cannot set `HttpOnly`. That is
+    why `ui/escape.py` exists. An HTML injection reads the token.
+  - `get_all()` returns `{}` for the first ~2 script runs. An empty dict means "the
+    iframe has not reported"; a cookie-less browser still returns `_streamlit_xsrf`.
+    That distinction is what makes the wait terminate instead of looping.
+  - Every failure — no component, no cookie, revoked, expired — leaves `_auth_user`
+    unset, so the gate shows the login screen. Persistence can only add, never break.
 
 `migrations/001_add_user_id_and_rls.sql` adds `user_id` + RLS to all 11 tables.
 **Applied 2026-07-10.** The old project (646 rows, RLS off) was abandoned rather
@@ -247,9 +259,9 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all nine:
+4. Before committing, run all ten:
    `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
-   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape`
+   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape` · `verify_session`
    For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 

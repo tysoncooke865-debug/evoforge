@@ -84,11 +84,25 @@ def check_auth_gate():
 
     Specifically: no sidebar. The sidebar renders the avatar, level and XP of
     whoever was last loaded, so leaking it past the gate would leak them too.
+
+    THE GATE IS NOW REACHED AFTER THE COOKIE SETTLES. `auth/persistence.py` runs
+    before it, and the cookie component returns `{}` for the first couple of script
+    runs -- before its iframe reports. During that window the app shows "Restoring
+    your session…" rather than flashing a login form at somebody who is signed in.
+    AppTest has no frontend, so the component never reports and the wait always ends
+    in "give up, no cookie". Re-run until it does; that is exactly what a real
+    signed-out browser does, only faster.
     """
     from streamlit.testing.v1 import AppTest
+    from auth.persistence import MAX_COOKIE_WAITS
+
     at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
     at.session_state["active_page"] = "Avatar"
-    at.run()
+
+    for _ in range(MAX_COOKIE_WAITS + 2):
+        at.run()
+        if any("ef-auth-mark" in b for b in markdown_bodies(at)):
+            break
 
     problems = []
     if at.exception:

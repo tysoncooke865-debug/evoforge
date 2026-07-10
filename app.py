@@ -1,5 +1,6 @@
 import streamlit as st
 
+from auth.persistence import render_restoring_placeholder, restore_session
 from auth.session import is_signed_in
 from config.constants import APP_TITLE
 from ui.nav import (
@@ -50,12 +51,24 @@ PAGE_RENDERERS = {
 st.set_page_config(page_title=APP_TITLE, layout="wide", initial_sidebar_state="auto")
 load_app_styles()
 
+# ------------------------------------------------------ restore the session
+# Must run BEFORE the gate consults is_signed_in(). `st.context.cookies` is
+# read-only, so a cookie component writes the Supabase refresh token and this
+# exchanges it for a fresh session on each new browser connection.
+#
+# It returns True for the run or two while the component's iframe reports back --
+# `get_all()` is empty until then, and showing the login screen in that window
+# would flash "signed out" at somebody who is signed in.
+#
+# Every failure path leaves `_auth_user` unset, so the gate below renders the login
+# screen exactly as it does today. Persistence can never make things worse.
+if restore_session():
+    render_restoring_placeholder()
+    st.stop()
+
 # ---------------------------------------------------------------- auth gate
 # Nothing below this runs for a signed-out visitor. The sidebar is not rendered
 # either: it would leak the previous session's avatar, level and XP.
-#
-# A page refresh lands here again, because st.context.cookies is read-only and
-# Streamlit cannot persist a session. That is a known, accepted limitation.
 if not is_signed_in():
     ui_toast_area()
     view_auth.render()

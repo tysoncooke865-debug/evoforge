@@ -74,3 +74,6 @@ jobs:
 
       - name: verify_escape — AI and user text cannot inject HTML
         run: python tools/verify_escape.py
+
+      - name: verify_session — the refresh token rotates, and a dead one is binned
+        run: python tools/verify_session.py

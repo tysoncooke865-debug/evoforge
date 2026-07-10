@@ -80,6 +80,7 @@ def sign_in(email, password):
         return False, "Incorrect email or password."
 
     _remember(response.user)
+    _persist(response.session)
     _clear_cached_data()
     return True, None
 
@@ -116,21 +117,49 @@ def sign_up(email, password):
 
     if response.session:
         _remember(response.user)
+        _persist(response.session)
         _clear_cached_data()
         return True, None, False
 
     return True, None, True
 
 
+def _persist(session):
+    """Write the refresh token to the cookie. One place, called after every auth.
+
+    Supabase ROTATES the refresh token on every use and may invalidate the old one
+    immediately. Every successful `sign_in`, `sign_up` and `restore_session` must
+    write the new token, or the athlete is signed out intermittently -- the first
+    reopen succeeds, the second fails. Imported lazily: `auth.persistence` imports
+    `_remember` from this module.
+    """
+    try:
+        from auth.persistence import persist_session
+
+        persist_session(session)
+    except Exception:
+        # Losing persistence must never break signing in.
+        pass
+
+
 def sign_out():
     client = get_supabase_client()
     if client is not None:
         try:
+            # Revoke SERVER-side first. If deleting the cookie then fails, the token
+            # in it is already dead, and `restore_session` will bin it on next load.
             client.auth.sign_out()
         except Exception:
             # The local session is dropped below regardless: a failed network
             # call must never leave the browser session looking signed in.
             pass
+
+    try:
+        from auth.persistence import clear_session_cookie
+
+        clear_session_cookie()
+    except Exception:
+        pass
 
     st.session_state.pop(USER_KEY, None)
     reset_supabase_client()
