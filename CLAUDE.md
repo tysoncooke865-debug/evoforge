@@ -179,6 +179,15 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   orphaned sibling. Build the whole card in one f-string. Use
   `ui/avatar_images.py :: avatar_img_tag()` / `avatar_stage_html()` to embed images
   as real children.
+- **Escape every DB- or AI-sourced value that reaches `unsafe_allow_html`.** Use
+  `ui/escape.py :: esc()`. The untrusted sources are OpenAI (`custom_workout_plan`'s
+  `exercise`/`reps`, `stats["weak_point_focus"]`) and the athlete's own email, which
+  renders inside a `title="…"` attribute where a bare quote breaks *out of the
+  attribute*. Constants from `config/constants.py` are developer-controlled and need
+  no escaping. `st.caption`/`st.write`/widget labels are escaped by Streamlit.
+  `tools/verify_escape.py` renders Missions with a malicious AI exercise name and
+  **parses** the result — a regex would match `onmouseover=` sitting harmlessly
+  inside an escaped attribute value.
 - **There are FOUR caches over the same rows.** `cached_sb_select` (`st.cache_data`,
   process-global, keyed on `user_id`) and three per-session memos in
   `st.session_state`: `_fast_snapshot` (`get_fast_snapshot()`), `_avatar_stats_snapshot`
@@ -238,9 +247,9 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all eight:
+4. Before committing, run all nine:
    `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
-   `verify_css` · `verify_isolation` · `verify_perf`
+   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape`
    For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 

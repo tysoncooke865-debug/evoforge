@@ -10,6 +10,7 @@ from domain.avatar_stats import (
 from ui.avatar_images import (
     avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image,
 )
+from ui.escape import esc
 
 
 def render_avatar_stat(label, value, delta=None):
@@ -64,11 +65,11 @@ def render_avatar_image_panel(stats, compact=False):
             <div class="avatar-side-card-clean">
                 <div class="avatar-kicker">CURRENT FORM</div>
                 {rarity_badge_html(level)}
-                <div class="avatar-clean-title">{evo}</div>
-                <div class="avatar-clean-sub">{branch_name} • Level {level}</div>
+                <div class="avatar-clean-title">{esc(evo)}</div>
+                <div class="avatar-clean-sub">{esc(branch_name)} • Level {level}</div>
                 <div class="avatar-clean-pills">
-                    <span>{rank}</span>
-                    <span>Focus: {weak}</span>
+                    <span>{esc(rank)}</span>
+                    <span>Focus: {esc(weak)}</span>
                 </div>
             </div>
             """,

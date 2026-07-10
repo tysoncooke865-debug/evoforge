@@ -51,6 +51,8 @@ PROTECTED_PATTERNS=(
     '^tools/verify_isolation\.py$'
     '^tools/verify_css\.py$'
     '^tools/verify_perf\.py$'
+    '^tools/verify_escape\.py$'
+    '^ui/escape\.py$'            # the XSS boundary; a cookie is being added behind it
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)

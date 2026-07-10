@@ -39,6 +39,7 @@ CHECKS=(
     tools/verify_css.py
     tools/verify_isolation.py
     tools/verify_perf.py
+    tools/verify_escape.py
 )
 
 echo ""

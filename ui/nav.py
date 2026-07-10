@@ -6,6 +6,7 @@ from domain.avatar_stats import (
     branch_display_name, avatar_asset_for_stats, avatar_rarity,
 )
 from ui.avatar_images import img_to_base64
+from ui.escape import esc
 from ui.render_memo import avatar_stats
 
 PRIMARY_PAGES = ["Home", "Today", "Avatar", "Progress", "Physique", "Cardio", "Goals", "Data Manager"]
@@ -209,8 +210,12 @@ def render_sidebar_account():
         return
 
     st.sidebar.markdown('<div class="ef-side-nav-title">ACCOUNT</div>', unsafe_allow_html=True)
+    # The athlete chose this string at sign-up. It lands in a `title="..."` attribute,
+    # where an unescaped quote breaks out of the attribute rather than the element --
+    # `" onmouseover=alert(1) x="` is enough. `esc()` quotes it.
+    safe_email = esc(email)
     st.sidebar.markdown(
-        f'<div class="ef-side-account" title="{email}">{email}</div>',
+        f'<div class="ef-side-account" title="{safe_email}">{safe_email}</div>',
         unsafe_allow_html=True,
     )
     if st.sidebar.button("Sign out", key="evoforge_sign_out", width="stretch"):

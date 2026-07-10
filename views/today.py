@@ -9,6 +9,7 @@ from domain.custom_plan import load_custom_plan, filter_out_test_custom_plans, c
 from domain.workouts import load_log, get_last_sets, suggest_weight, save_set_auto
 from ui.nav import route_button
 from ui.components import page_hero, completed_sets_for_day_unique, render_target_bar
+from ui.escape import esc
 
 
 def render():
@@ -130,7 +131,11 @@ def render():
             safe_exercise_key = re.sub(r"[^a-zA-Z0-9_]+", "_", str(exercise)).strip("_")[:60]
             base_input_key = f"{workout_source}_{workout}_{exercise_index}_{safe_exercise_key}_{workout_date}_{st.session_state.get('selected_ai_custom_plan', '')}"
             with st.expander(f"⚡ {exercise}", expanded=True):
-                st.markdown(f"""<div class="nw-exercise-card"><div class="nw-card-title">{exercise}</div><div class="nw-small">{sets} sets × {reps_target}</div></div>""", unsafe_allow_html=True)
+                # `exercise` and `reps_target` come from `custom_workout_plan` --
+                # OpenAI output, stored in the database, injected straight into the
+                # DOM. The expander label above is safe: Streamlit escapes widget
+                # labels. This f-string does not.
+                st.markdown(f"""<div class="nw-exercise-card"><div class="nw-card-title">{esc(exercise)}</div><div class="nw-small">{esc(sets)} sets × {esc(reps_target)}</div></div>""", unsafe_allow_html=True)
 
                 if exercise in ["Barbell Bench Press (Strength)", "Barbell Bench Press"]:
                     st.markdown("""<div class="nw-note"><b>Strength bench:</b> heavy top set of 3-5 reps, then back-off work. Rest 3-5 minutes.</div>""", unsafe_allow_html=True)
