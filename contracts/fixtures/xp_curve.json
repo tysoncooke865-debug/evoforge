@@ -1,0 +1,875 @@
+{
+  "activity_xp": [
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": 0,
+        "total_sets": 0
+      }
+    },
+    {
+      "expected": 10,
+      "input": {
+        "cardio_minutes": 0,
+        "total_sets": 1
+      }
+    },
+    {
+      "expected": 2,
+      "input": {
+        "cardio_minutes": 1,
+        "total_sets": 0
+      }
+    },
+    {
+      "expected": 12,
+      "input": {
+        "cardio_minutes": 1,
+        "total_sets": 1
+      }
+    },
+    {
+      "expected": 160,
+      "input": {
+        "cardio_minutes": 30,
+        "total_sets": 10
+      }
+    },
+    {
+      "expected": 1000,
+      "input": {
+        "cardio_minutes": 0,
+        "total_sets": 100
+      }
+    },
+    {
+      "expected": 200,
+      "input": {
+        "cardio_minutes": 100,
+        "total_sets": 0
+      }
+    },
+    {
+      "expected": 35,
+      "input": {
+        "cardio_minutes": 2.5,
+        "total_sets": 3
+      }
+    },
+    {
+      "expected": 71,
+      "input": {
+        "cardio_minutes": 0.5,
+        "total_sets": 7
+      }
+    },
+    {
+      "expected": 20000,
+      "input": {
+        "cardio_minutes": 5000,
+        "total_sets": 1000
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": 0,
+        "total_sets": -1
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": -1,
+        "total_sets": 0
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": -5,
+        "total_sets": -5
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": null,
+        "total_sets": null
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "cardio_minutes": "xyz",
+        "total_sets": "abc"
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "cardio_minutes": "10",
+        "total_sets": "5"
+      }
+    }
+  ],
+  "constants": {
+    "FIRST_LEVEL_COST": 500,
+    "LEVEL_COST_STEP": 25,
+    "MAX_LEVEL": 100,
+    "MIN_LEVEL": 1,
+    "XP_PER_CARDIO_MINUTE": 2,
+    "XP_PER_SET": 10
+  },
+  "cumulative_xp": [
+    {
+      "expected": 0,
+      "input": {
+        "from_level": 1,
+        "to_level": 1
+      }
+    },
+    {
+      "expected": 500,
+      "input": {
+        "from_level": 1,
+        "to_level": 2
+      }
+    },
+    {
+      "expected": 5400,
+      "input": {
+        "from_level": 1,
+        "to_level": 10
+      }
+    },
+    {
+      "expected": 18900,
+      "input": {
+        "from_level": 1,
+        "to_level": 25
+      }
+    },
+    {
+      "expected": 53900,
+      "input": {
+        "from_level": 1,
+        "to_level": 50
+      }
+    },
+    {
+      "expected": 104525,
+      "input": {
+        "from_level": 1,
+        "to_level": 75
+      }
+    },
+    {
+      "expected": 170775,
+      "input": {
+        "from_level": 1,
+        "to_level": 100
+      }
+    },
+    {
+      "expected": 35000,
+      "input": {
+        "from_level": 25,
+        "to_level": 50
+      }
+    },
+    {
+      "expected": 116875,
+      "input": {
+        "from_level": 50,
+        "to_level": 100
+      }
+    },
+    {
+      "expected": 2950,
+      "input": {
+        "from_level": 99,
+        "to_level": 100
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "from_level": 100,
+        "to_level": 100
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "from_level": 50,
+        "to_level": 25
+      }
+    },
+    {
+      "expected": 2150,
+      "input": {
+        "from_level": 0,
+        "to_level": 5
+      }
+    },
+    {
+      "expected": 170775,
+      "input": {
+        "from_level": 1,
+        "to_level": 101
+      }
+    },
+    {
+      "expected": 1025,
+      "input": {
+        "from_level": -5,
+        "to_level": 3
+      }
+    }
+  ],
+  "xp_for_level": [
+    {
+      "expected": 500,
+      "input": -5
+    },
+    {
+      "expected": 500,
+      "input": 0
+    },
+    {
+      "expected": 500,
+      "input": 1
+    },
+    {
+      "expected": 525,
+      "input": 2
+    },
+    {
+      "expected": 700,
+      "input": 9
+    },
+    {
+      "expected": 725,
+      "input": 10
+    },
+    {
+      "expected": 750,
+      "input": 11
+    },
+    {
+      "expected": 1075,
+      "input": 24
+    },
+    {
+      "expected": 1100,
+      "input": 25
+    },
+    {
+      "expected": 1125,
+      "input": 26
+    },
+    {
+      "expected": 1450,
+      "input": 39
+    },
+    {
+      "expected": 1475,
+      "input": 40
+    },
+    {
+      "expected": 1500,
+      "input": 41
+    },
+    {
+      "expected": 1700,
+      "input": 49
+    },
+    {
+      "expected": 1725,
+      "input": 50
+    },
+    {
+      "expected": 1750,
+      "input": 51
+    },
+    {
+      "expected": 1950,
+      "input": 59
+    },
+    {
+      "expected": 1975,
+      "input": 60
+    },
+    {
+      "expected": 2000,
+      "input": 61
+    },
+    {
+      "expected": 2325,
+      "input": 74
+    },
+    {
+      "expected": 2350,
+      "input": 75
+    },
+    {
+      "expected": 2375,
+      "input": 76
+    },
+    {
+      "expected": 2700,
+      "input": 89
+    },
+    {
+      "expected": 2725,
+      "input": 90
+    },
+    {
+      "expected": 2750,
+      "input": 91
+    },
+    {
+      "expected": 2925,
+      "input": 98
+    },
+    {
+      "expected": 2950,
+      "input": 99
+    },
+    {
+      "expected": 2950,
+      "input": 100
+    },
+    {
+      "expected": 2950,
+      "input": 101
+    },
+    {
+      "expected": 2950,
+      "input": 150
+    },
+    {
+      "expected": 500,
+      "input": 1
+    },
+    {
+      "expected": 525,
+      "input": 2
+    },
+    {
+      "expected": 550,
+      "input": 3
+    },
+    {
+      "expected": 575,
+      "input": 4
+    },
+    {
+      "expected": 600,
+      "input": 5
+    },
+    {
+      "expected": 625,
+      "input": 6
+    },
+    {
+      "expected": 650,
+      "input": 7
+    },
+    {
+      "expected": 675,
+      "input": 8
+    },
+    {
+      "expected": 700,
+      "input": 9
+    },
+    {
+      "expected": 725,
+      "input": 10
+    },
+    {
+      "expected": 750,
+      "input": 11
+    },
+    {
+      "expected": 775,
+      "input": 12
+    },
+    {
+      "expected": 800,
+      "input": 13
+    },
+    {
+      "expected": 825,
+      "input": 14
+    },
+    {
+      "expected": 850,
+      "input": 15
+    },
+    {
+      "expected": 875,
+      "input": 16
+    },
+    {
+      "expected": 900,
+      "input": 17
+    },
+    {
+      "expected": 925,
+      "input": 18
+    },
+    {
+      "expected": 950,
+      "input": 19
+    },
+    {
+      "expected": 975,
+      "input": 20
+    },
+    {
+      "expected": 1000,
+      "input": 21
+    },
+    {
+      "expected": 1025,
+      "input": 22
+    },
+    {
+      "expected": 1050,
+      "input": 23
+    },
+    {
+      "expected": 1075,
+      "input": 24
+    },
+    {
+      "expected": 1100,
+      "input": 25
+    },
+    {
+      "expected": 1125,
+      "input": 26
+    },
+    {
+      "expected": 1150,
+      "input": 27
+    },
+    {
+      "expected": 1175,
+      "input": 28
+    },
+    {
+      "expected": 1200,
+      "input": 29
+    },
+    {
+      "expected": 1225,
+      "input": 30
+    },
+    {
+      "expected": 1250,
+      "input": 31
+    },
+    {
+      "expected": 1275,
+      "input": 32
+    },
+    {
+      "expected": 1300,
+      "input": 33
+    },
+    {
+      "expected": 1325,
+      "input": 34
+    },
+    {
+      "expected": 1350,
+      "input": 35
+    },
+    {
+      "expected": 1375,
+      "input": 36
+    },
+    {
+      "expected": 1400,
+      "input": 37
+    },
+    {
+      "expected": 1425,
+      "input": 38
+    },
+    {
+      "expected": 1450,
+      "input": 39
+    },
+    {
+      "expected": 1475,
+      "input": 40
+    },
+    {
+      "expected": 1500,
+      "input": 41
+    },
+    {
+      "expected": 1525,
+      "input": 42
+    },
+    {
+      "expected": 1550,
+      "input": 43
+    },
+    {
+      "expected": 1575,
+      "input": 44
+    },
+    {
+      "expected": 1600,
+      "input": 45
+    },
+    {
+      "expected": 1625,
+      "input": 46
+    },
+    {
+      "expected": 1650,
+      "input": 47
+    },
+    {
+      "expected": 1675,
+      "input": 48
+    },
+    {
+      "expected": 1700,
+      "input": 49
+    },
+    {
+      "expected": 1725,
+      "input": 50
+    },
+    {
+      "expected": 1750,
+      "input": 51
+    },
+    {
+      "expected": 1775,
+      "input": 52
+    },
+    {
+      "expected": 1800,
+      "input": 53
+    },
+    {
+      "expected": 1825,
+      "input": 54
+    },
+    {
+      "expected": 1850,
+      "input": 55
+    },
+    {
+      "expected": 1875,
+      "input": 56
+    },
+    {
+      "expected": 1900,
+      "input": 57
+    },
+    {
+      "expected": 1925,
+      "input": 58
+    },
+    {
+      "expected": 1950,
+      "input": 59
+    },
+    {
+      "expected": 1975,
+      "input": 60
+    },
+    {
+      "expected": 2000,
+      "input": 61
+    },
+    {
+      "expected": 2025,
+      "input": 62
+    },
+    {
+      "expected": 2050,
+      "input": 63
+    },
+    {
+      "expected": 2075,
+      "input": 64
+    },
+    {
+      "expected": 2100,
+      "input": 65
+    },
+    {
+      "expected": 2125,
+      "input": 66
+    },
+    {
+      "expected": 2150,
+      "input": 67
+    },
+    {
+      "expected": 2175,
+      "input": 68
+    },
+    {
+      "expected": 2200,
+      "input": 69
+    },
+    {
+      "expected": 2225,
+      "input": 70
+    },
+    {
+      "expected": 2250,
+      "input": 71
+    },
+    {
+      "expected": 2275,
+      "input": 72
+    },
+    {
+      "expected": 2300,
+      "input": 73
+    },
+    {
+      "expected": 2325,
+      "input": 74
+    },
+    {
+      "expected": 2350,
+      "input": 75
+    },
+    {
+      "expected": 2375,
+      "input": 76
+    },
+    {
+      "expected": 2400,
+      "input": 77
+    },
+    {
+      "expected": 2425,
+      "input": 78
+    },
+    {
+      "expected": 2450,
+      "input": 79
+    },
+    {
+      "expected": 2475,
+      "input": 80
+    },
+    {
+      "expected": 2500,
+      "input": 81
+    },
+    {
+      "expected": 2525,
+      "input": 82
+    },
+    {
+      "expected": 2550,
+      "input": 83
+    },
+    {
+      "expected": 2575,
+      "input": 84
+    },
+    {
+      "expected": 2600,
+      "input": 85
+    },
+    {
+      "expected": 2625,
+      "input": 86
+    },
+    {
+      "expected": 2650,
+      "input": 87
+    },
+    {
+      "expected": 2675,
+      "input": 88
+    },
+    {
+      "expected": 2700,
+      "input": 89
+    },
+    {
+      "expected": 2725,
+      "input": 90
+    },
+    {
+      "expected": 2750,
+      "input": 91
+    },
+    {
+      "expected": 2775,
+      "input": 92
+    },
+    {
+      "expected": 2800,
+      "input": 93
+    },
+    {
+      "expected": 2825,
+      "input": 94
+    },
+    {
+      "expected": 2850,
+      "input": 95
+    },
+    {
+      "expected": 2875,
+      "input": 96
+    },
+    {
+      "expected": 2900,
+      "input": 97
+    },
+    {
+      "expected": 2925,
+      "input": 98
+    },
+    {
+      "expected": 2950,
+      "input": 99
+    },
+    {
+      "expected": 2950,
+      "input": 100
+    }
+  ],
+  "xp_to_next_level": [
+    {
+      "expected": 500,
+      "input": -5
+    },
+    {
+      "expected": 500,
+      "input": 0
+    },
+    {
+      "expected": 500,
+      "input": 1
+    },
+    {
+      "expected": 525,
+      "input": 2
+    },
+    {
+      "expected": 700,
+      "input": 9
+    },
+    {
+      "expected": 725,
+      "input": 10
+    },
+    {
+      "expected": 750,
+      "input": 11
+    },
+    {
+      "expected": 1075,
+      "input": 24
+    },
+    {
+      "expected": 1100,
+      "input": 25
+    },
+    {
+      "expected": 1125,
+      "input": 26
+    },
+    {
+      "expected": 1450,
+      "input": 39
+    },
+    {
+      "expected": 1475,
+      "input": 40
+    },
+    {
+      "expected": 1500,
+      "input": 41
+    },
+    {
+      "expected": 1700,
+      "input": 49
+    },
+    {
+      "expected": 1725,
+      "input": 50
+    },
+    {
+      "expected": 1750,
+      "input": 51
+    },
+    {
+      "expected": 1950,
+      "input": 59
+    },
+    {
+      "expected": 1975,
+      "input": 60
+    },
+    {
+      "expected": 2000,
+      "input": 61
+    },
+    {
+      "expected": 2325,
+      "input": 74
+    },
+    {
+      "expected": 2350,
+      "input": 75
+    },
+    {
+      "expected": 2375,
+      "input": 76
+    },
+    {
+      "expected": 2700,
+      "input": 89
+    },
+    {
+      "expected": 2725,
+      "input": 90
+    },
+    {
+      "expected": 2750,
+      "input": 91
+    },
+    {
+      "expected": 2925,
+      "input": 98
+    },
+    {
+      "expected": 2950,
+      "input": 99
+    },
+    {
+      "expected": 2950,
+      "input": 100
+    },
+    {
+      "expected": 2950,
+      "input": 101
+    },
+    {
+      "expected": 2950,
+      "input": 150
+    }
+  ]
+}

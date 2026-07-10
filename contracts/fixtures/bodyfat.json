@@ -1,0 +1,355 @@
+{
+  "bodyfat_outputs": [
+    {
+      "expected": {
+        "fat_mass": 16.0,
+        "fat_to_lose": 8.888888888888886,
+        "lean_mass": 64.0,
+        "target_weight": 71.11111111111111
+      },
+      "input": {
+        "bf_percent": 20,
+        "target_bf": 10,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": 12.0,
+        "fat_to_lose": 4.444444444444443,
+        "lean_mass": 68.0,
+        "target_weight": 75.55555555555556
+      },
+      "input": {
+        "bf_percent": 15,
+        "target_bf": 10,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": 8.0,
+        "fat_to_lose": 0.0,
+        "lean_mass": 72.0,
+        "target_weight": 80.0
+      },
+      "input": {
+        "bf_percent": 10,
+        "target_bf": 10,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": 6.4,
+        "fat_to_lose": 0,
+        "lean_mass": 73.6,
+        "target_weight": 81.77777777777777
+      },
+      "input": {
+        "bf_percent": 8,
+        "target_bf": 10,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": 30.0,
+        "fat_to_lose": 20.454545454545453,
+        "lean_mass": 70.0,
+        "target_weight": 79.54545454545455
+      },
+      "input": {
+        "bf_percent": 30,
+        "target_bf": 12,
+        "weight_kg": 100
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": 8.63625,
+        "fat_to_lose": 3.2567934782608745,
+        "lean_mass": 61.863749999999996,
+        "target_weight": 67.24320652173913
+      },
+      "input": {
+        "bf_percent": 12.25,
+        "target_bf": 8.0,
+        "weight_kg": 70.5
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": 20,
+        "target_bf": 10,
+        "weight_kg": 0
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": 0,
+        "target_bf": 10,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": 20,
+        "target_bf": 0,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": 20,
+        "target_bf": 100,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": 20,
+        "target_bf": 150,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": null,
+        "target_bf": null,
+        "weight_kg": null
+      }
+    },
+    {
+      "expected": {
+        "fat_mass": null,
+        "fat_to_lose": null,
+        "lean_mass": null,
+        "target_weight": null
+      },
+      "input": {
+        "bf_percent": "def",
+        "target_bf": "ghi",
+        "weight_kg": "abc"
+      }
+    }
+  ],
+  "bodyfat_outputs_default_target": [
+    {
+      "expected": [
+        16.0,
+        64.0,
+        71.11111111111111,
+        8.888888888888886
+      ],
+      "input": {
+        "bf_percent": 20,
+        "weight_kg": 80
+      }
+    },
+    {
+      "expected": [
+        22.5,
+        67.5,
+        75.0,
+        15.0
+      ],
+      "input": {
+        "bf_percent": 25,
+        "weight_kg": 90
+      }
+    }
+  ],
+  "navy_body_fat_male": [
+    {
+      "expected": 16.150805610406614,
+      "input": {
+        "height_cm": 180,
+        "neck_cm": 38,
+        "waist_cm": 85
+      }
+    },
+    {
+      "expected": 19.927116435384626,
+      "input": {
+        "height_cm": 180,
+        "neck_cm": 38,
+        "waist_cm": 90
+      }
+    },
+    {
+      "expected": 14.543947115836453,
+      "input": {
+        "height_cm": 175,
+        "neck_cm": 36,
+        "waist_cm": 80
+      }
+    },
+    {
+      "expected": 22.36147114130737,
+      "input": {
+        "height_cm": 190,
+        "neck_cm": 42,
+        "waist_cm": 100
+      }
+    },
+    {
+      "expected": 9.861447729612244,
+      "input": {
+        "height_cm": 165,
+        "neck_cm": 33,
+        "waist_cm": 70
+      }
+    },
+    {
+      "expected": 15.648010364538258,
+      "input": {
+        "height_cm": 183,
+        "neck_cm": 37.5,
+        "waist_cm": 84.5
+      }
+    },
+    {
+      "expected": 15.979522199688539,
+      "input": {
+        "height_cm": 170.2,
+        "neck_cm": 35.1,
+        "waist_cm": 79.8
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": 180,
+        "neck_cm": 38,
+        "waist_cm": 38
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": 180,
+        "neck_cm": 38,
+        "waist_cm": 30
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": 0,
+        "neck_cm": 38,
+        "waist_cm": 85
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": 180,
+        "neck_cm": 0,
+        "waist_cm": 85
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": -180,
+        "neck_cm": 38,
+        "waist_cm": 85
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": null,
+        "neck_cm": null,
+        "waist_cm": null
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "height_cm": "abc",
+        "neck_cm": "ghi",
+        "waist_cm": "def"
+      }
+    }
+  ],
+  "safe_kg": [
+    {
+      "expected": "No data",
+      "input": null
+    },
+    {
+      "expected": "0.0kg",
+      "input": 0
+    },
+    {
+      "expected": "1.0kg",
+      "input": 1
+    },
+    {
+      "expected": "80.0kg",
+      "input": 80
+    },
+    {
+      "expected": "80.4kg",
+      "input": 80.44
+    },
+    {
+      "expected": "80.5kg",
+      "input": 80.45
+    },
+    {
+      "expected": "80.5kg",
+      "input": 80.55
+    },
+    {
+      "expected": "-3.2kg",
+      "input": -3.2
+    },
+    {
+      "expected": "80.0kg",
+      "input": "80"
+    },
+    {
+      "expected": "No data",
+      "input": "abc"
+    }
+  ]
+}

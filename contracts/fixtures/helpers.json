@@ -1,0 +1,523 @@
+{
+  "estimated_1rm": [
+    {
+      "expected": 103.33333333333334,
+      "input": {
+        "reps": 1,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 116.66666666666667,
+      "input": {
+        "reps": 5,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 133.33333333333331,
+      "input": {
+        "reps": 10,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 200.0,
+      "input": {
+        "reps": 30,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 76.0,
+      "input": {
+        "reps": 8,
+        "weight": 60
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "reps": 5,
+        "weight": 0
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "reps": 0,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "reps": -1,
+        "weight": 100
+      }
+    },
+    {
+      "expected": 126.41666666666667,
+      "input": {
+        "reps": 7,
+        "weight": 102.5
+      }
+    }
+  ],
+  "infer_muscle_group": [
+    {
+      "expected": "Back Width",
+      "input": "Assisted Pull-Up"
+    },
+    {
+      "expected": "Hamstrings",
+      "input": "Back Extension"
+    },
+    {
+      "expected": "Quads",
+      "input": "Barbell Back Squat"
+    },
+    {
+      "expected": "Chest",
+      "input": "Barbell Bench Press"
+    },
+    {
+      "expected": "Side Delts",
+      "input": "Behind-the-Back Cable Lateral Raise"
+    },
+    {
+      "expected": "Quads",
+      "input": "Bulgarian Split Squat"
+    },
+    {
+      "expected": "Chest",
+      "input": "Cable Chest Fly"
+    },
+    {
+      "expected": "Abs",
+      "input": "Cable Crunch"
+    },
+    {
+      "expected": "Biceps",
+      "input": "Cable Curl"
+    },
+    {
+      "expected": "Glutes",
+      "input": "Cable Kickback"
+    },
+    {
+      "expected": "Back Width",
+      "input": "Cable Lat Pullover (Straight-Arm Pulldown)"
+    },
+    {
+      "expected": "Side Delts",
+      "input": "Cable Lateral Raise"
+    },
+    {
+      "expected": "Rear Delts",
+      "input": "Cable Rear Delt Fly"
+    },
+    {
+      "expected": "Triceps",
+      "input": "Cable Triceps Pushdown"
+    },
+    {
+      "expected": "Forearms",
+      "input": "Cable Wrist Curl"
+    },
+    {
+      "expected": "Back Thickness",
+      "input": "Chest-Supported Dumbbell Row"
+    },
+    {
+      "expected": "Back Thickness",
+      "input": "Chest-Supported Machine Row"
+    },
+    {
+      "expected": "Rear Delts",
+      "input": "Chest-Supported Rear Delt Row"
+    },
+    {
+      "expected": "Triceps",
+      "input": "Close-Grip Bench Press"
+    },
+    {
+      "expected": "Chest",
+      "input": "Decline Push-Up"
+    },
+    {
+      "expected": "Abs",
+      "input": "Decline Sit-Up"
+    },
+    {
+      "expected": "Biceps",
+      "input": "Dumbbell Biceps Curl"
+    },
+    {
+      "expected": "Chest",
+      "input": "Dumbbell Flat Bench Press"
+    },
+    {
+      "expected": "Side Delts",
+      "input": "Dumbbell Lateral Raise"
+    },
+    {
+      "expected": "Biceps",
+      "input": "EZ-Bar Curl"
+    },
+    {
+      "expected": "Rear Delts",
+      "input": "Face Pull"
+    },
+    {
+      "expected": "Forearms",
+      "input": "Farmer Carry"
+    },
+    {
+      "expected": "Quads",
+      "input": "Hack Squat Machine"
+    },
+    {
+      "expected": "Biceps",
+      "input": "Hammer Curl"
+    },
+    {
+      "expected": "Abs",
+      "input": "Hanging Knee Raise"
+    },
+    {
+      "expected": "Glutes",
+      "input": "Hip Abduction Machine"
+    },
+    {
+      "expected": "Adductors",
+      "input": "Hip Adduction Machine"
+    },
+    {
+      "expected": "Glutes",
+      "input": "Hip Thrust Machine"
+    },
+    {
+      "expected": "Upper Chest",
+      "input": "Incline Barbell Bench Press"
+    },
+    {
+      "expected": "Upper Chest",
+      "input": "Incline Dumbbell Bench Press"
+    },
+    {
+      "expected": "Biceps",
+      "input": "Incline Dumbbell Curl"
+    },
+    {
+      "expected": "Upper Chest",
+      "input": "Incline Machine Chest Press"
+    },
+    {
+      "expected": "Upper Chest",
+      "input": "Incline Smith Machine Press"
+    },
+    {
+      "expected": "Back Width",
+      "input": "Lat Pulldown"
+    },
+    {
+      "expected": "Side Delts",
+      "input": "Lean-Away Cable Lateral Raise"
+    },
+    {
+      "expected": "Quads",
+      "input": "Leg Extension"
+    },
+    {
+      "expected": "Quads",
+      "input": "Leg Press"
+    },
+    {
+      "expected": "Calves",
+      "input": "Leg Press Calf Raise"
+    },
+    {
+      "expected": "Upper Chest",
+      "input": "Low-to-High Cable Fly"
+    },
+    {
+      "expected": "Hamstrings",
+      "input": "Lying Leg Curl"
+    },
+    {
+      "expected": "Abs",
+      "input": "Lying Leg Raise"
+    },
+    {
+      "expected": "Abs",
+      "input": "Machine Ab Crunch"
+    },
+    {
+      "expected": "Chest",
+      "input": "Machine Chest Press"
+    },
+    {
+      "expected": "Triceps",
+      "input": "Machine Dip"
+    },
+    {
+      "expected": "Back Thickness",
+      "input": "Machine High Row"
+    },
+    {
+      "expected": "Side Delts",
+      "input": "Machine Lateral Raise"
+    },
+    {
+      "expected": "Back Width",
+      "input": "Neutral-Grip Lat Pulldown"
+    },
+    {
+      "expected": "Triceps",
+      "input": "Overhead Cable Triceps Extension"
+    },
+    {
+      "expected": "Chest",
+      "input": "Pec Deck Machine Fly"
+    },
+    {
+      "expected": "Biceps",
+      "input": "Preacher Curl Machine"
+    },
+    {
+      "expected": "Forearms",
+      "input": "Reverse Curl"
+    },
+    {
+      "expected": "Rear Delts",
+      "input": "Reverse Pec Deck (Rear Delt Fly)"
+    },
+    {
+      "expected": "Hamstrings",
+      "input": "Romanian Deadlift"
+    },
+    {
+      "expected": "Back Thickness",
+      "input": "Seated Cable Row"
+    },
+    {
+      "expected": "Calves",
+      "input": "Seated Calf Raise"
+    },
+    {
+      "expected": "Hamstrings",
+      "input": "Seated Leg Curl"
+    },
+    {
+      "expected": "Hamstrings",
+      "input": "Seated/Lying Leg Curl"
+    },
+    {
+      "expected": "Back Width",
+      "input": "Single-Arm Cable Lat Pulldown"
+    },
+    {
+      "expected": "Triceps",
+      "input": "Single-Arm Cable Triceps Extension"
+    },
+    {
+      "expected": "Quads",
+      "input": "Smith Machine Squat"
+    },
+    {
+      "expected": "Calves",
+      "input": "Standing Calf Raise"
+    },
+    {
+      "expected": "Back Thickness",
+      "input": "T-Bar Row"
+    },
+    {
+      "expected": "Abs",
+      "input": "Weighted Sit-Up"
+    },
+    {
+      "expected": "Forearms",
+      "input": "Wrist Curl"
+    },
+    {
+      "expected": "Chest",
+      "input": "Barbell Bench Press (Strength)"
+    },
+    {
+      "expected": "Quads",
+      "input": "Barbell Back Squat"
+    },
+    {
+      "expected": "Other",
+      "input": "Totally Made Up Lift"
+    },
+    {
+      "expected": "Other",
+      "input": ""
+    }
+  ],
+  "safe_num": [
+    {
+      "expected": 1.0,
+      "input": {
+        "default": 0.0,
+        "value": 1
+      }
+    },
+    {
+      "expected": 1.5,
+      "input": {
+        "default": 0.0,
+        "value": 1.5
+      }
+    },
+    {
+      "expected": 2.5,
+      "input": {
+        "default": 0.0,
+        "value": "2.5"
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "default": 0.0,
+        "value": null
+      }
+    },
+    {
+      "expected": 99.0,
+      "input": {
+        "default": 99.0,
+        "value": null
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "default": 0.0,
+        "value": "abc"
+      }
+    },
+    {
+      "expected": -1.0,
+      "input": {
+        "default": -1.0,
+        "value": "abc"
+      }
+    },
+    {
+      "expected": 1.0,
+      "input": {
+        "default": 0.0,
+        "value": true
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "default": 0.0,
+        "value": []
+      }
+    }
+  ],
+  "safe_num_specials": [
+    {
+      "expected": 0.0,
+      "input": {
+        "default": 0.0,
+        "value": "NaN"
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "default": 0.0,
+        "value": "Infinity"
+      }
+    },
+    {
+      "expected": 7.5,
+      "input": {
+        "default": 7.5,
+        "value": "-Infinity"
+      }
+    }
+  ],
+  "score_0_100": [
+    {
+      "expected": 0,
+      "input": {
+        "high": 88,
+        "low": 65,
+        "value": 65
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "high": 88,
+        "low": 65,
+        "value": 88
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "high": 88,
+        "low": 65,
+        "value": 77
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "high": 88,
+        "low": 65,
+        "value": 50
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "high": 88,
+        "low": 65,
+        "value": 100
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "high": 65,
+        "low": 88,
+        "value": 70
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "high": 70,
+        "low": 70,
+        "value": 70
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "high": 10,
+        "low": 0,
+        "value": null
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "high": 10,
+        "low": 0,
+        "value": "abc"
+      }
+    }
+  ]
+}

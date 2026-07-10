@@ -1,0 +1,233 @@
+{
+  "progress_percent": [
+    {
+      "expected": 0.0,
+      "input": {
+        "xp_into_level": 0,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 50.0,
+      "input": {
+        "xp_into_level": 250,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "xp_into_level": 500,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 99.8,
+      "input": {
+        "xp_into_level": 499,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 33.33333333333333,
+      "input": {
+        "xp_into_level": 1,
+        "xp_needed": 3
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "xp_into_level": 600,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "xp_into_level": -10,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "xp_into_level": 0,
+        "xp_needed": 0
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "xp_into_level": 10,
+        "xp_needed": 0
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "xp_into_level": 10,
+        "xp_needed": -5
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "xp_into_level": null,
+        "xp_needed": 500
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "xp_into_level": "abc",
+        "xp_needed": "def"
+      }
+    }
+  ],
+  "resolve_xp": [
+    {
+      "expected": {
+        "drift": 0,
+        "source": "derived",
+        "xp": 0
+      },
+      "input": {
+        "derived_xp": 0,
+        "ledger_xp": null
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "derived",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": null
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "ledger",
+        "xp": 0
+      },
+      "input": {
+        "derived_xp": 0,
+        "ledger_xp": 0
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "ledger",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": 100
+      }
+    },
+    {
+      "expected": {
+        "drift": 50,
+        "source": "ledger",
+        "xp": 150
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": 150
+      }
+    },
+    {
+      "expected": {
+        "drift": -50,
+        "source": "derived (ledger behind)",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": 50
+      }
+    },
+    {
+      "expected": {
+        "drift": -100,
+        "source": "derived (ledger behind)",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": 0
+      }
+    },
+    {
+      "expected": {
+        "drift": 100,
+        "source": "ledger",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 0,
+        "ledger_xp": 100
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "derived",
+        "xp": 0
+      },
+      "input": {
+        "derived_xp": -50,
+        "ledger_xp": null
+      }
+    },
+    {
+      "expected": {
+        "drift": -100,
+        "source": "derived (ledger behind)",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": -50
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "derived",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": 100,
+        "ledger_xp": "abc"
+      }
+    },
+    {
+      "expected": {
+        "drift": 100,
+        "source": "ledger",
+        "xp": 100
+      },
+      "input": {
+        "derived_xp": "abc",
+        "ledger_xp": 100
+      }
+    },
+    {
+      "expected": {
+        "drift": 0,
+        "source": "derived",
+        "xp": 0
+      },
+      "input": {
+        "derived_xp": null,
+        "ledger_xp": null
+      }
+    }
+  ]
+}

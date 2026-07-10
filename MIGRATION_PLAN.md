@@ -2,7 +2,9 @@
 
 ## Context
 
-EvoForge is a fitness-RPG (workout logging → XP → evolving avatar, 66 achievements, leaderboard, OpenAI-vision physique analysis) currently built on Streamlit + Supabase. Streamlit is hitting its ceiling: rerun-the-whole-script rendering, session_state contortions for toasts, a JS-readable auth cookie forced by platform limits, ~6 MB of base64 images per render, and 1,570 lines of CSS fighting Streamlit's DOM. The team wants: (1) the exact same look, format, and functionality on a more robust stack, (2) a path to competitive live-action multiplayer mini-games, and (3) distribution on the iOS/Android app stores. The repo's own `ARCHITECTURE.md §5` already anticipated this migration and deliberately kept `domain/` framework-free for it.
+EvoForge is a fitness-RPG (workout logging → XP → evolving avatar, 64 achievements, leaderboard, OpenAI-vision physique analysis) currently built on Streamlit + Supabase. Streamlit is hitting its ceiling: rerun-the-whole-script rendering, session_state contortions for toasts, a JS-readable auth cookie forced by platform limits, ~6 MB of base64 images per render, and 1,570 lines of CSS fighting Streamlit's DOM. The team wants: (1) the exact same look, format, and functionality on a more robust stack, (2) a path to competitive live-action multiplayer mini-games, and (3) distribution on the iOS/Android app stores. The repo's own `ARCHITECTURE.md §5` already anticipated this migration and aimed to keep `domain/` framework-free for it.
+
+> **Correction (Phase 1, measured):** `domain/` is *not* framework-free today. Of its 15 modules only `domain/xp.py` imports nothing from `pandas`, `data/`, `ui/` or `streamlit`; the other 14 reach for `data.sb_ops` at module scope. They all still *import* cleanly without Supabase secrets, so `tools/gen_fixtures.py` can drive them — but "port all ~14 domain modules" below really means *port the pure functions now, and defer the DB-coupled readers (`load_log`, `workout_summary`, `check_achievements`, `calculate_avatar_stats`) to Phase 3*, where TanStack Query tests guard them instead of goldens.
 
 **Repo state:** working tree clean, `main` pushed to GitHub — the current version is already saved. This plan adds the rewrite branch.
 
@@ -13,7 +15,7 @@ EvoForge is a fitness-RPG (workout logging → XP → evolving avatar, 66 achiev
 | App framework | **Expo (React Native + TypeScript, Expo Router)** | One codebase → iOS + Android (app stores via EAS) + web (react-native-web). Real URLs on web, deep links on native. React/TS skills transfer from web experience; Flutter (Dart, canvas-rendered web) and Next.js-first (defers stores, guarantees a 2nd migration) rejected. |
 | Backend | **Supabase — unchanged** | The 13-table Postgres schema, RLS per-user isolation, `xp_total()`/`leaderboard_top()` RPCs, and anti-cheat `xp_events` trigger all survive untouched. Supabase Realtime covers multiplayer phase 1 (presence, challenges). Biggest de-risker of the whole migration. |
 | AI calls | **Supabase Edge Functions (Deno/TS)** | Moves `OPENAI_API_KEY` server-side (it can't ship in a client app). Same vendor, no new ops surface. Photos stay in-memory, never stored — same as today. |
-| Styling / animation | **NativeWind v4 + react-native-reanimated/Moti** | The 467 CSS design tokens port near-mechanically; the 13 keyframes become shared Reanimated animations. RN New Architecture supports `boxShadow`/`filter` for the neon glow. |
+| Styling / animation | **NativeWind v4 + react-native-reanimated/Moti** | The 56 `:root` design tokens port near-mechanically (467 was a miscount — there are 500 `var(--x)` *usages*); the 12 keyframes become shared Reanimated animations. RN New Architecture supports `boxShadow`/`filter` for the neon glow. |
 | Charts | **Hand-rolled `<LineChart>` (react-native-svg + d3-shape, ~150 lines)** | App only uses simple time-series lines; full control of neon styling; avoids Victory Native's ~7 MB CanvasKit wasm on web. |
 | State | **TanStack Query (server) + Zustand (UI)** | Query replaces all 4 hand-rolled cache layers (per-user keys, invalidate-on-write, `clear()` on sign-out). Zustand holds toast queue / XP burst / perf-mode flags. |
 | Auth storage | **supabase-js: SecureStore adapter on native, localStorage on web** | `autoRefreshToken` deletes the entire hand-rolled cookie/rotation saga in `auth/persistence.py`. React's default escaping kills the XSS vector that made the JS-readable cookie dangerous. Security upgrade by deletion. |
@@ -43,7 +45,12 @@ evoforge/
 
 ## What stays exactly as-is
 
-DB schema (13 tables, `DEFAULT auth.uid()` tenancy), all RLS policies, both RPCs, the append-only XP ledger + guard trigger, the hand-run numbered-SQL migration workflow, the 10 avatar PNGs, every design-token *value* (colors, glows, radii, durations), and every game rule as data: XP curve `500 + (L-1)*25`, 10 XP/set, 2 XP/cardio-min, rarity thresholds 25/50/75/100, branch rules, evolution names, `ROUTINE`, `EXERCISE_LIBRARY`, all 66 achievements, `resolve_xp` floor-at-derived + drift semantics.
+DB schema (13 tables, `DEFAULT auth.uid()` tenancy), all RLS policies, both RPCs, the append-only XP ledger + guard trigger, the hand-run numbered-SQL migration workflow, the 10 avatar PNGs, every design-token *value* (colors, glows, radii, durations), and every game rule as data: XP curve `500 + (L-1)*25`, 10 XP/set, 2 XP/cardio-min, rarity thresholds 25/50/75/100, branch rules, evolution names, `ROUTINE`, `EXERCISE_LIBRARY`, all 64 achievements, `resolve_xp` floor-at-derived + drift semantics.
+
+Two exceptions surfaced while building the Phase 1 goldens, both recorded in `contracts/fixtures/`:
+
+- **`evolution_name` was fixed, not preserved.** It promoted an aesthetic athlete to "True Adam" at `level >= 90`, contradicting the `true_adam` achievement ("Reached level 100."), `RANK_TIERS`, `avatar_stage_rows` and `avatar_rarity`, all of which say 100. Corrected to `>= 100`.
+- **Two rarity palettes ship simultaneously and are pinned as-is.** On one avatar card, `ui/avatar_cards.py` sets a `rarity-{slug}` class (aura, driven by the CSS `:root` tokens) *and* injects `rarity_badge_html()` (badge, driven by Python's `avatar_rarity()`). Only COMMON agrees; Python's EPIC `#38bdf8` is literally the CSS `--rare`. The port reproduces the mismatch. Unifying them is a deliberate visual change and does not belong inside a framework migration.
 
 ## View mapping (18 → Expo Router)
 
