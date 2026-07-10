@@ -21,10 +21,16 @@ publishable key. If RLS is off or permissive, that key is a skeleton key.
     #  delete the auth.users rows without a service-role key.         #
     ###################################################################
 
+There is also a read-only mode, `--anon-only`, which writes nothing and creates
+no accounts. It checks only property (3). That one is safe against PRODUCTION.
+
 Usage (PowerShell):
     $env:SUPABASE_URL = "https://<staging-ref>.supabase.co"
     $env:SUPABASE_KEY = "<staging publishable key>"
     python tools/verify_rls.py --i-understand-this-writes-to-the-database
+
+    # read-only, safe against production:
+    python tools/verify_rls.py --anon-only
 
 Usage (bash):
     export SUPABASE_URL=https://<staging-ref>.supabase.co
@@ -114,16 +120,61 @@ def make_user(url, key):
     return client, response.user.id, email
 
 
-def main():
-    if "--i-understand-this-writes-to-the-database" not in sys.argv:
-        print(__doc__)
-        print("Refusing to run without --i-understand-this-writes-to-the-database")
-        sys.exit(2)
+def anon_only(url, key):
+    """Read-only check: an unauthenticated publishable-key client reads nothing.
 
+    Writes nothing, creates no accounts. This is the check that is safe to point
+    at PRODUCTION. It is weaker than the full test -- it cannot prove that user A
+    is hidden from user B, only that a stranger with the publishable key sees
+    zero rows -- but that is the single most important property, and it is the
+    one that was unverified for the whole life of this project.
+    """
+    from supabase import create_client
+
+    anon = create_client(url, key)
+    failures, checked = [], 0
+    for table in TABLES:
+        try:
+            rows = anon.table(table).select("*").limit(1).execute().data or []
+        except Exception as exc:
+            # A hard denial is the ideal outcome, not an error.
+            print(f"  {table:<22} denied ({str(exc)[:40]})")
+            checked += 1
+            continue
+        if rows:
+            failures.append(f"LEAK: the anonymous publishable key reads {table}")
+            print(f"  {table:<22} LEAK -- {len(rows)} row(s) readable")
+        else:
+            print(f"  {table:<22} 0 rows")
+        checked += 1
+
+    print(f"\n{checked}/{len(TABLES)} tables checked")
+    if failures:
+        print(f"\nFAILED -- {len(failures)} problem(s):")
+        for f in failures:
+            print(f"  - {f}")
+        sys.exit(1)
+    print("\nANON LOCKED OUT: the publishable key alone reads nothing.")
+    print("Note: this does not prove user-vs-user isolation. Run the full test")
+    print("against staging for that.")
+
+
+def main():
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY")
     if not url or not key:
-        print("Set SUPABASE_URL and SUPABASE_KEY (staging project).")
+        print("Set SUPABASE_URL and SUPABASE_KEY.")
+        sys.exit(2)
+
+    if "--anon-only" in sys.argv:
+        print(f"Target: {url}  (read-only)\n")
+        anon_only(url, key)
+        return
+
+    if "--i-understand-this-writes-to-the-database" not in sys.argv:
+        print(__doc__)
+        print("Refusing to run without --i-understand-this-writes-to-the-database")
+        print("For a read-only check safe to point at production, use --anon-only")
         sys.exit(2)
 
     print(f"Target: {url}")
