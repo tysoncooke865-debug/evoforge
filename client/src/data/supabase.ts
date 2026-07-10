@@ -4,8 +4,15 @@ import 'react-native-url-polyfill/auto';
 
 import { LargeSecureStore } from './large-secure-store';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+// Trim and strip accidental wrapping quotes: these values transit dashboards,
+// .env files and CI secret forms, and a copy-paste from secrets.toml carries
+// TOML's double quotes along. createClient rejects `"https://...` as an
+// invalid URL -- in CI that surfaced only as a mid-export crash.
+const clean = (value: string | undefined) =>
+  value?.trim().replace(/^['"]+|['"]+$/g, '') || undefined;
+
+const supabaseUrl = clean(process.env.EXPO_PUBLIC_SUPABASE_URL);
+const supabaseKey = clean(process.env.EXPO_PUBLIC_SUPABASE_KEY);
 
 if (!supabaseUrl || !supabaseKey) {
   // EXPO_PUBLIC_ vars are inlined at build time; a missing one means .env.local

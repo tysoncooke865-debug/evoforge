@@ -2749,6 +2749,568 @@
       "input": ""
     }
   ],
+  "calculate_starting_level": [
+    {
+      "expected": 1,
+      "input": {
+        "bench_e1rm": 0,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 27,
+      "input": {
+        "bench_e1rm": 0,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_e1rm": 0,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_e1rm": 0,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 15,
+      "input": {
+        "bench_e1rm": 0,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 1,
+      "input": {
+        "bench_e1rm": 59,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 27,
+      "input": {
+        "bench_e1rm": 59,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_e1rm": 59,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_e1rm": 59,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 15,
+      "input": {
+        "bench_e1rm": 59,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 9,
+      "input": {
+        "bench_e1rm": 60,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 35,
+      "input": {
+        "bench_e1rm": 60,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 49,
+      "input": {
+        "bench_e1rm": 60,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_e1rm": 60,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 23,
+      "input": {
+        "bench_e1rm": 60,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 9,
+      "input": {
+        "bench_e1rm": 79,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 35,
+      "input": {
+        "bench_e1rm": 79,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 49,
+      "input": {
+        "bench_e1rm": 79,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_e1rm": 79,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 23,
+      "input": {
+        "bench_e1rm": 79,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 15,
+      "input": {
+        "bench_e1rm": 80,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_e1rm": 80,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_e1rm": 80,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 69,
+      "input": {
+        "bench_e1rm": 80,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 29,
+      "input": {
+        "bench_e1rm": 80,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 15,
+      "input": {
+        "bench_e1rm": 89,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_e1rm": 89,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_e1rm": 89,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 69,
+      "input": {
+        "bench_e1rm": 89,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 29,
+      "input": {
+        "bench_e1rm": 89,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 19,
+      "input": {
+        "bench_e1rm": 90,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_e1rm": 90,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_e1rm": 90,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 73,
+      "input": {
+        "bench_e1rm": 90,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_e1rm": 90,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 19,
+      "input": {
+        "bench_e1rm": 99,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_e1rm": 99,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_e1rm": 99,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 73,
+      "input": {
+        "bench_e1rm": 99,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_e1rm": 99,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 23,
+      "input": {
+        "bench_e1rm": 100,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 49,
+      "input": {
+        "bench_e1rm": 100,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_e1rm": 100,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 77,
+      "input": {
+        "bench_e1rm": 100,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_e1rm": 100,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 23,
+      "input": {
+        "bench_e1rm": 119,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 49,
+      "input": {
+        "bench_e1rm": 119,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_e1rm": 119,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 77,
+      "input": {
+        "bench_e1rm": 119,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_e1rm": 119,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 29,
+      "input": {
+        "bench_e1rm": 120,
+        "leanness_score": 0,
+        "physique_score": 0,
+        "squat_e1rm": 0,
+        "training_years": 0
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_e1rm": 120,
+        "leanness_score": 5,
+        "physique_score": 5,
+        "squat_e1rm": 100,
+        "training_years": 1
+      }
+    },
+    {
+      "expected": 69,
+      "input": {
+        "bench_e1rm": 120,
+        "leanness_score": 7.5,
+        "physique_score": 7.5,
+        "squat_e1rm": 140,
+        "training_years": 3
+      }
+    },
+    {
+      "expected": 83,
+      "input": {
+        "bench_e1rm": 120,
+        "leanness_score": 10,
+        "physique_score": 10,
+        "squat_e1rm": 180,
+        "training_years": 5
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_e1rm": 120,
+        "leanness_score": 14.5,
+        "physique_score": 0.5,
+        "squat_e1rm": 99,
+        "training_years": 0.9
+      }
+    },
+    {
+      "expected": 93,
+      "input": {
+        "bench_e1rm": 200,
+        "leanness_score": 15,
+        "physique_score": 15,
+        "squat_e1rm": 300,
+        "training_years": 20
+      }
+    }
+  ],
   "determine_avatar_branch": [
     {
       "expected": "aesthetic",
@@ -21332,6 +21894,48 @@
         "level": 150
       }
     }
+  ],
+  "rank_ladder": [
+    [
+      1,
+      9,
+      "🌱 Rookie"
+    ],
+    [
+      10,
+      24,
+      "⚔️ Trainee"
+    ],
+    [
+      25,
+      39,
+      "🦾 Athlete"
+    ],
+    [
+      40,
+      59,
+      "💎 Aesthetic Tier"
+    ],
+    [
+      60,
+      74,
+      "⚡ Elite Physique"
+    ],
+    [
+      75,
+      89,
+      "🗿 Chad-Lite"
+    ],
+    [
+      90,
+      99,
+      "👑 Chad"
+    ],
+    [
+      100,
+      100,
+      "☀️ True Adam"
+    ]
   ],
   "rank_name": [
     {

@@ -74,7 +74,7 @@ from domain.avatar_stats import (
 )
 from domain.bodyfat import bodyfat_outputs, navy_body_fat_male, safe_kg
 from domain.physique_ratings import safe_num, score_0_100
-from domain.profile import RANK_TIERS, rank_name
+from domain.profile import RANK_TIERS, calculate_starting_level, rank_ladder, rank_name
 from domain.workouts import estimated_1rm, infer_muscle_group
 from domain.xp import (
     FIRST_LEVEL_COST,
@@ -326,6 +326,37 @@ def fx_avatar():
         ],
         "rank_tiers": [[t, n] for t, n in RANK_TIERS],
         "rank_name": [_case(lv, rank_name(lv)) for lv in valid],
+        "rank_ladder": [[low, high, name] for low, high, name in rank_ladder()],
+        # Onboarding's placement formula. Bench/squat/years straddle every band
+        # edge; the self-ratings add through int() truncation; the sum clamps
+        # to 1..100.
+        "calculate_starting_level": [
+            _case(
+                {
+                    "bench_e1rm": b,
+                    "squat_e1rm": s,
+                    "training_years": y,
+                    "physique_score": p,
+                    "leanness_score": ln,
+                },
+                calculate_starting_level(b, s, y, p, ln),
+            )
+            for b in [0, 59, 60, 79, 80, 89, 90, 99, 100, 119, 120]
+            for s, y, p, ln in [
+                (0, 0, 0, 0),
+                (100, 1, 5, 5),
+                (140, 3, 7.5, 7.5),
+                (180, 5, 10, 10),
+                (99, 0.9, 0.5, 14.5),
+            ]
+        ]
+        + [
+            # Clamp ceiling: everything maxed must still be 100.
+            _case(
+                {"bench_e1rm": 200, "squat_e1rm": 300, "training_years": 20, "physique_score": 15, "leanness_score": 15},
+                calculate_starting_level(200, 300, 20, 15, 15),
+            )
+        ],
     }
 
 

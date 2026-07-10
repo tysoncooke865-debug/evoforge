@@ -34,7 +34,7 @@ import {
 import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
 import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE } from '../catalogs';
 import { safeNum, score0100 } from '../physique-ratings';
-import { rankName } from '../profile';
+import { calculateStartingLevel, rankLadder, rankName } from '../profile';
 import { estimated1rm, inferMuscleGroup } from '../workouts';
 import {
   FIRST_LEVEL_COST,
@@ -206,6 +206,17 @@ describe('avatar.json', () => {
     >[];
     rank_tiers: [number, string][];
     rank_name: Case<number, string>[];
+    rank_ladder: [number, number, string][];
+    calculate_starting_level: Case<
+      {
+        bench_e1rm: number;
+        squat_e1rm: number;
+        training_years: number;
+        physique_score: number;
+        leanness_score: number;
+      },
+      number
+    >[];
   }>('avatar.json');
 
   it('avatar_rarity', () => {
@@ -252,6 +263,23 @@ describe('avatar.json', () => {
     expect(fx.rank_tiers.length).toBeGreaterThan(0);
     expect(RANK_TIERS.map((t) => [...t])).toEqual(fx.rank_tiers);
     eachCase(fx.rank_name, (c) => expect(rankName(c.input), `level=${c.input}`).toBe(c.expected));
+    expect(fx.rank_ladder.length).toBeGreaterThan(0);
+    expect(rankLadder()).toEqual(fx.rank_ladder);
+  });
+
+  it('calculate_starting_level (onboarding placement)', () => {
+    eachCase(fx.calculate_starting_level, (c) =>
+      expect(
+        calculateStartingLevel(
+          c.input.bench_e1rm,
+          c.input.squat_e1rm,
+          c.input.training_years,
+          c.input.physique_score,
+          c.input.leanness_score
+        ),
+        JSON.stringify(c.input)
+      ).toBe(c.expected)
+    );
   });
 });
 
