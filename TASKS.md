@@ -25,6 +25,17 @@ been falsified** — delete the fix, watch it go red, restore.
 app against the new production project. What is left of T1 is dashboard hygiene —
 **T1c** — and one of its items is a live signup hole.
 
+**The Expo migration is under way on `expo-rewrite`** (MIGRATION_PLAN.md; state as
+of 2026-07-11). Phases 0 and 1 are done and green in CI; Phase 2 groundwork is in:
+route groups + sign-up + onboarding + Home on real data, 3,387 golden parity cases,
+browser smoke against production auth passes. `client/CLAUDE.md` is that side's
+memory. **Blocked on `[human]`:** the sign-in milestone test on web + Expo Go, and
+two GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) to light up the
+Pages preview URL — the deploy job already skips-clean until they exist. Note: the
+`EXPO_PUBLIC_SUPABASE_*` secrets are pasted with decoration (quotes or the whole
+TOML line); the client extracts the values anyway, but re-entering them bare would
+let the CI shape validator stop warning.
+
 ---
 
 ## UP NEXT — in this order
