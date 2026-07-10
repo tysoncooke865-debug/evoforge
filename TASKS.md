@@ -15,37 +15,48 @@ Plus: the doc describing the change is updated **in the same commit**.
 ---
 
 ## IN PROGRESS
-**T1b** — the migration landed and RLS is enforced locally. What is left is the
-*deployed* app: repoint Cloud's secrets, reboot, sign up, and close the dashboard
-chores. Only you can do those.
+**The cutover is done.** Two real users have signed up, onboarded and are using the
+app against the new production project. What is left of T1 is dashboard hygiene —
+**T1c** — and one of its items is a live signup hole.
 
 ---
 
 ## UP NEXT — in this order
 
-### T1b · Finish the production cutover `[human]` 🔴 blocks the public launch
+### T1c · Close out the cutover `[human]` 🔴 item 1 is a live hole
 
-The database half of T1 is **done** — see DONE below. `verify_rls.py --anon-only`
-prints `ANON LOCKED OUT` against the new production project, and the local
-`.streamlit/secrets.toml` points at it. The deployed app does not yet.
+The app is on the new project, RLS is enforced, `shot.py … live` is clean and
+`--anon-only` prints `ANON LOCKED OUT` against **populated** tables. Remaining, all
+in the Supabase dashboard:
 
-Remaining, all outside this repo:
-1. `truncate` the new production project's 11 tables if `000`'s seed rows are still
-   there. **Do this before signing up**, or seed rows become your real data.
+1. **Re-enable "Confirm email"** (Authentication → Providers → Email). It was turned
+   off so `verify_rls.py` could sign in. **While it is off anyone can register an
+   address they do not own** — this is open right now, on a live public app.
 2. Delete the `rls-verify-*` accounts and the throwaway owner.
-3. Repoint **Streamlit Cloud → Settings → Secrets** at the new project + rotated key.
-   (`.streamlit/secrets.toml` is already done.)
-4. Reboot the app (Cloud keeps stale modules across a pull).
-5. Sign up. `_just_signed_up` is set, so the wizard runs immediately.
-6. **Re-enable "Confirm email"** — it was turned off so `verify_rls.py` could sign
-   in. While it is off, anyone can register an address they do not own.
-7. Keep the old project **paused, not deleted**: it holds the only copy of the 646
+3. Confirm `000`'s seed rows are gone. If the tables were never truncated, those rows
+   still exist owned by the throwaway account — invisible to real users under RLS,
+   but they will resurface the moment anything aggregates across users
+   (leaderboards, T15). Truncating now is safe: real users' rows are separate.
+4. Keep the old project **paused, not deleted** — it is the only copy of the 646
    rows. Delete the third, empty project.
 
-- **Acceptance:** `python tools/shot.py https://evoforge.streamlit.app/ live` is clean,
-  and `--anon-only` still passes *after* there is real data in the tables (see the
-  weak-green note in `CLAUDE.md` → Auth).
+- **Do not run the full `verify_rls.py` against this project.** It writes to all 11
+  tables and creates accounts. It is a staging tool, and this is production now.
 - Project refs are deliberately not recorded here. This repo is public.
+
+### T1d · Verify per-user isolation *in the app*, not just in the database `[claude]` 🟠
+RLS is proven at the SQL layer. The app has a second, independent way to leak one
+user's data to another: Streamlit's caches are **process-global**, and Cloud serves
+many browser sessions from one process. `cached_sb_select` is keyed on `user_id` and
+`_sb_client` is per-session and never `@st.cache_resource`d — both correct, both
+untested by anything in `tools/`.
+
+- Now testable for the first time: there are two real accounts on one Cloud process.
+- **Cheapest check, do it today:** you and your mate load Home at the same time.
+  Each must see *your own* level, avatar and XP. If either sees the other's, the
+  bug is in the cache key, not in RLS.
+- **Acceptance:** a harness that runs two AppTest sessions with different `user_id`s
+  and asserts no row crosses over.
 
 ### T3b · Apply the `xp_events` ledger `[claude]` + `[human]` 🟠 `[architect]`
 `migrations/002_xp_events.sql` is written and **not applied**. XP is still derived
@@ -132,10 +143,15 @@ paths — that is intended. Hand those tasks to Claude.**
     into `.streamlit/secrets.toml.example`, which is **tracked** and the repo is
     **public**. Caught unstaged, so nothing leaked and no rotation was needed. The
     gitignored file and the tracked one differ by eight characters.
-  - The `--anon-only` green was measured against an **empty** database, where it is
-    weak evidence: zero rows is consistent with RLS off. The proof is the earlier
-    full run. Re-run it once real data exists.
-  - Remaining deploy-side work moved to **T1b**.
+  - The first `--anon-only` green was measured against an **empty** database, where it
+    proved nothing: zero rows is consistent with RLS off. **Re-run 2026-07-10 against
+    populated tables** — two users onboarded, so `profile` demonstrably held rows —
+    and an anonymous client still read zero. *That* is the denial.
+  - `tools/shot.py … live` clean on desktop and mobile. Note it only exercised the
+    signed-out auth gate, which touches no database: it could not have distinguished
+    the new project from the old paused one. The cutover was confirmed by two humans
+    signing up, not by that check.
+  - Remaining dashboard hygiene moved to **T1c**; in-app cache isolation to **T1d**.
 - **T3 · Unified XP.** One curve in `domain/xp.py`, pure and portable. Advancing from
   level `L` costs `500 + (L-1)*25`; the progress bar divides by the same number that
   grants the level, so it reaches exactly 100% at level-up — previously impossible.

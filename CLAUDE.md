@@ -94,13 +94,17 @@ than migrated: the staging project, which already had `001` applied and had pass
 the full `verify_rls.py`, was adopted as the new production. The old one is
 **paused, not deleted** — it holds the only copy of those 646 rows.
 
-- `verify_rls.py --anon-only` prints `ANON LOCKED OUT`.
-- **That green is weak on an empty database.** Zero rows is consistent with RLS
-  enforced *and* with RLS off on an empty table. The real proof is the full
-  `verify_rls.py` run against this same project, which inserted rows as two users
-  and showed neither could read the other's. Re-run `--anon-only` once there is
-  real data — that is when it starts meaning something. *An error is not a denial;
-  zero rows is not a denial either, when there are zero rows.*
+- `verify_rls.py --anon-only` prints `ANON LOCKED OUT` — **re-verified 2026-07-10
+  against populated tables**, after two real users signed up and onboarded. An
+  anonymous client read 0 rows from tables that demonstrably held rows. That is a
+  denial, not an empty table.
+- The first `--anon-only` green was measured on an *empty* database and proved
+  nothing: zero rows is consistent with RLS off. Keep the habit — *an error is not
+  a denial; zero rows is not a denial either, when there are zero rows.*
+- User-vs-user isolation comes from the full `verify_rls.py` run against this same
+  project (two users, neither reading the other's rows, forged `user_id` rejected).
+  The policies have not changed since. **Do not run the full test now** — it writes
+  to all 11 tables and this project is production.
 
 ## The XP / evolution contract
 **`domain/xp.py` is the single source of truth. It is pure — no streamlit, no
