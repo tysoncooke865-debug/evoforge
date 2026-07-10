@@ -501,12 +501,16 @@ span[class*="material-symbols"],
     font-weight: 600;
 }
 
-/* Optional second line under a target bar: "Base level 42". Dimmer than the
-   label above it, so the numbers stay the loudest thing in the card. */
+/* Optional second line under a target bar: "Base level 42".
+   Context, not a number -- so it must not outshine the label above it.
+   NOTE: --text-dim (#93a6c4) is BRIGHTER than --text-mute (#64758f). The names
+   read the other way round. This rule used --text-dim and the helper drowned out
+   the figures it was supposed to annotate. */
 .progress-helper {
     margin-top: var(--s1);
     font-size: var(--fs-2xs);
-    color: var(--text-dim);
+    color: var(--text-mute);
+    opacity: .85;
     letter-spacing: .02em;
 }
 
