@@ -28,7 +28,7 @@ No new features. Make the foundation safe to build on.
 
 | # | Task | Status |
 |---|---|---|
-| 7 | **Schema migration: `user_id uuid` on all 11 tables** + composite key for `achievements` | ✅ written — `migrations/001`, **not yet run** |
+| 7 | **Schema migration: `user_id uuid` on all 11 tables** + dedupe and composite key for `achievements` | ✅ written — `migrations/001`, **not yet run** |
 | 8 | **Supabase Auth**, login gate, session identity, onboarding wizard | ✅ done |
 | 9 | **RLS policies** on every table: `user_id = auth.uid()` | in `migrations/001`, **not yet applied** |
 | 10 | Per-user cache keys — `cached_sb_select(_sb, table, user_id)` | ✅ done |

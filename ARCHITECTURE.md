@@ -177,6 +177,17 @@ views/auth.py  sign_in()
 Break any link and RLS silently degrades to "the publishable key sees everything".
 The most fragile link is the client: cache it globally and it is shared.
 
+### A note on natural keys
+`achievements` has only `achievements_pkey PRIMARY KEY (id)` — verified against the
+live schema. There is **no** unique constraint on `achievement_id`. So users could
+never have collided there, but nothing prevented the same achievement being stored
+twice for the same person; `load_achievements()` hides that with `drop_duplicates()`
+at read time. `migrations/001` STEP 4 deletes the duplicates and adds the
+`unique (user_id, achievement_id)` index that should have existed all along.
+
+`avatar_progression` deliberately gets no unique constraint: it is an append-only
+snapshot log and its `timestamp` has second resolution.
+
 ### Remaining, in order
 1. Run `migrations/001_add_user_id_and_rls.sql` (owner signs up first, then backfill).
 2. Run `tools/verify_rls.py` against staging. **Nothing ships publicly before it passes.**

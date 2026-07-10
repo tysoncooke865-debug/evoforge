@@ -94,7 +94,7 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 6 | Three XP formulas: `workout_summary` grants a level per flat 500 XP; `xp_to_next_level` = `500+(level-1)*25`; `current_level_xp` falls back to `sets*35+reps*2`. **The progress bar can never fill at level-up**, and you cannot rank on this | fix before leaderboards |
 | 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | needed for PvP/seasons |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
-| 9 | `achievements`/`avatar_progression` use natural keys, unscoped → collide across users | fix with #2 |
+| 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
 | 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
 | 11 | `.streamlit/secrets.toml` holds a `SUPABASE_SECRET_KEY` + JWKS URL the app never reads | remove and rotate |
 | 12 | Streamlit cannot do mobile apps, real-time PvP, or embedded payments | plan the seam, don't rewrite |

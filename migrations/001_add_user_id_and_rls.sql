@@ -39,6 +39,18 @@ group by table_name
 order by table_name;
 -- Expect 11 rows. If a table is missing, stop.
 
+-- Which tables expose an `id` primary key? views/delete_data.py deletes by `id`
+-- when it is present and falls back to matching scalar identity columns when it
+-- is not. Informational -- nothing here depends on the answer.
+select c.relname as table_name, a.attname as pk_column
+from pg_constraint k
+join pg_class c on c.oid = k.conrelid
+join pg_namespace n on n.oid = c.relnamespace
+join unnest(k.conkey) as col(attnum) on true
+join pg_attribute a on a.attrelid = c.oid and a.attnum = col.attnum
+where k.contype = 'p' and n.nspname = 'public'
+order by c.relname;
+
 
 -- ===========================================================================
 -- STEP 1 — add the column, nullable, with no default yet
@@ -122,13 +134,44 @@ end $$;
 
 
 -- ===========================================================================
--- STEP 4 — scope the natural key
+-- STEP 4 — deduplicate achievements, then scope the natural key
 --
--- `achievements.achievement_id` was unique across the whole table. Two users
--- unlocking "first_workout" would collide: the second insert would fail.
+-- Verified against the live schema: the only constraint on `achievements` is
+-- `achievements_pkey PRIMARY KEY (id)`. There is NO unique constraint on
+-- `achievement_id`, so users could never have collided -- but nothing has ever
+-- stopped the same achievement being inserted twice for the same person either.
+-- `domain/achievements.py :: load_achievements()` calls drop_duplicates() to
+-- hide exactly that at read time.
+--
+-- So the unique index below is NEW, and it will fail on existing duplicates.
+-- Dedupe first, or STEP 4 aborts after STEP 3 has already made the schema
+-- irreversible.
 -- ===========================================================================
+
+-- Look before you leap. Run this on its own and read the output.
+select user_id, achievement_id, count(*) as copies
+from public.achievements
+group by user_id, achievement_id
+having count(*) > 1
+order by copies desc;
+
+-- Keep the row the app already displays. load_achievements() sorts by
+-- date_unlocked ascending and keeps the last -- i.e. the most recent unlock.
+-- `id` breaks ties so exactly one row survives per (user_id, achievement_id).
+-- The ::text casts make this work whether date_unlocked is text or timestamptz,
+-- and coalesce stops a NULL comparison from silently keeping a duplicate.
+delete from public.achievements a
+using public.achievements b
+where a.user_id = b.user_id
+  and a.achievement_id = b.achievement_id
+  and (coalesce(a.date_unlocked::text, ''), a.id::text)
+    < (coalesce(b.date_unlocked::text, ''), b.id::text);
+
+-- No-ops on this database (no such constraint). Kept because a project created
+-- from an older schema dump may have one.
 alter table public.achievements drop constraint if exists achievements_achievement_id_key;
 drop index if exists public.achievements_achievement_id_key;
+
 create unique index if not exists achievements_user_achievement_uidx
   on public.achievements (user_id, achievement_id);
 
