@@ -271,11 +271,31 @@ On 2026-07-10 four checks passed while testing nothing. Three shared one cause.
 > it cannot see a single page behind the login. It proves the app boots, nothing more.
 
 ## Deploying to Streamlit Cloud
+
+**Cloud must run Python 3.13.** Manage app → Settings → Advanced → Python version.
+It defaulted to **3.14**, and that cost two outages on 2026-07-10:
+
+1. `requirements.txt` pinned nothing. A redeploy re-resolved the stack and the app
+   **segfaulted** right after `Uvicorn server started`, before running a line of its
+   own code. A segfault at import is a **native ABI mismatch** — `pandas`, `numpy`
+   and `pyarrow` all ship compiled C and must agree. No Python exception, nothing to
+   catch, and it happens on *any* redeploy. The commit that triggered it was
+   innocent; reverting it did not help.
+2. Pinned conservatively, still on 3.14: `numpy 2.2.6` has no cp314 wheel, so pip
+   tried to compile it and Cloud has no compiler — `error: command 'cmake' failed`.
+   The only versions installable on 3.14 are the bleeding-edge ones from (1).
+
+**Every dependency is pinned, including `pyarrow`** — nothing imports it directly,
+but Streamlit needs it and only says `>=7.0`. Bump pins one at a time. **A green CI
+is the pre-flight check for a reboot**: it installs `requirements.txt` on Linux for
+3.11 and 3.13 and executes `app.py`, which is the import path that segfaulted.
+
 **Reboot the app after every push.** Cloud pulls new code and re-runs the script
 *without restarting Python*, so modules already in `sys.modules` keep their old
 code. A brand-new package (`auth/`) imports fresh while an edited one (`data/`)
 does not — producing `ImportError: cannot import name X` for a name that plainly
-exists on `main`. Manage app → ⋮ → Reboot app.
+exists on `main`. Manage app → ⋮ → Reboot app. If a reboot reuses a poisoned
+environment, **Delete and redeploy** instead.
 
 Then verify: `python tools/shot.py https://evoforge.streamlit.app/ live`.
 It knows the app runs inside an `<iframe>` at `<host>/~/+/` and measures that

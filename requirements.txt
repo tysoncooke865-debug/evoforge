@@ -1,50 +1,54 @@
-# PIN EVERYTHING, AND PIN PER PYTHON VERSION.
+# PIN EVERYTHING. And run Streamlit Cloud on Python 3.13.
 #
-# Two outages, one root cause: Streamlit Cloud is running Python 3.14, and the
-# native scientific stack barely has wheels for it.
+# ############################################################################
+# #  CLOUD MUST RUN PYTHON 3.13.                                             #
+# #  Manage app -> Settings -> Advanced -> Python version -> 3.13.           #
+# #  Every pin below then installs from a prebuilt wheel: no compiler, no    #
+# #  source build. It is also what CI tests and what the app is developed    #
+# #  against. This is not a preference; two outages came from ignoring it.   #
+# ############################################################################
 #
-# 1) Unpinned, 2026-07-10. A redeploy re-resolved the whole stack and the app died
-#    before running a line of its own code:
+# Two outages on 2026-07-10, one root cause: Cloud had defaulted to Python 3.14,
+# for which the native scientific stack barely has wheels.
+#
+# 1) UNPINNED. A redeploy re-resolved the whole stack and the app died before it
+#    ran a line of its own code:
 #
 #        Uvicorn server started on :::8501
 #        run-streamlit.sh: line 9: 177 Segmentation fault
 #
-#    A segfault at import time is a NATIVE ABI mismatch. pandas, numpy and pyarrow
-#    all ship compiled C and must agree with each other. Nothing can catch it.
+#    A segfault at import time is a NATIVE ABI mismatch: pandas, numpy and pyarrow
+#    all ship compiled C and must agree with each other. It is not a Python
+#    exception, nothing can catch it, and it would have happened on ANY redeploy.
+#    The commit that triggered it was innocent -- reverting it did not help.
 #
-# 2) Pinned conservatively. On Python 3.14 there is no numpy 2.2.6 wheel, so pip
-#    tried to BUILD it, and Cloud's image has no compiler:
+# 2) PINNED, still on 3.14. numpy 2.2.6 publishes no cp314 wheel, so pip tried to
+#    build it from source and Cloud's image has no compiler:
 #
 #        Downloading numpy-2.2.6.tar.gz (20.3 MB)
 #        error: command 'cmake' failed: No such file or directory
 #
-# First Linux cp314 wheels: numpy 2.4.4, pyarrow 22.0.0, pandas 3.0.x.
-# So the conservative pins CANNOT be used on 3.14, and the 3.14-capable versions
-# are the bleeding-edge ones. Hence the markers below.
+#    First Linux cp314 wheels: numpy 2.4.4, pyarrow 22.0.0, pandas 3.0.x -- i.e.
+#    the only versions installable on 3.14 are the bleeding-edge ones that
+#    segfaulted in (1). Do not try to pin your way around a too-new interpreter.
 #
-# ############################################################################
-# #  PREFER PYTHON 3.13 ON STREAMLIT CLOUD.                                  #
-# #  Manage app -> Settings -> Advanced -> Python version -> 3.13.           #
-# #  Everything below then installs from a prebuilt wheel: no compiler, no   #
-# #  source build, and versions with years of use behind them. It is also    #
-# #  what CI tests and what the app is developed against.                    #
-# ############################################################################
+# Fixed by setting Cloud's Python to 3.13. The app came back on the pins below.
 #
 # An unpinned requirements.txt means the app you test is not the app that deploys.
 # Bump these deliberately, one at a time, and reboot Cloud to check.
+# CI installs this file on Linux for 3.11 and 3.13 and executes app.py through
+# AppTest -- the same import path that segfaulted. Green CI before every reboot.
 
 streamlit==1.49.1   # width="stretch", st.container(key=...), :has() styling
 
-# --- native, ABI-coupled. These three must agree with each other. -------------
-# <= 3.13: the well-trodden set. 3.14: the oldest versions with a cp314 wheel.
-pandas==2.3.3   ; python_version < "3.14"
-pandas==3.0.4   ; python_version >= "3.14"
-numpy==2.2.6    ; python_version < "3.14"
-numpy==2.5.1    ; python_version >= "3.14"
-pyarrow==18.1.0 ; python_version < "3.14"
-pyarrow==24.0.0 ; python_version >= "3.14"
+# Native, ABI-coupled. These three ship compiled C and must agree with each other.
+# pyarrow is pinned explicitly even though nothing here imports it: streamlit
+# depends on it and only says ">=7.0", which is how a fresh resolve reached 24.
+pandas==2.3.3
+numpy==2.2.6
+pyarrow==18.1.0
 
-pillow==11.3.0      # cp314 wheels exist from 11.3.0, so one pin covers both
+pillow==11.3.0
 supabase==2.31.0    # supabase_auth 2.31 -> set_session / refresh_session
 openai==2.44.0      # `client.responses.create` -- the Responses API. Do NOT
                     # downgrade to 1.x: `responses` does not exist there and every
