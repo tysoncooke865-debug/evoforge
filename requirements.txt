@@ -1,8 +1,31 @@
-# width="stretch" (replacing the deprecated use_container_width) needs a
-# reasonably recent Streamlit, as does st.container(key=...) and :has() styling.
-streamlit>=1.49
-pandas
-Pillow
-supabase
-openai
-numpy
+# PIN EVERYTHING.
+#
+# Nothing here was pinned except `streamlit>=1.49`, so every redeploy re-resolved
+# the entire stack. On 2026-07-10 Streamlit Cloud resolved a fresh set and the app
+# died before it ran a single line:
+#
+#     [10:25:50] Uvicorn server started on :::8501
+#     run-streamlit.sh: line 9: 177 Segmentation fault
+#
+# A segfault at import time is a NATIVE extension mismatch. pandas, numpy and
+# pyarrow all ship compiled code and must agree on each other's ABI; Cloud reported
+# "Streamlit is already installed" and then let `uv` resolve the rest around it.
+# It is not a Python exception, nothing can catch it, and it would have happened on
+# ANY redeploy. The commit that triggered it was innocent.
+#
+# An unpinned requirements.txt means the app you tested is not the app that deploys.
+# Bump these deliberately, one at a time, and reboot Cloud to check.
+#
+# CI (.github/workflows/verify.yml) installs exactly this file on Linux for Python
+# 3.11 and 3.13 and then executes app.py through AppTest -- the same import path
+# that segfaulted. A green CI is the pre-flight check for a Cloud reboot.
+
+streamlit==1.49.1   # width="stretch", st.container(key=...), :has() styling
+pandas==2.3.3       # NOT 3.x. Native; must agree with numpy and pyarrow.
+numpy==2.2.6        # what pandas 2.3.x is built against; has cp313 wheels
+pyarrow==18.1.0     # pinned explicitly: streamlit only says ">=7.0"
+pillow==11.3.0
+supabase==2.31.0    # supabase_auth 2.31 -> set_session / refresh_session
+openai==2.44.0      # `client.responses.create` -- the Responses API. Do NOT
+                    # downgrade to 1.x: `responses` does not exist there and every
+                    # AI feature (avatar, physique, body fat) breaks.
