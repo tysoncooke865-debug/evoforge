@@ -159,6 +159,19 @@ The junior AI must never touch these. See LOCAL_AI.md.
 > traceback. Never verify with `curl` alone. Two pages crashed on load for months
 > behind a green 200.
 
+## Deploying to Streamlit Cloud
+**Reboot the app after every push.** Cloud pulls new code and re-runs the script
+*without restarting Python*, so modules already in `sys.modules` keep their old
+code. A brand-new package (`auth/`) imports fresh while an edited one (`data/`)
+does not — producing `ImportError: cannot import name X` for a name that plainly
+exists on `main`. Manage app → ⋮ → Reboot app.
+
+Then verify: `python tools/shot.py https://evoforge.streamlit.app/ live`.
+It knows the app runs inside an `<iframe>` at `<host>/~/+/` and measures that
+frame. The main frame is the Cloud wrapper, where every selector returns 0 and
+every check passes vacuously — that is how a dead deploy once reported
+"NO PROBLEMS DETECTED".
+
 ## Docs
 - `migrations/001_add_user_id_and_rls.sql` — tenancy + RLS. Read before touching schema.
 - `ARCHITECTURE.md` — structure, data flow, security model, scale plan (10 → 100k users)
