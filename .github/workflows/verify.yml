@@ -62,3 +62,6 @@ jobs:
 
       - name: verify_goals — progress measures the journey, not a ratio
         run: python tools/verify_goals.py
+
+      - name: verify_css — no !important outside the allow-list
+        run: python tools/verify_css.py

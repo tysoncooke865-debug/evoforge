@@ -5,20 +5,13 @@ from data.supabase_client import supabase_enabled
 from domain.workouts import load_log, workout_summary, normalise_workout_log
 from domain.avatar_stats import (
     calculate_avatar_stats, avatar_asset_for_stats, evolution_name, branch_display_name,
-    rarity_badge_html, next_evolution_info, avatar_rarity,
+    rarity_badge_html, next_evolution_info, rarity_slug,
 )
 from domain.targets import journey_percent
 from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
 from ui.avatar_images import avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image
 from ui.nav import route_button
-
-
-def _rarity_slug(level):
-    try:
-        return avatar_rarity(int(level))[0].lower()
-    except Exception:
-        return "common"
 
 
 def render_forge_signature():
@@ -192,7 +185,7 @@ def render_base_console_panel(stats=None):
     branch = stats.get("avatar_branch", "aesthetic")
     branch_name = branch_display_name(branch)
     stage_name = evolution_name(branch, level)
-    rarity = _rarity_slug(level)
+    rarity = rarity_slug(level)
 
     try:
         summary = get_fast_snapshot().get("summary", {})
@@ -257,7 +250,7 @@ def render_evolution_showcase(stats=None):
     try:
         _, _, current_path = avatar_asset_for_stats(stats)
         current_html = avatar_stage_html(
-            current_path, rarity=_rarity_slug(level), size="md", alt="Current form"
+            current_path, rarity=rarity_slug(level), size="md", alt="Current form"
         )
     except Exception:
         current_html = ""
@@ -273,7 +266,7 @@ def render_evolution_showcase(stats=None):
             next_img = make_locked_silhouette_image(next_img)
         next_html = (
             avatar_stage_html(
-                next_img, rarity=_rarity_slug(target_level), size="md",
+                next_img, rarity=rarity_slug(target_level), size="md",
                 locked=locked, alt=f"Next form: {target_name}",
             )
             if next_img is not None else ""

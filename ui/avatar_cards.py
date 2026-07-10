@@ -5,18 +5,11 @@ from domain.physique_ratings import safe_num
 from domain.xp_leveling import avatar_stage_rows
 from domain.avatar_stats import (
     avatar_asset_for_stats, evolution_name, branch_display_name, rarity_badge_html,
-    next_evolution_info, avatar_rarity,
+    next_evolution_info, rarity_slug,
 )
 from ui.avatar_images import (
     avatar_stage_html, get_avatar_image_object, make_locked_silhouette_image,
 )
-
-
-def _rarity_slug(level):
-    try:
-        return avatar_rarity(int(level))[0].lower()
-    except Exception:
-        return "common"
 
 
 def render_avatar_stat(label, value, delta=None):
@@ -44,7 +37,7 @@ def render_avatar_stat(label, value, delta=None):
 def render_avatar_image_panel(stats, compact=False):
     branch, stage, path = avatar_asset_for_stats(stats)
     level = int(stats.get("level", 1))
-    rarity = _rarity_slug(level)
+    rarity = rarity_slug(level)
 
     stage_html = avatar_stage_html(path, rarity=rarity, size="lg", alt="Current form")
     if not stage_html:
@@ -109,7 +102,7 @@ def render_next_evolution_card(stats):
     if preview_img is not None and not unlocked:
         preview_img = make_locked_silhouette_image(preview_img)
 
-    preview_rarity = _rarity_slug(target_level)
+    preview_rarity = rarity_slug(target_level)
     stage_html = ""
     if preview_img is not None:
         stage_html = avatar_stage_html(

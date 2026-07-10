@@ -74,20 +74,40 @@ def calculate_starting_level(bench_e1rm, squat_e1rm, training_years, physique_sc
     return max(1, min(int(level), 100))
 
 
+# The rank ladder, highest first. ONE source of truth: `rank_name()` reads it and
+# `rank_ladder()` derives the bands from it. `views/profile.py` used to restate the
+# whole thing as eight `st.write` lines, free to drift from the function that
+# actually decides what an athlete is called.
+RANK_TIERS = [
+    (100, "☀️ True Adam"),
+    (90, "👑 Chad"),
+    (75, "🗿 Chad-Lite"),
+    (60, "⚡ Elite Physique"),
+    (40, "💎 Aesthetic Tier"),
+    (25, "🦾 Athlete"),
+    (10, "⚔️ Trainee"),
+    (1, "🌱 Rookie"),
+]
+
+MAX_RANK_LEVEL = 100
+
+
 def rank_name(level):
     level = int(level)
-    if level >= 100:
-        return "☀️ True Adam"
-    if level >= 90:
-        return "👑 Chad"
-    if level >= 75:
-        return "🗿 Chad-Lite"
-    if level >= 60:
-        return "⚡ Elite Physique"
-    if level >= 40:
-        return "💎 Aesthetic Tier"
-    if level >= 25:
-        return "🦾 Athlete"
-    if level >= 10:
-        return "⚔️ Trainee"
-    return "🌱 Rookie"
+    for threshold, name in RANK_TIERS:
+        if level >= threshold:
+            return name
+    return RANK_TIERS[-1][1]
+
+
+def rank_ladder():
+    """`(low, high, name)` for every rank, ascending. Derived, never restated.
+
+    The top tier is a single level, so its band is `(100, 100)`.
+    """
+    ascending = sorted(RANK_TIERS)
+    bands = []
+    for index, (low, name) in enumerate(ascending):
+        high = ascending[index + 1][0] - 1 if index + 1 < len(ascending) else MAX_RANK_LEVEL
+        bands.append((low, high, name))
+    return bands

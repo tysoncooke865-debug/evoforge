@@ -97,6 +97,32 @@ check("bulking progress is non-decreasing", all(b >= a for a, b in zip(bulking, 
       str(bulking))
 
 print()
+print("=" * 72)
+print("6. THE RANK LADDER IS DERIVED, NOT RESTATED")
+print("=" * 72)
+# views/profile.py used to restate all eight rank bands as st.write lines, free to
+# drift from `rank_name()`, the function that actually decides what an athlete is
+# called. `rank_ladder()` now derives them from the same RANK_TIERS list.
+from domain.profile import MAX_RANK_LEVEL, rank_ladder, rank_name  # noqa: E402
+
+bands = rank_ladder()
+check("the ladder is non-empty", len(bands) >= 2, f"{len(bands)} bands")
+
+mismatches = []
+for level in range(1, MAX_RANK_LEVEL + 1):
+    matching = [name for low, high, name in bands if low <= level <= high]
+    if len(matching) != 1 or matching[0] != rank_name(level):
+        mismatches.append((level, rank_name(level), matching))
+check("every level falls in exactly one band, matching rank_name()", not mismatches,
+      str(mismatches[:3]))
+
+check("bands are contiguous and ascending",
+      all(bands[i][1] + 1 == bands[i + 1][0] for i in range(len(bands) - 1)),
+      str(bands))
+check("the ladder starts at level 1", bands[0][0] == 1, str(bands[0]))
+check("the ladder ends at MAX_RANK_LEVEL", bands[-1][1] == MAX_RANK_LEVEL, str(bands[-1]))
+
+print()
 if failures:
     print(f"FAILED: {len(failures)} check(s)")
     for f in failures:

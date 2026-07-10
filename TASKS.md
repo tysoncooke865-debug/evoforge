@@ -7,10 +7,13 @@ tests, docs · `[human]` anything needing a dashboard login or a decision.
 
 **Definition of done, every task:**
 ```bash
-python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py && python tools/verify_xp.py
+python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py \
+  && python tools/verify_xp.py && python tools/verify_goals.py && python tools/verify_css.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.
+CI runs all six on every push and PR. **A new guard is not accepted until it has
+been falsified** — delete the fix, watch it go red, restore.
 
 ---
 
@@ -113,14 +116,21 @@ Return values or raise; let `views/` write session state.
 ## BACKLOG — safe for the junior `[junior]`
 Small, isolated, verifiable. Nothing here touches protected paths.
 
-- **J1** Avatar page renders the evolution showcase *above* the page title. Move
-  `render_evolution_showcase()` below `page_hero()` in `views/avatar.py`.
-- **J2** Stat bars in `render_avatar_image_panel` sit flush to the card edge. Add
-  horizontal padding.
-- **J4** Add docstrings to every public function in `ui/components.py`.
-- **J5** Write a `tools/verify_css.py` that fails if any `!important` is added outside
-  the documented allow-list.
-- **J6** Mobile: `hero-badge` wraps awkwardly under 360px. Tune the breakpoint.
+- **J4** Add docstrings to every public function in `ui/components.py`. *Partly done:
+  `page_hero`, `compact_metric` and `render_target_bar` have them; the rest do not.*
+
+**Closed 2026-07-10 (UI consistency pass):**
+- ~~**J1** showcase above the page title~~ ✅ fixed, and `verify_ui` now asserts the
+  hero precedes every content card, so it cannot return.
+- ~~**J2** stat bars flush to the card edge~~ ✅ `.avatar-stat` gained `padding-inline`.
+- ~~**J5** `tools/verify_css.py`~~ ✅ written. **The trap it encodes:** a raw grep of
+  `!important` returns 16, but line 6 is inside the header comment — the real count
+  is 15. Comments are stripped before counting, or the guard is off by one from birth.
+- ~~**J6** `hero-badge` wraps under 360px~~ ✅ **does not reproduce.** Measured at
+  390/360/340/320px: `badgeOverflowsHero=false`, `pageScrollsSideways=false`. The
+  `@media (max-width: 420px)` rule already flips `.hero-panel` to column, so the
+  nowrap badge takes its own line long before 360px. The item predates that
+  breakpoint. Closed with evidence rather than "fixed".
 
 Junior workflow: branch `junior/<id>-<slug>` → make both verify scripts pass → PR.
 See `LOCAL_AI.md`. **The commit-msg hook will block you if you stray into protected

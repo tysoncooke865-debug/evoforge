@@ -288,6 +288,18 @@ span[class*="material-symbols"],
     margin-bottom: var(--s2);
 }
 
+/* A locked achievement. Was an inline style="opacity:.45" on the card, which no
+   stylesheet could see, override or theme. */
+.dashboard-card.is-locked {
+    opacity: .45;
+}
+
+/* The athlete's own tier in the rank ladder. */
+.nw-small.is-current-rank {
+    color: var(--accent);
+    font-weight: 700;
+}
+
 .mission-title,
 .nw-card-title {
     font-weight: 800;
@@ -520,7 +532,12 @@ span[class*="material-symbols"],
     box-shadow: 0 0 16px rgba(52, 211, 153, .45);
 }
 
-.avatar-stat { margin-bottom: var(--s3); }
+/* J2: the five stat bars in render_avatar_image_panel sat flush to the card edge --
+   the rule carried a bottom margin and nothing else. */
+.avatar-stat {
+    margin-bottom: var(--s3);
+    padding-inline: var(--s3);
+}
 .avatar-stat-top {
     display: flex;
     justify-content: space-between;

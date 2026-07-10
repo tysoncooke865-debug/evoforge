@@ -72,6 +72,22 @@ def avatar_rarity(level):
     return "COMMON", "⚡", "#94a3b8"
 
 
+def rarity_slug(level):
+    """The CSS class suffix for a level's rarity: `rarity-epic`, `rarity-common`.
+
+    Lives here, beside `avatar_rarity`, because it IS the rarity -- lowercased. It
+    was previously defined twice, identically and privately, in `ui/components.py`
+    and `ui/avatar_cards.py`. Two copies of a rule that decides what colour an
+    athlete's character glows is one copy too many.
+
+    Never raises: an unparseable level renders as common rather than crashing a page.
+    """
+    try:
+        return avatar_rarity(int(level))[0].lower()
+    except (TypeError, ValueError):
+        return "common"
+
+
 def rarity_badge_html(level):
     name, icon, colour = avatar_rarity(level)
     return f'<span class="rarity-badge" style="--rarity-colour:{colour};">{icon} {name} FORM</span>'

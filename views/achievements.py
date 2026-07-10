@@ -38,11 +38,11 @@ def render():
 
         unlocked_status = achievement_id in unlocked_ids
         status = "✅ UNLOCKED" if unlocked_status else "🔒 LOCKED"
-        css_opacity = "1" if unlocked_status else ".45"
+        locked_class = "" if unlocked_status else " is-locked"
 
         st.markdown(
             f"""
-            <div class="dashboard-card" style="opacity:{css_opacity};">
+            <div class="dashboard-card{locked_class}">
                 <div class="nw-card-title">{name} — {status}</div>
                 <div class="nw-small">{desc}</div>
             </div>

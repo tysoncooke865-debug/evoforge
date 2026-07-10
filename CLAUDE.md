@@ -228,14 +228,33 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing:
-   `python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py && python tools/verify_xp.py`
-   For anything visual, also `python tools/shot.py` — it sees what AppTest cannot.
+4. Before committing, run all six:
+   `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` · `verify_css`
+   For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 
-> Verification note: Streamlit returns HTTP 200 even when a page renders a
-> traceback. Never verify with `curl` alone. Two pages crashed on load for months
-> behind a green 200.
+**CI is authoritative.** `.github/workflows/verify.yml` runs the six on every push
+and PR, over Python 3.11 and 3.13. The `commit-msg` hook guards *which files* you
+touch; `pre-push` is convenience and only runs where `core.hooksPath` is set.
+
+## The doctrine: a guard that cannot fail is not a guard
+On 2026-07-10 four checks passed while testing nothing. Three shared one cause.
+
+- **Every check that enumerates bad things over a collection must assert the
+  collection is non-empty.** `any([])` is `False`. A page that renders nothing has
+  no unbalanced `<div>`; an empty table leaks no rows; an empty class set is fully
+  styled.
+- **Pair every negative with a positive** that proves the thing under test ran.
+- **Execute the code; do not grep its source.** A substring check matched a
+  *docstring*. `ast.unparse` still preserves string literals.
+- **Falsify before you accept.** Delete the fix, watch it go red, restore it. Two
+  of the "positive controls" written that same day were themselves vacuous — one
+  measured the sidebar, one measured the mobile brand bar — and only falsification
+  caught them.
+
+> Streamlit returns HTTP 200 even when a page renders a traceback. Never verify
+> with `curl` alone. And `tools/shot.py` only ever reaches the **signed-out gate**:
+> it cannot see a single page behind the login. It proves the app boots, nothing more.
 
 ## Deploying to Streamlit Cloud
 **Reboot the app after every push.** Cloud pulls new code and re-runs the script

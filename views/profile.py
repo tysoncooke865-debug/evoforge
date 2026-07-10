@@ -1,6 +1,6 @@
 import streamlit as st
 
-from domain.profile import load_profile, save_profile, calculate_starting_level, rank_name
+from domain.profile import load_profile, save_profile, calculate_starting_level, rank_name, rank_ladder
 from domain.bodyweight import latest_bodyweight_value
 from domain.workouts import current_exercise_best_1rm
 from domain.achievements import check_achievements
@@ -34,12 +34,24 @@ def render():
         st.session_state.just_saved_message = f"PROFILE SAVED — LEVEL {level}"
         st.rerun()
 
-    st.subheader("Rank System")
-    st.write("🌱 Level 1-9: Rookie")
-    st.write("⚔️ Level 10-24: Trainee")
-    st.write("🦾 Level 25-39: Athlete")
-    st.write("💎 Level 40-59: Aesthetic Tier")
-    st.write("⚡ Level 60-74: Elite Physique")
-    st.write("🗿 Level 75-89: Chad-Lite")
-    st.write("👑 Level 90-99: Chad")
-    st.write("☀️ Level 100: True Adam")
+    # Derived from domain.profile.RANK_TIERS, never restated here. The athlete's own
+    # tier is marked, so the ladder answers "where am I?" and not only "what exists?".
+    rows = ""
+    for low, high, name in rank_ladder():
+        band = f"Level {low}" if low == high else f"Level {low}-{high}"
+        mine = low <= preview_level <= high
+        rows += (
+            f'<div class="nw-small{" is-current-rank" if mine else ""}">'
+            f"{band} — <b>{name}</b>{' ← you' if mine else ''}"
+            f"</div>"
+        )
+
+    st.markdown(
+        f"""
+        <div class="dashboard-card">
+            <div class="nw-card-title">Rank System</div>
+            {rows}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
