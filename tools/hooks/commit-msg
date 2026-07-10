@@ -50,6 +50,7 @@ PROTECTED_PATTERNS=(
     '^tools/verify_goals\.py$'
     '^tools/verify_isolation\.py$'
     '^tools/verify_css\.py$'
+    '^tools/verify_perf\.py$'
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)

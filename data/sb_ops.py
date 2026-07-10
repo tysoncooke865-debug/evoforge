@@ -10,28 +10,35 @@ from data.supabase_client import get_supabase_client
 
 
 def clear_data_cache():
-    """Invalidate every read-through cache after a write. Both of them.
+    """Invalidate every read-through cache after a write. All THREE of them.
 
-    `cached_sb_select` is an `st.cache_data` and clearing it is obvious. The other
-    one is not: `ui/components.py :: get_fast_snapshot()` memoises `df` + `summary`
-    into `st.session_state["_fast_snapshot"]`, which Home, the sidebar and the
-    stat panels all read.
+    `cached_sb_select` is an `st.cache_data` and clearing it is obvious. The others
+    are not, and all live in `st.session_state`:
 
-    Nothing invalidated it on write. It was cleared only on sign-out. So logging a
-    set stored the row, minted the XP grant -- and then every surface kept rendering
-    the summary computed before the set existed. The XP was correct in the database
-    and stale on the screen for the rest of the session. Cache invalidation belongs
-    where the write is, not where the reader hopes.
+      * `ui/components.py :: get_fast_snapshot()` -- `df` + `summary`, read by Home,
+        the sidebar and the stat panels.
+      * `ui/render_memo.py :: avatar_stats()` -- the athlete's level, branch, rarity
+        and body scores.
+      * `_df_memo` -- every DataFrame built by `df_from_supabase` this render.
+
+    Nothing invalidated the first on write. It was cleared only on sign-out. So
+    logging a set stored the row, minted the XP grant -- and then every surface kept
+    rendering the summary computed before the set existed. The XP was correct in the
+    database and stale on the screen for the rest of the session. Cache invalidation
+    belongs where the write is, not where the reader hopes.
+
+    Add a fourth cache and you must clear it here too.
     """
     try:
         cached_sb_select.clear()
     except Exception:
         pass
 
-    try:
-        st.session_state.pop("_fast_snapshot", None)
-    except Exception:
-        pass
+    for key in ("_fast_snapshot", "_avatar_stats_snapshot", DF_MEMO_KEY):
+        try:
+            st.session_state.pop(key, None)
+        except Exception:
+            pass
 
 
 def is_bad_number(v):
@@ -267,6 +274,39 @@ def sb_delete_all(table_name):
         return False, str(e)
 
 
+DF_MEMO_KEY = "_df_memo"
+
+
+def _df_memo_get(key):
+    """A built DataFrame from this render, or None.
+
+    `cached_sb_select` caches the ROWS, so the network is cheap. Nothing cached the
+    FRAME, so every caller paid `pd.DataFrame(...)` + sort + drop_duplicates again.
+    One Home render rebuilt the workout log ten times over.
+
+    ###################################################################
+    #  This memo lives in st.session_state -- PER SESSION.            #
+    #  Never move it to st.cache_data: that cache is process-global    #
+    #  and Streamlit Cloud multiplexes users into one process. It      #
+    #  would serve one athlete's rows to the next. verify_isolation.py #
+    ###################################################################
+
+    Returns None outside a Streamlit runtime (bare-mode scripts and tools), where
+    there is no session to scope a memo to.
+    """
+    try:
+        return st.session_state.get(DF_MEMO_KEY, {}).get(key)
+    except Exception:
+        return None
+
+
+def _df_memo_put(key, df):
+    try:
+        st.session_state.setdefault(DF_MEMO_KEY, {})[key] = df
+    except Exception:
+        pass
+
+
 def df_from_supabase(table_name, columns):
     """Read a table into a DataFrame. Supabase is the only source of truth.
 
@@ -274,10 +314,23 @@ def df_from_supabase(table_name, columns):
     columns. It must never fall back to a local file: on Streamlit Cloud the disk
     is ephemeral and shared by every visitor, so stale local rows would be served
     across users.
+
+    Memoised for the duration of a render. Callers mutate what they get back
+    (`normalise_workout_log` assigns columns, `workout_summary` coerces dtypes), so
+    the memo hands out a `.copy()` -- copying a frame is far cheaper than rebuilding,
+    sorting and de-duplicating it, and a shared frame would let one caller's
+    coercion corrupt the next caller's read.
     """
+    memo_key = (table_name, tuple(columns))
+    memoised = _df_memo_get(memo_key)
+    if memoised is not None:
+        return memoised.copy()
+
     data, err = sb_select(table_name)
     if data is None:
         st.session_state["last_supabase_error"] = f"{table_name} read failed: {err}"
+        # Deliberately NOT memoised. A failed read must not pin an empty frame for
+        # the rest of the render -- the next caller should get a chance to retry.
         return pd.DataFrame(columns=columns)
 
     df = pd.DataFrame(data)
@@ -308,7 +361,9 @@ def df_from_supabase(table_name, columns):
                 subset=possible,
                 keep="last"
             ).reset_index(drop=True)
-    return df
+
+    _df_memo_put(memo_key, df)
+    return df.copy()
 
 
 def store_supabase_result(table_name, ok, err):

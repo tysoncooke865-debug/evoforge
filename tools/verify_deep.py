@@ -229,8 +229,14 @@ class _FakeStreamlit:
 _real_cached, _real_st = sb_ops.cached_sb_select, sb_ops.st
 try:
     fake_cache = _FakeCachedSelect()
-    snapshot_sentinel = object()
-    fake_state = {"_fast_snapshot": snapshot_sentinel, "keep_me": 1}
+    fake_state = {
+        "_fast_snapshot": object(),
+        # The athlete's level, branch, rarity and body scores.
+        "_avatar_stats_snapshot": object(),
+        # Every DataFrame built this render.
+        "_df_memo": {("workout_log", ("date",)): object()},
+        "keep_me": 1,
+    }
 
     sb_ops.cached_sb_select = fake_cache
     sb_ops.st = _FakeStreamlit(fake_state)
@@ -242,10 +248,39 @@ try:
     check("clear_data_cache drops the session_state page snapshot",
           "_fast_snapshot" not in fake_state,
           "a write must invalidate get_fast_snapshot(), not just cached_sb_select")
+    check("clear_data_cache drops the avatar stats memo",
+          "_avatar_stats_snapshot" not in fake_state,
+          "a stats memo outliving a write shows the character before the set was logged")
+    check("clear_data_cache drops the DataFrame render memo",
+          "_df_memo" not in fake_state,
+          "a df memo outliving a write serves rows from before the insert")
     check("...and leaves the rest of session_state alone", fake_state.get("keep_me") == 1,
           "clear_data_cache is clobbering unrelated session state")
 finally:
     sb_ops.cached_sb_select, sb_ops.st = _real_cached, _real_st
+
+# Sign-out is a SEPARATE path. `auth/session.py :: _clear_cached_data()` must drop
+# the same per-session memos, or the next person to sign in on this browser
+# inherits the previous athlete's level, branch and body scores. It calls
+# clear_data_cache() (covered above) AND pops the keys itself; assert the second,
+# because a refactor that stops calling clear_data_cache must still be safe.
+import ast as _ast  # noqa: E402
+import inspect as _inspect  # noqa: E402
+import textwrap as _textwrap  # noqa: E402
+
+import auth.session as _auth_session  # noqa: E402
+
+_signout_src = _textwrap.dedent(_inspect.getsource(_auth_session._clear_cached_data))
+_signout_node = _ast.parse(_signout_src).body[0]
+_signout_body = _signout_node.body
+if (_signout_body and isinstance(_signout_body[0], _ast.Expr)
+        and isinstance(_signout_body[0].value, _ast.Constant)):
+    _signout_body = _signout_body[1:]
+_signout_code = "\n".join(_ast.unparse(n) for n in _signout_body)
+
+for _key in ("_fast_snapshot", "_avatar_stats_snapshot", "_df_memo"):
+    check(f"sign-out drops {_key}", _key in _signout_code,
+          "auth/session.py :: _clear_cached_data() must pop it")
 
 print("\n" + "=" * 72)
 if failures:

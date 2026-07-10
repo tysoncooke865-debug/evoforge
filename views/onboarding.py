@@ -11,7 +11,7 @@ from datetime import date, datetime
 
 import streamlit as st
 
-from domain.avatar_stats import calculate_avatar_stats
+from ui.render_memo import avatar_stats
 from domain.bodyweight import save_bodyweight_row
 from domain.profile import calculate_starting_level, load_profile, rank_name, save_profile
 from domain.targets import save_or_update_target
@@ -193,7 +193,7 @@ def _step_two():
 
 
 def _step_three():
-    stats = calculate_avatar_stats()
+    stats = avatar_stats()
 
     st.subheader("Meet your character")
     st.caption("This is what your real lifts have already earned. Train, and it evolves.")

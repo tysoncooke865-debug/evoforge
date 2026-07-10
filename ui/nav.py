@@ -3,9 +3,10 @@ import streamlit as st
 from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
 from domain.avatar_stats import (
-    calculate_avatar_stats, branch_display_name, avatar_asset_for_stats, avatar_rarity,
+    branch_display_name, avatar_asset_for_stats, avatar_rarity,
 )
 from ui.avatar_images import img_to_base64
+from ui.render_memo import avatar_stats
 
 PRIMARY_PAGES = ["Home", "Today", "Avatar", "Progress", "Physique", "Cardio", "Goals", "Data Manager"]
 MORE_PAGES = ["Profile", "Measurements", "Achievements", "Body Fat", "Bodyweight", "Routine", "Delete Data"]
@@ -100,7 +101,7 @@ def route_button(label, page_name, key, help_text=None, type="secondary"):
 
 def get_sidebar_avatar_payload():
     try:
-        stats = calculate_avatar_stats()
+        stats = avatar_stats()
     except Exception:
         stats = {"level": 1, "avatar_branch": "aesthetic"}
 

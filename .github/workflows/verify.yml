@@ -68,3 +68,6 @@ jobs:
 
       - name: verify_isolation — one user's rows never reach another's screen
         run: python tools/verify_isolation.py
+
+      - name: verify_perf — a render stays within its work budget
+        run: python tools/verify_perf.py

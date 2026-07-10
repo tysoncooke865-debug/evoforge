@@ -179,11 +179,20 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   orphaned sibling. Build the whole card in one f-string. Use
   `ui/avatar_images.py :: avatar_img_tag()` / `avatar_stage_html()` to embed images
   as real children.
-- **There are TWO caches over the same rows.** `cached_sb_select` (`st.cache_data`)
-  and `get_fast_snapshot()` (`st.session_state["_fast_snapshot"]`, read by Home, the
-  sidebar and the stat panels). `clear_data_cache()` drops both, and every write
-  calls it. Add a third cache and you must clear it there too — a write that
-  invalidates only one leaves the app right in the database and stale on screen.
+- **There are FOUR caches over the same rows.** `cached_sb_select` (`st.cache_data`,
+  process-global, keyed on `user_id`) and three per-session memos in
+  `st.session_state`: `_fast_snapshot` (`get_fast_snapshot()`), `_avatar_stats_snapshot`
+  (`ui/render_memo.py`), `_df_memo` (every DataFrame `df_from_supabase` builds).
+  `clear_data_cache()` drops all four and every write calls it; `_clear_cached_data()`
+  drops them again on sign-out. **Add a fifth and you must clear it in both.** A write
+  that invalidates only some leaves the app right in the database and stale on screen;
+  a sign-out that misses one hands the last athlete's character to the next visitor.
+- **Per-render memos go in `st.session_state`, never in `st.cache_data`.** That cache
+  is process-global and Cloud multiplexes users into one process. `verify_isolation.py`
+  and `verify_deep.py` §6 both guard this.
+- **`tools/verify_perf.py` budgets the cost of one render** — an interaction reruns the
+  whole script, so a render's cost *is* the app's responsiveness. `calculate_avatar_stats`
+  must run **exactly once** per render.
 - **Never set `font-family` on `.stApp span`** — it clobbers Material Symbols and
   icons render as the literal word `keyboard_double_arrow_left`.
 - **Never hide `header[data-testid="stHeader"]`** — on mobile it hosts the sidebar
@@ -229,15 +238,18 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all seven:
+4. Before committing, run all eight:
    `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
-   `verify_css` · `verify_isolation`
+   `verify_css` · `verify_isolation` · `verify_perf`
    For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 
-**CI is authoritative.** `.github/workflows/verify.yml` runs the seven on every push
+**CI is authoritative.** `.github/workflows/verify.yml` runs the eight on every push
 and PR, over Python 3.11 and 3.13. The `commit-msg` hook guards *which files* you
 touch; `pre-push` is convenience and only runs where `core.hooksPath` is set.
+
+`tools/verify_perf.py --report` prints the render cost without enforcing a budget.
+Use it when tuning; CI enforces.
 
 ## The doctrine: a guard that cannot fail is not a guard
 On 2026-07-10 four checks passed while testing nothing. Three shared one cause.

@@ -4,9 +4,10 @@ import streamlit as st
 from data.supabase_client import supabase_enabled
 from domain.workouts import load_log, workout_summary, normalise_workout_log
 from domain.avatar_stats import (
-    calculate_avatar_stats, avatar_asset_for_stats, evolution_name, branch_display_name,
+    avatar_asset_for_stats, evolution_name, branch_display_name,
     rarity_badge_html, next_evolution_info, rarity_slug,
 )
+from ui.render_memo import avatar_stats
 from domain.targets import journey_percent
 from domain.xp import progress_percent, xp_for_level
 from domain.xp_leveling import current_level_xp
@@ -36,7 +37,7 @@ def render_forge_signature():
 
 def render_today_quest_card(stats=None):
     if stats is None:
-        stats = calculate_avatar_stats()
+        stats = avatar_stats()
 
     branch, stage, path = avatar_asset_for_stats(stats)
     level = int(stats.get("level", 1))
@@ -177,7 +178,7 @@ def render_base_console_panel(stats=None):
     """
     if stats is None:
         try:
-            stats = calculate_avatar_stats()
+            stats = avatar_stats()
         except Exception:
             stats = {}
 
@@ -240,7 +241,7 @@ def render_base_console_panel(stats=None):
 def render_evolution_showcase(stats=None):
     if stats is None:
         try:
-            stats = calculate_avatar_stats()
+            stats = avatar_stats()
         except Exception:
             stats = {}
 

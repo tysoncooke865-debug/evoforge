@@ -8,7 +8,7 @@ from domain.bodyfat import load_bodyfat_log, latest_bodyfat_mid
 from domain.bodyweight import latest_bodyweight_value, bodyweight_at
 from domain.targets import get_target, get_target_created_at
 from domain.achievements import load_achievements, achievement_count
-from domain.avatar_stats import calculate_avatar_stats
+from ui.render_memo import avatar_stats
 from ui.components import (
     render_forge_signature, render_forge_micro_status, page_hero, get_fast_snapshot,
     render_base_console_panel, render_today_quest_card, render_qol_action_card,
@@ -31,7 +31,7 @@ def render():
         df = pd.DataFrame()
         summary = {}
     try:
-        home_avatar_stats = calculate_avatar_stats()
+        home_avatar_stats = avatar_stats()
         render_base_console_panel(home_avatar_stats)
         render_today_quest_card(home_avatar_stats)
         render_next_evolution_card(home_avatar_stats)

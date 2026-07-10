@@ -2,9 +2,10 @@ import pandas as pd
 import streamlit as st
 
 from domain.avatar_stats import (
-    calculate_avatar_stats, avatar_asset_for_stats, branch_display_name,
+    avatar_asset_for_stats, branch_display_name,
     load_avatar_progression, save_avatar_snapshot, default_avatar_summary,
 )
+from ui.render_memo import avatar_stats
 from services.ai_avatar import run_ai_avatar_analysis
 from ui.nav import route_button
 from ui.components import page_hero, compact_metric, render_evolution_showcase
@@ -24,8 +25,9 @@ def render():
     with aqa3:
         route_button("Oracle Analysis →", "Physique", key="qol_avatar_oracle")
 
-    # One call, not two. `calculate_avatar_stats()` reads the whole workout log.
-    stats = calculate_avatar_stats()
+    # Once per render, shared with the sidebar. `ui/render_memo.py` returns a copy,
+    # which matters: the AI coach below overwrites keys on this dict in place.
+    stats = avatar_stats()
     branch, stage, avatar_path = avatar_asset_for_stats(stats)
     stats["avatar_branch"] = branch
 

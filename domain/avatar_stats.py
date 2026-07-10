@@ -128,7 +128,15 @@ def next_evolution_info(branch, stats):
     bench = safe_num(stats.get("bench_e1rm"), 0)
     bf = stats.get("bf_mid", None)
     bf_val = safe_num(bf, 99) if bf is not None else None
-    total_sets = int(workout_summary(load_log()).get("total_sets", 0))
+
+    # `calculate_avatar_stats()` already paid for this. Recomputing it here meant a
+    # second full `workout_summary(load_log())` -- five DataFrame rebuilds -- every
+    # time an evolution card rendered, and the Avatar page renders two of them.
+    # Only fall back when a caller hands us a stats dict that predates the key.
+    total_sets = stats.get("total_sets")
+    if total_sets is None:
+        total_sets = int(workout_summary(load_log()).get("total_sets", 0))
+    total_sets = int(total_sets)
 
     if level < 25:
         target_level, target_name = 25, "First Evolution"
@@ -319,6 +327,9 @@ def calculate_avatar_stats():
         "squat_e1rm": float(squat),
         "bodyweight": float(bodyweight),
         "bf_mid": bf_mid,
+        # Carried so `next_evolution_info()` does not recompute a whole
+        # `workout_summary(load_log())` just to read this one integer.
+        "total_sets": int(summary.get("total_sets", 0)),
         "avatar_branch": determine_avatar_branch({"strength_score": int(strength_score), "size_score": int(size_score), "conditioning_score": int(conditioning_score), "aesthetic_score": int(aesthetic_score)}),
     }
 

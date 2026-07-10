@@ -141,11 +141,18 @@ def _clear_cached_data():
     """Drop every cached read so the next render cannot serve the last user's rows.
 
     `cached_sb_select` is `@st.cache_data`, which is process-global. Its key
-    includes the user id, but the per-session snapshot does not — so both go.
+    includes the user id, but the per-session snapshots do not — so they all go.
     Imported lazily: `data.sb_ops` reads identity from this module.
+
+    `_avatar_stats_snapshot` holds the athlete's level, branch, rarity and body
+    scores. `clear_data_cache()` already pops it; it is repeated here deliberately
+    so that this function remains correct on its own, without depending on what
+    another module happens to clean up. A stats memo that survives sign-out hands
+    one athlete's character to the next person who signs in on this browser.
     """
     from data.sb_ops import clear_data_cache
 
     clear_data_cache()
-    for key in ("_fast_snapshot", "achievements_checked_this_session"):
+    for key in ("_fast_snapshot", "_avatar_stats_snapshot", "_df_memo",
+                "achievements_checked_this_session"):
         st.session_state.pop(key, None)
