@@ -68,6 +68,12 @@ jobs:
       - name: verify-tokens — tokens.js equals assets/styles.css :root, both directions
         run: node scripts/verify-tokens.mjs
 
+      - name: Parity suite — TS domain reproduces every golden case exactly
+        run: npx vitest run src/domain
+
+      - name: Lint — includes react/no-danger as an error
+        run: npx expo lint
+
       # Export before tsc: expo-env.d.ts and .expo/types/router.d.ts are
       # generated (and gitignored), so a bare tsc on a fresh checkout is red.
       - name: Export web build

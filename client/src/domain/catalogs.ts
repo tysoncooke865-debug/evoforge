@@ -1,0 +1,687 @@
+/**
+ * Game-rule catalogs, generated from contracts/fixtures/catalogs.json (which
+ * tools/gen_fixtures.py generated from config/constants.py + domain/profile.py).
+ * GENERATED -- regenerate rather than hand-edit; the parity suite asserts this
+ * file equals the goldens, so a hand edit that drifts goes red in CI.
+ */
+
+export const ACHIEVEMENTS: Record<string, readonly [title: string, description: string]> = {
+  "abs_50": [
+    "腹 Core Signal",
+    "Logged 50 ab sets."
+  ],
+  "aesthetic_tier": [
+    "💎 Aesthetic Tier",
+    "Reached level 40."
+  ],
+  "arms_100": [
+    "💪 Arm Arc",
+    "Logged 100 biceps/triceps sets."
+  ],
+  "back_150": [
+    "🪽 V-Taper Built",
+    "Logged 150 back sets."
+  ],
+  "back_50": [
+    "🪽 50 Back Sets",
+    "Logged 50 back sets."
+  ],
+  "bench_100": [
+    "🏆 100kg Bench Club",
+    "Logged a 100kg+ bench press."
+  ],
+  "bench_100_est": [
+    "🏆 100kg Bench Quest",
+    "Estimated 1RM reached 100kg."
+  ],
+  "bench_110": [
+    "🦾 110kg Bench",
+    "Logged a 110kg+ bench press."
+  ],
+  "bench_120": [
+    "👑 120kg Bench",
+    "Logged a 120kg+ bench press."
+  ],
+  "bench_120_est": [
+    "👑 120kg Bench Quest",
+    "Estimated 1RM reached 120kg."
+  ],
+  "bench_1_25_bw": [
+    "🦇 1.25× BW Bench",
+    "Estimated bench 1RM reached 1.25× bodyweight."
+  ],
+  "bench_1_5_bw": [
+    "☀️ 1.5× BW Bench",
+    "Estimated bench 1RM reached 1.5× bodyweight."
+  ],
+  "bench_60": [
+    "🏋️ 1 Plate Bench",
+    "Logged a 60kg+ bench press."
+  ],
+  "bench_80": [
+    "⚡ 80kg Bench",
+    "Logged an 80kg+ bench press."
+  ],
+  "bench_90": [
+    "💪 90kg Bench Signal",
+    "Logged 90kg or more on bench."
+  ],
+  "bench_bw": [
+    "⚖️ Bodyweight Bench",
+    "Estimated bench 1RM reached bodyweight."
+  ],
+  "bf_target_hit": [
+    "🎯 Body Fat Target Hit",
+    "Reached your saved body fat target."
+  ],
+  "bf_under_10": [
+    "☀️ 10% Club",
+    "Body fat estimate reached 10% or lower."
+  ],
+  "bf_under_12": [
+    "⚡ Under 12%",
+    "Body fat estimate reached under 12%."
+  ],
+  "bf_under_13": [
+    "🦇 Under 13%",
+    "Body fat estimate reached under 13%."
+  ],
+  "bf_under_15": [
+    "💎 Under 15%",
+    "Body fat estimate reached under 15%."
+  ],
+  "boxing_logged": [
+    "🥊 Sparring Logged",
+    "Logged a boxing cardio session."
+  ],
+  "bulk_2kg": [
+    "📈 Lean Bulk Started",
+    "Gained 2kg from your lowest logged bodyweight."
+  ],
+  "bulk_5kg": [
+    "🦾 5kg Bulk Arc",
+    "Gained 5kg from your lowest logged bodyweight."
+  ],
+  "bw_75": [
+    "🏃 75kg Checkpoint",
+    "Logged bodyweight at or below 75kg."
+  ],
+  "bw_80": [
+    "🦾 80kg Frame",
+    "Logged bodyweight at or above 80kg."
+  ],
+  "bw_85": [
+    "🗿 85kg Bulk Mode",
+    "Logged bodyweight at or above 85kg."
+  ],
+  "cardio_100": [
+    "🫀 Engine Built",
+    "Logged 100 total cardio minutes."
+  ],
+  "cardio_1000": [
+    "⚡ 1000 Minute Engine",
+    "Logged 1000 total cardio minutes."
+  ],
+  "cardio_100k_total": [
+    "🌏 100km Total",
+    "Logged 100km total cardio distance."
+  ],
+  "cardio_25k_total": [
+    "🛣️ 25km Total",
+    "Logged 25km total cardio distance."
+  ],
+  "cardio_300": [
+    "🏃 300 Minute Engine",
+    "Logged 300 total cardio minutes."
+  ],
+  "cardio_5k_total": [
+    "🛣️ 5km Total",
+    "Logged 5km total cardio distance."
+  ],
+  "chad": [
+    "👑 Chad",
+    "Reached level 90."
+  ],
+  "chad_lite": [
+    "🗿 Chad-Lite",
+    "Reached level 75."
+  ],
+  "chest_150": [
+    "🛡️ Chest Built",
+    "Logged 150 chest sets."
+  ],
+  "chest_50": [
+    "🛡️ 50 Chest Sets",
+    "Logged 50 chest sets."
+  ],
+  "cut_2kg": [
+    "✂️ Cut Started",
+    "Dropped 2kg from your highest logged bodyweight."
+  ],
+  "cut_5kg": [
+    "🔥 5kg Cut Arc",
+    "Dropped 5kg from your highest logged bodyweight."
+  ],
+  "delts_150": [
+    "💎 Capped Delts",
+    "Logged 150 delt/rear-delt sets."
+  ],
+  "delts_50": [
+    "🪽 Wing Build",
+    "Logged 50 delt/rear-delt sets."
+  ],
+  "elite_physique": [
+    "⚡ Elite Physique",
+    "Reached level 60."
+  ],
+  "first_bf_log": [
+    "📸 Body Fat Scan",
+    "Saved your first body fat estimate."
+  ],
+  "first_bw_log": [
+    "⚖️ Scale Online",
+    "Logged bodyweight for the first time."
+  ],
+  "first_cardio": [
+    "🫀 Engine Started",
+    "Logged your first cardio session."
+  ],
+  "first_set": [
+    "⚡ First Signal",
+    "Logged your first set."
+  ],
+  "first_workout": [
+    "🦇 Patrol Started",
+    "Logged 10 total sets."
+  ],
+  "five_hundred_sets": [
+    "⚔️ 500 Set Veteran",
+    "Logged 500 total working sets."
+  ],
+  "fourteen_day_streak": [
+    "🦾 14 Day Discipline",
+    "Logged workouts on 14 different days."
+  ],
+  "full_ppppla_week": [
+    "💎 Full PPPPLA Week",
+    "Logged all 6 training days at least once."
+  ],
+  "hundred_sets": [
+    "🔥 100 Set Streak",
+    "Logged 100 total working sets."
+  ],
+  "legs_100": [
+    "🦵 Leg Foundation",
+    "Logged 100 leg/calf sets."
+  ],
+  "seven_day_streak": [
+    "⚡ 7 Day Streak",
+    "Logged workouts on 7 different days."
+  ],
+  "squat_100": [
+    "🦵 100kg Squat",
+    "Logged a 100kg+ squat."
+  ],
+  "squat_140": [
+    "⚔️ 2 Plate Squat",
+    "Logged a 140kg+ squat."
+  ],
+  "squat_160": [
+    "🦾 160kg Squat",
+    "Logged a 160kg+ squat."
+  ],
+  "squat_180": [
+    "🗿 180kg Squat",
+    "Logged a 180kg+ squat."
+  ],
+  "squat_1_5_bw": [
+    "⚖️ 1.5× BW Squat",
+    "Estimated squat 1RM reached 1.5× bodyweight."
+  ],
+  "squat_200": [
+    "👑 200kg Squat",
+    "Logged a 200kg+ squat."
+  ],
+  "squat_2_bw": [
+    "☀️ 2× BW Squat",
+    "Estimated squat 1RM reached 2× bodyweight."
+  ],
+  "thirty_day_streak": [
+    "🗿 30 Day Weapon",
+    "Logged workouts on 30 different days."
+  ],
+  "thousand_sets": [
+    "👑 1000 Set Machine",
+    "Logged 1000 total working sets."
+  ],
+  "three_day_streak": [
+    "🔥 3 Day Streak",
+    "Logged workouts on 3 different days."
+  ],
+  "true_adam": [
+    "☀️ True Adam",
+    "Reached level 100."
+  ]
+};
+
+/** Day -> [exercise, workingSets, repScheme][]. Rest day is an empty list. */
+export const ROUTINE: Record<string, readonly (readonly [string, number, string])[]> = {
+  "Aesthetics": [
+    [
+      "Cable Lateral Raise",
+      5,
+      "15-25"
+    ],
+    [
+      "Cable Lat Pullover (Straight-Arm Pulldown)",
+      3,
+      "12-20"
+    ],
+    [
+      "Pec Deck Machine Fly",
+      4,
+      "12-20"
+    ],
+    [
+      "Reverse Pec Deck (Rear Delt Fly)",
+      4,
+      "15-25"
+    ],
+    [
+      "Dumbbell Biceps Curl",
+      3,
+      "10-15"
+    ],
+    [
+      "Cable Triceps Pushdown",
+      3,
+      "10-15"
+    ],
+    [
+      "Machine Ab Crunch",
+      3,
+      "10-20"
+    ],
+    [
+      "Lying Leg Raise",
+      3,
+      "12-20"
+    ],
+    [
+      "Weighted Sit-Up",
+      2,
+      "10-15"
+    ]
+  ],
+  "Legs": [
+    [
+      "Barbell Back Squat",
+      3,
+      "5-8"
+    ],
+    [
+      "Hack Squat Machine",
+      4,
+      "8-12"
+    ],
+    [
+      "Seated/Lying Leg Curl",
+      4,
+      "10-15"
+    ],
+    [
+      "Leg Extension",
+      4,
+      "12-20"
+    ],
+    [
+      "Seated Calf Raise",
+      5,
+      "10-20"
+    ],
+    [
+      "Hip Adduction Machine",
+      3,
+      "12-20"
+    ]
+  ],
+  "Pull 1 - Back Thickness": [
+    [
+      "Chest-Supported Machine Row",
+      4,
+      "6-10"
+    ],
+    [
+      "Lat Pulldown",
+      4,
+      "8-12"
+    ],
+    [
+      "Chest-Supported Dumbbell Row",
+      3,
+      "8-12"
+    ],
+    [
+      "Reverse Pec Deck (Rear Delt Fly)",
+      4,
+      "15-25"
+    ],
+    [
+      "EZ-Bar Curl",
+      4,
+      "8-12"
+    ],
+    [
+      "Dumbbell Biceps Curl",
+      3,
+      "10-15"
+    ]
+  ],
+  "Pull 2 - Width / V-Taper": [
+    [
+      "Lat Pulldown",
+      4,
+      "10-15"
+    ],
+    [
+      "Cable Lat Pullover (Straight-Arm Pulldown)",
+      4,
+      "12-20"
+    ],
+    [
+      "Chest-Supported Machine Row",
+      3,
+      "8-12"
+    ],
+    [
+      "Face Pull",
+      3,
+      "15-25"
+    ],
+    [
+      "Reverse Pec Deck (Rear Delt Fly)",
+      3,
+      "15-25"
+    ],
+    [
+      "EZ-Bar Curl",
+      3,
+      "10-15"
+    ]
+  ],
+  "Push 1 - Strength": [
+    [
+      "Barbell Bench Press (Strength)",
+      4,
+      "Top set 3-5 + 3 back-off sets 5-8"
+    ],
+    [
+      "Dumbbell Flat Bench Press",
+      3,
+      "8-12"
+    ],
+    [
+      "Pec Deck Machine Fly",
+      3,
+      "10-15"
+    ],
+    [
+      "Cable Lateral Raise",
+      4,
+      "12-20"
+    ],
+    [
+      "Cable Triceps Pushdown",
+      4,
+      "10-15"
+    ],
+    [
+      "Decline Push-Up",
+      2,
+      "AMRAP"
+    ]
+  ],
+  "Push 2 - Hypertrophy": [
+    [
+      "Paused Barbell Bench Press",
+      3,
+      "5-8"
+    ],
+    [
+      "Dumbbell Flat Bench Press",
+      3,
+      "8-12"
+    ],
+    [
+      "Pec Deck Machine Fly",
+      4,
+      "12-20"
+    ],
+    [
+      "Dumbbell Lateral Raise",
+      5,
+      "15-25"
+    ],
+    [
+      "Cable Lateral Raise",
+      3,
+      "15-25"
+    ],
+    [
+      "Cable Triceps Pushdown",
+      4,
+      "12-20"
+    ]
+  ],
+  "Rest": []
+};
+
+export const EXERCISE_LIBRARY: Record<string, readonly string[]> = {
+  "Abs": [
+    "Machine Ab Crunch",
+    "Lying Leg Raise",
+    "Hanging Knee Raise",
+    "Cable Crunch",
+    "Weighted Sit-Up",
+    "Decline Sit-Up"
+  ],
+  "Back Thickness": [
+    "Chest-Supported Machine Row",
+    "Chest-Supported Dumbbell Row",
+    "Seated Cable Row",
+    "T-Bar Row",
+    "Machine High Row"
+  ],
+  "Back Width": [
+    "Lat Pulldown",
+    "Neutral-Grip Lat Pulldown",
+    "Assisted Pull-Up",
+    "Cable Lat Pullover (Straight-Arm Pulldown)",
+    "Single-Arm Cable Lat Pulldown"
+  ],
+  "Biceps": [
+    "EZ-Bar Curl",
+    "Dumbbell Biceps Curl",
+    "Incline Dumbbell Curl",
+    "Cable Curl",
+    "Preacher Curl Machine",
+    "Hammer Curl"
+  ],
+  "Calves": [
+    "Seated Calf Raise",
+    "Standing Calf Raise",
+    "Leg Press Calf Raise"
+  ],
+  "Forearms/Grip": [
+    "Wrist Curl",
+    "Reverse Curl",
+    "Farmer Carry",
+    "Cable Wrist Curl"
+  ],
+  "Glutes/Adductors": [
+    "Hip Adduction Machine",
+    "Hip Abduction Machine",
+    "Cable Kickback",
+    "Hip Thrust Machine"
+  ],
+  "Hamstrings": [
+    "Seated/Lying Leg Curl",
+    "Romanian Deadlift",
+    "Seated Leg Curl",
+    "Lying Leg Curl",
+    "Back Extension"
+  ],
+  "Mid Chest": [
+    "Barbell Bench Press",
+    "Dumbbell Flat Bench Press",
+    "Machine Chest Press",
+    "Pec Deck Machine Fly",
+    "Cable Chest Fly",
+    "Decline Push-Up"
+  ],
+  "Quads": [
+    "Barbell Back Squat",
+    "Hack Squat Machine",
+    "Leg Press",
+    "Bulgarian Split Squat",
+    "Leg Extension",
+    "Smith Machine Squat"
+  ],
+  "Rear Delts": [
+    "Reverse Pec Deck (Rear Delt Fly)",
+    "Cable Rear Delt Fly",
+    "Face Pull",
+    "Chest-Supported Rear Delt Row"
+  ],
+  "Side Delts": [
+    "Cable Lateral Raise",
+    "Dumbbell Lateral Raise",
+    "Machine Lateral Raise",
+    "Lean-Away Cable Lateral Raise",
+    "Behind-the-Back Cable Lateral Raise"
+  ],
+  "Triceps": [
+    "Cable Triceps Pushdown",
+    "Overhead Cable Triceps Extension",
+    "Machine Dip",
+    "Close-Grip Bench Press",
+    "Single-Arm Cable Triceps Extension"
+  ],
+  "Upper Chest": [
+    "Incline Barbell Bench Press",
+    "Incline Dumbbell Bench Press",
+    "Low-to-High Cable Fly",
+    "Incline Smith Machine Press",
+    "Incline Machine Chest Press"
+  ]
+};
+
+export const MUSCLE_MAP: Record<string, string> = {
+  "Assisted Pull-Up": "Back Width",
+  "Back Extension": "Hamstrings",
+  "Barbell Back Squat": "Quads",
+  "Barbell Bench Press": "Chest",
+  "Barbell Bench Press (Strength)": "Chest",
+  "Behind-the-Back Cable Lateral Raise": "Side Delts",
+  "Bulgarian Split Squat": "Quads",
+  "Cable Chest Fly": "Chest",
+  "Cable Crunch": "Abs",
+  "Cable Curl": "Biceps",
+  "Cable Kickback": "Glutes",
+  "Cable Lat Pullover (Straight-Arm Pulldown)": "Back Width",
+  "Cable Lateral Raise": "Side Delts",
+  "Cable Rear Delt Fly": "Rear Delts",
+  "Cable Triceps Pushdown": "Triceps",
+  "Cable Wrist Curl": "Forearms",
+  "Chest-Supported Dumbbell Row": "Back Thickness",
+  "Chest-Supported Machine Row": "Back Thickness",
+  "Chest-Supported Rear Delt Row": "Rear Delts",
+  "Close-Grip Bench Press": "Triceps",
+  "Decline Push-Up": "Chest",
+  "Decline Sit-Up": "Abs",
+  "Dumbbell Biceps Curl": "Biceps",
+  "Dumbbell Flat Bench Press": "Chest",
+  "Dumbbell Lateral Raise": "Side Delts",
+  "EZ-Bar Curl": "Biceps",
+  "Face Pull": "Rear Delts",
+  "Farmer Carry": "Forearms",
+  "Hack Squat Machine": "Quads",
+  "Hammer Curl": "Biceps",
+  "Hanging Knee Raise": "Abs",
+  "Hip Abduction Machine": "Glutes",
+  "Hip Adduction Machine": "Adductors",
+  "Hip Thrust Machine": "Glutes",
+  "Incline Barbell Bench Press": "Upper Chest",
+  "Incline Dumbbell Bench Press": "Upper Chest",
+  "Incline Dumbbell Curl": "Biceps",
+  "Incline Machine Chest Press": "Upper Chest",
+  "Incline Smith Machine Press": "Upper Chest",
+  "Lat Pulldown": "Back Width",
+  "Lean-Away Cable Lateral Raise": "Side Delts",
+  "Leg Extension": "Quads",
+  "Leg Press": "Quads",
+  "Leg Press Calf Raise": "Calves",
+  "Low-to-High Cable Fly": "Upper Chest",
+  "Lying Leg Curl": "Hamstrings",
+  "Lying Leg Raise": "Abs",
+  "Machine Ab Crunch": "Abs",
+  "Machine Chest Press": "Chest",
+  "Machine Dip": "Triceps",
+  "Machine High Row": "Back Thickness",
+  "Machine Lateral Raise": "Side Delts",
+  "Neutral-Grip Lat Pulldown": "Back Width",
+  "Overhead Cable Triceps Extension": "Triceps",
+  "Paused Barbell Bench Press": "Chest",
+  "Pec Deck Machine Fly": "Chest",
+  "Preacher Curl Machine": "Biceps",
+  "Reverse Curl": "Forearms",
+  "Reverse Pec Deck (Rear Delt Fly)": "Rear Delts",
+  "Romanian Deadlift": "Hamstrings",
+  "Seated Cable Row": "Back Thickness",
+  "Seated Calf Raise": "Calves",
+  "Seated Leg Curl": "Hamstrings",
+  "Seated/Lying Leg Curl": "Hamstrings",
+  "Single-Arm Cable Lat Pulldown": "Back Width",
+  "Single-Arm Cable Triceps Extension": "Triceps",
+  "Smith Machine Squat": "Quads",
+  "Standing Calf Raise": "Calves",
+  "T-Bar Row": "Back Thickness",
+  "Weighted Sit-Up": "Abs",
+  "Wrist Curl": "Forearms"
+};
+
+/** Descending (threshold, name) pairs; rankName walks top-down. */
+export const RANK_TIERS: readonly (readonly [number, string])[] = [
+  [
+    100,
+    "☀️ True Adam"
+  ],
+  [
+    90,
+    "👑 Chad"
+  ],
+  [
+    75,
+    "🗿 Chad-Lite"
+  ],
+  [
+    60,
+    "⚡ Elite Physique"
+  ],
+  [
+    40,
+    "💎 Aesthetic Tier"
+  ],
+  [
+    25,
+    "🦾 Athlete"
+  ],
+  [
+    10,
+    "⚔️ Trainee"
+  ],
+  [
+    1,
+    "🌱 Rookie"
+  ]
+];
