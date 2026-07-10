@@ -54,6 +54,10 @@ TABLES = [
     "workout_log", "bodyweight_log", "cardio_log", "bodyfat_log", "measurements",
     "physique_ratings", "custom_workout_plan", "achievements", "targets",
     "profile", "avatar_progression",
+    # migrations/002. Every XP grant in the system lives here. A new table is
+    # exactly the thing that gets created without policies and quietly leaks, so
+    # it belongs in the security test the day it exists -- not the day it matters.
+    "xp_events",
 ]
 
 
@@ -100,6 +104,9 @@ def sample_row(table, marker):
                                "build_type": marker, "strength_score": 70, "size_score": 60,
                                "leanness_score": 65, "conditioning_score": 40, "aesthetic_score": 68,
                                "weak_point_focus": marker, "ai_summary": marker, "timestamp": _now()},
+        # `amount <> 0` is a check constraint. source_id is null here, which the
+        # partial unique index permits -- it only covers `source_id is not null`.
+        "xp_events": {"kind": "adjustment", "amount": 1, "created_at": _now()},
     }
     return rows[table]
 
