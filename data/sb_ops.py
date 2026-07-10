@@ -155,6 +155,27 @@ def sb_select(table_name):
     return cached_sb_select(get_supabase_client(), table_name, current_user_id())
 
 
+def sb_rpc(fn_name, params=None):
+    """Call a Postgres function (RPC). Returns (data, None) or (None, error).
+
+    The read-only counterpart to `sb_select` for aggregates that must not be paged
+    to the client -- `xp_total()` sums a user's whole ledger in Postgres, so a
+    million events cost one scalar round trip instead of 2500 rows and a wrong total.
+
+    Like every other seam here it returns `(None, msg)` rather than raising, so a
+    caller on the wrong side of a migration (the function does not exist yet) simply
+    falls back. `ledger_xp()` depends on that: None means "use derived", never 0.
+    """
+    sb = get_supabase_client()
+    if sb is None:
+        return None, "Supabase not configured"
+    try:
+        res = sb.rpc(fn_name, params or {}).execute()
+        return res.data, None
+    except Exception as e:
+        return None, str(e)
+
+
 def sb_insert(table_name, row, show_error=False):
     sb = get_supabase_client()
     if sb is None:

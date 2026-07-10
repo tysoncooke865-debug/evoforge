@@ -16,7 +16,7 @@ a no-op. That is why every grant carries the source row's `id`.
 """
 import math
 
-from data.sb_ops import sb_insert, sb_select
+from data.sb_ops import sb_insert, sb_rpc
 from domain.xp import XP_PER_CARDIO_MINUTE, XP_PER_SET
 
 
@@ -28,24 +28,30 @@ def ledger_available():
 def ledger_xp():
     """Sum of this user's xp_events, or None if the ledger cannot be read.
 
-    None is returned for a missing table (migration not applied), a permission
-    error, or any transport failure. The caller treats None as "use derived".
+    Summed in Postgres by `public.xp_total()` (migrations/003), so the row count is
+    irrelevant. The old client-side version read through `sb_select`, capped at 2500
+    rows, and silently UNDERCOUNTED any user past that -- dropping their level. See
+    CLAUDE.md problem #13.
 
-    NOTE: this reads through `sb_select`, which caps at 2500 rows -- see known
-    problem #8. A user with more than 2500 lifetime XP events would be undercounted.
-    Aggregate server-side before that is reachable.
+    ############################################################################
+    #  RETURNS None ON ANY FAILURE, NEVER 0.                                   #
+    #  `resolve_xp` reads None as "fall back to the derived recount" and 0 as  #
+    #  "the ledger is genuinely empty" (negative drift). That distinction is   #
+    #  load-bearing and pinned by tools/verify_xp.py section 7. A failure read  #
+    #  as 0 would drop every user to their base level -- exactly the bug this   #
+    #  file was written to avoid.                                              #
+    ############################################################################
+
+    None covers: migrations/003 not applied yet, a permission error, a transport
+    failure, or a non-numeric result.
     """
-    data, err = sb_select("xp_events")
-    if data is None or err:
+    data, err = sb_rpc("xp_total")
+    if err or data is None:
         return None
-
-    total = 0
-    for row in data:
-        try:
-            total += int(row.get("amount") or 0)
-        except (TypeError, ValueError):
-            continue
-    return total
+    try:
+        return int(data)
+    except (TypeError, ValueError):
+        return None
 
 
 def record_xp_event(kind, amount, source_table=None, source_id=None, created_at=None):

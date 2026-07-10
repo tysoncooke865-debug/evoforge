@@ -5,15 +5,16 @@ The live work queue. `ROADMAP.md` says *what order and why*; this says *what nex
 **Owners:** `[claude]` architecture, security, schema, XP · `[junior]` UI, CSS,
 tests, docs · `[human]` anything needing a dashboard login or a decision.
 
-**Definition of done, every task:**
+**Definition of done, every task — all ten checks:**
 ```bash
 python tools/verify_ui.py && python tools/verify_deep.py && python tools/verify_ordering.py \
   && python tools/verify_xp.py && python tools/verify_goals.py && python tools/verify_css.py \
-  && python tools/verify_isolation.py
+  && python tools/verify_isolation.py && python tools/verify_perf.py \
+  && python tools/verify_escape.py && python tools/verify_session.py
 python tools/shot.py                                        # if the change is visual
 ```
 Plus: the doc describing the change is updated **in the same commit**.
-CI runs all seven on every push and PR. **A new guard is not accepted until it has
+CI runs all ten on every push and PR. **A new guard is not accepted until it has
 been falsified** — delete the fix, watch it go red, restore.
 
 ---
@@ -93,6 +94,21 @@ Run `migrations/002_xp_events.sql` in the Supabase SQL editor, then check its
   `workout_summary()["xp_drift"] == 0`.
 - **Do not** start T15 (leaderboards) or T17 (PvP) before this lands. A leaderboard
   must refuse to rank any account whose `xp_drift` is non-zero.
+
+### T15a · Leaderboard foundation `[claude]` + `[human]` 🟠 `[architect]`
+Toward T15, done honestly. See `plan-...rustling-dusk.md` for the full chain. Stages:
+1. ✅ **Server-side XP sum.** `migrations/003_xp_total_rpc.sql` written (human-run).
+   `ledger_xp()` calls `xp_total()` — the 2500-row cap (problem #13) is gone. Code is
+   correct before `003` is applied: a missing function reads as `None` → derived.
+   **Human:** apply `003` on staging, run its STEP 3 checks, then production.
+2. `display_name` + opt-in `public_profile` (T12).
+3. `leaderboard_top(n)` read surface (4 columns only) + the anti-cheat trigger
+   (`006`). **The hole:** `xp_events`'s insert policy checks only ownership, so a user
+   can POST `{"kind":"adjustment","amount":999999}` with their own JWT. `006`'s trigger
+   closes mint-from-nothing; it is **trust-on-first-use** until workout *writes* are
+   validated. Staging-gate `006` before production; RPC fallback if the trigger cannot
+   see `auth.uid()`.
+4. Trim the 2500-row table reads (minimal projection).
 
 ### T7 · Serve the avatars from `static/` instead of base64 `[claude]` 🟡 `[architect]`
 The ten PNGs are 4.8 MB. Inlined as `data:image/png;base64,...` they become ~6.4 MB

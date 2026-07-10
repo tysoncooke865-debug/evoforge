@@ -178,7 +178,7 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
 | 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | `002` written **and wired** (`domain/xp_ledger.py`), **not applied**. Code falls back to derived until it is. Needed for PvP/seasons |
-| 13 | `ledger_xp()` sums through `sb_select`, capped at 2500 rows — a user past 2500 lifetime XP events would be **undercounted and lose levels**. Same root cause as #8 | aggregate server-side before anyone reaches it |
+| 13 | ~~`ledger_xp()` sums through `sb_select`, capped at 2500 rows — a heavy user loses levels~~ | ✅ `ledger_xp()` calls `public.xp_total()` (`migrations/003`), summed in Postgres. Row count is now irrelevant |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
 | 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
 | 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |

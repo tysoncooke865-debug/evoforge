@@ -216,6 +216,52 @@ check("non-numeric cardio mints nothing", cardio_event_amount("nonsense") == 0)
 check("a set is a flat XP_PER_SET, independent of load", XP_PER_SET == 10)
 
 print()
+print("=" * 72)
+print("8. ledger_xp() SUMS SERVER-SIDE AT ANY SCALE, AND FAILS TO None")
+print("=" * 72)
+# ledger_xp() used to sum client-side through a read capped at 2500 rows, so a user
+# past 2500 XP events was silently undercounted and dropped a level (CLAUDE.md #13).
+# It now calls the xp_total() RPC (migrations/003), which sums in Postgres.
+#
+# The magnitude case is the whole point: a value that could never fit in 2500 rows
+# must come back intact. And the None-not-0 contract must survive -- ledger_xp() is
+# where resolve_xp's "absent vs empty" distinction is sourced.
+import domain.xp_ledger as xp_ledger  # noqa: E402
+
+_real_rpc = xp_ledger.sb_rpc
+try:
+    # Far more than 2500 sets could ever sum to: proves the cap is gone.
+    xp_ledger.sb_rpc = lambda fn, params=None: (2_600_000, None)
+    check("ledger_xp() returns a value no 2500-row read could hold",
+          xp_ledger.ledger_xp() == 2_600_000, f"got {xp_ledger.ledger_xp()!r}")
+
+    xp_ledger.sb_rpc = lambda fn, params=None: (0, None)
+    check("a genuinely empty ledger is 0 (not None)", xp_ledger.ledger_xp() == 0)
+
+    xp_ledger.sb_rpc = lambda fn, params=None: (None, "permission denied")
+    check("a failed RPC is None, never 0", xp_ledger.ledger_xp() is None)
+
+    xp_ledger.sb_rpc = lambda fn, params=None: ("nonsense", None)
+    check("a non-numeric result is None, never 0", xp_ledger.ledger_xp() is None)
+
+    xp_ledger.sb_rpc = lambda fn, params=None: (None, None)
+    check("a null result is None (migration not applied yet)", xp_ledger.ledger_xp() is None)
+
+    # It must call xp_total(), not page the table.
+    called = {}
+
+    def _record(fn, params=None):
+        called["fn"] = fn
+        return 5, None
+
+    xp_ledger.sb_rpc = _record
+    xp_ledger.ledger_xp()
+    check("ledger_xp calls the xp_total RPC", called.get("fn") == "xp_total",
+          f"called {called.get('fn')!r}")
+finally:
+    xp_ledger.sb_rpc = _real_rpc
+
+print()
 if failures:
     print(f"FAILED: {len(failures)} check(s)")
     for f in failures:
