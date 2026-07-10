@@ -83,8 +83,10 @@ jobs:
         run: |
           set -o pipefail
           if ! npx expo export -p web 2>&1 | tee /tmp/export.log; then
-            tail -n 25 /tmp/export.log | while IFS= read -r line; do
-              [ -n "$line" ] && echo "::error title=expo export::${line}"
+            # Annotations cap at 10/step; spend them on message lines, not
+            # minified stack frames ("    at a (...)").
+            grep -vE '^\s+at ' /tmp/export.log | grep -iE 'error|cannot|unable|failed|invalid|missing' | head -n 9 | while IFS= read -r line; do
+              echo "::error title=expo export::${line}"
             done
             exit 1
           fi
