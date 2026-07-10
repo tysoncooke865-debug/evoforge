@@ -155,9 +155,14 @@ Inserts therefore need no application change when tenancy lands.
 - **Tenancy: written, not yet applied.** `migrations/001_add_user_id_and_rls.sql`
   adds `user_id` and RLS to all 11 tables. Until it is run against the database, the
   tables remain one shared global bucket and **auth is a doorman with no walls**.
-- **RLS: unverified.** The app connects with the publishable key. If RLS is off or
-  permissive, that key is a skeleton key to every row. `tools/verify_rls.py` proves
-  it either way — run it against staging.
+- **RLS: OFF on production.** No longer a suspicion. On 2026-07-10
+  `verify_rls.py --anon-only` read all 11 tables (646 rows) with an unauthenticated
+  publishable-key client. That key is a skeleton key to every row — 198 workout
+  sets, 23 physique ratings, body measurements. It has never been committed to git
+  (verified across all history), so exploiting it requires the key itself.
+  **`migrations/001` is the fix.** It has been applied and verified on a staging
+  project; production is untouched. (Project refs are not recorded in this repo —
+  it is public. They live in `.streamlit/secrets.toml`, which is gitignored.)
 - Secrets live in `.streamlit/secrets.toml` (gitignored, never committed — verified
   across all commits). It contains a `SUPABASE_SECRET_KEY` and JWKS URL the app
   **never reads** — dead service-role credentials on disk. Remove and rotate.

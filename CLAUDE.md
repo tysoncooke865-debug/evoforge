@@ -106,7 +106,7 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 |---|---|---|
 | 1 | ~~No authentication at all~~ | ✅ Supabase Auth; see **Auth** above |
 | 2 | No `user_id` on any of the 11 tables | migration written, **not yet run** |
-| 3 | **RLS unverified** — if off, the publishable key grants full table access | **run the migration, then `tools/verify_rls.py`** |
+| 3 | **RLS is OFF on production.** Measured 2026-07-10 with `verify_rls.py --anon-only`: an unauthenticated publishable-key client read all 11 tables, 646 rows. The key is a skeleton key. Never committed to git, so exposure requires the key itself | 🔴 **run `migrations/001` on whichever project is production** |
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | Three XP formulas: `workout_summary` grants a level per flat 500 XP; `xp_to_next_level` = `500+(level-1)*25`; `current_level_xp` falls back to `sets*35+reps*2`. **The progress bar can never fill at level-up**, and you cannot rank on this | fix before leaderboards |

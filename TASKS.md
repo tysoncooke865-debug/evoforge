@@ -22,6 +22,21 @@ Plus: the doc describing the change is updated **in the same commit**.
 ## UP NEXT — in this order
 
 ### T1 · Run the migration and verify RLS `[human]` 🔴 blocks the public launch
+
+> **Measured 2026-07-10** with `verify_rls.py --anon-only`: **RLS is OFF on
+> production.** An unauthenticated publishable-key client read all 11 tables —
+> 646 rows. Counts: workout_log 198, custom_workout_plan 283, achievements 83,
+> physique_ratings 23, bodyfat_log 16, targets 16, profile 10, bodyweight_log 9,
+> cardio_log 4, measurements 2, avatar_progression 2.
+>
+> The staging project HAS the migration applied and passed the full
+> `verify_rls.py`. Production has not been touched.
+>
+> Note: the deployed app's `SUPABASE_URL` (Streamlit Cloud → Settings → Secrets)
+> appears to point at a THIRD, empty project — that is why signing in produced an
+> onboarding wizard rather than a level-43 character.
+>
+> Project refs are deliberately not recorded here. This repo is public.
 The app now has authentication. It does **not** yet have tenancy: no table has a
 `user_id`, so every signed-in user reads every other user's rows. Auth without RLS
 is a doorman with no walls.
