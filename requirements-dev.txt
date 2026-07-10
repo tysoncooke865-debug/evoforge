@@ -1,0 +1,7 @@
+# Development / verification only. NOT installed on Streamlit Cloud.
+# Runtime deps live in requirements.txt.
+-r requirements.txt
+
+# Real-browser rendering for tools/shot.py.
+# After installing: python -m playwright install chromium
+playwright>=1.40

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#
+# EvoForge protected-path guard.
+#
+# The junior AI (and anyone moving fast) must not silently change security,
+# schema, identity, payments, or the XP/evolution contract. A rule written in a
+# markdown file is advisory. This makes the boundary real.
+#
+# This is a commit-msg hook, NOT pre-commit: a pre-commit hook runs before git
+# prepares the message, so it cannot see an [architect] marker. Verified.
+#
+# Install once:
+#     git config core.hooksPath tools/hooks
+#
+# To intentionally change a protected path, put [architect] in the commit
+# message. That is a deliberate act, not an accident.
+#
+# Emergency escape hatch: git commit --no-verify
+
+set -euo pipefail
+
+MSG_FILE="$1"
+
+# Paths carrying security, money, identity, or ranking integrity.
+PROTECTED_PATTERNS=(
+    '^data/'                      # Supabase access layer + RLS assumptions
+    '^auth/'                      # future: authentication
+    '^config/constants\.py$'      # SUPABASE_TABLE_SCHEMAS is the schema contract
+    '^migrations/'                # database migrations
+    '^services/payments'          # future: billing
+    '^domain/xp_leveling\.py$'    # XP contract -> leaderboard integrity
+    '^domain/avatar_stats\.py$'   # evolution contract
+    '^\.streamlit/'               # secrets + runtime config
+    '^tools/hooks/'               # the guard must not disable itself
+)
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)
+[ -z "$STAGED" ] && exit 0
+
+HITS=""
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    for pat in "${PROTECTED_PATTERNS[@]}"; do
+        if printf '%s' "$file" | grep -qE "$pat"; then
+            HITS="${HITS}  ${file}"$'\n'
+            break
+        fi
+    done
+done <<< "$STAGED"
+
+[ -z "$HITS" ] && exit 0
+
+if grep -q '\[architect\]' "$MSG_FILE"; then
+    exit 0
+fi
+
+echo ""
+echo "=============================================================="
+echo " BLOCKED: this commit touches protected paths."
+echo "=============================================================="
+printf '%s' "$HITS"
+echo ""
+echo " These carry security, schema, identity, payments, or ranking"
+echo " integrity. See LOCAL_AI.md for the boundary."
+echo ""
+echo " If this change is intentional and reviewed, mark it:"
+echo "     git commit -m \"[architect] <what and why>\""
+echo ""
+echo " Junior AI: stop here and hand this task to Claude."
+echo "=============================================================="
+exit 1

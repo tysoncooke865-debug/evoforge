@@ -7,3 +7,6 @@ venv/
 
 # local rollback reference during the UI rebuild (not shipped)
 assets/styles_legacy.css
+
+# screenshots produced by tools/shot.py
+tools/shots/

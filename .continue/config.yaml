@@ -1,0 +1,112 @@
+# Continue.dev config for the EvoForge junior developer AI.
+#
+# Setup:
+#   1. Install the "Continue" extension in VS Code.
+#   2. Get a free API key (Gemini's free tier is generous; DeepSeek and
+#      OpenRouter's free models also work).
+#   3. Put the key in Continue's secrets, or export it in your shell.
+#   4. Reload VS Code. Continue picks this file up automatically.
+#
+# Why hosted rather than local: this machine has 7.3 GB RAM and no discrete GPU.
+# A 7B model would swap and generate a few tokens per second; a 3B cannot produce
+# reviewable changes. A free hosted model is far more capable at ~zero cost.
+#
+# Privacy: code sent to a hosted model LEAVES THIS MACHINE. Never paste
+# .streamlit/secrets.toml or any key material. It is gitignored — keep it that way.
+#
+# Model IDs change often. If a model 404s, check https://docs.continue.dev/reference
+# and the provider's current model list. Nothing else in this file needs to change.
+
+name: EvoForge Junior
+version: 1.0.0
+schema: v1
+
+models:
+  # Primary: reasoning, edits, chat.
+  - name: Junior (Gemini Flash)
+    provider: gemini
+    model: gemini-2.0-flash
+    apiKey: ${{ secrets.GEMINI_API_KEY }}
+    roles:
+      - chat
+      - edit
+      - apply
+      - summarize
+
+  # Fallback if you prefer OpenRouter's free tier. Uncomment and comment the above.
+  # - name: Junior (DeepSeek via OpenRouter)
+  #   provider: openrouter
+  #   model: deepseek/deepseek-chat
+  #   apiKey: ${{ secrets.OPENROUTER_API_KEY }}
+  #   roles: [chat, edit, apply, summarize]
+
+context:
+  - provider: file
+  - provider: code
+  - provider: diff
+  - provider: terminal
+
+# The full boundary lives in LOCAL_AI.md. These are the rules that, if broken,
+# cause silent shipped bugs — so they are inlined where the model always sees them.
+rules:
+  - >-
+    You are a junior developer on EvoForge. Read CLAUDE.md and LOCAL_AI.md before
+    making changes. Claude is the architect; defer to it on anything structural.
+
+  - >-
+    HARD BOUNDARY — never modify: data/, auth/, config/constants.py, migrations/,
+    services/payments*, domain/xp_leveling.py, domain/avatar_stats.py, .streamlit/,
+    tools/hooks/. These carry security, schema, identity, payments, and ranking
+    integrity. A commit-msg git hook will block you. If blocked, stop and hand the
+    task to Claude. Never add the [architect] marker yourself. Never use --no-verify.
+
+  - >-
+    Never split an HTML <div> across two st.markdown calls. Streamlit sanitizes each
+    call independently and auto-closes unbalanced tags, so the opening div becomes an
+    empty styled box and the next element is its sibling, not its child. Build the
+    whole card in one f-string. For images use avatar_img_tag() or avatar_stage_html()
+    from ui/avatar_images.py.
+
+  - >-
+    Never set font-family on `.stApp span`, `div` or `label`. Streamlit icons are
+    Material Symbols ligatures — the element text literally is
+    "keyboard_double_arrow_left" and the font renders it as a glyph. Overriding the
+    font makes the raw word appear. Set the face on `.stApp` and let it inherit.
+
+  - >-
+    Never hide header[data-testid="stHeader"] — on mobile it hosts the sidebar toggle,
+    and the sidebar is the only navigation.
+
+  - >-
+    Never globally squash animation-duration (including in prefers-reduced-motion).
+    One-shot toasts end at opacity 0, so fast-forwarding them makes every save
+    confirmation invisible. Disable ambient looping animations by name instead.
+
+  - >-
+    overflow-x: hidden still permits programmatic sideways scrolling. Use clip.
+
+  - >-
+    Never rename views/ to pages/. A top-level pages/ directory makes Streamlit build
+    its own multipage sidebar nav on top of ours.
+
+  - >-
+    Use the design tokens in the single :root of assets/styles.css. Do not introduce
+    new hex colours, spacing values, or !important. Glow is a signal, not decoration:
+    allowed on primary CTAs, active nav, XP fills, rarity badges, avatar auras and
+    unlock moments; banned on body text, tables, form inputs and labels.
+
+  - >-
+    HTTP 200 is not a health check — Streamlit returns 200 while rendering a traceback.
+    Before every commit run `python tools/verify_ui.py` and `python tools/verify_deep.py`.
+    If the change is visual, also run `python tools/shot.py`. If a check fails, the
+    change is not done. Never disable a check.
+
+  - >-
+    Work on a branch named junior/<id>-<slug>, one task per branch, and open a PR.
+    Green suite means you may self-merge, unless the PR touches a protected path or
+    changes more than 100 lines — those go to Claude.
+
+  - >-
+    EvoForge stores body measurements and processes physique photographs. Treat every
+    row as sensitive personal data. Saying "this is outside my boundary" is always the
+    correct answer; guessing at a security or schema change never is.
