@@ -15,30 +15,32 @@ No new features. Make the foundation safe to build on.
 | # | Task | Why now |
 |---|---|---|
 | 0 | Project memory: `CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `TASKS.md`, `LOCAL_AI.md`, `tools/` | ✅ done — future sessions stop rediscovering |
-| 1 | **Verify RLS by hand** in the Supabase dashboard | Ten minutes. Blocks everything. If RLS is off, the publishable key reads every row. |
-| 2 | **Delete the CSV fallback** (`data/csv_store.py`, 7 domain call sites) | On Streamlit Cloud the disk is ephemeral *and shared*. Harmless today, a cross-user leak the day auth ships. |
+| 2 | **Delete the CSV fallback** (`data/csv_store.py`, 7 domain call sites) | ✅ done — Supabase is the only store |
+| 5 | Fix `Delete Data` to delete from Supabase, not only CSV | ✅ done |
+| 1 | **Run `migrations/001_add_user_id_and_rls.sql`, then `tools/verify_rls.py`** | 🔴 **The only thing left before a public launch.** Auth exists; tenancy does not. Today every signed-in user reads every row. |
 | 3 | **Unify XP + add an append-only `xp_events` ledger** | Three formulas exist. The progress bar can never fill. You cannot rank on this, and fixing it after a leaderboard exists invalidates every historic rank. |
 | 4 | Remove + rotate the unused `SUPABASE_SECRET_KEY` | Dead service-role credential sitting on disk. |
-| 5 | Fix `Delete Data` to delete from Supabase, not only CSV | Deletions currently don't propagate. Becomes a GDPR problem the moment there are users. |
 | 6 | Decouple `domain/xp_leveling.py` + `domain/custom_plan.py` from `streamlit` | The last two blockers to a framework-free service layer. Cheap now. |
 
 ---
 
 ## NEXT — identity
-Everything here is blocked by NOW. Do not start until 1–3 are done.
 
-| # | Task | Depends on |
+| # | Task | Status |
 |---|---|---|
-| 7 | **Schema migration: `user_id uuid` on all 11 tables** + composite keys for `achievements` / `avatar_progression` | 2 |
-| 8 | **Supabase Auth** (email + OAuth), login gate, session identity | 7 |
-| 9 | **RLS policies** on every table: `user_id = auth.uid()` | 7, 8 |
-| 10 | Per-user cache keys — `cached_sb_select(table, user_id)` | 8 |
-| 11 | Scope every query by `user_id`; kill the 2500-row full-table reads; index `(user_id, date)` | 7 |
-| 12 | User profiles (display name, avatar, privacy settings) | 8 |
-| 13 | Achievements + streaks on top of the `xp_events` ledger | 3, 7 |
+| 7 | **Schema migration: `user_id uuid` on all 11 tables** + composite key for `achievements` | ✅ written — `migrations/001`, **not yet run** |
+| 8 | **Supabase Auth**, login gate, session identity, onboarding wizard | ✅ done |
+| 9 | **RLS policies** on every table: `user_id = auth.uid()` | in `migrations/001`, **not yet applied** |
+| 10 | Per-user cache keys — `cached_sb_select(_sb, table, user_id)` | ✅ done |
+| 11 | Kill the 2500-row full-table reads; the `(user_id, date)` indexes are in `migrations/001` | pending |
+| 12 | User profiles (display name, avatar, privacy settings) | pending |
+| 13 | Achievements + streaks on top of the `xp_events` ledger | blocked by 3 |
+| — | Session survives a page refresh (cookie component) | pending; see ARCHITECTURE §1 |
+| — | Custom SMTP — the built-in mailer is rate-limited | launch blocker |
 
-**Nothing ships publicly before 9 is verified.** Users' body measurements and physique
-photographs are sensitive personal data.
+**Nothing ships publicly before 9 is applied and `tools/verify_rls.py` passes.**
+Auth without RLS is a doorman with no walls: every signed-in user reads every row.
+Users' body measurements and physique photographs are sensitive personal data.
 
 ---
 

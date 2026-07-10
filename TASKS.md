@@ -15,22 +15,30 @@ Plus: the doc describing the change is updated **in the same commit**.
 ---
 
 ## IN PROGRESS
-**Login & Onboarding** — plan approved. P1 landed; blocked on T1.
+**Login & Onboarding** — code landed. **T1 is the last step and only you can do it.**
 
 ---
 
 ## UP NEXT — in this order
 
-### T1 · Verify RLS on all 11 tables `[human]` 🔴 blocks everything
-Open Supabase → Authentication → Policies. For each of the 11 tables record:
-is RLS enabled, and what policies exist.
+### T1 · Run the migration and verify RLS `[human]` 🔴 blocks the public launch
+The app now has authentication. It does **not** yet have tenancy: no table has a
+`user_id`, so every signed-in user reads every other user's rows. Auth without RLS
+is a doorman with no walls.
 
-- **Why:** the app connects with the publishable key. If RLS is off, that key reads
-  and writes every row in the database.
-- **Acceptance:** a table in this file listing `table → RLS on/off → policies`.
-- **If RLS is off:** stop. Do not add features. That is the top priority.
-- Claude was correctly blocked from probing production during the audit, so this
-  genuinely cannot be automated from here.
+1. Open `migrations/001_add_user_id_and_rls.sql`. Read the header.
+2. **Run it against a staging project first.** Steps 3 and 6 are not reversible.
+3. STEP 0 → STEP 1. Then sign up in the app (this creates the owner account).
+4. Get the owner's UUID: `select id, email from auth.users order by created_at limit 5;`
+5. Paste it into STEP 2, run STEP 2 → STEP 7.
+6. `python tools/verify_rls.py --i-understand-this-writes-to-the-database`
+   against staging. It must print `RLS VERIFIED`.
+7. Repeat against production.
+
+- **Acceptance:** `verify_rls.py` passes; signing in as the owner still shows level
+  43, the full history and the avatar; a second account sees an empty app and the
+  onboarding wizard.
+- Claude was correctly blocked from probing production, so steps 2–7 need you.
 
 ### T3 · Unify XP and add an `xp_events` ledger `[claude]` 🔴 `[architect]`
 Three formulas exist today:
@@ -92,6 +100,16 @@ paths — that is intended. Hand those tasks to Claude.**
 ---
 
 ## DONE
+- **Login & onboarding.** Supabase Auth (email + password) in `auth/session.py`.
+  Session-scoped Supabase client — the JWT lives on the client instance, so it must
+  never be `@st.cache_resource`d. `cached_sb_select` is now keyed on `user_id`.
+  Login gate + 3-step onboarding wizard in `app.py`; a saved `profile` row is the
+  onboarded flag. `migrations/001_add_user_id_and_rls.sql` and `tools/verify_rls.py`
+  written — **the migration has not been run.** See T1.
+- **Fixed a latent CSS bug the login screen exposed:** form submit buttons are not
+  `.stButton` children and their `kind` is `primaryFormSubmit`. Streamlit also wraps
+  every button label in a `<p>`, which `.stApp p` was painting `--text-dim`. Every
+  primary CTA in the app had a washed-out label.
 - **T2 · Deleted the CSV layer.** `data/csv_store.py` gone. Removed `save_csv_backup`
   from 7 domain modules and — missed by the original audit — five direct `to_csv()`
   disk writes in `profile`, `targets`, `custom_plan` (×2) and `workouts`.

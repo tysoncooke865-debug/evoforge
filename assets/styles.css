@@ -617,8 +617,12 @@ span[class*="material-symbols"],
 .rarity-mythic    { --rarity: var(--mythic); }
 
 /* ------------------------------------------------- 08 BUTTONS + FORMS */
+/* Form submit buttons are NOT .stButton children and their kind is
+   "primaryFormSubmit", not "primary". Style both or the login CTA renders with
+   Streamlit's default label colour on our cyan fill — unreadable. */
 .stButton > button,
-.stDownloadButton > button {
+.stDownloadButton > button,
+.stFormSubmitButton > button {
     width: 100%;
     border-radius: var(--r-md);
     border: 1px solid var(--border-soft);
@@ -633,26 +637,39 @@ span[class*="material-symbols"],
 }
 
 .stButton > button:hover,
-.stDownloadButton > button:hover {
+.stDownloadButton > button:hover,
+.stFormSubmitButton > button:hover {
     border-color: var(--border-strong);
     box-shadow: var(--glow-sm);
     transform: translateY(-1px);
     color: var(--text);
 }
 
-.stButton > button:active { transform: translateY(0) scale(.99); }
+.stButton > button:active,
+.stFormSubmitButton > button:active { transform: translateY(0) scale(.99); }
 
 /* primary = the one glowing thing on screen */
-.stButton > button[kind="primary"] {
+.stButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primaryFormSubmit"] {
     background: linear-gradient(135deg, var(--accent-deep), var(--accent));
     border-color: var(--accent);
     color: var(--accent-ink);
     font-weight: 900;
     box-shadow: var(--glow-md);
 }
-.stButton > button[kind="primary"]:hover {
+.stButton > button[kind="primary"]:hover,
+.stFormSubmitButton > button[kind="primaryFormSubmit"]:hover {
     box-shadow: var(--glow-lg);
     color: var(--accent-ink);
+}
+
+/* Streamlit wraps every button label in a <p>, which `.stApp p` was painting
+   --text-dim. On the cyan primary fill that is unreadable. Let the label take
+   the button's own colour. */
+.stApp .stButton p,
+.stApp .stDownloadButton p,
+.stApp .stFormSubmitButton p {
+    color: inherit;
 }
 
 /* form controls: no glow, just clarity */
@@ -1248,6 +1265,86 @@ section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
 
 /* No glow on tabular data -- readability wins. */
 [data-testid="stDataFrame"] div { box-shadow: none; text-shadow: none; }
+
+/* -------------------------------------------- 13b AUTH + ONBOARDING */
+/* The signed-out screen. No sidebar renders here, so the wordmark is the
+   only brand anchor -- glow is earned. */
+.ef-auth-hero {
+    text-align: center;
+    padding: var(--s10) var(--s4) var(--s6);
+}
+
+.ef-auth-mark {
+    font-size: var(--fs-3xl);
+    font-weight: 800;
+    letter-spacing: .16em;
+    color: var(--text);
+    text-shadow: var(--glow-md);
+}
+
+.ef-auth-tagline {
+    margin-top: var(--s2);
+    color: var(--text-dim);
+    font-size: var(--fs-sm);
+    letter-spacing: .04em;
+}
+
+.ef-auth-note {
+    margin-top: var(--s6);
+    text-align: center;
+    color: var(--text-mute);
+    font-size: var(--fs-2xs);
+    line-height: 1.6;
+}
+
+/* Identity chip at the foot of the sidebar. Long emails must truncate rather
+   than widen the sidebar -- that is what caused the sideways scroll before. */
+.ef-side-account {
+    margin: 0 0 var(--s2);
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: var(--fs-2xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ef-onb-header {
+    text-align: center;
+    padding: var(--s8) var(--s4) var(--s5);
+}
+
+.ef-onb-kicker {
+    color: var(--accent);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: .18em;
+}
+
+.ef-onb-rail {
+    display: flex;
+    justify-content: center;
+    gap: var(--s2);
+    margin-top: var(--s3);
+}
+
+.ef-onb-dot {
+    width: 44px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--surface-3);
+    transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.ef-onb-dot.is-done { background: var(--accent-deep); }
+
+.ef-onb-dot.is-active {
+    background: var(--accent);
+    box-shadow: var(--glow-sm);
+}
 
 /* ------------------------------------------------ 14 MOTION + KEYFRAMES */
 /* Each name defined exactly once. */

@@ -70,6 +70,10 @@ DIAG = r"""
     iconsTotal: icons.length,
     heroPanels: q('.hero-panel').length,
     avatarStages: q('.ef-avatar-stage').length,
+    // The signed-out gate. When this is 1 the sidebar must be absent: it renders
+    // the last-loaded avatar, level and XP.
+    authScreens: q('.ef-auth-hero').length,
+    onboardingSteps: q('.ef-onb-dot').length,
     pageScrollsSideways: document.documentElement.scrollWidth > vw + 2,
   };
 }
@@ -86,7 +90,9 @@ def main():
             pg.on("pageerror", lambda e: js_errors.append(str(e)[:90]))
             pg.goto(URL, wait_until="domcontentloaded", timeout=60000)
             try:
-                pg.wait_for_selector(".hero-panel", timeout=45000)
+                # A signed-out visitor gets .ef-auth-hero and never a .hero-panel;
+                # the onboarding wizard gets neither. Wait for whichever arrives.
+                pg.wait_for_selector(".hero-panel, .ef-auth-hero, .ef-onb-header", timeout=45000)
                 pg.wait_for_function(
                     "() => document.querySelectorAll('[data-testid=\"stSkeleton\"]').length === 0",
                     timeout=30000)
@@ -110,6 +116,8 @@ def main():
                 problems.append(f"{name}: Streamlit auto multipage nav present (duplicate sidebar)")
             if sbd.get("canScrollSideways"):
                 problems.append(f"{name}: sidebar scrolls sideways")
+            if diag["authScreens"] and sbd.get("navBtns"):
+                problems.append(f"{name}: sidebar nav rendered behind the login gate")
             if js_errors:
                 problems.append(f"{name}: js errors {js_errors[:1]}")
 

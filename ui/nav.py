@@ -194,6 +194,24 @@ def render_sidebar_navigation(active_page):
             route_to(page_key)
 
 
+def render_sidebar_account():
+    """Signed-in identity and sign-out, at the foot of the sidebar."""
+    from auth.session import current_user_email, sign_out
+
+    email = current_user_email()
+    if not email:
+        return
+
+    st.sidebar.markdown('<div class="ef-side-nav-title">ACCOUNT</div>', unsafe_allow_html=True)
+    st.sidebar.markdown(
+        f'<div class="ef-side-account" title="{email}">{email}</div>',
+        unsafe_allow_html=True,
+    )
+    if st.sidebar.button("Sign out", key="evoforge_sign_out", width="stretch"):
+        sign_out()
+        st.rerun()
+
+
 def render_mobile_navigation(active_page):
     """Slim mobile-only brand bar. Deliberately carries no nav widget.
 

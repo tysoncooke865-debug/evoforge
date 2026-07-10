@@ -27,9 +27,10 @@ Read `CLAUDE.md` first. It is short and tells you what this project is.
 | Path | Why |
 |---|---|
 | `data/` | Supabase access + RLS assumptions. A mistake leaks user data. |
-| `auth/` (future) | Identity. |
+| `auth/` | Identity. |
 | `config/constants.py` | `SUPABASE_TABLE_SCHEMAS` is the database schema contract. |
-| `migrations/` (future) | Irreversible against production. |
+| `migrations/` | Irreversible against production. |
+| `views/auth.py`, `views/onboarding.py` | The login gate. |
 | `services/payments*` (future) | Money. |
 | `domain/xp_leveling.py` | The XP contract. Leaderboard and ranking integrity. |
 | `domain/avatar_stats.py` | The evolution contract. |

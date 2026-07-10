@@ -19,7 +19,9 @@ Deployed on Streamlit Community Cloud from `main`.
 
 ## Layout
 ```
-app.py            entrypoint: page_config, styles, nav, router dispatch (~80 lines)
+app.py            entrypoint: page_config, styles, auth gate, nav, router dispatch
+auth/             session.py -> sign_up/sign_in/sign_out/current_user. Identity.
+migrations/       numbered .sql, run by hand in the Supabase SQL editor
 config/           constants.py -> SUPABASE_TABLE_SCHEMAS is the schema contract
 data/             supabase_client · sb_ops (CRUD+cache). Supabase is the ONLY store.
 domain/           pure business logic. 12 modules. ~80% of a portable service layer.
@@ -48,8 +50,25 @@ it would send an explicit `NULL` against a `NOT NULL` column.
 Access uses the publishable key; **RLS status is unverified** (see #3).
 
 ## Auth
-None. No `user_id`, no `st.user`, no session identity anywhere. Everything in
-ROADMAP.md flows from fixing this.
+Supabase Auth, email + password. `auth/session.py` is the only entry point.
+
+- `app.py` gates: signed out → `views/auth.py` + `st.stop()`. No sidebar renders.
+- Then: no `profile` row → `views/onboarding.py` (3-step wizard) + `st.stop()`.
+  **A saved profile row IS the onboarded flag.** No extra table or column.
+- The JWT lives **on the Supabase client instance**. `get_supabase_client()`
+  returns one client per browser session from `st.session_state["_sb_client"]`.
+  **Never `@st.cache_resource` an authenticated client** — that cache is
+  process-global and would hand one user's JWT to the next visitor.
+- `cached_sb_select(_sb, table, user_id)` — `_sb` is excluded from the hash by
+  its underscore; `user_id` must stay in the key or `@st.cache_data` (also
+  process-global) serves one user's rows to another.
+- **A page refresh signs the user out.** `st.context.cookies` is read-only, so
+  Streamlit cannot persist a session. Fixing it needs a cookie component. Do
+  **not** put the refresh token in a query param — it leaks into history and
+  `Referer`.
+
+`migrations/001_add_user_id_and_rls.sql` adds `user_id` + RLS to all 11 tables.
+**It has not been run yet.** Until it has, tenancy is not enforced.
 
 ## The XP / evolution contract
 - **XP is derived, not stored.** A pure function of `workout_log` + `cardio_log`,
@@ -67,11 +86,11 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 
 | # | Problem | Status |
 |---|---|---|
-| 1 | No authentication at all | blocks everything |
-| 2 | No `user_id` on any of the 11 tables | cheap to fix now, brutal later |
-| 3 | **RLS unverified** — if off, the publishable key grants full table access | **check first, by hand** |
+| 1 | ~~No authentication at all~~ | ✅ Supabase Auth; see **Auth** above |
+| 2 | No `user_id` on any of the 11 tables | migration written, **not yet run** |
+| 3 | **RLS unverified** — if off, the publishable key grants full table access | **run the migration, then `tools/verify_rls.py`** |
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
-| 5 | `cached_sb_select` is `@st.cache_data(ttl=20)` keyed only on `table_name` → process-global → one user's rows served to another | key by user_id |
+| 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | Three XP formulas: `workout_summary` grants a level per flat 500 XP; `xp_to_next_level` = `500+(level-1)*25`; `current_level_xp` falls back to `sets*35+reps*2`. **The progress bar can never fill at level-up**, and you cannot rank on this | fix before leaderboards |
 | 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | needed for PvP/seasons |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
@@ -94,6 +113,10 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   `opacity: 0`; fast-forwarding them makes them invisible. Disable ambient loops
   by name instead.
 - **`overflow-x: hidden` still allows programmatic sideways scroll.** Use `clip`.
+- **Form submit buttons are not `.stButton` children** and their `kind` is
+  `primaryFormSubmit`, not `primary`. Style `.stFormSubmitButton > button` too,
+  and let the label `<p>` inherit its colour or it renders `--text-dim` on the
+  cyan fill.
 - Business logic goes in `domain/` and stays free of `streamlit` imports where
   possible — that is the seam a future FastAPI backend reuses.
 - Streamlit Cloud renders the app inside an `<iframe>`. Its viewer badge and profile
@@ -119,6 +142,7 @@ The junior AI must never touch these. See LOCAL_AI.md.
 > behind a green 200.
 
 ## Docs
+- `migrations/001_add_user_id_and_rls.sql` — tenancy + RLS. Read before touching schema.
 - `ARCHITECTURE.md` — structure, data flow, security model, scale plan (10 → 100k users)
 - `ROADMAP.md` — NOW / NEXT / LATER with dependency reasoning
 - `TASKS.md` — the live work queue

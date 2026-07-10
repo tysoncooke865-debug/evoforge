@@ -28,14 +28,48 @@ AVATAR_WRAPPERS = [
     "home-avatar-img-wrap", "true-silhouette-panel", "ef-evo-panel",
 ]
 
+# app.py stops before the router unless someone is signed in. Seeding the key
+# that auth/session.py reads is enough to get past the gate: these checks are
+# about page structure, not about identity. tools/verify_rls.py tests identity.
+#
+# The email must not contain "evoforge": the sidebar renders it, and the brand
+# invariant below counts EVOFORGE case-insensitively.
+TEST_USER = {"id": "00000000-0000-0000-0000-0000000000ff", "email": "verify@example.test"}
+
 
 def run_page(page):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
+    at.session_state["_auth_user"] = TEST_USER
     at.session_state["active_page"] = page
     at.session_state["_nav_initialised"] = True
     at.run()
     return at
+
+
+def check_auth_gate():
+    """A signed-out visitor sees the login screen and nothing else.
+
+    Specifically: no sidebar. The sidebar renders the avatar, level and XP of
+    whoever was last loaded, so leaking it past the gate would leak them too.
+    """
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
+    at.session_state["active_page"] = "Avatar"
+    at.run()
+
+    problems = []
+    if at.exception:
+        problems.append(f"login screen raised: {str(at.exception[0].value)[:80]}")
+
+    main_html = "\n".join(markdown_bodies(at))
+    if "ef-auth-mark" not in main_html:
+        problems.append("login screen did not render")
+    if sidebar_bodies(at):
+        problems.append("sidebar rendered for a signed-out visitor")
+    if 'src="data:image' in main_html:
+        problems.append("an avatar image rendered for a signed-out visitor")
+    return problems
 
 
 def _no_style(bodies):
@@ -112,6 +146,11 @@ def main():
     for f in failures:
         print(f"  - {f}")
 
+    gate_problems = check_auth_gate()
+    print(f"\nauth gate: {'OK' if not gate_problems else 'FAIL'}")
+    for p in gate_problems:
+        print(f"  - {p}")
+
     # Invariants that must hold on every page.
     bad_brand = [r[0] for r in results if "brand_main=1 " not in r[2]]
     bad_orphan = [r[0] for r in results if "orphan=0" not in r[3]]
@@ -120,7 +159,7 @@ def main():
     if bad_orphan:
         print(f"FAIL: orphaned avatar wrappers: {bad_orphan}")
 
-    if failures or bad_brand or bad_orphan:
+    if failures or bad_brand or bad_orphan or gate_problems:
         sys.exit(1)
     print("\nALL PAGES OK")
 

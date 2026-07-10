@@ -24,7 +24,9 @@ MSG_FILE="$1"
 # Paths carrying security, money, identity, or ranking integrity.
 PROTECTED_PATTERNS=(
     '^data/'                      # Supabase access layer + RLS assumptions
-    '^auth/'                      # future: authentication
+    '^auth/'                      # authentication
+    '^views/auth\.py$'            # the login gate
+    '^views/onboarding\.py$'      # runs before the gate closes
     '^config/constants\.py$'      # SUPABASE_TABLE_SCHEMAS is the schema contract
     '^migrations/'                # database migrations
     '^services/payments'          # future: billing
@@ -32,6 +34,7 @@ PROTECTED_PATTERNS=(
     '^domain/avatar_stats\.py$'   # evolution contract
     '^\.streamlit/'               # secrets + runtime config
     '^tools/hooks/'               # the guard must not disable itself
+    '^tools/verify_rls\.py$'      # the security test must not be weakened
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)

@@ -37,9 +37,15 @@ def check(name, cond, detail=""):
         failures.append(f"{name}: {detail}")
 
 
+# app.py stops before the router unless someone is signed in. The email must not
+# contain "evoforge" -- the sidebar renders it, and brand counts are asserted.
+TEST_USER = {"id": "00000000-0000-0000-0000-0000000000ff", "email": "verify@example.test"}
+
+
 def run(page, **ss):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
+    at.session_state["_auth_user"] = TEST_USER
     at.session_state["active_page"] = page
     at.session_state["_nav_initialised"] = True
     for k, v in ss.items():

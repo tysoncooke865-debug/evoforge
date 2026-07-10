@@ -33,12 +33,13 @@ Both toast pumps must be called every run. They read `session_state` keys that
 pages *write* during their own render — so the toast appears on the **next** run,
 after `st.rerun()`. Remove either call and every save confirmation silently vanishes.
 
-### Cache layers (three, with different lifetimes)
+### Cache layers (four, with different lifetimes)
 | Layer | Mechanism | Scope | Danger |
 |---|---|---|---|
-| Supabase reads | `@st.cache_data(ttl=20)` on `cached_sb_select` | **process-global, keyed only on table_name** | Under multi-user, serves one user's rows to another. Must be keyed by `user_id`. |
-| Decoded avatars | `@st.cache_resource` on `cached_avatar_image` | process-global | Safe — images are not user data. |
-| Page snapshot | `session_state["_fast_snapshot"]` via `get_fast_snapshot()` | per session | Safe. |
+| Supabase reads | `@st.cache_data(ttl=20)` on `cached_sb_select(_sb, table, user_id)` | process-global, keyed on `(table, user_id)` | Drop `user_id` from the key and one user's rows are served to another. `_sb` is underscore-prefixed so Streamlit excludes it from the hash. |
+| Supabase client | `st.session_state["_sb_client"]` | **per session** | Holds the user's JWT. `@st.cache_resource` here would hand it to the next visitor. |
+| Decoded avatars | `@st.cache_resource` on `cached_avatar_image` | process-global | Safe — images are shipped assets, not user data. |
+| Page snapshot | `session_state["_fast_snapshot"]` via `get_fast_snapshot()` | per session | Safe. Cleared on sign-out. |
 
 ### Styling
 One stylesheet, `assets/styles.css` (~1.4k lines), injected once by `ui/styles.py`.
@@ -67,6 +68,13 @@ text, tables, inputs and labels. That restraint is most of the difference betwee
    removes them but substitutes its own footer bar.
 6. **HTTP 200 is not a health check.** Streamlit returns 200 while rendering a
    traceback. Use `tools/verify_ui.py`.
+7. **`st.context.cookies` is read-only.** `StreamlitCookies` has `__getitem__`
+   and no `__setitem__`, so Streamlit cannot persist a session. A refresh signs
+   the user out. The refresh token must not go in a query param.
+8. **Form submit buttons are not `.stButton` children**; their `kind` is
+   `primaryFormSubmit`. And Streamlit wraps every button label in a `<p>`, which
+   `.stApp p { color: var(--text-dim) }` was painting — unreadable on the cyan
+   primary fill. Labels inherit their button's colour.
 
 ---
 
@@ -140,26 +148,44 @@ Inserts therefore need no application change when tenancy lands.
 ## 3. Security model
 
 ### Current state — be blunt about it
-- **No authentication.** No `user_id`, no `st.user`, no session identity.
-- **No tenancy.** All 11 tables are one shared global bucket.
-- **RLS: unverified.** The app authenticates with the publishable key. If RLS is off
-  or permissive, that key is a skeleton key to every row.
+- **Authentication: done.** Supabase Auth, email + password. `auth/session.py`.
+  `app.py` renders the login screen and calls `st.stop()` for a signed-out visitor,
+  so the sidebar (avatar, level, XP of whoever loaded last) never renders.
+- **Per-user cache keys: done.** `cached_sb_select(_sb, table, user_id)`.
+- **Tenancy: written, not yet applied.** `migrations/001_add_user_id_and_rls.sql`
+  adds `user_id` and RLS to all 11 tables. Until it is run against the database, the
+  tables remain one shared global bucket and **auth is a doorman with no walls**.
+- **RLS: unverified.** The app connects with the publishable key. If RLS is off or
+  permissive, that key is a skeleton key to every row. `tools/verify_rls.py` proves
+  it either way — run it against staging.
 - Secrets live in `.streamlit/secrets.toml` (gitignored, never committed — verified
   across all commits). It contains a `SUPABASE_SECRET_KEY` and JWKS URL the app
   **never reads** — dead service-role credentials on disk. Remove and rotate.
 - The publishable key never reaches a browser: Streamlit is server-rendered. That is
   the only reason the current setup is not already exploited.
 
-### Target state
-1. **Supabase Auth** (email/OAuth). Identity is `auth.uid()`.
-2. **`user_id uuid not null references auth.users` on all 11 tables.**
-3. **RLS enabled on every table**, policy `user_id = auth.uid()` for select/insert/
-   update/delete. No exceptions — this is the only thing standing between users'
-   body measurements and physique photographs.
-4. **Per-user cache keys.** `cached_sb_select(table, user_id)`.
-5. Composite keys where natural keys collide: `achievements(user_id, achievement_id)`.
-6. Storage: physique photos are currently sent to OpenAI and **not stored**. If they
-   ever are, they need a private bucket with RLS and a retention policy.
+### How identity reaches Postgres
+```
+views/auth.py  sign_in()
+  → client.auth.sign_in_with_password()      auth/session.py
+      → the JWT is stored ON the client instance
+        st.session_state["_sb_client"]        data/supabase_client.py
+          → Client.postgrest sends `session.access_token if session else supabase_key`
+             → Postgres: auth.uid() = the user
+                → RLS policy `user_id = auth.uid()` filters every row
+```
+Break any link and RLS silently degrades to "the publishable key sees everything".
+The most fragile link is the client: cache it globally and it is shared.
+
+### Remaining, in order
+1. Run `migrations/001_add_user_id_and_rls.sql` (owner signs up first, then backfill).
+2. Run `tools/verify_rls.py` against staging. **Nothing ships publicly before it passes.**
+3. Remove and rotate `SUPABASE_SECRET_KEY`.
+4. Custom SMTP — Supabase's built-in mailer is rate-limited to a few messages/hour,
+   so confirmation emails will not survive a real signup rate.
+5. Session persistence across refresh (a cookie component). Not the query param.
+6. Storage: physique photos are sent to OpenAI and **not stored**. If they ever are,
+   they need a private bucket with RLS and a retention policy.
 
 ### Threat notes
 - Physique photos and body measurements are sensitive personal data. Treat a leak as

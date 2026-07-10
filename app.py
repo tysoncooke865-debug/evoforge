@@ -1,10 +1,16 @@
 import streamlit as st
 
+from auth.session import is_signed_in
 from config.constants import APP_TITLE
-from ui.nav import ALL_PAGES, resolve_page_from_state, route_button, render_sidebar_navigation, render_mobile_navigation
+from ui.nav import (
+    ALL_PAGES, resolve_page_from_state, route_button, render_sidebar_account,
+    render_sidebar_navigation, render_mobile_navigation,
+)
 from ui.styles import load_app_styles
 from ui.components import ui_toast_area
 from ui.avatar_cards import render_workout_xp_toast
+import views.auth as view_auth
+import views.onboarding as view_onboarding
 import views.routine as view_routine
 import views.profile as view_profile
 import views.measurements as view_measurements
@@ -44,6 +50,24 @@ PAGE_RENDERERS = {
 st.set_page_config(page_title=APP_TITLE, layout="wide", initial_sidebar_state="auto")
 load_app_styles()
 
+# ---------------------------------------------------------------- auth gate
+# Nothing below this runs for a signed-out visitor. The sidebar is not rendered
+# either: it would leak the previous session's avatar, level and XP.
+#
+# A page refresh lands here again, because st.context.cookies is read-only and
+# Streamlit cannot persist a session. That is a known, accepted limitation.
+if not is_signed_in():
+    ui_toast_area()
+    view_auth.render()
+    st.stop()
+
+# ------------------------------------------------------------ onboarding gate
+# "Has a profile row" IS the onboarded flag. No extra table, no extra column.
+if view_onboarding.should_render():
+    ui_toast_area()
+    view_onboarding.render()
+    st.stop()
+
 if "active_page" not in st.session_state or st.session_state.active_page not in ALL_PAGES:
     st.session_state.active_page = "Home"
 
@@ -64,6 +88,9 @@ PERFORMANCE_MODE = st.sidebar.toggle(
 # off with :has(). Must be a single balanced markdown call.
 if PERFORMANCE_MODE:
     st.markdown('<div class="ef-perf-mode" aria-hidden="true"></div>', unsafe_allow_html=True)
+
+# Last in the sidebar, so identity sits beneath navigation and settings.
+render_sidebar_account()
 
 render_mobile_navigation(page)
 

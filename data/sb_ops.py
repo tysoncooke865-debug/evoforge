@@ -95,27 +95,39 @@ def clean_supabase_row(row, table_name):
 
 
 @st.cache_data(ttl=20, show_spinner=False)
-def cached_sb_select(table_name, limit_rows=2500):
-    sb = get_supabase_client()
-    if sb is None:
+def cached_sb_select(_sb, table_name, user_id, limit_rows=2500):
+    """Cached table read.
+
+    `st.cache_data` is PROCESS-GLOBAL, shared by every browser session. `user_id`
+    is therefore part of the key: without it, one user's rows are served to the
+    next. `_sb` is underscore-prefixed so Streamlit excludes it from the hash --
+    the client is unhashable and differs per session, but the rows it returns are
+    fully determined by (table_name, user_id).
+
+    Row filtering itself is Postgres's job, not this function's: RLS restricts
+    the result to `user_id = auth.uid()`. `user_id` here only keys the cache.
+    """
+    if _sb is None:
         return None, "Supabase not configured"
 
     try:
         # Most recent rows first where timestamp/created_at exists.
         try:
-            res = sb.table(table_name).select("*").order("timestamp", desc=True).limit(limit_rows).execute()
+            res = _sb.table(table_name).select("*").order("timestamp", desc=True).limit(limit_rows).execute()
         except Exception:
             try:
-                res = sb.table(table_name).select("*").order("created_at", desc=True).limit(limit_rows).execute()
+                res = _sb.table(table_name).select("*").order("created_at", desc=True).limit(limit_rows).execute()
             except Exception:
-                res = sb.table(table_name).select("*").limit(limit_rows).execute()
+                res = _sb.table(table_name).select("*").limit(limit_rows).execute()
         return res.data or [], None
     except Exception as e:
         return None, str(e)
 
 
 def sb_select(table_name):
-    return cached_sb_select(table_name)
+    from auth.session import current_user_id
+
+    return cached_sb_select(get_supabase_client(), table_name, current_user_id())
 
 
 def sb_insert(table_name, row, show_error=False):

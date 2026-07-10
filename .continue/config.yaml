@@ -54,11 +54,23 @@ rules:
     making changes. Claude is the architect; defer to it on anything structural.
 
   - >-
-    HARD BOUNDARY — never modify: data/, auth/, config/constants.py, migrations/,
-    services/payments*, domain/xp_leveling.py, domain/avatar_stats.py, .streamlit/,
-    tools/hooks/. These carry security, schema, identity, payments, and ranking
-    integrity. A commit-msg git hook will block you. If blocked, stop and hand the
-    task to Claude. Never add the [architect] marker yourself. Never use --no-verify.
+    HARD BOUNDARY — never modify: data/, auth/, views/auth.py, views/onboarding.py,
+    config/constants.py, migrations/, services/payments*, domain/xp_leveling.py,
+    domain/avatar_stats.py, .streamlit/, tools/hooks/, tools/verify_rls.py. These
+    carry security, schema, identity, payments, and ranking integrity. A commit-msg
+    git hook will block you. If blocked, stop and hand the task to Claude. Never add
+    the [architect] marker yourself. Never use --no-verify.
+
+  - >-
+    Supabase is the only store. Never write to the local filesystem — on Streamlit
+    Cloud that disk is ephemeral AND shared by every visitor, so any file write is a
+    cross-user data leak. There is no CSV fallback; do not add one back.
+
+  - >-
+    Never cache an authenticated Supabase client with @st.cache_resource. That cache
+    is process-global and the user's JWT lives on the client instance, so it would
+    hand one user's identity to the next visitor. The client is per browser session,
+    in st.session_state["_sb_client"].
 
   - >-
     Never split an HTML <div> across two st.markdown calls. Streamlit sanitizes each
