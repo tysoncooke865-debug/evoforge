@@ -9,7 +9,7 @@ from domain.custom_plan import load_custom_plan, filter_out_test_custom_plans, c
 from domain.workouts import load_log, get_last_sets, suggest_weight, save_set_auto
 from domain.achievements import check_achievements
 from ui.nav import route_button
-from ui.components import page_hero, completed_sets_for_day_unique
+from ui.components import page_hero, completed_sets_for_day_unique, render_target_bar
 
 
 def render():
@@ -120,11 +120,12 @@ def render():
     else:
         total_sets = sum(ex[1] for ex in active_routine[workout])
         completed_sets = completed_sets_for_day_unique(load_log(), workout_date, workout)
-        percent = 0 if total_sets == 0 else min((completed_sets / total_sets) * 100, 100)
         if total_sets > 40:
             st.warning(f"Target volume looks too high ({total_sets} sets). The plan has been capped/deduplicated, but check the AI plan rows in Supabase.")
         st.caption(f"Target volume: {total_sets} working sets")
-        st.markdown(f"""<div class="mission-card"><div class="mission-title">MISSION PROGRESS</div><div class="progress-track"><div class="progress-fill" style="--progress: {percent:.1f}%;"></div></div><div class="progress-label">{completed_sets}/{total_sets} sets complete — {percent:.1f}%</div></div>""", unsafe_allow_html=True)
+        # Through the primitive, like every other bar. It clamps and it turns green
+        # at 100% via `.is-complete`, which the hand-rolled copy never did.
+        render_target_bar("MISSION PROGRESS", completed_sets, total_sets, " sets", decimals=0)
 
         for exercise_index, (exercise, sets, reps_target) in enumerate(active_routine[workout]):
             safe_exercise_key = re.sub(r"[^a-zA-Z0-9_]+", "_", str(exercise)).strip("_")[:60]

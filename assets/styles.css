@@ -501,6 +501,15 @@ span[class*="material-symbols"],
     font-weight: 600;
 }
 
+/* Optional second line under a target bar: "Base level 42". Dimmer than the
+   label above it, so the numbers stay the loudest thing in the card. */
+.progress-helper {
+    margin-top: var(--s1);
+    font-size: var(--fs-2xs);
+    color: var(--text-dim);
+    letter-spacing: .02em;
+}
+
 .mission-card.is-complete .progress-fill,
 .evo-req.is-complete .avatar-fill {
     background: linear-gradient(90deg, #059669, var(--success), #6ee7b7);

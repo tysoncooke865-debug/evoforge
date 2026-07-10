@@ -28,6 +28,16 @@ AVATAR_WRAPPERS = [
     "home-avatar-img-wrap", "true-silhouette-panel", "ef-evo-panel",
 ]
 
+# A page's content must come after its title. `views/avatar.py` used to render the
+# evolution showcase ABOVE `page_hero()`, so the Ascension Chamber's title appeared
+# halfway down its own page (backlog J1).
+#
+# The invariant is NOT "the hero is the first blob": `views/home.py` deliberately
+# renders `render_forge_signature()` -- a status strip -- above its hero, and
+# `app.py` writes the mobile brand bar into the main column before the router runs.
+# The invariant is that the hero precedes every CONTENT CARD.
+CONTENT_MARKERS = AVATAR_WRAPPERS + ["mission-card", "dashboard-card", "qol-action-card"]
+
 # app.py stops before the router unless someone is signed in. Seeding the key
 # that auth/session.py reads is enough to get past the gate: these checks are
 # about page structure, not about identity. tools/verify_rls.py tests identity.
@@ -153,10 +163,23 @@ def main():
             if body.strip() in ("</div>", "</div></div>"):
                 orphan += 1
 
+        # Hero-before-content. Index into the ordered main-column blobs.
+        bodies = markdown_bodies(at)
+        hero_at = next((i for i, b in enumerate(bodies) if "hero-panel" in b), None)
+        content_at = next(
+            (i for i, b in enumerate(bodies) if any(m in b for m in CONTENT_MARKERS)), None
+        )
+        if hero_at is None:
+            hero_order = "NO-HERO"
+        elif content_at is not None and content_at < hero_at:
+            hero_order = f"CONTENT-FIRST@{content_at}<{hero_at}"
+        else:
+            hero_order = "ok"
+
         results.append((
             page, exc or "ok",
             f"brand_main={brand_main} brand_side={brand_side}",
-            f"data_img={data_img} orphan={orphan} sel={len(at.selectbox)}",
+            f"data_img={data_img} orphan={orphan} sel={len(at.selectbox)} hero={hero_order}",
         ))
 
     print(f"{'PAGE':<15} {'STATUS':<12} {'BRAND':<32} IMG/ORPHAN")
@@ -176,12 +199,15 @@ def main():
     # Invariants that must hold on every page.
     bad_brand = [r[0] for r in results if "brand_main=1 " not in r[2]]
     bad_orphan = [r[0] for r in results if "orphan=0" not in r[3]]
+    bad_hero = [r[0] for r in results if "hero=ok" not in r[3]]
     if bad_brand:
         print(f"\nFAIL: EVOFORGE must appear exactly once in the main column: {bad_brand}")
     if bad_orphan:
         print(f"FAIL: orphaned avatar wrappers: {bad_orphan}")
+    if bad_hero:
+        print(f"FAIL: page content renders above page_hero(): {bad_hero}")
 
-    if failures or bad_brand or bad_orphan or gate_problems:
+    if failures or bad_brand or bad_orphan or bad_hero or gate_problems:
         sys.exit(1)
     print("\nALL PAGES OK")
 

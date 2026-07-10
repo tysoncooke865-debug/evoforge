@@ -16,6 +16,9 @@ from ui.components import page_hero
 
 
 def render():
+    # Hero first, then the quick actions. Every other page does this.
+    page_hero("AI Physique Rating", "Upload photos, rate weak points, generate a smarter program.", "AI Coach")
+
     oqa1, oqa2, oqa3 = st.columns(3)
     with oqa1:
         route_button("Get Body Fat Estimate →", "Body Fat", key="qol_physique_bodyfat")
@@ -24,7 +27,6 @@ def render():
     with oqa3:
         route_button("Use Custom Plan →", "Today", key="qol_physique_today")
 
-    page_hero("AI Physique Rating", "Upload photos, rate weak points, generate a smarter program.", "AI Coach")
     st.info("Upload physique photos to get a physique score, leanness score, weak points, and a custom workout plan suggestion.")
 
     latest_m = latest_measurements()

@@ -315,7 +315,26 @@ def render_qol_action_card(title, description, button_text, target_page, key, ic
     route_button(button_text, target_page, key=key)
 
 
-def render_target_bar(title, current, target, unit, lower_is_better=False, action_label=None, action_page=None, action_key=None):
+def render_target_bar(title, current, target, unit, lower_is_better=False,
+                      action_label=None, action_page=None, action_key=None,
+                      helper=None, decimals=1):
+    """THE progress-bar primitive. Every "x of y" bar in the app renders through here.
+
+    Hand-rolling `.mission-card` + `.progress-track` + `.progress-fill` was the most
+    duplicated markup in the codebase -- five copies across `home`, `bodyfat` and
+    `today`, each free to drift in rounding, clamping and class names. Use this.
+
+    `lower_is_better` inverts the ratio, for targets you shrink toward (body fat,
+    waist). Progress is clamped to 0-100 and never divides by zero.
+
+    `helper` adds a second line under the bar -- the "Base level 42" that the XP
+    card needs. `decimals` controls the numbers in the label: XP is a whole number,
+    kilograms are not.
+
+    Falls back to `st.info` rather than a broken bar when the target is missing or
+    non-numeric, because "no target set" and "target of zero" are different states
+    and neither should render as 0%.
+    """
     def _action():
         if action_label and action_page and action_key:
             route_button(action_label, action_page, key=action_key)
@@ -345,7 +364,10 @@ def render_target_bar(title, current, target, unit, lower_is_better=False, actio
 
     progress = max(0, min(progress, 100))
     hit = "is-complete" if progress >= 100 else ""
+    helper_html = f'<div class="progress-helper">{helper}</div>' if helper else ""
 
+    # One balanced f-string. A <div> split across two st.markdown calls does not
+    # nest -- Streamlit sanitizes each call and auto-closes the tag.
     st.markdown(
         f"""
         <div class="mission-card target-action-card {hit}">
@@ -353,7 +375,8 @@ def render_target_bar(title, current, target, unit, lower_is_better=False, actio
             <div class="progress-track">
                 <div class="progress-fill" style="--progress:{progress:.1f}%;"></div>
             </div>
-            <div class="progress-label">{current:.1f}{unit} / {target:.1f}{unit} ({progress:.0f}%)</div>
+            <div class="progress-label">{current:.{decimals}f}{unit} / {target:.{decimals}f}{unit} ({progress:.0f}%)</div>
+            {helper_html}
         </div>
         """,
         unsafe_allow_html=True,

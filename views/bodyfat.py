@@ -60,17 +60,17 @@ def render():
             c2.metric("Lean Mass", f"{lean_mass:.1f}kg")
             c3.metric(f"{target_bf:.1f}% Target", f"{safe_kg(target_weight)}")
 
-            st.markdown(
-                f"""
-                <div class="mission-card">
-                    <div class="mission-title">BODY FAT RANGE</div>
-                    <div class="progress-track">
-                        <div class="progress-fill" style="--progress: {min(navy_bf * 4, 100):.1f}%;"></div>
-                    </div>
-                    <div class="progress-label">Measurement range: {bf_low:.1f}% - {bf_high:.1f}% • Fat to lose to {target_bf:.1f}%: {safe_kg(fat_to_lose)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            # Was hand-rolled `.mission-card` markup whose bar filled on `bf * 4` --
+            # a gauge scaled so 25% body fat reads as 100%. That number meant
+            # nothing to the athlete. It now measures progress toward THEIR target,
+            # `lower_is_better`, through the same primitive as every other bar.
+            render_target_bar(
+                "BODY FAT RANGE",
+                navy_bf,
+                target_bf,
+                "%",
+                lower_is_better=True,
+                helper=f"Measurement range {bf_low:.1f}% - {bf_high:.1f}% • Fat to lose: {safe_kg(fat_to_lose)}",
             )
 
             if st.button("Save Measurement Estimate", type="primary"):
@@ -141,17 +141,13 @@ def render():
             else:
                 st.caption("Measurement data: not supplied — AI estimate used photos + height/weight only.")
 
-            st.markdown(
-                f"""
-                <div class="mission-card">
-                    <div class="mission-title">AI PHOTO BODY FAT ESTIMATE</div>
-                    <div class="progress-track">
-                        <div class="progress-fill" style="--progress: {min(bf_mid * 4, 100):.1f}%;"></div>
-                    </div>
-                    <div class="progress-label">{bf_low:.1f}% - {bf_high:.1f}% • Target {target_bf:.1f}% weight: {safe_kg(target_weight)} • Fat to lose: {safe_kg(fat_to_lose)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            render_target_bar(
+                "AI PHOTO BODY FAT ESTIMATE",
+                bf_mid,
+                target_bf,
+                "%",
+                lower_is_better=True,
+                helper=f"{bf_low:.1f}% - {bf_high:.1f}% • Target weight {safe_kg(target_weight)} • Fat to lose: {safe_kg(fat_to_lose)}",
             )
 
             st.write(f"**Notes:** {ai_data.get('notes', '')}")

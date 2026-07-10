@@ -12,12 +12,9 @@ from ui.avatar_cards import render_avatar_image_panel, render_evolution_path, re
 
 
 def render():
-    try:
-        avatar_stats = calculate_avatar_stats()
-        render_evolution_showcase(avatar_stats)
-    except Exception:
-        pass
-
+    # The hero comes first, on every page. This one used to render the evolution
+    # showcase above its own title (J1). `tools/verify_ui.py` now asserts the
+    # ordering, so it cannot come back.
     page_hero("Ascension Chamber", "Your real training unlocks forms, branches, stats and next evolutions.", "RPG Mode")
     aqa1, aqa2, aqa3 = st.columns(3)
     with aqa1:
@@ -27,9 +24,12 @@ def render():
     with aqa3:
         route_button("Oracle Analysis →", "Physique", key="qol_avatar_oracle")
 
+    # One call, not two. `calculate_avatar_stats()` reads the whole workout log.
     stats = calculate_avatar_stats()
     branch, stage, avatar_path = avatar_asset_for_stats(stats)
     stats["avatar_branch"] = branch
+
+    render_evolution_showcase(stats)
 
     render_avatar_image_panel(stats, compact=False)
 

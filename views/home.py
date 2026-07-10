@@ -3,7 +3,6 @@ import streamlit as st
 
 from config.constants import ACHIEVEMENTS
 from domain.workouts import load_log, workout_summary, muscle_heat_map, current_exercise_best_1rm
-from domain.xp import progress_percent
 from domain.profile import rank_name
 from domain.bodyfat import load_bodyfat_log, latest_bodyfat_mid
 from domain.bodyweight import latest_bodyweight_value
@@ -80,41 +79,47 @@ def render():
     with m4:
         compact_metric("Achievements", f'{achievement_count()}/{len(ACHIEVEMENTS)}', "unique unlocks")
 
-    # One place decides what the bar reads. Clamps to 0-100, never divides by zero.
-    xp_percent = progress_percent(summary["xp_into_level"], summary["xp_needed"])
-    bench_percent = min((summary["best_bench_1rm"] / 100) * 100, 100)
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Level", f"{summary['level']}")
-    c2.metric("Rank", summary.get("rank", rank_name(summary["level"])))
-    c3.metric("Total Sets", f"{summary['total_sets']}")
-
-    c4, c5, c6 = st.columns(3)
-    c4.metric("Bodyweight", f"{summary['latest_bw']:.1f} kg" if summary["latest_bw"] else "No data")
-    c5.metric("Best Bench e1RM", f"{summary['best_bench_1rm']:.1f} kg")
-    c6.metric("Total Reps", f"{summary['total_reps']}")
-
+    # Character row. These were native `st.metric` tiles sitting directly under the
+    # `compact_metric` row above -- two visual systems for the same data on one
+    # screen -- and three of the six (Total Sets, Total Reps, Bench e1RM) simply
+    # repeated the Core Readout four lines up. One system, no repeats.
     bf_log = load_bodyfat_log()
+    latest_bf = None
     if not bf_log.empty:
         bf_log["bf_mid"] = pd.to_numeric(bf_log["bf_mid"], errors="coerce").fillna(0)
         latest_bf = float(bf_log.iloc[-1]["bf_mid"])
-        st.metric("Latest BF Estimate", f"{latest_bf:.1f}%")
 
-    st.markdown(f"""
-    <div class="mission-card">
-        <div class="mission-title">LEVEL {summary['level']} — {summary.get('rank', rank_name(summary['level']))}</div>
-        <div class="progress-track"><div class="progress-fill" style="--progress: {xp_percent:.1f}%;"></div></div>
-        <div class="progress-label">Base level {summary.get('base_level', 1)} • {summary['xp_into_level']}/{summary['xp_needed']} XP to next level</div>
-    </div>
-    """, unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        compact_metric("Level", summary["level"], f'base {summary.get("base_level", 1)}')
+    with c2:
+        compact_metric("Rank", summary.get("rank", rank_name(summary["level"])), "current tier")
+    with c3:
+        compact_metric(
+            "Bodyweight",
+            f'{summary["latest_bw"]:.1f} kg' if summary["latest_bw"] else "No data",
+            "latest logged",
+        )
+    with c4:
+        compact_metric(
+            "Body Fat",
+            f"{latest_bf:.1f}%" if latest_bf is not None else "No data",
+            "latest estimate",
+        )
 
-    st.markdown(f"""
-    <div class="mission-card">
-        <div class="mission-title">100KG BENCH QUEST</div>
-        <div class="progress-track"><div class="progress-fill" style="--progress: {bench_percent:.1f}%;"></div></div>
-        <div class="progress-label">{summary['best_bench_1rm']:.1f}kg estimated / 100kg — {bench_percent:.1f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Both bars go through the one primitive. They were hand-rolled `.mission-card`
+    # markup reimplementing `.progress-track` / `.progress-fill` by hand, free to
+    # drift in rounding and clamping from every other bar in the app.
+    render_target_bar(
+        f'LEVEL {summary["level"]} — {summary.get("rank", rank_name(summary["level"]))}',
+        summary["xp_into_level"],
+        summary["xp_needed"],
+        " XP",
+        helper=f'Base level {summary.get("base_level", 1)} • XP to next level',
+        decimals=0,
+    )
+
+    render_target_bar("100KG BENCH QUEST", summary["best_bench_1rm"], 100, "kg")
 
     st.subheader("Questline")
 
@@ -148,7 +153,8 @@ def render():
     if ach.empty:
         st.info("No achievements unlocked yet. Open the Achievements tab to check requirements.")
     else:
-        st.metric("Achievements", f"{achievement_count()}/{len(ACHIEVEMENTS)}")
+        # The count already leads the Core Readout at the top of this page. A second
+        # native `st.metric` here restated it in a different visual language.
         for _, row in ach.sort_values("date_unlocked", ascending=False).head(5).iterrows():
             st.markdown(f"""<div class="dashboard-card"><div class="nw-card-title">{row['name']}</div><div class="nw-small">{row['description']}</div></div>""", unsafe_allow_html=True)
         st.caption("Open the Achievements tab to view all locked/unlocked achievements.")
