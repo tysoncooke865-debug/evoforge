@@ -40,7 +40,8 @@ security definer
 set search_path = public
 as $$
 declare
-  ok boolean;
+  ok   boolean;
+  mins numeric;
 begin
   -- service_role (server-side, bypasses RLS) may write anything: backfills,
   -- corrections, 'adjustment'. A normal authenticated user may not.
@@ -65,7 +66,9 @@ begin
     return new;
 
   elsif new.kind = 'cardio' then
-    select c.minutes into ok
+    -- Read the caller's own cardio row ONCE, into a numeric. `found` is set by the
+    -- select, so a missing/foreign row is caught without a second query.
+    select c.minutes into mins
     from public.cardio_log c
     where c.id = new.source_id and c.user_id = auth.uid();
     if not found then
@@ -73,8 +76,7 @@ begin
         using errcode = 'check_violation';
     end if;
     -- Recompute from the row's minutes: floor(minutes*2), mirroring 002 STEP 3.
-    new.amount := floor((select c.minutes from public.cardio_log c
-                         where c.id = new.source_id and c.user_id = auth.uid()) * 2)::int;
+    new.amount := floor(coalesce(mins, 0) * 2)::int;
     new.source_table := 'cardio_log';
     if new.amount <= 0 then
       raise exception 'xp_events: cardio session is worth no XP.'
