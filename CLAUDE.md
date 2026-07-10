@@ -65,8 +65,10 @@ Real column types (read from `pg_catalog`, not assumed):
 their first schema column is `date` or `numeric`, so the sentinel string raises
 `invalid input syntax for type date`. Use `.not_.is_("id", "null")`.
 
-**None of them has a `user_id`.** The database is currently one shared global bucket.
-Access uses the publishable key; **RLS status is unverified** (see #3).
+**Every table has a `user_id`**, `not null default auth.uid()`, with RLS enabled and
+owner-only policies. Applied by `migrations/001` on 2026-07-10 and verified —
+see **Auth**. Before that the database was one shared global bucket, which is the
+hidden premise behind several old bugs and one broken test harness.
 
 ## Auth
 Supabase Auth, email + password. `auth/session.py` is the only entry point.
@@ -87,7 +89,18 @@ Supabase Auth, email + password. `auth/session.py` is the only entry point.
   `Referer`.
 
 `migrations/001_add_user_id_and_rls.sql` adds `user_id` + RLS to all 11 tables.
-**It has not been run yet.** Until it has, tenancy is not enforced.
+**Applied 2026-07-10.** The old project (646 rows, RLS off) was abandoned rather
+than migrated: the staging project, which already had `001` applied and had passed
+the full `verify_rls.py`, was adopted as the new production. The old one is
+**paused, not deleted** — it holds the only copy of those 646 rows.
+
+- `verify_rls.py --anon-only` prints `ANON LOCKED OUT`.
+- **That green is weak on an empty database.** Zero rows is consistent with RLS
+  enforced *and* with RLS off on an empty table. The real proof is the full
+  `verify_rls.py` run against this same project, which inserted rows as two users
+  and showed neither could read the other's. Re-run `--anon-only` once there is
+  real data — that is when it starts meaning something. *An error is not a denial;
+  zero rows is not a denial either, when there are zero rows.*
 
 ## The XP / evolution contract
 **`domain/xp.py` is the single source of truth. It is pure — no streamlit, no
@@ -119,8 +132,8 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | # | Problem | Status |
 |---|---|---|
 | 1 | ~~No authentication at all~~ | ✅ Supabase Auth; see **Auth** above |
-| 2 | No `user_id` on any of the 11 tables | migration written, **not yet run** |
-| 3 | **RLS is OFF on production.** Measured 2026-07-10 with `verify_rls.py --anon-only`: an unauthenticated publishable-key client read all 11 tables, 646 rows. The key is a skeleton key. Never committed to git, so exposure requires the key itself | 🔴 **run `migrations/001` on whichever project is production** |
+| 2 | ~~No `user_id` on any of the 11 tables~~ | ✅ `migrations/001` applied 2026-07-10 |
+| 3 | ~~**RLS is OFF on production.** An unauthenticated publishable-key client read all 11 tables, 646 rows~~ | ✅ staging (with `001`) adopted as production; `--anon-only` prints `ANON LOCKED OUT`. Old project paused, holds the 646 rows |
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
@@ -153,6 +166,17 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   possible — that is the seam a future FastAPI backend reuses.
 - Streamlit Cloud renders the app inside an `<iframe>`. Its viewer badge and profile
   icons live in the **host page** — no app CSS can reach them. Don't try.
+- **Never health-check Supabase on `/rest/v1/`.** That route serves the OpenAPI
+  schema to **secret keys only**; a publishable key gets `401 Secret API key
+  required`. Probe `/auth/v1/health`, which accepts any valid key and does not
+  depend on RLS or table GRANTs. Probe on the credential the app actually uses.
+- **`.streamlit/secrets.toml.example` is tracked and the repo is public.**
+  `secrets.toml` is gitignored; the example is not, and the names differ by eight
+  characters. Never paste a live key or project ref into it. Check `git status`
+  before any commit that touches `.streamlit/`.
+- **Any AppTest harness must call `stub_onboarded()`.** `app.py` gates twice —
+  auth, then onboarding — and seeding `_auth_user` fakes identity without a JWT,
+  so under RLS the profile read returns 0 rows and the wizard swallows every page.
 
 ## Protected paths — require `[architect]` in the commit message
 `data/` · `auth/` · `views/auth.py` · `views/onboarding.py` · `config/constants.py` ·

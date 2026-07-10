@@ -37,8 +37,30 @@ AVATAR_WRAPPERS = [
 TEST_USER = {"id": "00000000-0000-0000-0000-0000000000ff", "email": "verify@example.test"}
 
 
+def stub_onboarded():
+    """Report the test user as already onboarded, without touching the database.
+
+    app.py has a SECOND gate after the auth gate: `onboarding.should_render()`,
+    and "a saved profile row IS the onboarded flag". Seeding `_auth_user` fakes
+    identity but not a JWT, so once migrations/001 enabled RLS the profile read
+    returns 0 rows for this fake id, the wizard renders, and `st.stop()` fires
+    before the router. Every page then reports brand_main=0 and data_img=0.
+
+    Before 001 the database was one shared bucket with no `user_id`, so any
+    client read *somebody's* profile row and the gate stayed shut by accident.
+    That is the only reason this harness ever passed. It was never checking what
+    it looked like it was checking.
+
+    Patching the module object is enough: AppTest execs app.py in this same
+    process, so `import views.onboarding` resolves out of sys.modules.
+    """
+    import views.onboarding as vo
+    vo.is_onboarded = lambda: True
+
+
 def run_page(page):
     from streamlit.testing.v1 import AppTest
+    stub_onboarded()
     at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
     at.session_state["_auth_user"] = TEST_USER
     at.session_state["active_page"] = page

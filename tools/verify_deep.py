@@ -42,8 +42,25 @@ def check(name, cond, detail=""):
 TEST_USER = {"id": "00000000-0000-0000-0000-0000000000ff", "email": "verify@example.test"}
 
 
+def stub_onboarded():
+    """Report the test user as already onboarded, without touching the database.
+
+    app.py gates twice: auth, then `onboarding.should_render()`. `_auth_user`
+    fakes identity but not a JWT, so under the RLS added by migrations/001 the
+    profile read returns 0 rows, the wizard renders and `st.stop()` fires before
+    the router -- no avatar stage, no toasts, nothing to check.
+
+    See tools/verify_ui.py :: stub_onboarded() for why this harness passed before
+    001 landed: the pre-RLS database was one shared bucket, so any client read
+    somebody's profile row.
+    """
+    import views.onboarding as vo
+    vo.is_onboarded = lambda: True
+
+
 def run(page, **ss):
     from streamlit.testing.v1 import AppTest
+    stub_onboarded()
     at = AppTest.from_file(str(APP_DIR / "app.py"), default_timeout=90)
     at.session_state["_auth_user"] = TEST_USER
     at.session_state["active_page"] = page

@@ -15,46 +15,37 @@ Plus: the doc describing the change is updated **in the same commit**.
 ---
 
 ## IN PROGRESS
-**Login & Onboarding** — code landed. **T1 is the last step and only you can do it.**
+**T1b** — the migration landed and RLS is enforced locally. What is left is the
+*deployed* app: repoint Cloud's secrets, reboot, sign up, and close the dashboard
+chores. Only you can do those.
 
 ---
 
 ## UP NEXT — in this order
 
-### T1 · Run the migration and verify RLS `[human]` 🔴 blocks the public launch
+### T1b · Finish the production cutover `[human]` 🔴 blocks the public launch
 
-> **Measured 2026-07-10** with `verify_rls.py --anon-only`: **RLS is OFF on
-> production.** An unauthenticated publishable-key client read all 11 tables —
-> 646 rows. Counts: workout_log 198, custom_workout_plan 283, achievements 83,
-> physique_ratings 23, bodyfat_log 16, targets 16, profile 10, bodyweight_log 9,
-> cardio_log 4, measurements 2, avatar_progression 2.
->
-> The staging project HAS the migration applied and passed the full
-> `verify_rls.py`. Production has not been touched.
->
-> Note: the deployed app's `SUPABASE_URL` (Streamlit Cloud → Settings → Secrets)
-> appears to point at a THIRD, empty project — that is why signing in produced an
-> onboarding wizard rather than a level-43 character.
->
-> Project refs are deliberately not recorded here. This repo is public.
+The database half of T1 is **done** — see DONE below. `verify_rls.py --anon-only`
+prints `ANON LOCKED OUT` against the new production project, and the local
+`.streamlit/secrets.toml` points at it. The deployed app does not yet.
 
-Auth without RLS is a doorman with no walls. The chosen plan is to **adopt the
-staging project as the new production**, since it already has `001` applied and
-verified, and to pause the old project so its 646 rows survive as a backup.
-
-Remaining, all in the Supabase dashboard:
-1. `truncate` staging's 11 tables — they hold `000`'s seed rows.
+Remaining, all outside this repo:
+1. `truncate` the new production project's 11 tables if `000`'s seed rows are still
+   there. **Do this before signing up**, or seed rows become your real data.
 2. Delete the `rls-verify-*` accounts and the throwaway owner.
-3. **Rotate staging's publishable key** — it was exposed in a chat transcript.
-4. Repoint **Streamlit Cloud → Settings → Secrets** *and* `.streamlit/secrets.toml`.
-5. Reboot the app (Cloud keeps stale modules across a pull).
-6. Sign up. `_just_signed_up` is set, so the wizard runs immediately.
-7. **Re-enable "Confirm email"** — it was turned off so `verify_rls.py` could sign in.
-8. Pause the old project. Delete the third, empty one.
+3. Repoint **Streamlit Cloud → Settings → Secrets** at the new project + rotated key.
+   (`.streamlit/secrets.toml` is already done.)
+4. Reboot the app (Cloud keeps stale modules across a pull).
+5. Sign up. `_just_signed_up` is set, so the wizard runs immediately.
+6. **Re-enable "Confirm email"** — it was turned off so `verify_rls.py` could sign
+   in. While it is off, anyone can register an address they do not own.
+7. Keep the old project **paused, not deleted**: it holds the only copy of the 646
+   rows. Delete the third, empty project.
 
-- **Acceptance:** `python tools/verify_rls.py --anon-only` prints `ANON LOCKED OUT`;
-  `python tools/shot.py https://evoforge.streamlit.app/ live` is clean.
-- Claude was correctly blocked from probing production, so all of this needs you.
+- **Acceptance:** `python tools/shot.py https://evoforge.streamlit.app/ live` is clean,
+  and `--anon-only` still passes *after* there is real data in the tables (see the
+  weak-green note in `CLAUDE.md` → Auth).
+- Project refs are deliberately not recorded here. This repo is public.
 
 ### T3b · Apply the `xp_events` ledger `[claude]` + `[human]` 🟠 `[architect]`
 `migrations/002_xp_events.sql` is written and **not applied**. XP is still derived
@@ -62,7 +53,7 @@ from `workout_log` + `cardio_log`, which is correct and idempotent but has no
 timestamps and no anti-cheat: the score is a pure function of rows the user can
 insert at will, with any `date` they like.
 
-- **Blocked by:** T1. `002` depends on `001`'s `user_id` + RLS.
+- **Unblocked:** `001`'s `user_id` + RLS are now applied, so `002` can go on.
 - **The migration:** append-only by construction — the owner gets `select` and
   `insert` policies and no `update`/`delete`, so RLS refuses both. A partial unique
   index on `(user_id, source_table, source_id)` makes the backfill re-runnable and
@@ -114,6 +105,37 @@ paths — that is intended. Hand those tasks to Claude.**
 ---
 
 ## DONE
+- **T1 · `migrations/001` applied; RLS enforced.** The old production project (646
+  rows, RLS off) was **abandoned, not migrated**: the staging project already had
+  `001` applied and had passed the full `verify_rls.py`, so it was adopted as the new
+  production. The old one is **paused, not deleted** — it is the only copy of those
+  646 rows. `verify_rls.py --anon-only` now prints `ANON LOCKED OUT`.
+  - **Three tooling bugs stood between us and that result, and every one of them
+    blamed the human.** Worth reading before you trust a red check:
+    1. `preflight()` probed PostgREST's root, `/rest/v1/`. On new-format Supabase
+       projects that route accepts **secret keys only** and answers a publishable
+       key with `401 Secret API key required`. `preflight()` mapped 401 →
+       "wrong or rotated key" and exited 2 — so the acceptance test for `001`
+       **could never have passed**, on any project, with any correct key. It now
+       probes `/auth/v1/health`. Note the shape of the bug: `95fc37d` fixed a false
+       *pass* and introduced a permanent false *inconclusive*. That is the safe
+       direction to fail, and it still cost hours.
+    2. A throwaway runner parsed `secrets.toml` by splitting on `=` and stripping
+       quotes. An inline comment would have silently corrupted the key into a 401
+       indistinguishable from a wrong one. Use `tomllib` — it is what Streamlit uses.
+    3. `verify_ui` / `verify_deep` seeded `_auth_user` but no JWT. Pre-`001` the
+       shared-bucket database handed any client *somebody's* `profile` row, so the
+       onboarding gate stayed shut by accident and the harness passed. The moment
+       RLS landed, all 15 pages rendered the wizard. Both tools now call
+       `stub_onboarded()`. **The harness was never checking what it appeared to.**
+  - **Near miss:** live keys, the project ref and an OpenAI `sk-` key were pasted
+    into `.streamlit/secrets.toml.example`, which is **tracked** and the repo is
+    **public**. Caught unstaged, so nothing leaked and no rotation was needed. The
+    gitignored file and the tracked one differ by eight characters.
+  - The `--anon-only` green was measured against an **empty** database, where it is
+    weak evidence: zero rows is consistent with RLS off. The proof is the earlier
+    full run. Re-run it once real data exists.
+  - Remaining deploy-side work moved to **T1b**.
 - **T3 · Unified XP.** One curve in `domain/xp.py`, pure and portable. Advancing from
   level `L` costs `500 + (L-1)*25`; the progress bar divides by the same number that
   grants the level, so it reaches exactly 100% at level-up — previously impossible.
@@ -128,7 +150,7 @@ paths — that is intended. Hand those tasks to Claude.**
   never be `@st.cache_resource`d. `cached_sb_select` is now keyed on `user_id`.
   Login gate + 3-step onboarding wizard in `app.py`; a saved `profile` row is the
   onboarded flag. `migrations/001_add_user_id_and_rls.sql` and `tools/verify_rls.py`
-  written — **the migration has not been run.** See T1.
+  written; the migration was applied on 2026-07-10 — see **T1** above.
 - **Fixed a latent CSS bug the login screen exposed:** form submit buttons are not
   `.stButton` children and their `kind` is `primaryFormSubmit`. Streamlit also wraps
   every button label in a `<p>`, which `.stApp p` was painting `--text-dim`. Every

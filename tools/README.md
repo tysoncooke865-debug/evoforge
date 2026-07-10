@@ -68,6 +68,20 @@ which is the only evidence that RLS policies carry `with check` and not just
 > 646 rows, with no session at all. RLS was off. It had been "unverified" for the
 > life of the project because nobody had run the query.
 
+> **`preflight()` must probe `/auth/v1/health`, never `/rest/v1/`.** PostgREST's
+> root serves the OpenAPI schema to **secret keys only**; a publishable key gets
+> `401 Secret API key required`. The first version of `preflight()` read that 401 as
+> "wrong or rotated key" and exited 2, which meant this acceptance test could not
+> pass against *any* new-format project no matter how correct the key — while the
+> app, connecting with that same publishable key, worked fine. Probe on the
+> credential the app actually uses.
+
+> **`--anon-only` against an empty database proves nothing.** Zero rows is
+> consistent with RLS enforced *and* with RLS off on an empty table. The full test
+> is the real evidence, because it writes rows first. Run `--anon-only` again once
+> there is data. *An error is not a denial — and zero rows is not a denial either,
+> when there are zero rows.*
+
 ### `shot.py` — real browser, sees pixels
 ```bash
 streamlit run app.py --server.port 8501      # terminal 1
@@ -97,6 +111,10 @@ with the wrong font, or Streamlit's auto multipage nav appearing.
 | A blank page satisfies every check that counts something bad. | `shot.py` `appRendered` + `cloudErrorPage` |
 | `cached_sb_select` orders **descending**; `.iloc[-1]` is therefore the *oldest* row, not the latest. | `verify_ordering.py` |
 | An RLS denial returns HTTP 200 with an empty array. "No rows" and "you may not see the rows" are indistinguishable — so emptiness must never be read as "new user". | `views/onboarding.py :: gate_decision()` |
+| Supabase's `/rest/v1/` root accepts **secret keys only**. Health-checking it with the app's publishable key returns 401 and looks exactly like a bad key. | `verify_rls.py :: preflight()` probes `/auth/v1/health` |
+| An `AppTest` that seeds `_auth_user` has an identity but no JWT, so under RLS every read returns 0 rows, the onboarding wizard swallows all 15 pages, and the brand/avatar assertions fail. Before `001` the shared-bucket database hid this. | `verify_ui.py` / `verify_deep.py` :: `stub_onboarded()` |
+| `.streamlit/secrets.toml` is gitignored; `.streamlit/secrets.toml.example` is **tracked**, in a **public** repo, and the names differ by eight characters. | `git status` before any commit touching `.streamlit/` |
+| Parsing `secrets.toml` by splitting on `=` corrupts any value with an inline comment, producing a 401 indistinguishable from a wrong key. | use `tomllib`, as Streamlit does |
 
 ## Hooks
 

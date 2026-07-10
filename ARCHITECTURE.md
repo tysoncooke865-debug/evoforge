@@ -159,17 +159,20 @@ Inserts therefore need no application change when tenancy lands.
   `app.py` renders the login screen and calls `st.stop()` for a signed-out visitor,
   so the sidebar (avatar, level, XP of whoever loaded last) never renders.
 - **Per-user cache keys: done.** `cached_sb_select(_sb, table, user_id)`.
-- **Tenancy: written, not yet applied.** `migrations/001_add_user_id_and_rls.sql`
-  adds `user_id` and RLS to all 11 tables. Until it is run against the database, the
-  tables remain one shared global bucket and **auth is a doorman with no walls**.
-- **RLS: OFF on production.** No longer a suspicion. On 2026-07-10
-  `verify_rls.py --anon-only` read all 11 tables (646 rows) with an unauthenticated
-  publishable-key client. That key is a skeleton key to every row — 198 workout
-  sets, 23 physique ratings, body measurements. It has never been committed to git
-  (verified across all history), so exploiting it requires the key itself.
-  **`migrations/001` is the fix.** It has been applied and verified on a staging
-  project; production is untouched. (Project refs are not recorded in this repo —
-  it is public. They live in `.streamlit/secrets.toml`, which is gitignored.)
+- **Tenancy: applied 2026-07-10.** `migrations/001_add_user_id_and_rls.sql` adds
+  `user_id` and RLS to all 11 tables. Auth is no longer a doorman with no walls.
+- **RLS: enforced.** The old production project *did* leak: on 2026-07-10
+  `verify_rls.py --anon-only` read all 11 of its tables (646 rows) with an
+  unauthenticated publishable-key client — 198 workout sets, 23 physique ratings,
+  body measurements. The key was never committed to git (verified across all
+  history), so exploiting it required the key itself.
+  Rather than migrate that project in place, the **staging project — which already
+  had `001` applied and had passed the full `verify_rls.py` — was adopted as the new
+  production**, and the old one paused. It is *paused, not deleted*: it holds the
+  only copy of those 646 rows. `--anon-only` now prints `ANON LOCKED OUT`.
+  (Project refs are not recorded in this repo — it is public. They live in
+  `.streamlit/secrets.toml`, which is gitignored. Note that
+  `.streamlit/secrets.toml.example` is **not** gitignored.)
 - Secrets live in `.streamlit/secrets.toml` (gitignored, never committed — verified
   across all commits). It contains a `SUPABASE_SECRET_KEY` and JWKS URL the app
   **never reads** — dead service-role credentials on disk. Remove and rotate.

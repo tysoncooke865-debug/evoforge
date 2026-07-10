@@ -28,9 +28,9 @@ No new features. Make the foundation safe to build on.
 
 | # | Task | Status |
 |---|---|---|
-| 7 | **Schema migration: `user_id uuid` on all 11 tables** + dedupe and composite key for `achievements` | ✅ written — `migrations/001`, **not yet run** |
+| 7 | **Schema migration: `user_id uuid` on all 11 tables** + dedupe and composite key for `achievements` | ✅ `migrations/001` applied 2026-07-10 |
 | 8 | **Supabase Auth**, login gate, session identity, onboarding wizard | ✅ done |
-| 9 | **RLS policies** on every table: `user_id = auth.uid()` | in `migrations/001`, **not yet applied** |
+| 9 | **RLS policies** on every table: `user_id = auth.uid()` | ✅ applied and verified — `ANON LOCKED OUT`. Deploy cutover is **T1b** |
 | 10 | Per-user cache keys — `cached_sb_select(_sb, table, user_id)` | ✅ done |
 | 11 | Kill the 2500-row full-table reads; the `(user_id, date)` indexes are in `migrations/001` | pending |
 | 12 | User profiles (display name, avatar, privacy settings) | pending |

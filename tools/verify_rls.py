@@ -160,10 +160,18 @@ def preflight(url, key):
                 f"URL is wrong. Nothing can be concluded about RLS.")
 
     try:
-        # PostgREST's root answers with the schema, independent of any table policy.
-        resp = httpx.get(f"{url.rstrip('/')}/rest/v1/",
-                         headers={"apikey": key, "Authorization": f"Bearer {key}"},
-                         timeout=20.0)
+        # /auth/v1/health accepts ANY valid API key and is independent of RLS and
+        # of table GRANTs -- exactly what a reachability probe needs.
+        #
+        # Do NOT probe PostgREST's root (/rest/v1/) here. On new-format projects
+        # it serves the OpenAPI schema to SECRET keys only, and answers a
+        # publishable key with 401 "Secret API key required". This function then
+        # read that as "wrong or rotated key" and exited 2 -- so the acceptance
+        # test for migrations/001 could never pass on any project using the new
+        # key format, while the app, which connects with the publishable key,
+        # was working fine. Probe on the credential the app actually uses.
+        resp = httpx.get(f"{url.rstrip('/')}/auth/v1/health",
+                         headers={"apikey": key}, timeout=20.0)
     except Exception as exc:
         return f"could not reach {host}: {type(exc).__name__}: {str(exc)[:80]}"
 
