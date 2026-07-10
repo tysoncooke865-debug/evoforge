@@ -152,10 +152,21 @@ paths — that is intended. Hand those tasks to Claude.**
        onboarding gate stayed shut by accident and the harness passed. The moment
        RLS landed, all 15 pages rendered the wizard. Both tools now call
        `stub_onboarded()`. **The harness was never checking what it appeared to.**
-  - **Near miss:** live keys, the project ref and an OpenAI `sk-` key were pasted
-    into `.streamlit/secrets.toml.example`, which is **tracked** and the repo is
-    **public**. Caught unstaged, so nothing leaked and no rotation was needed. The
-    gitignored file and the tracked one differ by eight characters.
+  - **Near miss, and the first diagnosis of it was wrong.** A publishable key, a
+    `sb_secret_` service-role key, an OpenAI `sk-` key and the project ref were
+    pasted into `.streamlit/secrets.toml.example` — **tracked**, in a **public**
+    repo. It looked like an unstaged edit, so it was "fixed" with
+    `git checkout -- <file>`. But commit `95fc37d` had *already committed* them:
+    restoring from HEAD restored the leak. Only a scan of the whole push range
+    (`git diff origin/main..HEAD`) caught it, seconds before `git push`.
+    - Verified the public remote never held them: the only commit on `origin/main`
+      touching that file is the initial one, with placeholders. **They never left
+      the machine, so no rotation was forced.**
+    - The five unpushed commits were rewritten (`filter-branch --index-filter`) to
+      carry the clean blob, so the secret never enters history.
+    - **Lesson:** `git status` shows the working tree. It says nothing about what is
+      already in your commits. Scan `git diff origin/main..HEAD` before any push to
+      a public repo — a restore from HEAD is not a fix if HEAD is what is poisoned.
   - The first `--anon-only` green was measured against an **empty** database, where it
     proved nothing: zero rows is consistent with RLS off. **Re-run 2026-07-10 against
     populated tables** — two users onboarded, so `profile` demonstrably held rows —

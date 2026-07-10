@@ -195,8 +195,12 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
   depend on RLS or table GRANTs. Probe on the credential the app actually uses.
 - **`.streamlit/secrets.toml.example` is tracked and the repo is public.**
   `secrets.toml` is gitignored; the example is not, and the names differ by eight
-  characters. Never paste a live key or project ref into it. Check `git status`
-  before any commit that touches `.streamlit/`.
+  characters. Never paste a live key or project ref into it.
+- **Scan `git diff origin/main..HEAD` before every push.** `git status` describes the
+  working tree and says nothing about what your commits already contain. Live keys
+  once sat in `95fc37d` for a whole session; `git checkout -- <file>` "fixed" the
+  working copy by restoring the poisoned blob out of HEAD. A restore from HEAD is
+  not a fix when HEAD is the problem.
 - **Any AppTest harness must call `stub_onboarded()`.** `app.py` gates twice —
   auth, then onboarding — and seeding `_auth_user` fakes identity without a JWT,
   so under RLS the profile read returns 0 rows and the wizard swallows every page.
