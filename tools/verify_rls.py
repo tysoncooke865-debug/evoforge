@@ -21,10 +21,20 @@ publishable key. If RLS is off or permissive, that key is a skeleton key.
     #  delete the auth.users rows without a service-role key.         #
     ###################################################################
 
-Usage:
+Usage (PowerShell):
+    $env:SUPABASE_URL = "https://<staging-ref>.supabase.co"
+    $env:SUPABASE_KEY = "<staging publishable key>"
+    python tools/verify_rls.py --i-understand-this-writes-to-the-database
+
+Usage (bash):
     export SUPABASE_URL=https://<staging-ref>.supabase.co
     export SUPABASE_KEY=<staging publishable key>
     python tools/verify_rls.py --i-understand-this-writes-to-the-database
+
+It reads those two environment variables and nothing else -- in particular it
+never opens .streamlit/secrets.toml, so it cannot reach production by accident.
+
+It will ask you to type the project ref back before it writes anything.
 
 Exits non-zero on any leak.
 """

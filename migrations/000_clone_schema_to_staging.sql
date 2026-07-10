@@ -62,12 +62,27 @@
 --          - STEP 4 must report `first_workout | copies = 2`, then build the
 --            unique index without error
 --
---  (j) Prove it:
---        SUPABASE_URL=https://<staging-ref>.supabase.co \
---        SUPABASE_KEY=<staging publishable key> \
+--  (j) Prove it. Staging project -> Settings -> API gives you both values.
+--      The publishable ("anon") key, NOT the service_role key -- the whole
+--      point is to check what an ordinary client can reach.
+--
+--      PowerShell:
+--        $env:SUPABASE_URL = "https://<staging-ref>.supabase.co"
+--        $env:SUPABASE_KEY = "<staging publishable key>"
 --        python tools/verify_rls.py --i-understand-this-writes-to-the-database
---      It must print `RLS VERIFIED`. (verify_rls.py reads env vars only; it
---      never touches .streamlit/secrets.toml.)
+--
+--      bash:
+--        export SUPABASE_URL=https://<staging-ref>.supabase.co
+--        export SUPABASE_KEY=<staging publishable key>
+--        python tools/verify_rls.py --i-understand-this-writes-to-the-database
+--
+--      It asks you to type the project ref back, then must print `RLS VERIFIED`.
+--      (verify_rls.py reads those env vars only; it never opens
+--      .streamlit/secrets.toml, so it cannot hit production by accident.)
+--
+--      Afterwards: Authentication -> Users. Delete the two rls-verify-*
+--      throwaway accounts. The script deletes their rows but cannot delete
+--      auth.users without a service_role key.
 --
 -- ON PRODUCTION, only after (j) passes:
 --
