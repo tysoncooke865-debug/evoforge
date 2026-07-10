@@ -31,14 +31,8 @@ ui/               nav · components · avatar_cards · avatar_images · styles
 views/            15 page modules, each exposing render()
 assets/styles.css single design system, ~1.4k lines
 tools/            verification harness — RUN BEFORE EVERY COMMIT
-static/           10 avatar PNGs, served at `app/static/<name>` (was avatar_assets/)
+avatar_assets/    10 PNGs: aesthetic 1-4, mass 1-3, hybrid 1-3
 ```
-
-> `static/` is **world-readable** — Streamlit serves it over HTTP. It holds generic
-> art only. Never put anything user-derived there. Streamlit resolves it relative to
-> the **entrypoint script**, so it must sit beside `app.py`, and it only serves
-> `.png/.jpg/.gif` (plus fonts, pdf, xml, json) with an image content-type — a
-> `.webp` arrives as `text/plain` and will not render.
 
 > `views/` is **not** named `pages/` on purpose. A top-level `pages/` dir makes
 > Streamlit build its own multipage sidebar nav on top of ours. Do not rename it.

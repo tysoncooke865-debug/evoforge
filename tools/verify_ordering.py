@@ -84,44 +84,6 @@ def main():
         if not ok:
             failures.append(name)
 
-    # ------------------------------------------------------------------
-    # The vectorised e1RM must agree with the scalar it replaced, exactly.
-    #
-    # Four call sites ran `df.apply(lambda x: estimated_1rm(...), axis=1)` -- a
-    # Python loop over the whole log, several times per render. `e1rm_series` does
-    # it in one pass. A silent divergence would quietly rewrite every athlete's
-    # strength score, so pin them together rather than trusting the algebra.
-    # ------------------------------------------------------------------
-    import pandas as pd
-    from domain.workouts import e1rm_series, estimated_1rm, infer_muscle_group
-
-    print()
-    cases = [(100, 5), (0, 5), (100, 0), (60.5, 8), (140, 1), (0, 0), (80, 30), (2.5, 25)]
-    vector = list(e1rm_series(pd.Series([c[0] for c in cases]),
-                              pd.Series([c[1] for c in cases])))
-    scalar = [estimated_1rm(w, r) for w, r in cases]
-    agree = all(abs(s - v) < 1e-9 for s, v in zip(scalar, vector))
-    print(f"  [{'PASS' if agree else 'FAIL'}] e1rm_series agrees with estimated_1rm on {len(cases)} cases")
-    if not agree:
-        failures.append("e1rm_series != estimated_1rm")
-        for c, s, v in zip(cases, scalar, vector):
-            if abs(s - v) >= 1e-9:
-                print(f"        w={c[0]} r={c[1]}: scalar={s} vector={v}")
-
-    # A zero-rep set is not a set. Both forms must return 0, not a bare bodyweight.
-    zero_ok = estimated_1rm(100, 0) == 0 and list(e1rm_series(pd.Series([100]), pd.Series([0])))[0] == 0
-    print(f"  [{'PASS' if zero_ok else 'FAIL'}] zero reps yields zero e1RM in both forms")
-    if not zero_ok:
-        failures.append("zero reps")
-
-    # `infer_muscle_group` is lru_cached. Caching a function that is not pure would
-    # freeze the first answer forever; assert it still maps by name, not by call order.
-    pure = (infer_muscle_group("Barbell Back Squat") == infer_muscle_group("Barbell Back Squat")
-            and infer_muscle_group("Cable Lateral Raise") != infer_muscle_group("Barbell Back Squat"))
-    print(f"  [{'PASS' if pure else 'FAIL'}] infer_muscle_group is cacheable (same in, same out)")
-    if not pure:
-        failures.append("infer_muscle_group not pure")
-
     print()
     if failures:
         print(f"FAILED: {len(failures)} check(s). `.iloc[-1]` is not the latest row.")

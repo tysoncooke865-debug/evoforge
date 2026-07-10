@@ -41,7 +41,7 @@ def render_avatar_image_panel(stats, compact=False):
 
     stage_html = avatar_stage_html(path, rarity=rarity, size="lg", alt="Current form")
     if not stage_html:
-        st.error("Avatar image could not load. Check the static/ folder.")
+        st.error("Avatar image could not load. Check the avatar_assets folder.")
         st.write(f"Expected path: `{path}`")
         return
 
