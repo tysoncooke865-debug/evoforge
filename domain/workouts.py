@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import lru_cache
 
 import pandas as pd
 
@@ -40,7 +41,21 @@ def load_log():
 
 
 def estimated_1rm(weight, reps):
+    """Epley. One set's estimated one-rep max. Scalar; for a Series use `e1rm_series`."""
     return weight * (1 + reps / 30) if reps > 0 else 0
+
+
+def e1rm_series(weight, reps):
+    """`estimated_1rm` over two Series, vectorised.
+
+    Four call sites used `df.apply(lambda x: estimated_1rm(...), axis=1)`, which
+    walks the frame row by row in Python -- up to 2500 rows, several times per
+    render. `verify_xp.py` and `verify_ordering.py` pin the numbers this produces,
+    so a divergence between this and the scalar form goes red.
+    """
+    weight = pd.to_numeric(weight, errors="coerce").fillna(0)
+    reps = pd.to_numeric(reps, errors="coerce").fillna(0)
+    return (weight * (1 + reps / 30)).where(reps > 0, 0)
 
 
 def get_last_sets(df, exercise):
@@ -62,10 +77,7 @@ def get_previous_best_1rm(df, exercise, exclude_date=None, exclude_set=None):
         ex = ex[~((ex["date"].astype(str) == str(exclude_date)) & (ex["set"] == int(exclude_set)))]
     if ex.empty:
         return 0
-    ex["weight"] = pd.to_numeric(ex["weight"], errors="coerce").fillna(0)
-    ex["reps"] = pd.to_numeric(ex["reps"], errors="coerce").fillna(0)
-    ex["estimated_1rm"] = ex.apply(lambda x: estimated_1rm(float(x["weight"]), int(x["reps"])), axis=1)
-    return float(ex["estimated_1rm"].max())
+    return float(e1rm_series(ex["weight"], ex["reps"]).max())
 
 
 def suggest_weight(df, exercise):
@@ -112,11 +124,19 @@ def completed_sets_for_day(df, workout_date, workout):
 
 
 def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
+    """Save one set. Returns `(changed, is_pr, current_1rm, previous_best, unlocked)`.
+
+    `unlocked` is the achievement sweep's result, which this function already paid
+    for. `views/today.py` used to call `check_achievements()` again straight after
+    -- a second full sweep of the log, summary, heat map, bodyweight, body fat and
+    cardio -- and then `st.rerun()`, so every logged set ran the sweep twice and the
+    whole script three times.
+    """
     from domain.achievements import check_achievements
     from domain.xp_leveling import mark_xp_gain
 
     if weight <= 0 or reps <= 0:
-        return False, False, 0, 0
+        return False, False, 0, 0, []
 
     df_before = load_log()
     previous_best = get_previous_best_1rm(df_before, exercise, exclude_date=workout_date, exclude_set=set_no)
@@ -162,7 +182,7 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
             same_weight, same_reps = False, False
 
         if same_weight and same_reps:
-            return False, False, current_1rm, previous_best
+            return False, False, current_1rm, previous_best, []
 
         # EDIT, not a new set. Update in place so `workout_log.id` survives.
         #
@@ -176,10 +196,10 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
         if old_id:
             ok, err = sb_update_by_id("workout_log", old_id, supabase_row)
             store_supabase_result("workout_log", ok, err)
-            check_achievements()
+            unlocked = check_achievements()
             # No mark_xp_gain: correcting a set earns nothing. It never did; the
             # old code announced XP here anyway, while the derived total stayed put.
-            return True, is_pr, current_1rm, previous_best
+            return True, is_pr, current_1rm, previous_best, unlocked
 
         # No id to update (a row written before `id` was selected). Fall back to
         # the old delete-and-insert and let the ledger grant a fresh event below.
@@ -204,10 +224,10 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
             # know to re-run migrations/002 STEP 3.
             store_supabase_result("xp_events", False, "XP grant failed for this set")
 
-    check_achievements()
+    unlocked = check_achievements()
     # The real value of a set. Announcing +75 for 10 XP is a lie the bar exposes.
     mark_xp_gain(XP_PER_SET, "QUEST COMPLETE", "Set logged successfully")
-    return True, is_pr, current_1rm, previous_best
+    return True, is_pr, current_1rm, previous_best, unlocked
 
 
 def current_exercise_best_1rm(exercise_name):
@@ -250,7 +270,7 @@ def workout_summary(df):
 
     bench = valid_sets[valid_sets["exercise"] == "Barbell Bench Press (Strength)"].copy()
     if not bench.empty:
-        bench["estimated_1rm"] = bench.apply(lambda x: estimated_1rm(float(x["weight"]), int(x["reps"])), axis=1)
+        bench["estimated_1rm"] = e1rm_series(bench["weight"], bench["reps"])
         best_bench_1rm = float(bench["estimated_1rm"].max())
     else:
         best_bench_1rm = 0
@@ -292,7 +312,15 @@ def workout_summary(df):
     }
 
 
+@lru_cache(maxsize=None)
 def infer_muscle_group(exercise):
+    """Map an exercise name to a muscle group.
+
+    Pure `str -> str` with no user data in the result, so a process-global memo is
+    safe. It walks ~15 substring tests per call and `muscle_heat_map()` applies it
+    to every row of the log on every render; the exercise vocabulary is small and
+    bounded, so the cache saturates on the first page.
+    """
     name = str(exercise).strip()
     if name in MUSCLE_MAP:
         return MUSCLE_MAP[name]

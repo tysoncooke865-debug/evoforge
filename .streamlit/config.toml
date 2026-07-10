@@ -1,3 +1,16 @@
+[server]
+# Serves files from `static/` at `app/static/<name>`. The ten avatar PNGs are
+# 4.8 MB; inlined as base64 data-URIs they became ~6.4 MB of TEXT re-serialized
+# into the DOM on every rerun -- and the Avatar page shows three at once. As URLs
+# the browser fetches each once and caches it.
+#
+# They are generic art shipped with the repo, not user data, so public readability
+# is fine. NEVER put anything user-derived in static/ -- it is world-readable.
+#
+# NOTE: Streamlit serves only .png/.jpg/.jpeg/.gif (plus fonts and pdf/xml/json)
+# with an image content-type. A .webp lands as text/plain and will not render.
+enableStaticServing = true
+
 [theme]
 base = "dark"
 primaryColor = "#22d3ee"

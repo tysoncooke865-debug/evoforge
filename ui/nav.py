@@ -5,7 +5,7 @@ from domain.xp_leveling import current_level_xp
 from domain.avatar_stats import (
     branch_display_name, avatar_asset_for_stats, avatar_rarity,
 )
-from ui.avatar_images import img_to_base64
+from ui.avatar_images import img_to_base64, static_url
 from ui.render_memo import avatar_stats
 
 PRIMARY_PAGES = ["Home", "Today", "Avatar", "Progress", "Physique", "Cardio", "Goals", "Data Manager"]
@@ -123,12 +123,16 @@ def get_sidebar_avatar_payload():
     except Exception:
         xp_now, xp_need, xp_pct = 0, xp_for_level(1), 0.0
 
+    # The sidebar renders on EVERY rerun. As a data-URI this was ~0.5 MB of base64
+    # text pushed into the DOM each time; as a URL the browser fetches it once.
     avatar_src = ""
     try:
         _, _, avatar_path = avatar_asset_for_stats(stats)
-        avatar_b64 = img_to_base64(avatar_path)
-        if avatar_b64:
-            avatar_src = f"data:image/png;base64,{avatar_b64}"
+        avatar_src = static_url(avatar_path) or ""
+        if not avatar_src:
+            avatar_b64 = img_to_base64(avatar_path)
+            if avatar_b64:
+                avatar_src = f"data:image/png;base64,{avatar_b64}"
     except Exception:
         pass
 

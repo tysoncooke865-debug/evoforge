@@ -22,6 +22,8 @@ from pathlib import Path
 APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
 
+from ui.avatar_images import STATIC_URL_PREFIX  # noqa: E402
+
 PAGES = [
     "Home", "Profile", "Measurements", "Physique", "Today", "Cardio",
     "Avatar", "Progress", "Goals", "Achievements", "Body Fat",
@@ -108,7 +110,18 @@ for page in ("Home", "Avatar"):
     check(f"{page}: aura", "ef-avatar-aura" in html)
     check(f"{page}: flare", "ef-avatar-flare" in html)
     check(f"{page}: ground shadow", "ef-avatar-ground" in html)
-    check(f"{page}: img is data-uri child", 'class="ef-avatar-img"' in html and "data:image" in html)
+    # The avatar <img> must be a real CHILD of the stage, with a real src.
+    #
+    # It used to assert `"data:image" in html`, which stopped being true when the
+    # ten PNGs moved to `static/` and became `app/static/...` URLs. Accepting either
+    # source is correct -- but a bare `or` would pass on an <img> with NO src at all,
+    # so the src is matched inside the tag, not merely somewhere on the page.
+    img_tag = re.search(r'<img[^>]*class="ef-avatar-img"[^>]*>', html)
+    check(f"{page}: img is a real child of the stage", bool(img_tag))
+    if img_tag:
+        tag = img_tag.group(0)
+        has_src = 'src="data:image' in tag or f'src="{STATIC_URL_PREFIX}/' in tag
+        check(f"{page}: the avatar img carries a src", has_src, tag[:90])
     check(f"{page}: rarity class", bool(re.search(r"rarity-(common|rare|epic|legendary|mythic)", html)))
     check(f"{page}: no exceptions", not at.exception)
 

@@ -7,7 +7,6 @@ import streamlit as st
 from config.constants import ROUTINE
 from domain.custom_plan import load_custom_plan, filter_out_test_custom_plans, custom_plan_display_name
 from domain.workouts import load_log, get_last_sets, suggest_weight, save_set_auto
-from domain.achievements import check_achievements
 from ui.nav import route_button
 from ui.components import page_hero, completed_sets_for_day_unique, render_target_bar
 
@@ -162,12 +161,15 @@ def render():
                         reps = st.number_input(f"{exercise} set {set_no} reps", min_value=0, step=1, key=f"{base_input_key}_set_{set_no}_r", placeholder="reps")
 
                     if weight > 0 and reps > 0:
-                        changed, is_pr, current_1rm, previous_best = save_set_auto(workout_date, workout, exercise, set_no, weight, reps)
+                        # `save_set_auto` already swept the achievements; take its
+                        # answer rather than paying for a second identical sweep.
+                        changed, is_pr, current_1rm, previous_best, unlocked = save_set_auto(
+                            workout_date, workout, exercise, set_no, weight, reps
+                        )
                         if changed:
                             st.session_state.just_saved_message = f"{exercise} SET {set_no} AUTO-SAVED"
                             if is_pr:
                                 st.session_state.pr_message = f"{exercise}: {current_1rm:.1f}kg e1RM"
-                            unlocked = check_achievements()
                             if unlocked:
                                 st.session_state.achievement_message = " • ".join(unlocked)
                             st.rerun()

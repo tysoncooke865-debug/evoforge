@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from domain.workouts import load_log, normalise_workout_log, estimated_1rm
+from domain.workouts import load_log, normalise_workout_log, e1rm_series
 from domain.targets import get_target
 from ui.nav import route_button
 from ui.components import page_hero, render_target_bar
@@ -26,7 +26,7 @@ def render():
         ex = normalise_workout_log(ex)
         ex["weight"] = pd.to_numeric(ex["weight"], errors="coerce").fillna(0)
         ex["reps"] = pd.to_numeric(ex["reps"], errors="coerce").fillna(0)
-        ex["estimated_1rm"] = ex.apply(lambda x: estimated_1rm(float(x["weight"]), int(x["reps"])), axis=1)
+        ex["estimated_1rm"] = e1rm_series(ex["weight"], ex["reps"])
         c1, c2 = st.columns(2)
         c1.metric("Best weight", f"{ex['weight'].max():g} kg")
         c2.metric("Best estimated 1RM", f"{ex['estimated_1rm'].max():.1f} kg")

@@ -5,14 +5,35 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageFilter
 
-AVATAR_ASSET_DIR = Path(__file__).resolve().parent.parent / "avatar_assets"
+# Served by Streamlit at `app/static/<name>` -- see `[server] enableStaticServing`
+# in .streamlit/config.toml. Generic art, no user data.
+AVATAR_ASSET_DIR = Path(__file__).resolve().parent.parent / "static"
+
+STATIC_URL_PREFIX = "app/static"
+
+
+def static_url(path):
+    """`app/static/<name>` for a file inside `static/`, else None.
+
+    Returning a URL instead of a `data:image/png;base64,...` blob is the difference
+    between the browser fetching an image once and caching it, and Streamlit pushing
+    ~900 KB of base64 TEXT into the DOM on every single rerun. The Avatar page
+    renders three avatars, so it was moving megabytes per button click.
+    """
+    try:
+        candidate = Path(path).resolve()
+        if candidate.parent == AVATAR_ASSET_DIR.resolve() and candidate.exists():
+            return f"{STATIC_URL_PREFIX}/{candidate.name}"
+    except Exception:
+        pass
+    return None
 
 
 def _asset_cache_key(path):
     """Cache key for a static avatar PNG: path + mtime + size.
 
-    Only ever applied to files in avatar_assets/. These are shipped with the
-    repo and are not user data, so a process-global cache is safe.
+    Only ever applied to files in static/. These are shipped with the repo and are
+    not user data, so a process-global cache is safe.
     """
     try:
         p = Path(path)
@@ -61,9 +82,31 @@ def img_to_base64(path):
         return ""
 
 
+IDENTITY_KEY = "ef_identity"
+
+
+def _identity_of(img):
+    """A cheap, stable cache key for a PIL image we produced ourselves.
+
+    `pil_to_base64` and `make_locked_silhouette_image` used to build their keys with
+    `hash(img.tobytes())` -- hashing roughly a megabyte of RGBA pixels on EVERY call,
+    on every rerun, per avatar. The encode was cached; the key was not.
+
+    Every image in this module originates from a known file, so it can carry its own
+    identity in `Image.info`. Falls back to the pixel hash for an image that arrived
+    from somewhere else, because a wrong key would serve the wrong picture.
+    """
+    identity = img.info.get(IDENTITY_KEY)
+    if identity:
+        return identity
+    return f"{img.size}:{hash(img.tobytes())}"
+
+
 @st.cache_resource(show_spinner=False)
 def cached_avatar_image(path_str, key=None):
-    return Image.open(Path(path_str)).convert("RGBA")
+    img = Image.open(Path(path_str)).convert("RGBA")
+    img.info[IDENTITY_KEY] = key or path_str
+    return img
 
 
 def get_avatar_image_object(path):
@@ -96,32 +139,39 @@ def _cached_pil_to_base64(_img, cache_key):
 def pil_to_base64(img):
     """Base64-encode an in-memory PIL image (e.g. a locked silhouette)."""
     try:
-        cache_key = f"{img.size}:{hash(img.tobytes())}"
-        return _cached_pil_to_base64(img, cache_key)
+        return _cached_pil_to_base64(img, _identity_of(img))
     except Exception:
         return ""
 
 
 def avatar_img_tag(source, *, css_class="", alt="Avatar"):
-    """Return a single <img src="data:image/png;base64,..."> tag.
+    """Return a single <img> tag for a file path or an in-memory PIL image.
 
-    Accepts a file path (str/Path) or an in-memory PIL image. Returning a
-    tag -- rather than calling st.image -- lets a caller emit an entire card
-    in ONE st.markdown call, so the image is a real child of its wrapper.
-    Splitting a <div> across separate st.markdown calls does NOT work:
-    Streamlit sanitizes each call independently and auto-closes the tag,
-    producing an empty styled box plus an orphaned sibling image.
+    A path inside `static/` becomes `src="app/static/<name>"` -- fetched once and
+    cached by the browser. Anything generated at runtime (the locked silhouette)
+    still has to be inlined as a data-URI, because there is no file to serve.
+
+    Returning a tag -- rather than calling st.image -- lets a caller emit an entire
+    card in ONE st.markdown call, so the image is a real child of its wrapper.
+    Splitting a <div> across separate st.markdown calls does NOT work: Streamlit
+    sanitizes each call independently and auto-closes the tag, producing an empty
+    styled box plus an orphaned sibling image.
 
     Returns "" if the image cannot be loaded (caller decides the fallback).
     """
     try:
-        if isinstance(source, Image.Image):
-            b64 = pil_to_base64(source)
-        else:
+        cls = f' class="{css_class}"' if css_class else ""
+
+        if not isinstance(source, Image.Image):
+            url = static_url(source)
+            if url:
+                return f'<img src="{url}"{cls} alt="{alt}" loading="lazy" />'
             b64 = img_to_base64(source)
+        else:
+            b64 = pil_to_base64(source)
+
         if not b64:
             return ""
-        cls = f' class="{css_class}"' if css_class else ""
         return f'<img src="data:image/png;base64,{b64}"{cls} alt="{alt}" />'
     except Exception:
         return ""
@@ -180,12 +230,15 @@ def make_locked_silhouette_image(img):
     """
     Convert a transparent PNG avatar into a true locked silhouette image.
     Cached to avoid reprocessing on every rerun.
+
+    The key is the source image's identity, not a hash of its alpha channel -- that
+    hash read ~1 MB of pixels on every call just to look the result up. The
+    silhouette is a deterministic function of the source, so the source's identity
+    names it completely.
     """
     try:
         img = img.convert("RGBA")
-        alpha = img.getchannel("A")
-        alpha_key = str(hash(alpha.tobytes()))
-        return cached_locked_silhouette(img.size, alpha_key, img)
+        return cached_locked_silhouette(img.size, f"locked:{_identity_of(img)}", img)
     except Exception:
         return img
 
@@ -214,6 +267,9 @@ def cached_locked_silhouette(size, alpha_key, img):
         canvas.alpha_composite(Image.composite(cyan_mid, empty, glow_mid))
         canvas.alpha_composite(Image.composite(cyan_outline, empty, outline))
         canvas.alpha_composite(body)
+        # Carry an identity so `pil_to_base64` need not hash a megabyte of pixels
+        # to key its encode cache.
+        canvas.info[IDENTITY_KEY] = alpha_key
         return canvas
     except Exception:
         return img

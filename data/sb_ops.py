@@ -186,6 +186,33 @@ def sb_insert(table_name, row, show_error=False):
         return False, msg
 
 
+def sb_insert_many(table_name, rows):
+    """Insert several rows in ONE round trip, then invalidate the caches ONCE.
+
+    `check_achievements()` used to call `sb_insert` per newly-earned achievement,
+    and every `sb_insert` calls `clear_data_cache()`. Unlocking three achievements
+    on one set meant three inserts, three cache wipes, and -- because the wipe
+    happened *inside* the loop -- a fresh network read of the achievements table
+    between each one.
+
+    `user_id` is absent from every row: Postgres fills it from `DEFAULT auth.uid()`.
+    """
+    if not rows:
+        return True, None
+
+    sb = get_supabase_client()
+    if sb is None:
+        return False, "Supabase not configured"
+
+    clean = [clean_supabase_row(row, table_name) for row in rows]
+    try:
+        sb.table(table_name).insert(clean).execute()
+        clear_data_cache()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def sb_insert_returning(table_name, row):
     """Insert and hand back the stored row, so the caller can read its `id`.
 
