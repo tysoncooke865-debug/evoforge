@@ -113,10 +113,30 @@ for page in ("Home", "Avatar"):
     check(f"{page}: no exceptions", not at.exception)
 
 section("3. HTML INTEGRITY (all pages)")
-bad_pages, orphan_pages, emitted = [], [], set()
+# `any(...)` over an EMPTY list is False. So a page that rendered nothing at all
+# used to satisfy "balanced <div> everywhere" and "no orphan closing tags", and
+# contributed nothing to `emitted`, which then let section 4 pass too. A blank
+# page was indistinguishable from a healthy one.
+#
+# Every negative check ("no unbalanced div") needs a paired positive ("this page
+# actually drew something"). verify_ui.py has always done this by asserting
+# EVOFORGE appears exactly once per page; section 3 did not.
+bad_pages, orphan_pages, heroless_pages, emitted = [], [], [], set()
 for page in PAGES:
     at = run(page)
-    all_blobs = blobs(at) + blobs(at, sidebar=True)
+    main_blobs = blobs(at)
+    all_blobs = main_blobs + blobs(at, sidebar=True)
+    # THE POSITIVE CONTROL: the page drew its OWN content, not just the chrome.
+    #
+    # Two wrong versions preceded this one. "all_blobs is non-empty" tested the
+    # sidebar, which always renders. "main_blobs is non-empty" tested
+    # render_mobile_navigation()'s brand bar, which app.py writes into the main
+    # column on every page. Both passed with a page's render() stubbed to `return`.
+    #
+    # `.hero-panel` comes only from `page_hero()`, which all 15 pages call and no
+    # chrome emits. Falsification found both mistakes; the rule earns its keep.
+    if not any("hero-panel" in v for v in main_blobs):
+        heroless_pages.append(page)
     if any(v.count("<div") != v.count("</div>") for v in all_blobs):
         bad_pages.append(page)
     if any(v.strip() in ("</div>", "</div></div>") for v in blobs(at)):
@@ -126,6 +146,8 @@ for page in PAGES:
     for v in all_blobs:
         for m in re.finditer(r'class="([^"]+)"', v):
             emitted.update(m.group(1).split())
+check("every page rendered its own hero", not heroless_pages,
+      f"no .hero-panel in the main column: {heroless_pages}")
 check("balanced <div> everywhere", not bad_pages, str(bad_pages))
 check("no orphan closing tags", not orphan_pages, str(orphan_pages))
 
@@ -133,6 +155,11 @@ section("4. CSS COVERAGE")
 css = (APP_DIR / "assets" / "styles.css").read_text(encoding="utf-8")
 css_nc = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 css_classes = set(re.findall(r"\.([a-zA-Z_][\w-]*)", css_nc))
+# The floor. `missing` is a set difference: if `emitted` is empty it is empty too,
+# and "every emitted class is styled" passes while nothing was ever emitted. The
+# app renders ~120 distinct classes across 15 pages; 20 is a floor, not a target.
+check("emitted class set is non-trivial", len(emitted) >= 20,
+      f"only {len(emitted)} classes emitted -- did the pages render?")
 missing = sorted(c for c in emitted if c not in css_classes)
 check("every emitted class is styled", not missing, f"unstyled: {missing}")
 print(f"       emitted={len(emitted)}  styled_in_css={len(css_classes)}")
@@ -167,35 +194,58 @@ section("6. WRITE INVALIDATES EVERY READ CACHE")
 # sign-out, so a logged set was stored, its XP granted, and every surface kept
 # rendering the summary computed before the set existed -- correct in the database,
 # stale on the screen for the whole session.
-import ast  # noqa: E402
-import inspect  # noqa: E402
-import textwrap  # noqa: E402
-
-from data.sb_ops import clear_data_cache  # noqa: E402
-
-
-def _body_without_docstring(fn):
-    """The executable source of `fn`, with its docstring removed.
-
-    Reading `inspect.getsource()` raw is a trap: the docstring below documents this
-    very invariant, so a substring check matched the PROSE and passed with the fix
-    deleted. A guard that cannot fail is not a guard. Verified by removing the line
-    and watching this check go red.
-    """
-    node = ast.parse(textwrap.dedent(inspect.getsource(fn))).body[0]
-    body = node.body
-    if (body and isinstance(body[0], ast.Expr)
-            and isinstance(body[0].value, ast.Constant)
-            and isinstance(body[0].value.value, str)):
-        body = body[1:]
-    return "\n".join(ast.unparse(n) for n in body)
+#
+# EXECUTE the function. Do not grep its source.
+#
+# The first version of this check did `"_fast_snapshot" in inspect.getsource(fn)`
+# and matched the DOCSTRING -- it passed with the fix deleted. The second stripped
+# the docstring via ast.unparse, which is better and still wrong: ast.unparse
+# preserves string literals, so `log("cleared _fast_snapshot")` would satisfy it,
+# and a legitimate refactor into a helper would fail it. Neither version ever ran
+# the function. Both were assertions about prose.
+#
+# Substituting the module's globals is the only honest way to observe the two side
+# effects without a Streamlit runtime or a database.
+import data.sb_ops as sb_ops  # noqa: E402
 
 
-src = _body_without_docstring(clear_data_cache)
-check("clear_data_cache clears the st.cache_data read cache", "cached_sb_select.clear" in src)
-check("clear_data_cache also drops the session_state page snapshot",
-      "_fast_snapshot" in src,
-      "a write must invalidate get_fast_snapshot(), not just cached_sb_select")
+class _FakeCachedSelect:
+    """Stands in for the `st.cache_data`-wrapped `cached_sb_select`."""
+
+    def __init__(self):
+        self.cleared = False
+
+    def clear(self):
+        self.cleared = True
+
+
+class _FakeStreamlit:
+    """Just enough `st` for `clear_data_cache`: a real dict for session_state."""
+
+    def __init__(self, session_state):
+        self.session_state = session_state
+
+
+_real_cached, _real_st = sb_ops.cached_sb_select, sb_ops.st
+try:
+    fake_cache = _FakeCachedSelect()
+    snapshot_sentinel = object()
+    fake_state = {"_fast_snapshot": snapshot_sentinel, "keep_me": 1}
+
+    sb_ops.cached_sb_select = fake_cache
+    sb_ops.st = _FakeStreamlit(fake_state)
+
+    sb_ops.clear_data_cache()
+
+    check("clear_data_cache clears the st.cache_data read cache", fake_cache.cleared,
+          "cached_sb_select.clear() was never called")
+    check("clear_data_cache drops the session_state page snapshot",
+          "_fast_snapshot" not in fake_state,
+          "a write must invalidate get_fast_snapshot(), not just cached_sb_select")
+    check("...and leaves the rest of session_state alone", fake_state.get("keep_me") == 1,
+          "clear_data_cache is clobbering unrelated session state")
+finally:
+    sb_ops.cached_sb_select, sb_ops.st = _real_cached, _real_st
 
 print("\n" + "=" * 72)
 if failures:
