@@ -36,6 +36,9 @@ in the Supabase dashboard:
 1. **Re-enable "Confirm email"** (Authentication → Providers → Email). It was turned
    off so `verify_rls.py` could sign in. **While it is off anyone can register an
    address they do not own** — this is open right now, on a live public app.
+   **Now worse:** sessions persist for 30 days, so an account opened against someone
+   else's address stays signed in for a month. Accepted as a risk while the app is
+   unadvertised; revisit before any launch.
 2. Delete the `rls-verify-*` accounts and the throwaway owner.
 3. Confirm `000`'s seed rows are gone. If the tables were never truncated, those rows
    still exist owned by the throwaway account — invisible to real users under RLS,
@@ -152,6 +155,27 @@ paths — that is intended. Hand those tasks to Claude.**
 ---
 
 ## DONE
+- **Session persistence + XSS hardening.** Closing the tab no longer signs you out.
+  `auth/persistence.py` keeps the Supabase **refresh token** (never the access token)
+  in a cookie and exchanges it before the gate. Supabase rotates that token on every
+  use, so `persist_session()` rewrites the cookie on `sign_in`, `sign_up` **and**
+  `restore_session` — miss the third and sign-outs are *intermittent*: the first
+  reopen works, the second fails. Verified on the live app: two reopens, both signed
+  in. Every failure path falls through to the login screen; persistence cannot break.
+  - **The cookie is JS-readable** — Streamlit components cannot set `HttpOnly`. So the
+    escape pass landed first: `ui/escape.py` + `tools/verify_escape.py`, which render
+    Missions with a hostile AI exercise name and **parse** the output. AI-generated
+    `exercise`/`reps` and the athlete's email (inside a `title="…"` attribute) were the
+    live vectors.
+  - **This raises the stakes on T1c item 1.** With a persistent session, an account
+    registered against an email the attacker does not own stays signed in for 30 days.
+- **Perf.** A render cost 44 DataFrame builds on Home and ran `calculate_avatar_stats`
+  twice; it is now 8 and once. `check_achievements` did **20 table reads and 19
+  inserts** per set save (measured by sabotaging the fix), and `today.py` ran the whole
+  sweep a second time before rerunning the script. `tools/verify_perf.py` budgets it.
+- **Dependencies are pinned, and Cloud must run Python 3.13.** Unpinned deps segfaulted
+  the live app at import — a native ABI mismatch between pandas/numpy/pyarrow, on
+  Python 3.14. See `requirements.txt` and `CLAUDE.md` → Deploying.
 - **Process hardening.** CI (`.github/workflows/verify.yml`) runs all seven checks on
   every push and PR, over Python 3.11 and 3.13. Nothing ran automatically before; the
   definition of done was prose. The `commit-msg` hook now protects `.github/` and every
