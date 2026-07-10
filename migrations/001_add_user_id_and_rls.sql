@@ -73,19 +73,25 @@ alter table public.avatar_progression   add column if not exists user_id uuid re
 -- ===========================================================================
 -- STEP 2 — backfill the existing rows to the owner
 --
--- Replace 00000000-0000-0000-0000-000000000000 with the owner's auth.users.id.
--- Find it with:  select id, email from auth.users order by created_at limit 5;
+-- Find the owner's id with:
+--     select id, email from auth.users order by created_at limit 5;
+--
+-- There is exactly ONE line to edit, marked EDIT ME. The placeholder is `null`
+-- rather than a zero-uuid on purpose: a zero-uuid would appear twice -- once as
+-- the value, once in the guard checking you replaced it -- and a find-and-
+-- replace would hit both, making the guard compare owner_id to itself and fire.
+-- `null` cannot be matched by a search for the value you are pasting.
 -- ===========================================================================
 do $$
 declare
-  owner_id uuid := '00000000-0000-0000-0000-000000000000';  -- <<< EDIT ME
+  owner_id uuid := null;  -- <<< EDIT ME, e.g. := 'cd771604-31d2-43b6-...'
   t text;
 begin
-  if owner_id = '00000000-0000-0000-0000-000000000000' then
-    raise exception 'Set owner_id to the real owner UUID before running STEP 2.';
+  if owner_id is null then
+    raise exception 'Set owner_id on the line marked EDIT ME, then re-run STEP 2.';
   end if;
   if not exists (select 1 from auth.users where id = owner_id) then
-    raise exception 'No auth.users row with id %. Sign up first.', owner_id;
+    raise exception 'No auth.users row with id %. Create the account first.', owner_id;
   end if;
 
   foreach t in array array[

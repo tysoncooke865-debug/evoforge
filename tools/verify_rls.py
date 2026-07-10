@@ -183,10 +183,12 @@ def main():
             pass  # rejected, as it must be
 
     finally:
+        # PostgREST refuses an unfiltered DELETE. `id is not null` matches every
+        # row and is type-agnostic; RLS narrows it to this client's own rows.
         for client, marker, who in ((alice, marker_a, "alice"), (bob, marker_b, "bob")):
             for table in TABLES:
                 try:
-                    client.table(table).delete().neq("user_id", "00000000-0000-0000-0000-000000000000").execute()
+                    client.table(table).delete().not_.is_("id", "null").execute()
                 except Exception:
                     pass
             try:
