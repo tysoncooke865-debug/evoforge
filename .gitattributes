@@ -1,0 +1,11 @@
+# Normalise line endings on commit; check out native in the working copy.
+* text=auto
+
+# The parity goldens are a byte-exact contract between Python and TypeScript.
+# `tools/gen_fixtures.py --check` normalises on read, so a CRLF working copy does
+# not break it -- but the committed blob must be LF on every platform, or a diff
+# between two developers' checkouts says "drift" when nothing drifted.
+contracts/fixtures/*.json text eol=lf
+
+# Avatar art is binary. Never touch it.
+*.png binary
