@@ -36,8 +36,13 @@
 --      Without this, sign_up() returns no session and verify_rls.py cannot sign
 --      in. (It says so rather than failing cryptically.)
 --
---  (e) SQL Editor -> paste the 11 statements from (b) and run them. This is the
---      whole point of PART A: staging now has production's tables and no rows.
+--  (e) SQL Editor -> paste the 11 statements from (b) and run them. Staging now
+--      has production's tables and no rows.
+--
+--      ALREADY DONE FOR YOU: `migrations/000b_staging_schema.sql` is PART A's
+--      output as of 2026-07-10, transcribed and checked against
+--      SUPABASE_TABLE_SCHEMAS. Paste that file. Re-run PART A yourself only if
+--      the production schema has changed since.
 --
 --  (f) SQL Editor -> run PART B. Expect 11 tables, and ZERO columns named
 --      user_id. Staging must start in the same shape production is in today.
