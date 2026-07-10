@@ -9,52 +9,48 @@ them twice.
 
 ---
 
-## NOW — polish, optimise, prepare
-No new features. Make the foundation safe to build on.
+## SHIPPED — the foundation is built (as of 2026-07-11)
+Everything the launch used to be blocked on is live in production. See `TASKS.md`
+DONE for the detail; this is the map.
 
-| # | Task | Why now |
+| # | Task | State |
 |---|---|---|
-| 0 | Project memory: `CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `TASKS.md`, `LOCAL_AI.md`, `tools/` | ✅ done — future sessions stop rediscovering |
-| 2 | **Delete the CSV fallback** (`data/csv_store.py`, 7 domain call sites) | ✅ done — Supabase is the only store |
-| 5 | Fix `Delete Data` to delete from Supabase, not only CSV | ✅ done |
-| 1 | **Run `migrations/001_add_user_id_and_rls.sql`, then `tools/verify_rls.py`** | 🔴 **The only thing left before a public launch.** Auth exists; tenancy does not. Today every signed-in user reads every row. |
-| 3 | **Unify XP** | ✅ done — one curve in `domain/xp.py`. The ledger (`migrations/002_xp_events.sql`) is written but **not applied**; it is T3b and blocked by 1. |
-| 4 | Remove + rotate the unused `SUPABASE_SECRET_KEY` | Dead service-role credential sitting on disk. |
-| 6 | Decouple `domain/xp_leveling.py` + `domain/custom_plan.py` from `streamlit` | The last two blockers to a framework-free service layer. Cheap now. |
+| 0,2,5 | Project memory · delete CSV fallback · Delete-Data hits Supabase | ✅ |
+| 1,7 | `migrations/001`: `user_id` + RLS on all 11 tables | ✅ applied, verified `ANON LOCKED OUT` |
+| 8,9,10 | Supabase Auth · RLS `user_id = auth.uid()` · per-user cache keys | ✅ |
+| 3 | Unify XP — one curve in `domain/xp.py` | ✅ |
+| — | `migrations/002` XP ledger · `003` server-side sum · `006` anti-cheat trigger | ✅ applied |
+| 12 | Public display name + opt-in privacy (`public_profile`, `004`) | ✅ |
+| 15 | **Leaderboards** — 4-column read surface (`005`), ranked by avatar level | ✅ live |
+| — | Session survives a refresh — cookie + rotating refresh token (`auth/persistence.py`) | ✅ |
+| — | Perf pass (render 44→8 DataFrame builds), XSS hardening, deps pinned on Py 3.13 | ✅ |
+| 11 | 2500-row reads | ◐ `load_log()` projects; row cap remains (server-side `activity_totals()` RPC is the follow-up) |
 
 ---
 
-## NEXT — identity
+## NOW — the real frontier
 
-| # | Task | Status |
+| # | Task | Why |
 |---|---|---|
-| 7 | **Schema migration: `user_id uuid` on all 11 tables** + dedupe and composite key for `achievements` | ✅ `migrations/001` applied 2026-07-10 |
-| 8 | **Supabase Auth**, login gate, session identity, onboarding wizard | ✅ done |
-| 9 | **RLS policies** on every table: `user_id = auth.uid()` | ✅ applied and verified — `ANON LOCKED OUT`. Deploy cutover is **T1b** |
-| 10 | Per-user cache keys — `cached_sb_select(_sb, table, user_id)` | ✅ done |
-| 11 | Kill the 2500-row full-table reads; the `(user_id, date)` indexes are in `migrations/001` | pending |
-| 12 | User profiles (display name, avatar, privacy settings) | pending |
-| 13 | Achievements + streaks on top of the `xp_events` ledger | blocked by 3 |
-| — | Session survives a page refresh (cookie component) | pending; see ARCHITECTURE §1 |
-| — | Custom SMTP — the built-in mailer is rate-limited | launch blocker |
-
-**Nothing ships publicly before 9 is applied and `tools/verify_rls.py` passes.**
-Auth without RLS is a doorman with no walls: every signed-in user reads every row.
-Users' body measurements and physique photographs are sensitive personal data.
+| — | **Validate workout *writes*** (rate limits / plausibility bounds) | The remaining anti-cheat gap. `006` stopped raw XP minting, but `workout_log` is user-writable, so fabricated sets earn real XP. Trust-on-first-use until this lands. **Do before advertising.** |
+| 4 | Rotate `SUPABASE_SECRET_KEY` in the dashboard | Already out of `secrets.toml`; just the rotation. `verify_rls --anon-only` uses it as an env-var control. |
+| 6 | Decouple `domain/xp_leveling.py` + `domain/custom_plan.py` from `streamlit` | The last two blockers to T14. `grep -l streamlit domain/*.py` must return nothing. |
+| 13 | Achievements + streaks on the `xp_events` ledger | **Unblocked** — the ledger exists and has timestamps. Real "when earned", true streaks, no re-grant on edit. |
+| — | Custom SMTP — the built-in mailer is rate-limited | Launch blocker for real signups at volume. |
+| — | Re-enable "Confirm email" (`T1c`) | Off since the RLS cutover; anyone can register an unowned address, and sessions now persist 30 days. Accepted while unadvertised. |
 
 ---
 
 ## LATER — the product
 | # | Task | Depends on | Note |
 |---|---|---|---|
-| 14 | Extract a framework-free service layer + repository interface | 6, 2 | The API seam. Makes the mobile port a port, not a rewrite. |
-| 15 | Leaderboards | 3, 9 | Requires *one* XP formula and a ledger, or ranks are meaningless. |
-| 16 | Social profiles, following | 12 | |
-| 17 | **PvP battles** | 15, 16 | Turn-based/async on Streamlit. Real-time needs 14. Anti-cheat needs the ledger. |
-| 18 | Ranked seasons | 15, 17 | Precompute; never query live. |
-| 19 | AI physique scoring at scale | 9 | Cost control: cache by photo hash, rate-limit per user. Vision calls are the dominant unit cost. |
-| 20 | Payments / subscriptions | 8 | Needs stable verified identity or entitlements and refunds break. External checkout on Streamlit. |
-| 21 | Mobile client (React Native / PWA) | 14 | Streamlit cannot become a mobile app. |
+| 14 | Framework-free service layer + repository interface | 6 | The API seam. Makes the mobile port a port, not a rewrite. |
+| 16 | Social profiles, following | 12 ✅ | `public_profile` is the seam; extend it. |
+| 17 | **PvP battles** | 15 ✅, 16 | Turn-based/async on Streamlit. Real-time needs 14. Anti-cheat needs workout-write validation, not just the ledger. |
+| 18 | Ranked seasons | 15 ✅ | Precompute; never query live. `leaderboard_top()` is the seam. |
+| 19 | AI physique scoring at scale | 9 ✅ | Cache by photo hash, rate-limit per user. Vision calls are the dominant unit cost. |
+| 20 | Payments / subscriptions | 8 ✅ | External checkout on Streamlit. Needs stable identity (have it). |
+| 21 | Mobile client (React Native / PWA) | 14 | Streamlit cannot become a mobile app. `domain/` survives the frontend change. |
 
 ---
 
@@ -76,6 +72,9 @@ Users' body measurements and physique photographs are sensitive personal data.
 - **15 + ledger before 17.** PvP on a client-derivable XP score is trivially cheatable.
 
 ## Explicitly deferred, and why
-**PvP and AI judging are the fun parts.** They are last because every one of their
-dependencies (identity, tenancy, a single trustworthy XP number, an anti-cheat ledger)
-is currently missing. Building them first guarantees rebuilding them.
+**PvP and AI judging are the fun parts.** They were last because their dependencies —
+identity, tenancy, one trustworthy XP number, an anti-cheat ledger — were missing.
+**As of 2026-07-11 those exist.** The last thing standing between the current state and
+honest competition is **workout-write validation**: XP is only as trustworthy as the
+`workout_log` rows it is derived from, and those are still user-writable with any date.
+Close that before PvP or ranked seasons, or the scoreboard is a fiction.

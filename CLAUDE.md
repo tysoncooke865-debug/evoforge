@@ -19,32 +19,41 @@ Deployed on Streamlit Community Cloud from `main`.
 
 ## Layout
 ```
-app.py            entrypoint: page_config, styles, auth gate, nav, router dispatch
-auth/             session.py -> sign_up/sign_in/sign_out/current_user. Identity.
-migrations/       numbered .sql, run by hand in the Supabase SQL editor
+app.py            entrypoint: page_config, styles, restore_session, auth gate, router
+auth/             session.py (identity) · persistence.py (stay-logged-in cookie)
+migrations/       numbered .sql (001–006), run by hand in the Supabase SQL editor
 config/           constants.py -> SUPABASE_TABLE_SCHEMAS is the schema contract
-data/             supabase_client · sb_ops (CRUD+cache). Supabase is the ONLY store.
+data/             supabase_client · sb_ops (CRUD+cache+rpc). Supabase is the ONLY store.
 domain/           pure business logic. ~80% of a portable service layer.
                   xp.py is THE XP contract: one curve, no streamlit, no pandas.
+                  xp_ledger.py · public_profile.py are the DB seams for those.
 services/         openai_client + ai_avatar / ai_bodyfat / ai_physique
-ui/               nav · components · avatar_cards · avatar_images · styles
-views/            15 page modules, each exposing render()
-assets/styles.css single design system, ~1.4k lines
-tools/            verification harness — RUN BEFORE EVERY COMMIT
+ui/               nav · components · avatar_cards · avatar_images · styles ·
+                  render_memo (avatar-stats memo) · escape (esc() for unsafe_allow_html)
+views/            16 page modules, each exposing render() (incl. leaderboard)
+assets/styles.css single design system, ~1.5k lines
+tools/            verification harness (11 checks) — RUN BEFORE EVERY COMMIT
 avatar_assets/    10 PNGs: aesthetic 1-4, mass 1-3, hybrid 1-3
 ```
 
 > `views/` is **not** named `pages/` on purpose. A top-level `pages/` dir makes
 > Streamlit build its own multipage sidebar nav on top of ours. Do not rename it.
 
-## Database — 11 tables (+ `xp_events`, pending `migrations/002`)
-`workout_log` `bodyweight_log` `cardio_log` `bodyfat_log` `measurements`
-`physique_ratings` `custom_workout_plan` `achievements` `targets` `profile`
-`avatar_progression`
+## Database — 13 tables (all migrations 001–006 applied)
+The 11 originals: `workout_log` `bodyweight_log` `cardio_log` `bodyfat_log`
+`measurements` `physique_ratings` `custom_workout_plan` `achievements` `targets`
+`profile` `avatar_progression`. Every one is owner-only RLS (`user_id = auth.uid()`).
 
-`xp_events` is the 12th, and it is **append-only by construction**: the owner gets
-`select` + `insert` policies and no `update`/`delete`, so RLS refuses both. It does
-not exist until `002` is applied.
+Plus two:
+- **`xp_events`** (`002`) — the append-only XP ledger: owner `select`+`insert`, no
+  `update`/`delete`. A `before insert` trigger (`006`) recomputes `amount` from a real
+  owned source row and rejects server-only kinds, so XP cannot be minted by a raw POST.
+  Summed server-side by `public.xp_total()` (`003`).
+- **`public_profile`** (`004`) — opt-in `display_name` + `is_public`, kept OFF `profile`
+  so the cross-user leaderboard read can never sit beside body data.
+
+**Cross-user reads go through `security definer` functions only** — `leaderboard_top()`
+(`005`) returns four columns and nothing else. Every base table denies cross-user SELECT.
 
 Column lists live in one place: `config/constants.py :: SUPABASE_TABLE_SCHEMAS`. That
 dict is the **write** contract — `clean_supabase_row()` filters inserts down to it.
@@ -177,12 +186,12 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
-| 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | `002` written **and wired** (`domain/xp_ledger.py`), **not applied**. Code falls back to derived until it is. Needed for PvP/seasons |
+| 7 | ~~No XP event ledger — no "when earned", no anti-cheat~~ | ✅ `002` (ledger) + `003` (server-side sum) + `006` (anti-cheat trigger) all applied. **Remaining gap:** `workout_log` is user-writable, so fabricated sets earn real XP — validate workout *writes* before PvP/seasons. Streaks on the ledger (roadmap 13) not yet built |
 | 13 | ~~`ledger_xp()` sums through `sb_select`, capped at 2500 rows — a heavy user loses levels~~ | ✅ `ledger_xp()` calls `public.xp_total()` (`migrations/003`), summed in Postgres. Row count is now irrelevant |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | **partially closed**: `load_log()` now projects (drops `muscle`/`volume`/`estimated_1rm`/`notes` off the wire; keeps `id`). Still row-capped — a server-side `activity_totals()` RPC is the follow-up if a user nears 2500 rows |
 | 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
 | 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
-| 11 | `.streamlit/secrets.toml` holds a `SUPABASE_SECRET_KEY` + JWKS URL the app never reads | remove and rotate |
+| 11 | `SUPABASE_SECRET_KEY` the app never reads | ◐ removed from `secrets.toml`; **rotate it in the dashboard** (T4). Now used only as `verify_rls --anon-only`'s positive control, passed as an env var for that run |
 | 12 | Streamlit cannot do mobile apps, real-time PvP, or embedded payments | plan the seam, don't rewrite |
 
 ## Coding rules
