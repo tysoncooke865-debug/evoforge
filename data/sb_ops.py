@@ -178,12 +178,24 @@ def sb_delete_matching(table_name, filters):
 
 
 def sb_delete_all(table_name):
+    """Delete every row this client is allowed to see.
+
+    PostgREST refuses an unfiltered DELETE, so a match-everything filter is
+    required. It must be `id is not null`, not a `neq` against the first schema
+    column: that column is `date` or `numeric` on 8 of the 11 tables, and
+    comparing it to a sentinel string raises `invalid input syntax for type
+    date`. `id` is the primary key on every table, so `not.is.null` matches all
+    rows and is type-agnostic.
+
+    Under RLS this deletes only the caller's own rows -- the policy filters the
+    DELETE the same way it filters a SELECT.
+    """
     sb = get_supabase_client()
     if sb is None:
         return False, "Supabase not configured"
 
     try:
-        sb.table(table_name).delete().neq(SUPABASE_TABLE_SCHEMAS[table_name][0], "__never_match__").execute()
+        sb.table(table_name).delete().not_.is_("id", "null").execute()
         clear_data_cache()
         return True, None
     except Exception as e:

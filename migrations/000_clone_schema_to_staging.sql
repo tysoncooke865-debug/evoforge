@@ -160,11 +160,14 @@ where table_schema = 'public' and column_name = 'user_id';
 --
 -- Skip this and the rehearsal proves only that valid SQL is valid SQL.
 -- ===========================================================================
-insert into public.workout_log (date, workout, exercise, muscle, "set", weight, reps, estimated_1rm, volume, notes, timestamp)
+-- `timestamp` MUST be quoted -- it is a type-name keyword, and an unquoted
+-- `timestamp` in a column list is a syntax error. `set` need not be: Postgres
+-- classes it UNRESERVED, which is why quote_ident() left it bare in PART A.
+insert into public.workout_log (date, workout, exercise, muscle, "set", weight, reps, estimated_1rm, volume, notes, "timestamp")
 values (current_date, 'Push 1', 'Barbell Bench Press (Strength)', 'Chest', 1, 80, 5, 93.3, 400, '', now()),
        (current_date, 'Push 1', 'Barbell Bench Press (Strength)', 'Chest', 2, 80, 5, 93.3, 400, '', now());
 
-insert into public.bodyweight_log (date, bodyweight, timestamp)
+insert into public.bodyweight_log (date, bodyweight, "timestamp")
 values (current_date, 77.0, now());
 
 insert into public.profile (height_cm, bodyweight_kg, bench_e1rm, squat_e1rm, training_years, physique_score, leanness_score, base_level, created_at)
@@ -173,6 +176,11 @@ values (183.5, 77.0, 96, 140, 3, 10, 10, 42, now());
 -- The important one. Two rows, same achievement_id, different date_unlocked.
 -- STEP 4 must delete the older and keep the newer -- matching what
 -- domain/achievements.py :: load_achievements() already displays.
+--
+-- Note `date_unlocked` is a DATE column, not a timestamp: the app writes an ISO
+-- datetime string and Postgres truncates the time. So two achievements unlocked
+-- on the same day tie on date, and STEP 4 breaks the tie on `id` -- which is a
+-- random uuid. That is fine: the tied rows are identical apart from their id.
 insert into public.achievements (achievement_id, name, description, date_unlocked)
 values ('first_workout', 'First Workout', 'Logged your first set',  '2024-01-01T09:00:00'),
        ('first_workout', 'First Workout', 'Logged your first set',  '2024-06-01T09:00:00'),
@@ -184,6 +192,6 @@ from public.achievements
 group by achievement_id
 having count(*) > 1;
 
--- After migrations/001 STEP 4, expect zero rows here, and the surviving
--- first_workout row must have date_unlocked = 2024-06-01T09:00:00.
--- select achievement_id, date_unlocked from public.achievements order by achievement_id;
+-- After migrations/001 STEP 4, expect zero rows from the query above, and:
+--   select achievement_id, date_unlocked from public.achievements order by 1;
+-- must show exactly two rows, with first_workout at 2024-06-01.
