@@ -76,11 +76,28 @@ jobs:
 
       # Export before tsc: expo-env.d.ts and .expo/types/router.d.ts are
       # generated (and gitignored), so a bare tsc on a fresh checkout is red.
+      # On failure the log tail is emitted as ::error:: workflow commands --
+      # those surface as check-run annotations, which are readable through the
+      # public API without authentication (raw step logs are not).
       - name: Export web build
-        run: npx expo export -p web
+        run: |
+          set -o pipefail
+          if ! npx expo export -p web 2>&1 | tee /tmp/export.log; then
+            tail -n 25 /tmp/export.log | while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error title=expo export::${line}"
+            done
+            exit 1
+          fi
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: |
+          set -o pipefail
+          if ! npx tsc --noEmit 2>&1 | tee /tmp/tsc.log; then
+            head -n 25 /tmp/tsc.log | while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error title=tsc::${line}"
+            done
+            exit 1
+          fi
 
       - name: Upload web build
         uses: actions/upload-artifact@v4
