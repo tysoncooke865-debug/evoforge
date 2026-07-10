@@ -198,7 +198,11 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
     # grant must never fail the save: the set happened. STEP 3's backfill is
     # re-runnable and will collect any orphan.
     if stored and stored.get("id"):
-        record_set_event(stored["id"], stored.get("timestamp"))
+        if not record_set_event(stored["id"], stored.get("timestamp")):
+            # Never silent. A dropped grant leaves the ledger behind the derived
+            # total; `resolve_xp` keeps the user's XP intact, but somebody has to
+            # know to re-run migrations/002 STEP 3.
+            store_supabase_result("xp_events", False, "XP grant failed for this set")
 
     check_achievements()
     # The real value of a set. Announcing +75 for 10 XP is a lie the bar exposes.

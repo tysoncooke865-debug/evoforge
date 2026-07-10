@@ -175,13 +175,24 @@ for base, xp in ((1, 0), (1, 499), (1, 500), (42, 1524), (42, 1525), (90, 99999)
 # the moment this shipped ahead of migrations/002.
 check("no ledger -> derived is used", resolve_xp(1234, None) == (1234, "derived", 0))
 check("no ledger -> not treated as 0 XP", resolve_xp(1234, None)[0] != 0)
-check("ledger present -> ledger wins", resolve_xp(1000, 1200) == (1200, "ledger", 200))
+check("ledger ahead -> ledger wins", resolve_xp(1000, 1200) == (1200, "ledger", 200))
 check("agreement -> zero drift", resolve_xp(1000, 1000) == (1000, "ledger", 0))
-check("ledger behind derived -> negative drift is reported, not hidden",
-      resolve_xp(1000, 900) == (900, "ledger", -100))
-check("an empty ledger (0) is distinct from an absent one (None)",
-      resolve_xp(1000, 0) == (0, "ledger", -1000))
 check("garbage ledger value falls back to derived", resolve_xp(500, "nonsense")[1] == "derived")
+
+# THE REGRESSION THAT SHIPPED. `resolve_xp` used to prefer the ledger whatever it
+# said, so one failed grant turned a real 10 XP into a displayed 0: the user logged
+# a set and watched their level fall. RLS makes the ledger append-only, so the app
+# could never repair it. The ledger now FLOORS at the derived total.
+check("a single failed grant never zeroes real XP", resolve_xp(10, 0)[0] == 10)
+check("an EMPTY ledger does not erase XP", resolve_xp(1000, 0) == (1000, "derived (ledger behind)", -1000))
+check("a ledger behind derived -> derived is displayed",
+      resolve_xp(1000, 900) == (1000, "derived (ledger behind)", -100))
+check("...and the negative drift is still reported, not hidden",
+      resolve_xp(1000, 900)[2] == -100)
+check("an empty ledger (0) is still distinct from an absent one (None)",
+      resolve_xp(1000, 0)[2] == -1000 and resolve_xp(1000, None)[2] == 0)
+check("XP never decreases as a result of consulting the ledger",
+      all(resolve_xp(d, l)[0] >= d for d in (0, 10, 1000) for l in (None, 0, 5, 10, 99999)))
 
 # The live cardio grant must equal the migration's backfill literal, exactly.
 # `floor(minutes * 2)`, and skipped when it rounds to nothing.

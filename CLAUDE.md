@@ -123,12 +123,17 @@ pandas, no database. Never compute a level or a progress bar anywhere else.**
   reaches exactly 100% at level-up. Use `progress_percent()`, never `/` by hand.
 - `base_level` comes from `profile`. A character starts *at* `base_level` with 0
   XP toward the next, not at level 1.
-- **Two sources, one curve.** `resolve_xp(derived, ledger)` picks. The ledger
-  (`xp_events`, `migrations/002`) wins when readable; the derived recount is still
-  computed every render because it is the **only oracle that can detect drift**.
-  `domain/xp_ledger.py` is the seam. `ledger_xp()` returns `None` — never `0` — when
-  the table is absent, so the app is correct on both sides of the migration, in
-  either deploy order.
+- **Two sources, one curve.** `resolve_xp(derived, ledger)` picks what to *display*.
+  The ledger (`xp_events`, `migrations/002`) wins **only when it is at or ahead of
+  the derived recount**. It floors at derived and can never drag a user below what
+  they earned — a single failed grant once turned a real 10 XP into a displayed 0,
+  and RLS makes the ledger append-only so the app cannot repair it. The derived
+  recount runs every render because it is the **only oracle that can detect drift**.
+- `ledger_xp()` returns `None` — never `0` — when the table is absent, so the app is
+  correct on both sides of the migration, in either deploy order. `0` means "the
+  ledger is readable and empty", which is a *different* and much worse condition.
+- **Display is not ranking.** A leaderboard must read the ledger directly and refuse
+  any account with non-zero `xp_drift`. Never rank on `summary["xp"]`.
 - `migrations/002` is **written and wired, not yet applied.** Until it runs,
   `xp_events` does not exist, `ledger_xp()` is `None`, and XP is derived exactly as
   before. Apply it before leaderboards, seasons or PvP — not before.

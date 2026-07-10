@@ -4,7 +4,7 @@ from datetime import date, datetime
 import pandas as pd
 
 from data.sb_ops import df_from_supabase, sb_insert_returning, store_supabase_result
-from domain.xp_ledger import record_cardio_event
+from domain.xp_ledger import cardio_event_amount, record_cardio_event
 
 
 def load_cardio_log():
@@ -52,8 +52,9 @@ def save_cardio_row(row):
     # cardio_log, so a ledger that only recorded sets would fall behind the derived
     # total on the first cardio session and STEP 4 would stop reconciling. The
     # amount must match STEP 3's `floor(minutes * 2)` exactly -- see record_cardio_event.
-    if stored and stored.get("id"):
-        record_cardio_event(stored["id"], clean_row["minutes"], stored.get("timestamp"))
+    if stored and stored.get("id") and cardio_event_amount(clean_row["minutes"]) > 0:
+        if not record_cardio_event(stored["id"], clean_row["minutes"], stored.get("timestamp")):
+            store_supabase_result("cardio_log", False, "XP grant failed for this session")
 
 
 def get_cardio_stats():

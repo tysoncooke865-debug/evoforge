@@ -140,17 +140,29 @@ def level_from_ledger(base_level, ledger_sum):
 
 
 def resolve_xp(derived_xp, ledger_xp):
-    """Choose which XP total to trust, and report any disagreement.
+    """Choose which XP total to DISPLAY, and report any disagreement.
 
-    Returns `(xp, source, drift)`:
-      * `ledger_xp is None` -- the ledger is unreadable or `migrations/002` has not
-        been applied. Use derived. `drift` is 0; there is nothing to compare.
-      * otherwise -- use the ledger, and report `drift = ledger_xp - derived_xp`.
+    Returns `(xp, source, drift)`, where `drift = ledger_xp - derived_xp`.
 
-    A non-zero drift is not corrected here and must not be silently swallowed. It
-    means one of: a set was edited in a way that minted a second grant, a duplicate
-    `workout_log` row was deleted after its grant existed, or the backfill has not
-    been re-run since rows were added. `migrations/002` STEP 4 answers which.
+      * `ledger_xp is None` -- unreadable, or `migrations/002` is not applied.
+        Use derived. Nothing to compare, so `drift` is 0.
+      * `ledger_xp < derived_xp` -- grants are MISSING. Use derived, report the
+        negative drift.
+      * otherwise -- the ledger is the source of truth. Use it.
+
+    **The ledger floors at the derived total; it never drags a user below it.**
+    The first version of this preferred the ledger unconditionally, so a single
+    failed grant turned a real 10 XP into a displayed 0 -- the user's level fell
+    for logging a workout. An append-only ledger cannot be repaired by the app
+    (RLS grants no update or delete), so a lost grant would have been permanent
+    until someone re-ran the backfill. Losing XP a user earned is worse than
+    briefly over-crediting one who has not been reconciled yet.
+
+    Ranking is a different question from display. A leaderboard must read the
+    LEDGER, not this number, and must refuse to rank any account whose `drift` is
+    non-zero. `migrations/002` STEP 4 says which side is wrong: a positive drift
+    means a set was double-granted or a granted row was deleted; a negative drift
+    means grants failed or the backfill is stale, and STEP 3 is re-runnable.
     """
     try:
         derived = max(0, int(derived_xp))
@@ -165,7 +177,12 @@ def resolve_xp(derived_xp, ledger_xp):
     except (TypeError, ValueError):
         return derived, "derived", 0
 
-    return ledger, "ledger", ledger - derived
+    drift = ledger - derived
+    if drift < 0:
+        # Grants are missing. Show what they earned, and say the ledger is behind.
+        return derived, "derived (ledger behind)", drift
+
+    return ledger, "ledger", drift
 
 
 def progress_percent(xp_into_level, xp_needed):
