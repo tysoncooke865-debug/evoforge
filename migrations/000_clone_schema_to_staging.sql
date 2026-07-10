@@ -10,47 +10,64 @@
 -- the app is to create the owner account; in staging you make that account from
 -- the dashboard, and verify_rls.py creates its own.
 --
+-- Naming, because there are two numbering systems and they are easy to confuse:
+--   * This file has three queries: PART A, PART B, PART C.
+--   * migrations/001 has eight numbered blocks: STEP 0 .. STEP 7.
+--   * The procedure below is lettered (a) .. (j) and refers to both.
+--
 -- ---------------------------------------------------------------------------
 -- PROCEDURE
 --
---  1. PRODUCTION -> SQL Editor. Run PART A. It prints one `create table ...`
---     statement per row. Copy the whole `ddl` column.
+-- ON PRODUCTION -- read-only, nothing is changed:
 --
---  2. READ WHAT IT PRINTED. This is generated, not dumped. Check the column
---     types and defaults look sane before trusting it. Foreign keys and indexes
---     are omitted on purpose: migrations/001 creates the ones that matter.
+--  (a) SQL Editor -> run PART A. It returns 11 rows, each one a complete
+--      `create table ...;` statement in the `ddl` column.
 --
---  3. Create a new free Supabase project, `evoforge-staging`.
+--  (b) READ WHAT IT PRINTED, then copy all 11 statements into one text buffer.
+--      This is generated from pg_catalog, not dumped by pg_dump. Foreign keys
+--      and indexes are omitted on purpose -- migrations/001 creates the ones
+--      that matter.
 --
---  4. STAGING -> Authentication -> Providers -> Email: turn OFF "Confirm email".
---     Without this, sign_up() returns no session and verify_rls.py cannot sign
---     in. (It will say so rather than fail cryptically.)
+-- ON STAGING -- a brand new, empty project:
 --
---  5. STAGING -> Authentication -> Users -> "Add user" -> "Create new user".
---     Any email. Tick auto-confirm. Copy its UUID. This stands in for you.
+--  (c) Create a new free Supabase project. Call it `evoforge-staging`.
 --
---  6. STAGING -> SQL Editor. Paste and run the DDL from step 1.
+--  (d) Authentication -> Providers -> Email: turn OFF "Confirm email".
+--      Without this, sign_up() returns no session and verify_rls.py cannot sign
+--      in. (It says so rather than failing cryptically.)
 --
---  7. Run PART C. No UUID needed -- the user_id column does not exist yet, so
---     these rows are exactly the "unowned" rows production is full of. PART C
---     also plants a DUPLICATE achievement, which is what migrations/001 STEP 4
---     must survive. Skip this and the rehearsal proves nothing about the two
---     steps most likely to fail.
+--  (e) SQL Editor -> paste the 11 statements from (b) and run them. This is the
+--      whole point of PART A: staging now has production's tables and no rows.
 --
---  8. Run migrations/001_add_user_id_and_rls.sql, STEP 0 -> STEP 7, using the
---     step-5 UUID in STEP 2. Every orphan count must reach 0. STEP 4 must
---     report exactly one duplicate and then create the index without error.
+--  (f) SQL Editor -> run PART B. Expect 11 tables, and ZERO columns named
+--      user_id. Staging must start in the same shape production is in today.
 --
---  9. Run the security test against staging:
+--  (g) SQL Editor -> run PART C. It inserts a handful of rows with no owner,
+--      plus a DUPLICATE achievement. No UUID needed: the user_id column does
+--      not exist yet. This is what makes the rehearsal mean something -- it
+--      recreates the two conditions migrations/001 has to survive.
+--
+--  (h) Authentication -> Users -> "Add user" -> "Create new user". Any email,
+--      tick auto-confirm. Copy its UUID. This account stands in for you.
+--      (Only now, because 001 STEP 2 is the first thing that needs an owner.)
+--
+--  (i) Run migrations/001, its STEP 0 through STEP 7, pasting the (h) UUID into
+--      its STEP 2. Watch two things:
+--          - STEP 2's orphan counts must all reach 0
+--          - STEP 4 must report `first_workout | copies = 2`, then build the
+--            unique index without error
+--
+--  (j) Prove it:
 --        SUPABASE_URL=https://<staging-ref>.supabase.co \
 --        SUPABASE_KEY=<staging publishable key> \
 --        python tools/verify_rls.py --i-understand-this-writes-to-the-database
---     It must print `RLS VERIFIED`. (verify_rls.py reads env vars only; it does
---     not touch .streamlit/secrets.toml.)
+--      It must print `RLS VERIFIED`. (verify_rls.py reads env vars only; it
+--      never touches .streamlit/secrets.toml.)
 --
--- 10. Only then do the same against production -- where step 5 becomes "sign up
---     through the live app" and step 7 is skipped, because the real rows are
---     already there.
+-- ON PRODUCTION, only after (j) passes:
+--
+--      Repeat (h) and (i) -- but (h) becomes "sign up through the live app",
+--      and skip (g) entirely, because the real unowned rows are already there.
 -- ---------------------------------------------------------------------------
 
 
