@@ -27,6 +27,7 @@ import views.physique as view_physique
 import views.today as view_today
 import views.bodyfat as view_bodyfat
 import views.home as view_home
+import views.leaderboard as view_leaderboard
 
 PAGE_RENDERERS = {
     "Home": view_home.render,
@@ -38,6 +39,7 @@ PAGE_RENDERERS = {
     "Avatar": view_avatar.render,
     "Progress": view_progress.render,
     "Goals": view_goals.render,
+    "Leaderboard": view_leaderboard.render,
     "Achievements": view_achievements.render,
     "Body Fat": view_bodyfat.render,
     "Bodyweight": view_bodyweight.render,

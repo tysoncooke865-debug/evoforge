@@ -9,7 +9,7 @@ from ui.avatar_images import img_to_base64
 from ui.escape import esc
 from ui.render_memo import avatar_stats
 
-PRIMARY_PAGES = ["Home", "Today", "Avatar", "Progress", "Physique", "Cardio", "Goals", "Data Manager"]
+PRIMARY_PAGES = ["Home", "Today", "Avatar", "Progress", "Physique", "Cardio", "Goals", "Leaderboard", "Data Manager"]
 MORE_PAGES = ["Profile", "Measurements", "Achievements", "Body Fat", "Bodyweight", "Routine", "Delete Data"]
 ALL_PAGES = PRIMARY_PAGES + MORE_PAGES
 
@@ -21,6 +21,7 @@ PAGE_LABELS = {
     "Physique": "🤖 Oracle",
     "Cardio": "❤️ Engine",
     "Goals": "🎯 Quests",
+    "Leaderboard": "🏅 Leaderboard",
     "Data Manager": "📂 Data",
     "Profile": "🪪 Profile",
     "Measurements": "📏 Measurements",
@@ -42,6 +43,7 @@ NAV_ITEMS = [
     ("Physique", "🤖", "Oracle", "core"),
     ("Cardio", "❤️", "Engine", "core"),
     ("Goals", "🎯", "Quests", "core"),
+    ("Leaderboard", "🏅", "Leaderboard", "core"),
     ("Profile", "🪪", "Profile", "system"),
     ("Measurements", "📏", "Measurements", "system"),
     ("Body Fat", "🔥", "Body Fat", "system"),

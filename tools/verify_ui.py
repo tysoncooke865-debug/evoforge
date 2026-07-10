@@ -19,7 +19,7 @@ sys.path.insert(0, str(APP_DIR))
 
 PAGES = [
     "Home", "Profile", "Measurements", "Physique", "Today", "Cardio",
-    "Avatar", "Progress", "Goals", "Achievements", "Body Fat",
+    "Avatar", "Progress", "Goals", "Leaderboard", "Achievements", "Body Fat",
     "Bodyweight", "Data Manager", "Delete Data", "Routine",
 ]
 

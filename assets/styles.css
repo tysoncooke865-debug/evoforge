@@ -300,6 +300,34 @@ span[class*="material-symbols"],
     font-weight: 700;
 }
 
+/* Leaderboard: one row per ranked athlete, name + rank + level + XP. */
+.lb-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    margin-top: var(--s3);
+}
+.lb-row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr auto auto auto;
+    align-items: center;
+    gap: var(--s3);
+    padding: var(--s3) var(--s4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+.lb-pos { font-weight: 800; color: var(--accent); font-size: var(--fs-sm); }
+.lb-name { font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-rank { color: var(--text-dim); font-size: var(--fs-xs); }
+.lb-level { color: var(--text-mute); font-size: var(--fs-xs); }
+.lb-xp { color: var(--accent); font-weight: 700; font-size: var(--fs-sm); }
+
+@media (max-width: 520px) {
+    .lb-row { grid-template-columns: 2rem 1fr auto; }
+    .lb-rank, .lb-level { display: none; }
+}
+
 .mission-title,
 .nw-card-title {
     font-weight: 800;

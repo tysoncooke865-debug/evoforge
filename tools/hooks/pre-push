@@ -41,6 +41,7 @@ CHECKS=(
     tools/verify_perf.py
     tools/verify_escape.py
     tools/verify_session.py
+    tools/verify_leaderboard.py
 )
 
 echo ""

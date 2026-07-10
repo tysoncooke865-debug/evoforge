@@ -77,3 +77,6 @@ jobs:
 
       - name: verify_session — the refresh token rotates, and a dead one is binned
         run: python tools/verify_session.py
+
+      - name: verify_leaderboard — only four columns leave, and no name can inject
+        run: python tools/verify_leaderboard.py

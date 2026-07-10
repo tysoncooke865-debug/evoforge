@@ -259,9 +259,10 @@ The junior AI must never touch these. See LOCAL_AI.md.
 1. This file is already loaded. **Do not scan the tree.**
 2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
 3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all ten:
+4. Before committing, run all eleven:
    `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
-   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape` · `verify_session`
+   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape` · `verify_session` ·
+   `verify_leaderboard`
    For anything visual, also `python tools/shot.py`.
 5. Update the affected doc **in the same commit**.
 

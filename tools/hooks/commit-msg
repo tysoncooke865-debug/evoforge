@@ -53,6 +53,7 @@ PROTECTED_PATTERNS=(
     '^tools/verify_perf\.py$'
     '^tools/verify_escape\.py$'
     '^tools/verify_session\.py$'
+    '^tools/verify_leaderboard\.py$'  # the only cross-user read surface's guard
     '^ui/escape\.py$'            # the XSS boundary; a readable auth cookie sits behind it
 )
 

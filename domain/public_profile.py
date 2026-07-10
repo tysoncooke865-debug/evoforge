@@ -10,9 +10,24 @@ yet". Nothing here blocks onboarding or sign-in.
 """
 from datetime import datetime
 
-from data.sb_ops import df_from_supabase, sb_upsert, store_supabase_result
+from data.sb_ops import df_from_supabase, sb_rpc, sb_upsert, store_supabase_result
 
 NAME_MIN, NAME_MAX = 3, 24
+
+
+def leaderboard_top(n=50):
+    """The public ranking: a list of `{display_name, xp, base_level, position}`.
+
+    Reads `public.leaderboard_top()` (migrations/005), the ONE surface that crosses
+    users -- and it returns four columns, never body data. Returns `[]` on any
+    failure, including before 005 is applied, so `views/leaderboard.py` shows a
+    "warming up" state rather than crashing. The display LEVEL is computed by the
+    caller from `base_level` + `xp` via `domain/xp.py`, keeping the curve in one place.
+    """
+    data, err = sb_rpc("leaderboard_top", {"n": int(n)})
+    if err or not isinstance(data, list):
+        return []
+    return data
 
 
 def load_public_profile():
