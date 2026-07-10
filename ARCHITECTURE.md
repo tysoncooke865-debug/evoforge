@@ -78,7 +78,7 @@ views/     Streamlit widgets + layout.  Imports domain/ and ui/.  No SQL.
    ↓
 domain/    Pure business logic. 12 modules. Knows nothing about widgets.
    ↓
-data/      Supabase CRUD, caching, CSV fallback. The only layer that talks to the DB.
+data/      Supabase CRUD + caching. The only layer that talks to the DB.
    ↓
 Supabase (Postgres)
 ```
@@ -97,32 +97,43 @@ Both are UI signalling, not business logic. Return values or raise; let `views/`
 session state. Do that and `domain/` is framework-free. **Keep all new business logic
 free of `streamlit`.**
 
-Seven domain modules still call the CSV fallback (`achievements`, `avatar_stats`,
-`bodyfat`, `bodyweight`, `cardio`, `measurements`, `physique_ratings`) — those are the
-call sites step 2 must unpick.
-
 ### Data flow, a set being logged
 ```
 views/today.py            number_input → weight, reps
   → domain/workouts.py    save_set_auto()
       → sb_delete_matching() + sb_insert()   data/sb_ops.py
-      → csv_store.save_csv_backup()          LEGACY — delete before auth
       → domain/achievements.check_achievements()
       → domain/xp_leveling.mark_xp_gain()    sets session_state flag
   → st.rerun()
      → app.py ui_toast_area() + render_workout_xp_toast()  read the flags, render, clear
 ```
 
-### The CSV fallback (`data/csv_store.py`) — scheduled for deletion
-Every write mirrors to a local CSV. On Streamlit Cloud that filesystem is **ephemeral
-and shared by every visitor of the app instance**. Today, single-user, it is merely
-useless. The moment auth ships it becomes a cross-user data leak. It must be removed
-*before* step 5 of the roadmap, not after.
+### Supabase is the only store — nothing touches local disk
+`data/csv_store.py` used to mirror every write to a local CSV. On Streamlit Cloud that
+filesystem is **ephemeral and shared by every visitor of the app instance**, so the
+moment auth shipped it would have become a cross-user data leak. It has been deleted,
+along with every `to_csv()` in `domain/` and the disk read/write paths in
+`views/data_manager.py` and `views/delete_data.py`.
+
+Consequences, all deliberate:
+- `Data Manager` backup builds the ZIP in a `BytesIO` from Supabase reads. There is no
+  restore-from-CSV and no CSV→Supabase migration path any more.
+- `Delete Data` deletes from Supabase. It identifies a row by primary key when the
+  table exposes one, else by its scalar identity columns. `jsonb` columns are never
+  used as a filter — `.eq()` cannot match them.
+- `df_from_supabase` surfaces the error and returns an empty frame. **It must never
+  fall back to a local file.** Serving stale local rows is how one user sees another's.
 
 ### Reads
-`df_from_supabase(table, fallback_path, columns)` selects up to **2500 rows** and
-falls back to CSV on error. It runs per table, per render. At 1,000 users this is the
-first thing that breaks.
+`df_from_supabase(table, columns)` selects up to **2500 rows**. It runs per table, per
+render. At 1,000 users this is the first thing that breaks.
+
+### The write contract
+`config/constants.py :: SUPABASE_TABLE_SCHEMAS` is the *write* contract:
+`clean_supabase_row()` filters every insert payload down to the listed columns.
+**`user_id` is deliberately absent.** Postgres fills it from `DEFAULT auth.uid()`;
+listing it here would send an explicit `NULL` and violate its `NOT NULL` constraint.
+Inserts therefore need no application change when tenancy lands.
 
 ---
 

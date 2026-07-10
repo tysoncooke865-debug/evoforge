@@ -1,14 +1,11 @@
 from datetime import datetime
 
-import pandas as pd
-
-from config.constants import PROFILE_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
 
 
 def load_profile():
     columns = ["height_cm", "bodyweight_kg", "bench_e1rm", "squat_e1rm", "training_years", "physique_score", "leanness_score", "base_level", "created_at"]
-    return df_from_supabase("profile", PROFILE_FILE, columns)
+    return df_from_supabase("profile", columns)
 
 
 def save_profile(height_cm, bodyweight_kg, bench_e1rm, squat_e1rm, training_years, physique_score, leanness_score):
@@ -26,7 +23,6 @@ def save_profile(height_cm, bodyweight_kg, bench_e1rm, squat_e1rm, training_year
     }
     ok, err = sb_insert("profile", row)
     store_supabase_result("profile", ok, err)
-    pd.DataFrame([row]).to_csv(PROFILE_FILE, index=False)
     return base_level
 
 

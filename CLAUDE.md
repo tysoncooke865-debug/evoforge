@@ -21,7 +21,7 @@ Deployed on Streamlit Community Cloud from `main`.
 ```
 app.py            entrypoint: page_config, styles, nav, router dispatch (~80 lines)
 config/           constants.py -> SUPABASE_TABLE_SCHEMAS is the schema contract
-data/             supabase_client · sb_ops (CRUD+cache) · csv_store (LEGACY, see #4)
+data/             supabase_client · sb_ops (CRUD+cache). Supabase is the ONLY store.
 domain/           pure business logic. 12 modules. ~80% of a portable service layer.
 services/         openai_client + ai_avatar / ai_bodyfat / ai_physique
 ui/               nav · components · avatar_cards · avatar_images · styles
@@ -39,7 +39,10 @@ avatar_assets/    10 PNGs: aesthetic 1-4, mass 1-3, hybrid 1-3
 `physique_ratings` `custom_workout_plan` `achievements` `targets` `profile`
 `avatar_progression`
 
-Column lists live in one place: `config/constants.py :: SUPABASE_TABLE_SCHEMAS`.
+Column lists live in one place: `config/constants.py :: SUPABASE_TABLE_SCHEMAS`. That
+dict is the **write** contract — `clean_supabase_row()` filters inserts down to it.
+Never add `user_id` to it: Postgres fills that from `DEFAULT auth.uid()`, and listing
+it would send an explicit `NULL` against a `NOT NULL` column.
 
 **None of them has a `user_id`.** The database is currently one shared global bucket.
 Access uses the publishable key; **RLS status is unverified** (see #3).
@@ -67,13 +70,13 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 1 | No authentication at all | blocks everything |
 | 2 | No `user_id` on any of the 11 tables | cheap to fix now, brutal later |
 | 3 | **RLS unverified** — if off, the publishable key grants full table access | **check first, by hand** |
-| 4 | `data/csv_store.py` writes to local disk. On Streamlit Cloud that disk is ephemeral **and shared by every visitor** → cross-user leak under multi-user | delete before auth |
+| 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | `cached_sb_select` is `@st.cache_data(ttl=20)` keyed only on `table_name` → process-global → one user's rows served to another | key by user_id |
 | 6 | Three XP formulas: `workout_summary` grants a level per flat 500 XP; `xp_to_next_level` = `500+(level-1)*25`; `current_level_xp` falls back to `sets*35+reps*2`. **The progress bar can never fill at level-up**, and you cannot rank on this | fix before leaderboards |
 | 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | needed for PvP/seasons |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
 | 9 | `achievements`/`avatar_progression` use natural keys, unscoped → collide across users | fix with #2 |
-| 10 | `Delete Data` page edits CSV only, never Supabase | deletions don't propagate |
+| 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
 | 11 | `.streamlit/secrets.toml` holds a `SUPABASE_SECRET_KEY` + JWKS URL the app never reads | remove and rotate |
 | 12 | Streamlit cannot do mobile apps, real-time PvP, or embedded payments | plan the seam, don't rewrite |
 

@@ -3,9 +3,7 @@ import math
 
 import pandas as pd
 
-from config.constants import PHYSIQUE_RATING_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 
 
 def score_0_100(value, low, high):
@@ -53,7 +51,7 @@ def load_physique_ratings():
     columns = ["date", "physique_score", "leanness_score", "symmetry_score",
                "muscularity_score", "confidence", "weak_points", "improvements",
                "summary", "timestamp"]
-    df = df_from_supabase("physique_ratings", PHYSIQUE_RATING_FILE, columns)
+    df = df_from_supabase("physique_ratings", columns)
     for col in ("weak_points", "improvements"):
         if col in df.columns:
             df[col] = df[col].map(_as_display_text)
@@ -63,13 +61,6 @@ def load_physique_ratings():
 def save_physique_rating(row):
     ok, err = sb_insert("physique_ratings", row)
     store_supabase_result("physique_ratings", ok, err)
-    save_csv_backup(
-        PHYSIQUE_RATING_FILE,
-        ["date", "physique_score", "leanness_score", "symmetry_score",
-         "muscularity_score", "confidence", "weak_points", "improvements",
-         "summary", "timestamp"],
-        row=row,
-    )
 
 
 def latest_physique_rating_values():

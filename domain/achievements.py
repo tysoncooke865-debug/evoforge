@@ -2,9 +2,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from config.constants import ACHIEVEMENT_FILE, ACHIEVEMENTS
+from config.constants import ACHIEVEMENTS
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 from domain.workouts import (
     load_log, workout_summary, muscle_heat_map, unique_training_days,
     logged_all_ppppla_days, muscle_sets_count, estimated_1rm,
@@ -16,7 +15,7 @@ from domain.targets import get_target
 
 
 def load_achievements():
-    df = df_from_supabase("achievements", ACHIEVEMENT_FILE, ["achievement_id", "name", "description", "date_unlocked"])
+    df = df_from_supabase("achievements", ["achievement_id", "name", "description", "date_unlocked"])
 
     if df.empty:
         return df
@@ -50,7 +49,6 @@ def save_achievement(achievement_id):
     }
     ok, err = sb_insert("achievements", row)
     store_supabase_result("achievements", ok, err)
-    save_csv_backup(ACHIEVEMENT_FILE, ["achievement_id", "name", "description", "date_unlocked"], row=row)
     return True
 
 

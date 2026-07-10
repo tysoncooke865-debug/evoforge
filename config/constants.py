@@ -1,23 +1,13 @@
-from pathlib import Path
-
 APP_TITLE = "Tyson Training"
-CACHE_TTL_SECONDS = 45
 CUSTOM_PLAN_TABLE = "custom_workout_plan"
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-LOG_FILE = BASE_DIR / "workout_log.csv"
-BODYWEIGHT_FILE = BASE_DIR / "bodyweight_log.csv"
-CARDIO_FILE = BASE_DIR / "cardio_log.csv"
-BODYFAT_FILE = BASE_DIR / "bodyfat_log.csv"
-MEASUREMENTS_FILE = BASE_DIR / "measurements.csv"
-PHYSIQUE_RATING_FILE = BASE_DIR / "physique_ratings.csv"
-CUSTOM_PLAN_FILE = BASE_DIR / "custom_workout_plan.csv"
-TARGETS_FILE = BASE_DIR / "targets.csv"
-PROFILE_FILE = BASE_DIR / "profile.csv"
-ACHIEVEMENT_FILE = BASE_DIR / "achievements.csv"
-AVATAR_FILE = BASE_DIR / "avatar_progression.csv"
-
+# Supabase is the only store. Nothing is written to the local filesystem:
+# on Streamlit Cloud that disk is ephemeral and shared by every visitor.
+#
+# SUPABASE_TABLE_SCHEMAS is the WRITE contract -- clean_supabase_row() filters
+# every insert payload down to these columns. Do not add `user_id` here: the
+# column is filled server-side by `DEFAULT auth.uid()`, and listing it would
+# send an explicit NULL that violates its NOT NULL constraint.
 SUPABASE_TABLE_SCHEMAS = {
     "workout_log": ["date", "workout", "exercise", "muscle", "set", "weight", "reps", "estimated_1rm", "volume", "notes", "timestamp"],
     "bodyweight_log": ["date", "bodyweight", "timestamp"],

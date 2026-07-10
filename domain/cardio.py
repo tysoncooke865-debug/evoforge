@@ -3,13 +3,11 @@ from datetime import date, datetime
 
 import pandas as pd
 
-from config.constants import CARDIO_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 
 
 def load_cardio_log():
-    return df_from_supabase("cardio_log", CARDIO_FILE, ["date", "type", "minutes", "distance_km", "incline", "speed", "calories", "notes", "timestamp"])
+    return df_from_supabase("cardio_log", ["date", "type", "minutes", "distance_km", "incline", "speed", "calories", "notes", "timestamp"])
 
 
 def safe_float(value, default=0.0):
@@ -48,11 +46,6 @@ def save_cardio_row(row):
         ok, err = sb_insert("cardio_log", retry_row)
 
     store_supabase_result("cardio_log", ok, err)
-    save_csv_backup(
-        CARDIO_FILE,
-        ["date", "type", "minutes", "distance_km", "incline", "speed", "calories", "notes", "timestamp"],
-        row=clean_row
-    )
 
 
 def get_cardio_stats():

@@ -1,72 +1,117 @@
 import pandas as pd
 import streamlit as st
 
-from config.constants import (
-    LOG_FILE, CARDIO_FILE, BODYFAT_FILE, BODYWEIGHT_FILE, MEASUREMENTS_FILE,
-    PHYSIQUE_RATING_FILE, CUSTOM_PLAN_FILE, TARGETS_FILE, PROFILE_FILE, ACHIEVEMENT_FILE,
-)
-from data.csv_store import load_csv
-from domain.workouts import normalise_workout_log
+from data.sb_ops import sb_select, sb_delete_all, sb_delete_matching
+from data.supabase_client import supabase_enabled
 from ui.components import page_hero
+
+# label -> (supabase table, columns shown when the table is empty)
+LOG_TABLES = {
+    "Workout": ("workout_log", ["date", "workout", "exercise", "set", "weight", "reps", "timestamp"]),
+    "Cardio": ("cardio_log", ["date", "type", "minutes", "distance_km", "incline", "speed", "calories", "notes", "timestamp"]),
+    "Body Fat": ("bodyfat_log", ["date", "method", "bodyweight", "height_cm", "waist_cm", "neck_cm", "bf_low", "bf_high", "bf_mid", "confidence", "notes", "timestamp"]),
+    "Bodyweight": ("bodyweight_log", ["date", "bodyweight", "timestamp"]),
+    "Measurements": ("measurements", ["date", "bodyweight", "wrist_cm", "forearm_cm", "bicep_cm", "chest_cm", "waist_cm", "hips_cm", "thigh_cm", "calf_cm", "shoulders_cm", "neck_cm", "notes", "timestamp"]),
+    "Physique Ratings": ("physique_ratings", ["date", "physique_score", "leanness_score", "symmetry_score", "muscularity_score", "confidence", "weak_points", "improvements", "summary", "timestamp"]),
+    "Custom Plan": ("custom_workout_plan", ["plan_name", "workout", "exercise", "sets", "reps", "muscle", "reason", "day_goal", "timestamp"]),
+    "Targets": ("targets", ["target_type", "name", "target_value", "unit", "created_at", "notes"]),
+    "Profile": ("profile", ["height_cm", "bodyweight_kg", "bench_e1rm", "squat_e1rm", "training_years", "physique_score", "leanness_score", "base_level", "created_at"]),
+    "Achievements": ("achievements", ["achievement_id", "name", "description", "date_unlocked"]),
+}
+
+# Columns that identify a row well enough to delete it when the table has no
+# primary key exposed. Values must be scalars — jsonb columns can't be matched
+# with .eq(), so they are never used as a filter.
+_IDENTITY_COLUMNS = ["date", "timestamp", "created_at", "date_unlocked", "exercise", "set",
+                     "achievement_id", "target_type", "name", "plan_name", "workout"]
+
+
+def _delete_filters(record):
+    """Build an .eq() filter set that uniquely identifies one Supabase row.
+
+    Prefers the primary key when the table exposes one. Falls back to the
+    scalar identity columns present in the row.
+    """
+    if record.get("id") is not None:
+        return {"id": record["id"]}
+    filters = {}
+    for col in _IDENTITY_COLUMNS:
+        val = record.get(col)
+        if val is None or isinstance(val, (list, dict)):
+            continue
+        if isinstance(val, float) and pd.isna(val):
+            continue
+        filters[col] = val
+    return filters
 
 
 def render():
     page_hero("Delete Logged Data", "Remove accidental entries from any log.", "Admin")
-    st.warning("Use this to remove accidental entries. This permanently edits the CSV file.")
-    log_type = st.selectbox("Choose log", ["Workout", "Cardio", "Body Fat", "Bodyweight", "Measurements", "Physique Ratings", "Custom Plan", "Targets", "Profile", "Achievements"])
-    if log_type == "Workout":
-        path, columns = LOG_FILE, ["date", "workout", "exercise", "set", "weight", "reps", "timestamp"]
-    elif log_type == "Cardio":
-        path, columns = CARDIO_FILE, ["date", "type", "minutes", "distance_km", "incline", "speed", "calories", "notes", "timestamp"]
-    elif log_type == "Body Fat":
-        path, columns = BODYFAT_FILE, ["date", "method", "bodyweight", "height_cm", "waist_cm", "neck_cm", "bf_low", "bf_high", "bf_mid", "confidence", "notes", "timestamp"]
-    elif log_type == "Bodyweight":
-        path, columns = BODYWEIGHT_FILE, ["date", "bodyweight", "timestamp"]
-    elif log_type == "Measurements":
-        path, columns = MEASUREMENTS_FILE, ["date", "bodyweight", "wrist_cm", "forearm_cm", "bicep_cm", "chest_cm", "waist_cm", "hips_cm", "thigh_cm", "calf_cm", "shoulders_cm", "neck_cm", "notes", "timestamp"]
-    elif log_type == "Physique Ratings":
-        path, columns = PHYSIQUE_RATING_FILE, ["date", "physique_score", "leanness_score", "symmetry_score", "muscularity_score", "confidence", "weak_points", "improvements", "summary", "timestamp"]
-    elif log_type == "Custom Plan":
-        path, columns = CUSTOM_PLAN_FILE, ["workout", "exercise", "sets", "reps", "reason", "day_goal", "plan_name", "timestamp"]
-    elif log_type == "Targets":
-        path, columns = TARGETS_FILE, ["target_type", "name", "target_value", "unit", "created_at", "notes"]
-    elif log_type == "Profile":
-        path, columns = PROFILE_FILE, ["height_cm", "bodyweight_kg", "bench_e1rm", "squat_e1rm", "training_years", "physique_score", "leanness_score", "base_level", "created_at"]
-    else:
-        path, columns = ACHIEVEMENT_FILE, ["achievement_id", "name", "description", "date_unlocked"]
 
-    data = load_csv(path, columns)
-    if log_type == "Workout":
-        data = normalise_workout_log(data)
+    if not supabase_enabled():
+        st.error("Supabase is not connected. Deletion is unavailable.")
+        return
 
-    if data.empty:
+    st.warning("This permanently deletes rows from the database. There is no undo.")
+
+    log_type = st.selectbox("Choose log", list(LOG_TABLES.keys()))
+    table, columns = LOG_TABLES[log_type]
+
+    records, err = sb_select(table)
+    if err:
+        st.error(f"Could not read {table}: {err}")
+        return
+
+    records = records or []
+    if not records:
         st.info(f"No {log_type.lower()} data found.")
-    else:
-        data = data.reset_index(drop=True)
-        data.insert(0, "delete_id", data.index)
-        st.dataframe(data, width="stretch")
-        delete_ids_text = st.text_input("Enter delete_id numbers to delete", placeholder="Example: 0, 4, 7")
-        if st.button("Delete Selected Rows", type="primary"):
-            if delete_ids_text.strip():
-                try:
-                    ids_to_delete = [int(x.strip()) for x in delete_ids_text.split(",") if x.strip()]
-                    original = load_csv(path, columns).reset_index(drop=True)
-                    if log_type == "Workout":
-                        original = normalise_workout_log(original)
-                    valid_ids = [i for i in ids_to_delete if 0 <= i < len(original)]
-                    updated = original.drop(index=valid_ids).reset_index(drop=True)
-                    updated.to_csv(path, index=False)
-                    st.session_state.just_saved_message = f"DELETED {len(valid_ids)} ROW(S)"
-                    st.rerun()
-                except ValueError:
-                    st.error("Use numbers separated by commas only.")
-        st.divider()
-        confirm_text = f"DELETE {log_type.upper()}"
-        confirm = st.text_input(f"Type {confirm_text} to clear all {log_type.lower()} data")
-        if st.button(f"Clear All {log_type} Data"):
-            if confirm == confirm_text:
-                pd.DataFrame(columns=columns).to_csv(path, index=False)
+        return
+
+    data = pd.DataFrame(records)
+    display = data.copy()
+    display.insert(0, "delete_id", range(len(display)))
+    st.dataframe(display, width="stretch")
+
+    delete_ids_text = st.text_input("Enter delete_id numbers to delete", placeholder="Example: 0, 4, 7")
+    if st.button("Delete Selected Rows", type="primary"):
+        if not delete_ids_text.strip():
+            st.error("Enter at least one delete_id.")
+        else:
+            try:
+                ids_to_delete = [int(x.strip()) for x in delete_ids_text.split(",") if x.strip()]
+            except ValueError:
+                st.error("Use numbers separated by commas only.")
+                return
+
+            valid_ids = [i for i in ids_to_delete if 0 <= i < len(records)]
+            deleted, failures = 0, []
+            for i in valid_ids:
+                filters = _delete_filters(records[i])
+                if not filters:
+                    failures.append(f"row {i}: no identifying columns")
+                    continue
+                ok, del_err = sb_delete_matching(table, filters)
+                if ok:
+                    deleted += 1
+                else:
+                    failures.append(f"row {i}: {del_err}")
+
+            if failures:
+                st.error("Some rows were not deleted:\n" + "\n".join(failures))
+            if deleted:
+                st.session_state.just_saved_message = f"DELETED {deleted} ROW(S)"
+                st.rerun()
+
+    st.divider()
+    confirm_text = f"DELETE {log_type.upper()}"
+    confirm = st.text_input(f"Type {confirm_text} to clear all {log_type.lower()} data")
+    if st.button(f"Clear All {log_type} Data"):
+        if confirm != confirm_text:
+            st.error(f"Confirmation did not match. Type: {confirm_text}")
+        else:
+            ok, del_err = sb_delete_all(table)
+            if ok:
                 st.session_state.just_saved_message = f"ALL {log_type.upper()} DATA CLEARED"
                 st.rerun()
             else:
-                st.error(f"Confirmation did not match. Type: {confirm_text}")
+                st.error(f"Could not clear {table}: {del_err}")

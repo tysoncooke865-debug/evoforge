@@ -6,17 +6,12 @@ import pandas as pd
 import streamlit as st
 
 from config.constants import SUPABASE_TABLE_SCHEMAS
-from data.csv_store import cached_csv_read, load_csv
 from data.supabase_client import get_supabase_client
 
 
 def clear_data_cache():
     try:
         cached_sb_select.clear()
-    except Exception:
-        pass
-    try:
-        cached_csv_read.clear()
     except Exception:
         pass
 
@@ -183,26 +178,36 @@ def sb_delete_all(table_name):
         return False, str(e)
 
 
-def df_from_supabase(table_name, fallback_path, columns):
+def df_from_supabase(table_name, columns):
+    """Read a table into a DataFrame. Supabase is the only source of truth.
+
+    On error, surfaces the message and returns an EMPTY frame with the expected
+    columns. It must never fall back to a local file: on Streamlit Cloud the disk
+    is ephemeral and shared by every visitor, so stale local rows would be served
+    across users.
+    """
     data, err = sb_select(table_name)
-    if data is not None:
-        df = pd.DataFrame(data)
-        for col in columns:
-            if col not in df.columns:
-                df[col] = ""
-        # For workout logs, de-dupe early to reduce downstream workload.
-        if table_name == "workout_log" and not df.empty:
-            if "set" in df.columns:
-                df["set"] = pd.to_numeric(df["set"], errors="coerce").fillna(0).astype(int)
-            possible = [c for c in ["date", "workout", "exercise", "set"] if c in df.columns]
-            if len(possible) == 4:
-                sort_col = "timestamp" if "timestamp" in df.columns else possible[0]
-                df = df.sort_values(sort_col, ascending=True).drop_duplicates(
-                    subset=possible,
-                    keep="last"
-                ).reset_index(drop=True)
-        return df
-    return load_csv(fallback_path, columns)
+    if data is None:
+        st.session_state["last_supabase_error"] = f"{table_name} read failed: {err}"
+        return pd.DataFrame(columns=columns)
+
+    df = pd.DataFrame(data)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+
+    # For workout logs, de-dupe early to reduce downstream workload.
+    if table_name == "workout_log" and not df.empty:
+        if "set" in df.columns:
+            df["set"] = pd.to_numeric(df["set"], errors="coerce").fillna(0).astype(int)
+        possible = [c for c in ["date", "workout", "exercise", "set"] if c in df.columns]
+        if len(possible) == 4:
+            sort_col = "timestamp" if "timestamp" in df.columns else possible[0]
+            df = df.sort_values(sort_col, ascending=True).drop_duplicates(
+                subset=possible,
+                keep="last"
+            ).reset_index(drop=True)
+    return df
 
 
 def store_supabase_result(table_name, ok, err):

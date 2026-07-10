@@ -2,9 +2,7 @@ import math
 
 import pandas as pd
 
-from config.constants import BODYFAT_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 
 
 def navy_body_fat_male(height_cm, waist_cm, neck_cm):
@@ -25,20 +23,12 @@ def load_bodyfat_log():
         "date", "method", "bodyweight", "height_cm", "waist_cm", "neck_cm",
         "bf_low", "bf_high", "bf_mid", "confidence", "notes", "timestamp"
     ]
-    return df_from_supabase("bodyfat_log", BODYFAT_FILE, columns)
+    return df_from_supabase("bodyfat_log", columns)
 
 
 def save_bodyfat_estimate(row):
     ok, err = sb_insert("bodyfat_log", row)
     store_supabase_result("bodyfat_log", ok, err)
-    save_csv_backup(
-        BODYFAT_FILE,
-        [
-            "date", "method", "bodyweight", "height_cm", "waist_cm", "neck_cm",
-            "bf_low", "bf_high", "bf_mid", "confidence", "notes", "timestamp"
-        ],
-        row=row,
-    )
 
 
 def bodyfat_outputs(weight_kg, bf_percent, target_bf=10.0):

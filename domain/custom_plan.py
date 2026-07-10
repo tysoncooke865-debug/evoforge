@@ -1,14 +1,12 @@
 import json
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from config.constants import CUSTOM_PLAN_FILE, CUSTOM_PLAN_TABLE
+from config.constants import CUSTOM_PLAN_TABLE
 from data.sb_ops import sb_select, sb_insert, sb_delete_all, store_supabase_result
 from data.supabase_client import get_supabase_client
-from data.csv_store import _cache_key_for_path, cached_read_csv_file
 
 
 def infer_custom_plan_id(row_or_dict):
@@ -247,37 +245,19 @@ def load_custom_plan():
         except Exception as e:
             st.session_state["last_custom_plan_source"] = f"{table_name} direct error: {e}"
 
-    # 3. Local CSV backup last.
-    try:
-        path = Path(CUSTOM_PLAN_FILE)
-        key = _cache_key_for_path(path)
-        local_df = cached_read_csv_file(str(path), key)
-        local_df = normalise_custom_plan_df(local_df)
-        if not local_df.empty:
-            st.session_state["last_custom_plan_source"] = "CSV backup"
-            return local_df
-    except Exception:
-        pass
-
     st.session_state["last_custom_plan_source"] = "No custom plan found"
     return pd.DataFrame()
 
 
 def save_custom_plan(df):
     """
-    Save custom plan to CSV backup and Supabase.
-    Replaces old plan so reloads pull the latest complete plan.
+    Save the custom plan to Supabase.
+    Replaces the old plan so reloads pull the latest complete plan.
     """
     try:
         df = normalise_custom_plan_df(df)
         if df.empty:
             return False
-
-        # CSV backup
-        try:
-            df.to_csv(CUSTOM_PLAN_FILE, index=False)
-        except Exception:
-            pass
 
         # Supabase write: clear previous rows then insert current full plan.
         try:
@@ -394,7 +374,6 @@ def save_ai_custom_plan(ai_plan):
             })
     if not rows:
         return False
-    pd.DataFrame(rows).to_csv(CUSTOM_PLAN_FILE, index=False)
     for row in rows:
         ok, err = sb_insert(CUSTOM_PLAN_TABLE, row)
         store_supabase_result(CUSTOM_PLAN_TABLE, ok, err)
@@ -415,7 +394,6 @@ def save_fallback_custom_plan(plan):
                 "plan_name": "Fallback Aesthetic Weakpoint Plan",
                 "timestamp": datetime.now().isoformat(timespec="seconds"),
             })
-    pd.DataFrame(rows).to_csv(CUSTOM_PLAN_FILE, index=False)
     for row in rows:
         ok, err = sb_insert(CUSTOM_PLAN_TABLE, row)
         store_supabase_result(CUSTOM_PLAN_TABLE, ok, err)

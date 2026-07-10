@@ -1,79 +1,101 @@
 import zipfile
 from datetime import date, datetime
 from io import BytesIO
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from config.constants import (
-    LOG_FILE, BODYWEIGHT_FILE, CARDIO_FILE, BODYFAT_FILE, MEASUREMENTS_FILE,
-    PHYSIQUE_RATING_FILE, CUSTOM_PLAN_FILE, TARGETS_FILE, PROFILE_FILE,
-    ACHIEVEMENT_FILE, AVATAR_FILE, ACHIEVEMENTS,
-)
-from data.supabase_client import supabase_enabled, get_supabase_client
-from data.sb_ops import clear_data_cache, sb_insert, sb_select, json_safe_records
-from domain.achievements import load_achievements, achievement_count
-from domain.cardio import save_cardio_row
+from config.constants import SUPABASE_TABLE_SCHEMAS
+from data.supabase_client import supabase_enabled
+from data.sb_ops import clear_data_cache, sb_insert, sb_select
 from ui.components import page_hero
 
-CSV_PATHS = {
-    "workout_log.csv": LOG_FILE,
-    "bodyweight_log.csv": BODYWEIGHT_FILE,
-    "bodyfat_log.csv": BODYFAT_FILE,
-    "measurements.csv": MEASUREMENTS_FILE,
-    "physique_ratings.csv": PHYSIQUE_RATING_FILE,
-    "custom_workout_plan.csv": CUSTOM_PLAN_FILE,
-    "targets.csv": TARGETS_FILE,
-    "achievements.csv": ACHIEVEMENT_FILE,
-    "cardio_log.csv": CARDIO_FILE,
-    "profile.csv": PROFILE_FILE,
-}
+EXPORT_TABLES = list(SUPABASE_TABLE_SCHEMAS.keys())
 
-MIGRATION_PATHS = {
-    **CSV_PATHS,
-    "avatar_progression.csv": AVATAR_FILE,
-}
+
+def _export_table(table):
+    """Return (DataFrame, error). Supabase is the only source of truth."""
+    data, err = sb_select(table)
+    if err:
+        return pd.DataFrame(), err
+    return pd.DataFrame(data or []), None
 
 
 def render():
-    page_hero("Data Manager", "Backups, Supabase diagnostics, CSV restore and migration.", "System")
-    st.info("Download backups of your workout data. Supabase is used first when connected, with CSV as backup.")
+    page_hero("Data Manager", "Backups and Supabase diagnostics.", "System")
 
     st.subheader("Supabase Status")
     if supabase_enabled():
-        st.success("Supabase connected — data loads/saves to cloud database first.")
+        st.success("Supabase connected — it is the only store. Nothing is written to local disk.")
     else:
-        st.warning("Supabase not connected — using CSV files only.")
-
-    csv_files = list(CSV_PATHS.keys())
-
-    st.subheader("Achievement Counter Fix")
-    st.caption("If the achievement counter looks wrong after CSV/Supabase migration, this removes duplicate achievement IDs from the local CSV view. Supabase reads will also be de-duplicated automatically.")
-
-    if st.button("Rebuild Achievement Counter", type="secondary"):
-        ach_fix = load_achievements()
-        ach_fix.to_csv(ACHIEVEMENT_FILE, index=False)
-        st.success(f"Achievement counter rebuilt: {achievement_count()}/{len(ACHIEVEMENTS)} unlocked.")
-        st.rerun()
-
-    st.subheader("Performance")
-    if st.button("Clear App Cache / Refresh Data", type="secondary"):
-        clear_data_cache()
-        st.session_state.pop("achievements_checked_this_session", None)
-        st.success("Cache cleared. Fresh data will load now.")
-        st.rerun()
-
-    st.subheader("Supabase Diagnostics")
-    if supabase_enabled():
-        st.success("Supabase client configured.")
-    else:
-        st.error("Supabase client not configured. Check Streamlit Secrets.")
+        st.error("Supabase not connected. Check SUPABASE_URL and SUPABASE_KEY in Streamlit Secrets.")
+        return
 
     if st.session_state.get("last_supabase_write"):
         st.success(st.session_state.get("last_supabase_write"))
     if st.session_state.get("last_supabase_error"):
         st.error(st.session_state.get("last_supabase_error"))
+
+    st.subheader("Performance")
+    if st.button("Clear App Cache / Refresh Data", type="secondary"):
+        clear_data_cache()
+        st.session_state.pop("achievements_checked_this_session", None)
+        st.session_state.pop("_fast_snapshot", None)
+        st.success("Cache cleared. Fresh data will load now.")
+        st.rerun()
+
+    st.divider()
+    st.subheader("Export Backup")
+    st.caption("Every table is read from Supabase and packaged as CSV in memory. No file is written to the server.")
+
+    if st.button("Build Backup ZIP", type="primary"):
+        zip_buffer = BytesIO()
+        manifest = []
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for table in EXPORT_TABLES:
+                df, err = _export_table(table)
+                manifest.append({"table": table, "rows": len(df), "error": err or ""})
+                if err:
+                    continue
+                zip_file.writestr(f"{table}.csv", df.to_csv(index=False))
+            zip_file.writestr("backup_manifest.csv", pd.DataFrame(manifest).to_csv(index=False))
+
+        zip_buffer.seek(0)
+        st.session_state["_backup_zip"] = zip_buffer.getvalue()
+        st.session_state["_backup_manifest"] = manifest
+
+    if st.session_state.get("_backup_zip"):
+        st.dataframe(pd.DataFrame(st.session_state["_backup_manifest"]), width="stretch")
+        st.download_button(
+            label="Download Training Backup ZIP",
+            data=st.session_state["_backup_zip"],
+            file_name=f"evoforge_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+            mime="application/zip",
+            key="download_full_backup_zip",
+        )
+
+    st.divider()
+    st.subheader("Export a Single Table")
+    export_table = st.selectbox("Table", EXPORT_TABLES, key="export_table_select")
+    export_df, export_err = _export_table(export_table)
+    if export_err:
+        st.error(f"Could not read {export_table}: {export_err}")
+    elif export_df.empty:
+        st.info(f"{export_table} has no rows yet.")
+    else:
+        st.caption(f"Showing the last 50 of {len(export_df)} rows.")
+        st.dataframe(export_df.tail(50), width="stretch")
+        st.download_button(
+            label=f"Download {export_table}.csv",
+            data=export_df.to_csv(index=False),
+            file_name=f"{export_table}.csv",
+            mime="text/csv",
+            key=f"download_{export_table}",
+        )
+
+    st.divider()
+    st.subheader("Supabase Diagnostics")
+    st.caption("Writes a throwaway row to check the table schema matches what the app sends.")
 
     sample_rows = {
         "workout_log": {"date": str(date.today()), "workout": "Supabase Test", "exercise": "Connection Test", "muscle": "Test", "set": 1, "weight": 1, "reps": 1, "estimated_1rm": 1, "volume": 1, "notes": "test insert", "timestamp": datetime.now().isoformat(timespec="seconds")},
@@ -90,12 +112,10 @@ def render():
     }
 
     selected_test_table = st.selectbox("Supabase table to test", list(sample_rows.keys()))
-
     col_a, col_b = st.columns(2)
     with col_a:
-        if st.button("Test Selected Table Insert", type="primary"):
+        if st.button("Test Selected Table Insert"):
             sb_insert(selected_test_table, sample_rows[selected_test_table], show_error=True)
-
     with col_b:
         if st.button("Read Selected Table Rows"):
             data, err = sb_select(selected_test_table)
@@ -106,206 +126,9 @@ def render():
                 if data:
                     st.dataframe(pd.DataFrame(data).tail(10), width="stretch")
 
-    if st.button("Test Cardio Insert With type/cardio_type Fallback"):
-        test_cardio = {
-            "date": str(date.today()),
-            "type": "Test",
-            "minutes": 1.0,
-            "distance_km": 0.1,
-            "incline": 0.0,
-            "speed": 1.0,
-            "calories": 1.0,
-            "notes": "cardio fallback test",
-            "timestamp": datetime.now().isoformat(timespec="seconds"),
-        }
-        save_cardio_row(test_cardio)
-        if st.session_state.get("last_supabase_error"):
-            st.error(st.session_state.get("last_supabase_error"))
-        else:
-            st.success("Cardio insert worked.")
-
     if st.button("Run All Supabase Insert Tests"):
         results = []
         for table, row in sample_rows.items():
             ok, err = sb_insert(table, row)
             results.append({"table": table, "ok": ok, "error": err or ""})
         st.dataframe(pd.DataFrame(results), width="stretch")
-
-    st.subheader("Detected Data Files")
-
-    file_rows = []
-    for file in csv_files:
-        path = CSV_PATHS[file]
-        if path.exists():
-            try:
-                size_kb = path.stat().st_size / 1024
-                modified = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-                file_rows.append({
-                    "file": file,
-                    "exists": "Yes",
-                    "size_kb": round(size_kb, 2),
-                    "last_modified": modified,
-                })
-            except Exception:
-                file_rows.append({
-                    "file": file,
-                    "exists": "Yes",
-                    "size_kb": "",
-                    "last_modified": "",
-                })
-        else:
-            file_rows.append({
-                "file": file,
-                "exists": "No",
-                "size_kb": "",
-                "last_modified": "",
-            })
-
-    st.dataframe(pd.DataFrame(file_rows), width="stretch")
-
-    st.subheader("Download Individual CSV Files")
-
-    any_file = False
-    for file in csv_files:
-        path = CSV_PATHS[file]
-        if path.exists():
-            any_file = True
-            with open(path, "rb") as f:
-                st.download_button(
-                    label=f"⬇️ Download {file}",
-                    data=f,
-                    file_name=file,
-                    mime="text/csv",
-                    key=f"download_{file}",
-                )
-
-    if not any_file:
-        st.warning("No CSV data files exist yet. Log a workout/cardio/bodyweight entry first, then come back here.")
-
-    st.subheader("Full Backup ZIP")
-
-    zip_buffer = BytesIO()
-    files_added = 0
-
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for file in csv_files:
-            path = CSV_PATHS[file]
-            if path.exists():
-                zip_file.write(path, arcname=file)
-                files_added += 1
-
-        # include a small backup manifest
-        manifest = pd.DataFrame(file_rows).to_csv(index=False)
-        zip_file.writestr("backup_manifest.csv", manifest)
-        files_added += 1
-
-    zip_buffer.seek(0)
-
-    st.download_button(
-        label="🔥 Download Full Training Backup ZIP",
-        data=zip_buffer,
-        file_name=f"tyson_training_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-        mime="application/zip",
-        disabled=(files_added <= 1),
-        key="download_full_backup_zip",
-    )
-
-    st.divider()
-
-    st.subheader("Restore / Import CSV Files")
-    st.warning("Importing a CSV with the same name will replace the existing server file. Download a backup first.")
-
-    uploaded_files = st.file_uploader(
-        "Upload CSV files to restore",
-        type=["csv"],
-        accept_multiple_files=True,
-        help="Upload files like workout_log.csv, bodyfat_log.csv, achievements.csv, etc.",
-    )
-
-    allowed_files = set(csv_files)
-
-    if uploaded_files:
-        st.write("Files ready to import:")
-        for uploaded in uploaded_files:
-            if uploaded.name in allowed_files:
-                st.write(f"✅ {uploaded.name}")
-            else:
-                st.write(f"⚠️ {uploaded.name} — ignored because it is not a recognised app data file.")
-
-        confirm_restore = st.checkbox("I understand this will replace matching CSV files on the app server.")
-
-        if st.button("Restore Uploaded CSV Files", type="primary"):
-            if not confirm_restore:
-                st.error("Tick the confirmation box first.")
-            else:
-                restored = []
-                ignored = []
-                for uploaded in uploaded_files:
-                    if uploaded.name not in allowed_files:
-                        ignored.append(uploaded.name)
-                        continue
-                    data = uploaded.getvalue()
-                    CSV_PATHS[uploaded.name].write_bytes(data)
-                    restored.append(uploaded.name)
-
-                if restored:
-                    st.success("Restored: " + ", ".join(restored))
-                if ignored:
-                    st.warning("Ignored: " + ", ".join(ignored))
-                st.session_state.just_saved_message = "DATA RESTORE COMPLETE"
-                st.rerun()
-
-    st.divider()
-    st.subheader("CSV → Supabase Migration")
-    st.caption("Use this once if you already have CSV data and want to push it into Supabase.")
-    if st.button("Upload Existing CSV Backups to Supabase", type="secondary"):
-        if not supabase_enabled():
-            st.error("Supabase is not connected.")
-        else:
-            migration_map = {
-                "workout_log.csv": "workout_log",
-                "bodyweight_log.csv": "bodyweight_log",
-                "bodyfat_log.csv": "bodyfat_log",
-                "measurements.csv": "measurements",
-                "physique_ratings.csv": "physique_ratings",
-                "custom_workout_plan.csv": "custom_workout_plan",
-                "targets.csv": "targets",
-                "achievements.csv": "achievements",
-                "cardio_log.csv": "cardio_log",
-                "profile.csv": "profile",
-                "avatar_progression.csv": "avatar_progression",
-            }
-            migrated = []
-            for file, table in migration_map.items():
-                path = MIGRATION_PATHS[file]
-                if not path.exists():
-                    continue
-                try:
-                    df_mig = pd.read_csv(path)
-                    if df_mig.empty:
-                        continue
-                    df_mig = df_mig.replace([float("inf"), float("-inf")], None)
-                    df_mig = df_mig.where(pd.notnull(df_mig), None)
-                    records = json_safe_records(df_mig.to_dict(orient="records"))
-                    get_supabase_client().table(table).insert(records).execute()
-                    migrated.append(f"{file} → {table} ({len(records)} rows)")
-                except Exception as e:
-                    st.warning(f"Could not migrate {file}: {e}")
-            if migrated:
-                st.success("Migrated: " + " | ".join(migrated))
-            else:
-                st.info("No CSV rows found to migrate.")
-
-    st.subheader("Quick Preview")
-    preview_file = st.selectbox("Preview CSV", csv_files)
-    preview_path = CSV_PATHS[preview_file]
-
-    if preview_path.exists():
-        try:
-            preview_df = pd.read_csv(preview_path)
-            st.caption(f"Showing last 50 rows from {preview_file}")
-            st.dataframe(preview_df.tail(50), width="stretch")
-        except Exception as e:
-            st.error(f"Could not preview {preview_file}: {e}")
-    else:
-        st.info(f"{preview_file} does not exist yet.")

@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from config.constants import LOG_FILE, MUSCLE_MAP
+from config.constants import MUSCLE_MAP
 from data.sb_ops import df_from_supabase, sb_insert, sb_delete_matching, store_supabase_result
 from domain.profile import get_base_level, rank_name
 from domain.bodyweight import load_bodyweight_log
@@ -31,7 +31,7 @@ def normalise_workout_log(df):
 
 def load_log():
     columns = ["date", "workout", "exercise", "set", "weight", "reps", "timestamp"]
-    return normalise_workout_log(df_from_supabase("workout_log", LOG_FILE, columns))
+    return normalise_workout_log(df_from_supabase("workout_log", columns))
 
 
 def estimated_1rm(weight, reps):
@@ -134,7 +134,7 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
     timestamp = datetime.now().isoformat(timespec="seconds")
     muscle = infer_muscle_group(exercise) if "infer_muscle_group" in globals() else MUSCLE_MAP.get(exercise, "Other")
 
-    csv_row = {
+    supabase_row = {
         "date": str(workout_date),
         "workout": str(workout),
         "exercise": str(exercise),
@@ -142,10 +142,6 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
         "weight": float(weight),
         "reps": int(reps),
         "timestamp": timestamp,
-    }
-
-    supabase_row = {
-        **csv_row,
         "muscle": str(muscle),
         "estimated_1rm": float(current_1rm),
         "volume": float(weight) * int(reps),
@@ -163,16 +159,12 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
         if same_weight and same_reps:
             return False, False, current_1rm, previous_best
 
-        df = df.loc[~mask].copy()
         sb_delete_matching("workout_log", {
             "date": str(workout_date),
             "workout": str(workout),
             "exercise": str(exercise),
             "set": int(set_no),
         })
-
-    df = pd.concat([df, pd.DataFrame([csv_row])], ignore_index=True)
-    df.to_csv(LOG_FILE, index=False)
 
     ok, err = sb_insert("workout_log", supabase_row)
     store_supabase_result("workout_log", ok, err)

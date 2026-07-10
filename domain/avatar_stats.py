@@ -3,9 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config.constants import AVATAR_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 from domain.profile import rank_name
 from domain.physique_ratings import safe_num, score_0_100, latest_physique_rating_values
 from domain.workouts import (
@@ -152,21 +150,12 @@ def load_avatar_progression():
         "strength_score", "size_score", "leanness_score", "conditioning_score",
         "aesthetic_score", "weak_point_focus", "ai_summary", "timestamp"
     ]
-    return df_from_supabase("avatar_progression", AVATAR_FILE, columns)
+    return df_from_supabase("avatar_progression", columns)
 
 
 def save_avatar_snapshot(row):
     ok, err = sb_insert("avatar_progression", row)
     store_supabase_result("avatar_progression", ok, err)
-    save_csv_backup(
-        AVATAR_FILE,
-        [
-            "date", "level", "rank", "character_class", "build_type",
-            "strength_score", "size_score", "leanness_score", "conditioning_score",
-            "aesthetic_score", "weak_point_focus", "ai_summary", "timestamp"
-        ],
-        row=row,
-    )
 
 
 def calculate_avatar_stats():

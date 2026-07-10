@@ -1,18 +1,15 @@
 import pandas as pd
 
-from config.constants import BODYWEIGHT_FILE
 from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
-from data.csv_store import save_csv_backup
 
 
 def load_bodyweight_log():
-    return df_from_supabase("bodyweight_log", BODYWEIGHT_FILE, ["date", "bodyweight", "timestamp"])
+    return df_from_supabase("bodyweight_log", ["date", "bodyweight", "timestamp"])
 
 
 def save_bodyweight_row(row):
     ok, err = sb_insert("bodyweight_log", row)
     store_supabase_result("bodyweight_log", ok, err)
-    save_csv_backup(BODYWEIGHT_FILE, ["date", "bodyweight", "timestamp"], row=row)
 
 
 def latest_bodyweight_value():

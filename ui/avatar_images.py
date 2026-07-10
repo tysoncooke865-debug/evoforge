@@ -5,9 +5,22 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageFilter
 
-from data.csv_store import _cache_key_for_path
-
 AVATAR_ASSET_DIR = Path(__file__).resolve().parent.parent / "avatar_assets"
+
+
+def _asset_cache_key(path):
+    """Cache key for a static avatar PNG: path + mtime + size.
+
+    Only ever applied to files in avatar_assets/. These are shipped with the
+    repo and are not user data, so a process-global cache is safe.
+    """
+    try:
+        p = Path(path)
+        if p.exists():
+            return f"{p}:{p.stat().st_mtime_ns}:{p.stat().st_size}"
+        return f"{p}:missing"
+    except Exception:
+        return str(path)
 
 AVATAR_ASSETS = {
     "aesthetic": {
@@ -41,7 +54,7 @@ def img_to_base64(path):
     try:
         path = Path(path)
         if path.exists():
-            cache_key = _cache_key_for_path(path)
+            cache_key = _asset_cache_key(path)
             return cached_img_to_base64(str(path), cache_key)
         return ""
     except Exception:
@@ -61,7 +74,7 @@ def get_avatar_image_object(path):
     try:
         path = Path(path)
         if path.exists():
-            cache_key = _cache_key_for_path(path)
+            cache_key = _asset_cache_key(path)
             return cached_avatar_image(str(path), cache_key)
         return None
     except Exception:
