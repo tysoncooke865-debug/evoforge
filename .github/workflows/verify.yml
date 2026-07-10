@@ -19,9 +19,17 @@
 
 name: verify
 
+# Path-filtered per MIGRATION_PLAN: the Python suite keeps running until
+# cutover, but a client-only change should not spend eleven Streamlit checks.
+# Everything the Python app shares with the client (domain/, config/,
+# assets/styles.css, contracts/) still triggers BOTH workflows.
 on:
   push:
+    paths-ignore:
+      - "client/**"
   pull_request:
+    paths-ignore:
+      - "client/**"
 
 jobs:
   verify:

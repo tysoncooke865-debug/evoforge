@@ -1,0 +1,145 @@
+# Expo client CI (MIGRATION_PLAN Phase 0) + the cross-language fixture guard.
+#
+# Two jobs on purpose, two runtimes: the TS side proves the client builds and
+# its tokens match the design system; the Python side proves the goldens in
+# contracts/fixtures/ still match the live domain/. When Phase 1's Vitest
+# parity suite lands it joins the client job, closing the loop the plan calls
+# "CI runs both sides (detects Python drift AND port drift)".
+#
+# Deploys are additive: pushes deploy to Cloudflare Pages IF the repo secrets
+# exist, and skip cleanly if they do not -- CI stays green before the account
+# is wired up. Preview URL per branch; `main` is the production branch (the
+# domain still points at Streamlit until cutover, so deploying main is inert).
+#
+# Required repo secrets for deploys (Settings -> Secrets -> Actions):
+#   CLOUDFLARE_API_TOKEN        Account -> Cloudflare Pages -> Edit
+#   CLOUDFLARE_ACCOUNT_ID       dashboard sidebar
+#   EXPO_PUBLIC_SUPABASE_URL    same value as .streamlit/secrets.toml SUPABASE_URL
+#   EXPO_PUBLIC_SUPABASE_KEY    the PUBLISHABLE key only. Never the secret key:
+#                               EXPO_PUBLIC_ values compile into the shipped bundle.
+
+name: client
+
+on:
+  push:
+    paths:
+      - "client/**"
+      - "contracts/**"
+      - "tools/gen_fixtures.py"
+      - "domain/**"
+      - "config/constants.py"
+      - "assets/styles.css"
+      - ".github/workflows/client.yml"
+  pull_request:
+    paths:
+      - "client/**"
+      - "contracts/**"
+      - "tools/gen_fixtures.py"
+      - "domain/**"
+      - "config/constants.py"
+      - "assets/styles.css"
+      - ".github/workflows/client.yml"
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    env:
+      # Fall back to placeholders so PRs (and pre-Cloudflare pushes) still
+      # exercise the full export. supabase.ts only requires the vars to be
+      # non-empty; nothing dials out during static render. Real values are
+      # required only for a build that will actually be deployed.
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY || 'sb_publishable_placeholder' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: verify-tokens — tokens.js equals assets/styles.css :root, both directions
+        run: node scripts/verify-tokens.mjs
+
+      # Export before tsc: expo-env.d.ts and .expo/types/router.d.ts are
+      # generated (and gitignored), so a bare tsc on a fresh checkout is red.
+      - name: Export web build
+        run: npx expo export -p web
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: client/dist
+          retention-days: 7
+
+  fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: gen_fixtures --check — goldens match the live Python domain
+        run: python tools/gen_fixtures.py --check
+
+  deploy:
+    # Push only (fork PRs cannot read secrets), after both check jobs.
+    if: github.event_name == 'push'
+    needs: [client, fixtures]
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check deploy secrets
+        id: gate
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "deploy secrets present"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Cloudflare secrets not configured; skipping deploy (checks above still gate)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.ok == 'true'
+        with:
+          name: web-dist
+          path: dist
+
+      - name: Ensure Pages project exists
+        if: steps.gate.outputs.ok == 'true'
+        continue-on-error: true # already-exists is fine
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create evoforge --production-branch=main
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.gate.outputs.ok == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=evoforge --branch=${{ github.ref_name }}
