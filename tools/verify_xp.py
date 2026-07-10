@@ -157,6 +157,46 @@ else:
           "for update" not in src.lower() and "for delete" not in src.lower())
 
 print()
+print("=" * 72)
+print("7. THE LEDGER PATH AND THE DERIVED PATH ARE THE SAME CURVE")
+print("=" * 72)
+# The whole point of the ledger is that it changes WHERE the number comes from,
+# never WHAT the number means. If these two ever disagree, the migration's STEP 4
+# reconciliation is comparing apples to oranges and would still print `true`.
+from domain.xp import level_from_ledger, resolve_xp  # noqa: E402
+from domain.xp_ledger import cardio_event_amount  # noqa: E402
+
+for base, xp in ((1, 0), (1, 499), (1, 500), (42, 1524), (42, 1525), (90, 99999)):
+    check(f"level_from_ledger == level_and_progress at base={base} xp={xp}",
+          level_from_ledger(base, xp) == level_and_progress(base, xp))
+
+# resolve_xp: the ledger wins when present, derived is the fallback, and a missing
+# ledger must NEVER be read as zero XP -- that would drop every user to base level
+# the moment this shipped ahead of migrations/002.
+check("no ledger -> derived is used", resolve_xp(1234, None) == (1234, "derived", 0))
+check("no ledger -> not treated as 0 XP", resolve_xp(1234, None)[0] != 0)
+check("ledger present -> ledger wins", resolve_xp(1000, 1200) == (1200, "ledger", 200))
+check("agreement -> zero drift", resolve_xp(1000, 1000) == (1000, "ledger", 0))
+check("ledger behind derived -> negative drift is reported, not hidden",
+      resolve_xp(1000, 900) == (900, "ledger", -100))
+check("an empty ledger (0) is distinct from an absent one (None)",
+      resolve_xp(1000, 0) == (0, "ledger", -1000))
+check("garbage ledger value falls back to derived", resolve_xp(500, "nonsense")[1] == "derived")
+
+# The live cardio grant must equal the migration's backfill literal, exactly.
+# `floor(minutes * 2)`, and skipped when it rounds to nothing.
+for minutes, expected in ((0, 0), (0.4, 0), (0.5, 1), (1, 2), (30, 60), (12.7, 25)):
+    check(f"cardio_event_amount({minutes}) == floor({minutes} * {XP_PER_CARDIO_MINUTE})",
+          cardio_event_amount(minutes) == expected,
+          f"got {cardio_event_amount(minutes)}, want {expected}")
+check("negative cardio mints nothing", cardio_event_amount(-10) == 0)
+check("non-numeric cardio mints nothing", cardio_event_amount("nonsense") == 0)
+
+# A set is a flat grant. If this ever depends on weight or reps, editing a set
+# would have to re-grant, and the append-only ledger cannot revoke the old one.
+check("a set is a flat XP_PER_SET, independent of load", XP_PER_SET == 10)
+
+print()
 if failures:
     print(f"FAILED: {len(failures)} check(s)")
     for f in failures:

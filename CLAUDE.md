@@ -37,10 +37,14 @@ avatar_assets/    10 PNGs: aesthetic 1-4, mass 1-3, hybrid 1-3
 > `views/` is **not** named `pages/` on purpose. A top-level `pages/` dir makes
 > Streamlit build its own multipage sidebar nav on top of ours. Do not rename it.
 
-## Database — 11 tables
+## Database — 11 tables (+ `xp_events`, pending `migrations/002`)
 `workout_log` `bodyweight_log` `cardio_log` `bodyfat_log` `measurements`
 `physique_ratings` `custom_workout_plan` `achievements` `targets` `profile`
 `avatar_progression`
+
+`xp_events` is the 12th, and it is **append-only by construction**: the owner gets
+`select` + `insert` policies and no `update`/`delete`, so RLS refuses both. It does
+not exist until `002` is applied.
 
 Column lists live in one place: `config/constants.py :: SUPABASE_TABLE_SCHEMAS`. That
 dict is the **write** contract — `clean_supabase_row()` filters inserts down to it.
@@ -119,10 +123,24 @@ pandas, no database. Never compute a level or a progress bar anywhere else.**
   reaches exactly 100% at level-up. Use `progress_percent()`, never `/` by hand.
 - `base_level` comes from `profile`. A character starts *at* `base_level` with 0
   XP toward the next, not at level 1.
-- **XP is derived, not stored** — recomputed from `workout_log` + `cardio_log`
-  each render. Idempotent, but no timestamps and no anti-cheat.
-  `migrations/002_xp_events.sql` adds the append-only ledger. **Not applied.**
-  Apply it before leaderboards, seasons or PvP — not before.
+- **Two sources, one curve.** `resolve_xp(derived, ledger)` picks. The ledger
+  (`xp_events`, `migrations/002`) wins when readable; the derived recount is still
+  computed every render because it is the **only oracle that can detect drift**.
+  `domain/xp_ledger.py` is the seam. `ledger_xp()` returns `None` — never `0` — when
+  the table is absent, so the app is correct on both sides of the migration, in
+  either deploy order.
+- `migrations/002` is **written and wired, not yet applied.** Until it runs,
+  `xp_events` does not exist, `ledger_xp()` is `None`, and XP is derived exactly as
+  before. Apply it before leaderboards, seasons or PvP — not before.
+- **A set is a flat `XP_PER_SET`, independent of weight and reps.** This is load-
+  bearing: editing a set must not re-grant XP, because RLS makes the ledger
+  append-only and the old grant cannot be revoked. Hence `save_set_auto()` **updates
+  in place** rather than delete-and-insert — a new `workout_log.id` would either
+  double the grant or strand it. Never reintroduce delete-and-insert there.
+- `workout_summary()` returns `xp_source` (`"ledger"` / `"derived"`), `xp_derived`
+  and `xp_drift`. **A leaderboard must refuse to rank an account with non-zero
+  drift.** Drift means an edit double-granted, a granted row was deleted, or the
+  backfill is stale. `002` STEP 4 says which.
 - Rarity by level: COMMON <25 · RARE <50 · EPIC <75 · LEGENDARY <100 · MYTHIC 100
 - Branch (`determine_avatar_branch`): mass / hybrid / aesthetic, from stat mix.
 - Stage → which PNG renders. 4 aesthetic stages, 3 each for mass/hybrid.
@@ -141,7 +159,8 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 | 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
 | 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
 | 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
-| 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | `migrations/002_xp_events.sql` written, **not applied**. Needed for PvP/seasons |
+| 7 | No XP event ledger — no "when earned", no streak integrity, no anti-cheat | `002` written **and wired** (`domain/xp_ledger.py`), **not applied**. Code falls back to derived until it is. Needed for PvP/seasons |
+| 13 | `ledger_xp()` sums through `sb_select`, capped at 2500 rows — a user past 2500 lifetime XP events would be **undercounted and lose levels**. Same root cause as #8 | aggregate server-side before anyone reaches it |
 | 8 | `df_from_supabase` pulls up to 2500 rows/table/render | cost scales users×history |
 | 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
 | 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
@@ -185,7 +204,8 @@ Ordered by what blocks what. Full detail: ARCHITECTURE.md.
 ## Protected paths — require `[architect]` in the commit message
 `data/` · `auth/` · `views/auth.py` · `views/onboarding.py` · `config/constants.py` ·
 `migrations/` · `services/payments*` · `domain/xp.py` · `domain/xp_leveling.py` ·
-`domain/avatar_stats.py` · `.streamlit/` · `tools/hooks/` · `tools/verify_rls.py`
+`domain/xp_ledger.py` · `domain/avatar_stats.py` · `.streamlit/` · `tools/hooks/` ·
+`tools/verify_rls.py`
 
 Enforced by `tools/hooks/commit-msg`. Install once: `git config core.hooksPath tools/hooks`
 The junior AI must never touch these. See LOCAL_AI.md.

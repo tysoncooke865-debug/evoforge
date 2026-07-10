@@ -3,7 +3,8 @@ from datetime import date, datetime
 
 import pandas as pd
 
-from data.sb_ops import df_from_supabase, sb_insert, store_supabase_result
+from data.sb_ops import df_from_supabase, sb_insert_returning, store_supabase_result
+from domain.xp_ledger import record_cardio_event
 
 
 def load_cardio_log():
@@ -37,15 +38,22 @@ def save_cardio_row(row):
         "timestamp": str(row.get("timestamp", datetime.now().isoformat(timespec="seconds"))),
     }
 
-    ok, err = sb_insert("cardio_log", clean_row)
+    stored, err = sb_insert_returning("cardio_log", clean_row)
 
     # If your Supabase table uses cardio_type instead of type, retry automatically.
-    if not ok and ("type" in str(err).lower() or "column" in str(err).lower() or "schema cache" in str(err).lower()):
+    if stored is None and ("type" in str(err).lower() or "column" in str(err).lower() or "schema cache" in str(err).lower()):
         retry_row = clean_row.copy()
         retry_row["cardio_type"] = retry_row.pop("type")
-        ok, err = sb_insert("cardio_log", retry_row)
+        stored, err = sb_insert_returning("cardio_log", retry_row)
 
-    store_supabase_result("cardio_log", ok, err)
+    store_supabase_result("cardio_log", stored is not None, err)
+
+    # Cardio mints XP too. migrations/002 STEP 3 backfills BOTH workout_log and
+    # cardio_log, so a ledger that only recorded sets would fall behind the derived
+    # total on the first cardio session and STEP 4 would stop reconciling. The
+    # amount must match STEP 3's `floor(minutes * 2)` exactly -- see record_cardio_event.
+    if stored and stored.get("id"):
+        record_cardio_event(stored["id"], clean_row["minutes"], stored.get("timestamp"))
 
 
 def get_cardio_stats():

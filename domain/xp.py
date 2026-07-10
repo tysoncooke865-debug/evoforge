@@ -30,10 +30,23 @@ EARNING
     A character does not start at level 1 with 0 XP; it starts at `base_level`
     with 0 XP toward the next.
 
-XP is still DERIVED from `workout_log` + `cardio_log` on every render, not
-stored. That makes it idempotent but gives no timestamps and no anti-cheat.
-`migrations/002_xp_events.sql` adds the append-only ledger that fixes both. It
-has not been applied. Until it is, do not build leaderboards on this.
+TWO SOURCES, ONE CURVE
+    XP now has two possible inputs, and this module treats them identically:
+
+      * DERIVED   -- recount `workout_log` + `cardio_log` on every render.
+                     Idempotent, but no timestamps and no anti-cheat: the score is
+                     a pure function of rows the user can insert at will.
+      * LEDGER    -- sum `xp_events`, the append-only table in migrations/002.
+                     Server-granted, timestamped, once per source row.
+
+    `resolve_xp()` picks between them. The ledger wins when it is available; the
+    derived number is still computed, because it is the ONLY thing that can detect
+    that the ledger has drifted. Keep it. A leaderboard built on a number nothing
+    cross-checks is a number nobody can defend.
+
+    Until `migrations/002` is applied, `xp_events` does not exist and the ledger
+    reads as absent -- `resolve_xp` falls back to derived and nothing breaks. The
+    app is correct on both sides of that migration, in either deploy order.
 """
 
 XP_PER_SET = 10
@@ -112,6 +125,47 @@ def level_and_progress(base_level, total_xp):
 
     needed = xp_for_level(MAX_LEVEL)
     return MAX_LEVEL, needed, needed
+
+
+def level_from_ledger(base_level, ledger_sum):
+    """Resolve (level, xp_into_level, xp_needed) from the xp_events sum.
+
+    The same curve as `level_and_progress`, fed a different number. It exists as a
+    named function so the ledger path is greppable and so `tools/verify_xp.py` can
+    pin that the two agree: if a ledger sum and a derived total are equal, they
+    must produce the identical level, or the migration's STEP 4 reconciliation
+    means nothing.
+    """
+    return level_and_progress(base_level, ledger_sum)
+
+
+def resolve_xp(derived_xp, ledger_xp):
+    """Choose which XP total to trust, and report any disagreement.
+
+    Returns `(xp, source, drift)`:
+      * `ledger_xp is None` -- the ledger is unreadable or `migrations/002` has not
+        been applied. Use derived. `drift` is 0; there is nothing to compare.
+      * otherwise -- use the ledger, and report `drift = ledger_xp - derived_xp`.
+
+    A non-zero drift is not corrected here and must not be silently swallowed. It
+    means one of: a set was edited in a way that minted a second grant, a duplicate
+    `workout_log` row was deleted after its grant existed, or the backfill has not
+    been re-run since rows were added. `migrations/002` STEP 4 answers which.
+    """
+    try:
+        derived = max(0, int(derived_xp))
+    except (TypeError, ValueError):
+        derived = 0
+
+    if ledger_xp is None:
+        return derived, "derived", 0
+
+    try:
+        ledger = max(0, int(ledger_xp))
+    except (TypeError, ValueError):
+        return derived, "derived", 0
+
+    return ledger, "ledger", ledger - derived
 
 
 def progress_percent(xp_into_level, xp_needed):

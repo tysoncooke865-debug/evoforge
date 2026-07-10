@@ -161,6 +161,53 @@ def sb_insert(table_name, row, show_error=False):
         return False, msg
 
 
+def sb_insert_returning(table_name, row):
+    """Insert and hand back the stored row, so the caller can read its `id`.
+
+    `sb_insert` discards `res.data`. The XP ledger needs the new row's primary key
+    to use as `xp_events.source_id` -- that is what makes a grant idempotent, via
+    the partial unique index on (user_id, source_table, source_id).
+
+    Returns (row_dict, None) or (None, error_message).
+    """
+    sb = get_supabase_client()
+    if sb is None:
+        return None, "Supabase not configured"
+
+    clean = clean_supabase_row(row, table_name)
+    try:
+        res = sb.table(table_name).insert(clean).execute()
+        clear_data_cache()
+        data = res.data or []
+        return (data[0] if data else None), None
+    except Exception as e:
+        return None, str(e)
+
+
+def sb_update_by_id(table_name, row_id, patch):
+    """Update one row, identified by primary key, leaving its `id` intact.
+
+    Editing a row must not change its identity. `save_set_auto` used to delete and
+    re-insert, which minted a fresh uuid; once xp_events keys a grant to
+    `workout_log.id`, that would either mint a second grant for the same set or
+    strand the first one against a deleted row. Neither survives the migration's
+    STEP 4 reconciliation. Update in place instead.
+
+    Under RLS this touches only the caller's own row.
+    """
+    sb = get_supabase_client()
+    if sb is None:
+        return False, "Supabase not configured"
+
+    clean = clean_supabase_row(patch, table_name)
+    try:
+        sb.table(table_name).update(clean).eq("id", row_id).execute()
+        clear_data_cache()
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 def sb_delete_matching(table_name, filters):
     sb = get_supabase_client()
     if sb is None:

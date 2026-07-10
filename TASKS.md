@@ -58,23 +58,36 @@ untested by anything in `tools/`.
 - **Acceptance:** a harness that runs two AppTest sessions with different `user_id`s
   and asserts no row crosses over.
 
-### T3b · Apply the `xp_events` ledger `[claude]` + `[human]` 🟠 `[architect]`
-`migrations/002_xp_events.sql` is written and **not applied**. XP is still derived
-from `workout_log` + `cardio_log`, which is correct and idempotent but has no
-timestamps and no anti-cheat: the score is a pure function of rows the user can
-insert at will, with any `date` they like.
+### T3b · Apply the `xp_events` ledger `[human]` 🟠 `[architect]`
+**The code is written, verified and committed.** All that remains is running the
+migration — DDL against a live production database with two real users, which is
+yours, not Claude's.
 
-- **Unblocked:** `001`'s `user_id` + RLS are now applied, so `002` can go on.
-- **The migration:** append-only by construction — the owner gets `select` and
-  `insert` policies and no `update`/`delete`, so RLS refuses both. A partial unique
-  index on `(user_id, source_table, source_id)` makes the backfill re-runnable and
-  stops a workout minting XP twice.
-- **Then, in code:** `save_set_auto()` inserts an `xp_event`; `domain/xp.py` grows
-  `level_from_ledger()`; `workout_summary()` reads the ledger sum. Keep the derived
-  path as the reconciliation oracle — it is the only thing that can detect drift.
-- **Acceptance:** `002`'s STEP 4 reconciliation query returns `reconciles = true`
-  for every user.
-- **Do not** start T15 (leaderboards) or T17 (PvP) before this lands.
+Run `migrations/002_xp_events.sql` in the Supabase SQL editor, then check its
+**STEP 4** query returns `reconciles = true` for every user. Then push.
+
+- **Deploy order does not matter.** `ledger_xp()` returns `None` (never `0`) when
+  `xp_events` is absent, and `resolve_xp()` falls back to the derived recount. The
+  app is correct before and after. A missing ledger read as `0` would have dropped
+  every user to their base level.
+- **One real hazard.** If you apply `002` and *don't* push, sets logged in the gap
+  create `workout_log` rows with no grant, so the ledger falls behind the derived
+  total. The backfill is re-runnable (`on conflict do nothing`): re-run STEP 3 and
+  the drift closes. `workout_summary()` reports `xp_drift` so you can see it.
+- **What changed in code:**
+  - `domain/xp_ledger.py` (new, protected) — `ledger_xp()`, `record_set_event()`,
+    `record_cardio_event()`. Never raises, never blocks a save.
+  - `domain/xp.py` — `level_from_ledger()`, `resolve_xp()`. Still pure.
+  - `save_set_auto()` now **updates a set in place** instead of delete-and-insert.
+    A set is a flat 10 XP whatever the load, so an edit must not re-grant — but the
+    grant is keyed to `workout_log.id`, and RLS cannot revoke the old one. A fresh
+    uuid would double the XP or strand the grant. **Do not undo this.**
+  - **Cardio mints too.** `002` STEP 3 backfills `cardio_log` as well; wiring only
+    sets would have drifted on the first cardio session. The task note omitted this.
+- **Acceptance:** STEP 4 returns `reconciles = true` for every user, and
+  `workout_summary()["xp_drift"] == 0`.
+- **Do not** start T15 (leaderboards) or T17 (PvP) before this lands. A leaderboard
+  must refuse to rank any account whose `xp_drift` is non-zero.
 
 ### T4 · Remove and rotate the unused service-role key `[human]` 🟠
 `.streamlit/secrets.toml` contains `SUPABASE_SECRET_KEY` and `SUPABASE_JWKS_URL`.

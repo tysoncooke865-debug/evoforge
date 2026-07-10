@@ -32,6 +32,7 @@ PROTECTED_PATTERNS=(
     '^services/payments'          # future: billing
     '^domain/xp\.py$'             # THE XP contract -> leaderboard integrity
     '^domain/xp_leveling\.py$'    # its UI shim
+    '^domain/xp_ledger\.py$'      # mints XP into the append-only ledger
     '^domain/avatar_stats\.py$'   # evolution contract
     '^\.streamlit/'               # secrets + runtime config
     '^tools/hooks/'               # the guard must not disable itself

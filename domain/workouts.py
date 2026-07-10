@@ -3,8 +3,12 @@ from datetime import datetime
 import pandas as pd
 
 from config.constants import MUSCLE_MAP
-from data.sb_ops import df_from_supabase, sb_insert, sb_delete_matching, store_supabase_result
-from domain.xp import XP_PER_SET, activity_xp, level_and_progress
+from data.sb_ops import (
+    df_from_supabase, sb_insert_returning, sb_update_by_id, sb_delete_matching,
+    store_supabase_result,
+)
+from domain.xp import XP_PER_SET, activity_xp, level_and_progress, resolve_xp
+from domain.xp_ledger import ledger_xp, record_set_event
 from domain.profile import get_base_level, rank_name
 from domain.bodyweight import load_bodyweight_log
 from domain.cardio import load_cardio_log
@@ -155,11 +159,30 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
             same_weight = float(old["weight"]) == float(weight)
             same_reps = int(float(old["reps"])) == int(reps)
         except Exception:
-            same_weight = False, False
+            same_weight, same_reps = False, False
 
         if same_weight and same_reps:
             return False, False, current_1rm, previous_best
 
+        # EDIT, not a new set. Update in place so `workout_log.id` survives.
+        #
+        # This used to delete the row and insert a replacement, minting a fresh
+        # uuid. A set is worth a flat XP_PER_SET whatever the weight and reps, so
+        # an edit must not grant XP twice -- but xp_events keys each grant to
+        # `workout_log.id` and RLS forbids deleting the old grant. A new id would
+        # either double the set's XP or strand its grant against a deleted row,
+        # and migrations/002 STEP 4 would stop reconciling. Same id, same grant.
+        old_id = old.get("id")
+        if old_id:
+            ok, err = sb_update_by_id("workout_log", old_id, supabase_row)
+            store_supabase_result("workout_log", ok, err)
+            check_achievements()
+            # No mark_xp_gain: correcting a set earns nothing. It never did; the
+            # old code announced XP here anyway, while the derived total stayed put.
+            return True, is_pr, current_1rm, previous_best
+
+        # No id to update (a row written before `id` was selected). Fall back to
+        # the old delete-and-insert and let the ledger grant a fresh event below.
         sb_delete_matching("workout_log", {
             "date": str(workout_date),
             "workout": str(workout),
@@ -167,8 +190,15 @@ def save_set_auto(workout_date, workout, exercise, set_no, weight, reps):
             "set": int(set_no),
         })
 
-    ok, err = sb_insert("workout_log", supabase_row)
-    store_supabase_result("workout_log", ok, err)
+    stored, err = sb_insert_returning("workout_log", supabase_row)
+    store_supabase_result("workout_log", stored is not None, err)
+
+    # Append the grant only for a genuinely new set, and only once. The unique
+    # index on (user_id, source_table, source_id) makes a retry a no-op. A failed
+    # grant must never fail the save: the set happened. STEP 3's backfill is
+    # re-runnable and will collect any orphan.
+    if stored and stored.get("id"):
+        record_set_event(stored["id"], stored.get("timestamp"))
 
     check_achievements()
     # The real value of a set. Announcing +75 for 10 XP is a lie the bar exposes.
@@ -201,7 +231,8 @@ def workout_summary(df):
         return {
             "total_sets": 0, "total_reps": 0, "best_bench_1rm": 0, "latest_bw": 0,
             "xp": 0, "level": level, "rank": rank_name(level), "base_level": base,
-            "xp_into_level": xp_into_level, "xp_needed": xp_needed
+            "xp_into_level": xp_into_level, "xp_needed": xp_needed,
+            "xp_source": "derived", "xp_derived": 0, "xp_drift": 0,
         }
 
     df["weight"] = pd.to_numeric(df["weight"], errors="coerce").fillna(0)
@@ -232,7 +263,13 @@ def workout_summary(df):
     # from the SAME function that decides the level, so the bar reaches exactly
     # 100% when the level is granted. Previously they were computed by three
     # different formulas and the bar could never fill.
-    xp = activity_xp(total_sets, cardio_minutes)
+    #
+    # The derived total is always computed, even when the ledger answers, because
+    # it is the only oracle that can catch the ledger drifting. `resolve_xp` prefers
+    # the ledger and reports the difference; before migrations/002 is applied
+    # `ledger_xp()` returns None and the derived number is used unchanged.
+    derived_xp = activity_xp(total_sets, cardio_minutes)
+    xp, xp_source, xp_drift = resolve_xp(derived_xp, ledger_xp())
     base_level = get_base_level()
     level, xp_into_level, xp_needed = level_and_progress(base_level, xp)
 
@@ -245,7 +282,9 @@ def workout_summary(df):
     return {
         "total_sets": total_sets, "total_reps": total_reps, "best_bench_1rm": best_bench_1rm,
         "latest_bw": latest_bw, "xp": xp, "level": level, "rank": rank_name(level), "base_level": base_level,
-        "xp_into_level": xp_into_level, "xp_needed": xp_needed
+        "xp_into_level": xp_into_level, "xp_needed": xp_needed,
+        # Provenance, so a leaderboard can refuse to rank an unreconciled account.
+        "xp_source": xp_source, "xp_derived": derived_xp, "xp_drift": xp_drift,
     }
 
 

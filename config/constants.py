@@ -20,6 +20,9 @@ SUPABASE_TABLE_SCHEMAS = {
     "targets": ["target_type", "name", "target_value", "unit", "created_at", "notes"],
     "profile": ["height_cm", "bodyweight_kg", "bench_e1rm", "squat_e1rm", "training_years", "physique_score", "leanness_score", "base_level", "created_at"],
     "avatar_progression": ["date", "level", "rank", "character_class", "build_type", "strength_score", "size_score", "leanness_score", "conditioning_score", "aesthetic_score", "weak_point_focus", "ai_summary", "timestamp"],
+    # Append-only XP ledger (migrations/002). `created_at` is listed so a backfilled
+    # event can carry its source row's timestamp; omit it and Postgres uses now().
+    "xp_events": ["kind", "amount", "source_table", "source_id", "created_at"],
 }
 
 ROUTINE = {
