@@ -1,0 +1,104 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
+import { inferMuscleGroup } from '@/domain/workouts';
+import { XP_PER_SET } from '@/domain/xp';
+import { announceXp, useToastStore } from '@/state/toast-store';
+
+import { useAuth } from './auth-context';
+import { supabase } from './supabase';
+
+/**
+ * The write half of save_set_auto(). The pure verdict (domain/set-save.ts)
+ * decides; this executes:
+ *
+ *   update -> PATCH by id. Same id, same ledger grant, NO XP announcement --
+ *             correcting a set earns nothing (it never did; the old UI
+ *             announced XP here anyway while the derived total stayed put).
+ *   insert -> INSERT ... select id, then append the xp_events grant keyed to
+ *             the new id. A FAILED GRANT NEVER FAILS THE SAVE -- the set
+ *             happened; migrations/002 STEP 3's backfill is re-runnable and
+ *             collects orphans. But never silent either: an error toast says
+ *             the ledger is behind.
+ *
+ * Every path invalidates workout_log + xp_total, the invalidate-on-write rule.
+ */
+export function useSaveSet() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (input: SetInput): Promise<SetVerdict> => {
+      const rows =
+        (queryClient.getQueryData(['workout_log', userId]) as
+          | import('@/domain/summary').WorkoutRow[]
+          | undefined) ?? [];
+
+      const verdict = decideSetSave(rows, input);
+      if (verdict.action === 'reject' || verdict.action === 'noop') {
+        return verdict;
+      }
+
+      const timestamp = new Date().toISOString().slice(0, 19);
+      const row = buildSetRow(input, inferMuscleGroup(input.exercise), timestamp);
+
+      if (verdict.action === 'update') {
+        const { error } = await supabase.from('workout_log').update(row).eq('id', verdict.rowId);
+        if (error) throw error;
+        return verdict;
+      }
+
+      // insert: user_id comes from DEFAULT auth.uid(), never the payload.
+      const { data, error } = await supabase
+        .from('workout_log')
+        .insert(row)
+        .select('id,timestamp')
+        .single();
+      if (error) throw error;
+
+      // The grant, keyed to the new row. Idempotence lives in Postgres: the
+      // partial unique index on (user_id, source_table, source_id) makes a
+      // retry a no-op. The 006 trigger recomputes the amount server-side.
+      const { error: grantError } = await supabase.from('xp_events').insert({
+        kind: 'set',
+        amount: XP_PER_SET,
+        source_table: 'workout_log',
+        source_id: String(data.id),
+        created_at: data.timestamp ?? timestamp,
+      });
+      if (grantError) {
+        useToastStore.getState().push({
+          kind: 'error',
+          title: 'XP GRANT FAILED',
+          subtitle: 'Set saved. Ledger is behind — drift will show until reconciled.',
+        });
+      }
+
+      return verdict;
+    },
+    onSuccess: (verdict, input) => {
+      queryClient.invalidateQueries({ queryKey: ['workout_log', userId] });
+      queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+
+      if (verdict.action === 'insert') {
+        // The real value of a set. Announcing more than lands is a lie the bar exposes.
+        announceXp(XP_PER_SET);
+      }
+      if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) {
+        useToastStore.getState().push({
+          kind: 'pr',
+          title: 'NEW PR',
+          subtitle: `${input.exercise} — e1RM ${verdict.current1rm.toFixed(1)}kg (prev ${verdict.previousBest.toFixed(1)}kg)`,
+        });
+      }
+    },
+    onError: () => {
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'SAVE FAILED',
+        subtitle: 'The set was not stored. Check connection and retry.',
+      });
+    },
+  });
+}

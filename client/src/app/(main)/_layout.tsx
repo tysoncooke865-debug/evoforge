@@ -54,6 +54,10 @@ export default function MainLayout() {
         options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }}
       />
       <Tabs.Screen
+        name="today"
+        options={{ title: 'Today', tabBarIcon: makeIcon('◎') }}
+      />
+      <Tabs.Screen
         name="avatar"
         options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }}
       />
