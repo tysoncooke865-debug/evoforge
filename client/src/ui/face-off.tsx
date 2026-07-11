@@ -326,8 +326,10 @@ function Fighter({ p, tint, side }: { p: BattleParticipant | null; tint: string;
       {/* feet planted on the deck: the sprite overlaps the platform top */}
       <View style={{ marginBottom: back ? -84 : -78, zIndex: 2 }}>
         {back ? (
-          // Native aspect ratios: left sprite 443×640, right 290×640.
-          <Image source={back} style={{ width: side === 'left' ? 121 : 80, height: 175 }} contentFit="contain" />
+          // Native ratios: left 443×640, right 290×640. The left sprite's
+          // wide stance eats canvas height, so the upright right sprite
+          // renders shorter to put both athletes at the same eye level.
+          <Image source={back} style={side === 'left' ? { width: 121, height: 175 } : { width: 73, height: 161 }} contentFit="contain" />
         ) : art.hasArt ? (
           <View style={inward}>
             <Image source={art.source} style={{ width: 148, height: 163 }} contentFit="contain" />
