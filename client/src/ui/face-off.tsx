@@ -19,7 +19,7 @@ import Animated, {
 import type { BattleParticipant } from '@/data/battle/hooks';
 import { type BranchV2 } from '@/domain/branches-v2';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/avatar-art';
+import { avatarArtV2, battleBackArtV2 } from '@/ui/avatar-art';
 import { ParticleLayer } from '@/ui/particle-layer';
 import { Silhouette } from '@/ui/silhouette';
 
@@ -180,105 +180,145 @@ function FloorLines() {
   );
 }
 
-/** The holographic platform: shimmering ring, lit core, glow spilling out. */
-function Platform({ tint }: { tint: string }) {
+/**
+ * The floating tournament platform: metallic deck, holographic inner
+ * surface, an outer ring with energy racing around it, hovering above its
+ * own shadow with light spilling onto the arena floor beneath.
+ */
+function PlatformStage({ tint }: { tint: string }) {
   const reducedMotion = useReducedMotion();
-  const shimmer = useSharedValue(0.5);
+  const orbit = useSharedValue(0);
+  const shimmer = useSharedValue(0.6);
   useEffect(() => {
     if (reducedMotion) return;
+    orbit.value = withRepeat(withTiming(360, { duration: 3800, easing: Easing.linear }), -1);
     shimmer.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 1900, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0.5, { duration: 1900, easing: Easing.inOut(Easing.quad) })
+        withTiming(1, { duration: 1700, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0.6, { duration: 1700, easing: Easing.inOut(Easing.quad) })
       ),
       -1
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
-  const ring = useAnimatedStyle(() => ({ opacity: shimmer.value }));
+  // The energy mote rides a circle that scaleY compresses into the ring's ellipse.
+  const orbitStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: 44 / 164 }, { rotate: `${orbit.value}deg` }],
+  }));
+  const holo = useAnimatedStyle(() => ({ opacity: shimmer.value }));
+
   return (
-    <View style={{ alignItems: 'center', marginTop: -14 }}>
-      {/* glow spill onto the floor */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 4,
-          width: 180,
-          height: 44,
-          borderRadius: 90,
-          backgroundColor: `${tint}14`,
-          shadowColor: tint,
-          shadowOpacity: 0.6,
-          shadowRadius: 30,
-        }}
-      />
-      <Animated.View
-        style={[
-          {
-            width: 132,
-            height: 30,
-            borderRadius: 999,
-            borderWidth: 2,
-            borderColor: `${tint}a6`,
-            shadowColor: tint,
-            shadowOpacity: 0.8,
-            shadowRadius: 16,
-            elevation: 8,
-          },
-          ring,
-        ]}
-      >
+    <View style={{ width: 170, height: 92, alignItems: 'center' }}>
+      {/* light pool + drop shadow on the arena floor */}
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, width: 150, height: 22, borderRadius: 999, backgroundColor: `${tint}17`, shadowColor: tint, shadowOpacity: 0.55, shadowRadius: 26 }} />
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 3, width: 112, height: 14, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+
+      {/* the hovering assembly */}
+      <View style={{ position: 'absolute', bottom: 28, alignItems: 'center' }}>
+        {/* under-hull glow bleeding downward */}
         <LinearGradient
-          colors={[`${tint}45`, `${tint}0a`]}
+          colors={[`${tint}38`, `${tint}00`]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
-          style={{ flex: 1, borderRadius: 999 }}
+          style={{ position: 'absolute', top: 26, width: 96, height: 26, borderRadius: 14, opacity: 0.8 }}
         />
-      </Animated.View>
+        {/* hull depth */}
+        <View style={{ position: 'absolute', top: 9, width: 140, height: 34, borderRadius: 999, backgroundColor: '#060c18', borderWidth: 1, borderColor: 'rgba(120,170,220,0.18)' }} />
+        {/* metallic deck */}
+        <View style={{ width: 140, height: 34, borderRadius: 999, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(150,190,235,0.4)' }}>
+          <LinearGradient
+            colors={['#2a3d61', '#152238', '#0a1322']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={{ flex: 1 }}
+          />
+        </View>
+        {/* holographic surface */}
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              top: 5,
+              width: 110,
+              height: 22,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: `${tint}8c`,
+              backgroundColor: `${tint}21`,
+              shadowColor: tint,
+              shadowOpacity: 0.7,
+              shadowRadius: 12,
+            },
+            holo,
+          ]}
+        />
+        {/* outer holo ring + racing energy */}
+        <View pointerEvents="none" style={{ position: 'absolute', top: -5, width: 164, height: 44, borderRadius: 999, borderWidth: 1.5, borderColor: `${tint}59` }} />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            { position: 'absolute', top: -65, width: 164, height: 164, alignItems: 'flex-end', justifyContent: 'center' },
+            orbitStyle,
+          ]}
+        >
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: tint, shadowColor: tint, shadowOpacity: 1, shadowRadius: 10 }} />
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
-/** An athlete breathing on their platform, aura pulsing behind. */
-function Fighter({ p, tint }: { p: BattleParticipant | null; tint: string }) {
+/**
+ * An athlete ON their platform: the whole unit hovers together so the feet
+ * stay anchored. LEFT is the back-sprite looking across the arena (the
+ * Pokémon staging); RIGHT is the front art angled inward toward the fight.
+ */
+function Fighter({ p, tint, side }: { p: BattleParticipant | null; tint: string; side: 'left' | 'right' }) {
   const reducedMotion = useReducedMotion();
-  const breath = useSharedValue(0);
+  const hover = useSharedValue(0);
   useEffect(() => {
     if (reducedMotion) return;
-    breath.value = withRepeat(
+    hover.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.quad) })
+        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 2800, easing: Easing.inOut(Easing.quad) })
       ),
       -1
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
-  const body = useAnimatedStyle(() => ({
-    transform: [{ translateY: -breath.value * 3 }, { scale: 1 + breath.value * 0.012 }],
-  }));
-  const aura = useAnimatedStyle(() => ({ opacity: 0.22 + breath.value * 0.2 }));
+  const unit = useAnimatedStyle(() => ({ transform: [{ translateY: -hover.value * 4 }] }));
+  const aura = useAnimatedStyle(() => ({ opacity: 0.2 + hover.value * 0.2 }));
 
   const snap = p?.snapshot ?? {};
   const branch = (snap.branch ?? 'aesthetic') as BranchV2;
   const sex = snap.sex === 'female' ? 'female' as const : 'male' as const;
   const stage = typeof snap.stage === 'number' ? snap.stage : 1;
+  const back = side === 'left' ? battleBackArtV2(branch, sex) : null;
   const art = avatarArtV2(branch, stage, sex);
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
 
+  // The right fighter turns toward the fight; the left back-sprite already
+  // looks across, so it stands square.
+  const inward =
+    side === 'right'
+      ? { transform: [{ perspective: 700 }, { rotateY: '-18deg' }] }
+      : back
+        ? undefined
+        : { transform: [{ perspective: 700 }, { rotateY: '18deg' }] };
+
   return (
-    <View style={{ alignItems: 'center', width: 150 }}>
+    <Animated.View style={[{ alignItems: 'center', width: 170 }, unit]}>
       <Animated.View
         pointerEvents="none"
         style={[
           {
             position: 'absolute',
-            bottom: 6,
-            width: 120,
-            height: 150,
+            bottom: 44,
+            width: 118,
+            height: 156,
             borderRadius: 70,
-            backgroundColor: `${tint}1f`,
+            backgroundColor: `${tint}1c`,
             shadowColor: tint,
             shadowOpacity: 0.7,
             shadowRadius: 34,
@@ -286,15 +326,22 @@ function Fighter({ p, tint }: { p: BattleParticipant | null; tint: string }) {
           aura,
         ]}
       />
-      <Animated.View style={body}>
-        {art.hasArt ? (
-          <Image source={art.source} style={{ width: 148, height: 163 }} contentFit="contain" />
+      {/* feet planted on the deck: the sprite overlaps the platform top */}
+      <View style={{ marginBottom: back ? -84 : -78, zIndex: 2 }}>
+        {back ? (
+          <Image source={back} style={{ width: 121, height: 175 }} contentFit="contain" />
+        ) : art.hasArt ? (
+          <View style={inward}>
+            <Image source={art.source} style={{ width: 148, height: 163 }} contentFit="contain" />
+          </View>
         ) : (
-          <Silhouette branch={donor as 'aesthetic' | 'mass' | 'hybrid'} stage={Math.min(stage, 4)} rim={tint} />
+          <View style={inward}>
+            <Silhouette branch={donor as 'aesthetic' | 'mass' | 'hybrid'} stage={Math.min(stage, 4)} rim={tint} />
+          </View>
         )}
-      </Animated.View>
-      <Platform tint={tint} />
-    </View>
+      </View>
+      <PlatformStage tint={tint} />
+    </Animated.View>
   );
 }
 
@@ -475,14 +522,20 @@ export function FaceOffScene({ me, them }: { me: BattleParticipant | null; them:
           <HudPanel p={them} tint={PURPLE} align="right" />
         </View>
         <View style={{ flex: 1 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 26 }}>
-          <Fighter p={me} tint={CYAN} />
-          <Fighter p={them} tint={PURPLE} />
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 12 }}>
+          <Fighter p={me} tint={CYAN} side="left" />
+          <Fighter p={them} tint={PURPLE} side="right" />
         </View>
       </View>
 
-      {/* the focal point: between the fighters, at chest height */}
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 118, alignItems: 'center' }}>
+      {/* holographic centre-court projection under the VS */}
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center' }}>
+        <View style={{ width: 210, height: 52, borderRadius: 999, borderWidth: 1, borderColor: `${PURPLE}30` }} />
+        <View style={{ position: 'absolute', top: 8, width: 150, height: 36, borderRadius: 999, borderWidth: 1, borderColor: `${CYAN}26` }} />
+      </View>
+
+      {/* the focal point: on the fighters' eye line */}
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 168, alignItems: 'center' }}>
         <CinematicVS />
       </View>
     </View>

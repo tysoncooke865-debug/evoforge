@@ -49,3 +49,16 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
   // Female forms and the two new classes: silhouette of the shape donor.
   return { source: avatarImage(shapeDonor(branch), stage), hasArt: false };
 }
+
+/**
+ * The Arena's LEFT-side battle sprite: the athlete seen from behind,
+ * looking across at the opponent (the Pokémon back-sprite convention).
+ * One sprite exists today (Tyson, 2026-07-12); classes and sexes without
+ * one fall back to the front art (null here) — never a mirror.
+ */
+export function battleBackArtV2(branch: BranchV2, sex: Sex): ImageSourcePropType | null {
+  if (sex === 'male' && (branch === 'aesthetic' || branch === 'shredder')) {
+    return require('../assets/avatars/battle_back_aesthetic_male.png');
+  }
+  return null;
+}
