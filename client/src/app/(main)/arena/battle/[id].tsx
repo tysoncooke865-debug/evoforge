@@ -172,9 +172,16 @@ function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant
 function useCountdown(endsAt: string | null): number | null {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    // First tick rides a macrotask: a synchronous setState inside an effect
+    // is a cascading-render lint error (CI caught it; a stale local ESLint
+    // cache had hidden it).
+    const update = () => setNow(Date.now());
+    const first = setTimeout(update, 0);
+    const t = setInterval(update, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
   }, []);
   if (!endsAt || now === null) return null;
   return Math.max(0, Math.trunc((new Date(endsAt).getTime() - now) / 1000));
