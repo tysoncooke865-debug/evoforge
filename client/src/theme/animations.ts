@@ -218,3 +218,18 @@ export const animations = {
 } as const satisfies Record<string, AnimationSpec>;
 
 export type AnimationName = keyof typeof animations;
+
+/**
+ * Motion duration tokens for NEW interactions (the 12 legacy keyframes above
+ * keep their transcribed timings). No magic milliseconds in components.
+ */
+export const durations = {
+  /** press feedback, chip toggles, small state flips */
+  micro: 150,
+  /** panel/sheet transitions, row collapse */
+  panel: 260,
+  /** floating XP, completion pulses, per-set rewards */
+  reward: 550,
+  /** level-up, evolution ceremonies */
+  major: 1200,
+} as const;

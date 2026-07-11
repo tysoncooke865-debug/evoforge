@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import tokens from '@/theme/tokens';
 
@@ -9,15 +10,24 @@ import tokens from '@/theme/tokens';
  * Two huge blurred radial glows -- cyan upper-left, purple upper-right -- the
  * same light rig assets/styles.css paints behind .stApp. Every screen sits on
  * this so depth is ambient, not per-card.
+ *
+ * Safe areas: top inset respected (notch / dynamic island), and the content
+ * always bottom-pads past the tab bar so nothing hides behind it -- on iOS
+ * Safari the browser chrome + home indicator make this the #1 layout bug.
  */
 export function ScreenShell({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
   return (
     <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
       <View pointerEvents="none" style={{ position: 'absolute', top: -180, left: -160, width: 480, height: 480, borderRadius: 240, backgroundColor: 'rgba(34, 211, 238, 0.09)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', top: -140, right: -180, width: 420, height: 420, borderRadius: 210, backgroundColor: 'rgba(168, 85, 247, 0.08)' }} />
       <ScrollView
         className="flex-1"
-        contentContainerClassName="items-center px-s4 pb-s12 pt-s6"
+        contentContainerClassName="items-center px-s4"
+        contentContainerStyle={{
+          paddingTop: Math.max(insets.top, 24),
+          paddingBottom: Math.max(insets.bottom, 16) + 96, // clear the tab bar, always
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View className="w-full max-w-[560px] gap-s4">{children}</View>

@@ -1,6 +1,8 @@
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import tokens from '@/theme/tokens';
@@ -17,6 +19,7 @@ import tokens from '@/theme/tokens';
 export default function MainLayout() {
   const { session, loading } = useAuth();
   const profile = useProfile();
+  const insets = useSafeAreaInsets();
 
   if (loading || (session && profile.isPending)) {
     return (
@@ -42,6 +45,11 @@ export default function MainLayout() {
         tabBarStyle: {
           backgroundColor: tokens.colors.surface,
           borderTopColor: tokens.colors.border,
+          // Safe-area aware: never let the home indicator / Safari chrome
+          // swallow the bar. Height grows with the inset, not over content.
+          height: 56 + Math.max(insets.bottom, 6),
+          paddingBottom: Math.max(insets.bottom, 6),
+          paddingTop: 6,
         },
         tabBarActiveTintColor: tokens.colors.accent,
         tabBarInactiveTintColor: tokens.colors['text-mute'],
