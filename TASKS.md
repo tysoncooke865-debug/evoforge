@@ -25,7 +25,7 @@ been falsified** — delete the fix, watch it go red, restore.
 app against the new production project. What is left of T1 is dashboard hygiene —
 **T1c** — and one of its items is a live signup hole.
 
-**The Expo migration is under way on `expo-rewrite`** (MIGRATION_PLAN.md; state as
+**The Expo migration is under way on `expo-rewrite`** (→ `HANDOFF.md` for full session context) (MIGRATION_PLAN.md; state as
 of 2026-07-11). Phases 0 and 1 are done and green in CI; Phase 2 groundwork is in:
 route groups + sign-up + onboarding + Home on real data, 3,387 golden parity cases,
 browser smoke against production auth passes. `client/CLAUDE.md` is that side's

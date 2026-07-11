@@ -1,5 +1,8 @@
 # EvoForge client — project memory
 
+> **Resuming a session? Read `../HANDOFF.md` FIRST** — full state, invariants,
+> operational gotchas, credentials map, and the verification workflow.
+
 The Expo rewrite of EvoForge (MIGRATION_PLAN.md at repo root is the plan; the
 root CLAUDE.md is the Streamlit app's memory and stays authoritative for the
 Python side until cutover). Same Supabase project, same 13 tables, same rules.
