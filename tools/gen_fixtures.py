@@ -77,6 +77,7 @@ from domain.avatar_stats import (
 from domain.bodyfat import bodyfat_outputs, navy_body_fat_male, safe_kg
 from domain.physique_ratings import safe_num, score_0_100
 from domain.profile import RANK_TIERS, calculate_starting_level, rank_ladder, rank_name
+from domain.targets import journey_percent
 from domain.workouts import estimated_1rm, infer_muscle_group
 from domain.xp_ledger import cardio_event_amount
 from domain.xp import (
@@ -529,6 +530,19 @@ def fx_helpers():
         for m in [0, 0.4, 0.5, 1, 2.5, 29.9, 30, 45.5, 1000, -3, None, "abc", "12.5"]
     ]
 
+    # Direction-aware goal progress: distance travelled over distance to travel.
+    # The cut and the bulk cases must BOTH read 50% at the midpoint.
+    journeys = [
+        _case({"baseline": b, "current": c, "target": t}, journey_percent(b, c, t))
+        for b, c, t in [
+            (85, 80, 75), (70, 75, 80),         # cut and bulk midpoints -> 50
+            (85, 75, 75), (85, 70, 75),          # done, overshot -> 100
+            (85, 90, 75), (70, 65, 80),          # wrong way -> 0
+            (75, 75, 75), (75, 74, 75),          # span 0: on it -> 100, off it -> 0
+            (80, 77.5, 75), (None, 80, 75), ("abc", 80, 75), (80, None, 75),
+        ]
+    ]
+
     return {
         "estimated_1rm": e1rm,
         "score_0_100": s0100,
@@ -536,6 +550,7 @@ def fx_helpers():
         "safe_num_specials": sn_specials,
         "infer_muscle_group": muscle,
         "cardio_event_amount": cardio_amounts,
+        "journey_percent": journeys,
     }
 
 

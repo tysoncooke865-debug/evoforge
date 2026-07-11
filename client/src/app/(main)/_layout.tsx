@@ -11,9 +11,8 @@ import tokens from '@/theme/tokens';
  * ONBOARDED FLAG); else the app. Loading HOLDS rather than redirecting: a
  * slow profile read must not bounce an onboarded athlete through the wizard.
  *
- * Navigation is bottom tabs -- the mobile/native shape from the plan. The
- * >=1024px sidebar variant arrives when there are enough screens to warrant
- * it (plan puts the full shell across Phases 2-5).
+ * Five core tabs + More; the overflow screens stay routable (href: null
+ * hides them from the bar without unmounting the router entries).
  */
 export default function MainLayout() {
   const { session, loading } = useAuth();
@@ -49,42 +48,19 @@ export default function MainLayout() {
         tabBarLabelStyle: { fontWeight: '700' },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }}
-      />
-      <Tabs.Screen
-        name="today"
-        options={{ title: 'Today', tabBarIcon: makeIcon('◎') }}
-      />
-      <Tabs.Screen
-        name="log"
-        options={{ title: 'Log', tabBarIcon: makeIcon('✚') }}
-      />
-      <Tabs.Screen
-        name="avatar"
-        options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }}
-      />
-      <Tabs.Screen
-        name="ai"
-        options={{ title: 'AI', tabBarIcon: makeIcon('✦') }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }}
-      />
-      <Tabs.Screen
-        name="awards"
-        options={{ title: 'Awards', tabBarIcon: makeIcon('★') }}
-      />
-      <Tabs.Screen
-        name="rank"
-        options={{ title: 'Rank', tabBarIcon: makeIcon('♛') }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: makeIcon('◉') }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }} />
+      <Tabs.Screen name="today" options={{ title: 'Today', tabBarIcon: makeIcon('◎') }} />
+      <Tabs.Screen name="log" options={{ title: 'Log', tabBarIcon: makeIcon('✚') }} />
+      <Tabs.Screen name="ai" options={{ title: 'AI', tabBarIcon: makeIcon('✦') }} />
+      <Tabs.Screen name="avatar" options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }} />
+      <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: makeIcon('≡') }} />
+      {/* Routable, not in the bar — reached from More. */}
+      <Tabs.Screen name="progress" options={{ href: null }} />
+      <Tabs.Screen name="goals" options={{ href: null }} />
+      <Tabs.Screen name="awards" options={{ href: null }} />
+      <Tabs.Screen name="rank" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="data" options={{ href: null }} />
     </Tabs>
   );
 }

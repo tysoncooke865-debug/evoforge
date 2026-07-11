@@ -244,3 +244,30 @@ export function useLeaderboardTop(n = 50) {
     },
   });
 }
+
+export interface TargetRow {
+  id: string;
+  target_type: string;
+  name: string;
+  target_value: number;
+  unit: string | null;
+  created_at: string | null;
+  notes: string | null;
+}
+
+export function useTargets() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['targets', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<TargetRow[]> => {
+      const { data, error } = await supabase
+        .from('targets')
+        .select('id,target_type,name,target_value,unit,created_at,notes')
+        .order('created_at', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      return data as TargetRow[];
+    },
+  });
+}

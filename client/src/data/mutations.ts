@@ -261,3 +261,58 @@ export function useSavePublicIdentity() {
     },
   });
 }
+
+/** save_or_update_target(): one live target per (type, name) -- delete then insert. */
+export function useSaveTarget() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (t: { targetType: string; name: string; value: number; unit: string; notes?: string }) => {
+      await supabase.from('targets').delete().eq('target_type', t.targetType).eq('name', t.name);
+      const { error } = await supabase.from('targets').insert({
+        target_type: t.targetType,
+        name: t.name,
+        target_value: t.value,
+        unit: t.unit,
+        created_at: new Date().toISOString().slice(0, 19),
+        notes: t.notes ?? '',
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['targets', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'TARGET SET' });
+    },
+    onError: () => {
+      useToastStore.getState().push({ kind: 'error', title: 'TARGET NOT SAVED' });
+    },
+  });
+}
+
+/** Measurements: plain insert of the tape readings. */
+export function useLogMeasurements() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (fields: Record<string, number | string | null>) => {
+      const timestamp = new Date().toISOString().slice(0, 19);
+      const { error } = await supabase.from('measurements').insert({
+        date: timestamp.slice(0, 10),
+        ...fields,
+        timestamp,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measurements', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'MEASUREMENTS LOGGED' });
+    },
+    onError: () => {
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED' });
+    },
+  });
+}

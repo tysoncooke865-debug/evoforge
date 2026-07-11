@@ -412,6 +412,104 @@
       "input": ""
     }
   ],
+  "journey_percent": [
+    {
+      "expected": 50.0,
+      "input": {
+        "baseline": 85,
+        "current": 80,
+        "target": 75
+      }
+    },
+    {
+      "expected": 50.0,
+      "input": {
+        "baseline": 70,
+        "current": 75,
+        "target": 80
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "baseline": 85,
+        "current": 75,
+        "target": 75
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "baseline": 85,
+        "current": 70,
+        "target": 75
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "baseline": 85,
+        "current": 90,
+        "target": 75
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "baseline": 70,
+        "current": 65,
+        "target": 80
+      }
+    },
+    {
+      "expected": 100.0,
+      "input": {
+        "baseline": 75,
+        "current": 75,
+        "target": 75
+      }
+    },
+    {
+      "expected": 0.0,
+      "input": {
+        "baseline": 75,
+        "current": 74,
+        "target": 75
+      }
+    },
+    {
+      "expected": 50.0,
+      "input": {
+        "baseline": 80,
+        "current": 77.5,
+        "target": 75
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "baseline": null,
+        "current": 80,
+        "target": 75
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "baseline": "abc",
+        "current": 80,
+        "target": 75
+      }
+    },
+    {
+      "expected": null,
+      "input": {
+        "baseline": 80,
+        "current": null,
+        "target": 75
+      }
+    }
+  ],
   "safe_num": [
     {
       "expected": 1.0,

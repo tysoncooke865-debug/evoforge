@@ -35,6 +35,7 @@ import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
 import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE } from '../catalogs';
 import { cardioEventAmount } from '../cardio';
 import { nextEvolutionInfo } from '../next-evolution';
+import { journeyPercent } from '../targets';
 import { safeNum, score0100 } from '../physique-ratings';
 import { calculateStartingLevel, rankLadder, rankName } from '../profile';
 import { estimated1rm, inferMuscleGroup } from '../workouts';
@@ -382,6 +383,7 @@ describe('helpers.json', () => {
     safe_num_specials: Case<{ value: string; default: number }, number>[];
     infer_muscle_group: Case<string, string>[];
     cardio_event_amount: Case<unknown, number>[];
+    journey_percent: Case<{ baseline: unknown; current: unknown; target: unknown }, number | null>[];
   }>('helpers.json');
 
   it('estimated_1rm', () => {
@@ -415,6 +417,15 @@ describe('helpers.json', () => {
   it('cardio_event_amount matches the migration 002 STEP 3 literal', () => {
     eachCase(fx.cardio_event_amount, (c) =>
       expect(cardioEventAmount(c.input), `minutes=${c.input}`).toBe(c.expected)
+    );
+  });
+
+  it('journey_percent: cut and bulk midpoints both read 50', () => {
+    eachCase(fx.journey_percent, (c) =>
+      expect(
+        journeyPercent(c.input.baseline, c.input.current, c.input.target),
+        JSON.stringify(c.input)
+      ).toBe(c.expected)
     );
   });
 });
