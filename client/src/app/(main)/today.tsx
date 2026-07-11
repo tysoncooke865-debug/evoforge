@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 
 import { useSaveSet } from '@/data/mutations';
 import { useWorkoutLog } from '@/data/hooks';
-import { ROUTINE } from '@/domain/catalogs';
+import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
 import { normaliseWorkoutLog } from '@/domain/summary';
 
@@ -16,7 +16,7 @@ import { normaliseWorkoutLog } from '@/domain/summary';
  */
 export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const days = Object.keys(ROUTINE).filter((d) => ROUTINE[d].length > 0);
+  const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
   const [day, setDay] = useState(days[0]);
 
   const workouts = useWorkoutLog();

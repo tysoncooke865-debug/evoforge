@@ -32,7 +32,7 @@ import {
   type BranchScores,
 } from '../avatar-stats';
 import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
-import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE } from '../catalogs';
+import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE, ROUTINE_ORDER } from '../catalogs';
 import { cardioEventAmount } from '../cardio';
 import { nextEvolutionInfo } from '../next-evolution';
 import { journeyPercent } from '../targets';
@@ -448,6 +448,14 @@ describe('catalogs.json', () => {
     expect(
       Object.fromEntries(Object.entries(ACHIEVEMENTS).map(([k, v]) => [k, [...v]]))
     ).toEqual(fx.achievements);
+  });
+
+  it('ROUTINE key order is the training week, not the alphabet', () => {
+    const fxOrder = (fx as unknown as { routine_order: string[] }).routine_order;
+    expect(fxOrder.length).toBeGreaterThan(0);
+    expect(Object.keys(ROUTINE)).toEqual(fxOrder);
+    expect([...ROUTINE_ORDER]).toEqual(fxOrder);
+    expect(fxOrder[0]).toBe('Push 1 - Strength'); // the week starts here, not at 'Aesthetics'
   });
 
   it('routine and exercise library', () => {

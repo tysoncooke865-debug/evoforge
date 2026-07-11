@@ -563,6 +563,10 @@ def fx_catalogs():
     return {
         "achievements_count": len(ACHIEVEMENTS),
         "achievements": {k: list(v) for k, v in ACHIEVEMENTS.items()},
+        # sort_keys=True makes the file bytes deterministic but destroys dict
+        # order -- and ROUTINE's order IS the training week. Pin it explicitly.
+        "routine_order": list(ROUTINE),
+        "exercise_library_order": list(EXERCISE_LIBRARY),
         "routine": {k: list(v) if isinstance(v, (list, tuple)) else v for k, v in ROUTINE.items()},
         "exercise_library": {
             k: list(v) if isinstance(v, (list, tuple)) else v

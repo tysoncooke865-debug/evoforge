@@ -357,6 +357,22 @@
       "Incline Machine Chest Press"
     ]
   },
+  "exercise_library_order": [
+    "Upper Chest",
+    "Mid Chest",
+    "Side Delts",
+    "Rear Delts",
+    "Back Width",
+    "Back Thickness",
+    "Biceps",
+    "Triceps",
+    "Quads",
+    "Hamstrings",
+    "Glutes/Adductors",
+    "Calves",
+    "Abs",
+    "Forearms/Grip"
+  ],
   "muscle_map": {
     "Assisted Pull-Up": "Back Width",
     "Back Extension": "Hamstrings",
@@ -640,5 +656,14 @@
       ]
     ],
     "Rest": []
-  }
+  },
+  "routine_order": [
+    "Push 1 - Strength",
+    "Pull 1 - Back Thickness",
+    "Push 2 - Hypertrophy",
+    "Pull 2 - Width / V-Taper",
+    "Legs",
+    "Aesthetics",
+    "Rest"
+  ]
 }

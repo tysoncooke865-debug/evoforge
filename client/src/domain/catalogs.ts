@@ -3,6 +3,9 @@
  * tools/gen_fixtures.py generated from config/constants.py + domain/profile.py).
  * GENERATED -- regenerate rather than hand-edit; the parity suite asserts this
  * file equals the goldens, so a hand edit that drifts goes red in CI.
+ * ROUTINE and EXERCISE_LIBRARY keys are emitted in the PYTHON DICT ORDER
+ * (routine_order / exercise_library_order) -- the fixture file itself is
+ * alphabetized for byte-determinism, but the order IS the training week.
  */
 
 export const ACHIEVEMENTS: Record<string, readonly [title: string, description: string]> = {
@@ -266,6 +269,166 @@ export const ACHIEVEMENTS: Record<string, readonly [title: string, description: 
 
 /** Day -> [exercise, workingSets, repScheme][]. Rest day is an empty list. */
 export const ROUTINE: Record<string, readonly (readonly [string, number, string])[]> = {
+  "Push 1 - Strength": [
+    [
+      "Barbell Bench Press (Strength)",
+      4,
+      "Top set 3-5 + 3 back-off sets 5-8"
+    ],
+    [
+      "Dumbbell Flat Bench Press",
+      3,
+      "8-12"
+    ],
+    [
+      "Pec Deck Machine Fly",
+      3,
+      "10-15"
+    ],
+    [
+      "Cable Lateral Raise",
+      4,
+      "12-20"
+    ],
+    [
+      "Cable Triceps Pushdown",
+      4,
+      "10-15"
+    ],
+    [
+      "Decline Push-Up",
+      2,
+      "AMRAP"
+    ]
+  ],
+  "Pull 1 - Back Thickness": [
+    [
+      "Chest-Supported Machine Row",
+      4,
+      "6-10"
+    ],
+    [
+      "Lat Pulldown",
+      4,
+      "8-12"
+    ],
+    [
+      "Chest-Supported Dumbbell Row",
+      3,
+      "8-12"
+    ],
+    [
+      "Reverse Pec Deck (Rear Delt Fly)",
+      4,
+      "15-25"
+    ],
+    [
+      "EZ-Bar Curl",
+      4,
+      "8-12"
+    ],
+    [
+      "Dumbbell Biceps Curl",
+      3,
+      "10-15"
+    ]
+  ],
+  "Push 2 - Hypertrophy": [
+    [
+      "Paused Barbell Bench Press",
+      3,
+      "5-8"
+    ],
+    [
+      "Dumbbell Flat Bench Press",
+      3,
+      "8-12"
+    ],
+    [
+      "Pec Deck Machine Fly",
+      4,
+      "12-20"
+    ],
+    [
+      "Dumbbell Lateral Raise",
+      5,
+      "15-25"
+    ],
+    [
+      "Cable Lateral Raise",
+      3,
+      "15-25"
+    ],
+    [
+      "Cable Triceps Pushdown",
+      4,
+      "12-20"
+    ]
+  ],
+  "Pull 2 - Width / V-Taper": [
+    [
+      "Lat Pulldown",
+      4,
+      "10-15"
+    ],
+    [
+      "Cable Lat Pullover (Straight-Arm Pulldown)",
+      4,
+      "12-20"
+    ],
+    [
+      "Chest-Supported Machine Row",
+      3,
+      "8-12"
+    ],
+    [
+      "Face Pull",
+      3,
+      "15-25"
+    ],
+    [
+      "Reverse Pec Deck (Rear Delt Fly)",
+      3,
+      "15-25"
+    ],
+    [
+      "EZ-Bar Curl",
+      3,
+      "10-15"
+    ]
+  ],
+  "Legs": [
+    [
+      "Barbell Back Squat",
+      3,
+      "5-8"
+    ],
+    [
+      "Hack Squat Machine",
+      4,
+      "8-12"
+    ],
+    [
+      "Seated/Lying Leg Curl",
+      4,
+      "10-15"
+    ],
+    [
+      "Leg Extension",
+      4,
+      "12-20"
+    ],
+    [
+      "Seated Calf Raise",
+      5,
+      "10-20"
+    ],
+    [
+      "Hip Adduction Machine",
+      3,
+      "12-20"
+    ]
+  ],
   "Aesthetics": [
     [
       "Cable Lateral Raise",
@@ -313,223 +476,27 @@ export const ROUTINE: Record<string, readonly (readonly [string, number, string]
       "10-15"
     ]
   ],
-  "Legs": [
-    [
-      "Barbell Back Squat",
-      3,
-      "5-8"
-    ],
-    [
-      "Hack Squat Machine",
-      4,
-      "8-12"
-    ],
-    [
-      "Seated/Lying Leg Curl",
-      4,
-      "10-15"
-    ],
-    [
-      "Leg Extension",
-      4,
-      "12-20"
-    ],
-    [
-      "Seated Calf Raise",
-      5,
-      "10-20"
-    ],
-    [
-      "Hip Adduction Machine",
-      3,
-      "12-20"
-    ]
-  ],
-  "Pull 1 - Back Thickness": [
-    [
-      "Chest-Supported Machine Row",
-      4,
-      "6-10"
-    ],
-    [
-      "Lat Pulldown",
-      4,
-      "8-12"
-    ],
-    [
-      "Chest-Supported Dumbbell Row",
-      3,
-      "8-12"
-    ],
-    [
-      "Reverse Pec Deck (Rear Delt Fly)",
-      4,
-      "15-25"
-    ],
-    [
-      "EZ-Bar Curl",
-      4,
-      "8-12"
-    ],
-    [
-      "Dumbbell Biceps Curl",
-      3,
-      "10-15"
-    ]
-  ],
-  "Pull 2 - Width / V-Taper": [
-    [
-      "Lat Pulldown",
-      4,
-      "10-15"
-    ],
-    [
-      "Cable Lat Pullover (Straight-Arm Pulldown)",
-      4,
-      "12-20"
-    ],
-    [
-      "Chest-Supported Machine Row",
-      3,
-      "8-12"
-    ],
-    [
-      "Face Pull",
-      3,
-      "15-25"
-    ],
-    [
-      "Reverse Pec Deck (Rear Delt Fly)",
-      3,
-      "15-25"
-    ],
-    [
-      "EZ-Bar Curl",
-      3,
-      "10-15"
-    ]
-  ],
-  "Push 1 - Strength": [
-    [
-      "Barbell Bench Press (Strength)",
-      4,
-      "Top set 3-5 + 3 back-off sets 5-8"
-    ],
-    [
-      "Dumbbell Flat Bench Press",
-      3,
-      "8-12"
-    ],
-    [
-      "Pec Deck Machine Fly",
-      3,
-      "10-15"
-    ],
-    [
-      "Cable Lateral Raise",
-      4,
-      "12-20"
-    ],
-    [
-      "Cable Triceps Pushdown",
-      4,
-      "10-15"
-    ],
-    [
-      "Decline Push-Up",
-      2,
-      "AMRAP"
-    ]
-  ],
-  "Push 2 - Hypertrophy": [
-    [
-      "Paused Barbell Bench Press",
-      3,
-      "5-8"
-    ],
-    [
-      "Dumbbell Flat Bench Press",
-      3,
-      "8-12"
-    ],
-    [
-      "Pec Deck Machine Fly",
-      4,
-      "12-20"
-    ],
-    [
-      "Dumbbell Lateral Raise",
-      5,
-      "15-25"
-    ],
-    [
-      "Cable Lateral Raise",
-      3,
-      "15-25"
-    ],
-    [
-      "Cable Triceps Pushdown",
-      4,
-      "12-20"
-    ]
-  ],
   "Rest": []
 };
 
+/** The training week, in order. */
+export const ROUTINE_ORDER: readonly string[] = [
+  "Push 1 - Strength",
+  "Pull 1 - Back Thickness",
+  "Push 2 - Hypertrophy",
+  "Pull 2 - Width / V-Taper",
+  "Legs",
+  "Aesthetics",
+  "Rest"
+];
+
 export const EXERCISE_LIBRARY: Record<string, readonly string[]> = {
-  "Abs": [
-    "Machine Ab Crunch",
-    "Lying Leg Raise",
-    "Hanging Knee Raise",
-    "Cable Crunch",
-    "Weighted Sit-Up",
-    "Decline Sit-Up"
-  ],
-  "Back Thickness": [
-    "Chest-Supported Machine Row",
-    "Chest-Supported Dumbbell Row",
-    "Seated Cable Row",
-    "T-Bar Row",
-    "Machine High Row"
-  ],
-  "Back Width": [
-    "Lat Pulldown",
-    "Neutral-Grip Lat Pulldown",
-    "Assisted Pull-Up",
-    "Cable Lat Pullover (Straight-Arm Pulldown)",
-    "Single-Arm Cable Lat Pulldown"
-  ],
-  "Biceps": [
-    "EZ-Bar Curl",
-    "Dumbbell Biceps Curl",
-    "Incline Dumbbell Curl",
-    "Cable Curl",
-    "Preacher Curl Machine",
-    "Hammer Curl"
-  ],
-  "Calves": [
-    "Seated Calf Raise",
-    "Standing Calf Raise",
-    "Leg Press Calf Raise"
-  ],
-  "Forearms/Grip": [
-    "Wrist Curl",
-    "Reverse Curl",
-    "Farmer Carry",
-    "Cable Wrist Curl"
-  ],
-  "Glutes/Adductors": [
-    "Hip Adduction Machine",
-    "Hip Abduction Machine",
-    "Cable Kickback",
-    "Hip Thrust Machine"
-  ],
-  "Hamstrings": [
-    "Seated/Lying Leg Curl",
-    "Romanian Deadlift",
-    "Seated Leg Curl",
-    "Lying Leg Curl",
-    "Back Extension"
+  "Upper Chest": [
+    "Incline Barbell Bench Press",
+    "Incline Dumbbell Bench Press",
+    "Low-to-High Cable Fly",
+    "Incline Smith Machine Press",
+    "Incline Machine Chest Press"
   ],
   "Mid Chest": [
     "Barbell Bench Press",
@@ -539,13 +506,12 @@ export const EXERCISE_LIBRARY: Record<string, readonly string[]> = {
     "Cable Chest Fly",
     "Decline Push-Up"
   ],
-  "Quads": [
-    "Barbell Back Squat",
-    "Hack Squat Machine",
-    "Leg Press",
-    "Bulgarian Split Squat",
-    "Leg Extension",
-    "Smith Machine Squat"
+  "Side Delts": [
+    "Cable Lateral Raise",
+    "Dumbbell Lateral Raise",
+    "Machine Lateral Raise",
+    "Lean-Away Cable Lateral Raise",
+    "Behind-the-Back Cable Lateral Raise"
   ],
   "Rear Delts": [
     "Reverse Pec Deck (Rear Delt Fly)",
@@ -553,12 +519,27 @@ export const EXERCISE_LIBRARY: Record<string, readonly string[]> = {
     "Face Pull",
     "Chest-Supported Rear Delt Row"
   ],
-  "Side Delts": [
-    "Cable Lateral Raise",
-    "Dumbbell Lateral Raise",
-    "Machine Lateral Raise",
-    "Lean-Away Cable Lateral Raise",
-    "Behind-the-Back Cable Lateral Raise"
+  "Back Width": [
+    "Lat Pulldown",
+    "Neutral-Grip Lat Pulldown",
+    "Assisted Pull-Up",
+    "Cable Lat Pullover (Straight-Arm Pulldown)",
+    "Single-Arm Cable Lat Pulldown"
+  ],
+  "Back Thickness": [
+    "Chest-Supported Machine Row",
+    "Chest-Supported Dumbbell Row",
+    "Seated Cable Row",
+    "T-Bar Row",
+    "Machine High Row"
+  ],
+  "Biceps": [
+    "EZ-Bar Curl",
+    "Dumbbell Biceps Curl",
+    "Incline Dumbbell Curl",
+    "Cable Curl",
+    "Preacher Curl Machine",
+    "Hammer Curl"
   ],
   "Triceps": [
     "Cable Triceps Pushdown",
@@ -567,12 +548,45 @@ export const EXERCISE_LIBRARY: Record<string, readonly string[]> = {
     "Close-Grip Bench Press",
     "Single-Arm Cable Triceps Extension"
   ],
-  "Upper Chest": [
-    "Incline Barbell Bench Press",
-    "Incline Dumbbell Bench Press",
-    "Low-to-High Cable Fly",
-    "Incline Smith Machine Press",
-    "Incline Machine Chest Press"
+  "Quads": [
+    "Barbell Back Squat",
+    "Hack Squat Machine",
+    "Leg Press",
+    "Bulgarian Split Squat",
+    "Leg Extension",
+    "Smith Machine Squat"
+  ],
+  "Hamstrings": [
+    "Seated/Lying Leg Curl",
+    "Romanian Deadlift",
+    "Seated Leg Curl",
+    "Lying Leg Curl",
+    "Back Extension"
+  ],
+  "Glutes/Adductors": [
+    "Hip Adduction Machine",
+    "Hip Abduction Machine",
+    "Cable Kickback",
+    "Hip Thrust Machine"
+  ],
+  "Calves": [
+    "Seated Calf Raise",
+    "Standing Calf Raise",
+    "Leg Press Calf Raise"
+  ],
+  "Abs": [
+    "Machine Ab Crunch",
+    "Lying Leg Raise",
+    "Hanging Knee Raise",
+    "Cable Crunch",
+    "Weighted Sit-Up",
+    "Decline Sit-Up"
+  ],
+  "Forearms/Grip": [
+    "Wrist Curl",
+    "Reverse Curl",
+    "Farmer Carry",
+    "Cable Wrist Curl"
   ]
 };
 

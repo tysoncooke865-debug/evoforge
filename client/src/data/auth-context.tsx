@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
 
 import { supabase } from './supabase';
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     queryClient.clear();
     useToastStore.getState().reset();
+    useSettingsStore.getState().reset();
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

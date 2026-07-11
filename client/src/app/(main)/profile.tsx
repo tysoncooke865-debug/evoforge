@@ -1,9 +1,11 @@
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
+import { useSettingsStore } from '@/state/settings-store';
+import tokens from '@/theme/tokens';
 
 /** Profile: who you are on the curve. The ladder is DERIVED from RANK_TIERS
  *  (rankLadder()), never restated -- the old page once hand-wrote all eight
@@ -56,6 +58,19 @@ export default function ProfileScreen() {
           })}
         </View>
 
+        <View className="rounded-lg border border-border bg-surface p-s4">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-s3">
+              <Text className="text-sm font-bold text-text">Performance mode</Text>
+              <Text className="text-2xs text-text-mute">
+                Disables ambient animation loops (aura, float, sheen). One-shot effects like toasts
+                always play — fast-forwarding them makes them invisible.
+              </Text>
+            </View>
+            <PerfSwitch />
+          </View>
+        </View>
+
         <Pressable
           className="items-center rounded-md border border-border bg-surface-2 p-s3"
           onPress={signOut}
@@ -65,5 +80,19 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
     </ScrollView>
+  );
+}
+
+function PerfSwitch() {
+  const perfMode = useSettingsStore((s) => s.perfMode);
+  const setPerfMode = useSettingsStore((s) => s.setPerfMode);
+  return (
+    <Switch
+      value={perfMode}
+      onValueChange={setPerfMode}
+      trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
+      thumbColor={tokens.colors.accent}
+      testID="perf-mode"
+    />
   );
 }
