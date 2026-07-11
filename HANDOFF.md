@@ -68,14 +68,25 @@ Since then:
   streak chip link, Coins history screen, null-never-0 total. DATES: the
   streak deliberately uses the app-wide UTC toISOString convention (matches
   workout_log.date); the guard tolerates ±1 day.
-  **NEXT UNCHECKED: H16** (#13 privacy toggle) then H17 sweep. Note
-  ai-scan flows hold photos in memory until CONFIRM completes.
+- **IMPROVEMENT_PLAN H16–H17 DONE — SECTION H COMPLETE (17/17).**
+  #13 privacy: PROFILE PRIVACY card (same public_profile row as Rank's
+  opt-in; leaderboard exclusion falsified both directions). The
+  falsification exposed and fixed a REAL regression: **migration 014** —
+  005's leaderboard required ledger==derived exactly, so battle XP had
+  silently banned every battle player (the board read EMPTY; Tyson and
+  Jesse are back on it). The integrity check now reconciles only client-
+  mintable kinds (set/cardio); server-granted kinds are legitimate
+  surplus. Home's drift warning got the same battle-aware rule
+  (useServerGrantedXp). Sweep: heavy avatar PNGs quantized 12.2MB→1.5MB
+  (visually identical, screenshot-verified); sign-out cache audit clean
+  (all new state is React Query under the global clear; no new Zustand
+  stores). Note ai-scan flows hold photos in memory until CONFIRM.
 
 ## Database / functions
 
 - Migrations applied through **010** (all via the management API `database/query`
   endpoint — see gotchas). 009 = battle tables (falsified checklist in-file);
-  010 cancel · 011 conditions · 012 schedule+streak fn · 013 coin ledger. Next free number: **014**.
+  010 cancel · 011 conditions · 012 schedule+streak fn · 013 coin ledger · 014 leaderboard battle-XP fix. Next free number: **015**.
 - Edge functions deployed: ai-physique, ai-bodyfat, battle-invite, battle-join,
   battle-ready, battle-settle (round advancer + final), battle-physique,
   battle-cancel. Deploy: `supabase functions deploy <names> --project-ref

@@ -149,6 +149,29 @@ export function useCustomPlan() {
   });
 }
 
+/** XP granted by the SERVER (battle, adjustment…) — the legitimate part of
+ *  ledger-over-derived. Null on failure, same rule as useLedgerXp. */
+export function useServerGrantedXp() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['xp_server_granted', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<number | null> => {
+      try {
+        const { data, error } = await supabase
+          .from('xp_events')
+          .select('kind,amount')
+          .not('kind', 'in', '("set","cardio")')
+          .limit(ROW_CAP);
+        if (error) return null;
+        return (data ?? []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+      } catch {
+        return null;
+      }
+    },
+  });
+}
+
 export function useBodyweightLog() {
   const userId = useUserId();
   return useQuery({

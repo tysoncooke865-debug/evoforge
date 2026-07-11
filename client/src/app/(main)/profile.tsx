@@ -3,7 +3,7 @@ import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
-import { useLogBodyweight, useUpdateTrainingNumbers } from '@/data/mutations';
+import { useLogBodyweight, useSavePublicIdentity, useUpdateTrainingNumbers } from '@/data/mutations';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
@@ -65,6 +65,8 @@ export default function ProfileScreen() {
             );
           })}
         </View>
+
+        <PrivacyCard />
 
         <BodyStatsCard />
 
@@ -261,6 +263,78 @@ function TrainingNumbersCard() {
         busy={save.isPending}
         testID="profile-save-training"
       />
+    </View>
+  );
+}
+
+/**
+ * IMPROVEMENT_PLAN #13: the privacy setting, first-class. It writes the
+ * SAME public_profile row the Rank tab's opt-in does (one mutation, no
+ * duplicate state). The backend already enforces the matrix: the
+ * leaderboard is the ONLY cross-user read and it hard-filters is_public
+ * in SQL; body data is owner-only regardless; battles are consent-by-
+ * invite-code either way. The full matrix lives in IMPROVEMENT_PLAN.md #13.
+ */
+function PrivacyCard() {
+  const identity = usePublicIdentity();
+  const save = useSavePublicIdentity();
+  const [name, setName] = useState('');
+
+  const hasName = Boolean(identity.data?.displayName);
+  const isPublic = Boolean(identity.data?.isPublic);
+
+  return (
+    <View className="rounded-lg border border-border bg-surface p-s4">
+      <Text className="mb-s1 text-xs text-text-mute">PROFILE PRIVACY</Text>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-s3">
+          <Text className="text-sm font-bold text-text">
+            {isPublic ? 'Public profile' : 'Private profile'}
+          </Text>
+          <Text className="text-2xs text-text-mute">
+            Public = listed on the leaderboard by display name. Private = invisible there. Either
+            way your training data, measurements and photos are never readable by other athletes;
+            battles are always by explicit invite code and show your name, level, class, scores and
+            round-3 photos to that one opponent only.
+          </Text>
+        </View>
+        <Switch
+          value={isPublic}
+          disabled={!hasName || save.isPending}
+          onValueChange={(v) =>
+            save.mutate({ displayName: identity.data?.displayName ?? null, isPublic: v })
+          }
+          trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
+          thumbColor={tokens.colors.accent}
+          testID="privacy-toggle"
+        />
+      </View>
+      {!hasName ? (
+        <View className="mt-s3 flex-row items-end gap-s2">
+          <View className="flex-1">
+            <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+              DISPLAY NAME (needed to go public or battle)
+            </Text>
+            <TextInput
+              className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
+              placeholder="3–24 characters"
+              placeholderTextColor="#64758f"
+              value={name}
+              onChangeText={setName}
+              testID="privacy-name"
+            />
+          </View>
+          <Pressable
+            className={`min-h-[44px] items-center justify-center rounded-md px-s4 ${name.trim().length >= 3 ? 'bg-accent' : 'border border-border bg-surface-2'}`}
+            onPress={() => save.mutate({ displayName: name.trim(), isPublic: false })}
+            disabled={save.isPending || name.trim().length < 3}
+            accessibilityRole="button"
+            testID="privacy-save-name"
+          >
+            <Text className={`text-xs font-bold ${name.trim().length >= 3 ? 'text-accent-ink' : 'text-text-mute'}`}>SET</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }

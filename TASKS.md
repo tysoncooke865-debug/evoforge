@@ -20,6 +20,11 @@ been falsified** — delete the fix, watch it go red, restore.
 
 ---
 
+## DONE — IMPROVEMENT_PLAN.md section H (17/17, 2026-07-12)
+All twelve requirements shipped across migrations 010–014 and seven
+commits; see IMPROVEMENT_PLAN.md (checklist all ticked) and HANDOFF.md
+(state + the leaderboard battle-XP regression found and fixed en route).
+
 ## IN PROGRESS — Battle Arena (competitive PvP)
 **`BATTLE_ARENA_DESIGN.md` is the plan of record** (2026-07-11). D1–D4
 decided (§15). **P0 DONE** — migration 009 applied + falsified in prod.

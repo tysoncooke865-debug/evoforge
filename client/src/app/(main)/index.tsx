@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
-import { useWorkoutLog } from '@/data/hooks';
+import { useServerGrantedXp, useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
@@ -26,6 +26,20 @@ import { XpBar } from '@/ui/xp-bar';
  * next-evolution teaser, in that hierarchy. All real state via
  * useAvatarData; the streak derives from workout dates client-side.
  */
+/** Drift is only alarming when it ISN'T explained by server-granted XP
+ *  (battles, adjustments) — those are legitimate ledger-over-derived
+ *  surplus, mirroring migration 014's leaderboard rule. */
+function DriftWarning({ drift, source }: { drift: number; source: string }) {
+  const serverGranted = useServerGrantedXp();
+  if (drift === 0) return null;
+  if (serverGranted.data !== null && serverGranted.data !== undefined && drift === serverGranted.data) return null;
+  return (
+    <Text className="text-2xs text-warn">
+      ledger drift {drift} · source: {source}
+    </Text>
+  );
+}
+
 export default function HomeScreen() {
   const { summary, stats, bfMid, branchV2, sex, ready } = useAvatarData();
   const workouts = useWorkoutLog();
@@ -144,11 +158,7 @@ export default function HomeScreen() {
           </Pressable>
         </Link>
       </View>
-      {summary.xpDrift !== 0 ? (
-        <Text className="text-2xs text-warn">
-          ledger drift {summary.xpDrift} · source: {summary.xpSource}
-        </Text>
-      ) : null}
+      <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
 
       <DividerGlow />
 

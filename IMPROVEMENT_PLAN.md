@@ -346,5 +346,5 @@ Work on `expo-rewrite`. `migrations/` commits need `[architect]`. Per change-set
 - [x] 13. **#11** `scheduled-streak.ts` + schedule/streak screens + calendar + Today integration; fixture suite green both sides.
 - [x] 14. **Migration 013** staging (guard falsified per kind) → production `[human]`.
 - [x] 15. **#12** `coins.ts` + claims wiring (complete/PR/milestone/starting bonus) + pill + history screen + summary-sheet line; exclude `coin_events` from data.tsx deletes; duplicate-claim test.
-- [ ] 16. **#13** Profile Settings privacy toggle + copy + privacy matrix committed as doc; leaderboard exclusion falsified.
-- [ ] 17. Sweep: sign-out cache audit for all new query keys; HANDOFF.md/PARITY.md/TASKS.md updated; full CI + tour green; reboot/verify live.
+- [x] 16. **#13** Profile Settings privacy toggle + copy + privacy matrix committed as doc; leaderboard exclusion falsified.
+- [x] 17. Sweep: sign-out cache audit for all new query keys; HANDOFF.md/PARITY.md/TASKS.md updated; full CI + tour green; reboot/verify live.
