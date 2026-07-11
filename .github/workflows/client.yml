@@ -178,19 +178,25 @@ jobs:
           name: web-dist
           path: dist
 
-      - name: Ensure Pages project exists
-        if: steps.gate.outputs.ok == 'true'
-        continue-on-error: true # already-exists is fine
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages project create evoforge --production-branch=main
-
+      # Plain wrangler instead of wrangler-action: the action swallows the CLI's
+      # error text, and anonymous API access can only read annotations. On
+      # failure the wrangler messages are replayed as ::error:: lines (sans
+      # stack frames), same pattern as the export/tsc steps.
       - name: Deploy to Cloudflare Pages
         if: steps.gate.outputs.ok == 'true'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=evoforge --branch=${{ github.ref_name }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          npx --yes wrangler pages project create evoforge --production-branch=main 2>&1 | tee /tmp/create.log || true
+          if ! npx --yes wrangler pages deploy dist --project-name=evoforge --branch="${{ github.ref_name }}" 2>&1 | tee /tmp/deploy.log; then
+            cat /tmp/create.log /tmp/deploy.log \
+              | grep -vE '^\s+at ' \
+              | grep -iE 'error|unauthorized|forbidden|not found|invalid|denied|missing' \
+              | head -n 9 \
+              | while IFS= read -r line; do echo "::error title=wrangler::${line}"; done
+            exit 1
+          fi
+          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
+          grep -oE 'https://[a-z0-9.-]*pages\.dev[^" ]*' /tmp/deploy.log | sort -u | tee -a "$GITHUB_STEP_SUMMARY"
