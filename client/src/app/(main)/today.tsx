@@ -56,6 +56,8 @@ export default function TodayScreen() {
     0
   );
   const complete = totalTarget > 0 && totalDone >= totalTarget;
+  // The quest cursor: the first exercise still short of its target sets.
+  const nextExercise = plan.find(([exercise, sets]) => validRowsFor(exercise).length < sets)?.[0] ?? null;
 
 
   const buildSummary = (): WorkoutSummaryData => ({
@@ -145,6 +147,7 @@ export default function TodayScreen() {
           scheme={scheme}
           loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
           doneCount={validRowsFor(exercise).length}
+          isNext={exercise === nextExercise}
           onPr={() => (prCountRef.current += 1)}
         />
       ))}
@@ -192,6 +195,7 @@ function ExerciseCard({
   scheme,
   loggedRows,
   doneCount,
+  isNext,
   onPr,
 }: {
   date: string;
@@ -201,13 +205,19 @@ function ExerciseCard({
   scheme: string;
   loggedRows: import('@/domain/summary').WorkoutRow[];
   doneCount: number;
+  isNext: boolean;
   onPr: () => void;
 }) {
   const done = doneCount >= targetSets;
   return (
-    <GlowCard glow={done ? tokens.colors.success : undefined}>
+    <GlowCard glow={done ? tokens.colors.success : isNext ? tokens.colors.accent : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
         <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
+        {isNext && !done ? (
+          <Text className="mr-s2 text-xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+            ▸ NEXT
+          </Text>
+        ) : null}
         <Text className={`text-xs font-bold ${done ? 'text-success' : 'text-text-mute'}`}>
           {done ? '✓ DONE' : `${doneCount}/${targetSets}`}
         </Text>

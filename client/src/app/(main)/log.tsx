@@ -5,8 +5,11 @@ import { useCardioLog } from '@/data/hooks';
 import { useLogBodyweight, useLogCardio, useLogMeasurements } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import tokens from '@/theme/tokens';
+import { EdgeLabel } from '@/ui/hud';
+import { Chip, NeonButton } from '@/ui/neon-button';
+import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
  * Log: cardio sessions and bodyweight readings. Cardio previews the XP the
@@ -38,9 +41,11 @@ function Field({
 }) {
   return (
     <View className="flex-1">
-      <Text className="mb-s1 text-2xs text-text-mute">{label}</Text>
+      <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+        {label}
+      </Text>
       <TextInput
-        className="rounded-md border border-border bg-surface-2 p-s2 text-text"
+        className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
         inputMode="decimal"
         placeholder={placeholder}
         placeholderTextColor="#64758f"
@@ -141,25 +146,29 @@ function CardioCard() {
   };
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s3 text-xs text-text-mute">CARDIO SESSION</Text>
+    <GlowCard glow={mins > 0 ? tokens.colors.rare : undefined}>
+      <View className="mb-s3">
+        <EdgeLabel
+          right={
+            mins > 0 ? (
+              <Text className="text-2xs font-bold" style={{ color: tokens.colors.rare, letterSpacing: 1.5 }}>
+                {Math.trunc(mins)} MIN LOCKED IN
+              </Text>
+            ) : undefined
+          }
+        >
+          CARDIO SESSION
+        </EdgeLabel>
+      </View>
 
       <View className="mb-s3 flex-row flex-wrap gap-s2">
         {CARDIO_TYPES.map((t) => (
-          <Pressable
+          <Chip
             key={t}
+            label={`${CARDIO_ICONS[t] ?? ''} ${t}`.trim()}
+            active={t === type}
             onPress={() => setType(t)}
-            accessibilityRole="button"
-            accessibilityLabel={`Select ${t}`}
-            className={`min-h-[44px] flex-row items-center gap-s1 rounded-pill border px-s3 py-s1 ${
-              t === type ? 'border-border-strong bg-surface-3' : 'border-border bg-surface-2'
-            }`}
-          >
-            <Text className="text-sm">{CARDIO_ICONS[t]}</Text>
-            <Text className={`text-xs font-bold ${t === type ? 'text-accent' : 'text-text-dim'}`}>
-              {t}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
 
@@ -167,9 +176,10 @@ function CardioCard() {
         <Pressable
           onPress={repeatLast}
           accessibilityRole="button"
-          className="mb-s3 self-start rounded-pill border border-border px-s3 py-s1"
+          className="mb-s3 self-start rounded-pill border px-s3 py-s1"
+          style={{ borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
         >
-          <Text className="text-2xs font-bold text-accent">
+          <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
             ↺ REPEAT LAST · {Math.trunc(pyFloat(lastOfType.minutes) ?? 0)} MIN
           </Text>
         </Pressable>
@@ -195,10 +205,12 @@ function CardioCard() {
           {fields.calories ? <Field label="CALORIES" value={calories} onChange={setCalories} /> : null}
         </View>
       ) : null}
-      <View className="mb-s3">
-        <Text className="mb-s1 text-2xs text-text-mute">NOTES</Text>
+      <View className="mb-s4">
+        <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          NOTES
+        </Text>
         <TextInput
-          className="rounded-md border border-border bg-surface-2 p-s2 text-text"
+          className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
           placeholder={boxing ? 'Intensity, sparring vs bag…' : 'Example: 12% incline, 4.6km/h, post-pull'}
           placeholderTextColor="#64758f"
           value={notes}
@@ -206,22 +218,14 @@ function CardioCard() {
         />
       </View>
 
-      <Pressable
-        className={`min-h-[44px] items-center justify-center rounded-md p-s3 ${mins > 0 ? 'bg-accent' : 'bg-surface-2'}`}
+      <NeonButton
+        title={mins > 0 ? `LOG SESSION · +${xpPreview} XP` : 'LOG SESSION'}
         onPress={submit}
-        disabled={log.isPending || mins <= 0}
-        accessibilityRole="button"
+        disabled={mins <= 0}
+        busy={log.isPending}
         testID="cardio-save"
-      >
-        {log.isPending ? (
-          <ActivityIndicator color="#04121a" />
-        ) : (
-          <Text className={`font-bold ${mins > 0 ? 'text-accent-ink' : 'text-text-mute'}`}>
-            {mins > 0 ? `LOG SESSION · +${xpPreview} XP` : 'LOG SESSION'}
-          </Text>
-        )}
-      </Pressable>
-    </View>
+      />
+    </GlowCard>
   );
 }
 
@@ -231,24 +235,32 @@ function BodyweightCard() {
   const kg = pyFloat(weight) ?? 0;
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s3 text-xs text-text-mute">BODYWEIGHT</Text>
+    <GlowCard>
+      <SectionLabel>BODYWEIGHT</SectionLabel>
       <View className="flex-row items-end gap-s2">
         <Field label="KG" value={weight} onChange={setWeight} testID="bw-kg" />
         <Pressable
-          className={`rounded-md px-s4 py-s2 ${kg > 0 ? 'bg-accent' : 'bg-surface-2'}`}
+          className={`min-h-[44px] items-center justify-center rounded-md px-s4 ${kg > 0 ? 'bg-accent' : 'border border-border bg-surface-2'}`}
+          style={
+            kg > 0
+              ? { shadowColor: tokens.colors.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 }
+              : undefined
+          }
           onPress={() => kg > 0 && log.mutate(kg, { onSuccess: () => setWeight('') })}
           disabled={log.isPending || kg <= 0}
+          accessibilityRole="button"
           testID="bw-save"
         >
           {log.isPending ? (
             <ActivityIndicator color="#04121a" />
           ) : (
-            <Text className={`font-bold ${kg > 0 ? 'text-accent-ink' : 'text-text-mute'}`}>LOG</Text>
+            <Text className={`text-xs font-bold ${kg > 0 ? 'text-accent-ink' : 'text-text-mute'}`} style={{ letterSpacing: 1 }}>
+              LOG
+            </Text>
           )}
         </Pressable>
       </View>
-    </View>
+    </GlowCard>
   );
 }
 
@@ -282,35 +294,46 @@ function MeasurementsCard() {
   };
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s2 text-xs text-text-mute">TAPE MEASUREMENTS (CM)</Text>
-      <Text className="mb-s3 text-2xs text-text-mute">Fill what you measured; blanks are skipped.</Text>
-      <View className="mb-s3 flex-row flex-wrap gap-s2">
-        {MEASUREMENT_FIELDS.map(([key, label]) => (
-          <View key={key} className="w-[30%]">
-            <Text className="mb-s1 text-2xs text-text-mute">{label}</Text>
-            <TextInput
-              className="rounded-md border border-border bg-surface-2 p-s2 text-text"
-              inputMode="decimal"
-              value={values[key] ?? ''}
-              onChangeText={(t) => setValues((prev) => ({ ...prev, [key]: t }))}
-            />
-          </View>
-        ))}
-      </View>
-      <Pressable
-        className={`items-center rounded-md p-s3 ${entries.length > 0 ? 'bg-accent' : 'bg-surface-2'}`}
-        onPress={submit}
-        disabled={log.isPending || entries.length === 0}
+    <GlowCard>
+      <EdgeLabel
+        right={
+          entries.length > 0 ? (
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              {entries.length} READY
+            </Text>
+          ) : undefined
+        }
       >
-        {log.isPending ? (
-          <ActivityIndicator color="#04121a" />
-        ) : (
-          <Text className={`font-bold ${entries.length > 0 ? 'text-accent-ink' : 'text-text-mute'}`}>
-            LOG {entries.length > 0 ? `${entries.length} READING${entries.length > 1 ? 'S' : ''}` : 'MEASUREMENTS'}
-          </Text>
-        )}
-      </Pressable>
-    </View>
+        TAPE MEASUREMENTS (CM)
+      </EdgeLabel>
+      <Text className="mb-s3 mt-s1 text-2xs text-text-mute">Fill what you measured; blanks are skipped.</Text>
+      <View className="mb-s4 flex-row flex-wrap gap-s2">
+        {MEASUREMENT_FIELDS.map(([key, label]) => {
+          const filled = (pyFloat(values[key] ?? '') ?? 0) > 0;
+          return (
+            <View key={key} className="w-[30%]">
+              <Text
+                className={`mb-s1 text-2xs font-bold ${filled ? 'text-accent' : 'text-text-mute'}`}
+                style={{ letterSpacing: 1 }}
+              >
+                {label}
+              </Text>
+              <TextInput
+                className={`min-h-[44px] rounded-md border bg-surface-2 p-s2 text-center text-text ${filled ? 'border-border-strong' : 'border-border'}`}
+                inputMode="decimal"
+                value={values[key] ?? ''}
+                onChangeText={(t) => setValues((prev) => ({ ...prev, [key]: t }))}
+              />
+            </View>
+          );
+        })}
+      </View>
+      <NeonButton
+        title={entries.length > 0 ? `LOG ${entries.length} READING${entries.length > 1 ? 'S' : ''}` : 'LOG MEASUREMENTS'}
+        onPress={submit}
+        disabled={entries.length === 0}
+        busy={log.isPending}
+      />
+    </GlowCard>
   );
 }
