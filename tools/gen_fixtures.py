@@ -78,6 +78,7 @@ from domain.bodyfat import bodyfat_outputs, navy_body_fat_male, safe_kg
 from domain.physique_ratings import safe_num, score_0_100
 from domain.profile import RANK_TIERS, calculate_starting_level, rank_ladder, rank_name
 from domain.workouts import estimated_1rm, infer_muscle_group
+from domain.xp_ledger import cardio_event_amount
 from domain.xp import (
     FIRST_LEVEL_COST,
     LEVEL_COST_STEP,
@@ -521,12 +522,20 @@ def fx_helpers():
         for ex in ["Barbell Bench Press (Strength)", "Barbell Back Squat", "Totally Made Up Lift", ""]
     ]
 
+    # Mirrors migrations/002 STEP 3's `floor(minutes * 2)::int` exactly; the
+    # live grant and the backfill must agree or STEP 4 stops reconciling.
+    cardio_amounts = [
+        _case(m, cardio_event_amount(m))
+        for m in [0, 0.4, 0.5, 1, 2.5, 29.9, 30, 45.5, 1000, -3, None, "abc", "12.5"]
+    ]
+
     return {
         "estimated_1rm": e1rm,
         "score_0_100": s0100,
         "safe_num": sn,
         "safe_num_specials": sn_specials,
         "infer_muscle_group": muscle,
+        "cardio_event_amount": cardio_amounts,
     }
 
 

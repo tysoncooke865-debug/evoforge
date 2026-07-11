@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { cardioEventAmount } from '@/domain/cardio';
+import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
@@ -106,6 +108,118 @@ export function useSaveSet() {
         kind: 'error',
         title: 'SAVE FAILED',
         subtitle: 'The set was not stored. Check connection and retry.',
+      });
+    },
+  });
+}
+
+export interface CardioInput {
+  type: string;
+  minutes: number;
+  distanceKm: number;
+  incline: number;
+  speed: number;
+  calories: number;
+  notes: string;
+}
+
+/**
+ * save_cardio_row(): insert, then the ledger grant at floor(minutes * 2) --
+ * the migrations/002 STEP 3 literal, via cardioEventAmount. A zero amount is
+ * refused (check (amount <> 0) would reject it anyway); a failed grant never
+ * fails the save but toasts that the ledger is behind. Python's cardio_type
+ * column retry is dropped: the live schema has `type` (root CLAUDE.md pins
+ * this), and a migration renaming it would break far more than this insert.
+ */
+export function useLogCardio() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (input: CardioInput) => {
+      const timestamp = new Date().toISOString().slice(0, 19);
+      const row = {
+        date: timestamp.slice(0, 10),
+        type: input.type,
+        minutes: safeNum(input.minutes, 0),
+        distance_km: safeNum(input.distanceKm, 0),
+        incline: safeNum(input.incline, 0),
+        speed: safeNum(input.speed, 0),
+        calories: safeNum(input.calories, 0),
+        notes: input.notes || '',
+        timestamp,
+      };
+      const { data, error } = await supabase
+        .from('cardio_log')
+        .insert(row)
+        .select('id,timestamp')
+        .single();
+      if (error) throw error;
+
+      const amount = cardioEventAmount(row.minutes);
+      if (amount > 0) {
+        const { error: grantError } = await supabase.from('xp_events').insert({
+          kind: 'cardio',
+          amount,
+          source_table: 'cardio_log',
+          source_id: String(data.id),
+          created_at: data.timestamp ?? timestamp,
+        });
+        if (grantError) {
+          useToastStore.getState().push({
+            kind: 'error',
+            title: 'XP GRANT FAILED',
+            subtitle: 'Cardio saved. Ledger is behind — drift will show until reconciled.',
+          });
+        }
+      }
+      return amount;
+    },
+    onSuccess: (amount) => {
+      queryClient.invalidateQueries({ queryKey: ['cardio_log', userId] });
+      queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+      if (amount > 0) {
+        announceXp(amount, 'CARDIO COMPLETE', 'Session logged');
+      }
+      void runAchievementSweep(queryClient, userId);
+    },
+    onError: () => {
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'SAVE FAILED',
+        subtitle: 'The session was not stored. Check connection and retry.',
+      });
+    },
+  });
+}
+
+/** Bodyweight is a plain insert -- no XP; the sweep covers bw achievements. */
+export function useLogBodyweight() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (bodyweightKg: number) => {
+      const timestamp = new Date().toISOString().slice(0, 19);
+      const { error } = await supabase.from('bodyweight_log').insert({
+        date: timestamp.slice(0, 10),
+        bodyweight: bodyweightKg,
+        timestamp,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bodyweight_log', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'BODYWEIGHT LOGGED' });
+      void runAchievementSweep(queryClient, userId);
+    },
+    onError: () => {
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'SAVE FAILED',
+        subtitle: 'The reading was not stored.',
       });
     },
   });

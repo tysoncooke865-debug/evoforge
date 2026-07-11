@@ -33,6 +33,7 @@ import {
 } from '../avatar-stats';
 import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
 import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE } from '../catalogs';
+import { cardioEventAmount } from '../cardio';
 import { nextEvolutionInfo } from '../next-evolution';
 import { safeNum, score0100 } from '../physique-ratings';
 import { calculateStartingLevel, rankLadder, rankName } from '../profile';
@@ -380,6 +381,7 @@ describe('helpers.json', () => {
     safe_num: Case<{ value: unknown; default: number }, number>[];
     safe_num_specials: Case<{ value: string; default: number }, number>[];
     infer_muscle_group: Case<string, string>[];
+    cardio_event_amount: Case<unknown, number>[];
   }>('helpers.json');
 
   it('estimated_1rm', () => {
@@ -408,6 +410,12 @@ describe('helpers.json', () => {
 
   it('infer_muscle_group over the whole exercise library', () => {
     eachCase(fx.infer_muscle_group, (c) => expect(inferMuscleGroup(c.input), c.input).toBe(c.expected));
+  });
+
+  it('cardio_event_amount matches the migration 002 STEP 3 literal', () => {
+    eachCase(fx.cardio_event_amount, (c) =>
+      expect(cardioEventAmount(c.input), `minutes=${c.input}`).toBe(c.expected)
+    );
   });
 });
 
