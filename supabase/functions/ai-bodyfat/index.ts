@@ -37,14 +37,22 @@ Deno.serve(async (req) => {
   const lighting = String(body?.lighting ?? 'Unknown');
   const pumpStatus = String(body?.pump_status ?? 'Unknown');
   const timeOfDay = String(body?.time_of_day ?? 'Unknown');
-  const save = body?.save !== false; // onboarding previews without saving
+  const save = body?.save !== false; // estimate passes preview without saving
 
-  const imageHash = await sha256Hex(images.join('|'));
+  // IMPROVEMENT_PLAN #6: user-confirmed conditions. A corrected re-run gets
+  // its OWN cache key -- the same image under different attested conditions
+  // is a different question, and the old key would return the old verdict.
+  const confirmed = body?.confirmed_conditions as { lighting?: string; pump?: string } | undefined;
+  const condSuffix = confirmed ? `|cond:${String(confirmed.lighting)}:${String(confirmed.pump)}` : '';
+  const imageHash = await sha256Hex(images.join('|') + condSuffix);
 
-  const cached = await cachedResult(sb, 'bodyfat', imageHash);
-  if (cached) return json({ result: cached, cached: true });
+  // Cache-or-model, then save if asked: the confirm-unchanged pass is a
+  // cache hit by design (same key, no second OpenAI spend) but must STILL
+  // write the row -- an early return here would skip the save entirely.
+  let data = await cachedResult(sb, 'bodyfat', imageHash);
+  const fromCache = data !== null;
 
-  if (await rateLimited(sb)) {
+  if (!fromCache && (await rateLimited(sb))) {
     return json({ error: 'Hourly AI scan limit reached. Try again later.' }, 429);
   }
 
@@ -61,7 +69,11 @@ Stats:
 - Pump status: ${pumpStatus}
 - Time of day: ${timeOfDay}
 
+${confirmed ? `
+THE ATHLETE HAS CONFIRMED the photo conditions: lighting is "${confirmed.lighting}", pump is "${confirmed.pump}". Trust these over your own impression -- discount a strong pump, and do not over-credit unflattering light.
+` : ''}
 Do not use waist or neck unless provided. Be conservative with flattering lighting or pump.
+Also estimate the photo conditions you observe.
 
 JSON schema:
 {
@@ -71,18 +83,18 @@ JSON schema:
   "confidence": "low" | "medium" | "high",
   "notes": "short practical explanation",
   "fat_storage": "short note",
-  "ten_percent_notes": "short note"
+  "ten_percent_notes": "short note",
+  "conditions": { "lighting": "flattering" | "neutral" | "unflattering", "pump": "none" | "mild" | "moderate" | "strong" }
 }
 `;
 
-  const { data, error } = await callOpenAiJson(userText, images, [
-    'bf_low',
-    'bf_high',
-    'bf_mid',
-    'confidence',
-    'notes',
-  ]);
-  if (error || !data) return json({ error: error ?? 'AI estimate failed.' }, 502);
+  if (!data) {
+    const r = await callOpenAiJson(userText, images, ['bf_low', 'bf_high', 'bf_mid', 'confidence', 'notes']);
+    if (r.error || !r.data) return json({ error: r.error ?? 'AI estimate failed.' }, 502);
+    data = r.data;
+    // Model omitted conditions -> honest neutral fallback, marked as such.
+    if (!data.conditions) data.conditions = { lighting: 'neutral', pump: 'none', estimated: false };
+  }
 
   if (save) {
     const timestamp = nowIsoSeconds();
@@ -98,12 +110,15 @@ JSON schema:
       bf_high: round2(data.bf_high),
       bf_mid: round2(data.bf_mid),
       confidence: String(data.confidence ?? ''),
-      notes: String(data.notes ?? ''),
+      // Confirmed conditions ride in notes (free text) -- no schema change.
+      notes:
+        String(data.notes ?? '') +
+        (confirmed ? ` · conditions confirmed: lighting ${confirmed.lighting}, pump ${confirmed.pump}` : ''),
       timestamp,
     });
     if (writeError) return json({ error: `Estimate computed but not saved: ${writeError.message}` }, 500);
   }
 
-  await storeCache(sb, 'bodyfat', imageHash, data);
-  return json({ result: data, cached: false, saved: save });
+  if (!fromCache) await storeCache(sb, 'bodyfat', imageHash, data);
+  return json({ result: data, cached: fromCache, saved: save });
 });

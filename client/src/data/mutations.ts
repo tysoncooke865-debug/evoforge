@@ -262,6 +262,57 @@ export function useUpdateTrainingNumbers() {
   });
 }
 
+/**
+ * Accept an AI plan (IMPROVEMENT_PLAN #10): plans are user-owned CONFIG,
+ * not history, so accept = delete-all-then-insert (the Streamlit
+ * precedent; no XP is keyed to plan rows, so delete is safe here — unlike
+ * sets, where delete-and-insert is forbidden).
+ */
+export function useAcceptPlan() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: async (plan: import('@/domain/custom-plan').CustomPlan) => {
+      const { flattenPlan } = await import('@/domain/custom-plan');
+      const timestamp = new Date().toISOString().slice(0, 19);
+      // .not('id','is',null): the match-everything filter that works on every
+      // table (the neq-sentinel gotcha in root CLAUDE.md).
+      const { error: delErr } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
+      if (delErr) throw delErr;
+      const { error } = await supabase.from('custom_workout_plan').insert(flattenPlan(plan, timestamp));
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'ROUTINE FORGED', subtitle: 'Find it on Today under AI PLAN' });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'PLAN NOT SAVED', subtitle: e.message });
+    },
+  });
+}
+
+/** Drop the active AI plan; Today falls back to the built-in routine. */
+export function useDiscardPlan() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'AI PLAN REMOVED' });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'NOT REMOVED', subtitle: e.message });
+    },
+  });
+}
+
 /** Upsert the caller's opt-in public identity. Mirrors save_public_profile(). */
 export function useSavePublicIdentity() {
   const queryClient = useQueryClient();

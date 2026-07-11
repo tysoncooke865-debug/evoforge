@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'r
 import * as Haptics from 'expo-haptics';
 
 import { useSaveSet } from '@/data/mutations';
-import { useWorkoutLog } from '@/data/hooks';
+import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
@@ -17,6 +17,7 @@ import { FloatingXP } from '@/ui/floating-xp';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
+import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -29,6 +30,13 @@ export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
   const [day, setDay] = useState(days[0]);
+
+  // IMPROVEMENT_PLAN #10: the workout source. The AI plan shares the six
+  // day names, so the chips, completion and logging are source-agnostic --
+  // only the exercise list under each day changes.
+  const aiPlan = useCustomPlan();
+  const [source, setSource] = useState<0 | 1>(0);
+  const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
 
   const workouts = useWorkoutLog();
   const { summary, stats, bfMid } = useAvatarData();
@@ -50,7 +58,12 @@ export default function TodayScreen() {
         (pyFloat(r.reps) ?? 0) > 0
     );
 
-  const plan = ROUTINE[day];
+  const builtIn = ROUTINE[day];
+  const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
+  // The same [exercise, sets, scheme] tuple shape either way.
+  const plan: readonly (readonly [string, number, string])[] = aiDay
+    ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
+    : builtIn;
   const totalTarget = plan.reduce((acc, [, sets]) => acc + sets, 0);
   const totalDone = plan.reduce(
     (acc, [exercise, sets]) => acc + Math.min(validRowsFor(exercise).length, sets),
@@ -108,6 +121,10 @@ export default function TodayScreen() {
   return (
     <ScreenShell>
       <ScreenHeader kicker={`TODAY · ${todayIso}`} title={day.split(' - ')[0].toUpperCase()} />
+
+      {aiPlan.data ? (
+        <SegmentedTabs left="BUILT-IN" right="AI PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
+      ) : null}
 
       <GlowCard glow={complete ? tokens.colors.success : undefined}>
         <View className="mb-s4 flex-row flex-wrap gap-s2">

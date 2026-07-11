@@ -130,6 +130,25 @@ export function useLatestMeasurements() {
   });
 }
 
+/** The athlete's ACTIVE AI plan: newest plan_name's rows, regrouped. */
+export function useCustomPlan() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['custom_workout_plan', userId],
+    enabled: userId !== null,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('custom_workout_plan')
+        .select('id,plan_name,workout,exercise,sets,reps,reason,day_goal,timestamp')
+        .order('timestamp', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      const { groupPlanRows } = await import('@/domain/custom-plan');
+      return groupPlanRows((data ?? []) as never[]);
+    },
+  });
+}
+
 export function useBodyweightLog() {
   const userId = useUserId();
   return useQuery({

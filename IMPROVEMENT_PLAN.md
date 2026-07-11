@@ -339,9 +339,9 @@ Work on `expo-rewrite`. `migrations/` commits need `[architect]`. Per change-set
 - [x] 6. **Migration 010** on staging → checklist → production `[human]`.
 - [x] 7. **#5** `battle-cancel` fn + settle/physique CAS hardening + confirm overlay + `AbandonedPhase` + CANCELLED badge; two-account cancel test; falsify the race.
 - [x] 8. **#8** bundle `storage_path` + `useBattleMediaUrl` + `physique-reveal.ts` + `PhysiqueDuel` panels; two-account reveal test; cross-match 403 falsification; update `client/CLAUDE.md` photo invariant wording.
-- [ ] 9. **Migration 011** staging → production `[human]`.
-- [ ] 10. **#6** conditions estimate+confirm in both AI functions + cache-key change + `ScanFrame` confirm state; falsify one correction end-to-end.
-- [ ] 11. **#10** `ai-plan` edge function (port `run_ai_custom_plan_*` prompts) + validation + preview/accept/reject + Today source toggle; bad-shape 422 falsification.
+- [x] 9. **Migration 011** staging → production `[human]`.
+- [x] 10. **#6** conditions estimate+confirm in both AI functions + cache-key change + `ScanFrame` confirm state; falsify one correction end-to-end.
+- [x] 11. **#10** `ai-plan` edge function (port `run_ai_custom_plan_*` prompts) + validation + preview/accept/reject + Today source toggle; bad-shape 422 falsification.
 - [ ] 12. **Migration 012** staging (shared-fixture SQL checks green) → production `[human]`.
 - [ ] 13. **#11** `scheduled-streak.ts` + schedule/streak screens + calendar + Today integration; fixture suite green both sides.
 - [ ] 14. **Migration 013** staging (guard falsified per kind) → production `[human]`.

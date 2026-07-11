@@ -12,12 +12,13 @@ import Animated, {
 
 import tokens from '@/theme/tokens';
 
-export type ScanState = 'idle' | 'ready' | 'analysing' | 'complete' | 'error';
+export type ScanState = 'idle' | 'ready' | 'analysing' | 'confirm' | 'complete' | 'error';
 
 const STATUS: Record<ScanState, { text: string; colour: string }> = {
   idle: { text: 'AWAITING SUBJECT', colour: tokens.colors['text-mute'] },
   ready: { text: 'SUBJECT LOCKED · READY TO ANALYSE', colour: tokens.colors.accent },
   analysing: { text: 'ANALYSING…', colour: tokens.colors.accent },
+  confirm: { text: 'CONFIRM PHOTO CONDITIONS', colour: tokens.colors.warn },
   complete: { text: 'ANALYSIS COMPLETE', colour: tokens.colors.success },
   error: { text: 'ANALYSIS FAILED', colour: tokens.colors.danger },
 };

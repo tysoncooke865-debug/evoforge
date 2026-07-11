@@ -10,6 +10,13 @@ import { supabase } from './supabase';
  * the in-memory component state that holds them until the call returns.
  */
 
+export interface PhotoConditions {
+  lighting: 'flattering' | 'neutral' | 'unflattering' | string;
+  pump: 'none' | 'mild' | 'moderate' | 'strong' | string;
+  /** false when the model omitted its estimate and we defaulted. */
+  estimated?: boolean;
+}
+
 export interface PhysiqueResult {
   physique_score: number;
   leanness_score: number;
@@ -19,6 +26,7 @@ export interface PhysiqueResult {
   weak_points: string[];
   improvements: string[];
   summary: string;
+  conditions?: PhotoConditions;
 }
 
 export interface BodyfatResult {
@@ -29,6 +37,7 @@ export interface BodyfatResult {
   notes: string;
   fat_storage?: string;
   ten_percent_notes?: string;
+  conditions?: PhotoConditions;
 }
 
 /** Pick one photo and return it as a ~1024px JPEG data URL, or null if cancelled. */
@@ -101,8 +110,24 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<{ r
   }
 }
 
-export function runAiPhysique(images: string[], stats: Record<string, unknown>) {
-  return invoke<PhysiqueResult>('ai-physique', { images, stats });
+export interface ScanOptions {
+  /** false = estimate pass: verdict returned, nothing persisted. */
+  save?: boolean;
+  /** Set only when the athlete CORRECTED the estimated conditions. */
+  confirmedConditions?: { lighting: string; pump: string };
+}
+
+export function runAiPhysique(images: string[], stats: Record<string, unknown>, opts: ScanOptions = {}) {
+  return invoke<PhysiqueResult>('ai-physique', {
+    images,
+    stats,
+    save: opts.save,
+    confirmed_conditions: opts.confirmedConditions,
+  });
+}
+
+export function runAiPlan(payload: { goal: string; physique: unknown; volume: Record<string, number> }) {
+  return invoke<import('@/domain/custom-plan').CustomPlan>('ai-plan', payload);
 }
 
 export function runAiBodyfat(
@@ -116,7 +141,13 @@ export function runAiBodyfat(
     pump_status?: string;
     time_of_day?: string;
     save?: boolean;
-  }
+  },
+  opts: ScanOptions = {}
 ) {
-  return invoke<BodyfatResult>('ai-bodyfat', { images, ...context });
+  return invoke<BodyfatResult>('ai-bodyfat', {
+    images,
+    ...context,
+    save: opts.save ?? context.save,
+    confirmed_conditions: opts.confirmedConditions,
+  });
 }

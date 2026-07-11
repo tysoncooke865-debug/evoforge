@@ -48,14 +48,23 @@ Since then:
   (battle-cancel fn + CAS-hardened settle/physique + confirm overlay +
   AbandonedPhase + CANCELLED badge), #8 opponent photo reveal (signed URLs,
   both-final gate in `data/battle/physique-reveal.ts`, DuelPanel).
-  **NEXT UNCHECKED: H9** (migration 011 + #6 conditions), then #10 ai-plan,
-  012+#11 streak calendar, 013+#12 coins, #13 privacy, sweep.
+- **IMPROVEMENT_PLAN H9–H11 DONE**: migration 011 (physique_ratings.conditions
+  jsonb); #6 lighting/pump estimate→confirm on BOTH AI scans (ScanFrame
+  'confirm' state, corrected re-runs get their own cache key, confirmed
+  conditions land in physique_ratings.conditions / bodyfat_log.notes —
+  falsified live end-to-end); #10 ai-plan edge function (ported prompt,
+  server-validated six-PPPPLA-day shape, 422 on malformed) + FORGE MY
+  ROUTINE preview/accept/discard on the AI tab + BUILT-IN|AI PLAN source
+  toggle on Today (same day names, same logging path).
+  **NEXT UNCHECKED: H12** (migration 012 + #11 streak calendar), then
+  013+#12 coins, #13 privacy, sweep. Note ai-scan flows now hold photos in
+  memory until the CONFIRM completes; the estimate pass saves nothing.
 
 ## Database / functions
 
 - Migrations applied through **010** (all via the management API `database/query`
   endpoint — see gotchas). 009 = battle tables (falsified checklist in-file);
-  010 = cancelled_by/at. Next free number: **011**.
+  010 = cancelled_by/at; 011 = physique_ratings.conditions. Next free number: **012**.
 - Edge functions deployed: ai-physique, ai-bodyfat, battle-invite, battle-join,
   battle-ready, battle-settle (round advancer + final), battle-physique,
   battle-cancel. Deploy: `supabase functions deploy <names> --project-ref

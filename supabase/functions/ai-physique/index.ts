@@ -32,12 +32,15 @@ Deno.serve(async (req) => {
   if (images.length === 0) return json({ error: 'Upload at least one physique photo.' }, 400);
   if (images.length > 3) return json({ error: 'At most three photos.' }, 400);
 
-  const imageHash = await sha256Hex(images.join('|'));
+  const save = body?.save !== false; // estimate passes preview without saving
+  const confirmed = body?.confirmed_conditions as { lighting?: string; pump?: string } | undefined;
+  const condSuffix = confirmed ? `|cond:${String(confirmed.lighting)}:${String(confirmed.pump)}` : '';
+  const imageHash = await sha256Hex(images.join('|') + condSuffix);
 
-  const cached = await cachedResult(sb, 'physique', imageHash);
-  if (cached) return json({ result: cached, cached: true });
+  let data = await cachedResult(sb, 'physique', imageHash);
+  const fromCache = data !== null;
 
-  if (await rateLimited(sb)) {
+  if (!fromCache && (await rateLimited(sb))) {
     return json({ error: 'Hourly AI scan limit reached. Try again later.' }, 429);
   }
 
@@ -47,6 +50,10 @@ Return ONLY valid JSON.
 
 Stats:
 ${JSON.stringify(stats, null, 2)}
+${confirmed ? `
+THE ATHLETE HAS CONFIRMED the photo conditions: lighting is "${confirmed.lighting}", pump is "${confirmed.pump}". Trust these over your own impression -- discount a strong pump, and do not over-credit unflattering light.
+` : ''}
+Also estimate the photo conditions you observe.
 
 JSON schema:
 {
@@ -58,41 +65,50 @@ JSON schema:
   "weak_points": ["short point", "short point", "short point"],
   "improvements": ["short actionable improvement", "short actionable improvement", "short actionable improvement"],
   "summary": "short honest summary",
-  "training_priority": ["Chest", "Side delts", "Back width", "Arms", "Legs", "Abs"]
+  "training_priority": ["Chest", "Side delts", "Back width", "Arms", "Legs", "Abs"],
+  "conditions": { "lighting": "flattering" | "neutral" | "unflattering", "pump": "none" | "mild" | "moderate" | "strong" }
 }
 
 Scores are out of 15. Be realistic and useful.
 `;
 
-  const { data, error } = await callOpenAiJson(userText, images, [
-    'physique_score',
-    'leanness_score',
-    'symmetry_score',
-    'muscularity_score',
-    'confidence',
-    'weak_points',
-    'improvements',
-    'summary',
-  ]);
-  if (error || !data) return json({ error: error ?? 'AI physique rating failed.' }, 502);
+  if (!data) {
+    const r = await callOpenAiJson(userText, images, [
+      'physique_score',
+      'leanness_score',
+      'symmetry_score',
+      'muscularity_score',
+      'confidence',
+      'weak_points',
+      'improvements',
+      'summary',
+    ]);
+    if (r.error || !r.data) return json({ error: r.error ?? 'AI physique rating failed.' }, 502);
+    data = r.data;
+    if (!data.conditions) data.conditions = { lighting: 'neutral', pump: 'none', estimated: false };
+  }
 
-  const timestamp = nowIsoSeconds();
-  // The function writes the row itself, as the caller -- the client never
-  // gets to invent scores (MIGRATION_PLAN "AI via Edge Functions").
-  const { error: writeError } = await sb.from('physique_ratings').insert({
-    date: timestamp.slice(0, 10),
-    physique_score: data.physique_score,
-    leanness_score: data.leanness_score,
-    symmetry_score: data.symmetry_score,
-    muscularity_score: data.muscularity_score,
-    confidence: String(data.confidence ?? ''),
-    weak_points: data.weak_points ?? [],
-    improvements: data.improvements ?? [],
-    summary: String(data.summary ?? ''),
-    timestamp,
-  });
-  if (writeError) return json({ error: `Rating computed but not saved: ${writeError.message}` }, 500);
+  if (save) {
+    const timestamp = nowIsoSeconds();
+    // The function writes the row itself, as the caller -- the client never
+    // gets to invent scores (MIGRATION_PLAN "AI via Edge Functions").
+    const { error: writeError } = await sb.from('physique_ratings').insert({
+      date: timestamp.slice(0, 10),
+      physique_score: data.physique_score,
+      leanness_score: data.leanness_score,
+      symmetry_score: data.symmetry_score,
+      muscularity_score: data.muscularity_score,
+      confidence: String(data.confidence ?? ''),
+      weak_points: data.weak_points ?? [],
+      improvements: data.improvements ?? [],
+      summary: String(data.summary ?? ''),
+      // Migration 011: what was confirmed (or the model's own estimate).
+      conditions: confirmed ?? data.conditions ?? null,
+      timestamp,
+    });
+    if (writeError) return json({ error: `Rating computed but not saved: ${writeError.message}` }, 500);
+  }
 
-  await storeCache(sb, 'physique', imageHash, data);
-  return json({ result: data, cached: false });
+  if (!fromCache) await storeCache(sb, 'physique', imageHash, data);
+  return json({ result: data, cached: fromCache, saved: save });
 });
