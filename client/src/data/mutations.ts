@@ -103,6 +103,19 @@ export function useSaveSet() {
           title: 'NEW PR',
           subtitle: `${input.exercise} — e1RM ${verdict.current1rm.toFixed(1)}kg (prev ${verdict.previousBest.toFixed(1)}kg)`,
         });
+        // Coin claim (IMPROVEMENT_PLAN #12): fire-and-forget; the 013 guard
+        // re-proves the PR server-side and the unique index absorbs repeats.
+        const prRowId = verdict.action === 'insert' ? verdict.rowId : verdict.rowId ?? undefined;
+        if (prRowId) {
+          void import('./coins').then(({ claimCoin }) =>
+            claimCoin('pr', prRowId).then((landed) => {
+              if (landed) {
+                queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
+                useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
+              }
+            })
+          );
+        }
       }
     },
     onError: () => {

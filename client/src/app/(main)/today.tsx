@@ -4,6 +4,8 @@ import * as Haptics from 'expo-haptics';
 
 import { useSaveSet } from '@/data/mutations';
 import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
+import { useClaimCoin } from '@/data/coins';
+import { useWorkoutSchedule } from '@/data/schedule';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
@@ -38,6 +40,26 @@ export default function TodayScreen() {
   const [source, setSource] = useState<0 | 1>(0);
   const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
 
+  // IMPROVEMENT_PLAN #11: default the day chip to today's SCHEDULED day
+  // once a schedule exists; manual override stays (it's just useState).
+  const schedule = useWorkoutSchedule();
+  const scheduledDefaultRef = useRef(false);
+  useEffect(() => {
+    if (scheduledDefaultRef.current) return;
+    const rows = schedule.data;
+    if (!rows || rows.length === 0) return;
+    scheduledDefaultRef.current = true;
+    const t = setTimeout(() => {
+      const plan = rows[rows.length - 1].plan;
+      const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
+      const assigned = plan[dow];
+      if (assigned && assigned !== 'Rest' && days.includes(assigned)) setDay(assigned);
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedule.data]);
+
+  const claimCoins = useClaimCoin();
   const workouts = useWorkoutLog();
   const { summary, stats, bfMid } = useAvatarData();
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
@@ -107,6 +129,9 @@ export default function TodayScreen() {
       announcedRef.current = sessionKey;
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSheet(buildSummary());
+      // Coin claim (IMPROVEMENT_PLAN #12): once per date; the 013 guard's
+      // 10-valid-set floor and the unique index decide, not this client.
+      claimCoins.mutate({ kind: 'workout_complete', sourceId: todayIso });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [complete, sessionKey, workouts.data]);

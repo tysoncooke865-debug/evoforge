@@ -342,9 +342,9 @@ Work on `expo-rewrite`. `migrations/` commits need `[architect]`. Per change-set
 - [x] 9. **Migration 011** staging → production `[human]`.
 - [x] 10. **#6** conditions estimate+confirm in both AI functions + cache-key change + `ScanFrame` confirm state; falsify one correction end-to-end.
 - [x] 11. **#10** `ai-plan` edge function (port `run_ai_custom_plan_*` prompts) + validation + preview/accept/reject + Today source toggle; bad-shape 422 falsification.
-- [ ] 12. **Migration 012** staging (shared-fixture SQL checks green) → production `[human]`.
-- [ ] 13. **#11** `scheduled-streak.ts` + schedule/streak screens + calendar + Today integration; fixture suite green both sides.
-- [ ] 14. **Migration 013** staging (guard falsified per kind) → production `[human]`.
-- [ ] 15. **#12** `coins.ts` + claims wiring (complete/PR/milestone/starting bonus) + pill + history screen + summary-sheet line; exclude `coin_events` from data.tsx deletes; duplicate-claim test.
+- [x] 12. **Migration 012** staging (shared-fixture SQL checks green) → production `[human]`.
+- [x] 13. **#11** `scheduled-streak.ts` + schedule/streak screens + calendar + Today integration; fixture suite green both sides.
+- [x] 14. **Migration 013** staging (guard falsified per kind) → production `[human]`.
+- [x] 15. **#12** `coins.ts` + claims wiring (complete/PR/milestone/starting bonus) + pill + history screen + summary-sheet line; exclude `coin_events` from data.tsx deletes; duplicate-claim test.
 - [ ] 16. **#13** Profile Settings privacy toggle + copy + privacy matrix committed as doc; leaderboard exclusion falsified.
 - [ ] 17. Sweep: sign-out cache audit for all new query keys; HANDOFF.md/PARITY.md/TASKS.md updated; full CI + tour green; reboot/verify live.

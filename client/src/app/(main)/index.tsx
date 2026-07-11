@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { Link } from 'expo-router';
+
+import { useClaimCoin, useCoinTotal } from '@/data/coins';
 import { useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
@@ -24,9 +27,21 @@ import { XpBar } from '@/ui/xp-bar';
  * useAvatarData; the streak derives from workout dates client-side.
  */
 export default function HomeScreen() {
-  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
+  const { summary, stats, bfMid, branchV2, sex, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const [showRadar, setShowRadar] = useState(false);
+
+  // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
+  // athlete claims it once; the unique index makes reloads a no-op.
+  const coins = useCoinTotal();
+  const claimCoins = useClaimCoin();
+  const bonusTriedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || bonusTriedRef.current) return;
+    bonusTriedRef.current = true;
+    claimCoins.mutate({ kind: 'starting_bonus', sourceId: 'onboarding' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const streak = useMemo(
@@ -110,11 +125,24 @@ export default function HomeScreen() {
         <HUDChip label="SETS" value={summary.totalSets} />
         <HUDChip label="XP" value={summary.xp} />
         <HUDChip label="CARDIO MIN" value={Math.trunc(summary.cardioMinutes)} tint={tokens.colors.rare} />
-        <HUDChip
-          label={streak.current === 1 ? 'DAY STREAK' : 'DAY STREAK'}
-          value={`${streak.current}🔥`}
-          tint={streak.current > 0 ? tokens.colors.legendary : tokens.colors.common}
-        />
+        <Link href={'/streak' as never} asChild>
+          <Pressable accessibilityRole="button" testID="streak-chip">
+            <HUDChip
+              label="DAY STREAK"
+              value={`${streak.current}🔥`}
+              tint={streak.current > 0 ? tokens.colors.legendary : tokens.colors.common}
+            />
+          </Pressable>
+        </Link>
+        <Link href={'/coins' as never} asChild>
+          <Pressable accessibilityRole="button" testID="coin-chip">
+            <HUDChip
+              label="COINS"
+              value={coins.data === null || coins.data === undefined ? '—' : coins.data}
+              tint={tokens.colors.legendary}
+            />
+          </Pressable>
+        </Link>
       </View>
       {summary.xpDrift !== 0 ? (
         <Text className="text-2xs text-warn">

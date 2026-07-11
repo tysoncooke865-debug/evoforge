@@ -9,6 +9,9 @@ const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
   { href: '/goals', title: 'Goals', sub: 'Targets with honest journey bars', glyph: '◎' },
   { href: '/awards', title: 'Awards', sub: 'All 64 achievements', glyph: '★' },
   { href: '/rank', title: 'Rank', sub: 'The leaderboard — opt in to compete', glyph: '♛' },
+  { href: '/streak', title: 'Streak', sub: 'The consistency calendar', glyph: '▦' },
+  { href: '/schedule', title: 'Schedule', sub: 'Map your training week', glyph: '◫' },
+  { href: '/coins', title: 'Coins', sub: 'Every coin, server-verified', glyph: '◍' },
   { href: '/profile', title: 'Profile', sub: 'Rank ladder, identity, sign out', glyph: '◉' },
   { href: '/data', title: 'Data', sub: 'Export everything · delete data', glyph: '⛃' },
 ];

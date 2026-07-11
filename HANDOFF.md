@@ -56,15 +56,26 @@ Since then:
   server-validated six-PPPPLA-day shape, 422 on malformed) + FORGE MY
   ROUTINE preview/accept/discard on the AI tab + BUILT-IN|AI PLAN source
   toggle on Today (same day names, same logging path).
-  **NEXT UNCHECKED: H12** (migration 012 + #11 streak calendar), then
-  013+#12 coins, #13 privacy, sweep. Note ai-scan flows now hold photos in
-  memory until the CONFIRM completes; the estimate pass saves nothing.
+- **IMPROVEMENT_PLAN H12–H15 DONE**: migrations 012 (workout_schedule,
+  effective-dated, no backdating; scheduled_streak() SQL mirror — execute
+  revoked from authenticated, called only by the coin guard) and 013
+  (coin_events ledger: append-only, guard recomputes every amount,
+  falsified per-kind against production). #11 streak: pure
+  domain/scheduled-streak.ts (vitest matrix; SQL mirror verified against
+  the same real data), Schedule + Streak screens, month calendar, Today
+  defaults to the scheduled day. #12 coins: claims wired (workout complete
+  25 / PR 50 / milestones 10×M / starting bonus 100), Home coin pill +
+  streak chip link, Coins history screen, null-never-0 total. DATES: the
+  streak deliberately uses the app-wide UTC toISOString convention (matches
+  workout_log.date); the guard tolerates ±1 day.
+  **NEXT UNCHECKED: H16** (#13 privacy toggle) then H17 sweep. Note
+  ai-scan flows hold photos in memory until CONFIRM completes.
 
 ## Database / functions
 
 - Migrations applied through **010** (all via the management API `database/query`
   endpoint — see gotchas). 009 = battle tables (falsified checklist in-file);
-  010 = cancelled_by/at; 011 = physique_ratings.conditions. Next free number: **012**.
+  010 cancel · 011 conditions · 012 schedule+streak fn · 013 coin ledger. Next free number: **014**.
 - Edge functions deployed: ai-physique, ai-bodyfat, battle-invite, battle-join,
   battle-ready, battle-settle (round advancer + final), battle-physique,
   battle-cancel. Deploy: `supabase functions deploy <names> --project-ref

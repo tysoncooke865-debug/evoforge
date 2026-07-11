@@ -93,6 +93,9 @@ export default function MainLayout() {
       <Tabs.Screen name="rank" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="data" options={{ href: null }} />
+      <Tabs.Screen name="schedule" options={{ href: null }} />
+      <Tabs.Screen name="streak" options={{ href: null }} />
+      <Tabs.Screen name="coins" options={{ href: null }} />
     </Tabs>
     {levelUp ? (
       <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />

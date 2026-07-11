@@ -201,9 +201,14 @@ function TrainingNumbersCard() {
   const stored = profile.data;
   useEffect(() => {
     if (!stored) return;
-    const dl = pyFloat(stored.deadlift_e1rm) ?? 0;
-    setDeadlift(dl > 0 ? String(dl) : '');
-    setPhase(stored.nutrition_phase ?? null);
+    // Deferred: a synchronous setState inside an effect is a cascading-
+    // render lint error (cold-cache CI catches it; warm local caches hide it).
+    const t = setTimeout(() => {
+      const dl = pyFloat(stored.deadlift_e1rm) ?? 0;
+      setDeadlift(dl > 0 ? String(dl) : '');
+      setPhase(stored.nutrition_phase ?? null);
+    }, 0);
+    return () => clearTimeout(t);
   }, [stored]);
 
   const dl = pyFloat(deadlift);
