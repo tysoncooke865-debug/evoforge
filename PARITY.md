@@ -63,6 +63,17 @@ app still runs them). The new app layers on top, client-side only:
 - **Onboarding v2**: sex → lifts (incl. deadlift) → nutrition phase → AI scan.
   Migration 008 (applied): profile.sex / deadlift_e1rm / nutrition_phase,
   additive+nullable; Streamlit unaffected.
+- **Strength standards curve (2026-07-11)**: `strength_score_from_ratios`
+  changed IN THE CORE (both sides identically, golden-pinned in avatar.json):
+  per-lift anchors novice 25 / intermediate 50 / advanced 75 / elite 100
+  (bench 0.75/1.25/1.75/2.25 × BW, squat 1.0/1.5/2.0/2.5, deadlift
+  1.25/1.75/2.25/2.75), replacing the old linear (bench/1.5)·55+(squat/2)·45.
+  Deadlift ≤ 0 falls back to the 55/45 two-lift blend; with one it blends
+  40/30/30. **Client-side deviation**: the Expo app feeds
+  profile.deadlift_e1rm (an 008 column) into the deadlift slot — Streamlit
+  cannot see that column and its catalog has no barbell deadlift, so its
+  behaviour is identical to the two-lift blend until cutover. Romanian
+  Deadlift deliberately does not count as the deadlift.
 
 ## THE SHREDDER (sixth class, 2026-07-11)
 Entry by STARTING CONDITION: first body-fat reading ≥25% + cutting phase.

@@ -78,6 +78,7 @@ export function useAvatarData(): AvatarData {
     },
     cardioMinutes: summary.cardioMinutes,
     cardioDistanceKm,
+    profileDeadliftE1rm: pyFloat(profile.data?.deadlift_e1rm) ?? null,
   });
 
   const ready =

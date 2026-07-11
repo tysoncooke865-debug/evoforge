@@ -73,6 +73,7 @@ from domain.avatar_stats import (
     get_branch_stage,
     next_evolution_info,
     rarity_slug,
+    strength_score_from_ratios,
 )
 from domain.bodyfat import bodyfat_outputs, navy_body_fat_male, safe_kg
 from domain.physique_ratings import safe_num, score_0_100
@@ -300,8 +301,52 @@ def fx_avatar():
         )
     )
 
+    # The standards curve. Per-lift sweeps straddle every anchor (exact, just
+    # under, just over), the flat tails, real-world irrational ratios, and the
+    # None/"abc" safe_num guard, while the other two lifts sit at distinct
+    # fixed values so the axes cannot be swapped without a red. A deadlift of
+    # 0/None must fall back to the two-lift blend -- the sweeps pin that too.
+    bench_axis = [-1, 0, 0.3, 0.74, 0.75, 0.76, 1.0, 1.223821989528796,
+                  1.25, 1.5, 1.75, 2.24, 2.25, 2.26, 3.0, None, "abc"]
+    squat_axis = [-1, 0, 0.5, 0.99, 1.0, 1.01, 1.25, 1.4397905759162304,
+                  1.5, 2.0, 2.49, 2.5, 2.51, 4.0, None, "abc"]
+    deadlift_axis = [-1, 0, 0.5, 1.24, 1.25, 1.26, 1.5, 1.75, 2.0,
+                     2.24, 2.25, 2.74, 2.75, 2.76, 5.0, None, "abc"]
+    strength_grid = (
+        [
+            _case({"bench_ratio": b, "squat_ratio": 1.5, "deadlift_ratio": 1.75},
+                  strength_score_from_ratios(b, 1.5, 1.75))
+            for b in bench_axis
+        ]
+        + [
+            _case({"bench_ratio": 1.0, "squat_ratio": s, "deadlift_ratio": 2.0},
+                  strength_score_from_ratios(1.0, s, 2.0))
+            for s in squat_axis
+        ]
+        + [
+            _case({"bench_ratio": 1.0, "squat_ratio": 1.5, "deadlift_ratio": d},
+                  strength_score_from_ratios(1.0, 1.5, d))
+            for d in deadlift_axis
+        ]
+        + [
+            _case({"bench_ratio": b, "squat_ratio": s, "deadlift_ratio": d},
+                  strength_score_from_ratios(b, s, d))
+            for b in [0, 0.9, 1.25, 1.9, 2.5]
+            for s in [0, 1.1, 1.6, 2.1, 3.0]
+            for d in [0, 1.3, 1.9, 2.4, 3.1]
+        ]
+        + [
+            # The two-lift fallback sweeps: no deadlift at all.
+            _case({"bench_ratio": b, "squat_ratio": s, "deadlift_ratio": 0},
+                  strength_score_from_ratios(b, s, 0))
+            for b in [0, 0.75, 1.223821989528796, 1.75, 2.25, 3.0]
+            for s in [0, 1.0, 1.4397905759162304, 2.0, 2.5, 4.0]
+        ]
+    )
+
     return {
         "avatar_rarity": rarity,
+        "strength_score_from_ratios": strength_grid,
         "rarity_slug": [_case(lv, rarity_slug(lv)) for lv in valid]
         + [_case(v, rarity_slug(v)) for v in [None, "abc"]],
         "get_avatar_stage": [_case(lv, get_avatar_stage(lv)) for lv in valid],

@@ -27,6 +27,7 @@ const baseInputs = (over: Partial<AvatarStatsInputs> = {}): AvatarStatsInputs =>
   },
   cardioMinutes: 0,
   cardioDistanceKm: 0,
+  profileDeadliftE1rm: null,
   ...over,
 });
 
@@ -106,6 +107,28 @@ describe('calculateAvatarStats', () => {
       baseInputs({ physique: { physique_score: null, leanness_score: 3, symmetry_score: null, muscularity_score: null } })
     );
     expect(withoutBf.leannessScore).toBe(20); // trunc(3/15*100)
+  });
+
+  it('the onboarding deadlift feeds the strength curve; absent it grades two lifts', () => {
+    const rows = [
+      set('Barbell Bench Press (Strength)', 90, 5), // e1RM 105 @ 77kg = 1.36x
+      set('Barbell Back Squat', 110, 5), // e1RM 128.3 @ 77kg = 1.67x
+    ];
+    const without = calculateAvatarStats(baseInputs({ workoutRows: rows, latestBodyweight: 77 }));
+    const withDl = calculateAvatarStats(
+      baseInputs({ workoutRows: rows, latestBodyweight: 77, profileDeadliftE1rm: 180 }) // 2.34x
+    );
+    expect(without.deadliftE1rm).toBe(0);
+    expect(withDl.deadliftE1rm).toBe(180);
+    // A 2.34x deadlift is stronger evidence than the other two lifts alone.
+    expect(withDl.strengthScore).toBeGreaterThan(without.strengthScore);
+  });
+
+  it('Romanian Deadlift does NOT count as the deadlift', () => {
+    const stats = calculateAvatarStats(
+      baseInputs({ workoutRows: [set('Romanian Deadlift', 180, 5)], latestBodyweight: 77 })
+    );
+    expect(stats.deadliftE1rm).toBe(0);
   });
 
   it('weak point focus picks the least-trained priority muscle, earlier wins ties', () => {

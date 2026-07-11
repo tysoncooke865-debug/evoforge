@@ -31,6 +31,10 @@ export interface AvatarStatsInputs {
   physique: PhysiqueValues;
   cardioMinutes: number;
   cardioDistanceKm: number;
+  /** Onboarding v2's profile.deadlift_e1rm -- an 008 column Streamlit cannot
+   *  see, so feeding it here is a documented client-side deviation
+   *  (PARITY.md). Null/0 means unknown and the curve grades two lifts. */
+  profileDeadliftE1rm: number | null;
 }
 
 export interface AvatarStats {
@@ -46,6 +50,7 @@ export interface AvatarStats {
   branch: Branch;
   benchE1rm: number;
   squatE1rm: number;
+  deadliftE1rm: number;
   bodyweight: number;
 }
 
@@ -78,6 +83,56 @@ export function muscleHeatMap(rows: WorkoutRow[]): Map<string, number> {
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, high));
 
+/**
+ * The strength standards curve: each relative-e1RM ratio maps through real
+ * training milestones -- novice 25, intermediate 50, advanced 75, elite 100 --
+ * linear between anchors, flat past elite. Line-for-line port of
+ * domain/avatar_stats.py::strength_score_from_ratios (which replaced the old
+ * (bench/1.5)*55 + (squat/2.0)*45 linear scale on 2026-07-11); every anchor
+ * edge is pinned by avatar.json's strength_score_from_ratios goldens.
+ */
+const BENCH_STRENGTH_ANCHORS: readonly (readonly [number, number])[] = [
+  [0.0, 0.0], [0.75, 25.0], [1.25, 50.0], [1.75, 75.0], [2.25, 100.0],
+];
+const SQUAT_STRENGTH_ANCHORS: readonly (readonly [number, number])[] = [
+  [0.0, 0.0], [1.0, 25.0], [1.5, 50.0], [2.0, 75.0], [2.5, 100.0],
+];
+const DEADLIFT_STRENGTH_ANCHORS: readonly (readonly [number, number])[] = [
+  [0.0, 0.0], [1.25, 25.0], [1.75, 50.0], [2.25, 75.0], [2.75, 100.0],
+];
+
+function anchorPoints(ratio: unknown, anchors: readonly (readonly [number, number])[]): number {
+  const r = safeNum(ratio, 0.0);
+  if (r <= anchors[0][0]) return anchors[0][1];
+  for (let i = 1; i < anchors.length; i++) {
+    const [loR, loP] = anchors[i - 1];
+    const [hiR, hiP] = anchors[i];
+    if (r <= hiR) return loP + ((r - loR) / (hiR - loR)) * (hiP - loP);
+  }
+  return anchors[anchors.length - 1][1];
+}
+
+export function strengthScoreFromRatios(
+  benchRatio: unknown,
+  squatRatio: unknown,
+  deadliftRatio: unknown = 0.0
+): number {
+  const benchPts = anchorPoints(benchRatio, BENCH_STRENGTH_ANCHORS);
+  const squatPts = anchorPoints(squatRatio, SQUAT_STRENGTH_ANCHORS);
+  const dl = safeNum(deadliftRatio, 0.0);
+  let blended: number;
+  if (dl <= 0) {
+    // Deadlift unknown: grade the two lifts we can see. Unlogged is not
+    // weak -- the same rule that keeps conditioning off 0/100 without
+    // cardio logs.
+    blended = benchPts * 0.55 + squatPts * 0.45;
+  } else {
+    const deadliftPts = anchorPoints(dl, DEADLIFT_STRENGTH_ANCHORS);
+    blended = benchPts * 0.4 + squatPts * 0.3 + deadliftPts * 0.3;
+  }
+  return Math.trunc(Math.max(0, Math.min(blended, 100)));
+}
+
 export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
   const heat = muscleHeatMap(inputs.workoutRows);
 
@@ -89,15 +144,23 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
     );
   }
   const squat = bestE1rmFor(inputs.workoutRows, 'Barbell Back Squat');
+  // Deadlift: logged barbell deadlifts if that lift ever enters the catalog
+  // (Romanian Deadlift is a different lift and does not count), else the
+  // onboarding e1RM. Unknown stays 0 and the curve grades two lifts.
+  const deadlift = Math.max(
+    bestE1rmFor(inputs.workoutRows, 'Barbell Deadlift'),
+    safeNum(inputs.profileDeadliftE1rm, 0)
+  );
 
   const bodyweight =
     inputs.latestBodyweight && inputs.latestBodyweight > 0 ? inputs.latestBodyweight : 77.0;
 
   const benchRatio = bodyweight ? bench / bodyweight : 0;
   const squatRatio = bodyweight ? squat / bodyweight : 0;
+  const deadliftRatio = bodyweight ? deadlift / bodyweight : 0;
 
-  // Strength: relative e1RM. 1.5x bench + 2x squat is around 100.
-  const strengthScore = Math.trunc(clamp((benchRatio / 1.5) * 55 + (squatRatio / 2.0) * 45, 0, 100));
+  // Strength: relative e1RM through the standards curve (anchors above).
+  const strengthScore = strengthScoreFromRatios(benchRatio, squatRatio, deadliftRatio);
 
   // Size: blend logs, strength, bodyweight and the AI physique rating, so
   // limited history cannot make size look 2/100.
@@ -222,6 +285,7 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
     branch,
     benchE1rm: bench,
     squatE1rm: squat,
+    deadliftE1rm: deadlift,
     bodyweight,
   };
 }

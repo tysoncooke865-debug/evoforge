@@ -63200,5 +63200,1695 @@
       "expected": "common",
       "input": "abc"
     }
+  ],
+  "strength_score_from_ratios": [
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": -1,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 34,
+      "input": {
+        "bench_ratio": 0.3,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 39,
+      "input": {
+        "bench_ratio": 0.74,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 40,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 40,
+      "input": {
+        "bench_ratio": 0.76,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 49,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 50,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_ratio": 1.5,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 69,
+      "input": {
+        "bench_ratio": 2.24,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "bench_ratio": 2.26,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": null,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": "abc",
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": -1
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 0.5
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 0.99
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.01
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.25
+      }
+    },
+    {
+      "expected": 47,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 48,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 56,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 2.49
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 2.51
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": null
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": "abc"
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": -1,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 0.5,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.24,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.25,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.26,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.5,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 1.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 48,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.0,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.24,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.25,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.74,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.75,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 2.76,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": 5.0,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": null,
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_ratio": 1.0,
+        "deadlift_ratio": "abc",
+        "squat_ratio": 1.5
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 8,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 17,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 24,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 13,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 17,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 26,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 39,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 24,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 24,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 46,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 36,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 32,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 48,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 54,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 38,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 47,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 54,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 17,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 21,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 43,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 31,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 30,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 39,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 46,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 42,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 46,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 54,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 53,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 54,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 61,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 67,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 62,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 51,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 67,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 73,
+      "input": {
+        "bench_ratio": 0.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 27,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 28,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 44,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 50,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 37,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 46,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 53,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 44,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 53,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 61,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 61,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 68,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 74,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 72,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 58,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 67,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 74,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 80,
+      "input": {
+        "bench_ratio": 1.25,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 50,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 57,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 63,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 58,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 50,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 59,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 72,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 57,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 74,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 79,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 81,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 65,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 74,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 81,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 87,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 90,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 0,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 71,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 80,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 87,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 93,
+      "input": {
+        "bench_ratio": 1.9,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 48,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 57,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 64,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 70,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 68,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 57,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 73,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 79,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.1
+      }
+    },
+    {
+      "expected": 79,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 64,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 73,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 81,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 86,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 1.6
+      }
+    },
+    {
+      "expected": 91,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 72,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 81,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 88,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 94,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 2.1
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 0,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 78,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.3,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 87,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 1.9,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 94,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 2.4,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 2.5,
+        "deadlift_ratio": 3.1,
+        "squat_ratio": 3.0
+      }
+    },
+    {
+      "expected": 0,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 11,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 21,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 33,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 45,
+      "input": {
+        "bench_ratio": 0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 13,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 25,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 34,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 47,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 58,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 58,
+      "input": {
+        "bench_ratio": 0.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 26,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 38,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 47,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 60,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 71,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 71,
+      "input": {
+        "bench_ratio": 1.223821989528796,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 41,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 52,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 62,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 75,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 86,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 86,
+      "input": {
+        "bench_ratio": 1.75,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 76,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 88,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 2.25,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    },
+    {
+      "expected": 55,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 0
+      }
+    },
+    {
+      "expected": 66,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.0
+      }
+    },
+    {
+      "expected": 76,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 1.4397905759162304
+      }
+    },
+    {
+      "expected": 88,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.0
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 2.5
+      }
+    },
+    {
+      "expected": 100,
+      "input": {
+        "bench_ratio": 3.0,
+        "deadlift_ratio": 0,
+        "squat_ratio": 4.0
+      }
+    }
   ]
 }

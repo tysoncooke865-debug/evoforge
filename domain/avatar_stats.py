@@ -38,6 +38,42 @@ def get_branch_stage(branch, level):
     return 1
 
 
+# The strength standards curve: each relative-e1RM ratio maps through real
+# training milestones -- novice 25, intermediate 50, advanced 75, elite 100 --
+# linear between anchors, clamped flat past elite. Replaced the old linear
+# scale ((bench/1.5)*55 + (squat/2.0)*45) on 2026-07-11: it paid intermediate
+# lifters like advanced ones (a 1.22x bench read as 77/100 strength).
+# Pinned by contracts/fixtures/avatar.json :: strength_score_from_ratios.
+BENCH_STRENGTH_ANCHORS = ((0.0, 0.0), (0.75, 25.0), (1.25, 50.0), (1.75, 75.0), (2.25, 100.0))
+SQUAT_STRENGTH_ANCHORS = ((0.0, 0.0), (1.0, 25.0), (1.5, 50.0), (2.0, 75.0), (2.5, 100.0))
+DEADLIFT_STRENGTH_ANCHORS = ((0.0, 0.0), (1.25, 25.0), (1.75, 50.0), (2.25, 75.0), (2.75, 100.0))
+
+
+def _anchor_points(ratio, anchors):
+    r = safe_num(ratio, 0.0)
+    if r <= anchors[0][0]:
+        return anchors[0][1]
+    for (lo_r, lo_p), (hi_r, hi_p) in zip(anchors, anchors[1:]):
+        if r <= hi_r:
+            return lo_p + (r - lo_r) / (hi_r - lo_r) * (hi_p - lo_p)
+    return anchors[-1][1]
+
+
+def strength_score_from_ratios(bench_ratio, squat_ratio, deadlift_ratio=0.0):
+    bench_pts = _anchor_points(bench_ratio, BENCH_STRENGTH_ANCHORS)
+    squat_pts = _anchor_points(squat_ratio, SQUAT_STRENGTH_ANCHORS)
+    dl = safe_num(deadlift_ratio, 0.0)
+    if dl <= 0:
+        # Deadlift unknown: grade the two lifts we can see. Unlogged is not
+        # weak -- the same rule that keeps conditioning off 0/100 without
+        # cardio logs.
+        blended = bench_pts * 0.55 + squat_pts * 0.45
+    else:
+        deadlift_pts = _anchor_points(dl, DEADLIFT_STRENGTH_ANCHORS)
+        blended = bench_pts * 0.4 + squat_pts * 0.3 + deadlift_pts * 0.3
+    return int(max(0, min(blended, 100)))
+
+
 def determine_avatar_branch(stats):
     strength = safe_num(stats.get("strength_score"), 0)
     size = safe_num(stats.get("size_score"), 0)
@@ -205,13 +241,19 @@ def calculate_avatar_stats():
         )
 
     squat = current_exercise_best_1rm("Barbell Back Squat")
+    # Not in today's ROUTINE (Romanian Deadlift is a different lift and does
+    # not count), so this reads 0 here; the Expo client also feeds the
+    # onboarding deadlift_e1rm (an 008 column this app cannot see -- the
+    # deviation is recorded in PARITY.md).
+    deadlift = current_exercise_best_1rm("Barbell Deadlift")
     bodyweight = latest_bw if latest_bw and latest_bw > 0 else 77.0
 
     bench_ratio = bench / bodyweight if bodyweight else 0
     squat_ratio = squat / bodyweight if bodyweight else 0
+    deadlift_ratio = deadlift / bodyweight if bodyweight else 0
 
-    # Strength: based on relative e1RM. 1.5x bench + 2x squat is around 100.
-    strength_score = int(max(0, min((bench_ratio / 1.5) * 55 + (squat_ratio / 2.0) * 45, 100)))
+    # Strength: relative e1RM through the standards curve (anchors above).
+    strength_score = strength_score_from_ratios(bench_ratio, squat_ratio, deadlift_ratio)
 
     # Logged muscle sets are useful, but should not make size look 2/100 just because
     # the app has limited history. Blend actual logs, strength, bodyweight and AI physique rating.
@@ -330,6 +372,7 @@ def calculate_avatar_stats():
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "bench_e1rm": float(bench),
         "squat_e1rm": float(squat),
+        "deadlift_e1rm": float(deadlift),
         "bodyweight": float(bodyweight),
         "bf_mid": bf_mid,
         # Carried so `next_evolution_info()` does not recompute a whole

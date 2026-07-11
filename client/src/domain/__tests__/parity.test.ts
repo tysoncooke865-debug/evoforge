@@ -31,6 +31,7 @@ import {
   raritySlug,
   type BranchScores,
 } from '../avatar-stats';
+import { strengthScoreFromRatios } from '../avatar-stats-calc';
 import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
 import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE, ROUTINE_ORDER } from '../catalogs';
 import { cardioEventAmount } from '../cardio';
@@ -201,6 +202,10 @@ describe('avatar.json', () => {
     get_avatar_stage: Case<number, number>[];
     get_branch_stage: Case<{ branch: string; level: number }, number>[];
     determine_avatar_branch: Case<BranchScores, string>[];
+    strength_score_from_ratios: Case<
+      { bench_ratio: unknown; squat_ratio: unknown; deadlift_ratio: unknown },
+      number
+    >[];
     branch_display_name: Case<string, string>[];
     evolution_name: Case<{ branch: string; level: number }, string>[];
     avatar_stage_rows: Case<
@@ -258,6 +263,15 @@ describe('avatar.json', () => {
   it('determine_avatar_branch', () => {
     eachCase(fx.determine_avatar_branch, (c) =>
       expect(determineAvatarBranch(c.input), JSON.stringify(c.input)).toBe(c.expected)
+    );
+  });
+
+  it('strength_score_from_ratios (standards curve, every anchor edge)', () => {
+    eachCase(fx.strength_score_from_ratios, (c) =>
+      expect(
+        strengthScoreFromRatios(c.input.bench_ratio, c.input.squat_ratio, c.input.deadlift_ratio),
+        JSON.stringify(c.input)
+      ).toBe(c.expected)
     );
   });
 
