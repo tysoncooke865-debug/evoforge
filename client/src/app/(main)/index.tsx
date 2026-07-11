@@ -1,6 +1,5 @@
-import { ScrollView, Pressable, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
-import { useAuth } from '@/data/auth-context';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { AvatarCard } from '@/ui/avatar-card';
 import { XpBar } from '@/ui/xp-bar';
@@ -11,7 +10,6 @@ import { XpBar } from '@/ui/xp-bar';
  * cannot disagree about who the athlete is.
  */
 export default function HomeScreen() {
-  const { signOut } = useAuth();
   const { summary, stats } = useAvatarData();
 
   return (
@@ -48,13 +46,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <Pressable
-          className="items-center rounded-md border border-border bg-surface-2 p-s3"
-          onPress={signOut}
-          testID="sign-out"
-        >
-          <Text className="font-bold text-text">SIGN OUT</Text>
-        </Pressable>
       </View>
     </ScrollView>
   );

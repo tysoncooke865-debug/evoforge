@@ -77,6 +77,10 @@ export default function MainLayout() {
         name="rank"
         options={{ title: 'Rank', tabBarIcon: makeIcon('♛') }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: makeIcon('◉') }}
+      />
     </Tabs>
   );
 }
