@@ -2,12 +2,11 @@ import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
-import { branchDisplayName, evolutionName, getBranchStage, raritySlug, type Branch } from '@/domain/avatar-stats';
-import { branchPaths } from '@/domain/branch-paths';
+import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
+import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
-import { nextEvolutionInfo } from '@/domain/next-evolution';
-import { avatarStageRows } from '@/domain/xp-leveling';
 import tokens from '@/theme/tokens';
+import { avatarArtV2 } from '@/ui/avatar-art';
 import { avatarImage } from '@/ui/avatar-images';
 import { Silhouette } from '@/ui/silhouette';
 import { HeroStage } from '@/ui/hero-stage';
@@ -22,10 +21,10 @@ import { ScreenShell } from '@/ui/shell';
  * requirement rows with readiness, the quick win and the wall called out.
  */
 export default function AvatarScreen() {
-  const { summary, stats, bfMid } = useAvatarData();
+  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
 
-  const rows = avatarStageRows(stats.branch, summary.level);
-  const evo = nextEvolutionInfo(stats.branch, {
+  const rows = avatarStageRowsV2(branchV2, summary.level);
+  const evo = nextEvolutionV2(branchV2, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
     bfMid,
@@ -34,14 +33,16 @@ export default function AvatarScreen() {
   });
   const readiness = evolutionReadiness(evo.requirements);
 
-  const paths = branchPaths(stats.branch, {
+  const paths = branchPathsV2(branchV2, {
     strength: stats.strengthScore,
     size: stats.sizeScore,
+    leanness: stats.leannessScore,
     conditioning: stats.conditioningScore,
     aesthetic: stats.aestheticScore,
   });
 
   const stage = getBranchStage(stats.branch, summary.level);
+  const art = avatarArtV2(branchV2, stage, sex);
   const slug = raritySlug(summary.level);
   const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
 
@@ -52,17 +53,29 @@ export default function AvatarScreen() {
     <ScreenShell>
       <View className="items-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
-          {branchDisplayName(stats.branch).toUpperCase()}
+          {branchDisplayNameV2(branchV2).toUpperCase()}
         </Text>
         <Text
           className="text-3xl font-bold text-text"
           style={{ textShadowColor: `${auraColour}80`, textShadowRadius: 18 }}
         >
-          {evolutionName(stats.branch, summary.level)}
+          {evolutionNameV2(branchV2, summary.level)}
         </Text>
       </View>
 
-      <HeroStage branch={stats.branch} stage={stage} auraColour={auraColour} size={230} />
+      <HeroStage
+        branch={stats.branch}
+        stage={stage}
+        auraColour={auraColour}
+        size={230}
+        source={art.source}
+        silhouette={!art.hasArt}
+      />
+      {!art.hasArt ? (
+        <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+          FORM NOT YET FORGED — ART INCOMING
+        </Text>
+      ) : null}
       <View className="-mt-s4 items-center">
         <RarityBadge level={summary.level} />
       </View>
@@ -131,9 +144,9 @@ export default function AvatarScreen() {
                   shadowRadius: 14,
                 }}
               >
-                {row.unlocked ? (
+                {row.unlocked && avatarArtV2(branchV2, row.stage, sex).hasArt ? (
                   <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-                    <Image source={avatarImage(stats.branch, row.stage)} style={{ width: 48, height: 52 }} contentFit="contain" />
+                    <Image source={avatarArtV2(branchV2, row.stage, sex).source} style={{ width: 48, height: 52 }} contentFit="contain" />
                   </View>
                 ) : (
                   <Silhouette branch={stats.branch} stage={row.stage} />
@@ -181,23 +194,30 @@ function BranchPathCard({
   path,
   level,
 }: {
-  path: ReturnType<typeof branchPaths>[number];
+  path: BranchPathV2;
   level: number;
 }) {
   const readiness = evolutionReadiness(path.requirements);
-  const tint = path.branch === 'mass' ? tokens.colors.danger : tokens.colors.rare;
-  const stage = getBranchStage(path.branch, level);
+  const tints: Record<BranchV2, string> = {
+    titan: tokens.colors.legendary,
+    mass: tokens.colors.danger,
+    cardio: tokens.colors.rare,
+    hybrid: tokens.colors.accent,
+    aesthetic: tokens.colors.mythic,
+  };
+  const tint = tints[path.branch];
+  const stage = getBranchStage(path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch, level);
   return (
     <View
       className="mb-s3 rounded-xl p-s4"
       style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
     >
       <View className="mb-s3 flex-row items-center gap-s3">
-        <Silhouette branch={path.branch} stage={stage} rim={tint} />
+        <Silhouette branch={path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch} stage={stage} rim={tint} />
         <View className="flex-1">
-          <Text className="text-base font-bold text-text">{branchDisplayName(path.branch)}</Text>
+          <Text className="text-base font-bold text-text">{branchDisplayNameV2(path.branch)}</Text>
           <Text className="text-2xs text-text-mute">
-            Become {evolutionName(path.branch, level)}
+            Become {evolutionNameV2(path.branch, level)}
           </Text>
         </View>
         <View className="items-center">

@@ -8,6 +8,7 @@ import {
   useWorkoutLog,
 } from './hooks';
 import { calculateAvatarStats, type AvatarStats } from '@/domain/avatar-stats-calc';
+import { resolveBranchV2, type BranchV2 } from '@/domain/branches-v2';
 import { pyFloat } from '@/domain/py';
 import { workoutSummary, type WorkoutSummary } from '@/domain/summary';
 
@@ -15,6 +16,9 @@ export interface AvatarData {
   /** True once every underlying query has resolved — level/XP are REAL, not
    *  the pre-load defaults. Celebration detectors must wait for this. */
   ready: boolean;
+  /** The five-class resolver (extremes first, pinned core fallback). */
+  branchV2: BranchV2;
+  sex: 'male' | 'female';
   summary: WorkoutSummary;
   stats: AvatarStats;
   bfMid: number | null;
@@ -78,5 +82,14 @@ export function useAvatarData(): AvatarData {
     !cardio.isPending &&
     !ledger.isPending;
 
-  return { ready, summary, stats, bfMid: bfMid.data ?? null, cardioDistanceKm };
+  const branchV2 = resolveBranchV2({
+    strength: stats.strengthScore,
+    size: stats.sizeScore,
+    leanness: stats.leannessScore,
+    conditioning: stats.conditioningScore,
+    aesthetic: stats.aestheticScore,
+  });
+  const sex = profile.data?.sex === 'female' ? 'female' as const : 'male' as const;
+
+  return { ready, branchV2, sex, summary, stats, bfMid: bfMid.data ?? null, cardioDistanceKm };
 }

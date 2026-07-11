@@ -1,0 +1,183 @@
+import { describe, expect, it } from 'vitest';
+
+import { determineAvatarBranch } from '../avatar-stats';
+import {
+  avatarStageRowsV2,
+  branchPathsV2,
+  evolutionNameV2,
+  nextEvolutionV2,
+  resolveBranchV2,
+  type ScoresV2,
+} from '../branches-v2';
+import {
+  derivedLeannessDefault,
+  derivedPhysiqueDefault,
+  startingLevelV2,
+} from '../starting-level-v2';
+import { calculateStartingLevel } from '../profile';
+
+const scores = (over: Partial<ScoresV2> = {}): ScoresV2 => ({
+  strength: 40,
+  size: 40,
+  leanness: 50,
+  conditioning: 35,
+  aesthetic: 60,
+  ...over,
+});
+
+describe('resolveBranchV2 — extremes first, pinned core untouched', () => {
+  it('an aesthetic athlete stays aesthetic (no accidental reclassification)', () => {
+    expect(resolveBranchV2(scores())).toBe('aesthetic');
+  });
+
+  it('every non-extreme mix matches the pinned 3-branch core exactly', () => {
+    // Sweep the sub-extreme space: v2 must agree with the golden rule.
+    for (const st of [0, 44, 45, 54, 55, 79]) {
+      for (const si of [0, 54, 55, 69]) {
+        for (const co of [0, 54, 55, 69]) {
+          for (const ae of [0, 50, 100]) {
+            const s = scores({ strength: st, size: si, conditioning: co, aesthetic: ae });
+            const core = determineAvatarBranch({
+              strength_score: st,
+              size_score: si,
+              conditioning_score: co,
+              aesthetic_score: ae,
+            });
+            expect(resolveBranchV2(s), JSON.stringify(s)).toBe(core);
+          }
+        }
+      }
+    }
+  });
+
+  it('titan requires the extreme gates and pre-empts mass', () => {
+    const t = scores({ strength: 80, size: 70, conditioning: 30, aesthetic: 60 });
+    expect(resolveBranchV2(t)).toBe('titan');
+    // One point short on either gate: falls back to core (mass here).
+    expect(resolveBranchV2({ ...t, strength: 79 })).toBe('mass');
+    expect(resolveBranchV2({ ...t, size: 69 })).toBe('mass');
+  });
+
+  it('cardio machine requires dominant conditioning and pre-empts hybrid', () => {
+    const c = scores({ conditioning: 70, strength: 50, size: 40, aesthetic: 60, leanness: 65 });
+    expect(resolveBranchV2(c)).toBe('cardio');
+    expect(resolveBranchV2({ ...c, conditioning: 69 })).toBe('hybrid'); // core takes it
+    // Not dominant -> not the machine.
+    expect(resolveBranchV2({ ...c, aesthetic: 71 })).toBe('hybrid');
+  });
+
+  it('titan outranks cardio when both somehow qualify', () => {
+    const both = scores({ strength: 85, size: 90, conditioning: 90, aesthetic: 20, leanness: 20 });
+    expect(resolveBranchV2(both)).toBe('titan');
+  });
+});
+
+describe('branchPathsV2 — displayed gates really resolve there', () => {
+  it('meeting every titan row resolves titan', () => {
+    const s = scores({ strength: 80, size: 72, conditioning: 40, aesthetic: 65 });
+    const titan = branchPathsV2('aesthetic', s).find((p) => p.branch === 'titan')!;
+    expect(titan.requirements.every((r) => r.met)).toBe(true);
+    expect(resolveBranchV2(s)).toBe('titan');
+  });
+
+  it('meeting every cardio row resolves cardio', () => {
+    const s = scores({ conditioning: 75, strength: 50, size: 40, aesthetic: 60, leanness: 70 });
+    const cardio = branchPathsV2('aesthetic', s).find((p) => p.branch === 'cardio')!;
+    expect(cardio.requirements.every((r) => r.met)).toBe(true);
+    expect(resolveBranchV2(s)).toBe('cardio');
+  });
+
+  it('offers exactly the four other classes', () => {
+    expect(branchPathsV2('aesthetic', scores()).map((p) => p.branch).sort()).toEqual(
+      ['cardio', 'hybrid', 'mass', 'titan'].sort()
+    );
+    expect(branchPathsV2('titan', scores()).map((p) => p.branch)).not.toContain('titan');
+  });
+});
+
+describe('v2 ladders and evolutions', () => {
+  it('titan ladder names by level', () => {
+    expect(evolutionNameV2('titan', 1)).toBe('Cyber Recruit');
+    expect(evolutionNameV2('titan', 50)).toBe('Juggernaut');
+    expect(evolutionNameV2('titan', 100)).toBe('World Breaker');
+  });
+
+  it('core branches delegate to the pinned ladder', () => {
+    expect(evolutionNameV2('aesthetic', 100)).toBe('True Adam');
+    expect(evolutionNameV2('mass', 80)).toBe('Titan Form');
+  });
+
+  it('stage rows: current flags exactly one row, stages map 1/2/3', () => {
+    const rows = avatarStageRowsV2('cardio', 60);
+    expect(rows.filter((r) => r.current)).toHaveLength(1);
+    expect(rows.find((r) => r.current)?.name).toBe('Enduro');
+    expect(rows.map((r) => r.stage)).toEqual([1, 1, 2, 3, 3]);
+  });
+
+  it('nextEvolutionV2: titan gates, cardio gates, core delegation', () => {
+    const titan = nextEvolutionV2('titan', { level: 60, benchE1rm: 100, bfMid: null, totalSets: 150, cardioMinutes: 0 });
+    expect(titan.targetName).toBe('Colossus');
+    expect(titan.requirements.map((r) => r.label)).toEqual(['Level', 'Bench', 'Total Sets']);
+
+    const cardio = nextEvolutionV2('cardio', { level: 30, benchE1rm: 0, bfMid: null, totalSets: 0, cardioMinutes: 200 });
+    expect(cardio.requirements.map((r) => r.label)).toEqual(['Level', 'Cardio Minutes']);
+
+    const core = nextEvolutionV2('aesthetic', { level: 57, benchE1rm: 82, bfMid: null, totalSets: 10, cardioMinutes: 0 });
+    expect(core.targetName).toBe('Advanced Form'); // the pinned function's answer
+  });
+});
+
+describe('startingLevelV2', () => {
+  it('scanned athlete: lifts + years + AI scores, clamped', () => {
+    const level = startingLevelV2({
+      benchE1rm: 100,
+      squatE1rm: 140,
+      deadliftE1rm: 180,
+      trainingYears: 3,
+      aiPhysique: 9,
+      aiLeanness: 8,
+      phase: 'maintaining',
+    });
+    expect(level).toBe(1 + 22 + 14 + 14 + 12 + 9 + 8);
+  });
+
+  it('matches v1 when deadlift is absent and AI scores equal the old sliders', () => {
+    // Backward sanity: zero deadlift + same physique/leanness = v1 + 0.
+    const v2 = startingLevelV2({
+      benchE1rm: 90,
+      squatE1rm: 120,
+      deadliftE1rm: 0,
+      trainingYears: 3,
+      aiPhysique: 8,
+      aiLeanness: 9,
+      phase: 'flexible',
+    });
+    expect(v2).toBe(calculateStartingLevel(90, 120, 3, 8, 9));
+  });
+
+  it('skipped scan uses documented defaults — phase shapes leanness only', () => {
+    expect(derivedPhysiqueDefault(100, 140, 180)).toBe(10);
+    expect(derivedPhysiqueDefault(0, 0, 0)).toBe(4);
+    expect(derivedLeannessDefault('cutting')).toBe(8);
+    expect(derivedLeannessDefault('bulking')).toBe(4);
+
+    const cutter = startingLevelV2({
+      benchE1rm: 60, squatE1rm: 0, deadliftE1rm: 0, trainingYears: 0,
+      aiPhysique: null, aiLeanness: null, phase: 'cutting',
+    });
+    const bulker = startingLevelV2({
+      benchE1rm: 60, squatE1rm: 0, deadliftE1rm: 0, trainingYears: 0,
+      aiPhysique: null, aiLeanness: null, phase: 'bulking',
+    });
+    expect(cutter - bulker).toBe(4); // leanness default delta, nothing else
+  });
+
+  it('clamps to 1..100', () => {
+    expect(
+      startingLevelV2({
+        benchE1rm: 200, squatE1rm: 300, deadliftE1rm: 400, trainingYears: 20,
+        aiPhysique: 15, aiLeanness: 15, phase: 'maintaining',
+      })
+    ).toBe(100);
+  });
+});

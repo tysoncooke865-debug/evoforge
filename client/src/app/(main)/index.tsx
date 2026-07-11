@@ -3,10 +3,11 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
-import { branchDisplayName, evolutionName, getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
+import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2 } from '@/domain/branches-v2';
 import { computeStreak } from '@/domain/streak';
 import tokens from '@/theme/tokens';
+import { avatarArtV2 } from '@/ui/avatar-art';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
@@ -23,7 +24,7 @@ import { XpBar } from '@/ui/xp-bar';
  * useAvatarData; the streak derives from workout dates client-side.
  */
 export default function HomeScreen() {
-  const { summary, stats, bfMid } = useAvatarData();
+  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
   const workouts = useWorkoutLog();
   const [showRadar, setShowRadar] = useState(false);
 
@@ -33,7 +34,7 @@ export default function HomeScreen() {
     [workouts.data, todayIso]
   );
 
-  const evolution = nextEvolutionInfo(stats.branch, {
+  const evolution = nextEvolutionV2(branchV2, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
     bfMid,
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   });
 
   const stage = getBranchStage(stats.branch, summary.level);
+  const art = avatarArtV2(branchV2, stage, sex);
   const slug = raritySlug(summary.level);
   const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
 
@@ -57,10 +59,10 @@ export default function HomeScreen() {
             className="text-3xl font-bold text-text"
             style={{ textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 18 }}
           >
-            {evolutionName(stats.branch, summary.level)}
+            {evolutionNameV2(branchV2, summary.level)}
           </Text>
           <Text className="text-xs text-text-dim">
-            {branchDisplayName(stats.branch)} · {summary.rank}
+            {branchDisplayNameV2(branchV2)} · {summary.rank}
           </Text>
         </View>
         <View className="items-center">
@@ -77,7 +79,18 @@ export default function HomeScreen() {
       </View>
 
       {/* B. The stage — the character owns the viewport. */}
-      <HeroStage branch={stats.branch} stage={stage} auraColour={auraColour} />
+      <HeroStage
+        branch={stats.branch}
+        stage={stage}
+        auraColour={auraColour}
+        source={art.source}
+        silhouette={!art.hasArt}
+      />
+      {!art.hasArt ? (
+        <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+          FORM NOT YET FORGED — ART INCOMING
+        </Text>
+      ) : null}
       <View className="-mt-s4 items-center gap-s2">
         <RarityBadge level={summary.level} />
       </View>

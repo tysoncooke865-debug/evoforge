@@ -8,93 +8,149 @@ import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { supabase } from '@/data/supabase';
-import { calculateStartingLevel, rankName } from '@/domain/profile';
+import { rankName } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
+import {
+  derivedLeannessDefault,
+  derivedPhysiqueDefault,
+  startingLevelV2,
+  type NutritionPhase,
+} from '@/domain/starting-level-v2';
+import tokens from '@/theme/tokens';
+import { Chip, NeonButton } from '@/ui/neon-button';
+import { ScanFrame, type ScanState } from '@/ui/scan-frame';
 
 /**
- * Character creation: the port of views/onboarding.py step one -- the step
- * that writes the profile row, and A SAVED PROFILE ROW IS THE ONBOARDED FLAG
- * (no extra table or column; the (main) layout gates on it).
+ * CHARACTER CREATION V2. Quick questions, zero self-scoring:
  *
- * The insert never includes user_id: Postgres fills it from DEFAULT
- * auth.uid(), and sending an explicit value is the exact mistake the schema
- * contract in config/constants.py exists to prevent.
+ *   1. WHO    — sex, height, bodyweight
+ *   2. LIFTS  — bench / squat / deadlift 1RM + training years
+ *   3. FUEL   — cutting / maintaining / bulking / flexible
+ *   4. SCAN   — AI physique + body fat (skippable; skipping uses the
+ *               documented derived defaults, never a slider)
+ *
+ * A SAVED PROFILE ROW IS STILL THE ONBOARDED FLAG. The insert never includes
+ * user_id (DEFAULT auth.uid() fills it). physique/leanness scores stored on
+ * the profile come from the AI scan or the derived defaults -- the athlete
+ * never grades themself.
  */
 
-interface Field {
-  key: string;
-  label: string;
-  min: number;
-  max: number;
-  initial: string;
-  help?: string;
-}
-
-const FIELDS: Field[] = [
-  { key: 'height_cm', label: 'HEIGHT (CM)', min: 100, max: 230, initial: '175' },
-  { key: 'bodyweight_kg', label: 'BODYWEIGHT (KG)', min: 30, max: 200, initial: '75' },
-  { key: 'bench_e1rm', label: 'BENCH 1RM (KG)', min: 0, max: 250, initial: '60', help: 'Best guess is fine' },
-  { key: 'squat_e1rm', label: 'SQUAT 1RM (KG)', min: 0, max: 350, initial: '80' },
-  { key: 'training_years', label: 'TRAINING YEARS', min: 0, max: 30, initial: '1' },
-  { key: 'physique_score', label: 'PHYSIQUE SCORE (0-15)', min: 0, max: 15, initial: '5', help: '0 beginner, 10 clearly trained, 15 very aesthetic' },
-  { key: 'leanness_score', label: 'LEANNESS SCORE (0-15)', min: 0, max: 15, initial: '5', help: '0 soft, 10 lean/visible abs, 15 very lean' },
+const PHASES: { key: NutritionPhase; label: string }[] = [
+  { key: 'cutting', label: '🔪 Cutting' },
+  { key: 'maintaining', label: '⚖️ Maintaining' },
+  { key: 'bulking', label: '🍚 Bulking' },
+  { key: 'flexible', label: '🍕 Eat whatever' },
 ];
 
 export default function OnboardingScreen() {
   const { session, loading } = useAuth();
   const profile = useProfile();
   const queryClient = useQueryClient();
-  const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(FIELDS.map((f) => [f.key, f.initial]))
-  );
+
+  const [sex, setSex] = useState<'male' | 'female'>('male');
+  const [height, setHeight] = useState('175');
+  const [bodyweight, setBodyweight] = useState('75');
+  const [bench, setBench] = useState('60');
+  const [squat, setSquat] = useState('80');
+  const [deadlift, setDeadlift] = useState('100');
+  const [years, setYears] = useState('1');
+  const [phase, setPhase] = useState<NutritionPhase>('maintaining');
+
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [aiPhysique, setAiPhysique] = useState<number | null>(null);
+  const [aiLeanness, setAiLeanness] = useState<number | null>(null);
+  const [bfNote, setBfNote] = useState<string | null>(null);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!loading && !session) {
-    return <Redirect href="/sign-in" />;
-  }
-  if (profile.data) {
-    return <Redirect href="/" />; // already onboarded
-  }
+  if (!loading && !session) return <Redirect href="/sign-in" />;
+  if (profile.data) return <Redirect href="/" />;
 
-  const parsed: Record<string, number | null> = {};
-  const problems: string[] = [];
-  for (const f of FIELDS) {
-    const v = pyFloat(values[f.key]);
-    parsed[f.key] = v;
-    if (v === null || Number.isNaN(v) || v < f.min || v > f.max) {
-      problems.push(f.label);
+  const nums = {
+    height: pyFloat(height) ?? 0,
+    bodyweight: pyFloat(bodyweight) ?? 0,
+    bench: pyFloat(bench) ?? 0,
+    squat: pyFloat(squat) ?? 0,
+    deadlift: pyFloat(deadlift) ?? 0,
+    years: pyFloat(years) ?? 0,
+  };
+  const valid =
+    nums.height >= 100 && nums.height <= 230 &&
+    nums.bodyweight >= 30 && nums.bodyweight <= 200 &&
+    nums.bench >= 0 && nums.bench <= 300 &&
+    nums.squat >= 0 && nums.squat <= 400 &&
+    nums.deadlift >= 0 && nums.deadlift <= 450 &&
+    nums.years >= 0 && nums.years <= 30;
+
+  const clamp15 = (v: unknown) => Math.max(0, Math.min(15, Math.round(Number(v) || 0)));
+
+  const previewLevel = valid
+    ? startingLevelV2({
+        benchE1rm: nums.bench,
+        squatE1rm: nums.squat,
+        deadliftE1rm: nums.deadlift,
+        trainingYears: nums.years,
+        aiPhysique,
+        aiLeanness,
+        phase,
+      })
+    : null;
+
+  const scanState: ScanState = scanBusy
+    ? 'analysing'
+    : scanError
+      ? 'error'
+      : aiPhysique !== null
+        ? 'complete'
+        : photo
+          ? 'ready'
+          : 'idle';
+
+  const runScan = async () => {
+    if (!photo) return;
+    setScanBusy(true);
+    setScanError(null);
+    const [phys, fat] = await Promise.all([
+      runAiPhysique([photo], { height_cm: nums.height, bodyweight: nums.bodyweight, context: 'onboarding' }),
+      runAiBodyfat([photo], { height_cm: nums.height, weight_kg: nums.bodyweight, save: true }),
+    ]);
+    setScanBusy(false);
+    setPhoto(null); // analysed and dropped
+    if (phys.result) {
+      setAiPhysique(clamp15(phys.result.physique_score));
+      setAiLeanness(clamp15(phys.result.leanness_score));
+    } else if (phys.error) {
+      setScanError(phys.error);
     }
-  }
-
-  const previewLevel =
-    problems.length === 0
-      ? calculateStartingLevel(
-          parsed.bench_e1rm!,
-          parsed.squat_e1rm!,
-          parsed.training_years!,
-          parsed.physique_score!,
-          parsed.leanness_score!
-        )
-      : null;
+    if (fat.result) {
+      setBfNote(`${fat.result.bf_mid.toFixed(1)}% body fat saved as your first reading.`);
+    }
+  };
 
   const forge = async () => {
-    if (problems.length > 0) {
-      setError(`Check: ${problems.join(', ')}`);
+    if (!valid || previewLevel === null) {
+      setError('Check the highlighted numbers.');
       return;
     }
     setBusy(true);
     setError(null);
-    const baseLevel = previewLevel!;
+    const physiqueScore = aiPhysique ?? derivedPhysiqueDefault(nums.bench, nums.squat, nums.deadlift);
+    const leannessScore = aiLeanness ?? derivedLeannessDefault(phase);
     const { error: err } = await supabase.from('profile').insert({
-      height_cm: parsed.height_cm,
-      bodyweight_kg: parsed.bodyweight_kg,
-      bench_e1rm: parsed.bench_e1rm,
-      squat_e1rm: parsed.squat_e1rm,
-      training_years: parsed.training_years,
-      physique_score: parsed.physique_score,
-      leanness_score: parsed.leanness_score,
-      base_level: baseLevel,
+      height_cm: nums.height,
+      bodyweight_kg: nums.bodyweight,
+      bench_e1rm: nums.bench,
+      squat_e1rm: nums.squat,
+      deadlift_e1rm: nums.deadlift,
+      training_years: nums.years,
+      physique_score: physiqueScore,
+      leanness_score: leannessScore,
+      sex,
+      nutrition_phase: phase,
+      base_level: previewLevel,
       created_at: new Date().toISOString().slice(0, 19),
     });
     if (err) {
@@ -103,152 +159,172 @@ export default function OnboardingScreen() {
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ['profile'] });
-    // The redirect above fires once useProfile refetches the new row.
     setBusy(false);
   };
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[480px] rounded-lg border border-border bg-surface p-s6">
-        <Text className="text-xs text-text-mute">CHARACTER CREATION</Text>
-        <Text className="mb-s2 text-2xl font-bold text-accent">FORGE YOUR CHARACTER</Text>
-        <Text className="mb-s6 text-sm text-text-dim">
-          Honest numbers place you on the curve you will actually climb.
+    <ScrollView className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }} contentContainerClassName="items-center p-s6">
+      <View className="w-full max-w-[480px]">
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+          CHARACTER CREATION
+        </Text>
+        <Text
+          className="mb-s5 text-3xl font-bold text-accent"
+          style={{ textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 16 }}
+        >
+          FORGE YOUR CHARACTER
         </Text>
 
-        {FIELDS.map((f) => (
-          <View key={f.key} className="mb-s4">
-            <Text className="mb-s1 text-xs text-text-mute">{f.label}</Text>
-            <TextInput
-              className="rounded-md border border-border bg-surface-2 p-s3 text-text"
-              inputMode="decimal"
-              value={values[f.key]}
-              onChangeText={(t) => setValues((prev) => ({ ...prev, [f.key]: t }))}
-              testID={f.key}
-            />
-            {f.help ? <Text className="mt-s1 text-2xs text-text-mute">{f.help}</Text> : null}
+        {/* 1 · WHO */}
+        <Section n="1" title="WHO ARE YOU">
+          <View className="mb-s3 flex-row gap-s2">
+            <Chip label="♂ Male" active={sex === 'male'} onPress={() => setSex('male')} testID="sex-male" />
+            <Chip label="♀ Female" active={sex === 'female'} onPress={() => setSex('female')} testID="sex-female" />
           </View>
-        ))}
+          <View className="flex-row gap-s2">
+            <Num label="HEIGHT CM" value={height} onChange={setHeight} testID="height_cm" />
+            <Num label="BODYWEIGHT KG" value={bodyweight} onChange={setBodyweight} testID="bodyweight_kg" />
+          </View>
+        </Section>
 
-        <AiAssistCard
-          heightCm={parsed.height_cm ?? 0}
-          weightKg={parsed.bodyweight_kg ?? 0}
-          onScores={(physique, leanness) =>
-            setValues((prev) => ({
-              ...prev,
-              physique_score: String(physique),
-              leanness_score: String(leanness),
-            }))
-          }
-        />
+        {/* 2 · LIFTS */}
+        <Section n="2" title="YOUR LIFTS (1RM, BEST GUESS IS FINE)">
+          <View className="mb-s2 flex-row gap-s2">
+            <Num label="BENCH KG" value={bench} onChange={setBench} testID="bench_e1rm" />
+            <Num label="SQUAT KG" value={squat} onChange={setSquat} testID="squat_e1rm" />
+            <Num label="DEADLIFT KG" value={deadlift} onChange={setDeadlift} testID="deadlift_e1rm" />
+          </View>
+          <Num label="TRAINING YEARS" value={years} onChange={setYears} testID="training_years" />
+        </Section>
+
+        {/* 3 · FUEL */}
+        <Section n="3" title="HOW ARE YOU EATING">
+          <View className="flex-row flex-wrap gap-s2">
+            {PHASES.map((p) => (
+              <Chip key={p.key} label={p.label} active={phase === p.key} onPress={() => setPhase(p.key)} testID={`phase-${p.key}`} />
+            ))}
+          </View>
+        </Section>
+
+        {/* 4 · SCAN */}
+        <Section n="4" title="THE SCAN (OPTIONAL BUT HONEST)">
+          <Text className="mb-s3 text-2xs text-text-mute">
+            One physique photo: the AI rates physique and leanness and saves your first body-fat
+            reading. Skip it and conservative defaults from your lifts and eating phase apply —
+            you never grade yourself either way. Analysed in memory, never stored.
+          </Text>
+          <ScanFrame state={scanState}>
+            <View className="flex-row items-center gap-s3 p-s2">
+              <Pressable
+                onPress={async () => {
+                  const uri = await pickPhoto();
+                  if (uri) {
+                    setPhoto(uri);
+                    setScanError(null);
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Pick physique photo"
+                className="items-center justify-center rounded-md border border-border bg-surface-2"
+                style={{ width: 72, height: 92 }}
+              >
+                {photo ? (
+                  <Image source={{ uri: photo }} style={{ width: 64, height: 84, borderRadius: 6 }} contentFit="cover" />
+                ) : (
+                  <Text className="text-2xl text-text-mute">＋</Text>
+                )}
+              </Pressable>
+              <View className="flex-1">
+                {aiPhysique !== null ? (
+                  <Text className="text-sm text-text">
+                    Physique <Text className="font-bold text-accent">{aiPhysique}</Text>
+                    <Text className="text-text-mute"> / 15   ·   </Text>
+                    Leanness <Text className="font-bold text-accent">{aiLeanness}</Text>
+                    <Text className="text-text-mute"> / 15</Text>
+                  </Text>
+                ) : (
+                  <Text className="text-xs text-text-mute">No scan yet — defaults will apply.</Text>
+                )}
+                {bfNote ? <Text className="mt-s1 text-2xs text-success">{bfNote}</Text> : null}
+                {scanError ? <Text className="mt-s1 text-2xs text-danger">{scanError}</Text> : null}
+              </View>
+            </View>
+          </ScanFrame>
+          <View className="mt-s3">
+            <NeonButton
+              title={scanBusy ? 'ANALYSING' : 'RUN SCAN'}
+              variant="ghost"
+              onPress={runScan}
+              disabled={!photo}
+              busy={scanBusy}
+              testID="ai-assist"
+            />
+          </View>
+        </Section>
 
         {previewLevel !== null ? (
-          <View className="mb-s4 rounded-md border border-border-strong bg-surface-2 p-s3">
-            <Text className="text-sm text-text-dim">
-              You start at <Text className="font-bold text-accent">Level {previewLevel}</Text>{' '}
-              <Text className="text-text-mute">· {rankName(previewLevel)}</Text>
+          <View
+            className="mb-s4 flex-row items-center justify-between rounded-xl p-s4"
+            style={{ borderWidth: 1, borderColor: 'rgba(34,211,238,0.34)', backgroundColor: 'rgba(34,211,238,0.06)' }}
+          >
+            <View>
+              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                YOU START AT
+              </Text>
+              <Text className="text-sm text-text-dim">{rankName(previewLevel)}</Text>
+            </View>
+            <Text
+              className="text-3xl font-bold"
+              style={{ color: tokens.colors.accent, textShadowColor: 'rgba(34,211,238,0.6)', textShadowRadius: 14 }}
+            >
+              LV {previewLevel}
             </Text>
           </View>
-        ) : null}
+        ) : (
+          <Text className="mb-s4 text-2xs text-warn">Some numbers are out of range.</Text>
+        )}
 
-        {error ? <Text className="mb-s4 text-sm text-danger">{error}</Text> : null}
+        {error ? <Text className="mb-s3 text-sm text-danger">{error}</Text> : null}
 
-        <Pressable
-          className="items-center rounded-md bg-accent p-s3"
-          onPress={forge}
-          disabled={busy}
-          testID="forge"
-        >
-          {busy ? (
-            <ActivityIndicator color="#04121a" />
-          ) : (
-            <Text className="font-bold text-accent-ink">FORGE CHARACTER</Text>
-          )}
-        </Pressable>
+        <NeonButton title="FORGE CHARACTER" onPress={forge} busy={busy} disabled={!valid} testID="forge" />
       </View>
     </ScrollView>
   );
 }
 
-function AiAssistCard({
-  heightCm,
-  weightKg,
-  onScores,
-}: {
-  heightCm: number;
-  weightKg: number;
-  onScores: (physique: number, leanness: number) => void;
-}) {
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [bf, setBf] = useState<string | null>(null);
-
-  const clamp15 = (v: unknown) => Math.max(0, Math.min(15, Math.round(Number(v) || 0)));
-
-  const run = async () => {
-    if (!photo) return;
-    setBusy(true);
-    setStatus(null);
-    // One photo, two verdicts: the physique rating fills both self-score
-    // sliders (they feed calculateStartingLevel), and the body-fat estimate
-    // saves a first reading so the character starts with real leanness data.
-    const [phys, fat] = await Promise.all([
-      runAiPhysique([photo], { height_cm: heightCm, bodyweight: weightKg, context: 'onboarding' }),
-      runAiBodyfat([photo], { height_cm: heightCm, weight_kg: weightKg, save: true }),
-    ]);
-    setBusy(false);
-    setPhoto(null); // analysed and dropped
-
-    if (phys.result) {
-      onScores(clamp15(phys.result.physique_score), clamp15(phys.result.leanness_score));
-      setStatus(`Scores set from the analysis (confidence: ${phys.result.confidence}).`);
-    } else if (phys.error) {
-      setStatus(phys.error);
-    }
-    if (fat.result) {
-      setBf(`${fat.result.bf_mid.toFixed(1)}% body fat (${fat.result.bf_low.toFixed(1)}–${fat.result.bf_high.toFixed(1)}) — saved as your first reading.`);
-    }
-  };
-
+function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-s4 rounded-md border border-border bg-surface-2 p-s3">
-      <Text className="mb-s1 text-xs font-bold text-accent">✦ AI ASSIST (OPTIONAL)</Text>
-      <Text className="mb-s3 text-2xs text-text-mute">
-        A physique photo rates you honestly and fills the two scores above — better than guessing
-        your own aesthetics. Analysed in memory, never stored.
+    <View className="mb-s5">
+      <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+        {n} · {title}
       </Text>
-      <View className="flex-row items-center gap-s3">
-        <Pressable
-          onPress={async () => {
-            const uri = await pickPhoto();
-            if (uri) setPhoto(uri);
-          }}
-          className="items-center rounded-md border border-border bg-surface p-s2"
-        >
-          {photo ? (
-            <Image source={{ uri: photo }} style={{ width: 56, height: 72, borderRadius: 6 }} contentFit="cover" />
-          ) : (
-            <View className="h-[72px] w-[56px] items-center justify-center">
-              <Text className="text-xl text-text-mute">＋</Text>
-            </View>
-          )}
-        </Pressable>
-        <Pressable
-          className={`flex-1 items-center rounded-md p-s3 ${photo ? 'bg-accent' : 'bg-surface'}`}
-          onPress={run}
-          disabled={busy || !photo}
-          testID="ai-assist"
-        >
-          {busy ? (
-            <ActivityIndicator color="#04121a" />
-          ) : (
-            <Text className={`font-bold ${photo ? 'text-accent-ink' : 'text-text-mute'}`}>ANALYSE</Text>
-          )}
-        </Pressable>
-      </View>
-      {status ? <Text className="mt-s2 text-2xs text-text-dim">{status}</Text> : null}
-      {bf ? <Text className="mt-s1 text-2xs text-success">{bf}</Text> : null}
+      {children}
+    </View>
+  );
+}
+
+function Num({
+  label,
+  value,
+  onChange,
+  testID,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  testID?: string;
+}) {
+  return (
+    <View className="flex-1">
+      <Text className="mb-s1 text-2xs text-text-mute">{label}</Text>
+      <TextInput
+        className="rounded-md border border-border bg-surface-2 p-s3 text-text"
+        inputMode="decimal"
+        value={value}
+        onChangeText={onChange}
+        testID={testID}
+        accessibilityLabel={label}
+      />
     </View>
   );
 }

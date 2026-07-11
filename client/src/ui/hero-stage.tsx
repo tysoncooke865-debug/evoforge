@@ -36,11 +36,15 @@ export function HeroStage({
   stage,
   auraColour,
   size = 240,
+  source,
+  silhouette = false,
 }: {
   branch: Branch;
   stage: number;
   auraColour: string;
   size?: number;
+  source?: import('react-native').ImageSourcePropType;
+  silhouette?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const bloom = useSharedValue(0);
@@ -90,7 +94,7 @@ export function HeroStage({
 
       {/* The living character (float/breathe/aura/ground loops live inside). */}
       <View style={{ zIndex: 2 }}>
-        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} />
+        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} silhouette={silhouette} />
       </View>
 
       {/* Holographic platform under the ground shadow. */}
@@ -116,7 +120,8 @@ export function HeroStage({
           style={{ position: 'absolute', bottom: -size * 0.32 + 26, alignItems: 'center', left: 0, right: 0, opacity: 0.16 }}
         >
           <Image
-            source={avatarImage(branch, stage)}
+            source={source ?? avatarImage(branch, stage)}
+            tintColor={silhouette ? '#070d1a' : undefined}
             style={{ width: size * 0.9, height: size * 0.9, transform: [{ scaleY: -1 }] }}
             contentFit="contain"
           />

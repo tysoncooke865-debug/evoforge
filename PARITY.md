@@ -49,6 +49,29 @@ w/ ??? beyond the next form, Oracle ScanFrame states mapped to the real invoke
 lifecycle, contextual cardio fields + repeat-last, derived day streaks, safe-area
 shell + tab bar, motion duration tokens.
 
+## V2 divergence (2026-07-11, deliberate new-app features)
+The pinned 3-branch rule and v1 placement stay golden-fixtured (the Streamlit
+app still runs them). The new app layers on top, client-side only:
+- **5 classes** (`branches-v2.ts`): TITAN (str≥80 & size≥70 & size dominant)
+  and CARDIO MACHINE (cond≥70 & dominant) checked BEFORE the pinned core, so
+  existing athletes cannot flip branch without crossing an extreme gate.
+  Sub-extreme space sweep-tested identical to the core rule.
+- **Placement v2** (`starting-level-v2.ts`): bench/squat/deadlift bands +
+  years + AI physique/leanness (0-15). NO self-scored sliders. Skipped scan →
+  documented derived defaults (lifts→physique; phase→leanness). Matches v1
+  exactly when deadlift=0 and AI scores equal the old sliders (tested).
+- **Onboarding v2**: sex → lifts (incl. deadlift) → nutrition phase → AI scan.
+  Migration 008 (applied): profile.sex / deadlift_e1rm / nutrition_phase,
+  additive+nullable; Streamlit unaffected.
+
+## ART NEEDED (male art exists for aesthetic ×4, mass ×3, hybrid ×3)
+Until these land, forms render as rim-lit silhouettes captioned
+"FORM NOT YET FORGED". Drop PNGs in client/src/assets/avatars/ and register
+them in `client/src/ui/avatar-art.ts` (one require + hasArt flip each):
+- male_titan stages 1-3 · male_cardio stages 1-3
+- female_aesthetic 1-4 · female_mass 1-3 · female_hybrid 1-3
+- female_titan 1-3 · female_cardio 1-3
+
 ## Known gaps (tracked, deliberate)
 - ai-coach / ai-plan Edge Functions (custom plan generator) — not yet built.
 - Navy-formula body-fat entry mode (non-AI) — domain math is ported and

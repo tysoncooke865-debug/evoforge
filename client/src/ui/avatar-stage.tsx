@@ -11,6 +11,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import type { ImageSourcePropType } from 'react-native';
+
 import type { Branch } from '@/domain/avatar-stats';
 import { animations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
@@ -31,11 +33,17 @@ export function AvatarStage({
   stage,
   auraColour,
   size = 220,
+  source,
+  silhouette = false,
 }: {
   branch: Branch;
   stage: number;
   auraColour: string;
   size?: number;
+  /** Override the art (v2 map); defaults to the branch/stage lookup. */
+  source?: ImageSourcePropType;
+  /** True = placeholder form: render as a rim-lit silhouette, never as art. */
+  silhouette?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const perfMode = useSettingsStore((s) => s.perfMode);
@@ -131,10 +139,11 @@ export function AvatarStage({
       />
       <Animated.View style={bodyStyle}>
         <Image
-          source={avatarImage(branch, stage)}
+          source={source ?? avatarImage(branch, stage)}
+          tintColor={silhouette ? '#070d1a' : undefined}
           style={{ width: size, height: size }}
           contentFit="contain"
-          accessibilityLabel="Current form"
+          accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}
         />
       </Animated.View>
       {/* Ground shadow counter-pulsing under the float. */}
