@@ -7,6 +7,7 @@ import { useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
+import { lastPerformance, prefillForSet } from '@/domain/last-performance';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
@@ -146,6 +147,7 @@ export default function TodayScreen() {
           targetSets={sets}
           scheme={scheme}
           loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
+          allRows={workouts.data ?? []}
           doneCount={validRowsFor(exercise).length}
           isNext={exercise === nextExercise}
           onPr={() => (prCountRef.current += 1)}
@@ -194,6 +196,7 @@ function ExerciseCard({
   targetSets,
   scheme,
   loggedRows,
+  allRows,
   doneCount,
   isNext,
   onPr,
@@ -204,11 +207,14 @@ function ExerciseCard({
   targetSets: number;
   scheme: string;
   loggedRows: import('@/domain/summary').WorkoutRow[];
+  allRows: import('@/domain/summary').WorkoutRow[];
   doneCount: number;
   isNext: boolean;
   onPr: () => void;
 }) {
   const done = doneCount >= targetSets;
+  // What this athlete did LAST session on this exercise (IMPROVEMENT_PLAN #2).
+  const last = lastPerformance(allRows, exercise, date);
   return (
     <GlowCard glow={done ? tokens.colors.success : isNext ? tokens.colors.accent : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
@@ -228,6 +234,7 @@ function ExerciseCard({
       </View>
       {Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
         const existing = loggedRows.find((r) => (pyInt(r.set) ?? 0) === setNo);
+        const prefill = existing ? null : prefillForSet(last, setNo);
         return (
           <SetRow
             key={setNo}
@@ -237,6 +244,8 @@ function ExerciseCard({
             setNo={setNo}
             initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
             initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
+            prefill={prefill}
+            lastDate={last?.date ?? null}
             onPr={onPr}
           />
         );
@@ -252,6 +261,8 @@ function SetRow({
   setNo,
   initialWeight,
   initialReps,
+  prefill = null,
+  lastDate = null,
   onPr,
 }: {
   date: string;
@@ -260,13 +271,17 @@ function SetRow({
   setNo: number;
   initialWeight: string;
   initialReps: string;
+  /** Last session's numbers for this set — shown editable, saved only on LOG. */
+  prefill?: { weight: number; reps: number } | null;
+  lastDate?: string | null;
   onPr: () => void;
 }) {
-  const [weight, setWeight] = useState(initialWeight);
-  const [reps, setReps] = useState(initialReps);
+  const [weight, setWeight] = useState(initialWeight !== '' ? initialWeight : prefill ? String(prefill.weight) : '');
+  const [reps, setReps] = useState(initialReps !== '' ? initialReps : prefill ? String(prefill.reps) : '');
   const [floatXp, setFloatXp] = useState(false);
   const save = useSaveSet();
   const logged = initialWeight !== '';
+  const showLast = !logged && prefill !== null;
 
   const onSave = () => {
     const w = pyFloat(weight);
@@ -296,9 +311,16 @@ function SetRow({
   return (
     <View className="mb-s2 flex-row items-center gap-s2">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
-      <Text className="w-s10 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
-        SET {setNo}
-      </Text>
+      <View className="w-s10">
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+          SET {setNo}
+        </Text>
+        {showLast ? (
+          <Text className="text-2xs" style={{ color: tokens.colors['text-mute'], fontSize: 9, letterSpacing: 0.5 }}>
+            LAST{lastDate ? ` ${lastDate.slice(5)}` : ''}
+          </Text>
+        ) : null}
+      </View>
       <TextInput
         className="w-[84px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
         inputMode="decimal"

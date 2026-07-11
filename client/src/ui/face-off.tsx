@@ -403,7 +403,7 @@ function HudPanel({ p, tint, align }: { p: BattleParticipant | null; tint: strin
           )
         )}
         <Text
-          className="text-sm font-bold text-text"
+          className={String(snap.name ?? '').length > 12 ? 'text-xs font-bold text-text' : 'text-sm font-bold text-text'}
           numberOfLines={1}
           style={{ textAlign: align, letterSpacing: 0.5 }}
         >
@@ -413,7 +413,7 @@ function HudPanel({ p, tint, align }: { p: BattleParticipant | null; tint: strin
           <Text style={{ color: tint, fontWeight: '800' }}>LV {snap.level ?? '?'}</Text>
           {' · '}PWR {snap.power ?? '?'}
         </Text>
-        <Text className="text-2xs text-text-mute" numberOfLines={1} style={{ textAlign: align }}>
+        <Text className="text-2xs text-text-mute" numberOfLines={2} style={{ textAlign: align }}>
           {snap.characterClass ?? ''}
         </Text>
       </View>

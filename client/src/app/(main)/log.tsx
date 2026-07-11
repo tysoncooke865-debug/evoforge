@@ -9,6 +9,7 @@ import tokens from '@/theme/tokens';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
+import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -17,11 +18,20 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
  * so what the button promises is what the ledger receives.
  */
 export default function LogScreen() {
+  // CARDIO | STATS segments (IMPROVEMENT_PLAN #3). Both stay MOUNTED and
+  // toggle via display style -- conditional rendering would drop half-typed
+  // form state on a tab switch.
+  const [tab, setTab] = useState<0 | 1>(0);
   return (
     <ScreenShell><ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" />
-        <CardioCard />
-        <BodyweightCard />
-        <MeasurementsCard />
+        <SegmentedTabs left="CARDIO" right="STATS" active={tab} onChange={setTab} testIDPrefix="log-tab" />
+        <View style={{ display: tab === 0 ? 'flex' : 'none', gap: 16 }}>
+          <CardioCard />
+        </View>
+        <View style={{ display: tab === 1 ? 'flex' : 'none', gap: 16 }}>
+          <BodyweightCard />
+          <MeasurementsCard />
+        </View>
     </ScreenShell>
   );
 }
@@ -264,8 +274,10 @@ function BodyweightCard() {
   );
 }
 
+// 'bodyweight' deliberately absent: it wrote measurements.bodyweight, which
+// NOTHING reads back — bodyweight lives in bodyweight_log (the card above).
+// The column stays for old rows (IMPROVEMENT_PLAN #1).
 const MEASUREMENT_FIELDS = [
-  ['bodyweight', 'BODYWEIGHT'],
   ['neck_cm', 'NECK'],
   ['shoulders_cm', 'SHOULDERS'],
   ['chest_cm', 'CHEST'],

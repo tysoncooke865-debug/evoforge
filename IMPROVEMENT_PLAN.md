@@ -331,11 +331,11 @@ Ordering: 010 → 011 are independent; 012 → 013 is a hard order. Deploy order
 Work on `expo-rewrite`. `migrations/` commits need `[architect]`. Per change-set: tsc + vitest + lint + export + tour, push, verify CI + live bundle marker, update the affected doc in the same commit.
 
 - [x] 0. Plan committed as `IMPROVEMENT_PLAN.md` at the repo root on `expo-rewrite` (this commit).
-- [ ] 1. **#4** Title fixes: `screen-header.tsx` two-line + size-step, `face-off.tsx`, catalog-fit vitest, 320 px tour check.
-- [ ] 2. **#7** `router.replace('/arena')` in ResultsPhase; audit exit states; two-account nav test.
-- [ ] 3. **#3** Log screen CARDIO|STATS segments (extract `SegmentedTabs`), both mounted, tour screenshots.
-- [ ] 4. **#1** `use-current-stats.ts` seam + BODY STATS card on profile (`useLogBodyweight` append, `useUpdateHeight`), retire measurements bodyweight input, route ai/goals/avatar-data through the seam, parity suite green.
-- [ ] 5. **#2** `last-performance.ts` + Today prefill with LAST affordance; vitest matrix.
+- [x] 1. **#4** Title fixes: `screen-header.tsx` two-line + size-step, `face-off.tsx`, catalog-fit vitest, 320 px tour check.
+- [x] 2. **#7** `router.replace('/arena')` in ResultsPhase; audit exit states; two-account nav test.
+- [x] 3. **#3** Log screen CARDIO|STATS segments (extract `SegmentedTabs`), both mounted, tour screenshots.
+- [x] 4. **#1** `use-current-stats.ts` seam + BODY STATS card on profile (`useLogBodyweight` append, `useUpdateHeight`), retire measurements bodyweight input, route ai/goals/avatar-data through the seam, parity suite green.
+- [x] 5. **#2** `last-performance.ts` + Today prefill with LAST affordance; vitest matrix.
 - [ ] 6. **Migration 010** on staging → checklist → production `[human]`.
 - [ ] 7. **#5** `battle-cancel` fn + settle/physique CAS hardening + confirm overlay + `AbandonedPhase` + CANCELLED badge; two-account cancel test; falsify the race.
 - [ ] 8. **#8** bundle `storage_path` + `useBattleMediaUrl` + `physique-reveal.ts` + `PhysiqueDuel` panels; two-account reveal test; cross-match 403 falsification; update `client/CLAUDE.md` photo invariant wording.

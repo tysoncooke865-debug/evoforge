@@ -5,8 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import { pickPhoto, runAiBodyfat, runAiPhysique, type BodyfatResult, type PhysiqueResult } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
-import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { useCurrentStats } from '@/data/use-current-stats';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { EdgeLabel } from '@/ui/hud';
@@ -191,10 +191,9 @@ function PhysiqueSection() {
 }
 
 function BodyfatSection() {
-  const profile = useProfile();
+  const current = useCurrentStats();
   const queryClient = useQueryClient();
   const { session } = useAuth();
-  const { stats } = useAvatarData();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<BodyfatResult | null>(null);
@@ -210,9 +209,11 @@ function BodyfatSection() {
     if (images.length === 0) return;
     setBusy(true);
     setError(null);
+    // The seam is nullable by contract; the AI payload keeps its historical
+    // explicit defaults (77 kg frame fallback, 0 = unknown height).
     const { result: r, error: err } = await runAiBodyfat(images, {
-      height_cm: profile.data?.height_cm ?? 0,
-      weight_kg: stats.bodyweight,
+      height_cm: current.heightCm ?? 0,
+      weight_kg: current.bodyweightKg ?? 77,
       save: true,
     });
     setBusy(false);

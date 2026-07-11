@@ -12,8 +12,8 @@ import {
   IconBadge,
   PressCard,
   RulesStrip,
-  SegmentedTabs,
 } from '@/ui/battle-arena';
+import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { NeonButton } from '@/ui/neon-button';
 import { SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';

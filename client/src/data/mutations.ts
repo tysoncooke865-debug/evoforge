@@ -239,10 +239,11 @@ export function useUpdateTrainingNumbers() {
   const userId = session?.user?.id ?? null;
 
   return useMutation({
-    mutationFn: async (fields: { deadliftE1rm?: number | null; nutritionPhase?: string }) => {
+    mutationFn: async (fields: { deadliftE1rm?: number | null; nutritionPhase?: string; heightCm?: number }) => {
       const row: Record<string, unknown> = {};
       if ('deadliftE1rm' in fields) row.deadlift_e1rm = fields.deadliftE1rm;
       if (fields.nutritionPhase) row.nutrition_phase = fields.nutritionPhase;
+      if (fields.heightCm && fields.heightCm > 0) row.height_cm = fields.heightCm;
       if (Object.keys(row).length === 0) return;
       const { error, count } = await supabase
         .from('profile')

@@ -3,7 +3,8 @@ import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
-import { useUpdateTrainingNumbers } from '@/data/mutations';
+import { useLogBodyweight, useUpdateTrainingNumbers } from '@/data/mutations';
+import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
@@ -65,6 +66,8 @@ export default function ProfileScreen() {
           })}
         </View>
 
+        <BodyStatsCard />
+
         <TrainingNumbersCard />
 
         <View className="rounded-lg border border-border bg-surface p-s4">
@@ -88,6 +91,97 @@ export default function ProfileScreen() {
           <Text className="font-bold text-text">SIGN OUT</Text>
         </Pressable>
     </ScreenShell>
+  );
+}
+
+/**
+ * BODY STATS (IMPROVEMENT_PLAN #1): the corrected write path over the one
+ * read seam. Bodyweight APPENDS to bodyweight_log (never edits the frozen
+ * onboarding snapshot -- base_level was derived from it); height updates
+ * profile.height_cm; lifts are read-only because they are DERIVED from the
+ * logs -- an editable field here would recreate the second source of truth
+ * this card exists to remove.
+ */
+function BodyStatsCard() {
+  const current = useCurrentStats();
+  const logBw = useLogBodyweight();
+  const training = useUpdateTrainingNumbers();
+  const [bw, setBw] = useState('');
+  const [height, setHeight] = useState('');
+
+  const bwNum = pyFloat(bw);
+  const heightNum = pyFloat(height);
+  const fmt = (v: number | null, unit: string) => (v === null ? 'not tracked' : `${Math.round(v * 10) / 10} ${unit}`);
+
+  return (
+    <View className="rounded-lg border border-border bg-surface p-s4">
+      <Text className="mb-s1 text-xs text-text-mute">BODY STATS</Text>
+      <Text className="mb-s3 text-2xs text-text-mute">
+        One source of truth: weight entries append to your log; lifts derive from what you train.
+      </Text>
+      <View className="mb-s3 flex-row gap-s2">
+        <View className="flex-1">
+          <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            BODYWEIGHT · {fmt(current.bodyweightKg, 'kg')}
+          </Text>
+          <TextInput
+            className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
+            inputMode="decimal"
+            placeholder="log new (kg)"
+            placeholderTextColor="#64758f"
+            value={bw}
+            onChangeText={setBw}
+            testID="body-bw"
+          />
+        </View>
+        <View className="flex-1">
+          <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            HEIGHT · {fmt(current.heightCm, 'cm')}
+          </Text>
+          <TextInput
+            className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
+            inputMode="decimal"
+            placeholder="update (cm)"
+            placeholderTextColor="#64758f"
+            value={height}
+            onChangeText={setHeight}
+            testID="body-height"
+          />
+        </View>
+      </View>
+      <View className="mb-s3">
+        {([
+          ['BENCH', current.benchE1rm, current.sources.bench],
+          ['SQUAT', current.squatE1rm, current.sources.squat],
+          ['DEADLIFT', current.deadliftE1rm, current.sources.deadlift],
+        ] as const).map(([label, value, src]) => (
+          <View key={label} className="flex-row items-center justify-between py-s1">
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+              {label}
+            </Text>
+            <Text className="text-xs text-text-dim">
+              {value === null ? 'not tracked' : `${Math.round(value * 10) / 10} kg e1RM`}
+              <Text className="text-text-mute">
+                {src === 'log' ? ' · from your logs' : src === 'profile' ? ' · onboarding' : ''}
+              </Text>
+            </Text>
+          </View>
+        ))}
+      </View>
+      <NeonButton
+        title="SAVE BODY STATS"
+        onPress={() => {
+          if (bwNum !== null && bwNum > 0) logBw.mutate(bwNum, { onSuccess: () => setBw('') });
+          if (heightNum !== null && heightNum > 50 && heightNum < 260) {
+            training.mutate({ heightCm: heightNum });
+            setHeight('');
+          }
+        }}
+        disabled={!((bwNum ?? 0) > 0 || ((heightNum ?? 0) > 50 && (heightNum ?? 0) < 260))}
+        busy={logBw.isPending || training.isPending}
+        testID="body-save"
+      />
+    </View>
   );
 }
 

@@ -8,11 +8,28 @@ import tokens from '@/theme/tokens';
  * bloom, and a gradient hairline that fades out -- headers should dominate,
  * everything under them should defer.
  */
-export function ScreenHeader({ kicker, title, right }: { kicker: string; title: string; right?: React.ReactNode }) {
+export function ScreenHeader({
+  kicker,
+  title,
+  right,
+  titleLines = 1,
+  autoSize = false,
+}: {
+  kicker: string;
+  title: string;
+  right?: React.ReactNode;
+  /** Allow wrapping instead of the default single ellipsized line. */
+  titleLines?: number;
+  /** Step long titles down one size token. adjustsFontSizeToFit is NOT
+   *  supported on react-native-web, so the step is a pure length rule —
+   *  the battle catalogs are closed and a vitest pins that every title fits. */
+  autoSize?: boolean;
+}) {
+  const big = !autoSize || title.length <= 14;
   return (
     <View className="mb-s1 w-full">
       <View className="flex-row items-end justify-between">
-        <View className="flex-1">
+        <View className="flex-1" style={{ minWidth: 0 }}>
           <Text
             className="text-2xs font-bold text-text-mute"
             style={{ letterSpacing: 3, textTransform: 'uppercase' }}
@@ -20,13 +37,13 @@ export function ScreenHeader({ kicker, title, right }: { kicker: string; title: 
             {kicker}
           </Text>
           <Text
-            className="text-3xl font-bold text-text"
+            className={`${big ? 'text-3xl' : 'text-2xl'} font-bold text-text`}
             style={{
               letterSpacing: 0.5,
               textShadowColor: 'rgba(34, 211, 238, 0.5)',
               textShadowRadius: 18,
             }}
-            numberOfLines={1}
+            numberOfLines={titleLines}
           >
             {title}
           </Text>

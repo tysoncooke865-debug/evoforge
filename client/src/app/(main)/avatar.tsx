@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
-import { SegmentedTabs } from '@/ui/battle-arena';
+import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { SkillTreeView } from '@/ui/skill-tree';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';

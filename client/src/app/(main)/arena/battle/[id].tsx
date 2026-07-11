@@ -300,6 +300,8 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
       <ScreenHeader
         kicker="ROUND 1 · STRENGTH"
         title={`LIFT THE ${object.name.toUpperCase()}`}
+        titleLines={2}
+        autoSize
         right={
           <Text
             className="text-2xl font-bold"
@@ -384,6 +386,8 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
       <ScreenHeader
         kicker="ROUND 2 · CARDIO"
         title={challenge.name.toUpperCase()}
+        titleLines={2}
+        autoSize
         right={
           <Text
             className="text-2xl font-bold"
@@ -744,7 +748,10 @@ function ResultsPhase({ data, me, them }: { data: BattleBundle; me: BattlePartic
       />
       <ScoreCard p={me} scores={data.scores} won={iWon} />
       <ScoreCard p={them} scores={data.scores} won={!iWon && !draw && match.status === 'settled'} />
-      <NeonButton title="BACK TO THE ARENA" variant="ghost" onPress={() => router.back()} />
+      {/* replace, not back(): from a deep link or refresh, back() can land
+          on Home or exit the group -- and the settled battle should not be
+          back-reachable into a stale state (IMPROVEMENT_PLAN #7). */}
+      <NeonButton title="BACK TO THE ARENA" variant="ghost" onPress={() => router.replace('/arena')} />
     </>
   );
 }
