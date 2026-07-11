@@ -1,0 +1,142 @@
+/**
+ * Battle writes. Everything authoritative goes through the edge functions
+ * (the client has no write path to matches/scores — RLS enforces it); the
+ * one direct insert is battle_events, whose 009 trigger rebuilds the payload
+ * from the referenced owned log row, so nothing here is trusted anyway.
+ */
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useToastStore } from '@/state/toast-store';
+
+import { useAuth } from '../auth-context';
+import { supabase } from '../supabase';
+import { useAvatarData } from '../use-avatar-data';
+
+/** The display snapshot sent to invite/join; server clamps + names it. */
+export function useBattleSnapshot(): Record<string, unknown> {
+  const { summary, stats, branchV2, sex } = useAvatarData();
+  const power = Math.trunc(
+    summary.level * 2 +
+      (stats.strengthScore + stats.sizeScore + stats.leannessScore + stats.conditioningScore + stats.aestheticScore) / 5
+  );
+  return {
+    level: summary.level,
+    power,
+    strengthScore: stats.strengthScore,
+    conditioningScore: stats.conditioningScore,
+    branch: branchV2,
+    stage: 1,
+    sex,
+    characterClass: stats.characterClass,
+  };
+}
+
+async function invokeBattle(fn: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.functions.invoke(fn, { body });
+  if (error) {
+    // The gateway wraps non-2xx; surface the function's own message if present.
+    let message = error.message;
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const payload = await ctx.json();
+        if (payload?.error) message = String(payload.error);
+      } catch {
+        // keep the gateway message
+      }
+    }
+    throw new Error(message);
+  }
+  if (data && typeof data === 'object' && 'error' in data && data.error) {
+    throw new Error(String(data.error));
+  }
+  return (data ?? {}) as Record<string, unknown>;
+}
+
+export function useCreateInvite() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: (snapshot: Record<string, unknown>) => invokeBattle('battle-invite', { snapshot }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'NO BATTLE CREATED', subtitle: e.message });
+    },
+  });
+}
+
+export function useJoinBattle() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: ({ code, snapshot }: { code: string; snapshot: Record<string, unknown> }) =>
+      invokeBattle('battle-join', { code, snapshot }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'COULD NOT JOIN', subtitle: e.message });
+    },
+  });
+}
+
+export function useReadyUp(matchId: string) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: () => invokeBattle('battle-ready', { match_id: matchId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'READY FAILED', subtitle: e.message });
+    },
+  });
+}
+
+export function useSettleBattle(matchId: string) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: () => invokeBattle('battle-settle', { match_id: matchId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
+      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+      // Battle XP landed in the ledger — the avatar must hear about it.
+      void queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'SETTLE FAILED', subtitle: e.message });
+    },
+  });
+}
+
+/**
+ * Tie a just-saved workout_log row into the battle. Fire-and-forget in
+ * spirit (a failure never blocks the save that already happened) but never
+ * silent — the athlete must know a set didn't count for the battle.
+ */
+export async function postBattleVolume(matchId: string, roundNo: number, workoutLogId: string): Promise<boolean> {
+  const { error } = await supabase.from('battle_events').insert({
+    match_id: matchId,
+    round_no: roundNo,
+    kind: 'volume',
+    source_id: workoutLogId,
+  });
+  if (error && !/duplicate|unique/i.test(error.message)) {
+    useToastStore.getState().push({
+      kind: 'error',
+      title: 'SET NOT COUNTED',
+      subtitle: error.message.includes('window') ? 'Logged outside the round window.' : error.message,
+    });
+    return false;
+  }
+  return true;
+}

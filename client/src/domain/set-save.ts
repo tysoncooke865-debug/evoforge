@@ -39,6 +39,9 @@ export type SetVerdict =
       is_pr: boolean;
       current1rm: number;
       previousBest: number;
+      /** Filled in by the mutation after the insert returns its id, so
+       *  callers (the Battle Arena) can reference the confirmed row. */
+      rowId?: string;
     };
 
 /** `get_previous_best_1rm`: best e1RM for the exercise, excluding the set being saved. */

@@ -22,10 +22,14 @@ been falsified** — delete the fix, watch it go red, restore.
 
 ## IN PROGRESS — Battle Arena (competitive PvP)
 **`BATTLE_ARENA_DESIGN.md` is the plan of record** (2026-07-11). D1–D4
-**decided** (§15): BLITZ + live-only FULL formats, battle photos in a
-private bucket, coins deferred, public_profile identity. Next: **P0 —
-migration 009** (`[claude]`, `[architect]` commit), then P1 = friendly
-BLITZ battle, Round 1 only, end-to-end.
+decided (§15). **P0 DONE** — migration 009 applied + falsified in prod.
+**P1 DONE** — friendly BLITZ battles live end-to-end: Arena tab, invite/
+join/ready/settle edge functions, 12-min strength round, realtime dual
+progress, server verdict, ledger XP. Two-account Playwright battle run
+against production: 990 vs 876, grants landed. Next: **P2** = rounds 2+3
+(cardio catalog + battle-physique with pose compliance + the private
+battle-media bucket write path; update client/CLAUDE.md's photo invariant
+in that commit).
 
 ---
 

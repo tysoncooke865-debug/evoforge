@@ -60,6 +60,7 @@ export function useSaveSet() {
         .select('id,timestamp')
         .single();
       if (error) throw error;
+      verdict.rowId = String(data.id); // the confirmed row, for battle events
 
       // The grant, keyed to the new row. Idempotence lives in Postgres: the
       // partial unique index on (user_id, source_table, source_id) makes a

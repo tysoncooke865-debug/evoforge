@@ -1,7 +1,9 @@
 # BATTLE ARENA — technical design (v1, 2026-07-11)
 
-> Status: **DECIDED — D1–D4 answered by Tyson 2026-07-11 (§15). P0 (migration
-> 009) is unblocked.** No battle code exists yet.
+> Status: **P0 + P1 SHIPPED (2026-07-11).** Migration 009 applied and
+> falsified in production; friendly BLITZ battles (Round 1, strength) are
+> live end-to-end and were battle-tested with two real accounts against
+> production. Next: P2 (rounds 2+3).
 > Read with: `client/CLAUDE.md` (invariants), `PARITY.md` (v2 layer rules),
 > `migrations/006` (the anti-mint pattern this design extends).
 

@@ -90,6 +90,9 @@ jobs:
       - name: verify-tokens — tokens.js equals assets/styles.css :root, both directions
         run: node scripts/verify-tokens.mjs
 
+      - name: verify-battle-engine — client and server scoring are byte-identical
+        run: node scripts/verify-battle-engine.mjs
+
       - name: Parity suite — TS domain reproduces every golden case exactly
         run: npx vitest run src/domain
 

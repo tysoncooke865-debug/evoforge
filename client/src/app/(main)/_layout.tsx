@@ -84,6 +84,7 @@ export default function MainLayout() {
       <Tabs.Screen name="log" options={{ title: 'Log', tabBarIcon: makeIcon('✚') }} />
       <Tabs.Screen name="ai" options={{ title: 'AI', tabBarIcon: makeIcon('✦') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }} />
+      <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
       <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: makeIcon('≡') }} />
       {/* Routable, not in the bar — reached from More. */}
       <Tabs.Screen name="progress" options={{ href: null }} />
