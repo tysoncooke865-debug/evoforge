@@ -8,6 +8,7 @@ import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useToastStore } from '@/state/toast-store';
+import { ScanFrame, type ScanState } from '@/ui/scan-frame';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
 
@@ -100,11 +101,14 @@ function PhysiqueSection() {
   return (
     <View className="rounded-lg border border-border bg-surface p-s4">
       <Text className="mb-s2 text-xs text-text-mute">AI PHYSIQUE RATING</Text>
-      <View className="mb-s3 flex-row gap-s2">
-        <PhotoSlot label="FRONT" uri={photos[0]} onPick={pick(0)} />
-        <PhotoSlot label="SIDE" uri={photos[1]} onPick={pick(1)} />
-        <PhotoSlot label="BACK" uri={photos[2]} onPick={pick(2)} />
-      </View>
+      <ScanFrame state={physiqueScanState(busy, error, result !== null, anyPhoto)}>
+        <View className="flex-row gap-s2">
+          <PhotoSlot label="FRONT" uri={photos[0]} onPick={pick(0)} />
+          <PhotoSlot label="SIDE" uri={photos[1]} onPick={pick(1)} />
+          <PhotoSlot label="BACK" uri={photos[2]} onPick={pick(2)} />
+        </View>
+      </ScanFrame>
+      <View className="mb-s3" />
       {error ? <Text className="mb-s2 text-xs text-danger">{error}</Text> : null}
       <Pressable
         className={`items-center rounded-md p-s3 ${anyPhoto ? 'bg-accent' : 'bg-surface-2'}`}
@@ -178,11 +182,14 @@ function BodyfatSection() {
   return (
     <View className="rounded-lg border border-border bg-surface p-s4">
       <Text className="mb-s2 text-xs text-text-mute">AI BODY FAT ESTIMATE</Text>
-      <View className="mb-s3 flex-row gap-s2">
-        <PhotoSlot label="FRONT" uri={photos[0]} onPick={pick(0)} />
-        <PhotoSlot label="BACK" uri={photos[1]} onPick={pick(1)} />
-        <View className="flex-1" />
-      </View>
+      <ScanFrame state={physiqueScanState(busy, error, result !== null, anyPhoto)}>
+        <View className="flex-row gap-s2">
+          <PhotoSlot label="FRONT" uri={photos[0]} onPick={pick(0)} />
+          <PhotoSlot label="BACK" uri={photos[1]} onPick={pick(1)} />
+          <View className="flex-1" />
+        </View>
+      </ScanFrame>
+      <View className="mb-s3" />
       {error ? <Text className="mb-s2 text-xs text-danger">{error}</Text> : null}
       <Pressable
         className={`items-center rounded-md p-s3 ${anyPhoto ? 'bg-accent' : 'bg-surface-2'}`}
@@ -210,4 +217,13 @@ function BodyfatSection() {
       ) : null}
     </View>
   );
+}
+
+
+function physiqueScanState(busy: boolean, error: string | null, hasResult: boolean, anyPhoto: boolean): ScanState {
+  if (busy) return 'analysing';
+  if (error) return 'error';
+  if (hasResult) return 'complete';
+  if (anyPhoto) return 'ready';
+  return 'idle';
 }

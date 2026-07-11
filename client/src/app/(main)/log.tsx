@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
+import { useCardioLog } from '@/data/hooks';
 import { useLogBodyweight, useLogCardio, useLogMeasurements } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
@@ -51,6 +52,27 @@ function Field({
   );
 }
 
+/** Which inputs each activity actually uses — irrelevant fields never render. */
+const CARDIO_FIELDS: Record<string, { minutes?: boolean; distance?: boolean; incline?: boolean; speed?: boolean; calories?: boolean; rounds?: boolean }> = {
+  'Treadmill incline walk': { minutes: true, incline: true, speed: true, distance: true, calories: true },
+  'Outdoor walk': { minutes: true, distance: true, calories: true },
+  Run: { minutes: true, distance: true, calories: true },
+  Bike: { minutes: true, distance: true, calories: true },
+  Stairmaster: { minutes: true, incline: true, calories: true },
+  Boxing: { rounds: true, calories: true },
+  Other: { minutes: true, distance: true, calories: true },
+};
+
+const CARDIO_ICONS: Record<string, string> = {
+  'Treadmill incline walk': '⛰',
+  'Outdoor walk': '🚶',
+  Run: '🏃',
+  Bike: '🚴',
+  Stairmaster: '🪜',
+  Boxing: '🥊',
+  Other: '✚',
+};
+
 function CardioCard() {
   const [type, setType] = useState<string>(CARDIO_TYPES[0]);
   const [minutes, setMinutes] = useState('');
@@ -58,14 +80,42 @@ function CardioCard() {
   const [incline, setIncline] = useState('');
   const [speed, setSpeed] = useState('');
   const [calories, setCalories] = useState('');
+  const [rounds, setRounds] = useState('');
+  const [roundLen, setRoundLen] = useState('3');
   const [notes, setNotes] = useState('');
   const log = useLogCardio();
+  const history = useCardioLog();
 
-  const mins = pyFloat(minutes) ?? 0;
+  const fields = CARDIO_FIELDS[type] ?? CARDIO_FIELDS.Other;
+
+  // Boxing has no schema column for rounds: minutes derive as rounds x length,
+  // and the round detail rides in notes. No schema change, honest storage.
+  const boxing = Boolean(fields.rounds);
+  const mins = boxing
+    ? (pyFloat(rounds) ?? 0) * (pyFloat(roundLen) ?? 0)
+    : (pyFloat(minutes) ?? 0);
   const xpPreview = cardioEventAmount(mins);
+
+  // One-tap reuse: the latest session of this type prefills the form.
+  const lastOfType = [...(history.data ?? [])].reverse().find((r) => String(r.type) === type);
+  const repeatLast = () => {
+    if (!lastOfType) return;
+    const m = pyFloat(lastOfType.minutes) ?? 0;
+    if (boxing) {
+      const len = pyFloat(roundLen) ?? 3;
+      setRounds(len > 0 ? String(Math.round(m / len)) : '');
+    } else {
+      setMinutes(m > 0 ? String(m) : '');
+    }
+    const d = pyFloat((lastOfType as Record<string, unknown>).distance_km) ?? 0;
+    setDistance(d > 0 ? String(d) : '');
+  };
 
   const submit = () => {
     if (mins <= 0) return;
+    const noteText = boxing
+      ? [`${rounds || 0} rounds x ${roundLen || 0} min`, notes].filter(Boolean).join(' — ')
+      : notes;
     log.mutate(
       {
         type,
@@ -74,7 +124,7 @@ function CardioCard() {
         incline: pyFloat(incline) ?? 0,
         speed: pyFloat(speed) ?? 0,
         calories: pyFloat(calories) ?? 0,
-        notes,
+        notes: noteText,
       },
       {
         onSuccess: () => {
@@ -83,6 +133,7 @@ function CardioCard() {
           setIncline('');
           setSpeed('');
           setCalories('');
+          setRounds('');
           setNotes('');
         },
       }
@@ -98,10 +149,13 @@ function CardioCard() {
           <Pressable
             key={t}
             onPress={() => setType(t)}
-            className={`rounded-pill border px-s3 py-s1 ${
+            accessibilityRole="button"
+            accessibilityLabel={`Select ${t}`}
+            className={`min-h-[44px] flex-row items-center gap-s1 rounded-pill border px-s3 py-s1 ${
               t === type ? 'border-border-strong bg-surface-3' : 'border-border bg-surface-2'
             }`}
           >
+            <Text className="text-sm">{CARDIO_ICONS[t]}</Text>
             <Text className={`text-xs font-bold ${t === type ? 'text-accent' : 'text-text-dim'}`}>
               {t}
             </Text>
@@ -109,20 +163,43 @@ function CardioCard() {
         ))}
       </View>
 
+      {lastOfType ? (
+        <Pressable
+          onPress={repeatLast}
+          accessibilityRole="button"
+          className="mb-s3 self-start rounded-pill border border-border px-s3 py-s1"
+        >
+          <Text className="text-2xs font-bold text-accent">
+            ↺ REPEAT LAST · {Math.trunc(pyFloat(lastOfType.minutes) ?? 0)} MIN
+          </Text>
+        </Pressable>
+      ) : null}
+
       <View className="mb-s2 flex-row gap-s2">
-        <Field label="MINUTES" value={minutes} onChange={setMinutes} testID="cardio-minutes" />
-        <Field label="DISTANCE KM" value={distance} onChange={setDistance} testID="cardio-distance" />
+        {boxing ? (
+          <>
+            <Field label="ROUNDS" value={rounds} onChange={setRounds} testID="cardio-rounds" />
+            <Field label="ROUND MIN" value={roundLen} onChange={setRoundLen} />
+          </>
+        ) : (
+          <Field label="MINUTES" value={minutes} onChange={setMinutes} testID="cardio-minutes" />
+        )}
+        {fields.distance ? (
+          <Field label="DISTANCE KM" value={distance} onChange={setDistance} testID="cardio-distance" />
+        ) : null}
       </View>
-      <View className="mb-s2 flex-row gap-s2">
-        <Field label="INCLINE %" value={incline} onChange={setIncline} />
-        <Field label="SPEED KM/H" value={speed} onChange={setSpeed} />
-        <Field label="CALORIES" value={calories} onChange={setCalories} />
-      </View>
+      {fields.incline || fields.speed || fields.calories ? (
+        <View className="mb-s2 flex-row gap-s2">
+          {fields.incline ? <Field label="INCLINE %" value={incline} onChange={setIncline} /> : null}
+          {fields.speed ? <Field label="SPEED KM/H" value={speed} onChange={setSpeed} /> : null}
+          {fields.calories ? <Field label="CALORIES" value={calories} onChange={setCalories} /> : null}
+        </View>
+      ) : null}
       <View className="mb-s3">
         <Text className="mb-s1 text-2xs text-text-mute">NOTES</Text>
         <TextInput
           className="rounded-md border border-border bg-surface-2 p-s2 text-text"
-          placeholder="Example: 12% incline, 4.6km/h, post-pull"
+          placeholder={boxing ? 'Intensity, sparring vs bag…' : 'Example: 12% incline, 4.6km/h, post-pull'}
           placeholderTextColor="#64758f"
           value={notes}
           onChangeText={setNotes}
@@ -130,9 +207,10 @@ function CardioCard() {
       </View>
 
       <Pressable
-        className={`items-center rounded-md p-s3 ${mins > 0 ? 'bg-accent' : 'bg-surface-2'}`}
+        className={`min-h-[44px] items-center justify-center rounded-md p-s3 ${mins > 0 ? 'bg-accent' : 'bg-surface-2'}`}
         onPress={submit}
         disabled={log.isPending || mins <= 0}
+        accessibilityRole="button"
         testID="cardio-save"
       >
         {log.isPending ? (

@@ -27,10 +27,11 @@ export default function MainLayout() {
   // Level-up detector: compares CONFIRMED summary.level across refetches.
   // First observation only arms it (no ceremony for merely opening the app);
   // multi-level jumps celebrate once, from the old level to the new.
-  const { summary } = useAvatarData();
+  const { summary, ready } = useAvatarData();
   const prevLevelRef = useRef<number | null>(null);
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(null);
   useEffect(() => {
+    if (!ready) return; // pre-load defaults must never arm or trigger
     const level = summary.level;
     if (prevLevelRef.current === null) {
       prevLevelRef.current = level;
@@ -40,7 +41,7 @@ export default function MainLayout() {
       setLevelUp({ from: prevLevelRef.current, to: level });
     }
     prevLevelRef.current = level;
-  }, [summary.level]);
+  }, [summary.level, ready]);
 
   if (loading || (session && profile.isPending)) {
     return (

@@ -12,6 +12,9 @@ import { pyFloat } from '@/domain/py';
 import { workoutSummary, type WorkoutSummary } from '@/domain/summary';
 
 export interface AvatarData {
+  /** True once every underlying query has resolved — level/XP are REAL, not
+   *  the pre-load defaults. Celebration detectors must wait for this. */
+  ready: boolean;
   summary: WorkoutSummary;
   stats: AvatarStats;
   bfMid: number | null;
@@ -69,5 +72,11 @@ export function useAvatarData(): AvatarData {
     cardioDistanceKm,
   });
 
-  return { summary, stats, bfMid: bfMid.data ?? null, cardioDistanceKm };
+  const ready =
+    !profile.isPending &&
+    !workouts.isPending &&
+    !cardio.isPending &&
+    !ledger.isPending;
+
+  return { ready, summary, stats, bfMid: bfMid.data ?? null, cardioDistanceKm };
 }

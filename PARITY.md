@@ -39,6 +39,16 @@ Legend: ✅ built + machine-verified · 👁 built, needs human sign-off · — 
   `smoke-test-claude@evoforge.internal` account (admin-created, RLS-isolated,
   safe to delete) and captures every screen at 430px.
 
+## Living-RPG pass (2026-07-11, plan cheeky-floating-lecun)
+HeroStage (platform/fog/reflection/particles, XP-reactive bloom), HUD layout on
+Home (cards removed where they added nothing), StatBar rows w/ radar toggle,
+FloatingXP from confirmed insert verdicts, SummarySheet ceremony, LevelUpOverlay
+(confirmed-state detector, ready-gated -- the tour caught the pre-load false
+fire), Avatar requirement bars + readiness + NEXT UP/THE WALL, true silhouettes
+w/ ??? beyond the next form, Oracle ScanFrame states mapped to the real invoke
+lifecycle, contextual cardio fields + repeat-last, derived day streaks, safe-area
+shell + tab bar, motion duration tokens.
+
 ## Known gaps (tracked, deliberate)
 - ai-coach / ai-plan Edge Functions (custom plan generator) — not yet built.
 - Navy-formula body-fat entry mode (non-AI) — domain math is ported and
@@ -46,3 +56,6 @@ Legend: ✅ built + machine-verified · 👁 built, needs human sign-off · — 
 - Locked-avatar PNGs via build-time Pillow script — tintColor stands in.
 - Native (Expo Go) session check — parked on Apple approving Expo Go SDK 57.
 - 1280px desktop sidebar variant — bottom tabs serve all widths for now.
+- Personalisation (accent themes, banners, custom titles) — needs a user-prefs
+  table (would be migration 008); component slots exist, deferred.
+- Workout duration on the summary sheet — needs session start/stop tracking.
