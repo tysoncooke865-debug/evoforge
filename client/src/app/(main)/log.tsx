@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { useLogBodyweight, useLogCardio, useLogMeasurements } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /**
  * Log: cardio sessions and bodyweight readings. Cardio previews the XP the
@@ -14,6 +15,7 @@ export default function LogScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px] gap-s4">
+        <ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" />
         <CardioCard />
         <BodyweightCard />
         <MeasurementsCard />

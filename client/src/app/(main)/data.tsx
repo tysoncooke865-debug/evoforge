@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/data/auth-context';
 import { supabase } from '@/data/supabase';
 import { useToastStore } from '@/state/toast-store';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /**
  * Data: export everything as a ZIP of CSVs (client-side fflate, the plan's
@@ -47,6 +48,7 @@ export default function DataScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px] gap-s4">
+        <ScreenHeader kicker="YOURS TO KEEP" title="DATA" />
         <ExportCard />
         <DeleteCard />
       </View>

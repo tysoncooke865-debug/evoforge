@@ -8,6 +8,7 @@ import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useToastStore } from '@/state/toast-store';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /**
  * The unified AI page: physique rating and body-fat estimate together (they
@@ -20,6 +21,7 @@ export default function AiScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px] gap-s4">
+        <ScreenHeader kicker="THE ORACLE" title="AI ANALYSIS" />
         <PhysiqueSection />
         <BodyfatSection />
         <Text className="text-2xs text-text-mute">

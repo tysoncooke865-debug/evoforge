@@ -7,6 +7,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { pyFloat } from '@/domain/py';
 import { journeyPercent } from '@/domain/targets';
 import { XpBar } from '@/ui/xp-bar';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /**
  * Goals: body-fat %, bodyweight and bench-1RM targets, each with a JOURNEY
@@ -48,6 +49,7 @@ export default function GoalsScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px] gap-s4">
+        <ScreenHeader kicker="THE ROAD AHEAD" title="GOALS" />
         <GoalCard
           title="BODY FAT %"
           unit="%"

@@ -2,6 +2,7 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { useAchievements } from '@/data/hooks';
 import { ACHIEVEMENTS } from '@/domain/catalogs';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /** All 64 achievements, earned ones lit. The catalog is the generated one the
  *  parity suite pins, so this grid cannot drift from what the sweep grants. */
@@ -16,6 +17,7 @@ export default function AwardsScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px]">
+        <ScreenHeader kicker="TROPHY HALL" title="ACHIEVEMENTS" />
         <View className="mb-s4 rounded-lg border border-border bg-surface p-s4">
           <Text className="text-xs text-text-mute">ACHIEVEMENTS</Text>
           <Text className="text-2xl font-bold text-accent">

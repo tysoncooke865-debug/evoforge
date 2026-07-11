@@ -97,8 +97,26 @@ function ToastCard({ toast }: { toast: Toast }) {
 
   return (
     <Animated.View
-      style={style}
-      className="min-w-[260px] max-w-[420px] flex-row items-center rounded-lg border border-border-strong bg-surface-2 p-s4 shadow-glow-sm"
+      // Inline styles only: NativeWind className drops composed styles on
+      // Animated.View on web (the zero-width-fill bug class).
+      style={[
+        {
+          minWidth: 260,
+          maxWidth: 420,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: 'rgba(34, 211, 238, 0.34)',
+          backgroundColor: '#131d31',
+          padding: 16,
+          shadowColor: '#22d3ee',
+          shadowOpacity: 0.28,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        style,
+      ]}
     >
       <View className="flex-1">
         <Text className={`text-sm font-bold ${accent}`}>{toast.title}</Text>

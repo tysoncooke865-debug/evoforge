@@ -11,6 +11,7 @@ import Animated, {
 
 import { progressPercent } from '@/domain/xp';
 import { animations } from '@/theme/animations';
+import tokens from '@/theme/tokens';
 import { useSettingsStore } from '@/state/settings-store';
 
 interface XpBarProps {
@@ -27,8 +28,10 @@ const fill = animations.fillGrowXp;
  * function that grants the level -- so the bar reaches exactly 100% at
  * level-up. Never divide by hand (root CLAUDE.md, XP contract).
  *
- * fillGrow (one-shot, 700ms) always plays; the sheen sweep is an AMBIENT LOOP
- * and yields to perf mode / reduced motion.
+ * ANIMATED NODES CARRY INLINE STYLES ONLY: NativeWind's className interop
+ * drops composed styles on Animated.View on web -- the bug that shipped
+ * zero-width fills. fillGrow (one-shot) always plays; the sheen sweep is an
+ * ambient loop and yields to perf mode / reduced motion.
  */
 export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps) {
   const pct = progressPercent(xpIntoLevel, xpNeeded);
@@ -58,16 +61,35 @@ export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps)
   }, [ambient]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${width.value}%` }));
-  const sheenStyle = useAnimatedStyle(() => ({ transform: [{ translateX: sheenX.value }, { skewX: '-20deg' }] }));
+  const sheenStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: sheenX.value }, { skewX: '-20deg' }],
+  }));
 
   return (
     <View>
       <View className="h-s3 overflow-hidden rounded-pill border border-border-soft bg-surface-2">
-        <Animated.View className="h-full overflow-hidden rounded-pill bg-accent shadow-glow-sm" style={fillStyle}>
+        <Animated.View
+          style={[
+            {
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: tokens.colors.accent,
+              overflow: 'hidden',
+              minWidth: pct > 0 ? 6 : 0, // earned XP is always visible, never a 0px sliver
+            },
+            fillStyle,
+          ]}
+        >
           {ambient ? (
             <Animated.View
               style={[
-                { position: 'absolute', top: 0, bottom: 0, width: 36, backgroundColor: 'rgba(255,255,255,0.28)' },
+                {
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  width: 36,
+                  backgroundColor: 'rgba(255,255,255,0.28)',
+                },
                 sheenStyle,
               ]}
             />

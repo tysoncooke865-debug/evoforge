@@ -6,6 +6,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
 import { useSettingsStore } from '@/state/settings-store';
 import tokens from '@/theme/tokens';
+import { ScreenHeader } from '@/ui/screen-header';
 
 /** Profile: who you are on the curve. The ladder is DERIVED from RANK_TIERS
  *  (rankLadder()), never restated -- the old page once hand-wrote all eight
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[560px] gap-s4">
+        <ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
         <View className="rounded-lg border border-border bg-surface p-s6">
           <Text className="text-xs text-text-mute">SIGNED IN AS</Text>
           <Text className="mb-s2 text-sm text-text" testID="user-email">

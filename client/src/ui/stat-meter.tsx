@@ -8,7 +8,8 @@ import tokens from '@/theme/tokens';
 /**
  * A labelled 0-100 stat meter -- the RPG character sheet row. Fill animates
  * with fillGrow (one-shot, always plays); the value wears text tokens, the
- * bar carries the colour.
+ * bar carries the colour. The animated node carries INLINE STYLES ONLY
+ * (NativeWind className drops composed styles on Animated.View on web).
  */
 export function StatMeter({ label, value, colour = tokens.colors.accent }: { label: string; value: number; colour?: string }) {
   const width = useSharedValue(0);
@@ -30,7 +31,17 @@ export function StatMeter({ label, value, colour = tokens.colors.accent }: { lab
         <Text className="text-2xs font-bold text-text-dim">{clamped}</Text>
       </View>
       <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
-        <Animated.View className="h-full rounded-pill" style={[{ backgroundColor: colour }, style]} />
+        <Animated.View
+          style={[
+            {
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: colour,
+              minWidth: clamped > 0 ? 4 : 0,
+            },
+            style,
+          ]}
+        />
       </View>
     </View>
   );
