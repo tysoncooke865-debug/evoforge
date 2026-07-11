@@ -103,6 +103,33 @@ export function useCardioLog() {
   });
 }
 
+/** The latest positive reading per tape field — a sparse table where every
+ *  row fills only what was measured, so "latest" is per COLUMN, not per row. */
+export function useLatestMeasurements() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['measurements_latest', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from('measurements')
+        .select('neck_cm,shoulders_cm,chest_cm,bicep_cm,waist_cm,hips_cm,thigh_cm,calf_cm,bodyweight,timestamp')
+        .order('timestamp', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      const latest: Record<string, number> = {};
+      for (const row of (data ?? []) as Record<string, unknown>[]) {
+        for (const [key, value] of Object.entries(row)) {
+          if (key === 'timestamp') continue;
+          const n = Number(value);
+          if (Number.isFinite(n) && n > 0) latest[key] = n;
+        }
+      }
+      return latest;
+    },
+  });
+}
+
 export function useBodyweightLog() {
   const userId = useUserId();
   return useQuery({

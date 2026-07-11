@@ -53,11 +53,13 @@ export function SegmentedTabs({
   right,
   active,
   onChange,
+  testIDPrefix = 'arena-tab',
 }: {
   left: string;
   right: string;
   active: 0 | 1;
   onChange: (index: 0 | 1) => void;
+  testIDPrefix?: string;
 }) {
   const [width, setWidth] = useState(0);
   const x = useSharedValue(0);
@@ -104,7 +106,7 @@ export function SegmentedTabs({
           onPress={() => select(i as 0 | 1)}
           accessibilityRole="button"
           className="min-h-[44px] flex-1 items-center justify-center rounded-pill"
-          testID={`arena-tab-${i}`}
+          testID={`${testIDPrefix}-${i}`}
         >
           <Text
             className="text-xs font-bold"

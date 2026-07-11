@@ -1,7 +1,10 @@
 import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
+import { SegmentedTabs } from '@/ui/battle-arena';
+import { SkillTreeView } from '@/ui/skill-tree';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
@@ -16,11 +19,37 @@ import { RequirementRow } from '@/ui/requirement-row';
 import { ScreenShell } from '@/ui/shell';
 
 /**
+ * The Avatar area: two subviews behind a segmented submenu. EVOLUTION is
+ * the untouched progression screen; SKILL TREE breaks the same stats into
+ * attribute nodes feeding the branch gates. The choice rides ?view= so it
+ * survives refresh, and the Avatar tab stays highlighted throughout.
+ */
+export default function AvatarScreen() {
+  const params = useLocalSearchParams<{ view?: string }>();
+  const router = useRouter();
+  const view: 0 | 1 = params.view === 'skill-tree' ? 1 : 0;
+  const setView = (i: 0 | 1) => router.setParams({ view: i === 1 ? 'skill-tree' : 'evolution' });
+
+  return (
+    <ScreenShell>
+      <SegmentedTabs
+        left="◈ EVOLUTION"
+        right="⬢ SKILL TREE"
+        active={view}
+        onChange={setView}
+        testIDPrefix="avatar-tab"
+      />
+      {view === 0 ? <EvolutionView /> : <SkillTreeView onViewEvolution={() => setView(0)} />}
+    </ScreenShell>
+  );
+}
+
+/**
  * The progression screen: current form on the stage, the evolution line with
  * true silhouettes for the unknown, and the next evolution as visual
  * requirement rows with readiness, the quick win and the wall called out.
  */
-export default function AvatarScreen() {
+function EvolutionView() {
   const { summary, stats, bfMid, branchV2, sex, earliestBf, nutritionPhase } = useAvatarData();
   const isShred = branchV2 === 'shredder';
 
@@ -52,7 +81,7 @@ export default function AvatarScreen() {
   const nextUnlockLevel = rows.find((r) => !r.unlocked)?.level ?? null;
 
   return (
-    <ScreenShell>
+    <>
       <View className="items-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
           {branchDisplayNameV2(branchV2).toUpperCase()}
@@ -228,7 +257,7 @@ export default function AvatarScreen() {
           <BranchPathCard key={path.branch} path={path} level={summary.level} />
         ))}
       </View>
-    </ScreenShell>
+    </>
   );
 }
 
