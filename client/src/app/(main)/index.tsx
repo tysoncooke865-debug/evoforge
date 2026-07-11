@@ -1,66 +1,101 @@
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
 import tokens from '@/theme/tokens';
 import { AvatarCard } from '@/ui/avatar-card';
-import { ScreenHeader } from '@/ui/screen-header';
-import { StatMeter } from '@/ui/stat-meter';
+import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/shell';
+import { StatRadar } from '@/ui/stat-radar';
 import { XpBar } from '@/ui/xp-bar';
 
 /**
- * Home: the character sheet. Everything derives from useAvatarData -- the
- * same assembly the Avatar page uses, so the two screens cannot disagree
- * about who the athlete is.
+ * Home: the character screen. Hero avatar, the level as the biggest number
+ * on the page, the attribute radar. Everything derives from useAvatarData --
+ * the same assembly the Avatar page uses, so the two screens cannot disagree.
  */
 export default function HomeScreen() {
   const { summary, stats } = useAvatarData();
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="EVOFORGE" title={summary.rank} />
+    <ScreenShell>
+      <ScreenHeader
+        kicker="EVOFORGE"
+        title={summary.rank.replace(/^\S+\s/, '')}
+        right={<LevelBadge level={summary.level} />}
+      />
 
-        <AvatarCard branch={stats.branch} level={summary.level} />
+      <AvatarCard branch={stats.branch} level={summary.level} />
 
-        <View className="rounded-lg border border-border bg-surface p-s6">
-          <Text className="mb-s2 text-xs text-text-mute">LEVEL {summary.level} PROGRESS</Text>
-          <XpBar xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
-          <View className="mt-s4 flex-row justify-between">
-            <Stat label="TOTAL SETS" value={String(summary.totalSets)} />
-            <Stat label="TOTAL XP" value={String(summary.xp)} />
-            <Stat label="CARDIO MIN" value={String(Math.trunc(summary.cardioMinutes))} />
-          </View>
-          {summary.xpDrift !== 0 ? (
-            <Text className="mt-s2 text-2xs text-warn">
-              ledger drift {summary.xpDrift} · source: {summary.xpSource}
-            </Text>
-          ) : null}
-        </View>
-
-        <View className="rounded-lg border border-border bg-surface p-s6">
-          <Text className="mb-s1 text-xs text-text-mute">CHARACTER SHEET</Text>
-          <Text className="mb-s3 text-sm font-bold text-text">
-            {stats.characterClass}{' '}
-            <Text className="font-normal text-text-mute">
-              · {stats.buildType} · Focus: {stats.weakPointFocus}
-            </Text>
+      <GlowCard>
+        <View className="mb-s2 flex-row items-baseline justify-between">
+          <SectionLabel>LEVEL PROGRESS</SectionLabel>
+          <Text className="text-xs text-text-mute">
+            {summary.xpNeeded - summary.xpIntoLevel} XP to level {Math.min(summary.level + 1, 100)}
           </Text>
-          <StatMeter label="STRENGTH" value={stats.strengthScore} colour={tokens.colors.accent} />
-          <StatMeter label="SIZE" value={stats.sizeScore} colour={tokens.colors.epic} />
-          <StatMeter label="LEANNESS" value={stats.leannessScore} colour={tokens.colors.success} />
-          <StatMeter label="CONDITIONING" value={stats.conditioningScore} colour={tokens.colors.rare} />
-          <StatMeter label="AESTHETIC" value={stats.aestheticScore} colour={tokens.colors.mythic} />
         </View>
-      </View>
-    </ScrollView>
+        <XpBar xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
+        <View className="mt-s5 flex-row justify-between">
+          <BigStat label="TOTAL SETS" value={summary.totalSets} />
+          <BigStat label="TOTAL XP" value={summary.xp} />
+          <BigStat label="CARDIO MIN" value={Math.trunc(summary.cardioMinutes)} />
+        </View>
+        {summary.xpDrift !== 0 ? (
+          <Text className="mt-s3 text-2xs text-warn">
+            ledger drift {summary.xpDrift} · source: {summary.xpSource}
+          </Text>
+        ) : null}
+      </GlowCard>
+
+      <GlowCard>
+        <SectionLabel>ATTRIBUTES</SectionLabel>
+        <Text className="mb-s2 text-lg font-bold text-text">
+          {stats.characterClass}
+          <Text className="text-sm font-normal text-text-mute">  ·  {stats.buildType}</Text>
+        </Text>
+        <StatRadar
+          stats={[
+            { label: 'STR', value: stats.strengthScore },
+            { label: 'SIZE', value: stats.sizeScore },
+            { label: 'LEAN', value: stats.leannessScore },
+            { label: 'COND', value: stats.conditioningScore },
+            { label: 'AES', value: stats.aestheticScore },
+          ]}
+        />
+        <Text className="mt-s3 text-center text-xs text-text-mute">
+          Weak point focus: <Text className="text-text-dim">{stats.weakPointFocus}</Text>
+        </Text>
+      </GlowCard>
+    </ScreenShell>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function LevelBadge({ level }: { level: number }) {
+  return (
+    <View className="items-center pl-s4">
+      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+        LEVEL
+      </Text>
+      <Text
+        className="text-3xl font-bold"
+        style={{
+          color: tokens.colors.accent,
+          textShadowColor: 'rgba(34, 211, 238, 0.6)',
+          textShadowRadius: 16,
+        }}
+      >
+        {level}
+      </Text>
+    </View>
+  );
+}
+
+function BigStat({ label, value }: { label: string; value: number }) {
   return (
     <View className="items-center">
-      <Text className="text-lg font-bold text-accent">{value}</Text>
-      <Text className="text-2xs text-text-mute">{label}</Text>
+      <Text className="text-2xl font-bold text-text">{value}</Text>
+      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+        {label}
+      </Text>
     </View>
   );
 }

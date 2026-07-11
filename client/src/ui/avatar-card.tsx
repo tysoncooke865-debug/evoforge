@@ -2,7 +2,6 @@ import { Text, View } from 'react-native';
 
 import { evolutionName, getBranchStage, raritySlug, type Branch } from '@/domain/avatar-stats';
 import { branchDisplayName } from '@/domain/avatar-stats';
-import { rankName } from '@/domain/profile';
 import tokens from '@/theme/tokens';
 
 import { AvatarStage } from './avatar-stage';

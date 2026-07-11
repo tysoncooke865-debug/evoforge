@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
@@ -7,6 +7,7 @@ import { avatarStageRows } from '@/domain/xp-leveling';
 import { AvatarCard } from '@/ui/avatar-card';
 import { avatarImage } from '@/ui/avatar-images';
 import tokens from '@/theme/tokens';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * The Avatar page: current form, the branch's stage ladder, and what the next
@@ -27,9 +28,7 @@ export default function AvatarScreen() {
   });
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <AvatarCard branch={stats.branch} level={summary.level} />
+    <ScreenShell><AvatarCard branch={stats.branch} level={summary.level} />
 
         <View className="rounded-lg border border-border bg-surface p-s6">
           <Text className="mb-s4 text-xs text-text-mute">EVOLUTION LINE</Text>
@@ -86,8 +85,7 @@ export default function AvatarScreen() {
             </View>
           ))}
         </View>
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 

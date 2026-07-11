@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /** The overflow: everything that doesn't earn a bottom-bar slot. */
 const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
@@ -14,9 +15,7 @@ const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
 
 export default function MoreScreen() {
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px]">
-        <ScreenHeader kicker="EVERYTHING ELSE" title="MORE" />
+    <ScreenShell><ScreenHeader kicker="EVERYTHING ELSE" title="MORE" />
         {ITEMS.map((item) => (
           <Link key={item.href} href={item.href as never} asChild>
             <View className="mb-s2 flex-row items-center rounded-lg border border-border bg-surface p-s4">
@@ -29,7 +28,6 @@ export default function MoreScreen() {
             </View>
           </Link>
         ))}
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { useLeaderboardTop, usePublicIdentity } from '@/data/hooks';
 import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import tokens from '@/theme/tokens';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * The leaderboard. Three gates before any ranking renders, same as the
@@ -132,9 +133,5 @@ function OptInCard({ current }: { current: string | null }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px]">{children}</View>
-    </ScrollView>
-  );
+  return <ScreenShell>{children}</ScreenShell>;
 }

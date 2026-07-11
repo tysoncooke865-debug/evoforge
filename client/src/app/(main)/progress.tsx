@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useBodyweightLog, useWorkoutLog } from '@/data/hooks';
 import { pyFloat } from '@/domain/py';
@@ -7,6 +7,7 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { estimated1rm } from '@/domain/workouts';
 import { LineChart, type ChartPoint } from '@/ui/line-chart';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * Progress: bodyweight over time, and best e1RM per training day for ANY
@@ -64,9 +65,7 @@ export default function ProgressScreen() {
   }, [bodyweights.data]);
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="THE RECEIPTS" title="PROGRESS" />
+    <ScreenShell><ScreenHeader kicker="THE RECEIPTS" title="PROGRESS" />
 
         <View className="rounded-lg border border-border bg-surface p-s4">
           <Text className="mb-s2 text-xs text-text-mute">EXERCISE e1RM · BEST PER DAY</Text>
@@ -103,7 +102,6 @@ export default function ProgressScreen() {
           <Text className="mb-s2 text-xs text-text-mute">BODYWEIGHT (KG)</Text>
           <LineChart points={bwPoints} formatY={(y) => y.toFixed(1)} />
         </View>
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }

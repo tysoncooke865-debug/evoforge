@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import Animated, {
@@ -73,13 +74,21 @@ export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps)
             {
               height: '100%',
               borderRadius: 999,
-              backgroundColor: tokens.colors.accent,
               overflow: 'hidden',
               minWidth: pct > 0 ? 6 : 0, // earned XP is always visible, never a 0px sliver
+              shadowColor: tokens.colors.accent,
+              shadowOpacity: 0.5,
+              shadowRadius: 8,
             },
             fillStyle,
           ]}
         >
+          <LinearGradient
+            colors={[tokens.colors['accent-strong'], tokens.colors.accent, tokens.colors['accent-deep']]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}
+          />
           {ambient ? (
             <Animated.View
               style={[

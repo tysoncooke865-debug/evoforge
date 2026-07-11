@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Pressable, Switch, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
@@ -7,6 +7,7 @@ import { rankLadder } from '@/domain/profile';
 import { useSettingsStore } from '@/state/settings-store';
 import tokens from '@/theme/tokens';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /** Profile: who you are on the curve. The ladder is DERIVED from RANK_TIERS
  *  (rankLadder()), never restated -- the old page once hand-wrote all eight
@@ -20,9 +21,7 @@ export default function ProfileScreen() {
   const ladder = rankLadder().slice().reverse(); // top rank first
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
+    <ScreenShell><ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
         <View className="rounded-lg border border-border bg-surface p-s6">
           <Text className="text-xs text-text-mute">SIGNED IN AS</Text>
           <Text className="mb-s2 text-sm text-text" testID="user-email">
@@ -80,8 +79,7 @@ export default function ProfileScreen() {
         >
           <Text className="font-bold text-text">SIGN OUT</Text>
         </Pressable>
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useLogBodyweight, useLogCardio, useLogMeasurements } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * Log: cardio sessions and bodyweight readings. Cardio previews the XP the
@@ -13,14 +14,11 @@ import { ScreenHeader } from '@/ui/screen-header';
  */
 export default function LogScreen() {
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" />
+    <ScreenShell><ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" />
         <CardioCard />
         <BodyweightCard />
         <MeasurementsCard />
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 

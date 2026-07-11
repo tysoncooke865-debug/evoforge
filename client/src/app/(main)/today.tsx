@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { useSaveSet } from '@/data/mutations';
 import { useWorkoutLog } from '@/data/hooks';
@@ -9,14 +10,15 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
+import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
  * Today: the logging loop. Saves go through useSaveSet -- an edit updates in
- * place (never re-granting XP) and only a new set announces. The day's
- * progress is visible per exercise (set pips) and overall (the day bar);
- * completing every listed set fires WORKOUT COMPLETE once, and FINISH EARLY
- * closes the session honestly with whatever was logged.
+ * place (never re-granting XP) and only a new set announces. Set pips per
+ * exercise, the day bar, WORKOUT COMPLETE once per (day,date), FINISH EARLY
+ * with an honest summary.
  */
 export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -48,8 +50,6 @@ export default function TodayScreen() {
   );
   const complete = totalTarget > 0 && totalDone >= totalTarget;
 
-  // WORKOUT COMPLETE fires exactly once per (day, date) when the last set
-  // lands -- not on revisits to an already-complete day.
   const announcedRef = useRef<string | null>(null);
   const sessionKey = `${todayIso}|${day}`;
   const hadDataRef = useRef(false);
@@ -57,11 +57,12 @@ export default function TodayScreen() {
     if (!workouts.data) return;
     if (!hadDataRef.current) {
       hadDataRef.current = true;
-      if (complete) announcedRef.current = sessionKey; // already done before we looked
+      if (complete) announcedRef.current = sessionKey;
       return;
     }
     if (complete && announcedRef.current !== sessionKey) {
       announcedRef.current = sessionKey;
+      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       useToastStore.getState().push({
         kind: 'achievement',
         title: 'WORKOUT COMPLETE',
@@ -82,75 +83,64 @@ export default function TodayScreen() {
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker={`TODAY · ${todayIso}`} title={day.split(' - ')[0].toUpperCase()} />
+    <ScreenShell>
+      <ScreenHeader kicker={`TODAY · ${todayIso}`} title={day.split(' - ')[0].toUpperCase()} />
 
-        <View className="rounded-lg border border-border bg-surface p-s4">
-          <View className="mb-s3 flex-row flex-wrap gap-s2">
-            {days.map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => setDay(d)}
-                className={`rounded-pill border px-s3 py-s1 ${
-                  d === day ? 'border-border-strong bg-surface-3' : 'border-border bg-surface-2'
-                }`}
-              >
-                <Text className={`text-xs font-bold ${d === day ? 'text-accent' : 'text-text-dim'}`}>
-                  {d}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* The day bar: sets done across the whole session. */}
-          <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
-            <View
-              style={{
-                width: `${dayPct}%`,
-                height: '100%',
-                borderRadius: 999,
-                backgroundColor: complete ? tokens.colors.success : tokens.colors.accent,
-                minWidth: totalDone > 0 ? 4 : 0,
-              }}
-            />
-          </View>
-          <View className="mt-s1 flex-row justify-between">
-            <Text className={`text-2xs font-bold ${complete ? 'text-success' : 'text-text-mute'}`}>
-              {complete ? 'ALL SETS COMPLETE' : `${totalDone} / ${totalTarget} SETS`}
-            </Text>
-            <Text className="text-2xs text-text-mute">+{totalDone * XP_PER_SET} XP today</Text>
-          </View>
+      <GlowCard glow={complete ? tokens.colors.success : undefined}>
+        <View className="mb-s4 flex-row flex-wrap gap-s2">
+          {days.map((d) => (
+            <Chip key={d} label={d} active={d === day} onPress={() => setDay(d)} />
+          ))}
         </View>
 
-        {plan.map(([exercise, sets, scheme]) => (
-          <ExerciseCard
-            key={exercise}
-            date={todayIso}
-            workout={day}
-            exercise={exercise}
-            targetSets={sets}
-            scheme={scheme}
-            loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
-            doneCount={validRowsFor(exercise).length}
+        <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
+          <View
+            style={{
+              width: `${dayPct}%`,
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: complete ? tokens.colors.success : tokens.colors.accent,
+              minWidth: totalDone > 0 ? 4 : 0,
+              shadowColor: complete ? tokens.colors.success : tokens.colors.accent,
+              shadowOpacity: 0.5,
+              shadowRadius: 8,
+            }}
           />
-        ))}
+        </View>
+        <View className="mt-s2 flex-row justify-between">
+          <Text className={`text-2xs font-bold ${complete ? 'text-success' : 'text-text-mute'}`} style={{ letterSpacing: 1.5 }}>
+            {complete ? '✓ ALL SETS COMPLETE' : `${totalDone} / ${totalTarget} SETS`}
+          </Text>
+          <Text className="text-2xs font-bold text-accent">+{totalDone * XP_PER_SET} XP TODAY</Text>
+        </View>
+      </GlowCard>
 
-        {totalDone > 0 && !complete ? (
-          <Pressable
-            className="items-center rounded-md border border-border-strong bg-surface-2 p-s3"
-            onPress={finishEarly}
-            testID="finish-workout"
-          >
-            <Text className="font-bold text-accent">FINISH WORKOUT · {totalDone}/{totalTarget} SETS</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </ScrollView>
+      {plan.map(([exercise, sets, scheme]) => (
+        <ExerciseCard
+          key={exercise}
+          date={todayIso}
+          workout={day}
+          exercise={exercise}
+          targetSets={sets}
+          scheme={scheme}
+          loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
+          doneCount={validRowsFor(exercise).length}
+        />
+      ))}
+
+      {totalDone > 0 && !complete ? (
+        <NeonButton
+          title={`FINISH WORKOUT · ${totalDone}/${totalTarget} SETS`}
+          variant="ghost"
+          onPress={finishEarly}
+          testID="finish-workout"
+        />
+      ) : null}
+    </ScreenShell>
   );
 }
 
-/** One pip per target set: filled = logged. The RPG quest-step look. */
+/** One pip per target set: filled = logged. Quest steps. */
 function SetPips({ done, target }: { done: number; target: number }) {
   return (
     <View className="flex-row gap-s1">
@@ -162,6 +152,9 @@ function SetPips({ done, target }: { done: number; target: number }) {
             height: 6,
             borderRadius: 3,
             backgroundColor: i < done ? tokens.colors.accent : tokens.colors['surface-3'],
+            shadowColor: tokens.colors.accent,
+            shadowOpacity: i < done ? 0.6 : 0,
+            shadowRadius: 4,
           }}
         />
       ))}
@@ -188,16 +181,14 @@ function ExerciseCard({
 }) {
   const done = doneCount >= targetSets;
   return (
-    <View
-      className={`rounded-lg border bg-surface p-s4 ${done ? 'border-border-strong' : 'border-border'}`}
-    >
+    <GlowCard glow={done ? tokens.colors.success : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
-        <Text className="flex-1 font-bold text-text">{exercise}</Text>
+        <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
         <Text className={`text-xs font-bold ${done ? 'text-success' : 'text-text-mute'}`}>
           {done ? '✓ DONE' : `${doneCount}/${targetSets}`}
         </Text>
       </View>
-      <View className="mb-s3 flex-row items-center justify-between">
+      <View className="mb-s4 flex-row items-center justify-between">
         <Text className="text-xs text-text-mute">{scheme}</Text>
         <SetPips done={doneCount} target={targetSets} />
       </View>
@@ -215,7 +206,7 @@ function ExerciseCard({
           />
         );
       })}
-    </View>
+    </GlowCard>
   );
 }
 
@@ -243,6 +234,7 @@ function SetRow({
     const w = pyFloat(weight);
     const r = pyFloat(reps);
     if (w === null || r === null || w <= 0 || r <= 0) return;
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     save.mutate({
       workoutDate: date,
       workout,
@@ -255,7 +247,9 @@ function SetRow({
 
   return (
     <View className="mb-s2 flex-row items-center gap-s2">
-      <Text className="w-s10 text-xs text-text-mute">SET {setNo}</Text>
+      <Text className="w-s10 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+        SET {setNo}
+      </Text>
       <TextInput
         className="w-[84px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
         inputMode="decimal"
@@ -279,6 +273,11 @@ function SetRow({
         onPress={onSave}
         disabled={save.isPending}
         className={`ml-auto rounded-md px-s3 py-s2 ${logged ? 'border border-border bg-surface-2' : 'bg-accent'}`}
+        style={
+          logged
+            ? undefined
+            : { shadowColor: tokens.colors.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 }
+        }
         testID={`${exercise}-save-${setNo}`}
       >
         {save.isPending ? (

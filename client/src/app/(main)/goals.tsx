@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useBodyweightLog, useLatestBodyfatMid, useTargets } from '@/data/hooks';
 import { useSaveTarget } from '@/data/mutations';
@@ -8,6 +8,7 @@ import { pyFloat } from '@/domain/py';
 import { journeyPercent } from '@/domain/targets';
 import { XpBar } from '@/ui/xp-bar';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * Goals: body-fat %, bodyweight and bench-1RM targets, each with a JOURNEY
@@ -47,9 +48,7 @@ export default function GoalsScreen() {
   const latestBw = bwReadings.length > 0 ? bwReadings[bwReadings.length - 1].v : null;
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="THE ROAD AHEAD" title="GOALS" />
+    <ScreenShell><ScreenHeader kicker="THE ROAD AHEAD" title="GOALS" />
         <GoalCard
           title="BODY FAT %"
           unit="%"
@@ -108,8 +107,7 @@ export default function GoalsScreen() {
             Level {summary.level} → {Math.min(summary.level + 1, 100)}
           </Text>
         </View>
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 

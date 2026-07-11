@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { pickPhoto, runAiBodyfat, runAiPhysique, type BodyfatResult, type PhysiqueResult } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
@@ -9,6 +9,7 @@ import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useToastStore } from '@/state/toast-store';
 import { ScreenHeader } from '@/ui/screen-header';
+import { ScreenShell } from '@/ui/shell';
 
 /**
  * The unified AI page: physique rating and body-fat estimate together (they
@@ -19,17 +20,14 @@ import { ScreenHeader } from '@/ui/screen-header';
  */
 export default function AiScreen() {
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[560px] gap-s4">
-        <ScreenHeader kicker="THE ORACLE" title="AI ANALYSIS" />
+    <ScreenShell><ScreenHeader kicker="THE ORACLE" title="AI ANALYSIS" />
         <PhysiqueSection />
         <BodyfatSection />
         <Text className="text-2xs text-text-mute">
           Photos are analysed in memory and never stored. Scans are rate-limited hourly; identical
           photos return the cached verdict without a new analysis.
         </Text>
-      </View>
-    </ScrollView>
+    </ScreenShell>
   );
 }
 
