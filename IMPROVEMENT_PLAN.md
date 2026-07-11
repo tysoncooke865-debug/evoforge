@@ -95,8 +95,8 @@ Dependencies:
 ### #3 · Divide the training log into Cardio and Stats sections
 
 1. **Current behaviour.** `client/src/app/(main)/log.tsx` stacks three `GlowCard`s vertically: `CardioCard`, `BodyweightCard`, `MeasurementsCard`. No tabs.
-2. **Proposed behaviour.** A two-segment control at the top of the Log screen — **CARDIO | STATS** — reusing the `Chip` pattern from `today.tsx`. Cardio segment: the existing `CardioCard` unchanged. Stats segment: `BodyweightCard` + `MeasurementsCard` (and #1's stat-editing surface when it lands). All existing functionality, history, XP preview, and navigation are preserved.
-3. **Files.** `log.tsx` only (plus `client/src/ui/` if the segment control is extracted as a reusable `SegmentedTabs` component — recommended, #11's calendar can reuse it).
+2. **Proposed behaviour.** A two-segment control at the top of the Log screen — **CARDIO | STATS** — reusing the existing `SegmentedTabs` capsule from `client/src/ui/battle-arena.tsx` (already used by the Arena hub and, since `657e95f`, the Avatar tab). Cardio segment: the existing `CardioCard` unchanged. Stats segment: `BodyweightCard` + `MeasurementsCard` (and #1's stat-editing surface when it lands). All existing functionality, history, XP preview, and navigation are preserved.
+3. **Files.** `log.tsx`, plus extracting `SegmentedTabs` from `battle-arena.tsx` into its own `client/src/ui/segmented-tabs.tsx` — it is now used by three screens, and #11's calendar will reuse it too.
 4. **Data model.** None.
 5. **API/server.** None.
 6. **Frontend.** Keep both segments **mounted** and toggle visibility with style (`display: none`), not conditional rendering — RN conditional rendering would drop half-typed form state on a tab switch. Optional `?tab=` route param so future deep links can target a segment.
@@ -182,7 +182,9 @@ Dependencies:
 
 ### #9 · Skill tree — SKIPPED (user decision, 2026-07-12)
 
-`SKILL_TREE.md` does not exist on any branch or in git history. The Avatar tab's BRANCH PATHS cards remain as-is. If the design doc materialises later, the exploration notes stand: the closest reusable pieces are `BranchPathCard` (avatar.tsx), `RequirementRow`, and the `branches-v2.ts` gate model.
+`SKILL_TREE.md` does not exist on any branch or in git history, so this plan does not design a skill tree.
+
+> **Update, same day:** commit `657e95f` (out-of-band, Tyson's own spec) added an Avatar **SKILL TREE subview** — an EVOLUTION | SKILL TREE segmented submenu with five stat-path panels driven by the real branch engine (`branchPathsV2` + `evolutionReadiness`), plus a new `useLatestMeasurements` hook. Requirement 9 stays out of this plan's scope, but implementers must treat that subview as the live skill-tree implementation: do **not** build a second one, and note that the old Avatar page content now lives inside its `EvolutionView`.
 
 ### #10 · Restore the AI custom routine feature
 
@@ -285,7 +287,7 @@ Ordering: 010 → 011 are independent; 012 → 013 is a hard order. Deploy order
 ## E. Shared Infrastructure (build once, reuse)
 
 - **`useCurrentStats()` seam** (`client/src/data/use-current-stats.ts`) — the single read path for height/bodyweight/lifts/bf (#1), consumed by AI (#6 payloads), Goals, Avatar data.
-- **`SegmentedTabs` UI component** (extracted in #3) — reused by the streak calendar screen (#11) and any future tabbed screen.
+- **`SegmentedTabs` UI component** — already exists inside `battle-arena.tsx`; #3 extracts it to its own file, reused by the streak calendar screen (#11) and any future tabbed screen.
 - **The ledger pattern, second instantiation** (#12's `coin_events` cloning 002/003/006) — with the reusable client conventions: fire-and-forget `claim*`, null-never-0 totals, dedupe by source key. Any third currency/ledger copies the same four properties.
 - **Dual TS/SQL pure function with shared fixtures** (#11's `scheduled-streak.ts` + `scheduled_streak()`) — the fixture-drives-both-sides technique generalises to any client-computed/server-verified value (it is the same philosophy as the Python↔TS parity goldens).
 - **Battle realtime invalidation machinery** (already exists) — #5 and #8 deliberately add **zero** new realtime plumbing; both ride `useBattleChannel`'s postgres_changes → invalidate → refetch. Rule for future battle features: put state in the subscribed tables, don't open new channels.
