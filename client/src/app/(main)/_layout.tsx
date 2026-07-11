@@ -65,6 +65,14 @@ export default function MainLayout() {
         name="avatar"
         options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }}
       />
+      <Tabs.Screen
+        name="awards"
+        options={{ title: 'Awards', tabBarIcon: makeIcon('★') }}
+      />
+      <Tabs.Screen
+        name="rank"
+        options={{ title: 'Rank', tabBarIcon: makeIcon('♛') }}
+      />
     </Tabs>
   );
 }

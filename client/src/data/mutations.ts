@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { cardioEventAmount } from '@/domain/cardio';
+import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
@@ -221,6 +222,42 @@ export function useLogBodyweight() {
         title: 'SAVE FAILED',
         subtitle: 'The reading was not stored.',
       });
+    },
+  });
+}
+
+/** Upsert the caller's opt-in public identity. Mirrors save_public_profile(). */
+export function useSavePublicIdentity() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async ({ displayName, isPublic }: { displayName: string | null; isPublic: boolean }) => {
+      const problem = nameError(displayName);
+      if (problem) throw new Error(problem);
+      const name = displayName && displayName.trim() ? displayName.trim() : null;
+      const row = {
+        display_name: name,
+        // Cannot be public without a name to show.
+        is_public: Boolean(isPublic) && name !== null,
+        updated_at: new Date().toISOString().slice(0, 19),
+      };
+      const { error } = await supabase.from('public_profile').upsert(row, { onConflict: 'user_id' });
+      if (error) {
+        const msg = /duplicate|unique/i.test(error.message)
+          ? 'That display name is already taken.'
+          : error.message;
+        throw new Error(msg);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public_profile', userId] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard_top', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'PUBLIC IDENTITY SAVED' });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message });
     },
   });
 }

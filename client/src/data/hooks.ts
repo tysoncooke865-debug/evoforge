@@ -189,3 +189,58 @@ export function useLedgerXp() {
     },
   });
 }
+
+/** All achievement rows this athlete holds (for the Awards screen + sweeps). */
+export function useAchievements() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['achievements', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<{ achievement_id: string; date_unlocked: string | null }[]> => {
+      const { data, error } = await supabase
+        .from('achievements')
+        .select('id,achievement_id,date_unlocked')
+        .limit(ROW_CAP);
+      if (error) throw error;
+      return data as { achievement_id: string; date_unlocked: string | null }[];
+    },
+  });
+}
+
+/** This user's opt-in public identity: (display_name, is_public). */
+export function usePublicIdentity() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['public_profile', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<{ displayName: string | null; isPublic: boolean }> => {
+      const { data, error } = await supabase
+        .from('public_profile')
+        .select('display_name,is_public,updated_at')
+        .limit(ROW_CAP);
+      if (error) return { displayName: null, isPublic: false }; // pre-004 shape
+      if (!data || data.length === 0) return { displayName: null, isPublic: false };
+      const row = data[data.length - 1];
+      const name = row.display_name && String(row.display_name).trim() ? String(row.display_name) : null;
+      return { displayName: name, isPublic: Boolean(row.is_public) };
+    },
+  });
+}
+
+/** The ONE cross-user read surface: leaderboard_top() RPC, [] on any failure. */
+export function useLeaderboardTop(n = 50) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['leaderboard_top', userId, n],
+    enabled: userId !== null,
+    queryFn: async (): Promise<import('@/domain/leaderboard').LeaderboardRow[]> => {
+      try {
+        const { data, error } = await supabase.rpc('leaderboard_top', { n });
+        if (error || !Array.isArray(data)) return [];
+        return data;
+      } catch {
+        return [];
+      }
+    },
+  });
+}
