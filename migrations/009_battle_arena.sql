@@ -20,6 +20,11 @@
 --     from a real owned log row inside the round window — the client's
 --     payload is discarded entirely.
 
+-- The participant-test SQL function is defined before the tables it reads
+-- (it only runs at query time); without this, CREATE FUNCTION validates the
+-- body against not-yet-created tables and the whole migration aborts.
+set check_function_bodies = off;
+
 -- ===========================================================================
 -- STEP 1 — the participant test (breaks RLS recursion, feeds storage policy)
 -- ===========================================================================
