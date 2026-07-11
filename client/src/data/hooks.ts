@@ -18,6 +18,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import type { PhysiqueValues } from '@/domain/avatar-stats-calc';
 import type { CardioRow, WorkoutRow } from '@/domain/summary';
 
 import { useAuth } from './auth-context';
@@ -143,27 +144,24 @@ export function usePhysiqueRatings() {
   return useQuery({
     queryKey: ['physique_ratings', userId],
     enabled: userId !== null,
-    queryFn: async () => {
+    queryFn: async (): Promise<PhysiqueValues> => {
       const { data, error } = await supabase
         .from('physique_ratings')
         .select('id,physique_score,leanness_score,symmetry_score,muscularity_score,timestamp')
         .order('timestamp', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;
-      const empty = {
-        physique_score: null,
-        leanness_score: null,
-        symmetry_score: null,
-        muscularity_score: null,
-      } as Record<string, number | null>;
-      if (data.length === 0) return empty;
-      const row = data[data.length - 1] as Record<string, unknown>;
-      const out = { ...empty };
-      for (const key of Object.keys(empty)) {
-        const v = Number(row[key]);
-        out[key] = Number.isFinite(v) ? v : null;
-      }
-      return out;
+      const num = (v: unknown) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      const row = (data.length > 0 ? data[data.length - 1] : {}) as Record<string, unknown>;
+      return {
+        physique_score: num(row.physique_score),
+        leanness_score: num(row.leanness_score),
+        symmetry_score: num(row.symmetry_score),
+        muscularity_score: num(row.muscularity_score),
+      };
     },
   });
 }

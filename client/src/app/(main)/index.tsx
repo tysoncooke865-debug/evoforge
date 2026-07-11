@@ -1,73 +1,18 @@
 import { ScrollView, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
-import {
-  useBodyweightLog,
-  useCardioLog,
-  useLatestBodyfatMid,
-  useLedgerXp,
-  usePhysiqueRatings,
-  useProfile,
-  useWorkoutLog,
-} from '@/data/hooks';
-import { calculateAvatarStats } from '@/domain/avatar-stats-calc';
-import { workoutSummary } from '@/domain/summary';
-import { pyFloat } from '@/domain/py';
+import { useAvatarData } from '@/data/use-avatar-data';
 import { AvatarCard } from '@/ui/avatar-card';
 import { XpBar } from '@/ui/xp-bar';
 
 /**
- * Home: the athlete's character on real data. Level and XP come from the
- * golden-fixtured domain port; branch/class come from the FULL
- * calculate_avatar_stats blend (AI ratings, body fat, cardio, muscle sets) --
- * a profile-only approximation shipped first and mis-branded an aesthetic
- * athlete as Mass Monster.
+ * Home: the athlete's character on real data. Everything derives from
+ * useAvatarData -- the same assembly the Avatar page uses, so the two screens
+ * cannot disagree about who the athlete is.
  */
 export default function HomeScreen() {
   const { signOut } = useAuth();
-  const profile = useProfile();
-  const workouts = useWorkoutLog();
-  const cardio = useCardioLog();
-  const bodyweights = useBodyweightLog();
-  const bfMid = useLatestBodyfatMid();
-  const physique = usePhysiqueRatings();
-  const ledger = useLedgerXp();
-
-  const baseLevel = profile.data?.base_level ?? 1;
-  const summary = workoutSummary(
-    workouts.data ?? [],
-    cardio.data ?? [],
-    ledger.data ?? null,
-    baseLevel
-  );
-
-  // latest_bodyweight_value(): last positive reading, else null (77kg default
-  // applies inside the calc, exactly like Python).
-  const bwRows = bodyweights.data ?? [];
-  const positiveBw = bwRows
-    .map((r) => pyFloat(r.bodyweight) ?? 0)
-    .filter((v) => v > 0);
-  const latestBodyweight = positiveBw.length > 0 ? positiveBw[positiveBw.length - 1] : null;
-
-  const cardioDistanceKm = (cardio.data ?? []).reduce(
-    (acc, r) => acc + (pyFloat((r as Record<string, unknown>).distance_km) ?? 0),
-    0
-  );
-
-  const stats = calculateAvatarStats({
-    workoutRows: workouts.data ?? [],
-    level: summary.level,
-    latestBodyweight,
-    bfMid: bfMid.data ?? null,
-    physique: (physique.data ?? {
-      physique_score: null,
-      leanness_score: null,
-      symmetry_score: null,
-      muscularity_score: null,
-    }) as never,
-    cardioMinutes: summary.cardioMinutes,
-    cardioDistanceKm,
-  });
+  const { summary, stats } = useAvatarData();
 
   return (
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="items-center p-s6">

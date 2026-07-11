@@ -33,6 +33,7 @@ import {
 } from '../avatar-stats';
 import { bodyfatOutputs, navyBodyFatMale, safeKg } from '../bodyfat';
 import { ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, RANK_TIERS, ROUTINE } from '../catalogs';
+import { nextEvolutionInfo } from '../next-evolution';
 import { safeNum, score0100 } from '../physique-ratings';
 import { calculateStartingLevel, rankLadder, rankName } from '../profile';
 import { estimated1rm, inferMuscleGroup } from '../workouts';
@@ -217,6 +218,21 @@ describe('avatar.json', () => {
       },
       number
     >[];
+    next_evolution_info: Case<
+      {
+        branch: string;
+        level: number;
+        bench_e1rm: number;
+        bf_mid: number | null;
+        total_sets: number;
+        cardio_minutes: number;
+      },
+      {
+        target_name: string;
+        target_level: number;
+        requirements: { label: string; current: number; target: number; met: boolean }[];
+      }
+    >[];
   }>('avatar.json');
 
   it('avatar_rarity', () => {
@@ -265,6 +281,31 @@ describe('avatar.json', () => {
     eachCase(fx.rank_name, (c) => expect(rankName(c.input), `level=${c.input}`).toBe(c.expected));
     expect(fx.rank_ladder.length).toBeGreaterThan(0);
     expect(rankLadder()).toEqual(fx.rank_ladder);
+  });
+
+  it('next_evolution_info (evolution requirements per branch)', () => {
+    eachCase(fx.next_evolution_info, (c) => {
+      const got = nextEvolutionInfo(c.input.branch as never, {
+        level: c.input.level,
+        benchE1rm: c.input.bench_e1rm,
+        bfMid: c.input.bf_mid,
+        totalSets: c.input.total_sets,
+        cardioMinutes: c.input.cardio_minutes,
+      });
+      expect(
+        {
+          target_name: got.targetName,
+          target_level: got.targetLevel,
+          requirements: got.requirements.map((r) => ({
+            label: r.label,
+            current: r.current,
+            target: r.target,
+            met: r.met,
+          })),
+        },
+        JSON.stringify(c.input)
+      ).toEqual(c.expected);
+    });
   });
 
   it('calculate_starting_level (onboarding placement)', () => {

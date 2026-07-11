@@ -63,6 +63,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from config.constants import ACHIEVEMENTS, EXERCISE_LIBRARY, MUSCLE_MAP, ROUTINE
+import domain.avatar_stats as avatar_stats_module
 from domain.avatar_stats import (
     avatar_rarity,
     branch_display_name,
@@ -70,6 +71,7 @@ from domain.avatar_stats import (
     evolution_name,
     get_avatar_stage,
     get_branch_stage,
+    next_evolution_info,
     rarity_slug,
 )
 from domain.bodyfat import bodyfat_outputs, navy_body_fat_male, safe_kg
@@ -357,7 +359,56 @@ def fx_avatar():
                 calculate_starting_level(200, 300, 20, 15, 15),
             )
         ],
+        "next_evolution_info": _fx_next_evolution(),
     }
+
+
+def _fx_next_evolution():
+    """next_evolution_info is pure EXCEPT the hybrid branch reading cardio from
+    the DB. Inject it the way the TS port takes it: patch get_cardio_stats for
+    the duration, restore after. The fixture input carries the injected minutes
+    so the TS side calls with identical arguments."""
+    cases = []
+    original = avatar_stats_module.get_cardio_stats
+    try:
+        for cardio_minutes in [0, 150, 400]:
+            avatar_stats_module.get_cardio_stats = (
+                lambda m=cardio_minutes: {"minutes": m, "distance": 0, "count": 0, "types": set()}
+            )
+            for branch in BRANCHES:
+                for level in [1, 24, 25, 49, 50, 74, 75, 89, 90, 99, 100]:
+                    for bench in [0, 95, 105, 125]:
+                        for bf_mid in [None, 9, 13]:
+                            stats = {
+                                "level": level,
+                                "bench_e1rm": bench,
+                                "bf_mid": bf_mid,
+                                "total_sets": 120,
+                            }
+                            name, target, reqs = next_evolution_info(branch, stats)
+                            cases.append(
+                                _case(
+                                    {
+                                        "branch": branch,
+                                        "level": level,
+                                        "bench_e1rm": bench,
+                                        "bf_mid": bf_mid,
+                                        "total_sets": 120,
+                                        "cardio_minutes": cardio_minutes,
+                                    },
+                                    {
+                                        "target_name": name,
+                                        "target_level": target,
+                                        "requirements": [
+                                            {"label": lb, "current": cur, "target": tg, "met": met}
+                                            for lb, cur, tg, met in reqs
+                                        ],
+                                    },
+                                )
+                            )
+    finally:
+        avatar_stats_module.get_cardio_stats = original
+    return cases
 
 
 # --------------------------------------------------------------------------
