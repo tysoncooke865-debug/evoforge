@@ -94,3 +94,58 @@ describe('evolutionReadiness', () => {
     expect(evolutionReadiness([])).toEqual({ percent: 0, nearest: null, hardest: null });
   });
 });
+
+import { branchPaths } from '../branch-paths';
+import { determineAvatarBranch } from '../avatar-stats';
+
+describe('branchPaths — self-consistency with determineAvatarBranch', () => {
+  it('meeting every Mass row actually branches mass', () => {
+    // Take an aesthetic athlete and satisfy exactly the displayed targets.
+    const scores = { strength: 55, size: 70, conditioning: 40, aesthetic: 65 };
+    const massPath = branchPaths('aesthetic', scores).find((p) => p.branch === 'mass')!;
+    expect(massPath.requirements.every((r) => r.met)).toBe(true);
+    expect(
+      determineAvatarBranch({
+        strength_score: scores.strength,
+        size_score: scores.size,
+        conditioning_score: scores.conditioning,
+        aesthetic_score: scores.aesthetic,
+      })
+    ).toBe('mass');
+  });
+
+  it('unmet Mass rows mean not mass', () => {
+    const scores = { strength: 54, size: 70, conditioning: 40, aesthetic: 65 };
+    const massPath = branchPaths('aesthetic', scores).find((p) => p.branch === 'mass')!;
+    expect(massPath.requirements.some((r) => !r.met)).toBe(true);
+    expect(
+      determineAvatarBranch({
+        strength_score: scores.strength,
+        size_score: scores.size,
+        conditioning_score: scores.conditioning,
+        aesthetic_score: scores.aesthetic,
+      })
+    ).not.toBe('mass');
+  });
+
+  it('meeting Hybrid rows branches hybrid — unless Mass gates also hold (the caveat)', () => {
+    const scores = { strength: 50, size: 40, conditioning: 60, aesthetic: 65 };
+    const hybridPath = branchPaths('aesthetic', scores).find((p) => p.branch === 'hybrid')!;
+    expect(hybridPath.requirements.every((r) => r.met)).toBe(true);
+    expect(
+      determineAvatarBranch({
+        strength_score: scores.strength,
+        size_score: scores.size,
+        conditioning_score: scores.conditioning,
+        aesthetic_score: scores.aesthetic,
+      })
+    ).toBe('hybrid');
+    expect(hybridPath.note).toMatch(/precedence/i);
+  });
+
+  it('current branch is never offered as a path', () => {
+    const scores = { strength: 50, size: 50, conditioning: 50, aesthetic: 50 };
+    const paths = branchPaths('mass', scores);
+    expect(paths.map((p) => p.branch)).toEqual(['hybrid']);
+  });
+});

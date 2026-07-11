@@ -2,12 +2,14 @@ import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
-import { branchDisplayName, evolutionName, getBranchStage, raritySlug } from '@/domain/avatar-stats';
+import { branchDisplayName, evolutionName, getBranchStage, raritySlug, type Branch } from '@/domain/avatar-stats';
+import { branchPaths } from '@/domain/branch-paths';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { avatarStageRows } from '@/domain/xp-leveling';
 import tokens from '@/theme/tokens';
 import { avatarImage } from '@/ui/avatar-images';
+import { Silhouette } from '@/ui/silhouette';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel } from '@/ui/hud';
 import { RarityBadge } from '@/ui/rarity-badge';
@@ -31,6 +33,13 @@ export default function AvatarScreen() {
     cardioMinutes: summary.cardioMinutes,
   });
   const readiness = evolutionReadiness(evo.requirements);
+
+  const paths = branchPaths(stats.branch, {
+    strength: stats.strengthScore,
+    size: stats.sizeScore,
+    conditioning: stats.conditioningScore,
+    aesthetic: stats.aestheticScore,
+  });
 
   const stage = getBranchStage(stats.branch, summary.level);
   const slug = raritySlug(summary.level);
@@ -122,30 +131,13 @@ export default function AvatarScreen() {
                   shadowRadius: 14,
                 }}
               >
-                {/* Locked = silhouette: shape and rim light only. */}
-                <View
-                  style={{
-                    width: 52,
-                    height: 56,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 10,
-                    backgroundColor: row.unlocked ? 'transparent' : 'rgba(4,7,14,0.75)',
-                    shadowColor: row.unlocked ? 'transparent' : tokens.colors.epic,
-                    shadowOpacity: row.unlocked ? 0 : 0.4,
-                    shadowRadius: 8,
-                  }}
-                >
-                  <Image
-                    source={avatarImage(stats.branch, row.stage)}
-                    style={
-                      row.unlocked
-                        ? { width: 48, height: 52 }
-                        : { width: 44, height: 48, tintColor: '#0a1020', opacity: 0.95 }
-                    }
-                    contentFit="contain"
-                  />
-                </View>
+                {row.unlocked ? (
+                  <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                    <Image source={avatarImage(stats.branch, row.stage)} style={{ width: 48, height: 52 }} contentFit="contain" />
+                  </View>
+                ) : (
+                  <Silhouette branch={stats.branch} stage={row.stage} />
+                )}
                 <View className="ml-s3 flex-1">
                   <Text className={`text-base font-bold ${row.unlocked ? 'text-text' : 'text-text-mute'}`}>
                     {showName ? row.name : '???'}
@@ -170,6 +162,57 @@ export default function AvatarScreen() {
           })}
         </View>
       </View>
+
+      {/* Branch paths: what it takes to become the other builds. */}
+      <View>
+        <EdgeLabel>BRANCH PATHS</EdgeLabel>
+        <Text className="mb-s3 mt-s1 text-2xs text-text-mute">
+          Your branch follows your stat mix — hit these gates and the character changes build.
+        </Text>
+        {paths.map((path) => (
+          <BranchPathCard key={path.branch} path={path} level={summary.level} />
+        ))}
+      </View>
     </ScreenShell>
+  );
+}
+
+function BranchPathCard({
+  path,
+  level,
+}: {
+  path: ReturnType<typeof branchPaths>[number];
+  level: number;
+}) {
+  const readiness = evolutionReadiness(path.requirements);
+  const tint = path.branch === 'mass' ? tokens.colors.danger : tokens.colors.rare;
+  const stage = getBranchStage(path.branch, level);
+  return (
+    <View
+      className="mb-s3 rounded-xl p-s4"
+      style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
+    >
+      <View className="mb-s3 flex-row items-center gap-s3">
+        <Silhouette branch={path.branch} stage={stage} rim={tint} />
+        <View className="flex-1">
+          <Text className="text-base font-bold text-text">{branchDisplayName(path.branch)}</Text>
+          <Text className="text-2xs text-text-mute">
+            Become {evolutionName(path.branch, level)}
+          </Text>
+        </View>
+        <View className="items-center">
+          <Text className="text-xl font-bold" style={{ color: tint }}>
+            {readiness.percent}%
+          </Text>
+          <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+            READY
+          </Text>
+        </View>
+      </View>
+      {path.requirements.map((req) => (
+        <RequirementRow key={req.label} req={req} />
+      ))}
+      {path.note ? <Text className="text-2xs text-text-mute">{path.note}</Text> : null}
+    </View>
   );
 }

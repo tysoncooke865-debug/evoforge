@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
@@ -8,8 +7,8 @@ import { evolutionReadiness } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
 import tokens from '@/theme/tokens';
 
-import { avatarImage } from './avatar-images';
 import { EdgeLabel } from './hud';
+import { Silhouette } from './silhouette';
 
 /**
  * The Home strip that keeps the next form in sight: silhouetted preview
@@ -37,26 +36,7 @@ export function EvolutionTeaser({
             backgroundColor: 'rgba(168, 85, 247, 0.06)',
           }}
         >
-          {/* Silhouette: the asset exists only as a shape and a rim of light. */}
-          <View
-            style={{
-              width: 64,
-              height: 76,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 12,
-              backgroundColor: 'rgba(4,7,14,0.7)',
-              shadowColor: tokens.colors.epic,
-              shadowOpacity: 0.5,
-              shadowRadius: 12,
-            }}
-          >
-            <Image
-              source={avatarImage(branch, nextStage)}
-              style={{ width: 56, height: 68, tintColor: '#0a1020', opacity: 0.95 }}
-              contentFit="contain"
-            />
-          </View>
+          <Silhouette branch={branch} stage={nextStage} width={56} height={68} />
 
           <View className="flex-1">
             <EdgeLabel>NEXT EVOLUTION</EdgeLabel>
