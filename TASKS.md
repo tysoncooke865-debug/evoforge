@@ -20,6 +20,14 @@ been falsified** — delete the fix, watch it go red, restore.
 
 ---
 
+## QUEUED — Battle Arena (competitive PvP)
+**`BATTLE_ARENA_DESIGN.md` is the plan of record** (2026-07-11). Status:
+design complete, **blocked on `[human]`: decisions D1–D4 (§15)** before
+migration 009 is written. Phases P0–P5 in the doc; P1 = friendly async
+battle, Round 1 only, end-to-end. No battle code exists yet.
+
+---
+
 ## IN PROGRESS
 **The cutover is done.** Two real users have signed up, onboarded and are using the
 app against the new production project. What is left of T1 is dashboard hygiene —
