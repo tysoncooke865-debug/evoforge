@@ -116,6 +116,58 @@ export function useBodyweightLog() {
   });
 }
 
+/** Latest body-fat midpoint, or null. Mirrors latest_bodyfat_mid(): only rows
+ *  with bf_mid > 0 count, last one wins. */
+export function useLatestBodyfatMid() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['bodyfat_mid', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase
+        .from('bodyfat_log')
+        .select('id,bf_mid,timestamp')
+        .order('timestamp', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      const valid = data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
+      return valid.length > 0 ? valid[valid.length - 1] : null;
+    },
+  });
+}
+
+/** Latest AI physique rating values, each null when absent or non-numeric.
+ *  Mirrors latest_physique_rating_values(). */
+export function usePhysiqueRatings() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['physique_ratings', userId],
+    enabled: userId !== null,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('physique_ratings')
+        .select('id,physique_score,leanness_score,symmetry_score,muscularity_score,timestamp')
+        .order('timestamp', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      const empty = {
+        physique_score: null,
+        leanness_score: null,
+        symmetry_score: null,
+        muscularity_score: null,
+      } as Record<string, number | null>;
+      if (data.length === 0) return empty;
+      const row = data[data.length - 1] as Record<string, unknown>;
+      const out = { ...empty };
+      for (const key of Object.keys(empty)) {
+        const v = Number(row[key]);
+        out[key] = Number.isFinite(v) ? v : null;
+      }
+      return out;
+    },
+  });
+}
+
 /**
  * xp_events summed server-side by public.xp_total() (migrations/003).
  * null on ANY failure — never 0. See the header block.
