@@ -107,6 +107,26 @@ export function useMyBattles() {
   });
 }
 
+/** My side of every battle — xp banked and totals, keyed by match id. */
+export function useMyBattleScores() {
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useQuery({
+    queryKey: ['battle_my_results', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<Record<string, { xp: number | null; total: number | null }>> => {
+      const { data, error } = await supabase
+        .from('battle_participants')
+        .select('match_id,xp_awarded,total_score')
+        .eq('user_id', userId!);
+      if (error) throw error;
+      const map: Record<string, { xp: number | null; total: number | null }> = {};
+      for (const r of data ?? []) map[String(r.match_id)] = { xp: r.xp_awarded, total: r.total_score };
+      return map;
+    },
+  });
+}
+
 export interface BattleBundle {
   match: BattleMatch | null;
   participants: BattleParticipant[];

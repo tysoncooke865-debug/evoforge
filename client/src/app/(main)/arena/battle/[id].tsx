@@ -33,6 +33,7 @@ import {
 import { type BranchV2 } from '@/domain/branches-v2';
 import { pyFloat, pyInt } from '@/domain/py';
 import { avatarArtV2 } from '@/ui/avatar-art';
+import { BLITZ_RULES, CodeCard, RulesStrip } from '@/ui/battle-arena';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -103,25 +104,39 @@ function InvitePhase({ code }: { code: string | null }) {
     <>
       <ScreenHeader kicker="FRIENDLY BLITZ" title="CHALLENGE SENT" />
       <GlowCard glow={tokens.colors.accent}>
-        <Text className="text-center text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
-          YOUR BATTLE CODE
-        </Text>
-        <Text
-          className="my-s3 text-center text-4xl font-bold text-text"
-          style={{ letterSpacing: 12, textShadowColor: 'rgba(34,211,238,0.6)', textShadowRadius: 18 }}
-          testID="battle-code"
-        >
-          {code ?? '——————'}
-        </Text>
-        <Text className="text-center text-2xs text-text-mute">
+        {code ? <CodeCard code={code} /> : null}
+        <Text className="mt-s3 text-center text-2xs text-text-mute">
           Waiting for a challenger… the screen advances the moment they join.
         </Text>
       </GlowCard>
+      <RulesStrip rules={BLITZ_RULES} />
     </>
   );
 }
 
-function FighterCard({ p, align }: { p: BattleParticipant | null; align: 'left' | 'right' }) {
+/** The fighter's ID plate: name loud, LV·PWR·class whispered, tinted edge. */
+function FighterPlate({ p, tint }: { p: BattleParticipant | null; tint: string }) {
+  const snap = p?.snapshot ?? {};
+  return (
+    <View
+      className="flex-1 rounded-xl p-s3"
+      style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+    >
+      <Text className="text-sm font-bold text-text" numberOfLines={1}>
+        {snap.name ?? '???'}
+      </Text>
+      <Text className="text-2xs text-text-mute">
+        <Text style={{ color: tint }}>LV {snap.level ?? '?'}</Text> · PWR {snap.power ?? '?'}
+      </Text>
+      <Text className="text-2xs text-text-mute" numberOfLines={1}>
+        {snap.characterClass ?? ''}
+      </Text>
+    </View>
+  );
+}
+
+/** A fighter standing on their glow ring, cyan for me, purple for the rival. */
+function FighterOnRing({ p, tint }: { p: BattleParticipant | null; tint: string }) {
   const snap = p?.snapshot ?? {};
   const branch = (snap.branch ?? 'aesthetic') as BranchV2;
   const sex = snap.sex === 'female' ? 'female' as const : 'male' as const;
@@ -129,21 +144,27 @@ function FighterCard({ p, align }: { p: BattleParticipant | null; align: 'left' 
   const art = avatarArtV2(branch, stage, sex);
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
   return (
-    <View className={`flex-1 ${align === 'left' ? 'items-start' : 'items-end'}`}>
+    <View className="flex-1 items-center">
       {art.hasArt ? (
-        <Image source={art.source} style={{ width: 84, height: 92 }} contentFit="contain" />
+        <Image source={art.source} style={{ width: 96, height: 106 }} contentFit="contain" />
       ) : (
         <Silhouette branch={donor as 'aesthetic' | 'mass' | 'hybrid'} stage={Math.min(stage, 4)} />
       )}
-      <Text className="mt-s2 text-base font-bold text-text" numberOfLines={1}>
-        {snap.name ?? '???'}
-      </Text>
-      <Text className="text-2xs text-text-mute">
-        LV {snap.level ?? '?'} · PWR {snap.power ?? '?'}
-      </Text>
-      <Text className="text-2xs text-text-mute" numberOfLines={1}>
-        {snap.characterClass ?? ''}
-      </Text>
+      <View
+        style={{
+          marginTop: -8,
+          width: 96,
+          height: 22,
+          borderRadius: 999,
+          borderWidth: 2,
+          borderColor: `${tint}8c`,
+          backgroundColor: `${tint}14`,
+          shadowColor: tint,
+          shadowOpacity: 0.7,
+          shadowRadius: 14,
+          elevation: 6,
+        }}
+      />
     </View>
   );
 }
@@ -154,18 +175,33 @@ function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant
   return (
     <>
       <ScreenHeader kicker="FRIENDLY BLITZ" title="FACE OFF" />
+
+      <View className="flex-row gap-s3">
+        <FighterPlate p={me} tint={tokens.colors.accent} />
+        <FighterPlate p={them} tint={tokens.colors.epic} />
+      </View>
+
+      {/* The stage: both fighters on their rings, the VS burning between. */}
       <GlowCard glow={tokens.colors.epic}>
-        <View className="flex-row items-center">
-          <FighterCard p={me} align="left" />
+        <View className="flex-row items-center py-s2">
+          <FighterOnRing p={me} tint={tokens.colors.accent} />
           <Text
-            className="px-s3 text-3xl font-bold"
-            style={{ color: tokens.colors.epic, textShadowColor: 'rgba(168,85,247,0.7)', textShadowRadius: 18 }}
+            className="px-s2 text-4xl font-bold"
+            style={{
+              color: tokens.colors.epic,
+              letterSpacing: 2,
+              textShadowColor: 'rgba(168,85,247,0.8)',
+              textShadowRadius: 24,
+            }}
           >
             VS
           </Text>
-          <FighterCard p={them} align="right" />
+          <FighterOnRing p={them} tint={tokens.colors.epic} />
         </View>
       </GlowCard>
+
+      <RulesStrip rules={BLITZ_RULES} />
+
       <NeonButton
         title={iAmReady ? 'WAITING FOR OPPONENT…' : 'READY UP'}
         onPress={() => ready.mutate()}

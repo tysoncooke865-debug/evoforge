@@ -1,20 +1,28 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
-import { useMyBattles, type BattleMatch } from '@/data/battle/hooks';
+import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
 import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
 import tokens from '@/theme/tokens';
-import { EdgeLabel } from '@/ui/hud';
+import {
+  BLITZ_RULES,
+  CodeCard,
+  IconBadge,
+  PressCard,
+  RulesStrip,
+  SegmentedTabs,
+} from '@/ui/battle-arena';
 import { NeonButton } from '@/ui/neon-button';
-import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
+import { SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
- * The Arena hub: friendly BLITZ battles are live; Quick Match / Ranked are
- * honest placeholders until the queue ships (P3/P4). History rides RLS —
- * the list is exactly the matches this athlete fought.
+ * The Arena hub, in the Home screen's language: masthead with the emblem,
+ * segmented CREATE/JOIN capsule, the blitz card with the live invite code,
+ * the rules strip, the coming modes, and history rows that glow the way
+ * they ended. Friendly BLITZ is live; Quick/Ranked are honest placeholders.
  */
 export default function ArenaScreen() {
   const router = useRouter();
@@ -22,7 +30,12 @@ export default function ArenaScreen() {
   const invite = useCreateInvite();
   const join = useJoinBattle();
   const battles = useMyBattles();
+  const results = useMyBattleScores();
+  const [tab, setTab] = useState<0 | 1>(0);
   const [code, setCode] = useState('');
+
+  // The live invite, if one is out there — its code belongs on this screen.
+  const openInvite = (battles.data ?? []).find((m) => m.status === 'inviting') ?? null;
 
   const createBattle = () => {
     invite.mutate(snapshot, {
@@ -46,35 +59,102 @@ export default function ArenaScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="SEASON 0 · PREVIEW" title="BATTLE ARENA" />
-
-      {/* Friendly battle — the live mode. */}
-      <GlowCard glow={tokens.colors.accent}>
-        <View className="mb-s1">
-          <EdgeLabel
-            right={
-              <Text className="text-2xs font-bold" style={{ color: tokens.colors.rare, letterSpacing: 1.5 }}>
-                BLITZ · ~25 MIN
-              </Text>
-            }
+      {/* Masthead — the Home identity treatment, with the arena emblem. */}
+      <View className="w-full">
+        <View className="flex-row items-end justify-between">
+          <View className="flex-1">
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+              SEASON 0 · PREVIEW
+            </Text>
+            <Text
+              className="text-3xl font-bold text-text"
+              style={{ letterSpacing: 0.5, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 18 }}
+            >
+              BATTLE ARENA
+            </Text>
+            <Text className="text-xs text-text-dim">Compete. Improve. Dominate.</Text>
+          </View>
+          <View
+            style={{
+              width: 62,
+              height: 62,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: `${tokens.colors.epic}59`,
+              backgroundColor: `${tokens.colors.epic}0f`,
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: [{ rotate: '8deg' }],
+              shadowColor: tokens.colors.epic,
+              shadowOpacity: 0.5,
+              shadowRadius: 16,
+              elevation: 6,
+            }}
           >
-            FRIENDLY BATTLE
-          </EdgeLabel>
+            <Text style={{ fontSize: 30, textShadowColor: 'rgba(34,211,238,0.8)', textShadowRadius: 12 }}>⚔️</Text>
+          </View>
         </View>
-        <Text className="mb-s4 text-2xs text-text-mute">
-          Three lifts a rut, twelve minutes a bell. Challenge a friend, lift the object first.
-        </Text>
-        <NeonButton
-          title="CREATE BATTLE · GET CODE"
-          onPress={createBattle}
-          busy={invite.isPending}
-          testID="arena-create"
-        />
-        <View className="mt-s3 flex-row items-center gap-s2">
+      </View>
+
+      <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} />
+
+      {tab === 0 ? (
+        <GlowCard glow={tokens.colors.accent}>
+          <View className="mb-s3 flex-row items-center gap-s3">
+            <IconBadge glyph="🏋" />
+            <View className="flex-1">
+              <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                FRIENDLY BLITZ
+              </Text>
+              <View className="mt-s1 flex-row gap-s2">
+                <MiniChip label="👥 1V1" />
+                <MiniChip label="⏱ ~25 MIN" />
+              </View>
+            </View>
+          </View>
+          <Text className="mb-s4 text-2xs text-text-mute">
+            Three lifts a rut, twelve minutes a bell. Challenge a friend, lift the object first.
+          </Text>
+
+          {openInvite?.invite_code ? (
+            <View className="gap-s3">
+              <CodeCard code={openInvite.invite_code} />
+              <NeonButton
+                title="ENTER THE ARENA"
+                onPress={() => router.push(`/arena/battle/${openInvite.id}`)}
+                testID="arena-enter"
+              />
+              <Text className="text-center text-2xs text-text-mute">
+                Share the code — the battle starts the moment they join.
+              </Text>
+            </View>
+          ) : (
+            <NeonButton
+              title="CREATE BATTLE · GET CODE"
+              onPress={createBattle}
+              busy={invite.isPending}
+              testID="arena-create"
+            />
+          )}
+        </GlowCard>
+      ) : (
+        <GlowCard glow={tokens.colors.epic}>
+          <View className="mb-s3 flex-row items-center gap-s3">
+            <IconBadge glyph="🔍" tint={tokens.colors.epic} />
+            <View className="flex-1">
+              <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                ENTER BATTLE CODE
+              </Text>
+              <Text className="mt-s1 text-2xs text-text-mute">Six characters, read aloud across the gym.</Text>
+            </View>
+          </View>
           <TextInput
-            className="min-h-[44px] flex-1 rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-            style={{ letterSpacing: 6, fontWeight: '800' }}
-            placeholder="CODE"
+            className="min-h-[52px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
+            style={{
+              letterSpacing: 10,
+              borderColor: code.trim().length === 6 ? `${tokens.colors.epic}8c` : tokens.colors.border,
+            }}
+            placeholder="——————"
             placeholderTextColor="#64758f"
             autoCapitalize="characters"
             maxLength={6}
@@ -82,29 +162,24 @@ export default function ArenaScreen() {
             onChangeText={setCode}
             testID="arena-code"
           />
-          <Pressable
-            onPress={joinBattle}
-            disabled={join.isPending || code.trim().length !== 6}
-            accessibilityRole="button"
-            className={`min-h-[44px] items-center justify-center rounded-md px-s4 ${code.trim().length === 6 ? 'bg-accent' : 'border border-border bg-surface-2'}`}
-            style={
-              code.trim().length === 6
-                ? { shadowColor: tokens.colors.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 }
-                : undefined
-            }
-            testID="arena-join"
-          >
-            <Text className={`text-xs font-bold ${code.trim().length === 6 ? 'text-accent-ink' : 'text-text-mute'}`} style={{ letterSpacing: 1 }}>
-              JOIN
-            </Text>
-          </Pressable>
-        </View>
-      </GlowCard>
+          <View className="mt-s3">
+            <NeonButton
+              title="JOIN BATTLE · ENTER ARENA"
+              onPress={joinBattle}
+              disabled={code.trim().length !== 6}
+              busy={join.isPending}
+              testID="arena-join"
+            />
+          </View>
+        </GlowCard>
+      )}
 
-      {/* The queue modes — coming, honestly labelled. */}
+      <RulesStrip rules={BLITZ_RULES} />
+
+      {/* The queue modes — coming, honestly labelled, dressed like Home cards. */}
       <View className="flex-row gap-s3">
-        <ComingCard title="QUICK MATCH" note="Matchmaking queue" />
-        <ComingCard title="RANKED" note="Trophies on the line" />
+        <ComingCard glyph="⚡" tint={tokens.colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
+        <ComingCard glyph="🏆" tint={tokens.colors.epic} title="RANKED" note="Trophies on the line" />
       </View>
 
       <View>
@@ -112,31 +187,55 @@ export default function ArenaScreen() {
         {(battles.data ?? []).length === 0 ? (
           <Text className="text-2xs text-text-mute">No battles yet. Mint a code and call someone out.</Text>
         ) : (
-          (battles.data ?? []).map((m) => <HistoryRow key={m.id} match={m} />)
+          (battles.data ?? []).map((m) => (
+            <HistoryRow key={m.id} match={m} xp={results.data?.[m.id]?.xp ?? null} />
+          ))
         )}
       </View>
     </ScreenShell>
   );
 }
 
-function ComingCard({ title, note }: { title: string; note: string }) {
+function MiniChip({ label }: { label: string }) {
   return (
     <View
-      className="flex-1 rounded-xl p-s4"
-      style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
+      className="rounded-pill px-s2 py-[3px]"
+      style={{ borderWidth: 1, borderColor: `${tokens.colors.accent}40`, backgroundColor: 'rgba(34,211,238,0.08)' }}
     >
-      <Text className="text-xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
-        {title}
-      </Text>
-      <Text className="mt-s1 text-2xs text-text-mute">{note}</Text>
-      <Text className="mt-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
-        SOON
+      <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+        {label}
       </Text>
     </View>
   );
 }
 
-function HistoryRow({ match }: { match: BattleMatch }) {
+function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string; title: string; note: string }) {
+  return (
+    <View
+      className="flex-1 rounded-xl p-s4"
+      style={{
+        borderWidth: 1,
+        borderColor: `${tint}33`,
+        backgroundColor: 'rgba(13,21,36,0.5)',
+        shadowColor: tint,
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 3,
+      }}
+    >
+      <IconBadge glyph={glyph} tint={tint} size={44} />
+      <Text className="mt-s3 text-sm font-bold text-text" style={{ letterSpacing: 1 }}>
+        {title}
+      </Text>
+      <Text className="mt-s1 text-2xs text-text-mute">{note}</Text>
+      <Text className="mt-s2 text-2xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
+        COMING SOON
+      </Text>
+    </View>
+  );
+}
+
+function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
@@ -154,21 +253,37 @@ function HistoryRow({ match }: { match: BattleMatch }) {
   const label = !settled ? match.status.toUpperCase() : won ? 'VICTORY' : draw ? 'DRAW' : 'DEFEAT';
 
   return (
-    <Pressable
-      onPress={() => router.push(`/arena/battle/${match.id}`)}
-      accessibilityRole="button"
-      className="mb-s2 flex-row items-center rounded-xl p-s3"
-      style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
-    >
-      <View className="flex-1">
-        <Text className="text-sm font-bold text-text">
-          Friendly Blitz{match.invite_code ? ` · ${match.invite_code}` : ''}
-        </Text>
-        <Text className="text-2xs text-text-mute">{String(match.created_at).slice(0, 10)}</Text>
-      </View>
-      <Text className="text-xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
-        {label}
-      </Text>
-    </Pressable>
+    <View className="mb-s2">
+      <PressCard onPress={() => router.push(`/arena/battle/${match.id}`)} tint={tint}>
+        <View
+          className="flex-row items-center gap-s3 rounded-xl p-s3"
+          style={{
+            borderWidth: 1,
+            borderColor: `${tint}40`,
+            backgroundColor: 'rgba(13,21,36,0.55)',
+            shadowColor: settled ? tint : '#000',
+            shadowOpacity: settled ? 0.22 : 0,
+            shadowRadius: 14,
+            elevation: settled ? 3 : 0,
+          }}
+        >
+          <IconBadge glyph="⚔️" tint={tint} size={40} />
+          <View className="flex-1">
+            <Text className="text-sm font-bold text-text">
+              Friendly Blitz{match.invite_code ? ` · ${match.invite_code}` : ''}
+            </Text>
+            <Text className="text-2xs text-text-mute">{String(match.created_at).slice(0, 10)}</Text>
+          </View>
+          <View className="items-end">
+            <Text className="text-xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
+              {label}
+            </Text>
+            {settled && xp ? (
+              <Text className="text-2xs font-bold text-text-dim">+{xp} XP</Text>
+            ) : null}
+          </View>
+        </View>
+      </PressCard>
+    </View>
   );
 }

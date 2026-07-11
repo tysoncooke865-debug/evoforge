@@ -109,6 +109,7 @@ export function useSettleBattle(matchId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
       void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['battle_my_results', userId] });
       // Battle XP landed in the ledger — the avatar must hear about it.
       void queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
     },
