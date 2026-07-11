@@ -119,24 +119,61 @@ export function useSettleBattle(matchId: string) {
 }
 
 /**
- * Tie a just-saved workout_log row into the battle. Fire-and-forget in
- * spirit (a failure never blocks the save that already happened) but never
- * silent — the athlete must know a set didn't count for the battle.
+ * Tie a just-saved log row into the battle. Fire-and-forget in spirit (a
+ * failure never blocks the save that already happened) but never silent —
+ * the athlete must know their work didn't count for the battle.
  */
-export async function postBattleVolume(matchId: string, roundNo: number, workoutLogId: string): Promise<boolean> {
+async function postBattleEvent(
+  matchId: string,
+  roundNo: number,
+  kind: 'volume' | 'cardio',
+  sourceId: string,
+  failTitle: string
+): Promise<boolean> {
   const { error } = await supabase.from('battle_events').insert({
     match_id: matchId,
     round_no: roundNo,
-    kind: 'volume',
-    source_id: workoutLogId,
+    kind,
+    source_id: sourceId,
   });
   if (error && !/duplicate|unique/i.test(error.message)) {
     useToastStore.getState().push({
       kind: 'error',
-      title: 'SET NOT COUNTED',
+      title: failTitle,
       subtitle: error.message.includes('window') ? 'Logged outside the round window.' : error.message,
     });
     return false;
   }
   return true;
+}
+
+export const postBattleVolume = (matchId: string, roundNo: number, workoutLogId: string) =>
+  postBattleEvent(matchId, roundNo, 'volume', workoutLogId, 'SET NOT COUNTED');
+
+export const postBattleCardio = (matchId: string, roundNo: number, cardioLogId: string) =>
+  postBattleEvent(matchId, roundNo, 'cardio', cardioLogId, 'SESSION NOT COUNTED');
+
+export interface BattlePhysiqueResponse {
+  verdict?: Record<string, unknown>;
+  compliant?: boolean;
+  confidence?: string;
+  attempt?: number;
+  retry_requested?: boolean;
+}
+
+/** Round 3: send the fresh camera capture to the judge. */
+export function useBattlePhysique(matchId: string) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: (image: string): Promise<BattlePhysiqueResponse> =>
+      invokeBattle('battle-physique', { match_id: matchId, image }) as Promise<BattlePhysiqueResponse>,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'JUDGING FAILED', subtitle: e.message });
+    },
+  });
 }

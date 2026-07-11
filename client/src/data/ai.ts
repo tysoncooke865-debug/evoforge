@@ -50,6 +50,32 @@ export async function pickPhoto(): Promise<string | null> {
   return `data:image/jpeg;base64,${result.base64}`;
 }
 
+/**
+ * Capture a FRESH photo with the camera — no gallery — as a ~1024px JPEG
+ * data URL. Round 3 of a battle only accepts live captures; the server
+ * additionally judges pose compliance, so a bypass still has to look like
+ * the rolled pose in a fresh frame.
+ */
+export async function captureCameraPhoto(): Promise<string | null> {
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  if (!perm.granted) return null;
+  const picked = await ImagePicker.launchCameraAsync({
+    mediaTypes: 'images',
+    quality: 0.9,
+    allowsEditing: false,
+  });
+  if (picked.canceled || picked.assets.length === 0) return null;
+  const asset = picked.assets[0];
+
+  const context = ImageManipulator.manipulate(asset.uri);
+  const wide = (asset.width ?? 0) >= (asset.height ?? 0);
+  context.resize(wide ? { width: 1024 } : { height: 1024 });
+  const rendered = await context.renderAsync();
+  const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
+  if (!result.base64) return null;
+  return `data:image/jpeg;base64,${result.base64}`;
+}
+
 async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<{ result: T | null; error: string | null }> {
   try {
     const { data, error } = await supabase.functions.invoke(fn, { body });

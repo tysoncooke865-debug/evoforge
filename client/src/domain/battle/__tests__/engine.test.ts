@@ -2,14 +2,25 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BATTLE_OBJECTS,
+  BATTLE_POSES,
+  CARDIO_BUDGET,
+  CARDIO_CHALLENGES,
+  PHYSIQUE_BUDGET,
   STRENGTH_BUDGET,
   battleXp,
+  cardioChallengeByKey,
   characterMultiplier,
   coefficientFor,
   effectiveKg,
+  energyUnits,
   finishTs,
   objectByKey,
+  poseByKey,
+  scoreCardioRound,
+  scorePhysiqueRound,
   scoreStrengthRound,
+  type CardioEvent,
+  type PhysiqueVerdict,
   type VolumeEvent,
 } from '../engine';
 
@@ -142,6 +153,93 @@ describe('scoreStrengthRound', () => {
   });
 });
 
+const cev = (type: string, minutes: number, distanceKm: number, ts = '2026-07-11T22:00:00Z'): CardioEvent => ({
+  type,
+  minutes,
+  distanceKm,
+  serverTs: ts,
+});
+
+const CSPEC = { challengeKey: 'escape_zombies', targetUnits: 26, engineVersion: 2 };
+
+describe('energyUnits — modality conversions, never calories', () => {
+  it('a hard 10-minute effort lands near a blitz target on ANY machine', () => {
+    expect(energyUnits(cev('Run', 10, 2.2))).toBeCloseTo(28, 6); // 6 + 22
+    expect(energyUnits(cev('Stairmaster', 10, 0))).toBeCloseTo(26, 6);
+    expect(energyUnits(cev('Boxing', 10, 0))).toBeCloseTo(24, 6);
+    expect(energyUnits(cev('Bike', 10, 5))).toBeCloseTo(25, 6); // 5 + 20
+  });
+
+  it('unknown modality gets the Other coefficients; garbage is zero', () => {
+    expect(energyUnits(cev('Rowing Machine', 10, 2))).toBeCloseTo(15, 6); // 5 + 10
+    expect(energyUnits(cev('Run', 0, 0))).toBe(0);
+    expect(energyUnits(cev('Run', -5, -1))).toBe(0);
+  });
+});
+
+describe('scoreCardioRound', () => {
+  it('finishing takes performance 550 + completion 200 + first-finish 200', () => {
+    const s = scoreCardioRound([cev('Run', 10, 2.2)], [], CSPEC, 0);
+    expect(s.performance).toBe(550);
+    expect(s.completion).toBe(200);
+    expect(s.speed).toBe(200);
+    expect(s.finished).toBe(true);
+    // 28 units / 10 min = 2.8 upm → trunc(2.8/3 × 100) = 93
+    expect(s.intensity).toBe(93);
+  });
+
+  it('speed mirrors strength: 200 first, 120 second, unfinished paces ≤80', () => {
+    const fast = [cev('Run', 10, 2.2, '2026-07-11T22:01:00Z')];
+    const slow = [cev('Run', 11, 2.2, '2026-07-11T22:05:00Z')];
+    expect(scoreCardioRound(fast, slow, CSPEC, 0).speed).toBe(200);
+    expect(scoreCardioRound(slow, fast, CSPEC, 0).speed).toBe(120);
+    const half = [cev('Run', 5, 0.7)]; // 10 units of 26
+    expect(scoreCardioRound(half, fast, CSPEC, 0).speed).toBe(Math.trunc((10 / 26) * 80));
+  });
+
+  it('never exceeds the budget, even maxed; empty round is 0', () => {
+    const maxed = scoreCardioRound([cev('Run', 10, 3)], [], CSPEC, 100);
+    expect(maxed.points).toBeLessThanOrEqual(CARDIO_BUDGET);
+    expect(scoreCardioRound([], [], CSPEC, 100).points).toBe(0);
+  });
+});
+
+describe('scorePhysiqueRound — the confidence gate', () => {
+  const verdict = (over: Partial<PhysiqueVerdict> = {}): PhysiqueVerdict => ({
+    muscular_development: 10,
+    conditioning: 9,
+    symmetry: 11,
+    proportion: 10,
+    presentation: 8,
+    compliant: true,
+    confidence: 'high',
+    ...over,
+  });
+
+  it('a confident verdict weights five /15 axes to the 650 base', () => {
+    const s = scorePhysiqueRound(verdict(), 0);
+    expect(s.judged).toBe(48);
+    expect(s.base).toBe(Math.trunc((48 / 75) * 650));
+    expect(s.points).toBe(s.base);
+  });
+
+  it('LOW CONFIDENCE IS NEVER RANKED: compliant floors at 150, non-compliant 50', () => {
+    expect(scorePhysiqueRound(verdict({ confidence: 'low' }), 100).points).toBe(150);
+    expect(scorePhysiqueRound(verdict({ confidence: 'low', compliant: false }), 100).points).toBe(50);
+    // The stat multiplier must NOT rescue a floored verdict.
+    expect(scorePhysiqueRound(verdict({ confidence: 'low' }), 100).multiplier).toBe(1);
+  });
+
+  it('no submission is 0; a perfect judged score stays inside the budget', () => {
+    expect(scorePhysiqueRound(null, 100).points).toBe(0);
+    const perfect = verdict({ muscular_development: 15, conditioning: 15, symmetry: 15, proportion: 15, presentation: 15 });
+    expect(scorePhysiqueRound(perfect, 100).points).toBeLessThanOrEqual(PHYSIQUE_BUDGET);
+    // Axis values above 15 are clamped, not trusted.
+    const inflated = verdict({ muscular_development: 99 });
+    expect(scorePhysiqueRound(inflated, 0).judged).toBe(53);
+  });
+});
+
 describe('catalog + rewards', () => {
   it('objects are non-empty, keyed, and blitz targets sit in the honest band', () => {
     expect(BATTLE_OBJECTS.length).toBeGreaterThan(0);
@@ -157,5 +255,13 @@ describe('catalog + rewards', () => {
     expect(battleXp(1000, 900)).toBe(150);
     expect(battleXp(900, 1000)).toBe(50);
     expect(battleXp(900, 900)).toBe(75);
+  });
+
+  it('cardio challenges and poses are non-empty and keyed', () => {
+    expect(CARDIO_CHALLENGES.length).toBeGreaterThan(0);
+    for (const c of CARDIO_CHALLENGES) expect(cardioChallengeByKey(c.key)).toBe(c);
+    expect(cardioChallengeByKey('nonsense')).toBe(CARDIO_CHALLENGES[0]);
+    expect(BATTLE_POSES.length).toBe(4);
+    for (const pose of BATTLE_POSES) expect(poseByKey(pose.key)).toBe(pose);
   });
 });

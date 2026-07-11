@@ -18,7 +18,7 @@
  * dominates (BATTLE_ARENA_DESIGN.md §7).
  */
 
-export const ENGINE_VERSION = 1;
+export const ENGINE_VERSION = 2;
 
 // ---------------------------------------------------------------- objects
 
@@ -233,6 +233,228 @@ export function scoreStrengthRound(
     effectiveKg: Math.trunc(mine),
     finished: myFinish !== null,
   };
+}
+
+// ---------------------------------------------------------------- round 2: cardio
+
+export const CARDIO_BUDGET = 1050;
+
+export interface CardioChallenge {
+  key: string;
+  name: string;
+  emoji: string;
+  /** Energy units to complete in a 10-minute BLITZ cardio round. */
+  blitzTargetUnits: number;
+}
+
+export const CARDIO_CHALLENGES: readonly CardioChallenge[] = [
+  { key: 'escape_zombies', name: 'Escape The Zombies', emoji: '🧟', blitzTargetUnits: 26 },
+  { key: 'outrun_wolf', name: 'Outrun The Wolf', emoji: '🐺', blitzTargetUnits: 32 },
+  { key: 'power_city', name: 'Power The City', emoji: '🏙️', blitzTargetUnits: 28 },
+  { key: 'climb_mountain', name: 'Climb The Mountain', emoji: '⛰️', blitzTargetUnits: 24 },
+  { key: 'cross_desert', name: 'Cross The Desert', emoji: '🏜️', blitzTargetUnits: 22 },
+  { key: 'chase_train', name: 'Chase The Train', emoji: '🚂', blitzTargetUnits: 30 },
+];
+
+export function cardioChallengeByKey(key: string): CardioChallenge {
+  const found = CARDIO_CHALLENGES.find((c) => c.key === key);
+  return found ?? CARDIO_CHALLENGES[0];
+}
+
+/**
+ * Energy Units = minutes × minute-coefficient + km × km-coefficient, per
+ * modality — never calories. Tuned so ~10 honest hard minutes lands near a
+ * blitz target on ANY machine: a 2.2km run ≈ 28, ten stairmaster minutes
+ * ≈ 26, ten boxing minutes ≈ 24.
+ */
+const CARDIO_MIN_COEFF: Record<string, number> = {
+  Run: 0.6,
+  'Outdoor walk': 0.4,
+  'Treadmill incline walk': 0.5,
+  Bike: 0.5,
+  Stairmaster: 2.6,
+  Boxing: 2.4,
+  Other: 0.5,
+};
+
+const CARDIO_KM_COEFF: Record<string, number> = {
+  Run: 10,
+  'Outdoor walk': 5.5,
+  'Treadmill incline walk': 6.5,
+  Bike: 4,
+  Stairmaster: 0,
+  Boxing: 0,
+  Other: 5,
+};
+
+export interface CardioEvent {
+  type: string;
+  minutes: number;
+  distanceKm: number;
+  serverTs: string;
+}
+
+export function energyUnits(e: CardioEvent): number {
+  if (e.minutes <= 0 && e.distanceKm <= 0) return 0;
+  const mc = CARDIO_MIN_COEFF[e.type] ?? CARDIO_MIN_COEFF.Other;
+  const kc = CARDIO_KM_COEFF[e.type] ?? CARDIO_KM_COEFF.Other;
+  return Math.max(0, e.minutes) * mc + Math.max(0, e.distanceKm) * kc;
+}
+
+export function totalEnergyUnits(events: readonly CardioEvent[]): number {
+  let total = 0;
+  for (const e of events) total += energyUnits(e);
+  return total;
+}
+
+export interface CardioSpec {
+  challengeKey: string;
+  targetUnits: number;
+  engineVersion: number;
+}
+
+export interface CardioComponents {
+  performance: number;
+  speed: number;
+  completion: number;
+  intensity: number;
+  base: number;
+  multiplier: number;
+  points: number;
+  units: number;
+  finished: boolean;
+}
+
+function cardioFinishTs(events: readonly CardioEvent[], target: number): string | null {
+  let total = 0;
+  for (const e of events) {
+    total += energyUnits(e);
+    if (total >= target) return e.serverTs;
+  }
+  return null;
+}
+
+/**
+ * The blitz cardio round. A 10-minute window usually holds ONE logged
+ * session, so consistency/negative-split components (the FULL-format design)
+ * are replaced by an intensity component: units per minute against a 3.0
+ * "hard effort" bar. Endurance stat enters through the same capped gate.
+ */
+export function scoreCardioRound(
+  myEvents: readonly CardioEvent[],
+  theirEvents: readonly CardioEvent[],
+  spec: CardioSpec,
+  conditioningStat: number
+): CardioComponents {
+  const target = spec.targetUnits;
+  const units = totalEnergyUnits(myEvents);
+  const ratio = target > 0 ? Math.min(1, units / target) : 0;
+
+  const performance = Math.trunc(ratio * 550);
+
+  const myFinish = cardioFinishTs(myEvents, target);
+  const theirFinish = cardioFinishTs(theirEvents, target);
+  let speed: number;
+  if (myFinish !== null && (theirFinish === null || myFinish <= theirFinish)) {
+    speed = 200;
+  } else if (myFinish !== null) {
+    speed = 120;
+  } else {
+    speed = Math.trunc(ratio * 80);
+  }
+
+  const completion = myFinish !== null ? 200 : Math.trunc(ratio * 120);
+
+  let minutes = 0;
+  for (const e of myEvents) minutes += Math.max(0, e.minutes);
+  const upm = minutes > 0 ? units / minutes : 0;
+  const intensity = Math.trunc(Math.min(1, upm / 3.0) * 100);
+
+  const base = performance + speed + completion + intensity;
+  const multiplier = characterMultiplier(conditioningStat);
+  const points = Math.min(CARDIO_BUDGET, Math.trunc(base * multiplier));
+
+  return {
+    performance,
+    speed,
+    completion,
+    intensity,
+    base,
+    multiplier,
+    points,
+    units: Math.trunc(units * 10) / 10,
+    finished: myFinish !== null,
+  };
+}
+
+// ---------------------------------------------------------------- round 3: physique
+
+export const PHYSIQUE_BUDGET = 750;
+
+export interface BattlePose {
+  key: string;
+  name: string;
+}
+
+export const BATTLE_POSES: readonly BattlePose[] = [
+  { key: 'front_relaxed', name: 'Front Relaxed' },
+  { key: 'back_relaxed', name: 'Back Relaxed' },
+  { key: 'side_relaxed', name: 'Side Relaxed' },
+  { key: 'front_double_bicep', name: 'Front Double Bicep' },
+];
+
+export function poseByKey(key: string): BattlePose {
+  const found = BATTLE_POSES.find((p) => p.key === key);
+  return found ?? BATTLE_POSES[0];
+}
+
+export interface PhysiqueVerdict {
+  muscular_development: number;
+  conditioning: number;
+  symmetry: number;
+  proportion: number;
+  presentation: number;
+  compliant: boolean;
+  confidence: string; // 'low' | 'medium' | 'high'
+}
+
+export interface PhysiqueComponents {
+  judged: number;
+  base: number;
+  multiplier: number;
+  points: number;
+  floored: boolean;
+}
+
+/**
+ * The physique round. Five /15 axes weight to a 650 base (the multiplier's
+ * headroom keeps a perfect judged score inside the 750 budget). A verdict
+ * the AI is not confident in is NEVER ranked: after the retry it scores on
+ * the compliance floor alone — 150 for a compliant pose, 50 for showing up.
+ * No submission at all is 0.
+ */
+export function scorePhysiqueRound(
+  verdict: PhysiqueVerdict | null,
+  aestheticStat: number
+): PhysiqueComponents {
+  if (verdict === null) {
+    return { judged: 0, base: 0, multiplier: 1, points: 0, floored: false };
+  }
+  if (String(verdict.confidence).toLowerCase() === 'low') {
+    const floor = verdict.compliant ? 150 : 50;
+    return { judged: 0, base: floor, multiplier: 1, points: floor, floored: true };
+  }
+  const clamp15 = (v: number) => Math.max(0, Math.min(15, v));
+  const judged =
+    clamp15(verdict.muscular_development) +
+    clamp15(verdict.conditioning) +
+    clamp15(verdict.symmetry) +
+    clamp15(verdict.proportion) +
+    clamp15(verdict.presentation);
+  const base = Math.trunc((judged / 75) * 650);
+  const multiplier = characterMultiplier(aestheticStat);
+  const points = Math.min(PHYSIQUE_BUDGET, Math.trunc(base * multiplier));
+  return { judged, base, multiplier, points, floored: false };
 }
 
 // ---------------------------------------------------------------- rewards

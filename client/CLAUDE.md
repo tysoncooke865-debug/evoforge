@@ -44,8 +44,13 @@ the shipped bundle. AI calls go through Edge Functions (Phase 4), never client-s
 - **Per-user isolation is RLS, never client filtering.** Every query runs as
   the signed-in user; `DEFAULT auth.uid()` fills user_id on insert. Do not add
   .eq('user_id', ...) as a security measure — it is not one.
-- **Physique photos are never persisted anywhere.** In memory, to the Edge
-  Function, discarded. No cache, no temp file, no state store.
+- **Solo physique photos are never persisted anywhere.** In memory, to the
+  Edge Function, discarded. No cache, no temp file, no state store.
+  **ONE amendment (Tyson, 2026-07-11, BATTLE_ARENA_DESIGN.md D2): battle
+  round-3 photos ARE stored** — camera captures only, uploaded by
+  battle-physique (service role) into the private `battle-media` bucket,
+  readable solely by that match's two participants, deleted with the match.
+  The Oracle screens keep the original rule; do not widen the amendment.
 - **No `dangerouslySetInnerHTML`** — react/no-danger is an ESLint *error*.
   The old app's ui/escape.py existed because HTML injection could read the
   auth cookie; React's default escaping is the replacement, and this rule

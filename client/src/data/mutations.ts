@@ -176,9 +176,10 @@ export function useLogCardio() {
           });
         }
       }
-      return amount;
+      // rowId rides along so the Battle Arena can reference the confirmed row.
+      return { amount, rowId: String(data.id) };
     },
-    onSuccess: (amount) => {
+    onSuccess: ({ amount }) => {
       queryClient.invalidateQueries({ queryKey: ['cardio_log', userId] });
       queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
       if (amount > 0) {

@@ -3,19 +3,31 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
+import { captureCameraPhoto } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import {
   useBattleBundle,
   useBattleChannel,
   type BattleBundle,
   type BattleParticipant,
+  type BattleRound,
 } from '@/data/battle/hooks';
-import { postBattleVolume, useReadyUp, useSettleBattle } from '@/data/battle/mutations';
-import { useWorkoutLog } from '@/data/hooks';
-import { useSaveSet } from '@/data/mutations';
 import {
+  postBattleCardio,
+  postBattleVolume,
+  useBattlePhysique,
+  useReadyUp,
+  useSettleBattle,
+} from '@/data/battle/mutations';
+import { useWorkoutLog } from '@/data/hooks';
+import { useLogCardio, useSaveSet } from '@/data/mutations';
+import {
+  cardioChallengeByKey,
   objectByKey,
+  poseByKey,
   totalEffectiveKg,
+  totalEnergyUnits,
+  type CardioEvent,
   type VolumeEvent,
 } from '@/domain/battle/engine';
 import { type BranchV2 } from '@/domain/branches-v2';
@@ -194,7 +206,14 @@ const toVolume = (e: { payload: { exercise?: string; weight?: number; reps?: num
   serverTs: e.server_ts,
 });
 
-function ProgressBar({ pct, colour, label, kg }: { pct: number; colour: string; label: string; kg: number }) {
+const toCardio = (e: { payload: Record<string, unknown>; server_ts: string }): CardioEvent => ({
+  type: String(e.payload.type ?? ''),
+  minutes: Number(e.payload.minutes ?? 0) || 0,
+  distanceKm: Number(e.payload.distance_km ?? 0) || 0,
+  serverTs: e.server_ts,
+});
+
+function ProgressBar({ pct, colour, label, kg, unit = 'kg' }: { pct: number; colour: string; label: string; kg: number; unit?: string }) {
   return (
     <View className="mb-s2">
       <View className="mb-s1 flex-row justify-between">
@@ -202,7 +221,7 @@ function ProgressBar({ pct, colour, label, kg }: { pct: number; colour: string; 
           {label}
         </Text>
         <Text className="text-2xs font-bold" style={{ color: colour }}>
-          {Math.trunc(pct)}% · {Math.trunc(kg)} kg
+          {Math.trunc(pct)}% · {Math.trunc(kg)} {unit}
         </Text>
       </View>
       <View className="h-s3 overflow-hidden rounded-pill bg-surface-3">
@@ -223,6 +242,38 @@ function ProgressBar({ pct, colour, label, kg }: { pct: number; colour: string; 
   );
 }
 
+/** Which round we're in, with the scores banked so far. */
+function RoundStrip({ data, userId }: { data: BattleBundle; userId: string | null }) {
+  const current = data.match?.current_round ?? 1;
+  return (
+    <View className="flex-row gap-s2">
+      {[1, 2, 3].map((n) => {
+        const mine = data.scores.find((s) => s.round_no === n && s.user_id === userId);
+        const live = n === current && !mine;
+        const kindLabel = n === 1 ? 'STR' : n === 2 ? 'CARDIO' : 'PHYSIQUE';
+        return (
+          <View
+            key={n}
+            className="flex-1 items-center rounded-md py-s2"
+            style={{
+              borderWidth: 1,
+              borderColor: live ? `${tokens.colors.accent}66` : tokens.colors.border,
+              backgroundColor: live ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.5)',
+            }}
+          >
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+              R{n} {kindLabel}
+            </Text>
+            <Text className={`text-sm font-bold ${live ? 'text-accent' : mine ? 'text-text' : 'text-text-mute'}`}>
+              {mine ? mine.points : live ? 'LIVE' : '—'}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function ActivePhase({
   matchId,
   data,
@@ -236,20 +287,47 @@ function ActivePhase({
   them: BattleParticipant | null;
   userId: string | null;
 }) {
-  const round = data.round;
-  const spec = round?.spec ?? {};
+  const currentNo = data.match?.current_round ?? 1;
+  const round = data.rounds.find((r) => r.round_no === currentNo) ?? null;
+  if (!round) return null;
+  return (
+    <>
+      {round.kind === 'strength' ? (
+        <StrengthRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
+      ) : round.kind === 'cardio' ? (
+        <CardioRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
+      ) : (
+        <PhysiqueRound matchId={matchId} data={data} round={round} userId={userId} />
+      )}
+      <RoundStrip data={data} userId={userId} />
+    </>
+  );
+}
+
+interface RoundProps {
+  matchId: string;
+  data: BattleBundle;
+  round: BattleRound;
+  me: BattleParticipant | null;
+  them: BattleParticipant | null;
+  userId: string | null;
+}
+
+function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const spec = round.spec;
   const object = objectByKey(String(spec.objectKey ?? ''));
   const target = Number(spec.targetEffectiveKg ?? object.blitzTargetKg);
-  const secondsLeft = useCountdown(round?.ends_at ?? null);
+  const secondsLeft = useCountdown(round.ends_at ?? null);
   const settle = useSettleBattle(matchId);
 
+  const roundNo = round.round_no;
   const myEvents = useMemo(
-    () => data.events.filter((e) => e.user_id === userId).map(toVolume),
-    [data.events, userId]
+    () => data.events.filter((e) => e.user_id === userId && e.kind === 'volume' && e.round_no === roundNo).map(toVolume),
+    [data.events, userId, roundNo]
   );
   const theirEvents = useMemo(
-    () => data.events.filter((e) => e.user_id !== userId).map(toVolume),
-    [data.events, userId]
+    () => data.events.filter((e) => e.user_id !== userId && e.kind === 'volume' && e.round_no === roundNo).map(toVolume),
+    [data.events, userId, roundNo]
   );
   const myKg = totalEffectiveKg(myEvents);
   const theirKg = totalEffectiveKg(theirEvents);
@@ -312,12 +390,256 @@ function ActivePhase({
       {!over && !bothDone ? <BattleLogger matchId={matchId} /> : null}
 
       {over || bothDone ? (
-        <NeonButton title="REVEAL THE VERDICT" onPress={() => settle.mutate()} busy={settle.isPending} testID="battle-settle" />
+        <NeonButton title="LOCK IN ROUND 1 · ON TO CARDIO" onPress={() => settle.mutate()} busy={settle.isPending} testID="battle-settle" />
       ) : (
         <Text className="text-center text-2xs text-text-mute">
           Every set logs to your real training history — battle sets are real sets.
         </Text>
       )}
+    </>
+  );
+}
+
+function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const spec = round.spec;
+  const challenge = cardioChallengeByKey(String(spec.challengeKey ?? ''));
+  const target = Number(spec.targetUnits ?? challenge.blitzTargetUnits);
+  const secondsLeft = useCountdown(round.ends_at ?? null);
+  const settle = useSettleBattle(matchId);
+
+  const roundNo = round.round_no;
+  const myEvents = useMemo(
+    () => data.events.filter((e) => e.user_id === userId && e.kind === 'cardio' && e.round_no === roundNo).map(toCardio),
+    [data.events, userId, roundNo]
+  );
+  const theirEvents = useMemo(
+    () => data.events.filter((e) => e.user_id !== userId && e.kind === 'cardio' && e.round_no === roundNo).map(toCardio),
+    [data.events, userId, roundNo]
+  );
+  const myUnits = totalEnergyUnits(myEvents);
+  const theirUnits = totalEnergyUnits(theirEvents);
+  const myPct = target > 0 ? (myUnits / target) * 100 : 0;
+  const theirPct = target > 0 ? (theirUnits / target) * 100 : 0;
+  const bothDone = myUnits >= target && theirUnits >= target;
+  const over = secondsLeft !== null && secondsLeft <= 0;
+
+  const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
+  const ss = secondsLeft === null ? '––' : String(secondsLeft % 60).padStart(2, '0');
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="ROUND 2 · CARDIO"
+        title={challenge.name.toUpperCase()}
+        right={
+          <Text
+            className="text-2xl font-bold"
+            style={{
+              color: over ? tokens.colors.danger : tokens.colors.rare,
+              textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(56,189,248,0.6)',
+              textShadowRadius: 14,
+            }}
+          >
+            {over ? 'TIME' : `${mm}:${ss}`}
+          </Text>
+        }
+      />
+
+      <GlowCard glow={Math.max(myPct, theirPct) >= 100 ? tokens.colors.success : tokens.colors.rare}>
+        <View className="items-center py-s2">
+          <Text style={{ fontSize: 64 }}>{challenge.emoji}</Text>
+          <Text className="mt-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+            TARGET {target} ENERGY UNITS
+          </Text>
+          <Text className="text-center text-2xs text-text-mute">
+            Minutes and kilometres convert per machine — a stair minute outranks a walking one.
+          </Text>
+        </View>
+        <View className="mt-s3">
+          <ProgressBar pct={myPct} colour={tokens.colors.rare} label={String(me?.snapshot.name ?? 'YOU').toUpperCase()} kg={myUnits} unit="EU" />
+          <ProgressBar pct={theirPct} colour={tokens.colors.epic} label={String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} kg={theirUnits} unit="EU" />
+        </View>
+      </GlowCard>
+
+      {!over && !bothDone ? <CardioBattleLogger matchId={matchId} roundNo={roundNo} /> : null}
+
+      {over || bothDone ? (
+        <NeonButton title="LOCK IN ROUND 2 · TO THE JUDGING" onPress={() => settle.mutate()} busy={settle.isPending} testID="battle-settle" />
+      ) : (
+        <Text className="text-center text-2xs text-text-mute">
+          Sessions log to your real cardio history — battle minutes are real minutes.
+        </Text>
+      )}
+    </>
+  );
+}
+
+const BATTLE_CARDIO_TYPES = ['Run', 'Bike', 'Stairmaster', 'Outdoor walk', 'Boxing'];
+
+/** Round 2's logger: the NORMAL cardio save (real XP), then the confirmed
+ *  row ties into the battle. Same doctrine as sets. */
+function CardioBattleLogger({ matchId, roundNo }: { matchId: string; roundNo: number }) {
+  const [type, setType] = useState(BATTLE_CARDIO_TYPES[0]);
+  const [minutes, setMinutes] = useState('');
+  const [distance, setDistance] = useState('');
+  const log = useLogCardio();
+
+  const submit = () => {
+    const mins = pyFloat(minutes) ?? 0;
+    if (mins <= 0) return;
+    log.mutate(
+      {
+        type,
+        minutes: mins,
+        distanceKm: pyFloat(distance) ?? 0,
+        incline: 0,
+        speed: 0,
+        calories: 0,
+        notes: 'Battle Arena',
+      },
+      {
+        onSuccess: ({ rowId }) => {
+          setMinutes('');
+          setDistance('');
+          void postBattleCardio(matchId, roundNo, rowId);
+        },
+      }
+    );
+  };
+
+  return (
+    <GlowCard>
+      <View className="mb-s3">
+        <EdgeLabel>LOG A BATTLE SESSION</EdgeLabel>
+      </View>
+      <View className="mb-s3 flex-row flex-wrap gap-s2">
+        {BATTLE_CARDIO_TYPES.map((t) => (
+          <Chip key={t} label={t} active={t === type} onPress={() => setType(t)} />
+        ))}
+      </View>
+      <View className="flex-row items-center gap-s2">
+        <TextInput
+          className="min-h-[44px] w-[80px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
+          inputMode="decimal"
+          placeholder="min"
+          placeholderTextColor="#64758f"
+          value={minutes}
+          onChangeText={setMinutes}
+          testID="battle-cardio-min"
+        />
+        <TextInput
+          className="min-h-[44px] w-[80px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
+          inputMode="decimal"
+          placeholder="km"
+          placeholderTextColor="#64758f"
+          value={distance}
+          onChangeText={setDistance}
+          testID="battle-cardio-km"
+        />
+        <View className="flex-1">
+          <NeonButton title="LOG SESSION" onPress={submit} busy={log.isPending} testID="battle-cardio-log" />
+        </View>
+      </View>
+    </GlowCard>
+  );
+}
+
+function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' | 'them'>) {
+  const spec = round.spec;
+  const pose = poseByKey(String(spec.poseKey ?? ''));
+  const secondsLeft = useCountdown(round.ends_at ?? null);
+  const judge = useBattlePhysique(matchId);
+  const settle = useSettleBattle(matchId);
+
+  const roundNo = round.round_no;
+  const myMedia = data.media.filter((m) => m.user_id === userId && m.round_no === roundNo);
+  const theirMedia = data.media.filter((m) => m.user_id !== userId && m.round_no === roundNo);
+  const last = myMedia[myMedia.length - 1] ?? null;
+  const attemptsLeft = 2 - myMedia.length;
+  const needRetry = last !== null && String(last.confidence).toLowerCase() === 'low' && attemptsLeft > 0;
+  const iAmDone = last !== null && (!needRetry || attemptsLeft <= 0);
+  const theyAreDone =
+    theirMedia.length >= 2 ||
+    theirMedia.some((m) => String(m.confidence).toLowerCase() !== 'low');
+  const over = secondsLeft !== null && secondsLeft <= 0;
+
+  const capture = async () => {
+    const photo = await captureCameraPhoto();
+    if (photo) judge.mutate(photo);
+  };
+
+  const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
+  const ss = secondsLeft === null ? '––' : String(secondsLeft % 60).padStart(2, '0');
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="ROUND 3 · PHYSIQUE"
+        title="FACE THE JUDGE"
+        right={
+          <Text
+            className="text-2xl font-bold"
+            style={{
+              color: over ? tokens.colors.danger : tokens.colors.mythic,
+              textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(244,114,182,0.6)',
+              textShadowRadius: 14,
+            }}
+          >
+            {over ? 'TIME' : `${mm}:${ss}`}
+          </Text>
+        }
+      />
+
+      <GlowCard glow={iAmDone ? tokens.colors.success : tokens.colors.mythic}>
+        <View className="items-center py-s2">
+          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+            THE ROLLED POSE
+          </Text>
+          <Text
+            className="my-s2 text-center text-2xl font-bold text-text"
+            style={{ textShadowColor: 'rgba(244,114,182,0.5)', textShadowRadius: 16 }}
+          >
+            {pose.name.toUpperCase()}
+          </Text>
+          <Text className="text-center text-2xs text-text-mute">
+            Camera only — no gallery. The judge scores five ways and checks the pose.
+            {'\n'}Low-confidence verdicts are never ranked; you get one retake.
+          </Text>
+        </View>
+
+        {last ? (
+          <View className="mt-s3 rounded-md border border-border-strong bg-surface-2 p-s3">
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+              ATTEMPT {myMedia.length} · {String(last.confidence ?? '').toUpperCase()} CONFIDENCE ·{' '}
+              {last.compliant ? 'POSE OK' : 'POSE NOT RECOGNISED'}
+            </Text>
+            {needRetry ? (
+              <Text className="mt-s1 text-xs text-warn">The judge wants a clearer shot. One retake remains.</Text>
+            ) : (
+              <Text className="mt-s1 text-xs text-text-dim">Verdict locked. Waiting on the opponent…</Text>
+            )}
+          </View>
+        ) : null}
+
+        {!over && !iAmDone ? (
+          <View className="mt-s4">
+            <NeonButton
+              title={last ? 'RETAKE · FACE THE JUDGE' : '📸 CAPTURE & FACE THE JUDGE'}
+              onPress={() => void capture()}
+              busy={judge.isPending}
+              testID="battle-capture"
+            />
+          </View>
+        ) : null}
+
+        <Text className="mt-s3 text-center text-2xs text-text-mute">
+          Opponent: {theirMedia.length === 0 ? 'not yet judged' : theyAreDone ? 'verdict locked' : 'retaking…'}
+        </Text>
+      </GlowCard>
+
+      {over || (iAmDone && theyAreDone) ? (
+        <NeonButton title="REVEAL THE FINAL VERDICT" onPress={() => settle.mutate()} busy={settle.isPending} testID="battle-settle" />
+      ) : null}
     </>
   );
 }
@@ -416,9 +738,12 @@ function BattleLogger({ matchId }: { matchId: string }) {
   );
 }
 
+const ROUND_LABELS: Record<number, string> = { 1: 'STRENGTH', 2: 'CARDIO', 3: 'PHYSIQUE' };
+const ROUND_BUDGETS: Record<number, number> = { 1: 1200, 2: 1050, 3: 750 };
+
 function ScoreCard({ p, scores, won }: { p: BattleParticipant | null; scores: BattleBundle['scores']; won: boolean }) {
-  const mine = scores.find((s) => s.user_id === p?.user_id);
-  const c = (mine?.components ?? {}) as Record<string, number>;
+  const mine = scores.filter((s) => s.user_id === p?.user_id).sort((a, b) => a.round_no - b.round_no);
+  const total = p?.total_score ?? mine.reduce((acc, s) => acc + s.points, 0);
   const tint = won ? tokens.colors.success : tokens.colors.border;
   return (
     <View className="mb-s3 rounded-xl p-s4" style={{ borderWidth: 1, borderColor: won ? `${tokens.colors.success}59` : tint, backgroundColor: 'rgba(13,21,36,0.5)' }}>
@@ -431,15 +756,17 @@ function ScoreCard({ p, scores, won }: { p: BattleParticipant | null; scores: Ba
           className="text-2xl font-bold"
           style={{ color: won ? tokens.colors.success : tokens.colors.text, textShadowColor: won ? 'rgba(52,211,153,0.6)' : undefined, textShadowRadius: won ? 14 : 0 }}
         >
-          {mine?.points ?? p?.total_score ?? 0}
+          {total}
         </Text>
       </View>
-      {(['completion', 'speed', 'variety', 'overload'] as const).map((key) => (
-        <View key={key} className="flex-row justify-between">
+      {mine.map((s) => (
+        <View key={s.round_no} className="flex-row justify-between">
           <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
-            {key.toUpperCase()}
+            R{s.round_no} {ROUND_LABELS[s.round_no] ?? ''}
           </Text>
-          <Text className="text-2xs font-bold text-text-dim">{c[key] ?? 0}</Text>
+          <Text className="text-2xs font-bold text-text-dim">
+            {s.points} / {ROUND_BUDGETS[s.round_no] ?? ''}
+          </Text>
         </View>
       ))}
       {p?.xp_awarded ? (
