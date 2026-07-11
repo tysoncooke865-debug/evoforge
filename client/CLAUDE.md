@@ -49,7 +49,9 @@ the shipped bundle. AI calls go through Edge Functions (Phase 4), never client-s
   **ONE amendment (Tyson, 2026-07-11, BATTLE_ARENA_DESIGN.md D2): battle
   round-3 photos ARE stored** — camera captures only, uploaded by
   battle-physique (service role) into the private `battle-media` bucket,
-  readable solely by that match's two participants, deleted with the match.
+  readable solely by that match's two participants (both OPPONENTS VIEW each
+  other's round-3 photos in-match via short-lived signed URLs, revealed only
+  once both verdicts are final), deleted with the match and on cancel.
   The Oracle screens keep the original rule; do not widen the amendment.
 - **No `dangerouslySetInnerHTML`** — react/no-danger is an ESLint *error*.
   The old app's ui/escape.py existed because HTML injection could read the

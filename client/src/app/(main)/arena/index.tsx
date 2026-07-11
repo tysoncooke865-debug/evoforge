@@ -241,16 +241,19 @@ function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
   const userId = session?.user?.id ?? null;
 
   const settled = match.status === 'settled';
+  const abandoned = match.status === 'abandoned';
   const won = settled && match.winner_user_id !== null && match.winner_user_id === userId;
   const draw = settled && match.winner_user_id === null;
-  const tint = !settled
-    ? tokens.colors.accent
-    : won
-      ? tokens.colors.success
-      : draw
-        ? tokens.colors.rare
-        : tokens.colors.danger;
-  const label = !settled ? match.status.toUpperCase() : won ? 'VICTORY' : draw ? 'DRAW' : 'DEFEAT';
+  const tint = abandoned
+    ? tokens.colors['text-mute']
+    : !settled
+      ? tokens.colors.accent
+      : won
+        ? tokens.colors.success
+        : draw
+          ? tokens.colors.rare
+          : tokens.colors.danger;
+  const label = abandoned ? 'CANCELLED' : !settled ? match.status.toUpperCase() : won ? 'VICTORY' : draw ? 'DRAW' : 'DEFEAT';
 
   return (
     <View className="mb-s2">

@@ -49,6 +49,13 @@ Deno.serve(async (req) => {
     return json({ error: 'Not your battle.' }, 403);
   }
 
+  // A cancelled match must never bill a judge call or re-insert media
+  // after cleanup (IMPROVEMENT_PLAN #5).
+  const { data: matches } = await svc.from('battle_matches').select('status').eq('id', matchId).limit(1);
+  if (!matches || matches.length === 0 || matches[0].status !== 'active') {
+    return json({ error: 'This battle is not accepting photos.' }, 409);
+  }
+
   const { data: rounds } = await svc
     .from('battle_rounds')
     .select('round_no,spec,starts_at,ends_at,status')

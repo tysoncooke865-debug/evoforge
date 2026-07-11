@@ -1,20 +1,25 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { captureCameraPhoto } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import {
   useBattleBundle,
   useBattleChannel,
+  useBattleMediaUrl,
   type BattleBundle,
+  type BattleMediaRow,
   type BattleParticipant,
   type BattleRound,
 } from '@/data/battle/hooks';
+import { revealReady, sideState } from '@/data/battle/physique-reveal';
 import {
   postBattleCardio,
   postBattleVolume,
   useBattlePhysique,
+  useCancelBattle,
   useReadyUp,
   useSettleBattle,
 } from '@/data/battle/mutations';
@@ -82,21 +87,22 @@ export default function BattleScreen() {
 
   return (
     <ScreenShell>
-      {match.status === 'inviting' ? <InvitePhase code={match.invite_code} /> : null}
+      {match.status === 'inviting' ? <InvitePhase matchId={match.id} code={match.invite_code} /> : null}
       {match.status === 'matched' ? <VsPhase matchId={match.id} me={me} them={them} /> : null}
       {match.status === 'active' ? (
         <ActivePhase matchId={match.id} data={data} me={me} them={them} userId={userId} />
       ) : null}
-      {match.status === 'settled' || match.status === 'abandoned' ? (
-        <ResultsPhase data={data} me={me} them={them} />
-      ) : null}
+      {match.status === 'settled' ? <ResultsPhase data={data} me={me} them={them} /> : null}
+      {match.status === 'abandoned' ? <AbandonedPhase match={match} me={me} them={them} /> : null}
     </ScreenShell>
   );
 }
 
 // ------------------------------------------------------------------ phases
 
-function InvitePhase({ code }: { code: string | null }) {
+function InvitePhase({ matchId, code }: { matchId: string; code: string | null }) {
+  const router = useRouter();
+  const cancel = useCancelBattle(matchId);
   return (
     <>
       <ScreenHeader kicker="FRIENDLY BLITZ" title="CHALLENGE SENT" />
@@ -107,6 +113,103 @@ function InvitePhase({ code }: { code: string | null }) {
         </Text>
       </GlowCard>
       <RulesStrip rules={BLITZ_RULES} />
+      <NeonButton
+        title="CANCEL INVITE"
+        variant="ghost"
+        onPress={() => cancel.mutate(undefined, { onSuccess: () => router.replace('/arena') })}
+        busy={cancel.isPending}
+        testID="battle-cancel"
+      />
+    </>
+  );
+}
+
+/**
+ * IMPROVEMENT_PLAN #5: the web-safe confirmation overlay (Alert.alert is
+ * unimplemented on react-native-web). Nothing destructive happens without
+ * this explicit second tap.
+ */
+function ConfirmAbandon({
+  visible,
+  busy,
+  onConfirm,
+  onKeep,
+}: {
+  visible: boolean;
+  busy: boolean;
+  onConfirm: () => void;
+  onKeep: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <View
+      className="absolute inset-0 items-center justify-center px-s5"
+      style={{ backgroundColor: 'rgba(2,6,12,0.85)', zIndex: 50 }}
+    >
+      <View
+        className="w-full max-w-[420px] rounded-xl p-s5"
+        style={{ borderWidth: 1, borderColor: `${tokens.colors.danger}59`, backgroundColor: tokens.colors.surface }}
+      >
+        <Text className="text-lg font-bold text-text" style={{ letterSpacing: 1 }}>
+          ABANDON BATTLE?
+        </Text>
+        <Text className="mt-s2 text-xs text-text-dim">
+          This ends it for both players — no XP, no winner, no way back in.
+        </Text>
+        <View className="mt-s4 gap-s2">
+          <NeonButton title="ABANDON BATTLE" variant="danger" onPress={onConfirm} busy={busy} testID="confirm-abandon" />
+          <NeonButton title="KEEP FIGHTING" variant="ghost" onPress={onKeep} testID="keep-fighting" />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** A quiet exit affordance + the confirm overlay, shared by VS and rounds. */
+function AbandonControl({ matchId }: { matchId: string }) {
+  const [confirming, setConfirming] = useState(false);
+  const cancel = useCancelBattle(matchId);
+  return (
+    <>
+      <Pressable
+        onPress={() => setConfirming(true)}
+        accessibilityRole="button"
+        className="min-h-[44px] items-center justify-center"
+        testID="battle-abandon"
+      >
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          ABANDON BATTLE
+        </Text>
+      </Pressable>
+      <ConfirmAbandon
+        visible={confirming}
+        busy={cancel.isPending}
+        onConfirm={() => cancel.mutate(undefined, { onSuccess: () => setConfirming(false) })}
+        onKeep={() => setConfirming(false)}
+      />
+    </>
+  );
+}
+
+function AbandonedPhase({
+  match,
+  me,
+  them,
+}: {
+  match: { cancelled_by: string | null };
+  me: BattleParticipant | null;
+  them: BattleParticipant | null;
+}) {
+  const router = useRouter();
+  const byMe = match.cancelled_by !== null && match.cancelled_by === me?.user_id;
+  const who = byMe ? 'You ended it' : `${them?.snapshot.name ?? 'Your opponent'} ended it`;
+  return (
+    <>
+      <ScreenHeader kicker="FRIENDLY BLITZ" title="BATTLE CANCELLED" />
+      <GlowCard>
+        <Text className="text-center text-sm text-text-dim">{who}. No XP, no winner — the arena forgets fast.</Text>
+      </GlowCard>
+      <NeonButton title="BACK TO THE ARENA" variant="ghost" onPress={() => router.replace('/arena')} />
     </>
   );
 }
@@ -129,6 +232,7 @@ function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant
       <Text className="text-center text-2xs text-text-mute">
         When both athletes are ready the object is rolled and the 12-minute bell sounds.
       </Text>
+      <AbandonControl matchId={matchId} />
     </>
   );
 }
@@ -253,6 +357,7 @@ function ActivePhase({
         <PhysiqueRound matchId={matchId} data={data} round={round} userId={userId} />
       )}
       <RoundStrip data={data} userId={userId} />
+      <AbandonControl matchId={matchId} />
     </>
   );
 }
@@ -519,6 +624,8 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
     theirMedia.length >= 2 ||
     theirMedia.some((m) => String(m.confidence).toLowerCase() !== 'low');
   const over = secondsLeft !== null && secondsLeft <= 0;
+  const roundScored = data.scores.some((sc) => sc.round_no === roundNo);
+  const revealed = revealReady(myMedia, theirMedia, roundScored);
 
   const capture = async () => {
     const photo = await captureCameraPhoto();
@@ -589,9 +696,15 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
           </View>
         ) : null}
 
-        <Text className="mt-s3 text-center text-2xs text-text-mute">
-          Opponent: {theirMedia.length === 0 ? 'not yet judged' : theyAreDone ? 'verdict locked' : 'retaking…'}
-        </Text>
+        <View className="mt-s4 flex-row gap-s3">
+          <DuelPanel label="YOU" tint={tokens.colors.accent} rows={myMedia} revealed={revealed} judging={judge.isPending} />
+          <DuelPanel label="OPPONENT" tint={tokens.colors.epic} rows={theirMedia} revealed={revealed} judging={false} />
+        </View>
+        {!revealed && (myMedia.length > 0 || theirMedia.length > 0) ? (
+          <Text className="mt-s2 text-center text-2xs text-text-mute">
+            Photos reveal when both verdicts are locked — no first-mover disadvantage.
+          </Text>
+        ) : null}
       </GlowCard>
 
       {over || (iAmDone && theyAreDone) ? (
@@ -692,6 +805,91 @@ function BattleLogger({ matchId }: { matchId: string }) {
         </View>
       </View>
     </GlowCard>
+  );
+}
+
+/**
+ * One side of the round-3 duel (IMPROVEMENT_PLAN #8): the photo behind the
+ * both-final reveal gate, verdict axes once revealed, honest placeholders
+ * everywhere else. A dead signed URL renders PHOTO UNAVAILABLE — it never
+ * blocks scores.
+ */
+function DuelPanel({
+  label,
+  tint,
+  rows,
+  revealed,
+  judging,
+}: {
+  label: string;
+  tint: string;
+  rows: BattleMediaRow[];
+  revealed: boolean;
+  judging: boolean;
+}) {
+  const state = sideState(rows, revealed, judging);
+  const last = rows.length > 0 ? rows[rows.length - 1] : null;
+  const url = useBattleMediaUrl(state === 'revealed' || state === 'noncompliant' ? (last?.storage_path ?? null) : null);
+  const verdict = (last?.verdict ?? {}) as Record<string, number>;
+  const axes: [string, string][] = [
+    ['muscular_development', 'MUSCLE'],
+    ['conditioning', 'COND'],
+    ['symmetry', 'SYM'],
+    ['proportion', 'PROP'],
+    ['presentation', 'PRES'],
+  ];
+  return (
+    <View className="flex-1 rounded-xl p-s2" style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(6,12,24,0.5)' }}>
+      <Text className="mb-s1 text-center text-2xs font-bold" style={{ color: tint, letterSpacing: 2 }}>
+        {label}
+      </Text>
+      <View className="items-center justify-center rounded-md" style={{ height: 150, backgroundColor: 'rgba(4,10,20,0.7)', overflow: 'hidden' }}>
+        {state === 'waiting' ? (
+          <Text className="text-2xs text-text-mute">NO PHOTO YET</Text>
+        ) : state === 'judging' ? (
+          <Text className="text-2xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
+            JUDGING…
+          </Text>
+        ) : state === 'locked' ? (
+          <View className="items-center gap-s1">
+            <Text className="text-xl">🔒</Text>
+            <Text className="px-s2 text-center text-2xs text-text-mute">PHOTO LOCKED — reveals when both are in</Text>
+          </View>
+        ) : url.data ? (
+          <Image source={{ uri: url.data }} style={{ width: '100%', height: 150 }} contentFit="cover" />
+        ) : (
+          <Text className="text-2xs text-text-mute">PHOTO UNAVAILABLE</Text>
+        )}
+      </View>
+      {state === 'noncompliant' ? (
+        <Text className="mt-s1 text-center text-2xs font-bold text-warn" style={{ letterSpacing: 1 }}>
+          NON-COMPLIANT · {rows.length}/2
+        </Text>
+      ) : null}
+      {(state === 'revealed' || state === 'noncompliant') && last?.verdict ? (
+        <View className="mt-s2">
+          {axes.map(([key, short]) => {
+            const v = Math.max(0, Math.min(15, Number(verdict[key] ?? 0)));
+            return (
+              <View key={key} className="mb-s1 flex-row items-center gap-s1">
+                <Text className="w-[38px] text-2xs text-text-mute" style={{ fontSize: 9, letterSpacing: 0.5 }}>
+                  {short}
+                </Text>
+                <View className="h-[4px] flex-1 overflow-hidden rounded-pill bg-surface-3">
+                  <View style={{ width: `${(v / 15) * 100}%`, height: '100%', borderRadius: 999, backgroundColor: tint, minWidth: v > 0 ? 3 : 0 }} />
+                </View>
+                <Text className="text-2xs font-bold text-text-dim" style={{ fontSize: 9 }}>
+                  {v}
+                </Text>
+              </View>
+            );
+          })}
+          <Text className="text-center text-2xs text-text-mute" style={{ fontSize: 9, letterSpacing: 1 }}>
+            JUDGE VERDICT — final points at settle
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 

@@ -336,9 +336,9 @@ Work on `expo-rewrite`. `migrations/` commits need `[architect]`. Per change-set
 - [x] 3. **#3** Log screen CARDIO|STATS segments (extract `SegmentedTabs`), both mounted, tour screenshots.
 - [x] 4. **#1** `use-current-stats.ts` seam + BODY STATS card on profile (`useLogBodyweight` append, `useUpdateHeight`), retire measurements bodyweight input, route ai/goals/avatar-data through the seam, parity suite green.
 - [x] 5. **#2** `last-performance.ts` + Today prefill with LAST affordance; vitest matrix.
-- [ ] 6. **Migration 010** on staging → checklist → production `[human]`.
-- [ ] 7. **#5** `battle-cancel` fn + settle/physique CAS hardening + confirm overlay + `AbandonedPhase` + CANCELLED badge; two-account cancel test; falsify the race.
-- [ ] 8. **#8** bundle `storage_path` + `useBattleMediaUrl` + `physique-reveal.ts` + `PhysiqueDuel` panels; two-account reveal test; cross-match 403 falsification; update `client/CLAUDE.md` photo invariant wording.
+- [x] 6. **Migration 010** on staging → checklist → production `[human]`.
+- [x] 7. **#5** `battle-cancel` fn + settle/physique CAS hardening + confirm overlay + `AbandonedPhase` + CANCELLED badge; two-account cancel test; falsify the race.
+- [x] 8. **#8** bundle `storage_path` + `useBattleMediaUrl` + `physique-reveal.ts` + `PhysiqueDuel` panels; two-account reveal test; cross-match 403 falsification; update `client/CLAUDE.md` photo invariant wording.
 - [ ] 9. **Migration 011** staging → production `[human]`.
 - [ ] 10. **#6** conditions estimate+confirm in both AI functions + cache-key change + `ScanFrame` confirm state; falsify one correction end-to-end.
 - [ ] 11. **#10** `ai-plan` edge function (port `run_ai_custom_plan_*` prompts) + validation + preview/accept/reject + Today source toggle; bad-shape 422 falsification.

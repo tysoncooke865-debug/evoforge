@@ -100,6 +100,24 @@ export function useReadyUp(matchId: string) {
   });
 }
 
+/** IMPROVEMENT_PLAN #5: end a live battle for both players. Server CAS
+ *  decides any race with settle; XP-inert by construction. */
+export function useCancelBattle(matchId: string) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: () => invokeBattle('battle-cancel', { match_id: matchId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
+      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'CANCEL FAILED', subtitle: e.message });
+    },
+  });
+}
+
 export function useSettleBattle(matchId: string) {
   const queryClient = useQueryClient();
   const { session } = useAuth();

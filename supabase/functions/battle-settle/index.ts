@@ -81,6 +81,9 @@ Deno.serve(async (req) => {
   if (match.status === 'settled') {
     return json({ settled: true, winner_user_id: match.winner_user_id, already: true });
   }
+  if (match.status === 'abandoned') {
+    return json({ error: 'This battle was cancelled — nothing to settle.' }, 409);
+  }
   if (match.status !== 'active') return json({ error: 'Battle has not started.' }, 409);
 
   const roundNo = Number(match.current_round);
@@ -275,10 +278,19 @@ Deno.serve(async (req) => {
       .eq('match_id', matchId)
       .eq('user_id', p.user_id);
   }
-  await svc
+  // The settle side of the cancel race (IMPROVEMENT_PLAN #5): conditional
+  // on still being active, and checked BEFORE any XP grant. Whoever wins
+  // the compare-and-set wins; the loser gets a truthful 409.
+  const { data: settledRows, error: settleErr } = await svc
     .from('battle_matches')
     .update({ status: 'settled', winner_user_id: winner, settled_at: new Date().toISOString() })
-    .eq('id', matchId);
+    .eq('id', matchId)
+    .eq('status', 'active')
+    .select('id');
+  if (settleErr) return json({ error: `Could not settle: ${settleErr.message}` }, 500);
+  if (!settledRows || settledRows.length === 0) {
+    return json({ error: 'The battle was cancelled while settling — no result.' }, 409);
+  }
 
   const grantErrors: string[] = [];
   for (const p of participants) {

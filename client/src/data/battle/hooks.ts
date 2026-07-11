@@ -24,6 +24,8 @@ export interface BattleMatch {
   current_round: number;
   winner_user_id: string | null;
   settled_at: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
   created_at: string;
 }
 
@@ -86,6 +88,7 @@ export interface BattleMediaRow {
   confidence: string | null;
   compliant: boolean | null;
   verdict: Record<string, unknown> | null;
+  storage_path: string | null;
   created_at: string;
 }
 
@@ -98,7 +101,7 @@ export function useMyBattles() {
     queryFn: async (): Promise<BattleMatch[]> => {
       const { data, error } = await supabase
         .from('battle_matches')
-        .select('id,mode,format,status,invite_code,current_round,winner_user_id,settled_at,created_at')
+        .select('id,mode,format,status,invite_code,current_round,winner_user_id,settled_at,cancelled_by,cancelled_at,created_at')
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -163,7 +166,7 @@ export function useBattleBundle(matchId: string | null) {
         supabase.from('battle_round_scores').select('round_no,user_id,components,points').eq('match_id', matchId!),
         supabase
           .from('battle_media')
-          .select('id,user_id,round_no,confidence,compliant,verdict,created_at')
+          .select('id,user_id,round_no,confidence,compliant,verdict,storage_path,created_at')
           .eq('match_id', matchId!)
           .order('created_at'),
       ]);
@@ -177,6 +180,32 @@ export function useBattleBundle(matchId: string | null) {
         scores: (s.data ?? []) as BattleScoreRow[],
         media: (md.data ?? []) as BattleMediaRow[],
       };
+    },
+  });
+}
+
+/**
+ * A short-lived signed URL for a battle photo (IMPROVEMENT_PLAN #8). The
+ * path only ever comes from an RLS-scoped battle_media row of the loaded
+ * bundle; the storage policy 403s cross-match guessing. 300s expiry is the
+ * access-revocation backstop after cancel/settle; null on ANY error so a
+ * dead URL renders a placeholder, never blocks scores.
+ */
+export function useBattleMediaUrl(storagePath: string | null) {
+  return useQuery({
+    queryKey: ['battle_media_url', storagePath],
+    enabled: storagePath !== null,
+    staleTime: 240_000,
+    queryFn: async (): Promise<string | null> => {
+      try {
+        const { data, error } = await supabase.storage
+          .from('battle-media')
+          .createSignedUrl(storagePath!, 300);
+        if (error) return null;
+        return data?.signedUrl ?? null;
+      } catch {
+        return null;
+      }
     },
   });
 }

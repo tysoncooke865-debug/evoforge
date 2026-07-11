@@ -1,188 +1,112 @@
-# HANDOFF.md — continuing the EvoForge Expo migration
+# HANDOFF.md — continuing EvoForge (Expo client + Battle Arena era)
 
-> For a future Claude session. Read this, then `client/CLAUDE.md`, then `PARITY.md`.
-> Written 2026-07-11 at the end of the sessions that built the entire Expo app.
+> For a future Claude session. Read this, then `client/CLAUDE.md`, then
+> `IMPROVEMENT_PLAN.md` (the live work order — section H is the checklist),
+> then `BATTLE_ARENA_DESIGN.md` for arena internals.
+> Rewritten 2026-07-12 mid-autonomous-run; supersedes the 2026-07-11 handoff.
 
 ## What this is
 
 EvoForge is a fitness RPG: real training data (Supabase) powers a levelling,
-evolving character. Two apps share one production database:
+evolving character, and now 1v1 fitness battles. Two apps share one
+production database:
 
-- **Streamlit app** (`app.py`, `views/`, `domain/` in Python) — LIVE at
-  https://evoforge.streamlit.app, deploys from `main`. Two real users. Do not
-  break it. Its rules are the *contract* (see The Contract System below).
-- **Expo app** (`client/`) — the replacement, on branch **`expo-rewrite`**,
-  auto-deploys every push to **https://expo-rewrite.evoforge.pages.dev**.
-  MIGRATION_PLAN.md phases 0–6 are complete; Phase 7 (app stores) remains.
+- **Streamlit app** (`app.py`, Python) — LIVE at https://evoforge.streamlit.app
+  from `main`. Two real users. Do not break it. Its `domain/` is still the
+  pinned contract (goldens via `tools/gen_fixtures.py`).
+- **Expo app** (`client/`) — branch **`expo-rewrite`**, auto-deploys to
+  **https://expo-rewrite.evoforge.pages.dev** (~5 min per push; check the
+  served bundle for a marker string before calling it live).
 
-The plan of record is `MIGRATION_PLAN.md`; the view-by-view state and every
-deliberate deviation is `PARITY.md`; the live task queue is `TASKS.md`.
+## State (2026-07-12, all deployed and green unless noted)
 
-## State at handoff (all deployed and green)
+Everything in the 2026-07-11 handoff still stands (18 screens, 4,600+
+goldens, six classes, onboarding v2, ai-physique/ai-bodyfat functions).
+Since then:
 
-- 18 screens, all on real data: (auth) sign-in/up · onboarding **v2** ·
-  tabs Home/Today/Log/AI(Oracle)/Avatar/More · Progress/Goals/Awards/Rank/
-  Profile/Data via More.
-- **120 vitest tests + 4,621 golden parity cases**, CI green, tsc/lint/export
-  green. CI (`.github/workflows/client.yml`) gates every deploy.
-- **AI Edge Functions deployed to production**: `ai-physique`, `ai-bodyfat`
-  (Deno, `supabase/functions/`). `OPENAI_API_KEY` set as a function secret.
-  Photos in-memory only; results written with the caller's JWT; hourly rate
-  limit + sha256 cache via `ai_scan_cache` (migration 007, applied).
-- **Migrations 007 and 008 are APPLIED to production** (via the management
-  API). 008 added `profile.sex / deadlift_e1rm / nutrition_phase` (additive,
-  nullable — invisible to Streamlit).
-- **The v2 game layer** (client-side only, core contract untouched):
-  - **Six classes** (`client/src/domain/branches-v2.ts`): the pinned 3-branch
-    core, plus TITAN (str≥80 & size≥70 & size dominant), CARDIO MACHINE
-    (cond≥70 & dominant), and **THE SHREDDER** — entry by starting condition
-    (first bf reading ≥25% + cutting phase), stages driven by **body fat
-    falling** (≥25 Hooded Resolve → <25 The Grind → <18 Cut Deep → ≤12
-    Shredded). Shredder has real art (4 male stages, baked backgrounds — see
-    PARITY art notes). Titan/cardio/all-female render as silhouettes until art.
-  - **Placement v2** (`starting-level-v2.ts`): onboarding asks quick questions
-    (sex, lifts incl. deadlift, years, nutrition phase) + optional AI scan.
-    NO self-scored sliders — skipped scans use documented derived defaults.
-- Full premium UI: HeroStage (platform/fog/reflection/particles, XP-reactive
-  bloom), HUD layout, floating +XP from confirmed verdicts, workout summary
-  sheet, level-up overlay (ready-gated detector), Oracle scan chamber,
-  contextual cardio forms, derived day-streaks, safe-area shell.
+- **Strength standards curve** (`strength_score_from_ratios`, both sides,
+  golden-pinned): per-lift anchors novice 25 → elite 100; deadlift-aware
+  (40/30/30 blend, two-lift 55/45 fallback). Tyson dropped 77 → 47 honestly.
+- **BATTLE ARENA P0–P2 live**: friendly BLITZ battles, three rounds
+  (strength object-lift / cardio energy units / camera-only AI physique
+  judging), server-authoritative settle that advances rounds, ledger XP via
+  the 006-pattern `kind='battle'`, realtime + 15 s poll. Real users have
+  played. Engine is ONE file `contracts/battle/engine.ts`, byte-copied to
+  client + functions, pinned by `client/scripts/verify-battle-engine.mjs`
+  (in CI). Premium hub UI, cinematic FACE OFF scene (`ui/face-off.tsx`) with
+  two official back-view battle sprites in `client/src/assets/avatars/`.
+- **Avatar tab = EVOLUTION | SKILL TREE submenu** (`?view=` param). Skill
+  tree (`ui/skill-tree.tsx`) shows five attribute paths on real data via the
+  real branch engine. The old Avatar page is `EvolutionView`, unchanged.
+- **Profile grew editors**: BODY STATS (bodyweight → appends to log; height
+  → profile update; lifts read-only derived) and TRAINING NUMBERS (deadlift
+  e1RM + nutrition phase; base_level immutable).
+- **IMPROVEMENT_PLAN.md H1–H8 DONE** (of 17): #4 title wrapping (+ catalog
+  vitest), #7 arena nav replace, #3 Log CARDIO|STATS tabs (SegmentedTabs
+  extracted to `ui/segmented-tabs.tsx`), #1 `use-current-stats.ts` seam,
+  #2 last-session prefill on Today, migration 010, #5 battle cancel
+  (battle-cancel fn + CAS-hardened settle/physique + confirm overlay +
+  AbandonedPhase + CANCELLED badge), #8 opponent photo reveal (signed URLs,
+  both-final gate in `data/battle/physique-reveal.ts`, DuelPanel).
+  **NEXT UNCHECKED: H9** (migration 011 + #6 conditions), then #10 ai-plan,
+  012+#11 streak calendar, 013+#12 coins, #13 privacy, sweep.
 
-## The Contract System (the most important thing to preserve)
+## Database / functions
 
-The Python `domain/` is the source of truth until cutover. Its pure functions
-are pinned by golden fixtures:
+- Migrations applied through **010** (all via the management API `database/query`
+  endpoint — see gotchas). 009 = battle tables (falsified checklist in-file);
+  010 = cancelled_by/at. Next free number: **011**.
+- Edge functions deployed: ai-physique, ai-bodyfat, battle-invite, battle-join,
+  battle-ready, battle-settle (round advancer + final), battle-physique,
+  battle-cancel. Deploy: `supabase functions deploy <names> --project-ref
+  rysbpwpvnqbngqncrfaa` with `SUPABASE_ACCESS_TOKEN` from
+  `client/.env.sbtoken.local`, run from the REPO ROOT.
+- Private storage bucket `battle-media` (participant-read via
+  `is_battle_participant`, service-write, cleaned on cancel).
 
-- `tools/gen_fixtures.py` (Python) writes `contracts/fixtures/*.json`;
-  `--check` fails CI if Python drifts. Deterministic: sorted keys, LF, UTF-8.
-  **sort_keys destroys dict order** — order-bearing data (ROUTINE) travels in
-  explicit `*_order` arrays.
-- `client/src/domain/__tests__/parity.test.ts` asserts the TS port reproduces
-  every case EXACTLY (floats bit-for-bit; CPython libm and V8 agree).
-- `client/src/domain/py.ts` exists because Python `int()`/`float()` ≠ JS
-  `Number()` — don't "simplify" it away.
-- **Never change domain semantics client-side.** New game rules go in v2
-  layers (like `branches-v2.ts`) that CHECK NEW GATES FIRST and fall through
-  to the pinned core — with a sweep test proving the sub-gate space still
-  matches the core exactly, and self-consistency tests proving displayed
-  targets really resolve where they claim.
-- Load-bearing invariants (each has tests; several have been falsified on
-  purpose to prove the guards work):
-  - An EDIT to a set updates in place by `workout_log.id` — never
-    delete-and-insert, never a second XP grant (`set-save.ts` verdicts).
-  - `useLedgerXp` returns **null on any failure, never 0** (resolveXp treats
-    them as different worlds; 0 would drop athletes to base level).
-  - A failed grant never fails the save, and is never silent (error toast).
-  - Celebrations fire from CONFIRMED state only (`ready` gate in
-    `use-avatar-data.ts` — the level-up detector once fired on pre-load
-    defaults; the tour caught it).
-  - Announced XP = XP that landed. No optimistic celebration, ever.
-  - Sign-out clears EVERY cache layer: queryClient + toast store + settings
-    store. Add a store → clear it in `auth-context.tsx`.
-  - Design tokens: `client/src/theme/tokens.js` is the single copy, verified
-    both directions against `assets/styles.css` by
-    `client/scripts/verify-tokens.mjs`. Token VALUES are a contract.
-  - Two rarity palettes coexist ON PURPOSE (badge=Python, aura=CSS tokens).
+## Invariants added since the last handoff
 
-**The doctrine: falsify every new guard** (break it, watch red, restore) and
-"render it and look at it" — the Playwright tour caught real bugs the test
-suite could not (routine order alphabetized, zero-width fills, spurious
-level-up, modal blocking nav).
+- Battle scoring: the client only previews; every point comes from the
+  engine copy inside battle-settle. Never break byte-parity (CI guard).
+- Battle events must reference owned in-window log rows (009 trigger).
+- Character stats influence battles through exactly one gate,
+  `characterMultiplier`, hard-capped at +15%.
+- Cancelled battles are XP-inert; settle vs cancel is a CAS race with one
+  truthful winner.
+- Round-3 photos: stored ONLY for battles, revealed ONLY when both sides'
+  verdicts are final (`physique-reveal.ts` mirrors battle-settle's isFinal —
+  keep them in lockstep). Solo Oracle photos stay never-persisted.
+- `useCurrentStats()` is raw-nullable by contract; never pre-default its
+  values before the pinned avatar calc (parity suite is the tripwire).
+- `catalogs.ts` has NO overhead press — the skill tree's Military Press node
+  is deliberately "Not tracked yet".
 
-## Hard-won operational gotchas (violating these costs hours)
+## New operational gotchas (join the 2026-07-11 list, all still valid)
 
-1. **Metro caches inlined `EXPO_PUBLIC_` env** — after any env change, export
-   with `--clear` or you ship stale values ("Failed to fetch" was this).
-2. **`className` on `Animated.*` drops styles on web** — animated nodes take
-   INLINE STYLES ONLY. (This shipped invisible XP bars and toasts once.)
-3. **expo-image tint via the `tintColor` PROP**, not style (style is ignored
-   on web — silhouettes leaked art until fixed). Never tint the shredder art
-   (baked backgrounds → solid box).
-4. **CI logs are unreadable anonymously** (403). The workflow replays failure
-   lines as `::error::` annotations — read them via
-   `GET /repos/tysoncooke865-debug/evoforge/check-runs/{id}/annotations`.
-   Annotations cap at 10/step: spend them on message lines, never stack frames.
-5. **GitHub secrets arrive decorated** (quotes, whole `NAME="value"` lines).
-   `supabase.ts` extracts URL/key by pattern; the CI "Validate Supabase env
-   shape" step warns with derived properties only.
-6. **`expo export` does NOT generate `expo-env.d.ts`** (only `expo start`
-   does); CI writes the one-line shim before tsc. Locally, a brief
-   `CI=1 npx expo start --web --port 809x` regenerates typed routes after
-   adding screens.
-7. **Windows console is cp1252** — `PYTHONIOENCODING=utf-8` for anything
-   printing emoji. Git Bash needs
-   `export PATH="$PATH:/c/Users/tyson/AppData/Local/nodejs"` (user-scope Node
-   24). Supabase CLI at `%LOCALAPPDATA%\supabase-cli\supabase.exe`.
-8. **Management API**: urllib is Cloudflare-blocked (403 error 1010) — use
-   curl. SQL executes via
-   `POST https://api.supabase.com/v1/projects/rysbpwpvnqbngqncrfaa/database/query`
-   with the `sbp_` token.
-9. **The commit-msg hook** requires `[architect]` for protected paths —
-   including `.github/workflows/` and `migrations/`. The pre-push hook runs
-   the Python suite: pushes need generous timeouts (~5 min).
-10. **`git status` clean ≠ committed intentions**: one interrupted compound
-    command had already committed — check `git log` before re-running.
-11. Cloudflare Pages: `client/public/_headers` keeps HTML `no-cache` (deploys
-    were invisible behind browser cache before). Push-to-live latency is
-    ~4–6 min because checks gate the deploy — check the served bundle for a
-    marker string before telling the user it's live.
-12. Python-side work: run ALL ELEVEN verify tools before committing
-    (root CLAUDE.md lists them); NEVER run `tools/verify_rls.py` full mode
-    (writes to production).
+13. Windows Python can't see Git Bash's `/tmp`; write scratch JSON to the
+    session scratchpad path. curl `-d @file` needs that real path.
+14. Local ESLint caches can HIDE compiler-lint errors; CI runs cold. Before
+    trusting lint: `rm -rf .eslintcache node_modules/.cache`.
+15. Tours must handle the Arena hub's open-invite state (code card instead
+    of CREATE) and the JOIN tab (`arena-tab-1`) — scripts predating the hub
+    redesign fail on both.
+16. `page.get_by_test_id("battle-code")` resolves twice when the hub sits
+    under the battle screen in the stack — use `.first`.
+17. Smoke accounts: smoke-test-claude@evoforge.internal (SMOKE-ALPHA, pw in
+    scratchpad ui_tour.py) and smoke-test-claude-2@evoforge.internal
+    (SMOKE-BRAVO, `SmokeTest-2026-07!y`). Two-account battle tour:
+    scratchpad `tour_battle3.py`. Clean smoke battles after tours (SQL
+    delete via management API — see git history for the query).
+18. `todayIso` app-wide is `toISOString().slice(0,10)` = UTC date. The
+    planned streak calendar (#11) specifies LOCAL dates — reconcile when
+    building it (a UTC "today" can differ from the athlete's wall clock).
 
-## Credentials & accounts (all local, all gitignored)
+## The loop (unchanged)
 
-- `client/.env.local` — Supabase URL + publishable key (from
-  `.streamlit/secrets.toml`).
-- `client/.env.sbtoken.local` — `sbp_` management token: deploys functions,
-  runs SQL, reads api-keys. Keep; revocable in dashboard.
-- Smoke account `smoke-test-claude@evoforge.internal` (password inside
-  `scratchpad ui_tour.py`) — admin-created, RLS-isolated, safe to delete.
-  The tour signs in as it and LOGS REAL SETS (its own rows only).
-- GitHub secrets set by Tyson: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-  (`0eb6cc25b24aab3d40ac0818b8885576`), `EXPO_PUBLIC_SUPABASE_URL/KEY`
-  (decorated; see gotcha 5).
-
-## The verification workflow (run per change-set)
-
-```bash
-cd client
-npx tsc --noEmit
-npx vitest run src
-npx expo lint
-rm -rf dist && npx expo export -p web --clear
-# then the look-at-it pass:
-python <scratchpad>/ui_tour.py   # serves dist, signs in as smoke, logs sets,
-                                 # screenshots every screen — READ the PNGs
-```
-Commit per coherent step (long-form messages carry the reasoning — read
-`git log` for the full history of decisions), push, and verify CI + the
-live-bundle marker.
-
-## Open items
-
-- **Human checklist** (task #11): Expo Go native session test (parked —
-  Apple hasn't approved Expo Go SDK 57; `eas go` needs a paid Apple account);
-  Supabase Auth redirect URLs (`evoforge://auth/callback`,
-  `http://localhost:8081/**`, `https://evoforge.pages.dev/**`).
-- **Art** (PARITY.md list): male titan/cardio ×3 each; female all six classes;
-  transparent re-exports of shredder art (unlocks staging effects);
-  shredder PNGs could use compression (1–3 MB each).
-- **Not yet built**: `ai-coach` / `ai-plan` Edge Functions (the custom plan
-  generator — prompts live in `services/ai_physique.py::run_ai_custom_plan_*`);
-  Navy-formula bf entry mode (math ported+pinned, screen unwired); desktop
-  sidebar ≥1024px; personalisation (needs a user-prefs migration 009);
-  workout duration (needs session tracking).
-- **Phase 7**: EAS builds + store listings + health-data privacy labels.
-  Needs the Apple Developer account decision.
-- Streamlit cutover eventually: merge to `main`, point the domain at Pages.
-
-## How to resume
-
-```bash
-cd C:\Users\tyson\Downloads\Previous_Code\evoforge
-git checkout expo-rewrite && git pull
-# read: this file → client/CLAUDE.md → PARITY.md → TASKS.md → git log --oneline -30
-```
-Then keep the loop: small steps, gates green, falsify new guards, look at the
-screens, commit with reasoning, push, confirm live.
+Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`
+(cold cache) `&& npx expo export -p web --clear`, Playwright tour, READ the
+screenshots, commit with reasoning (+ tick IMPROVEMENT_PLAN.md's checklist
+and update the affected doc in the same commit), `git pull --rebase` (the
+branch is active), push, verify CI + live marker. Python-side edits also
+need the eleven verify tools and `[architect]` on protected paths
+(`migrations/` included).
