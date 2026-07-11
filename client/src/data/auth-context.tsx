@@ -2,6 +2,8 @@ import type { Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { useToastStore } from '@/state/toast-store';
+
 import { supabase } from './supabase';
 
 interface AuthState {
@@ -35,12 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sign-out clears every cache layer, not just the token. The Streamlit app
   // had four caches and the rule that missing one on sign-out hands the last
-  // athlete's character to the next visitor (root CLAUDE.md). Here there are
-  // two: TanStack Query and (later) the Zustand UI store. Add a store, clear
-  // it here, same rule.
+  // athlete's character to the next visitor (root CLAUDE.md). Here: TanStack
+  // Query + every Zustand store. Add a store, clear it here, same rule.
   const signOut = async () => {
     await supabase.auth.signOut();
     queryClient.clear();
+    useToastStore.getState().reset();
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

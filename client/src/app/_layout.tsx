@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 
 import { AuthProvider } from '@/data/auth-context';
+import { ToastHost } from '@/ui/toast-host';
 
 import '@/global.css';
 
@@ -22,6 +23,7 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: '#070b14' }, // --bg, behind route transitions
           }}
         />
+        <ToastHost />
       </AuthProvider>
     </QueryClientProvider>
   );
