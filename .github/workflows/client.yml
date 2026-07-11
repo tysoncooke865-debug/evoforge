@@ -189,6 +189,18 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -o pipefail
+          # Strip paste decoration (quotes/whitespace) -- tokens and account ids
+          # never legitimately contain either. Then verify the token BEFORE
+          # deploying, so a bad credential produces one actionable message
+          # instead of four wrangler stack dumps.
+          export CLOUDFLARE_API_TOKEN=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '"'"'"' \t\r\n')
+          export CLOUDFLARE_ACCOUNT_ID=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '"'"'"' \t\r\n')
+          verify=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify)
+          if ! echo "$verify" | grep -q '"success":\s*true'; then
+            echo "::error title=CLOUDFLARE_API_TOKEN::Cloudflare rejected the token (after stripping quotes/whitespace). Re-create it: dash.cloudflare.com -> profile -> API Tokens -> Create Token -> 'Edit Cloudflare Workers' template (or custom with Account > Cloudflare Pages > Edit). It must be an API TOKEN, not the Global API Key, pasted bare."
+            exit 1
+          fi
+          echo "token verified OK"
           npx --yes wrangler pages project create evoforge --production-branch=main 2>&1 | tee /tmp/create.log || true
           if ! npx --yes wrangler pages deploy dist --project-name=evoforge --branch="${{ github.ref_name }}" 2>&1 | tee /tmp/deploy.log; then
             cat /tmp/create.log /tmp/deploy.log \
