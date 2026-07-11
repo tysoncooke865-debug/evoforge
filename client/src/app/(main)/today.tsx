@@ -4,13 +4,17 @@ import * as Haptics from 'expo-haptics';
 
 import { useSaveSet } from '@/data/mutations';
 import { useWorkoutLog } from '@/data/hooks';
+import { useAvatarData } from '@/data/use-avatar-data';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
+import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
-import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
+import { FloatingXP } from '@/ui/floating-xp';
 import { Chip, NeonButton } from '@/ui/neon-button';
+import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
@@ -26,6 +30,9 @@ export default function TodayScreen() {
   const [day, setDay] = useState(days[0]);
 
   const workouts = useWorkoutLog();
+  const { summary, stats, bfMid } = useAvatarData();
+  const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
+  const prCountRef = useRef(0);
   const todayRows = useMemo(
     () =>
       normaliseWorkoutLog(workouts.data ?? []).filter(
@@ -50,6 +57,26 @@ export default function TodayScreen() {
   );
   const complete = totalTarget > 0 && totalDone >= totalTarget;
 
+
+  const buildSummary = (): WorkoutSummaryData => ({
+    day,
+    setsDone: totalDone,
+    setsTarget: totalTarget,
+    xpBanked: totalDone * XP_PER_SET,
+    prCount: prCountRef.current,
+    streak: computeStreak(workouts.data ?? [], todayIso).current,
+    level: summary.level,
+    xpIntoLevel: summary.xpIntoLevel,
+    xpNeeded: summary.xpNeeded,
+    evolution: nextEvolutionInfo(stats.branch, {
+      level: summary.level,
+      benchE1rm: stats.benchE1rm,
+      bfMid,
+      totalSets: summary.totalSets,
+      cardioMinutes: summary.cardioMinutes,
+    }),
+  });
+
   const announcedRef = useRef<string | null>(null);
   const sessionKey = `${todayIso}|${day}`;
   const hadDataRef = useRef(false);
@@ -63,24 +90,17 @@ export default function TodayScreen() {
     if (complete && announcedRef.current !== sessionKey) {
       announcedRef.current = sessionKey;
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      useToastStore.getState().push({
-        kind: 'achievement',
-        title: 'WORKOUT COMPLETE',
-        subtitle: `${day} — all ${totalTarget} sets · +${totalTarget * XP_PER_SET} XP earned today`,
-      });
+      setSheet(buildSummary());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [complete, sessionKey, workouts.data]);
 
   const finishEarly = () => {
-    useToastStore.getState().push({
-      kind: 'info',
-      title: 'WORKOUT FINISHED',
-      subtitle: `${day} — ${totalDone}/${totalTarget} sets logged · +${totalDone * XP_PER_SET} XP banked`,
-    });
+    setSheet(buildSummary());
   };
 
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
+
 
   return (
     <ScreenShell>
@@ -125,6 +145,7 @@ export default function TodayScreen() {
           scheme={scheme}
           loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
           doneCount={validRowsFor(exercise).length}
+          onPr={() => (prCountRef.current += 1)}
         />
       ))}
 
@@ -136,6 +157,7 @@ export default function TodayScreen() {
           testID="finish-workout"
         />
       ) : null}
+      <SummarySheet data={sheet} onClose={() => setSheet(null)} />
     </ScreenShell>
   );
 }
@@ -170,6 +192,7 @@ function ExerciseCard({
   scheme,
   loggedRows,
   doneCount,
+  onPr,
 }: {
   date: string;
   workout: string;
@@ -178,6 +201,7 @@ function ExerciseCard({
   scheme: string;
   loggedRows: import('@/domain/summary').WorkoutRow[];
   doneCount: number;
+  onPr: () => void;
 }) {
   const done = doneCount >= targetSets;
   return (
@@ -203,6 +227,7 @@ function ExerciseCard({
             setNo={setNo}
             initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
             initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
+            onPr={onPr}
           />
         );
       })}
@@ -217,6 +242,7 @@ function SetRow({
   setNo,
   initialWeight,
   initialReps,
+  onPr,
 }: {
   date: string;
   workout: string;
@@ -224,9 +250,11 @@ function SetRow({
   setNo: number;
   initialWeight: string;
   initialReps: string;
+  onPr: () => void;
 }) {
   const [weight, setWeight] = useState(initialWeight);
   const [reps, setReps] = useState(initialReps);
+  const [floatXp, setFloatXp] = useState(false);
   const save = useSaveSet();
   const logged = initialWeight !== '';
 
@@ -235,18 +263,29 @@ function SetRow({
     const r = pyFloat(reps);
     if (w === null || r === null || w <= 0 || r <= 0) return;
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    save.mutate({
-      workoutDate: date,
-      workout,
-      exercise,
-      setNo,
-      weight: w,
-      reps: Math.trunc(r),
-    });
+    save.mutate(
+      {
+        workoutDate: date,
+        workout,
+        exercise,
+        setNo,
+        weight: w,
+        reps: Math.trunc(r),
+      },
+      {
+        // Confirmed state only: the float fires on a REAL insert verdict,
+        // never optimistically -- a failed save must not celebrate.
+        onSuccess: (verdict) => {
+          if (verdict.action === 'insert') setFloatXp(true);
+          if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) onPr();
+        },
+      }
+    );
   };
 
   return (
     <View className="mb-s2 flex-row items-center gap-s2">
+      {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
       <Text className="w-s10 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
         SET {setNo}
       </Text>
