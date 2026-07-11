@@ -294,18 +294,15 @@ function Fighter({ p, tint, side }: { p: BattleParticipant | null; tint: string;
   const branch = (snap.branch ?? 'aesthetic') as BranchV2;
   const sex = snap.sex === 'female' ? 'female' as const : 'male' as const;
   const stage = typeof snap.stage === 'number' ? snap.stage : 1;
-  const back = side === 'left' ? battleBackArtV2(branch, sex) : null;
+  const back = battleBackArtV2(branch, sex, side);
   const art = avatarArtV2(branch, stage, sex);
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
 
-  // The right fighter turns toward the fight; the left back-sprite already
-  // looks across, so it stands square.
-  const inward =
-    side === 'right'
-      ? { transform: [{ perspective: 700 }, { rotateY: '-18deg' }] }
-      : back
-        ? undefined
-        : { transform: [{ perspective: 700 }, { rotateY: '18deg' }] };
+  // Battle sprites already face the fight; front-art fallbacks turn inward
+  // with a perspective twist instead.
+  const inward = back
+    ? undefined
+    : { transform: [{ perspective: 700 }, { rotateY: side === 'right' ? '-18deg' : '18deg' }] };
 
   return (
     <Animated.View style={[{ alignItems: 'center', width: 170 }, unit]}>
@@ -329,7 +326,8 @@ function Fighter({ p, tint, side }: { p: BattleParticipant | null; tint: string;
       {/* feet planted on the deck: the sprite overlaps the platform top */}
       <View style={{ marginBottom: back ? -84 : -78, zIndex: 2 }}>
         {back ? (
-          <Image source={back} style={{ width: 121, height: 175 }} contentFit="contain" />
+          // Native aspect ratios: left sprite 443×640, right 290×640.
+          <Image source={back} style={{ width: side === 'left' ? 121 : 80, height: 175 }} contentFit="contain" />
         ) : art.hasArt ? (
           <View style={inward}>
             <Image source={art.source} style={{ width: 148, height: 163 }} contentFit="contain" />

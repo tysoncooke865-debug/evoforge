@@ -51,14 +51,17 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
 }
 
 /**
- * The Arena's LEFT-side battle sprite: the athlete seen from behind,
- * looking across at the opponent (the Pokémon back-sprite convention).
- * One sprite exists today (Tyson, 2026-07-12); classes and sexes without
- * one fall back to the front art (null here) — never a mirror.
+ * The Arena battle sprites: each athlete seen from behind, looking across
+ * at the opponent (the Pokémon back-sprite convention) — the LEFT sprite
+ * gazes right, the RIGHT sprite gazes left. Redrawn per side, never
+ * mirrored (Tyson, 2026-07-12). Classes and sexes without a sprite fall
+ * back to the front art (null here).
  */
-export function battleBackArtV2(branch: BranchV2, sex: Sex): ImageSourcePropType | null {
+export function battleBackArtV2(branch: BranchV2, sex: Sex, side: 'left' | 'right'): ImageSourcePropType | null {
   if (sex === 'male' && (branch === 'aesthetic' || branch === 'shredder')) {
-    return require('../assets/avatars/battle_back_aesthetic_male.png');
+    return side === 'left'
+      ? require('../assets/avatars/battle_back_aesthetic_male.png')
+      : require('../assets/avatars/battle_back_right_aesthetic_male.png');
   }
   return null;
 }
