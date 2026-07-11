@@ -21,6 +21,9 @@
 name: client
 
 on:
+  # Manual runs from the Actions tab -- rerunning a deploy after a secrets fix
+  # should not require inventing a commit.
+  workflow_dispatch:
   push:
     paths:
       - "client/**"
@@ -153,8 +156,8 @@ jobs:
         run: python tools/gen_fixtures.py --check
 
   deploy:
-    # Push only (fork PRs cannot read secrets), after both check jobs.
-    if: github.event_name == 'push'
+    # Push or manual dispatch (fork PRs cannot read secrets), after both check jobs.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: [client, fixtures]
     runs-on: ubuntu-latest
     env:
