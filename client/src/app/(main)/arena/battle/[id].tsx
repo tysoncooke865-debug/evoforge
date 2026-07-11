@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
@@ -30,15 +29,13 @@ import {
   type CardioEvent,
   type VolumeEvent,
 } from '@/domain/battle/engine';
-import { type BranchV2 } from '@/domain/branches-v2';
 import { pyFloat, pyInt } from '@/domain/py';
-import { avatarArtV2 } from '@/ui/avatar-art';
 import { BLITZ_RULES, CodeCard, RulesStrip } from '@/ui/battle-arena';
+import { BattleRulesPanel, FaceOffScene, ReadyCTA } from '@/ui/face-off';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
-import { Silhouette } from '@/ui/silhouette';
 import tokens from '@/theme/tokens';
 
 const BATTLE_WORKOUT = 'Battle Arena';
@@ -114,95 +111,15 @@ function InvitePhase({ code }: { code: string | null }) {
   );
 }
 
-/** The fighter's ID plate: name loud, LV·PWR·class whispered, tinted edge. */
-function FighterPlate({ p, tint }: { p: BattleParticipant | null; tint: string }) {
-  const snap = p?.snapshot ?? {};
-  return (
-    <View
-      className="flex-1 rounded-xl p-s3"
-      style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.6)' }}
-    >
-      <Text className="text-sm font-bold text-text" numberOfLines={1}>
-        {snap.name ?? '???'}
-      </Text>
-      <Text className="text-2xs text-text-mute">
-        <Text style={{ color: tint }}>LV {snap.level ?? '?'}</Text> · PWR {snap.power ?? '?'}
-      </Text>
-      <Text className="text-2xs text-text-mute" numberOfLines={1}>
-        {snap.characterClass ?? ''}
-      </Text>
-    </View>
-  );
-}
-
-/** A fighter standing on their glow ring, cyan for me, purple for the rival. */
-function FighterOnRing({ p, tint }: { p: BattleParticipant | null; tint: string }) {
-  const snap = p?.snapshot ?? {};
-  const branch = (snap.branch ?? 'aesthetic') as BranchV2;
-  const sex = snap.sex === 'female' ? 'female' as const : 'male' as const;
-  const stage = typeof snap.stage === 'number' ? snap.stage : 1;
-  const art = avatarArtV2(branch, stage, sex);
-  const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
-  return (
-    <View className="flex-1 items-center">
-      {art.hasArt ? (
-        <Image source={art.source} style={{ width: 96, height: 106 }} contentFit="contain" />
-      ) : (
-        <Silhouette branch={donor as 'aesthetic' | 'mass' | 'hybrid'} stage={Math.min(stage, 4)} />
-      )}
-      <View
-        style={{
-          marginTop: -8,
-          width: 96,
-          height: 22,
-          borderRadius: 999,
-          borderWidth: 2,
-          borderColor: `${tint}8c`,
-          backgroundColor: `${tint}14`,
-          shadowColor: tint,
-          shadowOpacity: 0.7,
-          shadowRadius: 14,
-          elevation: 6,
-        }}
-      />
-    </View>
-  );
-}
-
 function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant | null; them: BattleParticipant | null }) {
   const ready = useReadyUp(matchId);
   const iAmReady = me?.ready_at != null;
   return (
     <>
       <ScreenHeader kicker="FRIENDLY BLITZ" title="FACE OFF" />
-
-      <View className="flex-row gap-s3">
-        <FighterPlate p={me} tint={tokens.colors.accent} />
-        <FighterPlate p={them} tint={tokens.colors.epic} />
-      </View>
-
-      {/* The stage: both fighters on their rings, the VS burning between. */}
-      <GlowCard glow={tokens.colors.epic}>
-        <View className="flex-row items-center py-s2">
-          <FighterOnRing p={me} tint={tokens.colors.accent} />
-          <Text
-            className="px-s2 text-4xl font-bold"
-            style={{
-              color: tokens.colors.epic,
-              letterSpacing: 2,
-              textShadowColor: 'rgba(168,85,247,0.8)',
-              textShadowRadius: 24,
-            }}
-          >
-            VS
-          </Text>
-          <FighterOnRing p={them} tint={tokens.colors.epic} />
-        </View>
-      </GlowCard>
-
-      <RulesStrip rules={BLITZ_RULES} />
-
-      <NeonButton
+      <FaceOffScene me={me} them={them} />
+      <BattleRulesPanel rules={BLITZ_RULES} />
+      <ReadyCTA
         title={iAmReady ? 'WAITING FOR OPPONENT…' : 'READY UP'}
         onPress={() => ready.mutate()}
         disabled={iAmReady}
