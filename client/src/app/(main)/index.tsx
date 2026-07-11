@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useWorkoutLog } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2 } from '@/domain/branches-v2';
+import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
 import { computeStreak } from '@/domain/streak';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
@@ -42,7 +42,7 @@ export default function HomeScreen() {
     cardioMinutes: summary.cardioMinutes,
   });
 
-  const stage = getBranchStage(stats.branch, summary.level);
+  const stage = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
   const art = avatarArtV2(branchV2, stage, sex);
   const slug = raritySlug(summary.level);
   const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
@@ -59,7 +59,7 @@ export default function HomeScreen() {
             className="text-3xl font-bold text-text"
             style={{ textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 18 }}
           >
-            {evolutionNameV2(branchV2, summary.level)}
+            {branchV2 === 'shredder' ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level)}
           </Text>
           <Text className="text-xs text-text-dim">
             {branchDisplayNameV2(branchV2)} · {summary.rank}

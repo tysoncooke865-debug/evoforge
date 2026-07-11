@@ -2,7 +2,7 @@ import type { ImageSourcePropType } from 'react-native';
 
 import type { BranchV2 } from '@/domain/branches-v2';
 
-import { avatarImage } from './avatar-images';
+import { avatarImage, shredderImage } from './avatar-images';
 
 /**
  * ART MAP V2 — five branches × two sexes. Real artwork exists today only for
@@ -30,11 +30,18 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
     case 'hybrid':
       return 'hybrid';
     default:
+      // shredder + aesthetic: the aesthetic line donates the shape (the
+      // shredder art itself has baked backgrounds and cannot silhouette).
       return 'aesthetic';
   }
 }
 
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {
+  if (branch === 'shredder') {
+    // Real art for males; female shredder awaits its own set.
+    if (sex === 'male') return { source: shredderImage(stage), hasArt: true };
+    return { source: avatarImage('aesthetic', Math.min(stage, 4)), hasArt: false };
+  }
   const coreBranch = branch === 'titan' || branch === 'cardio' ? null : branch;
   if (sex === 'male' && coreBranch) {
     return { source: avatarImage(coreBranch, stage), hasArt: true };

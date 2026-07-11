@@ -21,7 +21,106 @@ import { determineAvatarBranch, getBranchStage, type Branch } from './avatar-sta
 import type { EvolutionRequirement, NextEvolution } from './next-evolution';
 import { nextEvolutionInfo } from './next-evolution';
 
-export type BranchV2 = Branch | 'titan' | 'cardio';
+export type BranchV2 = Branch | 'titan' | 'cardio' | 'shredder';
+
+/**
+ * THE SHREDDER — the redemption arc. Entry is by STARTING CONDITION, not stat
+ * mix: first body-fat reading >= 25% AND currently cutting. The class expires
+ * when the phase changes (fall through to the other resolvers). Its stages
+ * are driven by BODY FAT FALLING, not level:
+ *
+ *   stage 1  bf >= 25   Hooded Resolve
+ *   stage 2  bf <  25   The Grind
+ *   stage 3  bf <  18   Cut Deep
+ *   stage 4  bf <= 12   Shredded (jacked & shredded — the final form)
+ */
+export interface BranchContext {
+  nutritionPhase: string | null;
+  /** First-ever body-fat reading (the athlete's starting condition). */
+  earliestBf: number | null;
+}
+
+export const SHREDDER_ENTRY_BF = 25;
+export const SHREDDER_STAGE_BF = { stage2: 25, stage3: 18, stage4: 12 } as const;
+
+export function isShredder(ctx: BranchContext | undefined): boolean {
+  return (
+    ctx !== undefined &&
+    ctx.nutritionPhase === 'cutting' &&
+    ctx.earliestBf !== null &&
+    ctx.earliestBf >= SHREDDER_ENTRY_BF
+  );
+}
+
+export function shredderStage(bfMid: number | null): number {
+  if (bfMid === null) return 1;
+  if (bfMid <= SHREDDER_STAGE_BF.stage4) return 4;
+  if (bfMid < SHREDDER_STAGE_BF.stage3) return 3;
+  if (bfMid < SHREDDER_STAGE_BF.stage2) return 2;
+  return 1;
+}
+
+const SHREDDER_LADDER: [number | null, string][] = [
+  [null, 'Hooded Resolve'], // the start: bf >= 25, hood up, head down
+  [SHREDDER_STAGE_BF.stage2, 'The Grind'],
+  [SHREDDER_STAGE_BF.stage3, 'Cut Deep'],
+  [SHREDDER_STAGE_BF.stage4, 'Shredded'],
+];
+
+export function shredderName(bfMid: number | null): string {
+  return SHREDDER_LADDER[shredderStage(bfMid) - 1][1];
+}
+
+export interface ShredderRow {
+  stage: number;
+  name: string;
+  /** Body-fat threshold to unlock; null = the starting form. */
+  bfTarget: number | null;
+  unlocked: boolean;
+  current: boolean;
+}
+
+export function shredderRows(bfMid: number | null): ShredderRow[] {
+  const currentStage = shredderStage(bfMid);
+  return SHREDDER_LADDER.map(([bfTarget, name], i) => ({
+    stage: i + 1,
+    name,
+    bfTarget,
+    unlocked: i + 1 <= currentStage,
+    current: i + 1 === currentStage,
+  }));
+}
+
+/** Next form's demands: get the body fat under the line; keep training. */
+export function shredderNextEvolution(bfMid: number | null, totalSets: number): NextEvolution {
+  const stage = shredderStage(bfMid);
+  if (stage >= 4) {
+    return {
+      targetName: 'Shredded',
+      targetLevel: 4,
+      requirements: [
+        { label: 'Body Fat', current: bfMid ?? 0, target: SHREDDER_STAGE_BF.stage4, met: true },
+      ],
+    };
+  }
+  const targets = [SHREDDER_STAGE_BF.stage2, SHREDDER_STAGE_BF.stage3, SHREDDER_STAGE_BF.stage4];
+  const setsTargets = [50, 150, 300];
+  const bfTarget = targets[stage - 1];
+  const setsTarget = setsTargets[stage - 1];
+  return {
+    targetName: SHREDDER_LADDER[stage][1],
+    targetLevel: stage + 1,
+    requirements: [
+      {
+        label: 'Body Fat',
+        current: bfMid ?? 0,
+        target: bfTarget,
+        met: bfMid !== null && bfMid < bfTarget,
+      },
+      { label: 'Total Sets', current: totalSets, target: setsTarget, met: totalSets >= setsTarget },
+    ],
+  };
+}
 
 export interface ScoresV2 {
   strength: number;
@@ -31,7 +130,10 @@ export interface ScoresV2 {
   aesthetic: number;
 }
 
-export function resolveBranchV2(s: ScoresV2): BranchV2 {
+export function resolveBranchV2(s: ScoresV2, ctx?: BranchContext): BranchV2 {
+  if (isShredder(ctx)) {
+    return 'shredder';
+  }
   if (s.strength >= 80 && s.size >= 70 && s.size >= Math.max(s.aesthetic, s.conditioning)) {
     return 'titan';
   }
@@ -51,6 +153,8 @@ export function resolveBranchV2(s: ScoresV2): BranchV2 {
 
 export function branchDisplayNameV2(branch: BranchV2): string {
   switch (branch) {
+    case 'shredder':
+      return '🔪 The Shredder';
     case 'titan':
       return '🗿 Titan';
     case 'cardio':
@@ -83,6 +187,11 @@ const V2_LADDERS: Record<'titan' | 'cardio', [number, string][]> = {
 };
 
 export function evolutionNameV2(branch: BranchV2, level: number): string {
+  if (branch === 'shredder') {
+    // Level does not drive shredder forms; callers should prefer
+    // shredderName(bfMid). This fallback names the start.
+    return SHREDDER_LADDER[0][1];
+  }
   if (branch === 'titan' || branch === 'cardio') {
     const ladder = V2_LADDERS[branch];
     let name = ladder[0][1];
@@ -109,6 +218,11 @@ export interface StageRowV2 {
 }
 
 export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[] {
+  if (branch === 'shredder') {
+    // Body-fat-driven; use shredderRows(bfMid) instead. Empty here keeps the
+    // level-driven API honest rather than inventing level gates.
+    return [];
+  }
   if (branch === 'titan' || branch === 'cardio') {
     const ladder = V2_LADDERS[branch];
     const unlockedLevels = ladder.filter(([u]) => level >= u).map(([u]) => u);
@@ -144,6 +258,9 @@ export function nextEvolutionV2(
     cardioMinutes: number;
   }
 ): NextEvolution {
+  if (branch === 'shredder') {
+    return shredderNextEvolution(inputs.bfMid, inputs.totalSets);
+  }
   if (branch !== 'titan' && branch !== 'cardio') {
     return nextEvolutionInfo(branch, inputs);
   }
@@ -194,8 +311,23 @@ const req = (label: string, current: number, target: number): EvolutionRequireme
   met: current >= target,
 });
 
-export function branchPathsV2(current: BranchV2, s: ScoresV2): BranchPathV2[] {
+export function branchPathsV2(current: BranchV2, s: ScoresV2, ctx?: BranchContext): BranchPathV2[] {
   const paths: BranchPathV2[] = [];
+
+  if (current !== 'shredder') {
+    paths.push({
+      branch: 'shredder',
+      requirements: [
+        {
+          label: 'Starting Body Fat',
+          current: ctx?.earliestBf ?? 0,
+          target: SHREDDER_ENTRY_BF,
+          met: (ctx?.earliestBf ?? 0) >= SHREDDER_ENTRY_BF,
+        },
+      ],
+      note: 'Entry class of the great cut: requires a cutting phase and a first body-fat reading of 25%+. Forms advance as body fat falls.',
+    });
+  }
 
   if (current !== 'titan') {
     paths.push({

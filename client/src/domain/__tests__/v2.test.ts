@@ -87,9 +87,9 @@ describe('branchPathsV2 — displayed gates really resolve there', () => {
     expect(resolveBranchV2(s)).toBe('cardio');
   });
 
-  it('offers exactly the four other classes', () => {
+  it('offers every other class (five-class era), never the current one', () => {
     expect(branchPathsV2('aesthetic', scores()).map((p) => p.branch).sort()).toEqual(
-      ['cardio', 'hybrid', 'mass', 'titan'].sort()
+      ['cardio', 'hybrid', 'mass', 'shredder', 'titan'].sort()
     );
     expect(branchPathsV2('titan', scores()).map((p) => p.branch)).not.toContain('titan');
   });
@@ -179,5 +179,85 @@ describe('startingLevelV2', () => {
         aiPhysique: 15, aiLeanness: 15, phase: 'maintaining',
       })
     ).toBe(100);
+  });
+});
+
+import {
+  isShredder,
+  shredderName,
+  shredderNextEvolution,
+  shredderRows,
+  shredderStage,
+} from '../branches-v2';
+
+describe('The Shredder — the redemption arc', () => {
+  const ctx = (phase: string | null, earliestBf: number | null) => ({
+    nutritionPhase: phase,
+    earliestBf,
+  });
+
+  it('entry: cutting phase + starting bf >= 25, both required', () => {
+    expect(isShredder(ctx('cutting', 28))).toBe(true);
+    expect(isShredder(ctx('cutting', 25))).toBe(true);
+    expect(isShredder(ctx('cutting', 24.9))).toBe(false);
+    expect(isShredder(ctx('bulking', 30))).toBe(false);
+    expect(isShredder(ctx('cutting', null))).toBe(false);
+    expect(isShredder(undefined)).toBe(false);
+  });
+
+  it('resolver: shredder pre-empts everything; expires with the phase', () => {
+    const scores = { strength: 85, size: 75, leanness: 20, conditioning: 30, aesthetic: 40 };
+    expect(resolveBranchV2(scores, ctx('cutting', 30))).toBe('shredder');
+    expect(resolveBranchV2(scores, ctx('maintaining', 30))).toBe('titan'); // falls through
+    expect(resolveBranchV2(scores)).toBe('titan'); // no ctx = old behaviour
+  });
+
+  it('stages are driven by body fat FALLING: 25 / 18 / 12 edges', () => {
+    expect(shredderStage(30)).toBe(1);
+    expect(shredderStage(25)).toBe(1);
+    expect(shredderStage(24.9)).toBe(2);
+    expect(shredderStage(18)).toBe(2);
+    expect(shredderStage(17.9)).toBe(3);
+    expect(shredderStage(12.1)).toBe(3);
+    expect(shredderStage(12)).toBe(4);
+    expect(shredderStage(8)).toBe(4);
+    expect(shredderStage(null)).toBe(1);
+  });
+
+  it('ladder names track the cut', () => {
+    expect(shredderName(30)).toBe('Hooded Resolve');
+    expect(shredderName(20)).toBe('The Grind');
+    expect(shredderName(15)).toBe('Cut Deep');
+    expect(shredderName(11)).toBe('Shredded');
+  });
+
+  it('rows: exactly one current, unlocks follow the stage', () => {
+    const rows = shredderRows(20);
+    expect(rows.filter((r) => r.current)).toHaveLength(1);
+    expect(rows.find((r) => r.current)?.name).toBe('The Grind');
+    expect(rows.map((r) => r.unlocked)).toEqual([true, true, false, false]);
+  });
+
+  it('next evolution demands the next bf line + training volume', () => {
+    const evo = shredderNextEvolution(20, 100);
+    expect(evo.targetName).toBe('Cut Deep');
+    expect(evo.requirements.map((r) => r.label)).toEqual(['Body Fat', 'Total Sets']);
+    expect(evo.requirements[0].target).toBe(18);
+    expect(evo.requirements[0].met).toBe(false);
+    expect(evo.requirements[1].met).toBe(false); // 100 < 150
+
+    const done = shredderNextEvolution(10, 500);
+    expect(done.targetName).toBe('Shredded');
+    expect(done.requirements[0].met).toBe(true);
+  });
+
+  it('branchPathsV2 offers the shredder entry card with honest gates', () => {
+    const s = { strength: 40, size: 40, leanness: 50, conditioning: 35, aesthetic: 60 };
+    const withCtx = branchPathsV2('aesthetic', s, ctx('bulking', 27));
+    const shred = withCtx.find((p) => p.branch === 'shredder')!;
+    expect(shred.requirements[0].met).toBe(true); // starting bf qualifies
+    expect(shred.note).toMatch(/cutting/i);
+    // Already a shredder: not offered.
+    expect(branchPathsV2('shredder', s, ctx('cutting', 30)).map((p) => p.branch)).not.toContain('shredder');
   });
 });

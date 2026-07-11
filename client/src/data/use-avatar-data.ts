@@ -1,5 +1,6 @@
 import {
   useBodyweightLog,
+  useEarliestBodyfat,
   useCardioLog,
   useLatestBodyfatMid,
   useLedgerXp,
@@ -19,6 +20,8 @@ export interface AvatarData {
   /** The five-class resolver (extremes first, pinned core fallback). */
   branchV2: BranchV2;
   sex: 'male' | 'female';
+  earliestBf: number | null;
+  nutritionPhase: string | null;
   summary: WorkoutSummary;
   stats: AvatarStats;
   bfMid: number | null;
@@ -38,6 +41,7 @@ export function useAvatarData(): AvatarData {
   const cardio = useCardioLog();
   const bodyweights = useBodyweightLog();
   const bfMid = useLatestBodyfatMid();
+  const earliestBf = useEarliestBodyfat();
   const physique = usePhysiqueRatings();
   const ledger = useLedgerXp();
 
@@ -82,14 +86,30 @@ export function useAvatarData(): AvatarData {
     !cardio.isPending &&
     !ledger.isPending;
 
-  const branchV2 = resolveBranchV2({
-    strength: stats.strengthScore,
-    size: stats.sizeScore,
-    leanness: stats.leannessScore,
-    conditioning: stats.conditioningScore,
-    aesthetic: stats.aestheticScore,
-  });
+  const branchV2 = resolveBranchV2(
+    {
+      strength: stats.strengthScore,
+      size: stats.sizeScore,
+      leanness: stats.leannessScore,
+      conditioning: stats.conditioningScore,
+      aesthetic: stats.aestheticScore,
+    },
+    {
+      nutritionPhase: profile.data?.nutrition_phase ?? null,
+      earliestBf: earliestBf.data ?? null,
+    }
+  );
   const sex = profile.data?.sex === 'female' ? 'female' as const : 'male' as const;
 
-  return { ready, branchV2, sex, summary, stats, bfMid: bfMid.data ?? null, cardioDistanceKm };
+  return {
+    ready,
+    branchV2,
+    sex,
+    summary,
+    stats,
+    bfMid: bfMid.data ?? null,
+    earliestBf: earliestBf.data ?? null,
+    nutritionPhase: profile.data?.nutrition_phase ?? null,
+    cardioDistanceKm,
+  };
 }

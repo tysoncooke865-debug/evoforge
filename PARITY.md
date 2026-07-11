@@ -64,13 +64,25 @@ app still runs them). The new app layers on top, client-side only:
   Migration 008 (applied): profile.sex / deadlift_e1rm / nutrition_phase,
   additive+nullable; Streamlit unaffected.
 
-## ART NEEDED (male art exists for aesthetic ×4, mass ×3, hybrid ×3)
+## THE SHREDDER (sixth class, 2026-07-11)
+Entry by STARTING CONDITION: first body-fat reading ≥25% + cutting phase.
+Expires when the phase changes (falls through to the other resolvers).
+Stages are driven by BODY FAT FALLING, not level: ≥25 Hooded Resolve →
+<25 The Grind → <18 Cut Deep → ≤12 Shredded. Four male art stages SHIPPED
+(client/src/assets/avatars/shredder_stage_1-4.png, ~1-3MB each — could use
+compression). NOTE: this art has BAKED BACKGROUNDS (not transparent), so it
+renders as-is and is never tint-silhouetted (a solid box results); locked
+previews use the aesthetic donor silhouette. Transparent re-exports of the
+same art would unlock the full stage effects (reflection, tint).
+
+## ART NEEDED (male art exists for aesthetic ×4, mass ×3, hybrid ×3, shredder ×4)
 Until these land, forms render as rim-lit silhouettes captioned
 "FORM NOT YET FORGED". Drop PNGs in client/src/assets/avatars/ and register
 them in `client/src/ui/avatar-art.ts` (one require + hasArt flip each):
 - male_titan stages 1-3 · male_cardio stages 1-3
 - female_aesthetic 1-4 · female_mass 1-3 · female_hybrid 1-3
-- female_titan 1-3 · female_cardio 1-3
+- female_titan 1-3 · female_cardio 1-3 · female_shredder 1-4
+- transparent-background re-exports of male shredder 1-4 (optional, unlocks staging)
 
 ## Known gaps (tracked, deliberate)
 - ai-coach / ai-plan Edge Functions (custom plan generator) — not yet built.

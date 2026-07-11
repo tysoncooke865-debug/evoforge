@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';
+import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
@@ -21,9 +21,11 @@ import { ScreenShell } from '@/ui/shell';
  * requirement rows with readiness, the quick win and the wall called out.
  */
 export default function AvatarScreen() {
-  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
+  const { summary, stats, bfMid, branchV2, sex, earliestBf, nutritionPhase } = useAvatarData();
+  const isShred = branchV2 === 'shredder';
 
   const rows = avatarStageRowsV2(branchV2, summary.level);
+  const shredRows = isShred ? shredderRows(bfMid) : [];
   const evo = nextEvolutionV2(branchV2, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
@@ -39,9 +41,9 @@ export default function AvatarScreen() {
     leanness: stats.leannessScore,
     conditioning: stats.conditioningScore,
     aesthetic: stats.aestheticScore,
-  });
+  }, { nutritionPhase, earliestBf });
 
-  const stage = getBranchStage(stats.branch, summary.level);
+  const stage = isShred ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
   const art = avatarArtV2(branchV2, stage, sex);
   const slug = raritySlug(summary.level);
   const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
@@ -59,7 +61,7 @@ export default function AvatarScreen() {
           className="text-3xl font-bold text-text"
           style={{ textShadowColor: `${auraColour}80`, textShadowRadius: 18 }}
         >
-          {evolutionNameV2(branchV2, summary.level)}
+          {isShred ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level)}
         </Text>
       </View>
 
@@ -124,6 +126,46 @@ export default function AvatarScreen() {
       <View>
         <EdgeLabel>EVOLUTION LINE</EdgeLabel>
         <View className="mt-s3">
+          {isShred
+            ? shredRows.map((row) => (
+                <View
+                  key={row.stage}
+                  className="mb-s2 flex-row items-center rounded-xl p-s3"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: row.current ? `${auraColour}66` : row.unlocked ? tokens.colors.border : 'rgba(120,170,220,0.10)',
+                    backgroundColor: row.current ? `${auraColour}12` : 'rgba(13,21,36,0.5)',
+                  }}
+                >
+                  {row.unlocked && avatarArtV2('shredder', row.stage, sex).hasArt ? (
+                    <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                      <Image source={avatarArtV2('shredder', row.stage, sex).source} style={{ width: 48, height: 52 }} contentFit="contain" />
+                    </View>
+                  ) : (
+                    <Silhouette branch="aesthetic" stage={Math.min(row.stage, 4)} rim={tokens.colors.success} />
+                  )}
+                  <View className="ml-s3 flex-1">
+                    <Text className={`text-base font-bold ${row.unlocked ? 'text-text' : 'text-text-mute'}`}>
+                      {row.unlocked || row.stage === shredRows.find((r) => !r.unlocked)?.stage ? row.name : '???'}
+                    </Text>
+                    <Text className="text-2xs text-text-mute">
+                      {row.bfTarget === null
+                        ? 'The starting form'
+                        : row.unlocked
+                          ? `Unlocked · under ${row.bfTarget}% body fat`
+                          : `Requires under ${row.bfTarget}% body fat`}
+                    </Text>
+                  </View>
+                  {row.current ? (
+                    <Text className="text-xs font-bold" style={{ color: auraColour, letterSpacing: 1 }}>
+                      CURRENT
+                    </Text>
+                  ) : !row.unlocked ? (
+                    <Text className="text-xs text-text-mute">🔒</Text>
+                  ) : null}
+                </View>
+              ))
+            : null}
           {rows.map((row) => {
             const isNext = row.level === nextUnlockLevel;
             const showName = row.unlocked || isNext;
@@ -199,6 +241,7 @@ function BranchPathCard({
 }) {
   const readiness = evolutionReadiness(path.requirements);
   const tints: Record<BranchV2, string> = {
+    shredder: tokens.colors.success,
     titan: tokens.colors.legendary,
     mass: tokens.colors.danger,
     cardio: tokens.colors.rare,
@@ -206,14 +249,15 @@ function BranchPathCard({
     aesthetic: tokens.colors.mythic,
   };
   const tint = tints[path.branch];
-  const stage = getBranchStage(path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch, level);
+  const donor = path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch === 'shredder' ? 'aesthetic' : path.branch;
+  const stage = getBranchStage(donor, level);
   return (
     <View
       className="mb-s3 rounded-xl p-s4"
       style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
     >
       <View className="mb-s3 flex-row items-center gap-s3">
-        <Silhouette branch={path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch} stage={stage} rim={tint} />
+        <Silhouette branch={donor} stage={stage} rim={tint} />
         <View className="flex-1">
           <Text className="text-base font-bold text-text">{branchDisplayNameV2(path.branch)}</Text>
           <Text className="text-2xs text-text-mute">

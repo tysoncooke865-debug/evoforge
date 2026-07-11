@@ -140,6 +140,26 @@ export function useLatestBodyfatMid() {
   });
 }
 
+/** First-ever body-fat midpoint — the athlete's STARTING condition (drives
+ *  Shredder entry). Same validity rule as the latest: bf_mid > 0 only. */
+export function useEarliestBodyfat() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['bodyfat_first', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase
+        .from('bodyfat_log')
+        .select('id,bf_mid,timestamp')
+        .order('timestamp', { ascending: true })
+        .limit(ROW_CAP);
+      if (error) throw error;
+      const valid = data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
+      return valid.length > 0 ? valid[0] : null;
+    },
+  });
+}
+
 /** Latest AI physique rating values, each null when absent or non-numeric.
  *  Mirrors latest_physique_rating_values(). */
 export function usePhysiqueRatings() {
