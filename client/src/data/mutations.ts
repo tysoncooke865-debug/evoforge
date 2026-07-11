@@ -228,6 +228,39 @@ export function useLogBodyweight() {
   });
 }
 
+/**
+ * Update the athlete's training numbers on their profile row (the 008
+ * columns). base_level is deliberately NOT editable — placement is decided
+ * once, at onboarding; these fields only feed the live stat engine.
+ */
+export function useUpdateTrainingNumbers() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (fields: { deadliftE1rm?: number | null; nutritionPhase?: string }) => {
+      const row: Record<string, unknown> = {};
+      if ('deadliftE1rm' in fields) row.deadlift_e1rm = fields.deadliftE1rm;
+      if (fields.nutritionPhase) row.nutrition_phase = fields.nutritionPhase;
+      if (Object.keys(row).length === 0) return;
+      const { error, count } = await supabase
+        .from('profile')
+        .update(row, { count: 'exact' })
+        .eq('user_id', userId!);
+      if (error) throw error;
+      if ((count ?? 0) === 0) throw new Error('No profile row to update.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'TRAINING NUMBERS SAVED' });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message });
+    },
+  });
+}
+
 /** Upsert the caller's opt-in public identity. Mirrors save_public_profile(). */
 export function useSavePublicIdentity() {
   const queryClient = useQueryClient();
