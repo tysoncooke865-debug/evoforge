@@ -1,10 +1,13 @@
 import { Redirect, Tabs } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
+import { useAvatarData } from '@/data/use-avatar-data';
+import { LevelUpOverlay } from '@/ui/level-up-overlay';
 import tokens from '@/theme/tokens';
 
 /**
@@ -20,6 +23,24 @@ export default function MainLayout() {
   const { session, loading } = useAuth();
   const profile = useProfile();
   const insets = useSafeAreaInsets();
+
+  // Level-up detector: compares CONFIRMED summary.level across refetches.
+  // First observation only arms it (no ceremony for merely opening the app);
+  // multi-level jumps celebrate once, from the old level to the new.
+  const { summary } = useAvatarData();
+  const prevLevelRef = useRef<number | null>(null);
+  const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => {
+    const level = summary.level;
+    if (prevLevelRef.current === null) {
+      prevLevelRef.current = level;
+      return;
+    }
+    if (level > prevLevelRef.current) {
+      setLevelUp({ from: prevLevelRef.current, to: level });
+    }
+    prevLevelRef.current = level;
+  }, [summary.level]);
 
   if (loading || (session && profile.isPending)) {
     return (
@@ -38,6 +59,7 @@ export default function MainLayout() {
   }
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -70,6 +92,10 @@ export default function MainLayout() {
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="data" options={{ href: null }} />
     </Tabs>
+    {levelUp ? (
+      <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />
+    ) : null}
+    </>
   );
 }
 
