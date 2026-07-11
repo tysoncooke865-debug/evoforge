@@ -1,7 +1,7 @@
 # BATTLE ARENA — technical design (v1, 2026-07-11)
 
-> Status: **DESIGN — awaiting Tyson's sign-off on the four gating decisions
-> (§15) before migration 009 is written.** No battle code exists yet.
+> Status: **DECIDED — D1–D4 answered by Tyson 2026-07-11 (§15). P0 (migration
+> 009) is unblocked.** No battle code exists yet.
 > Read with: `client/CLAUDE.md` (invariants), `PARITY.md` (v2 layer rules),
 > `migrations/006` (the anti-mint pattern this design extends).
 
@@ -18,14 +18,16 @@ every point earned by real training.
    → Friendly battles (invite) ship first; Quick/Ranked queue on the same
    architecture; ghost battles (race a recording) make the arena playable
    solo from day one.
-2. **A strength round is 45–60 minutes of real lifting.** Clash-Royale
-   pacing is impossible; the Clash Royale *feel* comes from matchmaking
-   theatre, the VS screen, live progress bars and the results ceremony —
-   not battle length. Pacing model is Decision D1 (§15).
-3. **Photos are never persisted** (client CLAUDE.md invariant). Round 3 and
-   "photo reuse detection" still work: judge in memory (existing
-   `ai-physique` pattern), persist only sha256 + perceptual hash + verdict.
-   Storing images is Decision D2.
+2. **A full strength session is 45–60 minutes of real lifting.** The
+   Clash-Royale feel comes from two directions (D1): a **BLITZ** format —
+   compressed targets, ~20–30 minutes for the whole battle, both players
+   online, rounds back-to-back — and a **FULL** format, live-only, one
+   shared 90-minute window. Targets scale by format; the engine is the same.
+3. **Photos were never persisted** (client CLAUDE.md invariant) — Tyson
+   amended this FOR BATTLES ONLY (D2): round-3 photos are stored in a
+   private storage bucket so opponents can view them. Solo Oracle scans
+   stay judge-and-discard, unchanged. Hashes are still recorded for reuse
+   detection; bucket access is participants-of-that-match only.
 4. **`xp_events` cannot be minted by a raw POST** — the 006 trigger
    recomputes every amount from a real owned source row. Battle XP follows
    the identical pattern: a new `kind='battle'` recomputed from a settled
@@ -60,12 +62,19 @@ New main-nav tab **Arena** (between Avatar and More) →
 **Battle**: 3 rounds, fixed budget 1200/1050/750 = 3000 pts. Higher total
 wins. Trophies = battle rating (Elo, §8). XP payout through the ledger.
 
-**Pacing** (D1): each round is a **window**, not a stopwatch. Default async:
-every participant gets 24h per round, may train whenever; when both are
-online and training simultaneously the same screens simply become live
-(realtime is on regardless — the data model does not distinguish). Optional
-"Live" friendly mode: both ready up, one shared 90-minute window covering
-rounds 1+2, round 3 photo within 24h after.
+**Pacing** (D1, decided): two synchronous formats, both online, chosen at
+match creation and carried in `battle_matches.format`:
+- **BLITZ** (Quick Match default, friendly option): the mini-game battle.
+  Strength 12 min / cardio 10 min / physique capture 5 min, back-to-back;
+  targets compressed to blitz tier (e.g. strength ≈ 1,800–3,000 effective
+  kg — an intense focused burst, not a full session). Whole battle
+  ~25–30 min. This is the matchable format.
+- **FULL** (live-only, friendly + ranked later): one shared 90-minute
+  window covering rounds 1+2 at full-session targets; round-3 photo
+  immediately after, 15-min capture window.
+Ghost battles replay a recorded performance against either format, so the
+arena is playable solo from day one. The event model is identical in both —
+only `spec.targets` and window lengths differ.
 
 ---
 
@@ -200,11 +209,17 @@ battle_round_scores (match_id fk, round_no, user_id, components jsonb,
                  -- the client NEVER decides scores.
 
 battle_media     (id, match_id fk, user_id, round_no, sha256 text,
-                  phash text, pose text, verdict jsonb, confidence text,
-                  compliant bool)
-                 -- NO image bytes (D2). sha256 unique per user across ALL
-                 -- matches = photo-reuse detection. SELECT own + opponent's
-                 -- verdict/confidence only (column-limited view).
+                  phash text, pose text, storage_path text, verdict jsonb,
+                  confidence text, compliant bool)
+                 -- D2 (decided): image bytes live in a PRIVATE storage
+                 -- bucket `battle-media`, path {match_id}/{user_id}/{round}.
+                 -- Bucket RLS: read only for participants of that match_id;
+                 -- write only via battle-physique (service role). sha256
+                 -- unique per user across ALL matches = reuse detection.
+                 -- Row SELECT: own + opponent rows of own matches.
+                 -- Retention: rows + objects deleted with the match via
+                 -- cascade + a cleanup call in battle-settle for abandoned
+                 -- matches. Solo Oracle scans remain never-persisted.
 ```
 
 `battle_history` = a view over matches+participants. `battle_stats` = the
@@ -423,21 +438,25 @@ blur (tab focus effect); no polling anywhere — push or fetch-on-focus.
 - **P0** Sign-off (§15) → migration 009 + triggers + `[architect]` commit +
   RLS falsification tests (verify a stranger reads nothing, a participant
   reads exactly the opponent snapshot; positive controls per doctrine).
-- **P1 Friendly async battle, Round 1 only, end-to-end.** Arena tab, invite/
-  join, VS, strength round vs coefficient table, settle, results, history.
-  Ghost of your own last round included (it's free: replay events).
+- **P1 Friendly BLITZ battle, Round 1 only, end-to-end.** Arena tab, invite/
+  join, VS, 12-min blitz strength round vs coefficient table, settle,
+  results, history. Ghost of your own last round included (it's free:
+  replay events).
 - **P2** Rounds 2+3 (cardio catalog + battle-physique with pose compliance).
 - **P3** Quick Match queue + matchmaker + live pacing mode + ghost battles.
 - **P4** Ranked + seasons + leaderboard + league badges.
 - **P5** Anti-cheat layer 2, wearable multiplier slots, spectator polish.
 
-## 15. Decisions needed before P0 (Tyson)
+## 15. Decisions — ANSWERED by Tyson, 2026-07-11
 
-- **D1 Pacing default**: async 24h/round windows (recommended) vs live-only.
-- **D2 Round-3 photos**: judge-and-discard, persist hashes+verdict only
-  (recommended — keeps the "photos never persisted" invariant) vs storing
-  images in a private bucket so opponents can view them.
-- **D3 Coins**: defer entirely (recommended) vs placeholder balance now.
-- **D4 Identity**: arena requires the existing `public_profile` opt-in
-  display name (recommended — reuses 004's privacy seam) vs a separate
-  arena alias.
+- **D1 Pacing**: BOTH formats — short mini-game **BLITZ** battles (quick
+  match) AND a longer **FULL** format that is live-only. No async default.
+  (§1 pacing rewritten to match.)
+- **D2 Round-3 photos**: **store in a private bucket** so opponents can view
+  them. The "photos never persisted" invariant is hereby amended to
+  battles-only storage with participant-scoped access; solo Oracle scans
+  unchanged. client/CLAUDE.md must be updated in the P2 commit that
+  implements this.
+- **D3 Coins**: deferred. XP + trophies only in v1.
+- **D4 Identity**: reuse the `public_profile` opt-in display name; entering
+  the Arena requires it.
