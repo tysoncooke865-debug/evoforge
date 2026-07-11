@@ -66,6 +66,10 @@ export default function MainLayout() {
         options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }}
       />
       <Tabs.Screen
+        name="ai"
+        options={{ title: 'AI', tabBarIcon: makeIcon('✦') }}
+      />
+      <Tabs.Screen
         name="progress"
         options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }}
       />

@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { supabase } from '@/data/supabase';
@@ -128,6 +130,18 @@ export default function OnboardingScreen() {
           </View>
         ))}
 
+        <AiAssistCard
+          heightCm={parsed.height_cm ?? 0}
+          weightKg={parsed.bodyweight_kg ?? 0}
+          onScores={(physique, leanness) =>
+            setValues((prev) => ({
+              ...prev,
+              physique_score: String(physique),
+              leanness_score: String(leanness),
+            }))
+          }
+        />
+
         {previewLevel !== null ? (
           <View className="mb-s4 rounded-md border border-border-strong bg-surface-2 p-s3">
             <Text className="text-sm text-text-dim">
@@ -153,5 +167,88 @@ export default function OnboardingScreen() {
         </Pressable>
       </View>
     </ScrollView>
+  );
+}
+
+function AiAssistCard({
+  heightCm,
+  weightKg,
+  onScores,
+}: {
+  heightCm: number;
+  weightKg: number;
+  onScores: (physique: number, leanness: number) => void;
+}) {
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [bf, setBf] = useState<string | null>(null);
+
+  const clamp15 = (v: unknown) => Math.max(0, Math.min(15, Math.round(Number(v) || 0)));
+
+  const run = async () => {
+    if (!photo) return;
+    setBusy(true);
+    setStatus(null);
+    // One photo, two verdicts: the physique rating fills both self-score
+    // sliders (they feed calculateStartingLevel), and the body-fat estimate
+    // saves a first reading so the character starts with real leanness data.
+    const [phys, fat] = await Promise.all([
+      runAiPhysique([photo], { height_cm: heightCm, bodyweight: weightKg, context: 'onboarding' }),
+      runAiBodyfat([photo], { height_cm: heightCm, weight_kg: weightKg, save: true }),
+    ]);
+    setBusy(false);
+    setPhoto(null); // analysed and dropped
+
+    if (phys.result) {
+      onScores(clamp15(phys.result.physique_score), clamp15(phys.result.leanness_score));
+      setStatus(`Scores set from the analysis (confidence: ${phys.result.confidence}).`);
+    } else if (phys.error) {
+      setStatus(phys.error);
+    }
+    if (fat.result) {
+      setBf(`${fat.result.bf_mid.toFixed(1)}% body fat (${fat.result.bf_low.toFixed(1)}–${fat.result.bf_high.toFixed(1)}) — saved as your first reading.`);
+    }
+  };
+
+  return (
+    <View className="mb-s4 rounded-md border border-border bg-surface-2 p-s3">
+      <Text className="mb-s1 text-xs font-bold text-accent">✦ AI ASSIST (OPTIONAL)</Text>
+      <Text className="mb-s3 text-2xs text-text-mute">
+        A physique photo rates you honestly and fills the two scores above — better than guessing
+        your own aesthetics. Analysed in memory, never stored.
+      </Text>
+      <View className="flex-row items-center gap-s3">
+        <Pressable
+          onPress={async () => {
+            const uri = await pickPhoto();
+            if (uri) setPhoto(uri);
+          }}
+          className="items-center rounded-md border border-border bg-surface p-s2"
+        >
+          {photo ? (
+            <Image source={{ uri: photo }} style={{ width: 56, height: 72, borderRadius: 6 }} contentFit="cover" />
+          ) : (
+            <View className="h-[72px] w-[56px] items-center justify-center">
+              <Text className="text-xl text-text-mute">＋</Text>
+            </View>
+          )}
+        </Pressable>
+        <Pressable
+          className={`flex-1 items-center rounded-md p-s3 ${photo ? 'bg-accent' : 'bg-surface'}`}
+          onPress={run}
+          disabled={busy || !photo}
+          testID="ai-assist"
+        >
+          {busy ? (
+            <ActivityIndicator color="#04121a" />
+          ) : (
+            <Text className={`font-bold ${photo ? 'text-accent-ink' : 'text-text-mute'}`}>ANALYSE</Text>
+          )}
+        </Pressable>
+      </View>
+      {status ? <Text className="mt-s2 text-2xs text-text-dim">{status}</Text> : null}
+      {bf ? <Text className="mt-s1 text-2xs text-success">{bf}</Text> : null}
+    </View>
   );
 }
