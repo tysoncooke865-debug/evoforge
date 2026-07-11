@@ -5,6 +5,7 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
 import { announceXp, useToastStore } from '@/state/toast-store';
 
+import { runAchievementSweep } from './achievement-sweep';
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
 
@@ -80,6 +81,13 @@ export function useSaveSet() {
     onSuccess: (verdict, input) => {
       queryClient.invalidateQueries({ queryKey: ['workout_log', userId] });
       queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+
+      if (verdict.action === 'insert' || verdict.action === 'update') {
+        // Fire-and-forget, like Python running the sweep inside the save: a
+        // sweep failure must never fail the save. It reads fresh and toasts
+        // any unlocks itself.
+        void runAchievementSweep(queryClient, userId);
+      }
 
       if (verdict.action === 'insert') {
         // The real value of a set. Announcing more than lands is a lie the bar exposes.
