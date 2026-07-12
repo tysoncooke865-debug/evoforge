@@ -146,6 +146,11 @@ regenerates `ui/sprite-avatar.tsx`'s require tables. Jesse's standalone
 `sprite_test/` at the repo root is a browser mini-game for eyeballing
 sheets — nothing imports it.
 
+**The COIN SPRITE (2026-07-12):** Tyson's EvoForge emblem coin renders via
+`ui/coin-icon.tsx` (`assets/coin.png`, trimmed+256px from his 1024 original)
+in every coin placement: Home HUD chip (18px), Vault header (40px) + each
+history row (16px), More-page Coins row (22px). One component, one require.
+
 **The MAIN AVATAR (2026-07-12) is the same character:** the aesthetic
 branch's stage art in `ui/avatar-images.ts` is the FRONT pose cropped from
 each sheet (`aesthetic_front_stage_{1-4}.png`, white-keyed to transparent;

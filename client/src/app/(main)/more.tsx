@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
 import { Text, View } from 'react-native';
+import { CoinIcon } from '@/ui/coin-icon';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
 
@@ -22,7 +23,11 @@ export default function MoreScreen() {
         {ITEMS.map((item) => (
           <Link key={item.href} href={item.href as never} asChild>
             <View className="mb-s2 flex-row items-center rounded-lg border border-border bg-surface p-s4">
-              <Text className="mr-s3 text-lg text-accent">{item.glyph}</Text>
+              {item.href === '/coins' ? (
+                <View className="mr-s3"><CoinIcon size={22} /></View>
+              ) : (
+                <Text className="mr-s3 text-lg text-accent">{item.glyph}</Text>
+              )}
               <View className="flex-1">
                 <Text className="font-bold text-text">{item.title}</Text>
                 <Text className="text-xs text-text-mute">{item.sub}</Text>

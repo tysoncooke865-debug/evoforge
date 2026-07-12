@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 
 import { COIN_LABELS, useCoinHistory, useCoinTotal } from '@/data/coins';
 import tokens from '@/theme/tokens';
+import { CoinIcon } from '@/ui/coin-icon';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
 
@@ -17,13 +18,16 @@ export default function CoinsScreen() {
         kicker="THE VAULT"
         title="COINS"
         right={
-          <Text
-            className="text-3xl font-bold"
-            style={{ color: tokens.colors.legendary, textShadowColor: 'rgba(251,191,36,0.5)', textShadowRadius: 14 }}
-            testID="coin-balance"
-          >
-            {total.data === null || total.data === undefined ? '—' : total.data}
-          </Text>
+          <View className="flex-row items-center gap-s2">
+            <CoinIcon size={40} />
+            <Text
+              className="text-3xl font-bold"
+              style={{ color: tokens.colors.legendary, textShadowColor: 'rgba(251,191,36,0.5)', textShadowRadius: 14 }}
+              testID="coin-balance"
+            >
+              {total.data === null || total.data === undefined ? '—' : total.data}
+            </Text>
+          </View>
         }
       />
       <Text className="text-2xs text-text-mute">
@@ -46,12 +50,15 @@ export default function CoinsScreen() {
                 {e.source_id && e.kind === 'streak_milestone' ? ` · ${e.source_id.split(':')[0]}-day streak` : ''}
               </Text>
             </View>
-            <Text
-              className="text-sm font-bold"
-              style={{ color: e.amount > 0 ? tokens.colors.legendary : tokens.colors.danger }}
-            >
-              {e.amount > 0 ? `+${e.amount}` : e.amount}
-            </Text>
+            <View className="flex-row items-center gap-s1">
+              <CoinIcon size={16} />
+              <Text
+                className="text-sm font-bold"
+                style={{ color: e.amount > 0 ? tokens.colors.legendary : tokens.colors.danger }}
+              >
+                {e.amount > 0 ? `+${e.amount}` : e.amount}
+              </Text>
+            </View>
           </View>
         ))
       )}

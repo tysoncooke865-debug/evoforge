@@ -11,6 +11,7 @@ import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, sh
 import { computeStreak } from '@/domain/streak';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
+import { CoinIcon } from '@/ui/coin-icon';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
 import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { HeroStage } from '@/ui/hero-stage';
@@ -155,6 +156,7 @@ export default function HomeScreen() {
               label="COINS"
               value={coins.data === null || coins.data === undefined ? '—' : coins.data}
               tint={tokens.colors.legendary}
+              icon={<CoinIcon size={18} />}
             />
           </Pressable>
         </Link>
