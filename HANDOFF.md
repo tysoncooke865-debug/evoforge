@@ -303,6 +303,30 @@ apple-touch-icon (generated from Tyson's EvoForge emblem, dark #04070e);
 +html.tsx links them — its tap-latency viewport contract is untouched.
 public/ rides `expo export` into dist automatically.
 
+## PHASE 2 UI/UX batch — EXECUTED (2026-07-13, all 8 commits + extras)
+PHASE_2_PLAN.md executed end-to-end: C1 spring tune (zeta 0.89); C2
+set-logging polish (schemeSentence in the UI layer + test, purple active
+row — owner-approved neon exception, battles follow tint — LAST label
+gone, structural column headers, 64px tabular-nums fields, fused stepper
+pills, dim-until-touched prefill); C3 cardio moved to Today behind a
+LIFT|CARDIO keep-mounted toggle (ui/cardio-logger.tsx, testIDs
+byte-identical) and Log became STATS (route name unchanged); C4
+scroll-to-top on every tab press (ui/scroll-registry + ScreenShell
+useFocusEffect; FINDING: expo-router 57 standard-navigation DOES support
+Tabs screenListeners.tabPress — no fallback needed); C5 Home leaderboard
+teaser (measured-height collapse, body mounts on first open,
+LeaderboardRowView shared with Rank); C6 BRANCH PATHS removed from Avatar
+(branches-v2 domain untouched — skill-tree still consumes it); C7
+onboarding Section 5 GO PUBLIC (never gates the redirect; savePublic
+failure swallowed); C8 join-code uppercase-as-you-type. EXTRAS shipped
+mid-batch on Tyson's live requests: the PODIUM under the Home/Avatar
+character (hero-stage.tsx renders assets/podium.png — procedurally
+rendered to his reference's design language, the reference file never
+reached disk; swap the PNG to upgrade), and the PWA safe-area fix
+(html/body/#root painted #04070e — the installed app's white bottom
+strip). Sprite placement change: Today header sprite follows the mode
+(cardioAnim(type) when CARDIO is active); STATS keeps an idle companion.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`

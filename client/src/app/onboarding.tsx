@@ -2,12 +2,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
+import { useSavePublicIdentity } from '@/data/mutations';
 import { supabase } from '@/data/supabase';
+import { nameError } from '@/domain/leaderboard';
 import { rankName } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
 import {
@@ -65,6 +67,9 @@ export default function OnboardingScreen() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publicName, setPublicName] = useState('');
+  const [goPublic, setGoPublic] = useState(true);
+  const savePublic = useSavePublicIdentity();
 
   if (!loading && !session) return <Redirect href="/sign-in" />;
   if (profile.data) return <Redirect href="/" />;
@@ -157,6 +162,15 @@ export default function OnboardingScreen() {
       setError(err.message);
       setBusy(false);
       return;
+    }
+    // P2 C7: optional public identity, AFTER the profile insert and BEFORE
+    // the invalidation that triggers the redirect. Never blocks onboarding.
+    if (publicName.trim() && !nameError(publicName)) {
+      try {
+        await savePublic.mutateAsync({ displayName: publicName, isPublic: goPublic });
+      } catch {
+        /* never block onboarding; the athlete recovers via Profile/Rank */
+      }
     }
     await queryClient.invalidateQueries({ queryKey: ['profile'] });
     setBusy(false);
@@ -258,6 +272,36 @@ export default function OnboardingScreen() {
               disabled={!photo}
               busy={scanBusy}
               testID="ai-assist"
+            />
+          </View>
+        </Section>
+
+        {/* 5 · GO PUBLIC (P2 C7). Optional and NEVER gating: the profile
+            row IS the onboarded flag, and a failure here must not block
+            the redirect — the athlete recovers via Profile/Rank. */}
+        <Section n="5" title="GO PUBLIC (OPTIONAL)">
+          <Text className="mb-s3 text-2xs text-text-mute">
+            The leaderboard shows only a display name, level and XP — never body data. Leave
+            blank to stay private; you can join any time from Rank.
+          </Text>
+          <Text className="mb-s1 text-xs text-text-mute">DISPLAY NAME (3–24 CHARS)</Text>
+          <TextInput
+            className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
+            value={publicName}
+            onChangeText={setPublicName}
+            autoCapitalize="none"
+            testID="onboard-public-name"
+          />
+          {publicName.trim() && nameError(publicName) ? (
+            <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
+          ) : null}
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm text-text-dim">Visible on the leaderboard</Text>
+            <Switch
+              value={goPublic}
+              onValueChange={setGoPublic}
+              trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
+              thumbColor={tokens.colors.accent}
             />
           </View>
         </Section>

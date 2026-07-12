@@ -74,6 +74,14 @@ app still runs them). The new app layers on top, client-side only:
   cannot see that column and its catalog has no barbell deadlift, so its
   behaviour is identical to the two-lift blend until cutover. Romanian
   Deadlift deliberately does not count as the deadlift.
+- **Phase 2 UI batch (2026-07-13, client-only)**: cardio logging lives on
+  TODAY (LIFT|CARDIO toggle); the Log tab is STATS (bodyweight + tape;
+  route name still `log`). Onboarding gained an optional GO PUBLIC step
+  (public_profile upsert, never gating). Home gained a collapsed
+  leaderboard teaser. Avatar's BRANCH PATHS section was removed (branch
+  destinations remain in SKILL TREE). Streamlit keeps its own layouts —
+  parity is per-value, not per-screen (the XP/curve/catalog contracts are
+  untouched).
 - **Sex calibration (2026-07-12, client-side deviation, Tyson-requested)**:
   `calculateAvatarStats` / `strengthScoreFromRatios` take an optional
   `SexCalibration`; the DEFAULT is the male constants verbatim (goldens

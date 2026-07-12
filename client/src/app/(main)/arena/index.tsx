@@ -145,7 +145,7 @@ export default function ArenaScreen() {
             autoCapitalize="characters"
             maxLength={6}
             value={code}
-            onChangeText={setCode}
+            onChangeText={(t) => setCode(t.toUpperCase())}
             testID="arena-code"
           />
           <View className="mt-s3">

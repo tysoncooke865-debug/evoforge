@@ -1,4 +1,7 @@
-# EvoForge — Task queue
+# TASKS
+
+**2026-07-13: PHASE_2_PLAN.md executed in full (8/8 commits + podium + PWA safe-area fix) — see HANDOFF.md.**
+
 
 The live work queue. `ROADMAP.md` says *what order and why*; this says *what next*.
 
