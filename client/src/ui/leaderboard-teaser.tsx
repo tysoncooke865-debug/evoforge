@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are
+   mutated in press/layout handlers by design, same as segmented-tabs. */
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';

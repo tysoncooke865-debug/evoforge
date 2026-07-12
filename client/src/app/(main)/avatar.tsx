@@ -6,7 +6,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { SkillTreeView } from '@/ui/skill-tree';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage, type BranchPathV2, type BranchV2 } from '@/domain/branches-v2';
+import { avatarStageRowsV2, branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
@@ -49,7 +49,7 @@ export default function AvatarScreen() {
  * requirement rows with readiness, the quick win and the wall called out.
  */
 function EvolutionView() {
-  const { summary, stats, bfMid, branchV2, sex, earliestBf, nutritionPhase } = useAvatarData();
+  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
   const isShred = branchV2 === 'shredder';
 
   const rows = avatarStageRowsV2(branchV2, summary.level);
@@ -62,14 +62,6 @@ function EvolutionView() {
     cardioMinutes: summary.cardioMinutes,
   });
   const readiness = evolutionReadiness(evo.requirements);
-
-  const paths = branchPathsV2(branchV2, {
-    strength: stats.strengthScore,
-    size: stats.sizeScore,
-    leanness: stats.leannessScore,
-    conditioning: stats.conditioningScore,
-    aesthetic: stats.aestheticScore,
-  }, { nutritionPhase, earliestBf });
 
   const stage = isShred ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
   const art = avatarArtV2(branchV2, stage, sex);
@@ -246,65 +238,6 @@ function EvolutionView() {
         </View>
       </View>
 
-      {/* Branch paths: what it takes to become the other builds. */}
-      <View>
-        <EdgeLabel>BRANCH PATHS</EdgeLabel>
-        <Text className="mb-s3 mt-s1 text-2xs text-text-mute">
-          Your branch follows your stat mix — hit these gates and the character changes build.
-        </Text>
-        {paths.map((path) => (
-          <BranchPathCard key={path.branch} path={path} level={summary.level} />
-        ))}
-      </View>
     </>
-  );
-}
-
-function BranchPathCard({
-  path,
-  level,
-}: {
-  path: BranchPathV2;
-  level: number;
-}) {
-  const readiness = evolutionReadiness(path.requirements);
-  const tints: Record<BranchV2, string> = {
-    shredder: tokens.colors.success,
-    titan: tokens.colors.legendary,
-    mass: tokens.colors.danger,
-    cardio: tokens.colors.rare,
-    hybrid: tokens.colors.accent,
-    aesthetic: tokens.colors.mythic,
-  };
-  const tint = tints[path.branch];
-  const donor = path.branch === 'titan' ? 'mass' : path.branch === 'cardio' ? 'hybrid' : path.branch === 'shredder' ? 'aesthetic' : path.branch;
-  const stage = getBranchStage(donor, level);
-  return (
-    <View
-      className="mb-s3 rounded-xl p-s4"
-      style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
-    >
-      <View className="mb-s3 flex-row items-center gap-s3">
-        <Silhouette branch={donor} stage={stage} rim={tint} />
-        <View className="flex-1">
-          <Text className="text-base font-bold text-text">{branchDisplayNameV2(path.branch)}</Text>
-          <Text className="text-2xs text-text-mute">
-            Become {evolutionNameV2(path.branch, level)}
-          </Text>
-        </View>
-        <View className="items-center">
-          <Text className="text-xl font-bold" style={{ color: tint }}>
-            {readiness.percent}%
-          </Text>
-          <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
-            READY
-          </Text>
-        </View>
-      </View>
-      {path.requirements.map((req) => (
-        <RequirementRow key={req.label} req={req} />
-      ))}
-      {path.note ? <Text className="text-2xs text-text-mute">{path.note}</Text> : null}
-    </View>
   );
 }
