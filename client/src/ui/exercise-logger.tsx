@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 
 import { useSaveSet } from '@/data/mutations';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
@@ -9,6 +9,7 @@ import type { SetVerdict } from '@/domain/set-save';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/floating-xp';
+import { NumberField } from '@/ui/number-field';
 import { GlowCard } from '@/ui/shell';
 
 /**
@@ -193,23 +194,26 @@ function SetRow({
           </Text>
         ) : null}
       </View>
-      <TextInput
-        className="w-[84px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-        inputMode="decimal"
-        placeholder="kg"
-        placeholderTextColor="#64758f"
+      <NumberField
         value={weight}
-        onChangeText={setWeight}
+        onChange={setWeight}
+        step={2.5}
+        placeholder="kg"
+        label="WEIGHT · KG"
+        tint={tint}
+        width={56}
         testID={`${exercise}-w-${setNo}`}
       />
-      <Text className="text-text-mute">×</Text>
-      <TextInput
-        className="w-[64px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-        inputMode="numeric"
-        placeholder="reps"
-        placeholderTextColor="#64758f"
+      <NumberField
         value={reps}
-        onChangeText={setReps}
+        onChange={setReps}
+        step={1}
+        integer
+        steppers={false}
+        placeholder="reps"
+        label="REPS"
+        tint={tint}
+        width={48}
         testID={`${exercise}-r-${setNo}`}
       />
       <Pressable

@@ -30,6 +30,7 @@ import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { CoinFlip } from '@/ui/coin-flip';
 import { ExerciseCard } from '@/ui/exercise-logger';
+import { NumberField } from '@/ui/number-field';
 import {
   cardioChallengeByKey,
   objectByKey,
@@ -1167,23 +1168,24 @@ function BattleLogger({
         ))}
       </View>
       <View className="flex-row items-center gap-s2">
-        <TextInput
-          className="min-h-[44px] w-[90px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-          inputMode="decimal"
-          placeholder="kg"
-          placeholderTextColor="#64758f"
+        <NumberField
           value={weight}
-          onChangeText={setWeight}
+          onChange={setWeight}
+          step={2.5}
+          placeholder="kg"
+          label="WEIGHT · KG"
+          width={56}
           testID="battle-w"
         />
-        <Text className="text-text-mute">×</Text>
-        <TextInput
-          className="min-h-[44px] w-[70px] rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-          inputMode="numeric"
-          placeholder="reps"
-          placeholderTextColor="#64758f"
+        <NumberField
           value={reps}
-          onChangeText={setReps}
+          onChange={setReps}
+          step={1}
+          integer
+          steppers={false}
+          placeholder="reps"
+          label="REPS"
+          width={48}
           testID="battle-r"
         />
         <View className="flex-1">
