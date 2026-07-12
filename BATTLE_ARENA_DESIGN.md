@@ -491,7 +491,7 @@ Compete during the same workout to move the most total weight.
   'full')=3, mini games=1 — finalizing after round 1. Engine v3 adds the
   volume-duel scorer (byte-copied ×3, CI pin unchanged).
 
-### Game 2 — MUSCLE DUEL (`format: 'muscle_duel'`)
+### Game 2 — HEADS OR TAILS (`format: 'heads_or_tails'`, named by Tyson 2026-07-12)
 A coin-flip gauntlet locks each athlete to one exercise in one muscle
 group; most weight moved on YOUR assigned exercise wins.
 - **Coin flips are SERVER-side** (crypto RNG in the edge function at
@@ -520,7 +520,7 @@ group; most weight moved on YOUR assigned exercise wins.
 
 ### Shared work
 - **Migration 015** (`[architect]`): widen the format check to
-  ('blitz','full','volume_duel','muscle_duel'); round kinds; battle_events
+  ('blitz','full','volume_duel','heads_or_tails'); round kinds; battle_events
   kind 'pick' insertable by the service role only; STEP-9-style
   falsification checklist (stranger reads nothing; non-winner pick
   rejected; out-of-group exercise rejected; forged volume rejected;
@@ -532,16 +532,20 @@ group; most weight moved on YOUR assigned exercise wins.
 ### Phases (each shippable, BLITZ untouched)
 - **MG1**: migration 015 + engine v3 + format-aware invite/settle +
   VOLUME DUEL end-to-end + ExerciseLogger extraction + two-account tour.
-- **MG2**: battle-pick + flip ceremony + MUSCLE DUEL end-to-end + tour.
+- **MG2**: battle-pick + flip ceremony + HEADS OR TAILS end-to-end + tour.
 
-### Decisions — D5–D9 (implementation gated on these)
+### Decisions — D5–D9: ANSWERED by Tyson 2026-07-12, "all recommended"
+D5 absolute kg · D6 75 min / 30 min + 5 min per pick · D7 assigned
+exercise only · D8 coins deferred · D9 invite-code only at launch.
+
+### The original decision framing (kept for the reasoning)
 - **D5 Scoring basis**: absolute kg moved (RECOMMENDED — legible, it's
   the same bar) vs bodyweight-relative (fairer across sizes; could land
   later as a variant). Sex calibration does NOT apply here — duels are
   head-to-head absolute contests unless D5 says otherwise.
-- **D6 Windows**: Volume Duel 75 min; Muscle Duel 30 min logging + 5 min
+- **D6 Windows**: Volume Duel 75 min; Heads or Tails 30 min logging + 5 min
   per pick. Confirm or adjust.
-- **D7 Muscle Duel counting**: assigned exercise ONLY (RECOMMENDED) vs
+- **D7 Heads or Tails counting**: assigned exercise ONLY (RECOMMENDED) vs
   every set in the picked muscle group.
 - **D8 Winner coins**: defer (RECOMMENDED, consistent with D3) vs +50
   winner coin (needs a 013-style server guard migration).
