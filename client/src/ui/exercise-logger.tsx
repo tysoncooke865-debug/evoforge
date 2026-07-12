@@ -32,16 +32,6 @@ const FIELD_WIDTH = 64;
  * typed state once on mount).
  */
 
-function firstUnlogged(
-  loggedRows: import('@/domain/summary').WorkoutRow[],
-  targetSets: number
-): number | null {
-  for (let n = 1; n <= targetSets; n++) {
-    if (!loggedRows.some((r) => (pyInt(r.set) ?? 0) === n)) return n;
-  }
-  return null;
-}
-
 /** One pip per target set: filled = logged. Quest steps. */
 function SetPips({ done, target, tint }: { done: number; target: number; tint: string }) {
   return (
@@ -94,12 +84,15 @@ export function ExerciseCard({
   const done = doneCount >= targetSets;
   // What this athlete did LAST session on this exercise (IMPROVEMENT_PLAN #2).
   const last = lastPerformance(allRows, exercise, date);
+  // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
+  // WHOLE exercise card, not one set row. Battles follow their tint.
+  const activeColor = tint === tokens.colors.accent ? tokens.colors.epic : tint;
   return (
-    <GlowCard glow={done ? tokens.colors.success : isNext ? tint : undefined}>
+    <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
         <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
         {isNext && !done ? (
-          <Text className="mr-s2 text-xs font-bold" style={{ color: tint, letterSpacing: 1 }}>
+          <Text className="mr-s2 text-xs font-bold" style={{ color: activeColor, letterSpacing: 1 }}>
             ▸ NEXT
           </Text>
         ) : null}
@@ -131,9 +124,6 @@ export function ExerciseCard({
       {Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
         const existing = loggedRows.find((r) => (pyInt(r.set) ?? 0) === setNo);
         const prefill = existing ? null : prefillForSet(last, setNo);
-        // Item 1.2: the active set — first unlogged, only on the NEXT card,
-        // so exactly one highlighted row exists on screen.
-        const active = isNext && !existing && setNo === firstUnlogged(loggedRows, targetSets);
         return (
           <SetRow
             key={setNo}
@@ -144,7 +134,6 @@ export function ExerciseCard({
             initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
             initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
             prefill={prefill}
-            active={active}
             onPr={onPr}
             tint={tint}
             onLogged={onLogged}
@@ -163,7 +152,6 @@ function SetRow({
   initialWeight,
   initialReps,
   prefill = null,
-  active = false,
   onPr,
   tint,
   onLogged,
@@ -176,8 +164,6 @@ function SetRow({
   initialReps: string;
   /** Last session's numbers for this set — shown editable, saved only on LOG. */
   prefill?: { weight: number; reps: number } | null;
-  /** The one highlighted "you are here" row (first unlogged on the NEXT card). */
-  active?: boolean;
   onPr: () => void;
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
@@ -223,24 +209,8 @@ function SetRow({
   };
 
   const standardTint = tint === tokens.colors.accent;
-  // Item 1.2 (owner-approved neon-policy exception): the active set carries
-  // a purple border + soft glow. Battles follow their tint instead of epic.
-  const activeColor = standardTint ? tokens.colors.epic : tint;
   return (
-    <View
-      className="mb-s2 flex-row items-center gap-s1 rounded-lg px-[2px] py-s1"
-      style={{
-        // Constant-layout frame: the border always exists (transparent when
-        // inactive) so the highlight moving between rows never reflows.
-        borderWidth: 1,
-        borderColor: active ? `${activeColor}8c` : 'transparent',
-        backgroundColor: active ? `${activeColor}0f` : 'transparent',
-        shadowColor: active ? activeColor : 'transparent',
-        shadowOpacity: active ? 0.3 : 0,
-        shadowRadius: 10,
-        elevation: active ? 3 : 0,
-      }}
-    >
+    <View className="mb-s2 flex-row items-center gap-s1 px-[2px] py-s1">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
       <View className="w-s10 justify-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>

@@ -66,10 +66,10 @@ export function HeroStage({
   const bloomStyle = useAnimatedStyle(() => ({ opacity: 0.35 + bloom.value * 0.5 }));
 
   // The podium (Tyson, 2026-07-12): the character stands ON a sci-fi disc.
-  // Its top face sits ~34% down the image, so the avatar's feet (and the
+  // Its top face centre sits ~36% down the image, so the avatar's feet (and the
   // AvatarStage ground shadow) land on the deck, not float above it.
   const podiumW = size * 1.5;
-  const podiumH = podiumW * (304 / 720);
+  const podiumH = podiumW * (385 / 720);
   const stageHeight = size + Math.round(podiumH * 0.78) + 60;
 
   return (
@@ -108,7 +108,7 @@ export function HeroStage({
       {/* Character-coloured light pooling on the deck under the athlete. */}
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', bottom: podiumH * 0.42, left: 0, right: 0, alignItems: 'center' }}
+        style={{ position: 'absolute', bottom: podiumH * 0.56, left: 0, right: 0, alignItems: 'center' }}
       >
         <Svg width={size * 1.1} height={44}>
           <Defs>
@@ -122,7 +122,7 @@ export function HeroStage({
       </View>
 
       {/* The living character, feet on the deck (float/breathe/aura inside). */}
-      <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.44) }}>
+      <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.58) }}>
         <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} silhouette={silhouette} />
       </View>
 
