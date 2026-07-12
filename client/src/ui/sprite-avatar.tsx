@@ -54,7 +54,7 @@ const FRAMES: Record<Anim, number[]> = {
 /** Canvas aspect (w/h) per animation — frames within one anim share a canvas. */
 const ASPECT: Record<Anim, number> = {
   idle: 71 / 148,
-  run: 126 / 112,
+  run: 130 / 112,
   punch: 129 / 120,
   victory: 60 / 104,
 };
