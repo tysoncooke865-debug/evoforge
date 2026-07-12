@@ -2,7 +2,8 @@
    mutated in effects by design; see neon-button.tsx. */
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Asset } from 'expo-asset';
+import { Platform, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,13 +19,14 @@ import { useSettingsStore } from '@/state/settings-store';
 /**
  * The animated pixel companion (Tyson's Cyber Athlete sheet, level 1).
  *
- * RENDERING CONTRACT, learned the hard way:
- *  - every frame stays MOUNTED (swapping one Image's source reloads it
- *    asynchronously on web and blanks the sprite between frames);
- *  - frame selection runs ON THE UI THREAD via a Reanimated clock — the
- *    first JS-timer version re-rendered React state up to 14×/s on every
- *    screen carrying a sprite, which broke first-tap presses on phones
- *    (buttons needed a double tap). Zero React re-renders per frame now.
+ * RENDERING CONTRACT, three live bugs deep:
+ *  - WEB: pure CSS steps() animation over a sprite STRIP. Zero JavaScript
+ *    per frame. Both JS-timer state flipping AND Reanimated opacity
+ *    worklets (which run on the MAIN thread on web — a browser has no
+ *    separate UI thread) made iOS Safari drop first taps app-wide. The
+ *    browser compositor cannot break touch handling.
+ *  - NATIVE: Reanimated stacked frames on the real UI thread.
+ *  - Frames stay pre-loaded either way; source-swapping is what flickers.
  *
  * REMOVAL SWITCH: flip SPRITE_COMPANION_ENABLED to false and every
  * companion on every page disappears cleanly.
@@ -34,6 +36,13 @@ export const SPRITE_COMPANION_ENABLED = true;
 type Anim = 'idle' | 'run' | 'punch' | 'victory';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
+const STRIPS: Record<Anim, number> = {
+  idle: require('../assets/avatars/sprites/idle_strip.png'),
+  run: require('../assets/avatars/sprites/run_strip.png'),
+  punch: require('../assets/avatars/sprites/punch_strip.png'),
+  victory: require('../assets/avatars/sprites/victory_strip.png'),
+};
+
 const FRAMES: Record<Anim, number[]> = {
   idle: [
     require('../assets/avatars/sprites/idle_1.png'),
@@ -65,6 +74,8 @@ const FRAMES: Record<Anim, number[]> = {
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+const COUNT: Record<Anim, number> = { idle: 6, run: 7, punch: 3, victory: 3 };
+
 /** Canvas aspect (w/h) per animation — frames within one anim share a canvas. */
 const ASPECT: Record<Anim, number> = {
   idle: 71 / 148,
@@ -73,7 +84,52 @@ const ASPECT: Record<Anim, number> = {
   victory: 60 / 104,
 };
 
-/** Punch reads better as jab-out-jab-back; the rest cycle forward. */
+const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 9, victory: 5 };
+
+/** Punch and victory read better bouncing back and forth. */
+const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: true, victory: true };
+
+// ---------------------------------------------------------------- web
+
+let cssInjected = false;
+
+/** Browser-native sprite playback: background-position through steps(). */
+function CssSprite({ anim, width, height, frozen }: { anim: Anim; width: number; height: number; frozen: boolean }) {
+  const n = COUNT[anim];
+  // resolveAssetSource does not exist on react-native-web; expo-asset
+  // resolves Metro module ids to served URLs on every platform.
+  const uri = Asset.fromModule(STRIPS[anim]).uri;
+  if (!cssInjected && typeof document !== 'undefined') {
+    cssInjected = true;
+    const style = document.createElement('style');
+    style.textContent =
+      '@keyframes evoforge-sprite { from { background-position-x: 0%; } to { background-position-x: 100%; } }';
+    document.head.appendChild(style);
+  }
+  const duration = n / FPS[anim];
+  const animation = frozen
+    ? undefined
+    : `evoforge-sprite ${duration}s steps(${n - 1}, jump-none) infinite${ALTERNATE[anim] ? ' alternate' : ''}`;
+  return (
+    <div
+      style={{
+        width,
+        height,
+        backgroundImage: `url(${uri})`,
+        backgroundRepeat: 'no-repeat',
+        // A 0→100% background-position-x sweep spans (n-1) tile offsets;
+        // steps(n-1, jump-none) lands on every frame exactly once.
+        backgroundSize: `${n * 100}% 100%`,
+        imageRendering: 'pixelated',
+        pointerEvents: 'none',
+        animation,
+      }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------- native
+
 const SEQUENCE: Record<Anim, number[]> = {
   idle: [0, 1, 2, 3, 4, 5],
   run: [0, 1, 2, 3, 4, 5, 6],
@@ -81,9 +137,6 @@ const SEQUENCE: Record<Anim, number[]> = {
   victory: [0, 1, 2, 2, 1],
 };
 
-const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 9, victory: 5 };
-
-/** One stacked frame: visible only during its slots of the UI-thread clock. */
 function SpriteFrame({
   source,
   index,
@@ -112,12 +165,8 @@ function SpriteFrame({
   );
 }
 
-export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: number }) {
-  const reducedMotion = useReducedMotion();
-  const perfMode = useSettingsStore((s) => s.perfMode);
-  const frozen = reducedMotion || perfMode;
+function NativeSprite({ anim, width, height, frozen }: { anim: Anim; width: number; height: number; frozen: boolean }) {
   const clock = useSharedValue(0);
-
   const seq = SEQUENCE[anim];
   useEffect(() => {
     if (frozen) {
@@ -131,11 +180,8 @@ export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: numbe
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anim, frozen]);
-
-  const width = Math.round(height * ASPECT[anim]);
-
   return (
-    <View style={{ width, height }} pointerEvents="none">
+    <>
       {FRAMES[anim].map((source, i) => (
         <SpriteFrame
           key={`${anim}-${i}`}
@@ -148,6 +194,25 @@ export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: numbe
           height={height}
         />
       ))}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- api
+
+export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: number }) {
+  const reducedMotion = useReducedMotion();
+  const perfMode = useSettingsStore((s) => s.perfMode);
+  const frozen = reducedMotion || perfMode;
+  const width = Math.round(height * ASPECT[anim]);
+
+  return (
+    <View style={{ width, height }} pointerEvents="none">
+      {Platform.OS === 'web' ? (
+        <CssSprite anim={anim} width={width} height={height} frozen={frozen} />
+      ) : (
+        <NativeSprite anim={anim} width={width} height={height} frozen={frozen} />
+      )}
     </View>
   );
 }
