@@ -233,7 +233,7 @@ function CssSprite({ stage, anim, width, height, frozen }: { stage: Stage; anim:
   const duration = n / FPS[anim];
   const animation = frozen
     ? undefined
-    : `evoforge-sprite ${duration}s steps(${n - 1}, jump-none) infinite${ALTERNATE[anim] ? ' alternate' : ''}`;
+    : `evoforge-sprite ${duration}s steps(${n}, jump-none) infinite${ALTERNATE[anim] ? ' alternate' : ''}`;
   return (
     <div
       style={{
@@ -241,8 +241,11 @@ function CssSprite({ stage, anim, width, height, frozen }: { stage: Stage; anim:
         height,
         backgroundImage: `url(${uri})`,
         backgroundRepeat: 'no-repeat',
-        // A 0→100% background-position-x sweep spans (n-1) tile offsets;
-        // steps(n-1, jump-none) lands on every frame exactly once.
+        // Frame k of n sits at background-position-x k/(n-1)*100%.
+        // steps(n, jump-none) holds BOTH endpoints, yielding exactly n treads
+        // at k/(n-1) — one per frame, all on the tile grid. steps(n-1) put
+        // treads at k/(n-2), BETWEEN tiles: two half-frames with a marching
+        // seam that read as the strip scrolling sideways (live bug).
         backgroundSize: `${n * 100}% 100%`,
         imageRendering: 'pixelated',
         pointerEvents: 'none',

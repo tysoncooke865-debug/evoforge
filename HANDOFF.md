@@ -176,6 +176,13 @@ every placement vanishes cleanly.
 5. Run frames must keep the SHEET's baseline (bottom-anchoring grounds
    the airborne stride) and be torso-anchored (bbox-centering makes the
    body wobble as limbs extend).
+6. The strip sweep is `steps(n, jump-none)` for n frames — jump-none
+   holds BOTH endpoints, so n treads land at k/(n-1), exactly the tile
+   grid. `steps(n-1, ...)` puts treads BETWEEN tiles: two half-frames
+   with a marching seam that reads as the strip scrolling sideways
+   (live bug, fixed 2026-07-12; falsify by sampling
+   getComputedStyle().backgroundPositionX — only k/(n-1)*100% values
+   may appear).
 
 ## Mobile tap gotcha (2026-07-12, cost a live bug)
 Expo's default web shell ships a viewport WITHOUT maximum-scale, leaving
