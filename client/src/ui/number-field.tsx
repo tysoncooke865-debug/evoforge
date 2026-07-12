@@ -62,8 +62,10 @@ function StepButton({
         repeat.current = setInterval(onHoldStep, REPEAT_MS);
       }}
       onPressOut={stop}
-      className="items-center justify-center rounded-md border"
-      style={{ width: 36, height: 27, borderColor: `${tint}45`, backgroundColor: `${tint}12` }}
+      // Chrome lives on the FUSED PILL wrapper (P2 C2 item 11); the halves
+      // stay bare so the pill reads as one control.
+      className="items-center justify-center"
+      style={{ width: 32, height: 27 }}
       accessibilityRole="button"
       accessibilityLabel={glyph === '+' ? 'increase' : 'decrease'}
       testID={testID}
@@ -183,6 +185,7 @@ export function NumberField({
   tint = tokens.colors.accent,
   width = 68,
   bigStep,
+  dim = false,
   testID,
 }: {
   value: string;
@@ -196,6 +199,8 @@ export function NumberField({
   width?: number;
   /** Quick double-press jump (weight: 20 kg plates). Omit for reps. */
   bigStep?: number;
+  /** True = render the value dimmed (untouched last-session prefill). */
+  dim?: boolean;
   testID?: string;
 }) {
   const [padOpen, setPadOpen] = useState(false);
@@ -220,8 +225,16 @@ export function NumberField({
     <View className="flex-row items-center gap-s1">
       <View>
         <TextInput
-          className="rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
-          style={{ width, minHeight: 58 }}
+          className="rounded-md border border-border bg-surface-2 p-s2 text-center"
+          // dim = untouched prefill (P2 C2 item 1.7): text-dim, NOT text-mute
+          // (mute is the placeholder colour). tabular-nums keeps 137.5 and
+          // 8888 from wobbling the fixed-width column (item 10).
+          style={{
+            width,
+            minHeight: 58,
+            color: dim ? tokens.colors['text-dim'] : tokens.colors.text,
+            fontVariant: ['tabular-nums'],
+          }}
           inputMode={USE_CUSTOM_PAD ? 'none' : integer ? 'numeric' : 'decimal'}
           placeholder={placeholder}
           placeholderTextColor="#64758f"
@@ -244,7 +257,15 @@ export function NumberField({
           />
         ) : null}
       </View>
-      <View style={{ gap: 4 }}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: `${tint}45`,
+          borderRadius: 12,
+          overflow: 'hidden',
+          backgroundColor: `${tint}12`,
+        }}
+      >
         <StepButton
           glyph="+"
           onStep={() => bump(1)}
@@ -252,6 +273,7 @@ export function NumberField({
           tint={tint}
           testID={testID ? `${testID}-inc` : undefined}
         />
+        <View style={{ height: 1, backgroundColor: `${tint}40` }} />
         <StepButton
           glyph="−"
           onStep={() => bump(-1)}

@@ -10,7 +10,11 @@ import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/floating-xp';
 import { NumberField } from '@/ui/number-field';
+import { schemeSentence } from '@/ui/scheme-sentence';
 import { GlowCard } from '@/ui/shell';
+
+/** Item 10: both value boxes share one fixed 4-char width (tabular-nums). */
+const FIELD_WIDTH = 64;
 
 /**
  * The exercise logging card — EXTRACTED from today.tsx (2026-07-12) so the
@@ -27,6 +31,16 @@ import { GlowCard } from '@/ui/shell';
  * unconfirmed save, and parents must key cards by day (SetRow seeds its
  * typed state once on mount).
  */
+
+function firstUnlogged(
+  loggedRows: import('@/domain/summary').WorkoutRow[],
+  targetSets: number
+): number | null {
+  for (let n = 1; n <= targetSets; n++) {
+    if (!loggedRows.some((r) => (pyInt(r.set) ?? 0) === n)) return n;
+  }
+  return null;
+}
 
 /** One pip per target set: filled = logged. Quest steps. */
 function SetPips({ done, target, tint }: { done: number; target: number; tint: string }) {
@@ -94,12 +108,32 @@ export function ExerciseCard({
         </Text>
       </View>
       <View className="mb-s4 flex-row items-center justify-between">
-        <Text className="text-xs text-text-mute">{scheme}</Text>
+        <Text className="text-xs text-text-dim">{schemeSentence(scheme)}</Text>
         <SetPips done={doneCount} target={targetSets} tint={tint} />
+      </View>
+      {/* Item 1.6: column headers mirror the row skeleton (same widths and
+          gap classes as SetRow) so alignment is structural, not tuned. */}
+      <View className="mb-s1 flex-row items-center gap-s1 px-[2px]">
+        <View className="w-s10" />
+        <View className="flex-row items-center gap-s1">
+          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: FIELD_WIDTH, letterSpacing: 1 }}>
+            WEIGHT (KG)
+          </Text>
+          <View style={{ width: 32 }} />
+        </View>
+        <View className="flex-row items-center gap-s1">
+          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: FIELD_WIDTH, letterSpacing: 1 }}>
+            REPS
+          </Text>
+          <View style={{ width: 32 }} />
+        </View>
       </View>
       {Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
         const existing = loggedRows.find((r) => (pyInt(r.set) ?? 0) === setNo);
         const prefill = existing ? null : prefillForSet(last, setNo);
+        // Item 1.2: the active set — first unlogged, only on the NEXT card,
+        // so exactly one highlighted row exists on screen.
+        const active = isNext && !existing && setNo === firstUnlogged(loggedRows, targetSets);
         return (
           <SetRow
             key={setNo}
@@ -110,7 +144,7 @@ export function ExerciseCard({
             initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
             initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
             prefill={prefill}
-            lastDate={last?.date ?? null}
+            active={active}
             onPr={onPr}
             tint={tint}
             onLogged={onLogged}
@@ -129,7 +163,7 @@ function SetRow({
   initialWeight,
   initialReps,
   prefill = null,
-  lastDate = null,
+  active = false,
   onPr,
   tint,
   onLogged,
@@ -142,23 +176,31 @@ function SetRow({
   initialReps: string;
   /** Last session's numbers for this set — shown editable, saved only on LOG. */
   prefill?: { weight: number; reps: number } | null;
-  lastDate?: string | null;
+  /** The one highlighted "you are here" row (first unlogged on the NEXT card). */
+  active?: boolean;
   onPr: () => void;
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
 }) {
   const [weight, setWeight] = useState(initialWeight !== '' ? initialWeight : prefill ? String(prefill.weight) : '');
   const [reps, setReps] = useState(initialReps !== '' ? initialReps : prefill ? String(prefill.reps) : '');
+  // Item 1.7: prefill renders DIM until the athlete touches it. Steppers,
+  // keypad DONE and desktop typing all funnel through onChange -> dirty.
+  const [weightDirty, setWeightDirty] = useState(initialWeight !== '');
+  const [repsDirty, setRepsDirty] = useState(initialReps !== '');
   const [floatXp, setFloatXp] = useState(false);
   const save = useSaveSet();
   const logged = initialWeight !== '';
-  const showLast = !logged && prefill !== null;
 
   const onSave = () => {
     const w = pyFloat(weight);
     const r = pyFloat(reps);
     if (w === null || r === null || w <= 0 || r <= 0) return;
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Logging a prefill as-is whitens both fields immediately (before the
+    // refetch flips `logged`).
+    setWeightDirty(true);
+    setRepsDirty(true);
     save.mutate(
       {
         workoutDate: date,
@@ -181,45 +223,64 @@ function SetRow({
   };
 
   const standardTint = tint === tokens.colors.accent;
+  // Item 1.2 (owner-approved neon-policy exception): the active set carries
+  // a purple border + soft glow. Battles follow their tint instead of epic.
+  const activeColor = standardTint ? tokens.colors.epic : tint;
   return (
-    <View className="mb-s2 flex-row items-center gap-s2">
+    <View
+      className="mb-s2 flex-row items-center gap-s1 rounded-lg px-[2px] py-s1"
+      style={{
+        // Constant-layout frame: the border always exists (transparent when
+        // inactive) so the highlight moving between rows never reflows.
+        borderWidth: 1,
+        borderColor: active ? `${activeColor}8c` : 'transparent',
+        backgroundColor: active ? `${activeColor}0f` : 'transparent',
+        shadowColor: active ? activeColor : 'transparent',
+        shadowOpacity: active ? 0.3 : 0,
+        shadowRadius: 10,
+        elevation: active ? 3 : 0,
+      }}
+    >
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
-      <View className="w-s10">
+      <View className="w-s10 justify-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
           SET {setNo}
         </Text>
-        {showLast ? (
-          <Text className="text-2xs" style={{ color: tokens.colors['text-mute'], fontSize: 9, letterSpacing: 0.5 }}>
-            LAST{lastDate ? ` ${lastDate.slice(5)}` : ''}
-          </Text>
-        ) : null}
       </View>
       <NumberField
         value={weight}
-        onChange={setWeight}
+        onChange={(v) => {
+          setWeightDirty(true);
+          setWeight(v);
+        }}
         step={2.5}
         bigStep={20}
         placeholder="kg"
         label="WEIGHT · KG"
         tint={tint}
-        width={54}
+        width={FIELD_WIDTH}
+        dim={!logged && prefill !== null && !weightDirty}
         testID={`${exercise}-w-${setNo}`}
       />
       <NumberField
         value={reps}
-        onChange={setReps}
+        onChange={(v) => {
+          setRepsDirty(true);
+          setReps(v);
+        }}
         step={1}
         integer
         placeholder="reps"
         label="REPS"
         tint={tint}
-        width={44}
+        width={FIELD_WIDTH}
+        dim={!logged && prefill !== null && !repsDirty}
         testID={`${exercise}-r-${setNo}`}
       />
       <Pressable
         onPress={onSave}
         disabled={save.isPending}
-        className={`ml-auto rounded-md px-s3 py-s2 ${logged ? 'border border-border bg-surface-2' : standardTint ? 'bg-accent' : ''}`}
+        className={`ml-auto rounded-md px-s2 py-s2 ${logged ? 'border border-border bg-surface-2' : standardTint ? 'bg-accent' : ''}`}
         style={
           logged
             ? undefined
