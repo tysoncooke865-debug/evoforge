@@ -146,6 +146,14 @@ regenerates `ui/sprite-avatar.tsx`'s require tables. Jesse's standalone
 `sprite_test/` at the repo root is a browser mini-game for eyeballing
 sheets — nothing imports it.
 
+**The MAIN AVATAR (2026-07-12) is the same character:** the aesthetic
+branch's stage art in `ui/avatar-images.ts` is the FRONT pose cropped from
+each sheet (`aesthetic_front_stage_{1-4}.png`, white-keyed to transparent;
+crop script: scratchpad `crop_front.py`, sources `~/Downloads/level {n}
+sprite aesthetic.png`). The old `aesthetic_stage_{1-4}.png` stay on disk
+unreferenced (Streamlit-parity copies; Metro doesn't bundle them).
+mass/hybrid/shredder art unchanged.
+
 `SpriteCompanion` derives the athlete's CURRENT stage itself (shredder →
 shredderStage(bfMid), else getBranchStage, clamped 1–4) so the sprite
 matures with the character. Placements: Home (idle, HUD chips row),
