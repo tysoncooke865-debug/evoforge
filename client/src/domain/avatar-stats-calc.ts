@@ -101,6 +101,80 @@ const DEADLIFT_STRENGTH_ANCHORS: readonly (readonly [number, number])[] = [
   [0.0, 0.0], [1.25, 25.0], [1.75, 50.0], [2.25, 75.0], [2.75, 100.0],
 ];
 
+type Anchors = readonly (readonly [number, number])[];
+
+/**
+ * SEX CALIBRATION (2026-07-12, Tyson: "are females statistics calculated
+ * different to men? if not please change this") — a documented client-side
+ * deviation in PARITY.md's spirit, layered like branches-v2: the pinned
+ * algorithm is untouched, only its CONSTANTS are parameterised, and the
+ * DEFAULT is byte-identical male behaviour so every golden still passes.
+ * The female values re-anchor each scale to female physiology so equal
+ * relative performance earns equal points:
+ *  - strength anchors follow women's strength-standards tables (novice 25 /
+ *    intermediate 50 / advanced 75 / elite 100), ~0.65-0.72x the male ratios;
+ *  - leanness scores 100 from 16% body fat (female essential fat is ~12%,
+ *    not 8% — a shredded woman at 16% is the physiological peer of a
+ *    shredded man at 8%);
+ *  - the size bodyweight window and frame labels shift to female ranges
+ *    (a 58 kg female athlete is not a "Cutting Frame" outlier).
+ */
+export interface SexCalibration {
+  benchAnchors: Anchors;
+  squatAnchors: Anchors;
+  deadliftAnchors: Anchors;
+  /** Body fat % that scores leanness 100, and points lost per % above it. */
+  leanBfFloor: number;
+  leanSlope: number;
+  /** score0100 window for the size blend's bodyweight component (kg). */
+  bwLow: number;
+  bwHigh: number;
+  /** Bench ratio counted as "solid" for the no-AI size fallback. */
+  solidBenchRatio: number;
+  /** Heavy / Athletic / Lean frame thresholds (kg), descending. */
+  frameHeavy: number;
+  frameAthletic: number;
+  frameLean: number;
+  /** Python's default when no bodyweight was ever logged (kg). */
+  defaultBodyweight: number;
+}
+
+export const MALE_CALIBRATION: SexCalibration = {
+  benchAnchors: BENCH_STRENGTH_ANCHORS,
+  squatAnchors: SQUAT_STRENGTH_ANCHORS,
+  deadliftAnchors: DEADLIFT_STRENGTH_ANCHORS,
+  leanBfFloor: 8,
+  leanSlope: 6.5,
+  bwLow: 65,
+  bwHigh: 88,
+  solidBenchRatio: 1.0,
+  frameHeavy: 85,
+  frameAthletic: 78,
+  frameLean: 72,
+  defaultBodyweight: 77.0,
+};
+
+export const FEMALE_CALIBRATION: SexCalibration = {
+  benchAnchors: [
+    [0.0, 0.0], [0.5, 25.0], [0.85, 50.0], [1.2, 75.0], [1.6, 100.0],
+  ],
+  squatAnchors: [
+    [0.0, 0.0], [0.75, 25.0], [1.15, 50.0], [1.6, 75.0], [2.05, 100.0],
+  ],
+  deadliftAnchors: [
+    [0.0, 0.0], [0.95, 25.0], [1.35, 50.0], [1.8, 75.0], [2.3, 100.0],
+  ],
+  leanBfFloor: 16,
+  leanSlope: 5.0,
+  bwLow: 50,
+  bwHigh: 75,
+  solidBenchRatio: 0.7,
+  frameHeavy: 72,
+  frameAthletic: 64,
+  frameLean: 58,
+  defaultBodyweight: 62.0,
+};
+
 function anchorPoints(ratio: unknown, anchors: readonly (readonly [number, number])[]): number {
   const r = safeNum(ratio, 0.0);
   if (r <= anchors[0][0]) return anchors[0][1];
@@ -115,10 +189,11 @@ function anchorPoints(ratio: unknown, anchors: readonly (readonly [number, numbe
 export function strengthScoreFromRatios(
   benchRatio: unknown,
   squatRatio: unknown,
-  deadliftRatio: unknown = 0.0
+  deadliftRatio: unknown = 0.0,
+  cal: SexCalibration = MALE_CALIBRATION
 ): number {
-  const benchPts = anchorPoints(benchRatio, BENCH_STRENGTH_ANCHORS);
-  const squatPts = anchorPoints(squatRatio, SQUAT_STRENGTH_ANCHORS);
+  const benchPts = anchorPoints(benchRatio, cal.benchAnchors);
+  const squatPts = anchorPoints(squatRatio, cal.squatAnchors);
   const dl = safeNum(deadliftRatio, 0.0);
   let blended: number;
   if (dl <= 0) {
@@ -127,13 +202,16 @@ export function strengthScoreFromRatios(
     // cardio logs.
     blended = benchPts * 0.55 + squatPts * 0.45;
   } else {
-    const deadliftPts = anchorPoints(dl, DEADLIFT_STRENGTH_ANCHORS);
+    const deadliftPts = anchorPoints(dl, cal.deadliftAnchors);
     blended = benchPts * 0.4 + squatPts * 0.3 + deadliftPts * 0.3;
   }
   return Math.trunc(Math.max(0, Math.min(blended, 100)));
 }
 
-export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
+export function calculateAvatarStats(
+  inputs: AvatarStatsInputs,
+  cal: SexCalibration = MALE_CALIBRATION
+): AvatarStats {
   const heat = muscleHeatMap(inputs.workoutRows);
 
   let bench = bestE1rmFor(inputs.workoutRows, 'Barbell Bench Press (Strength)');
@@ -153,14 +231,16 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
   );
 
   const bodyweight =
-    inputs.latestBodyweight && inputs.latestBodyweight > 0 ? inputs.latestBodyweight : 77.0;
+    inputs.latestBodyweight && inputs.latestBodyweight > 0
+      ? inputs.latestBodyweight
+      : cal.defaultBodyweight;
 
   const benchRatio = bodyweight ? bench / bodyweight : 0;
   const squatRatio = bodyweight ? squat / bodyweight : 0;
   const deadliftRatio = bodyweight ? deadlift / bodyweight : 0;
 
   // Strength: relative e1RM through the standards curve (anchors above).
-  const strengthScore = strengthScoreFromRatios(benchRatio, squatRatio, deadliftRatio);
+  const strengthScore = strengthScoreFromRatios(benchRatio, squatRatio, deadliftRatio, cal);
 
   // Size: blend logs, strength, bodyweight and the AI physique rating, so
   // limited history cannot make size look 2/100.
@@ -180,10 +260,10 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
     aiSizeComponent = Math.trunc(clamp((aiPhysique / 15) * 100, 0, 100));
   } else {
     // Conservative baseline from strength/bodyweight, not a beginner score.
-    aiSizeComponent = benchRatio >= 1.0 ? 55 : 45;
+    aiSizeComponent = benchRatio >= cal.solidBenchRatio ? 55 : 45;
   }
 
-  const bodyweightComponent = score0100(bodyweight, 65, 88);
+  const bodyweightComponent = score0100(bodyweight, cal.bwLow, cal.bwHigh);
 
   const sizeScore = Math.trunc(
     Math.max(
@@ -200,7 +280,9 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
 
   let leannessScore: number;
   if (inputs.bfMid !== null && safeNum(inputs.bfMid, 0) > 0) {
-    leannessScore = Math.trunc(clamp(100 - (safeNum(inputs.bfMid) - 8) * 6.5, 0, 100));
+    leannessScore = Math.trunc(
+      clamp(100 - (safeNum(inputs.bfMid) - cal.leanBfFloor) * cal.leanSlope, 0, 100)
+    );
   } else {
     const aiLean = inputs.physique.leanness_score;
     leannessScore = Math.trunc((safeNum(aiLean, 7.5) / 15) * 100);
@@ -238,9 +320,9 @@ export function calculateAvatarStats(inputs: AvatarStatsInputs): AvatarStats {
   else characterClass = 'Rising Aesthetic';
 
   let buildType: string;
-  if (bodyweight >= 85) buildType = 'Heavy Frame';
-  else if (bodyweight >= 78) buildType = 'Athletic Frame';
-  else if (bodyweight >= 72) buildType = 'Lean Frame';
+  if (bodyweight >= cal.frameHeavy) buildType = 'Heavy Frame';
+  else if (bodyweight >= cal.frameAthletic) buildType = 'Athletic Frame';
+  else if (bodyweight >= cal.frameLean) buildType = 'Lean Frame';
   else buildType = 'Cutting Frame';
 
   // Weakest of the aesthetically-prioritised muscles; strict < keeps the

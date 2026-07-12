@@ -199,6 +199,15 @@ touch-action: manipulation. NEVER delete that file; if taps break again
 on device, check the served viewport meta first, then look for anything
 re-rendering per animation frame (rendering contract above).
 
+## Sex calibration (2026-07-12, Tyson-requested)
+Female athletes no longer grade against male standards. `SexCalibration`
+in avatar-stats-calc.ts parameterises the pinned algorithm's CONSTANTS
+only — default = male values verbatim, so all 3,323 goldens run unchanged;
+`use-avatar-data` passes FEMALE_CALIBRATION when profile.sex = 'female'.
+Female anchors ~0.65–0.72× male; leanness 100 from 16% bf; bodyweight
+window 50–75 kg; frames 72/64/58. PARITY.md records the deviation;
+sex-calibration.test.ts pins male-path identity + a positive control.
+
 ## Autonomous bug/perf sweep (2026-07-12, three review agents + falsification)
 
 Fixed, all verified against the export (details in the commit):

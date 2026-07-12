@@ -74,6 +74,18 @@ app still runs them). The new app layers on top, client-side only:
   cannot see that column and its catalog has no barbell deadlift, so its
   behaviour is identical to the two-lift blend until cutover. Romanian
   Deadlift deliberately does not count as the deadlift.
+- **Sex calibration (2026-07-12, client-side deviation, Tyson-requested)**:
+  `calculateAvatarStats` / `strengthScoreFromRatios` take an optional
+  `SexCalibration`; the DEFAULT is the male constants verbatim (goldens
+  untouched — the parity suite runs the default path). Female athletes
+  (profile.sex = 'female', wired in use-avatar-data) grade against female
+  standards: strength anchors bench 0.5/0.85/1.2/1.6 × BW, squat
+  0.75/1.15/1.6/2.05, deadlift 0.95/1.35/1.8/2.3; leanness 100 from 16% bf
+  (slope 5.0/%); size bodyweight window 50–75 kg; frame labels 72/64/58 kg;
+  default bodyweight 62 kg. Self-consistency: sex-calibration.test.ts
+  (male-path identity + equal-relative-performance-equal-points).
+  Streamlit remains sex-blind until cutover — a female athlete's scores
+  will differ between the two apps; the Expo numbers are the intended ones.
 
 ## THE SHREDDER (sixth class, 2026-07-11)
 Entry by STARTING CONDITION: first body-fat reading ≥25% + cutting phase.

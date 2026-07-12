@@ -8,7 +8,12 @@ import {
   useProfile,
   useWorkoutLog,
 } from './hooks';
-import { calculateAvatarStats, type AvatarStats } from '@/domain/avatar-stats-calc';
+import {
+  calculateAvatarStats,
+  FEMALE_CALIBRATION,
+  MALE_CALIBRATION,
+  type AvatarStats,
+} from '@/domain/avatar-stats-calc';
 import { resolveBranchV2, type BranchV2 } from '@/domain/branches-v2';
 import { pyFloat } from '@/domain/py';
 import { workoutSummary, type WorkoutSummary } from '@/domain/summary';
@@ -65,21 +70,28 @@ export function useAvatarData(): AvatarData {
     0
   );
 
-  const stats = calculateAvatarStats({
-    workoutRows: workouts.data ?? [],
-    level: summary.level,
-    latestBodyweight,
-    bfMid: bfMid.data ?? null,
-    physique: physique.data ?? {
-      physique_score: null,
-      leanness_score: null,
-      symmetry_score: null,
-      muscularity_score: null,
+  // Sex calibration: equal RELATIVE performance earns equal points — female
+  // athletes grade against female strength/leanness/frame standards, not
+  // male ones (see SexCalibration in avatar-stats-calc.ts).
+  const sexValue = profile.data?.sex === 'female' ? ('female' as const) : ('male' as const);
+  const stats = calculateAvatarStats(
+    {
+      workoutRows: workouts.data ?? [],
+      level: summary.level,
+      latestBodyweight,
+      bfMid: bfMid.data ?? null,
+      physique: physique.data ?? {
+        physique_score: null,
+        leanness_score: null,
+        symmetry_score: null,
+        muscularity_score: null,
+      },
+      cardioMinutes: summary.cardioMinutes,
+      cardioDistanceKm,
+      profileDeadliftE1rm: pyFloat(profile.data?.deadlift_e1rm) ?? null,
     },
-    cardioMinutes: summary.cardioMinutes,
-    cardioDistanceKm,
-    profileDeadliftE1rm: pyFloat(profile.data?.deadlift_e1rm) ?? null,
-  });
+    sexValue === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION
+  );
 
   const ready =
     !profile.isPending &&
@@ -100,12 +112,10 @@ export function useAvatarData(): AvatarData {
       earliestBf: earliestBf.data ?? null,
     }
   );
-  const sex = profile.data?.sex === 'female' ? 'female' as const : 'male' as const;
-
   return {
     ready,
     branchV2,
-    sex,
+    sex: sexValue,
     summary,
     stats,
     bfMid: bfMid.data ?? null,
