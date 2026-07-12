@@ -20,6 +20,19 @@ export interface AvatarArt {
   hasArt: boolean;
 }
 
+/** The female Cyber Athlete line (2026-07-12): FRONT poses cropped from
+ *  Tyson's female LV.1-4 sheets, exactly like the male aesthetic art. */
+const FEMALE_AESTHETIC: Record<number, ImageSourcePropType> = {
+  1: require('../assets/avatars/aesthetic_front_female_stage_1.png'),
+  2: require('../assets/avatars/aesthetic_front_female_stage_2.png'),
+  3: require('../assets/avatars/aesthetic_front_female_stage_3.png'),
+  4: require('../assets/avatars/aesthetic_front_female_stage_4.png'),
+};
+
+function femaleAestheticImage(stage: number): ImageSourcePropType {
+  return FEMALE_AESTHETIC[stage] ?? FEMALE_AESTHETIC[1];
+}
+
 /** Which existing art a missing form borrows its SHAPE from. */
 function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
   switch (branch) {
@@ -37,16 +50,25 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
 }
 
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {
+  if (sex === 'female') {
+    // Real female art exists for the aesthetic line (LV.1-4). Other female
+    // forms silhouette the FEMALE shape when aesthetic donates (ponytail
+    // outline, not a male one); mass/hybrid donors still await female art.
+    if (branch === 'aesthetic') return { source: femaleAestheticImage(stage), hasArt: true };
+    const donor = shapeDonor(branch);
+    if (donor === 'aesthetic') {
+      return { source: femaleAestheticImage(Math.min(stage, 4)), hasArt: false };
+    }
+    return { source: avatarImage(donor, stage), hasArt: false };
+  }
   if (branch === 'shredder') {
-    // Real art for males; female shredder awaits its own set.
-    if (sex === 'male') return { source: shredderImage(stage), hasArt: true };
-    return { source: avatarImage('aesthetic', Math.min(stage, 4)), hasArt: false };
+    return { source: shredderImage(stage), hasArt: true };
   }
   const coreBranch = branch === 'titan' || branch === 'cardio' ? null : branch;
-  if (sex === 'male' && coreBranch) {
+  if (coreBranch) {
     return { source: avatarImage(coreBranch, stage), hasArt: true };
   }
-  // Female forms and the two new classes: silhouette of the shape donor.
+  // The two new classes: silhouette of the shape donor.
   return { source: avatarImage(shapeDonor(branch), stage), hasArt: false };
 }
 

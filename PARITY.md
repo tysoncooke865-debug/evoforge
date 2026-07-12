@@ -103,7 +103,9 @@ Until these land, forms render as rim-lit silhouettes captioned
 "FORM NOT YET FORGED". Drop PNGs in client/src/assets/avatars/ and register
 them in `client/src/ui/avatar-art.ts` (one require + hasArt flip each):
 - male_titan stages 1-3 · male_cardio stages 1-3
-- female_aesthetic 1-4 · female_mass 1-3 · female_hybrid 1-3
+- ~~female_aesthetic 1-4~~ ✅ SHIPPED 2026-07-12
+  (aesthetic_front_female_stage_1-4.png + the full lv{n}f_* sprite set)
+- female_mass 1-3 · female_hybrid 1-3 · female_shredder 1-4
 - female_titan 1-3 · female_cardio 1-3 · female_shredder 1-4
 - transparent-background re-exports of male shredder 1-4 (optional, unlocks staging)
 

@@ -151,6 +151,17 @@ sheets — nothing imports it.
 in every coin placement: Home HUD chip (18px), Vault header (40px) + each
 history row (16px), More-page Coins row (22px). One component, one require.
 
+**FEMALE SPRITES (2026-07-12):** the full female Cyber Athlete set is live.
+Front poses `aesthetic_front_female_stage_{1-4}.png` render as the female
+aesthetic line's REAL art in avatar-art.ts (hasArt true; female shredder +
+aesthetic-donor silhouettes use the female outline). Animation frames +
+strips `lv{n}f_{anim}_*` (same uniform 4/9/6/3 counts) sit beside the male
+set; sprite-avatar.tsx selects tables by sex (SpriteCompanion reads it from
+useAvatarData). Slicer: scratchpad slice_female.py (adds a below-figure
+label guard the male cropper didn't need). SMOKE-BRAVO's profile is now
+PERMANENTLY sex='female' — tour female paths with it; SMOKE-ALPHA stays
+male. Sources: ~/Downloads/'sprite sheet* l{1-4} f*.png' (front + anims).
+
 **The MAIN AVATAR (2026-07-12) is the same character:** the aesthetic
 branch's stage art in `ui/avatar-images.ts` is the FRONT pose cropped from
 each sheet (`aesthetic_front_stage_{1-4}.png`, white-keyed to transparent;
