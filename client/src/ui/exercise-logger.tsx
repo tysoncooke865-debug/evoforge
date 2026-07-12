@@ -198,10 +198,11 @@ function SetRow({
         value={weight}
         onChange={setWeight}
         step={2.5}
+        bigStep={20}
         placeholder="kg"
         label="WEIGHT · KG"
         tint={tint}
-        width={56}
+        width={54}
         testID={`${exercise}-w-${setNo}`}
       />
       <NumberField
@@ -209,11 +210,10 @@ function SetRow({
         onChange={setReps}
         step={1}
         integer
-        steppers={false}
         placeholder="reps"
         label="REPS"
         tint={tint}
-        width={48}
+        width={44}
         testID={`${exercise}-r-${setNo}`}
       />
       <Pressable

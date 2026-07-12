@@ -1172,9 +1172,10 @@ function BattleLogger({
           value={weight}
           onChange={setWeight}
           step={2.5}
+          bigStep={20}
           placeholder="kg"
           label="WEIGHT · KG"
-          width={56}
+          width={54}
           testID="battle-w"
         />
         <NumberField
@@ -1182,10 +1183,9 @@ function BattleLogger({
           onChange={setReps}
           step={1}
           integer
-          steppers={false}
           placeholder="reps"
           label="REPS"
-          width={48}
+          width={44}
           testID="battle-r"
         />
         <View className="flex-1">
