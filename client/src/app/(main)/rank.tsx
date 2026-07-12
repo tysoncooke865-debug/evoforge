@@ -6,6 +6,7 @@ import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import tokens from '@/theme/tokens';
+import { LeaderboardRowView } from '@/ui/leaderboard-row';
 import { ScreenShell } from '@/ui/shell';
 
 /**
@@ -74,24 +75,11 @@ export default function RankScreen() {
           </Text>
         ) : (
           ranked.map((e) => (
-            <View
+            <LeaderboardRowView
               key={`${e.position}-${e.displayName}`}
-              className={`mb-s2 flex-row items-center rounded-md border p-s3 ${
-                e.displayName === identity.data?.displayName
-                  ? 'border-border-strong bg-surface-3'
-                  : 'border-border bg-surface-2'
-              }`}
-            >
-              <Text className="w-s10 text-sm font-bold text-accent">
-                {({ 1: '🥇', 2: '🥈', 3: '🥉' } as Record<number, string>)[e.position] ?? `#${e.position}`}
-              </Text>
-              <Text className="flex-1 font-bold text-text" numberOfLines={1}>
-                {e.displayName}
-              </Text>
-              <Text className="mr-s3 text-xs text-text-mute">{e.rank}</Text>
-              <Text className="mr-s3 text-sm font-bold text-text">Lv {e.level}</Text>
-              <Text className="text-xs text-text-dim">{e.xp} XP</Text>
-            </View>
+              entry={e}
+              self={e.displayName === identity.data?.displayName}
+            />
           ))
         )}
       </View>

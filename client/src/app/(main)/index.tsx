@@ -13,6 +13,7 @@ import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
 import { CoinIcon } from '@/ui/coin-icon';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
+import { LeaderboardTeaser } from '@/ui/leaderboard-teaser';
 import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
@@ -207,6 +208,9 @@ export default function HomeScreen() {
 
       {/* F. Next evolution — always in sight. */}
       <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+
+      {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
+      <LeaderboardTeaser />
     </ScreenShell>
   );
 }
