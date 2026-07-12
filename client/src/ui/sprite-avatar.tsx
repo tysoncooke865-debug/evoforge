@@ -29,7 +29,7 @@ import { useSettingsStore } from '@/state/settings-store';
  * REMOVAL SWITCH: flip SPRITE_COMPANION_ENABLED to false and every
  * companion on every page disappears cleanly.
  */
-export const SPRITE_COMPANION_ENABLED = false;
+export const SPRITE_COMPANION_ENABLED = true;
 
 type Anim = 'idle' | 'run' | 'punch' | 'victory';
 

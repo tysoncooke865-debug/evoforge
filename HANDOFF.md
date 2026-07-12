@@ -144,6 +144,16 @@ placement returns null and layouts collapse cleanly; that one-flag
 revert was Tyson's shipping condition. Freezes under reduced motion and
 perf mode.
 
+## Mobile tap gotcha (2026-07-12, cost a live bug)
+Expo's default web shell ships a viewport WITHOUT maximum-scale, leaving
+iOS double-tap-to-zoom armed — every first tap gets held, so all buttons
+need a double tap. src/app/+html.tsx pins the viewport and sets
+touch-action: manipulation. NEVER remove that file; if taps break again
+on device, check the served viewport meta first. Sprite animations must
+also never drive frames via React state timers (14fps re-renders broke
+press recognition once) — the Reanimated UI-thread clock in
+sprite-avatar.tsx is the pattern.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`
