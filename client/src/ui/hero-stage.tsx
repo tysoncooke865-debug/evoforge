@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withSequence,
   withTiming,
@@ -18,7 +17,6 @@ import { durations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
 
 import { AvatarStage } from './avatar-stage';
-import { avatarImage } from './avatar-images';
 import { ParticleLayer } from './particle-layer';
 
 /**
@@ -46,7 +44,6 @@ export function HeroStage({
   source?: import('react-native').ImageSourcePropType;
   silhouette?: boolean;
 }) {
-  const reducedMotion = useReducedMotion();
   const bloom = useSharedValue(0);
   const lastToastId = useRef(0);
 
@@ -69,7 +66,12 @@ export function HeroStage({
 
   const bloomStyle = useAnimatedStyle(() => ({ opacity: 0.35 + bloom.value * 0.5 }));
 
-  const stageHeight = size + 120;
+  // The podium (Tyson, 2026-07-12): the character stands ON a sci-fi disc.
+  // Its top face sits ~34% down the image, so the avatar's feet (and the
+  // AvatarStage ground shadow) land on the deck, not float above it.
+  const podiumW = size * 1.5;
+  const podiumH = podiumW * (304 / 720);
+  const stageHeight = size + Math.round(podiumH * 0.78) + 60;
 
   return (
     <View style={{ height: stageHeight }} className="items-center justify-end">
@@ -92,45 +94,38 @@ export function HeroStage({
 
       <ParticleLayer colour={auraColour} height={stageHeight - 40} />
 
-      {/* The living character (float/breathe/aura/ground loops live inside). */}
-      <View style={{ zIndex: 2 }}>
-        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} silhouette={silhouette} />
+      {/* THE PODIUM — the character's sci-fi display disc. Rendered art
+          (assets/podium.png), replacing the old SVG hologram rings AND the
+          flipped floor reflection (a mirror image through a solid deck read
+          as a glitch; the disc's own neon does the grounding now). */}
+      <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' }}>
+        <Image
+          source={require('../assets/podium.png')}
+          style={{ width: podiumW, height: podiumH }}
+          contentFit="contain"
+        />
       </View>
 
-      {/* Holographic platform under the ground shadow. */}
-      <View pointerEvents="none" style={{ position: 'absolute', bottom: 26, left: 0, right: 0, alignItems: 'center' }}>
-        <Svg width={size * 1.3} height={54}>
+      {/* Character-coloured light pooling on the deck under the athlete. */}
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', bottom: podiumH * 0.42, left: 0, right: 0, alignItems: 'center' }}
+      >
+        <Svg width={size * 1.1} height={44}>
           <Defs>
-            <RadialGradient id="plat" cx="50%" cy="50%" rx="50%" ry="50%">
-              <Stop offset="0%" stopColor={auraColour} stopOpacity={0.28} />
-              <Stop offset="70%" stopColor={auraColour} stopOpacity={0.08} />
+            <RadialGradient id="deckpool" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0%" stopColor={auraColour} stopOpacity={0.30} />
               <Stop offset="100%" stopColor={auraColour} stopOpacity={0} />
             </RadialGradient>
           </Defs>
-          <Ellipse cx="50%" cy="50%" rx="49%" ry="34%" fill="url(#plat)" />
-          <Ellipse cx="50%" cy="50%" rx="46%" ry="30%" fill="none" stroke={`${auraColour}55`} strokeWidth={1} />
-          <Ellipse cx="50%" cy="50%" rx="34%" ry="21%" fill="none" stroke={`${auraColour}33`} strokeWidth={1} />
+          <Ellipse cx="50%" cy="50%" rx="49%" ry="40%" fill="url(#deckpool)" />
         </Svg>
       </View>
 
-      {/* Floor reflection: the same render, flipped, fading into the floor. */}
-      {!reducedMotion ? (
-        <View
-          pointerEvents="none"
-          style={{ position: 'absolute', bottom: -size * 0.32 + 26, alignItems: 'center', left: 0, right: 0, opacity: 0.16 }}
-        >
-          <Image
-            source={source ?? avatarImage(branch, stage)}
-            tintColor={silhouette ? '#070d1a' : undefined}
-            style={{ width: size * 0.9, height: size * 0.9, transform: [{ scaleY: -1 }] }}
-            contentFit="contain"
-          />
-          <LinearGradient
-            colors={['rgba(4,7,14,0.35)', tokens.colors['bg-deep']]}
-            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}
-          />
-        </View>
-      ) : null}
+      {/* The living character, feet on the deck (float/breathe/aura inside). */}
+      <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.44) }}>
+        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} silhouette={silhouette} />
+      </View>
 
       {/* Fog rising from the floor. */}
       <LinearGradient
