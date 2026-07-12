@@ -81,7 +81,7 @@ export default function MainLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }} />
       <Tabs.Screen name="today" options={{ title: 'Today', tabBarIcon: makeIcon('◎') }} />
-      <Tabs.Screen name="log" options={{ title: 'Log', tabBarIcon: makeIcon('✚') }} />
+      <Tabs.Screen name="log" options={{ title: 'Stats', tabBarIcon: makeIcon('▤') }} />
       <Tabs.Screen name="ai" options={{ title: 'AI', tabBarIcon: makeIcon('✦') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />

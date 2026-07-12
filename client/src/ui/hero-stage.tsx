@@ -14,7 +14,6 @@ import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import type { Branch } from '@/domain/avatar-stats';
 import { useToastStore } from '@/state/toast-store';
 import { durations } from '@/theme/animations';
-import tokens from '@/theme/tokens';
 
 import { AvatarStage } from './avatar-stage';
 import { ParticleLayer } from './particle-layer';

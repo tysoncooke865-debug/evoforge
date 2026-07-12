@@ -6,6 +6,7 @@ import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useClaimCoin } from '@/data/coins';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { CARDIO_TYPES } from '@/domain/cardio';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat } from '@/domain/py';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
@@ -13,6 +14,7 @@ import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
+import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
@@ -38,6 +40,11 @@ export default function TodayScreen() {
   const aiPlan = useCustomPlan();
   const [source, setSource] = useState<0 | 1>(0);
   const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
+
+  // P2 C3: LIFT | CARDIO mode; cardio type hoisted so the header sprite can
+  // train what's being logged (the old log.tsx rationale, relocated).
+  const [mode, setMode] = useState<0 | 1>(0);
+  const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
 
   // IMPROVEMENT_PLAN #11: default the day chip to today's SCHEDULED day
   // once a schedule exists; manual override stays (it's just useState).
@@ -146,10 +153,21 @@ export default function TodayScreen() {
     <ScreenShell>
       <ScreenHeader
         kicker={`TODAY · ${todayIso}`}
-        title={day.split(' - ')[0].toUpperCase()}
-        right={<SpriteCompanion anim={complete ? 'victory' : 'idle'} height={56} />}
+        title={mode === 1 ? 'CARDIO' : day.split(' - ')[0].toUpperCase()}
+        right={
+          <SpriteCompanion
+            anim={mode === 1 ? cardioAnim(cardioType) : complete ? 'victory' : 'idle'}
+            height={56}
+          />
+        }
       />
 
+      {/* P2 C3: cardio lives on Today. Both panels stay MOUNTED and toggle
+          via display style — the keep-mounted pattern from the old log.tsx,
+          so half-typed cardio forms AND SetRow state survive mode flips. */}
+      <SegmentedTabs left="LIFT" right="CARDIO" active={mode} onChange={setMode} testIDPrefix="today-mode" />
+
+      <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 16 }}>
       {aiPlan.data ? (
         <SegmentedTabs left="BUILT-IN" right="AI PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
       ) : null}
@@ -211,6 +229,11 @@ export default function TodayScreen() {
           testID="finish-workout"
         />
       ) : null}
+      </View>
+
+      <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
+        <CardioCard type={cardioType} setType={setCardioType} />
+      </View>
       <SummarySheet data={sheet} onClose={() => setSheet(null)} />
     </ScreenShell>
   );
