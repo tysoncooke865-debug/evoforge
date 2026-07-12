@@ -1,6 +1,16 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are
+   mutated in effects by design; see neon-button.tsx. */
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
 import { useCardioLog, useLatestMeasurements, usePhysiqueRatings } from '@/data/hooks';
@@ -311,16 +321,45 @@ const trim1 = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 
 // ---------------------------------------------------------------- pieces
 
-/** SVG progress ring: track + tinted arc + the number in the middle. */
-function SkillRing({ pct, tint, size = 58 }: { pct: number | null; tint: string; size?: number }) {
-  const stroke = 4;
-  const r = (size - stroke) / 2;
+/**
+ * The RPG skill node: an outer SEGMENTED decorative ring (always faint), a
+ * thick solid progress arc riding inside it, the number in the middle, and
+ * a soft glow that only burns when there is real progress.
+ */
+function SkillRing({ pct, tint, size = 66 }: { pct: number | null; tint: string; size?: number }) {
+  const stroke = 5;
+  const rOuter = (size - 3) / 2;
+  const r = (size - 3) / 2 - 6;
   const c = 2 * Math.PI * r;
   const filled = pct === null ? 0 : clamp01(pct);
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: size / 2,
+        backgroundColor: 'rgba(4,10,20,0.6)',
+        shadowColor: tint,
+        shadowOpacity: filled > 0 ? 0.25 + filled * 0.35 : 0,
+        shadowRadius: 12,
+        elevation: filled > 0 ? 4 : 0,
+      }}
+    >
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(120,170,220,0.16)" strokeWidth={stroke} fill="none" />
+        {/* segmented outer ring — the node casing */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={rOuter}
+          stroke={pct === null ? 'rgba(120,170,220,0.18)' : `${tint}59`}
+          strokeWidth={2}
+          fill="none"
+          strokeDasharray="4 5"
+        />
+        {/* progress track + arc */}
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(120,170,220,0.14)" strokeWidth={stroke} fill="none" />
         {pct !== null ? (
           <Circle
             cx={size / 2}
@@ -341,29 +380,148 @@ function SkillRing({ pct, tint, size = 58 }: { pct: number | null; tint: string;
   );
 }
 
+/**
+ * The panel's centrepiece: every node feeds this bar. Fills bottom-to-top
+ * with the path percentage, glows harder as it fills, carries a faint
+ * energy mote drifting upward (reduced-motion gated), and ends in the
+ * arrow that hands the charge to the evolution below.
+ */
+function PowerBar({ percent, tint }: { percent: number; tint: string }) {
+  const reducedMotion = useReducedMotion();
+  const flow = useSharedValue(0);
+  useEffect(() => {
+    if (reducedMotion || percent <= 0) return;
+    flow.value = withRepeat(withTiming(1, { duration: 2100, easing: Easing.inOut(Easing.quad) }), -1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reducedMotion, percent]);
+  const fillPct = Math.max(0, Math.min(100, percent));
+  const mote = useAnimatedStyle(() => ({
+    transform: [{ translateY: -flow.value * 96 }],
+    opacity: flow.value < 0.12 ? flow.value * 6 : (1 - flow.value) * 0.9,
+  }));
+  return (
+    <View style={{ width: 44, alignItems: 'center', alignSelf: 'stretch' }}>
+      <View
+        style={{
+          flex: 1,
+          width: 26,
+          borderRadius: 13,
+          borderWidth: 1.5,
+          borderColor: `${tint}66`,
+          backgroundColor: 'rgba(4,10,20,0.7)',
+          overflow: 'hidden',
+          justifyContent: 'flex-end',
+          shadowColor: tint,
+          shadowOpacity: 0.2 + (fillPct / 100) * 0.55,
+          shadowRadius: 14,
+          elevation: 5,
+        }}
+      >
+        <View
+          style={{
+            height: `${fillPct}%`,
+            minHeight: fillPct > 0 ? 6 : 0,
+            backgroundColor: `${tint}cc`,
+            borderRadius: 11,
+            shadowColor: tint,
+            shadowOpacity: 0.9,
+            shadowRadius: 10,
+          }}
+        />
+        {fillPct > 0 && !reducedMotion ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                position: 'absolute',
+                bottom: 4,
+                alignSelf: 'center',
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: '#ffffff',
+                shadowColor: tint,
+                shadowOpacity: 1,
+                shadowRadius: 6,
+              },
+              mote,
+            ]}
+          />
+        ) : null}
+      </View>
+      <Text
+        style={{
+          marginTop: 2,
+          fontSize: 14,
+          color: tint,
+          textShadowColor: `${tint}99`,
+          textShadowRadius: 8,
+        }}
+      >
+        ▼
+      </Text>
+    </View>
+  );
+}
+
+/** A glowing circuit trace from a node into the bar, junction dot at the end. */
+function Connector({ tint, live, side }: { tint: string; live: boolean; side: 'left' | 'right' }) {
+  const line = (
+    <View
+      style={{
+        flex: 1,
+        height: 2,
+        borderRadius: 1,
+        backgroundColor: live ? `${tint}8c` : 'rgba(120,170,220,0.18)',
+        shadowColor: tint,
+        shadowOpacity: live ? 0.7 : 0,
+        shadowRadius: 6,
+      }}
+    />
+  );
+  const dot = (
+    <View
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: 4,
+        backgroundColor: live ? tint : 'rgba(120,170,220,0.3)',
+        shadowColor: tint,
+        shadowOpacity: live ? 0.9 : 0,
+        shadowRadius: 6,
+        marginHorizontal: 1,
+      }}
+    />
+  );
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+      {side === 'left' ? line : dot}
+      {side === 'left' ? dot : line}
+    </View>
+  );
+}
+
 function SkillNodeCell({ n, tint, onPress }: { n: SkillNodeData; tint: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className="min-h-[44px] flex-1 flex-row items-center gap-s2 py-s2"
+      style={{ width: 104, alignItems: 'center', minHeight: 44 }}
       testID={`skill-${n.key}`}
     >
       <SkillRing pct={n.pct} tint={tint} />
-      <View className="flex-1">
-        <Text className="text-2xs font-bold text-text" numberOfLines={1} style={{ letterSpacing: 0.8 }}>
-          {(n.short ?? n.name).toUpperCase()}
+      <Text className="mt-s1 text-center text-2xs font-bold text-text" numberOfLines={1} style={{ letterSpacing: 0.6, fontSize: 10 }}>
+        {(n.short ?? n.name).toUpperCase()}
+      </Text>
+      {n.current !== null ? (
+        <Text className="text-center text-2xs text-text-mute" numberOfLines={1} style={{ fontSize: 9 }}>
+          {trim1(n.current)} / {trim1(n.target)} {n.unit}
         </Text>
-        {n.current !== null ? (
-          <Text className="text-2xs text-text-mute" numberOfLines={1}>
-            {trim1(n.current)} / {trim1(n.target)} {n.unit}
-          </Text>
-        ) : (
-          <Text className="text-2xs text-text-mute" numberOfLines={2}>
-            Not tracked yet
-          </Text>
-        )}
-      </View>
+      ) : (
+        <Text className="text-center text-2xs text-text-mute" style={{ fontSize: 9 }}>
+          Not tracked yet
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -522,48 +680,33 @@ function SkillPathPanel({
         </Text>
       </View>
 
-      {/* 2×2 node grid with a circuit spine down the middle */}
-      <View className="flex-row">
-        <View className="flex-1 pr-s2">
+      {/* THE SKILL NETWORK: four nodes wired into one central power bar
+          that charges the evolution below. Connectors light up only when
+          their node carries real progress. */}
+      <View className="flex-row" style={{ alignItems: 'stretch' }}>
+        {/* left nodes */}
+        <View style={{ justifyContent: 'space-between' }}>
           <SkillNodeCell n={path.nodes[0]} tint={tint} onPress={() => onNode(path.nodes[0], path)} />
+          <View style={{ height: 14 }} />
           <SkillNodeCell n={path.nodes[2]} tint={tint} onPress={() => onNode(path.nodes[2], path)} />
         </View>
-        <View style={{ width: 10, alignItems: 'center' }}>
-          <View style={{ flex: 1, width: 2, borderRadius: 1, backgroundColor: `${tint}30` }} />
-          <View
-            style={{
-              position: 'absolute',
-              top: '30%',
-              bottom: `${100 - Math.max(30, Math.min(96, 30 + path.percent * 0.66))}%`,
-              width: 2,
-              borderRadius: 1,
-              backgroundColor: tint,
-              shadowColor: tint,
-              shadowOpacity: 0.8,
-              shadowRadius: 6,
-            }}
-          />
+        {/* left traces */}
+        <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 26 }}>
+          <Connector tint={tint} live={(path.nodes[0].pct ?? 0) > 0} side="left" />
+          <Connector tint={tint} live={(path.nodes[2].pct ?? 0) > 0} side="left" />
         </View>
-        <View className="flex-1 pl-s2">
+        <PowerBar percent={path.percent} tint={tint} />
+        {/* right traces */}
+        <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 26 }}>
+          <Connector tint={tint} live={(path.nodes[1].pct ?? 0) > 0} side="right" />
+          <Connector tint={tint} live={(path.nodes[3].pct ?? 0) > 0} side="right" />
+        </View>
+        {/* right nodes */}
+        <View style={{ justifyContent: 'space-between' }}>
           <SkillNodeCell n={path.nodes[1]} tint={tint} onPress={() => onNode(path.nodes[1], path)} />
+          <View style={{ height: 14 }} />
           <SkillNodeCell n={path.nodes[3]} tint={tint} onPress={() => onNode(path.nodes[3], path)} />
         </View>
-      </View>
-
-      {/* the path bar into the destination */}
-      <View className="mt-s2 h-s2 overflow-hidden rounded-pill bg-surface-3">
-        <View
-          style={{
-            width: `${path.percent}%`,
-            height: '100%',
-            borderRadius: 999,
-            backgroundColor: tint,
-            minWidth: path.percent > 0 ? 4 : 0,
-            shadowColor: tint,
-            shadowOpacity: 0.6,
-            shadowRadius: 8,
-          }}
-        />
       </View>
 
       <PathDestination
