@@ -29,6 +29,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="EvoForge" />
+        <title>EvoForge — The Fitness RPG</title>
+        <meta name="description" content="Your character is forged from real training. Lift, level, evolve — and battle in the Arena." />
       </head>
       <body>{children}</body>
     </html>
