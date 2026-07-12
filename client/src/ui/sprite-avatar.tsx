@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are
    mutated in effects by design; see neon-button.tsx. */
+import { Asset } from 'expo-asset';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { Asset } from 'expo-asset';
 import { Platform, View } from 'react-native';
 import Animated, {
   Easing,
@@ -14,17 +14,19 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { useAvatarData } from '@/data/use-avatar-data';
+import { getBranchStage } from '@/domain/avatar-stats';
+import { shredderStage } from '@/domain/branches-v2';
 import { useSettingsStore } from '@/state/settings-store';
 
 /**
- * The animated pixel companion (Tyson's Cyber Athlete sheet, level 1).
+ * The animated pixel companion — Tyson's Cyber Athlete LV.1–LV.4 sheets,
+ * one per avatar STAGE, so the sprite matures with the character.
  *
  * RENDERING CONTRACT, three live bugs deep:
- *  - WEB: pure CSS steps() animation over a sprite STRIP. Zero JavaScript
- *    per frame. Both JS-timer state flipping AND Reanimated opacity
- *    worklets (which run on the MAIN thread on web — a browser has no
- *    separate UI thread) made iOS Safari drop first taps app-wide. The
- *    browser compositor cannot break touch handling.
+ *  - WEB: pure CSS steps() over a per-stage sprite STRIP. Zero JavaScript
+ *    per frame (JS timers AND main-thread Reanimated worklets both broke
+ *    first-tap presses on iOS).
  *  - NATIVE: Reanimated stacked frames on the real UI thread.
  *  - Frames stay pre-loaded either way; source-swapping is what flickers.
  *
@@ -34,69 +36,191 @@ import { useSettingsStore } from '@/state/settings-store';
 export const SPRITE_COMPANION_ENABLED = true;
 
 type Anim = 'idle' | 'run' | 'punch' | 'victory';
+type Stage = 1 | 2 | 3 | 4;
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const STRIPS: Record<Anim, number> = {
-  idle: require('../assets/avatars/sprites/idle_strip.png'),
-  run: require('../assets/avatars/sprites/run_strip.png'),
-  punch: require('../assets/avatars/sprites/punch_strip.png'),
-  victory: require('../assets/avatars/sprites/victory_strip.png'),
+const STRIPS: Record<Stage, Record<Anim, number>> = {
+  1: {
+    idle: require('../assets/avatars/sprites/lv1_idle_strip.png'),
+    run: require('../assets/avatars/sprites/lv1_run_strip.png'),
+    punch: require('../assets/avatars/sprites/lv1_punch_strip.png'),
+    victory: require('../assets/avatars/sprites/lv1_victory_strip.png'),
+  },
+  2: {
+    idle: require('../assets/avatars/sprites/lv2_idle_strip.png'),
+    run: require('../assets/avatars/sprites/lv2_run_strip.png'),
+    punch: require('../assets/avatars/sprites/lv2_punch_strip.png'),
+    victory: require('../assets/avatars/sprites/lv2_victory_strip.png'),
+  },
+  3: {
+    idle: require('../assets/avatars/sprites/lv3_idle_strip.png'),
+    run: require('../assets/avatars/sprites/lv3_run_strip.png'),
+    punch: require('../assets/avatars/sprites/lv3_punch_strip.png'),
+    victory: require('../assets/avatars/sprites/lv3_victory_strip.png'),
+  },
+  4: {
+    idle: require('../assets/avatars/sprites/lv4_idle_strip.png'),
+    run: require('../assets/avatars/sprites/lv4_run_strip.png'),
+    punch: require('../assets/avatars/sprites/lv4_punch_strip.png'),
+    victory: require('../assets/avatars/sprites/lv4_victory_strip.png'),
+  },
 };
 
-const FRAMES: Record<Anim, number[]> = {
-  idle: [
-    require('../assets/avatars/sprites/idle_1.png'),
-    require('../assets/avatars/sprites/idle_2.png'),
-    require('../assets/avatars/sprites/idle_3.png'),
-    require('../assets/avatars/sprites/idle_4.png'),
-    require('../assets/avatars/sprites/idle_5.png'),
-    require('../assets/avatars/sprites/idle_6.png'),
-  ],
-  run: [
-    require('../assets/avatars/sprites/run_1.png'),
-    require('../assets/avatars/sprites/run_2.png'),
-    require('../assets/avatars/sprites/run_3.png'),
-    require('../assets/avatars/sprites/run_4.png'),
-    require('../assets/avatars/sprites/run_5.png'),
-    require('../assets/avatars/sprites/run_6.png'),
-    require('../assets/avatars/sprites/run_7.png'),
-  ],
-  punch: [
-    require('../assets/avatars/sprites/punch_1.png'),
-    require('../assets/avatars/sprites/punch_2.png'),
-    require('../assets/avatars/sprites/punch_3.png'),
-  ],
-  victory: [
-    require('../assets/avatars/sprites/victory_1.png'),
-    require('../assets/avatars/sprites/victory_2.png'),
-    require('../assets/avatars/sprites/victory_3.png'),
-  ],
+const FRAMES: Record<Stage, Record<Anim, number[]>> = {
+  1: {
+    idle: [
+      require('../assets/avatars/sprites/lv1_idle_1.png'),
+      require('../assets/avatars/sprites/lv1_idle_2.png'),
+      require('../assets/avatars/sprites/lv1_idle_3.png'),
+      require('../assets/avatars/sprites/lv1_idle_4.png'),
+    ],
+    run: [
+      require('../assets/avatars/sprites/lv1_run_1.png'),
+      require('../assets/avatars/sprites/lv1_run_2.png'),
+      require('../assets/avatars/sprites/lv1_run_3.png'),
+      require('../assets/avatars/sprites/lv1_run_4.png'),
+      require('../assets/avatars/sprites/lv1_run_5.png'),
+      require('../assets/avatars/sprites/lv1_run_6.png'),
+      require('../assets/avatars/sprites/lv1_run_7.png'),
+      require('../assets/avatars/sprites/lv1_run_8.png'),
+      require('../assets/avatars/sprites/lv1_run_9.png'),
+    ],
+    punch: [
+      require('../assets/avatars/sprites/lv1_punch_1.png'),
+      require('../assets/avatars/sprites/lv1_punch_2.png'),
+      require('../assets/avatars/sprites/lv1_punch_3.png'),
+      require('../assets/avatars/sprites/lv1_punch_4.png'),
+      require('../assets/avatars/sprites/lv1_punch_5.png'),
+      require('../assets/avatars/sprites/lv1_punch_6.png'),
+    ],
+    victory: [
+      require('../assets/avatars/sprites/lv1_victory_1.png'),
+      require('../assets/avatars/sprites/lv1_victory_2.png'),
+      require('../assets/avatars/sprites/lv1_victory_3.png'),
+    ],
+  },
+  2: {
+    idle: [
+      require('../assets/avatars/sprites/lv2_idle_1.png'),
+      require('../assets/avatars/sprites/lv2_idle_2.png'),
+      require('../assets/avatars/sprites/lv2_idle_3.png'),
+      require('../assets/avatars/sprites/lv2_idle_4.png'),
+    ],
+    run: [
+      require('../assets/avatars/sprites/lv2_run_1.png'),
+      require('../assets/avatars/sprites/lv2_run_2.png'),
+      require('../assets/avatars/sprites/lv2_run_3.png'),
+      require('../assets/avatars/sprites/lv2_run_4.png'),
+      require('../assets/avatars/sprites/lv2_run_5.png'),
+      require('../assets/avatars/sprites/lv2_run_6.png'),
+      require('../assets/avatars/sprites/lv2_run_7.png'),
+      require('../assets/avatars/sprites/lv2_run_8.png'),
+      require('../assets/avatars/sprites/lv2_run_9.png'),
+    ],
+    punch: [
+      require('../assets/avatars/sprites/lv2_punch_1.png'),
+      require('../assets/avatars/sprites/lv2_punch_2.png'),
+      require('../assets/avatars/sprites/lv2_punch_3.png'),
+      require('../assets/avatars/sprites/lv2_punch_4.png'),
+      require('../assets/avatars/sprites/lv2_punch_5.png'),
+      require('../assets/avatars/sprites/lv2_punch_6.png'),
+    ],
+    victory: [
+      require('../assets/avatars/sprites/lv2_victory_1.png'),
+      require('../assets/avatars/sprites/lv2_victory_2.png'),
+      require('../assets/avatars/sprites/lv2_victory_3.png'),
+    ],
+  },
+  3: {
+    idle: [
+      require('../assets/avatars/sprites/lv3_idle_1.png'),
+      require('../assets/avatars/sprites/lv3_idle_2.png'),
+      require('../assets/avatars/sprites/lv3_idle_3.png'),
+      require('../assets/avatars/sprites/lv3_idle_4.png'),
+    ],
+    run: [
+      require('../assets/avatars/sprites/lv3_run_1.png'),
+      require('../assets/avatars/sprites/lv3_run_2.png'),
+      require('../assets/avatars/sprites/lv3_run_3.png'),
+      require('../assets/avatars/sprites/lv3_run_4.png'),
+      require('../assets/avatars/sprites/lv3_run_5.png'),
+      require('../assets/avatars/sprites/lv3_run_6.png'),
+      require('../assets/avatars/sprites/lv3_run_7.png'),
+      require('../assets/avatars/sprites/lv3_run_8.png'),
+      require('../assets/avatars/sprites/lv3_run_9.png'),
+    ],
+    punch: [
+      require('../assets/avatars/sprites/lv3_punch_1.png'),
+      require('../assets/avatars/sprites/lv3_punch_2.png'),
+      require('../assets/avatars/sprites/lv3_punch_3.png'),
+      require('../assets/avatars/sprites/lv3_punch_4.png'),
+      require('../assets/avatars/sprites/lv3_punch_5.png'),
+      require('../assets/avatars/sprites/lv3_punch_6.png'),
+    ],
+    victory: [
+      require('../assets/avatars/sprites/lv3_victory_1.png'),
+      require('../assets/avatars/sprites/lv3_victory_2.png'),
+      require('../assets/avatars/sprites/lv3_victory_3.png'),
+    ],
+  },
+  4: {
+    idle: [
+      require('../assets/avatars/sprites/lv4_idle_1.png'),
+      require('../assets/avatars/sprites/lv4_idle_2.png'),
+      require('../assets/avatars/sprites/lv4_idle_3.png'),
+      require('../assets/avatars/sprites/lv4_idle_4.png'),
+    ],
+    run: [
+      require('../assets/avatars/sprites/lv4_run_1.png'),
+      require('../assets/avatars/sprites/lv4_run_2.png'),
+      require('../assets/avatars/sprites/lv4_run_3.png'),
+      require('../assets/avatars/sprites/lv4_run_4.png'),
+      require('../assets/avatars/sprites/lv4_run_5.png'),
+      require('../assets/avatars/sprites/lv4_run_6.png'),
+      require('../assets/avatars/sprites/lv4_run_7.png'),
+      require('../assets/avatars/sprites/lv4_run_8.png'),
+      require('../assets/avatars/sprites/lv4_run_9.png'),
+    ],
+    punch: [
+      require('../assets/avatars/sprites/lv4_punch_1.png'),
+      require('../assets/avatars/sprites/lv4_punch_2.png'),
+      require('../assets/avatars/sprites/lv4_punch_3.png'),
+      require('../assets/avatars/sprites/lv4_punch_4.png'),
+      require('../assets/avatars/sprites/lv4_punch_5.png'),
+      require('../assets/avatars/sprites/lv4_punch_6.png'),
+    ],
+    victory: [
+      require('../assets/avatars/sprites/lv4_victory_1.png'),
+      require('../assets/avatars/sprites/lv4_victory_2.png'),
+      require('../assets/avatars/sprites/lv4_victory_3.png'),
+    ],
+  },
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-const COUNT: Record<Anim, number> = { idle: 6, run: 7, punch: 3, victory: 3 };
+const COUNT: Record<Anim, number> = { idle: 4, run: 9, punch: 6, victory: 3 };
 
-/** Canvas aspect (w/h) per animation — frames within one anim share a canvas. */
-const ASPECT: Record<Anim, number> = {
-  idle: 71 / 148,
-  run: 130 / 112,
-  punch: 129 / 120,
-  victory: 60 / 104,
+/** Canvas aspect (w/h) per stage+animation. */
+const ASPECT: Record<Stage, Record<Anim, number>> = {
+  1: { idle: 95 / 186, run: 143 / 172, punch: 185 / 172, victory: 113 / 187 },
+  2: { idle: 99 / 198, run: 154 / 170, punch: 224 / 168, victory: 120 / 206 },
+  3: { idle: 153 / 239, run: 161 / 171, punch: 182 / 160, victory: 154 / 215 },
+  4: { idle: 124 / 218, run: 147 / 172, punch: 181 / 166, victory: 139 / 214 },
 };
 
-const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 9, victory: 5 };
+const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 10, victory: 5 };
 
-/** Punch and victory read better bouncing back and forth. */
-const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: true, victory: true };
+/** Victory reads better bouncing; the rest are full forward cycles. */
+const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: false, victory: true };
 
 // ---------------------------------------------------------------- web
 
 /** Browser-native sprite playback: background-position through steps(). */
-function CssSprite({ anim, width, height, frozen }: { anim: Anim; width: number; height: number; frozen: boolean }) {
+function CssSprite({ stage, anim, width, height, frozen }: { stage: Stage; anim: Anim; width: number; height: number; frozen: boolean }) {
   const n = COUNT[anim];
   // resolveAssetSource does not exist on react-native-web; expo-asset
   // resolves Metro module ids to served URLs on every platform.
-  const uri = Asset.fromModule(STRIPS[anim]).uri;
+  const uri = Asset.fromModule(STRIPS[stage][anim]).uri;
   // Keyframes injected once, keyed by DOM id (no module-scope reassignment —
   // the react compiler lint forbids it inside a component).
   if (typeof document !== 'undefined' && !document.getElementById('evoforge-sprite-kf')) {
@@ -130,18 +254,11 @@ function CssSprite({ anim, width, height, frozen }: { anim: Anim; width: number;
 
 // ---------------------------------------------------------------- native
 
-const SEQUENCE: Record<Anim, number[]> = {
-  idle: [0, 1, 2, 3, 4, 5],
-  run: [0, 1, 2, 3, 4, 5, 6],
-  punch: [0, 1, 2, 2, 1, 0],
-  victory: [0, 1, 2, 2, 1],
-};
-
 function SpriteFrame({
   source,
   index,
   clock,
-  sequence,
+  count,
   frozen,
   width,
   height,
@@ -149,14 +266,14 @@ function SpriteFrame({
   source: number;
   index: number;
   clock: SharedValue<number>;
-  sequence: number[];
+  count: number;
   frozen: boolean;
   width: number;
   height: number;
 }) {
   const style = useAnimatedStyle(() => {
-    const step = frozen ? 0 : Math.min(Math.floor(clock.value), sequence.length - 1);
-    return { opacity: sequence[step] === index ? 1 : 0 };
+    const step = frozen ? 0 : Math.min(Math.floor(clock.value), count - 1);
+    return { opacity: step === index ? 1 : 0 };
   });
   return (
     <Animated.View style={[{ position: 'absolute', top: 0, left: 0, width, height }, style]}>
@@ -165,30 +282,27 @@ function SpriteFrame({
   );
 }
 
-function NativeSprite({ anim, width, height, frozen }: { anim: Anim; width: number; height: number; frozen: boolean }) {
+function NativeSprite({ stage, anim, width, height, frozen }: { stage: Stage; anim: Anim; width: number; height: number; frozen: boolean }) {
   const clock = useSharedValue(0);
-  const seq = SEQUENCE[anim];
+  const n = COUNT[anim];
   useEffect(() => {
     if (frozen) {
       clock.value = 0;
       return;
     }
     clock.value = 0;
-    clock.value = withRepeat(
-      withTiming(seq.length, { duration: (seq.length * 1000) / FPS[anim], easing: Easing.linear }),
-      -1
-    );
+    clock.value = withRepeat(withTiming(n, { duration: (n * 1000) / FPS[anim], easing: Easing.linear }), -1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anim, frozen]);
   return (
     <>
-      {FRAMES[anim].map((source, i) => (
+      {FRAMES[stage][anim].map((source, i) => (
         <SpriteFrame
-          key={`${anim}-${i}`}
+          key={`${stage}-${anim}-${i}`}
           source={source}
           index={i}
           clock={clock}
-          sequence={seq}
+          count={n}
           frozen={frozen}
           width={width}
           height={height}
@@ -200,25 +314,33 @@ function NativeSprite({ anim, width, height, frozen }: { anim: Anim; width: numb
 
 // ---------------------------------------------------------------- api
 
-export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: number }) {
+export function SpriteAvatar({ anim, stage = 1, height = 72 }: { anim: Anim; stage?: Stage; height?: number }) {
   const reducedMotion = useReducedMotion();
   const perfMode = useSettingsStore((s) => s.perfMode);
   const frozen = reducedMotion || perfMode;
-  const width = Math.round(height * ASPECT[anim]);
+  const width = Math.round(height * ASPECT[stage][anim]);
 
   return (
     <View style={{ width, height }} pointerEvents="none">
       {Platform.OS === 'web' ? (
-        <CssSprite anim={anim} width={width} height={height} frozen={frozen} />
+        <CssSprite stage={stage} anim={anim} width={width} height={height} frozen={frozen} />
       ) : (
-        <NativeSprite anim={anim} width={width} height={height} frozen={frozen} />
+        <NativeSprite stage={stage} anim={anim} width={width} height={height} frozen={frozen} />
       )}
     </View>
   );
 }
 
-/** The gated placement wrapper — every call site goes through this. */
+/**
+ * The gated placement wrapper — every call site goes through this. It
+ * derives the athlete's CURRENT stage (shredder stages by body fat,
+ * everyone else by the branch/level ladder), so the companion matures
+ * with the character everywhere at once.
+ */
 export function SpriteCompanion(props: { anim: Anim; height?: number }) {
+  const { stats, summary, branchV2, bfMid } = useAvatarData();
   if (!SPRITE_COMPANION_ENABLED) return null;
-  return <SpriteAvatar {...props} />;
+  const raw = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
+  const stage = Math.min(4, Math.max(1, raw)) as Stage;
+  return <SpriteAvatar {...props} stage={stage} />;
 }
