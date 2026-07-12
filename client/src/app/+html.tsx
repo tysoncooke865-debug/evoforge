@@ -21,6 +21,14 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <ScrollViewStyleReset />
         <style>{'html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}'}</style>
+        {/* PWA (2026-07-12): installable to the home screen as a standalone
+            dark app — manifest + icons live in client/public/. */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#04070e" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="EvoForge" />
       </head>
       <body>{children}</body>
     </html>

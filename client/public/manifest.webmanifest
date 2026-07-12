@@ -1,0 +1,14 @@
+{
+  "name": "EvoForge",
+  "short_name": "EvoForge",
+  "description": "The fitness RPG — your character is forged from real training.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04070e",
+  "theme_color": "#04070e",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
