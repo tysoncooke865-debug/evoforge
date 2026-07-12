@@ -23,11 +23,16 @@ export default function LogScreen() {
   // toggle via display style -- conditional rendering would drop half-typed
   // form state on a tab switch.
   const [tab, setTab] = useState<0 | 1>(0);
+  // Cardio type lives HERE (not in CardioCard) so the header companion can
+  // train what's being logged — gloves up for Boxing, full sprint otherwise —
+  // from the screen's top-right, matching the AI and Arena placements.
+  const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
+  const boxing = Boolean((CARDIO_FIELDS[cardioType] ?? CARDIO_FIELDS.Other).rounds);
   return (
-    <ScreenShell><ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" />
+    <ScreenShell><ScreenHeader kicker="LOG IT ALL" title="TRAINING LOG" right={<SpriteCompanion anim={boxing ? 'punch' : 'run'} height={56} />} />
         <SegmentedTabs left="CARDIO" right="STATS" active={tab} onChange={setTab} testIDPrefix="log-tab" />
         <View style={{ display: tab === 0 ? 'flex' : 'none', gap: 16 }}>
-          <CardioCard />
+          <CardioCard type={cardioType} setType={setCardioType} />
         </View>
         <View style={{ display: tab === 1 ? 'flex' : 'none', gap: 16 }}>
           <BodyweightCard />
@@ -89,8 +94,7 @@ const CARDIO_ICONS: Record<string, string> = {
   Other: '✚',
 };
 
-function CardioCard() {
-  const [type, setType] = useState<string>(CARDIO_TYPES[0]);
+function CardioCard({ type, setType }: { type: string; setType: (t: string) => void }) {
   const [minutes, setMinutes] = useState('');
   const [distance, setDistance] = useState('');
   const [incline, setIncline] = useState('');
@@ -170,12 +174,6 @@ function CardioCard() {
         >
           CARDIO SESSION
         </EdgeLabel>
-      </View>
-
-      {/* The companion trains what you're logging: gloves up for boxing,
-          full sprint for everything else. */}
-      <View className="mb-s2 items-center">
-        <SpriteCompanion anim={boxing ? 'punch' : 'run'} height={64} />
       </View>
 
       <View className="mb-s3 flex-row flex-wrap gap-s2">

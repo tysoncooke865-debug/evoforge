@@ -157,8 +157,9 @@ mass/hybrid/shredder art unchanged.
 `SpriteCompanion` derives the athlete's CURRENT stage itself (shredder →
 shredderStage(bfMid), else getBranchStage, clamped 1–4) so the sprite
 matures with the character. Placements: Home (idle, HUD chips row),
-Today header (idle → victory on completion), Log cardio card (run;
-punch when Boxing), AI header (idle), Arena hub (punch). REMOVAL:
+Today header (idle → victory on completion), Log HEADER top-right (run;
+punch when Boxing — cardio type state lifted to LogScreen for this),
+AI header (idle), Arena hub (punch). REMOVAL:
 `SPRITE_COMPANION_ENABLED = false` in `ui/sprite-avatar.tsx` — one flag,
 every placement vanishes cleanly.
 
