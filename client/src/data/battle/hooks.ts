@@ -196,6 +196,9 @@ export function useBattleMediaUrl(storagePath: string | null) {
     queryKey: ['battle_media_url', storagePath],
     enabled: storagePath !== null,
     staleTime: 240_000,
+    // Re-mint before the 300s URL dies: a reveal panel mounted longer than
+    // the TTL otherwise decays to the placeholder with no path back.
+    refetchInterval: 240_000,
     queryFn: async (): Promise<string | null> => {
       try {
         const { data, error } = await supabase.storage

@@ -17,9 +17,10 @@
  * divergence.
  */
 
-import { determineAvatarBranch, getBranchStage, type Branch } from './avatar-stats';
+import { determineAvatarBranch, evolutionName as CORE_EVOLUTION, type Branch } from './avatar-stats';
 import type { EvolutionRequirement, NextEvolution } from './next-evolution';
 import { nextEvolutionInfo } from './next-evolution';
+import { avatarStageRows as CORE_ROWS } from './xp-leveling';
 
 export type BranchV2 = Branch | 'titan' | 'cardio' | 'shredder';
 
@@ -205,10 +206,6 @@ export function evolutionNameV2(branch: BranchV2, level: number): string {
   return CORE_EVOLUTION(branch, level);
 }
 
-// Core evolution names re-declared through the pinned function to keep a
-// single v2 entry point without a circular import.
-import { evolutionName as CORE_EVOLUTION } from './avatar-stats';
-
 export interface StageRowV2 {
   level: number;
   name: string;
@@ -240,8 +237,6 @@ export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[]
   // Core branches use the pinned rows.
   return CORE_ROWS(branch, level);
 }
-
-import { avatarStageRows as CORE_ROWS } from './xp-leveling';
 
 /**
  * Next-evolution requirements for v2 branches. Core branches delegate to the

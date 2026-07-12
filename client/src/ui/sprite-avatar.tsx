@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are
-   mutated in effects by design; see neon-button.tsx. */
 import { Asset } from 'expo-asset';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
@@ -38,7 +36,6 @@ export const SPRITE_COMPANION_ENABLED = true;
 type Anim = 'idle' | 'run' | 'punch' | 'victory';
 type Stage = 1 | 2 | 3 | 4;
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const STRIPS: Record<Stage, Record<Anim, number>> = {
   1: {
     idle: require('../assets/avatars/sprites/lv1_idle_strip.png'),
@@ -196,8 +193,6 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
     ],
   },
 };
-/* eslint-enable @typescript-eslint/no-require-imports */
-
 const COUNT: Record<Anim, number> = { idle: 4, run: 9, punch: 6, victory: 3 };
 
 /** Canvas aspect (w/h) per stage+animation. */

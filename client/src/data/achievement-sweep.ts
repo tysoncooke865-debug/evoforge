@@ -42,10 +42,13 @@ export async function runAchievementSweep(queryClient: QueryClient, userId: stri
       profile.data && profile.data.length > 0
         ? Number(profile.data[profile.data.length - 1].base_level) || 1
         : 1;
+    // A real 0 (ledger readable and empty) must stay 0 — `|| null` turned it
+    // into "failure", the exact null/0 conflation the XP contract forbids.
+    const ledgerN = Number(ledger.data);
     const ledgerXp =
-      ledger.error || ledger.data === null || ledger.data === undefined
+      ledger.error || ledger.data === null || ledger.data === undefined || !Number.isFinite(ledgerN)
         ? null
-        : Math.trunc(Number(ledger.data)) || null;
+        : Math.trunc(ledgerN);
 
     const summary = workoutSummary(rows, cardioRows, ledgerXp, baseLevel);
 

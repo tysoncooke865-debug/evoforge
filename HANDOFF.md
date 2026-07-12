@@ -193,6 +193,37 @@ touch-action: manipulation. NEVER delete that file; if taps break again
 on device, check the served viewport meta first, then look for anything
 re-rendering per animation frame (rendering contract above).
 
+## Autonomous bug/perf sweep (2026-07-12, three review agents + falsification)
+
+Fixed, all verified against the export (details in the commit):
+1. Today's ExerciseCard is keyed `day:exercise` — ROUTINE reuses exercise
+   names across days and SetRow seeds typed state once on mount, so a
+   same-key day switch kept the old day's numbers AND saved them under the
+   new day (falsified in-browser: type 99 on Push 1 → switch → empty).
+2. useSaveSet: an ABSENT workout_log cache now falls back to a fresh read
+   (fetchWorkoutLog) — deciding against [] classified an existing set as
+   new: duplicate row + double XP grant on cold-cache saves.
+3. useLogMeasurements invalidated ['measurements'] but the reader key is
+   ['measurements_latest'] — tape readings never refreshed on screen.
+4. bodyfat latest/earliest now share ONE query (['bodyfat_series'] +
+   select) — was two byte-identical fetches per avatar screen, and the
+   first-ever reading left the earliest (Shredder entry) stale because
+   nothing invalidated ['bodyfat_first']. ai.tsx invalidation updated.
+5. battle-settle (server, REDEPLOYED): losing the finalize CAS now re-reads
+   status and returns already-settled instead of a false 409 "cancelled" —
+   both athletes tapping the final reveal together hit this routinely.
+6. Round-3 capture: `capturing` guard covers the camera window before
+   judge.isPending (double-tap burned BOTH attempts — two sha256s, nothing
+   dedupes); camera-pipeline throws now toast instead of vanishing.
+7. "Still open" settle 409 (client clock ahead) toasts an info nudge, not
+   SETTLE FAILED. useBattleMediaUrl refetches at 240s so signed URLs
+   (300s TTL) self-renew on long-mounted reveals. postBattleVolume takes
+   round.round_no instead of hardcoded 1. Ledger-0 conflation fixed in
+   achievement-sweep + coins (0 is a value; null is a failure).
+Lint is ZERO problems (was 12 warnings). Deliberately NOT done: pausing
+ambient loops on unfocused tabs and virtualising coin history — regression
+risk over speculative wins; revisit only with evidence.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`

@@ -26,6 +26,9 @@ export function useCoinTotal() {
       try {
         const { data, error } = await supabase.rpc('coin_total');
         if (error) return null;
+        // Number(null) is 0 — an absent body must read as failure (null),
+        // never as an empty wallet. Same guard as useLedgerXp.
+        if (data === null || data === undefined) return null;
         const n = Number(data);
         return Number.isFinite(n) ? n : null;
       } catch {

@@ -289,6 +289,19 @@ Deno.serve(async (req) => {
     .select('id');
   if (settleErr) return json({ error: `Could not settle: ${settleErr.message}` }, 500);
   if (!settledRows || settledRows.length === 0) {
+    // Losing the CAS does NOT mean cancelled: both athletes see the final
+    // reveal at once, and when both invoke settle the loser's update matches
+    // 0 rows because the WINNER's settle already landed. Re-read and answer
+    // truthfully — a false "cancelled" toast on a settled battle is a bug
+    // the two real players would hit routinely.
+    const { data: after } = await svc
+      .from('battle_matches')
+      .select('status,winner_user_id')
+      .eq('id', matchId)
+      .limit(1);
+    if (after && after.length > 0 && after[0].status === 'settled') {
+      return json({ settled: true, winner_user_id: after[0].winner_user_id, already: true });
+    }
     return json({ error: 'The battle was cancelled while settling — no result.' }, 409);
   }
 

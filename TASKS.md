@@ -31,10 +31,13 @@ decided (§15). **P0 DONE** — migration 009 applied + falsified in prod.
 **P1 DONE** — friendly BLITZ battles live end-to-end: Arena tab, invite/
 join/ready/settle edge functions, 12-min strength round, realtime dual
 progress, server verdict, ledger XP. Two-account Playwright battle run
-against production: 990 vs 876, grants landed. Next: **P2** = rounds 2+3
-(cardio catalog + battle-physique with pose compliance + the private
-battle-media bucket write path; update client/CLAUDE.md's photo invariant
-in that commit).
+against production: 990 vs 876, grants landed. **P2 DONE** (2026-07-11,
+`52bea31`) — full three-round battles live: battle-settle advances rounds,
+cardio = Energy Units, battle-physique judges camera captures into the
+private battle-media bucket (client/CLAUDE.md invariant amended in that
+commit); three-round tour verified 2090 vs 1943 against production.
+Next: **P3** = quick-match queue + matchmaker + ghost battles + live FULL
+format.
 
 ---
 

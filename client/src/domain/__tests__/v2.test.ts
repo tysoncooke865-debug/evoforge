@@ -5,8 +5,13 @@ import {
   avatarStageRowsV2,
   branchPathsV2,
   evolutionNameV2,
+  isShredder,
   nextEvolutionV2,
   resolveBranchV2,
+  shredderName,
+  shredderNextEvolution,
+  shredderRows,
+  shredderStage,
   type ScoresV2,
 } from '../branches-v2';
 import {
@@ -181,14 +186,6 @@ describe('startingLevelV2', () => {
     ).toBe(100);
   });
 });
-
-import {
-  isShredder,
-  shredderName,
-  shredderNextEvolution,
-  shredderRows,
-  shredderStage,
-} from '../branches-v2';
 
 describe('The Shredder — the redemption arc', () => {
   const ctx = (phase: string | null, earliestBf: number | null) => ({

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { determineAvatarBranch } from '../avatar-stats';
+import { branchPaths } from '../branch-paths';
 import { evolutionReadiness, requirementProgress } from '../evolution-readiness';
 import { computeStreak } from '../streak';
 import type { WorkoutRow } from '../summary';
@@ -94,9 +96,6 @@ describe('evolutionReadiness', () => {
     expect(evolutionReadiness([])).toEqual({ percent: 0, nearest: null, hardest: null });
   });
 });
-
-import { branchPaths } from '../branch-paths';
-import { determineAvatarBranch } from '../avatar-stats';
 
 describe('branchPaths — self-consistency with determineAvatarBranch', () => {
   it('meeting every Mass row actually branches mass', () => {

@@ -35,6 +35,7 @@ import {
   type VolumeEvent,
 } from '@/domain/battle/engine';
 import { pyFloat, pyInt } from '@/domain/py';
+import { useToastStore } from '@/state/toast-store';
 import { BLITZ_RULES, CodeCard, RulesStrip } from '@/ui/battle-arena';
 import { BattleRulesPanel, FaceOffScene, ReadyCTA } from '@/ui/face-off';
 import { EdgeLabel } from '@/ui/hud';
@@ -447,7 +448,7 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
         </View>
       </GlowCard>
 
-      {!over && !bothDone ? <BattleLogger matchId={matchId} /> : null}
+      {!over && !bothDone ? <BattleLogger matchId={matchId} roundNo={round.round_no} /> : null}
 
       {over || bothDone ? (
         <NeonButton title="LOCK IN ROUND 1 · ON TO CARDIO" onPress={() => settle.mutate()} busy={settle.isPending} testID="battle-settle" />
@@ -612,6 +613,10 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
   const secondsLeft = useCountdown(round.ends_at ?? null);
   const judge = useBattlePhysique(matchId);
   const settle = useSettleBattle(matchId);
+  // Covers the permission-prompt/camera window BEFORE judge.isPending goes
+  // true: without it a double tap launches two captures, and two distinct
+  // photos burn BOTH attempts (different sha256s — nothing dedupes them).
+  const [capturing, setCapturing] = useState(false);
 
   const roundNo = round.round_no;
   const myMedia = data.media.filter((m) => m.user_id === userId && m.round_no === roundNo);
@@ -628,8 +633,22 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
   const revealed = revealReady(myMedia, theirMedia, roundScored);
 
   const capture = async () => {
-    const photo = await captureCameraPhoto();
-    if (photo) judge.mutate(photo);
+    if (capturing) return;
+    setCapturing(true);
+    try {
+      const photo = await captureCameraPhoto();
+      if (photo) judge.mutate(photo);
+    } catch {
+      // A camera-pipeline throw was previously swallowed by `void capture()`:
+      // the user granted camera, shot, and the UI did nothing at all.
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'CAPTURE FAILED',
+        subtitle: 'The photo could not be processed. Attempt not used — try again.',
+      });
+    } finally {
+      setCapturing(false);
+    }
   };
 
   const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
@@ -690,7 +709,7 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
             <NeonButton
               title={last ? 'RETAKE · FACE THE JUDGE' : '📸 CAPTURE & FACE THE JUDGE'}
               onPress={() => void capture()}
-              busy={judge.isPending}
+              busy={judge.isPending || capturing}
               testID="battle-capture"
             />
           </View>
@@ -716,7 +735,7 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
 
 /** Log a battle set: the NORMAL save path (update-in-place, real XP), then
  *  the confirmed row id is tied to the battle. Never optimistic. */
-function BattleLogger({ matchId }: { matchId: string }) {
+function BattleLogger({ matchId, roundNo }: { matchId: string; roundNo: number }) {
   const [exercise, setExercise] = useState(BATTLE_EXERCISES[0]);
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
@@ -763,7 +782,7 @@ function BattleLogger({ matchId }: { matchId: string }) {
             issuedSetNo.current[exercise] = Math.max(issuedSetNo.current[exercise] ?? 0, setNo);
           }
           if (verdict.action === 'insert' && verdict.rowId) {
-            void postBattleVolume(matchId, 1, verdict.rowId);
+            void postBattleVolume(matchId, roundNo, verdict.rowId);
           }
         },
       }

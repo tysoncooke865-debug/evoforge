@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are
-   mutated in effects by design; see neon-button.tsx. */
 import { Image } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';

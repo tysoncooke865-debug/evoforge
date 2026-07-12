@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Text, View } from 'react-native';
 
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';

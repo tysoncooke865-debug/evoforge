@@ -10,7 +10,6 @@ import { avatarStageRowsV2, branchDisplayNameV2, branchPathsV2, evolutionNameV2,
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
-import { avatarImage } from '@/ui/avatar-images';
 import { Silhouette } from '@/ui/silhouette';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel } from '@/ui/hud';

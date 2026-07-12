@@ -69,20 +69,26 @@ export function useProfile() {
   });
 }
 
+/** The one workout_log read, shared by the query and by useSaveSet's
+ *  cache-miss fallback (an empty cache must mean "no sets", never "not
+ *  loaded yet" — a cold-cache save that guesses sees an existing set as
+ *  new and double-grants XP). */
+export async function fetchWorkoutLog(): Promise<WorkoutRow[]> {
+  const { data, error } = await supabase
+    .from('workout_log')
+    .select('id,date,workout,exercise,set,weight,reps,timestamp')
+    .order('timestamp', { ascending: true })
+    .limit(ROW_CAP);
+  if (error) throw error;
+  return data as WorkoutRow[];
+}
+
 export function useWorkoutLog() {
   const userId = useUserId();
   return useQuery({
     queryKey: ['workout_log', userId],
     enabled: userId !== null,
-    queryFn: async (): Promise<WorkoutRow[]> => {
-      const { data, error } = await supabase
-        .from('workout_log')
-        .select('id,date,workout,exercise,set,weight,reps,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
-      if (error) throw error;
-      return data as WorkoutRow[];
-    },
+    queryFn: fetchWorkoutLog,
   });
 }
 
@@ -189,44 +195,40 @@ export function useBodyweightLog() {
   });
 }
 
-/** Latest body-fat midpoint, or null. Mirrors latest_bodyfat_mid(): only rows
- *  with bf_mid > 0 count, last one wins. */
-export function useLatestBodyfatMid() {
+/** The validated bf_mid series (bf_mid > 0 only, oldest → newest). ONE
+ *  fetch and cache entry — latest/earliest derive via select, so screens
+ *  that need both (every avatar screen) cost one round-trip, not two
+ *  byte-identical ones. Sharing the key also means the write invalidation
+ *  in ai.tsx refreshes BOTH derivations: under split keys the first-ever
+ *  reading left the earliest (Shredder entry) stale until a refocus. */
+function useBodyfatSeries<T>(select: (valid: number[]) => T) {
   const userId = useUserId();
   return useQuery({
-    queryKey: ['bodyfat_mid', userId],
+    queryKey: ['bodyfat_series', userId],
     enabled: userId !== null,
-    queryFn: async (): Promise<number | null> => {
+    queryFn: async (): Promise<number[]> => {
       const { data, error } = await supabase
         .from('bodyfat_log')
         .select('id,bf_mid,timestamp')
         .order('timestamp', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;
-      const valid = data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
-      return valid.length > 0 ? valid[valid.length - 1] : null;
+      return data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
     },
+    select,
   });
+}
+
+/** Latest body-fat midpoint, or null. Mirrors latest_bodyfat_mid(): only rows
+ *  with bf_mid > 0 count, last one wins. */
+export function useLatestBodyfatMid() {
+  return useBodyfatSeries((valid) => (valid.length > 0 ? valid[valid.length - 1] : null));
 }
 
 /** First-ever body-fat midpoint — the athlete's STARTING condition (drives
  *  Shredder entry). Same validity rule as the latest: bf_mid > 0 only. */
 export function useEarliestBodyfat() {
-  const userId = useUserId();
-  return useQuery({
-    queryKey: ['bodyfat_first', userId],
-    enabled: userId !== null,
-    queryFn: async (): Promise<number | null> => {
-      const { data, error } = await supabase
-        .from('bodyfat_log')
-        .select('id,bf_mid,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
-      if (error) throw error;
-      const valid = data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
-      return valid.length > 0 ? valid[0] : null;
-    },
-  });
+  return useBodyfatSeries((valid) => (valid.length > 0 ? valid[0] : null));
 }
 
 /** Latest AI physique rating values, each null when absent or non-numeric.

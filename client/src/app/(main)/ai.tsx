@@ -370,7 +370,7 @@ function BodyfatSection() {
     setResult(r);
     setProvisional(null);
     setPhotos([null, null]);
-    queryClient.invalidateQueries({ queryKey: ['bodyfat_mid', session?.user.id ?? null] });
+    queryClient.invalidateQueries({ queryKey: ['bodyfat_series', session?.user.id ?? null] });
     useToastStore.getState().push({ kind: 'info', title: 'BODY FAT ESTIMATED', subtitle: 'Saved to your log' });
   };
 

@@ -187,7 +187,11 @@ export default function TodayScreen() {
 
       {plan.map(([exercise, sets, scheme]) => (
         <ExerciseCard
-          key={exercise}
+          // Day is part of the key: ROUTINE reuses exercise names across days
+          // (e.g. Lat Pulldown on both Pull days), and SetRow seeds its typed
+          // state once on mount — a same-key day switch kept the previous
+          // day's numbers on screen and saved them under the NEW day.
+          key={`${day}:${exercise}`}
           date={todayIso}
           workout={day}
           exercise={exercise}

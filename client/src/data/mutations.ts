@@ -10,6 +10,7 @@ import { announceXp, useToastStore } from '@/state/toast-store';
 
 import { runAchievementSweep } from './achievement-sweep';
 import { useAuth } from './auth-context';
+import { fetchWorkoutLog } from './hooks';
 import { supabase } from './supabase';
 
 /**
@@ -34,10 +35,13 @@ export function useSaveSet() {
 
   return useMutation({
     mutationFn: async (input: SetInput): Promise<SetVerdict> => {
-      const rows =
-        (queryClient.getQueryData(['workout_log', userId]) as
-          | import('@/domain/summary').WorkoutRow[]
-          | undefined) ?? [];
+      // An ABSENT cache is not an EMPTY log: deciding against [] classifies
+      // an existing set as new — duplicate row + second XP grant. Fall back
+      // to a fresh read exactly like Python's save_set_auto() did.
+      let rows = queryClient.getQueryData(['workout_log', userId]) as
+        | import('@/domain/summary').WorkoutRow[]
+        | undefined;
+      if (rows === undefined) rows = await fetchWorkoutLog();
 
       const verdict = decideSetSave(rows, input);
       if (verdict.action === 'reject' || verdict.action === 'noop') {
@@ -408,7 +412,7 @@ export function useLogMeasurements() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['measurements', userId] });
+      queryClient.invalidateQueries({ queryKey: ['measurements_latest', userId] });
       useToastStore.getState().push({ kind: 'info', title: 'MEASUREMENTS LOGGED' });
     },
     onError: () => {

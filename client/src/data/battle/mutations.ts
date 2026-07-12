@@ -132,6 +132,16 @@ export function useSettleBattle(matchId: string) {
       void queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
     },
     onError: (e: Error) => {
+      // "Round N is still open" is the server truthfully out-voting a fast
+      // client clock — an info nudge, not a failure. Everything else is real.
+      if (/still open/i.test(e.message)) {
+        useToastStore.getState().push({
+          kind: 'info',
+          title: 'ROUND STILL OPEN',
+          subtitle: 'The server clock has not reached time yet — settle again in a few seconds.',
+        });
+        return;
+      }
       useToastStore.getState().push({ kind: 'error', title: 'SETTLE FAILED', subtitle: e.message });
     },
   });
