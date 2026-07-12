@@ -210,6 +210,23 @@ touch-action: manipulation. NEVER delete that file; if taps break again
 on device, check the served viewport meta first, then look for anything
 re-rendering per animation frame (rendering contract above).
 
+## Arena mini games (design §16; D5–D9 answered "all recommended")
+**MG1 VOLUME DUEL SHIPPED (2026-07-12):** migration 015 applied to prod
+(format/kind constraint widening only — the 009 volume guard needed ZERO
+changes, it is round-kind agnostic). Engine v3 (scoreVolumeDuel /
+scoreHeadsOrTails / totalRoundsFor; points = effective kg, no stat
+multiplier). battle-invite takes format; battle-ready opens a 75-min
+'volume_duel' round; battle-settle scores it (window-over only, no early
+finish) and finalizes single-round formats. Client: hub MINI GAMES section
+(arena-create-duel), VolumeDuelRound = Today-twin via the SHARED
+ui/exercise-logger ExerciseCard (tint + onLogged seams; Today imports from
+there now), leader-relative dual bars. Sets are REAL Today sets (streak/
+stats/XP bank; duel banks a set AS FIRST LOGGED — edits can't inflate).
+Two-account prod tour: tour_duel.py (500 vs 300 effective kg verified,
+winner correct, smoke match cleaned). MG2 HEADS OR TAILS next: battle-pick
++ server flips; coin flip art SLICED READY at client/src/assets/battle/
+coin_{heads,tails,edge}.png (Tyson's sheet, checker keyed out).
+
 ## Sex calibration (2026-07-12, Tyson-requested)
 Female athletes no longer grade against male standards. `SexCalibration`
 in avatar-stats-calc.ts parameterises the pinned algorithm's CONSTANTS

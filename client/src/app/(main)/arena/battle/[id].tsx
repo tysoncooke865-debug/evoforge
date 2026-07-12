@@ -23,8 +23,11 @@ import {
   useReadyUp,
   useSettleBattle,
 } from '@/data/battle/mutations';
-import { useWorkoutLog } from '@/data/hooks';
+import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useLogCardio, useSaveSet } from '@/data/mutations';
+import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
+import { normaliseWorkoutLog } from '@/domain/summary';
+import { ExerciseCard } from '@/ui/exercise-logger';
 import {
   cardioChallengeByKey,
   objectByKey,
@@ -45,6 +48,15 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 import tokens from '@/theme/tokens';
 
 const BATTLE_WORKOUT = 'Battle Arena';
+
+const formatName = (f: string | null | undefined): string =>
+  f === 'volume_duel' ? 'VOLUME DUEL' : f === 'heads_or_tails' ? 'HEADS OR TAILS' : 'FRIENDLY BLITZ';
+
+const DUEL_RULES = [
+  { glyph: '⚖', text: 'Every set counts' },
+  { glyph: '⏱', text: 'Seventy-five minutes' },
+  { glyph: '🏆', text: 'Most weight moved wins' },
+] as const;
 
 /** Curated blitz picks: barbell pay full rate, the rest teach the coefficient. */
 const BATTLE_EXERCISES = [
@@ -88,8 +100,8 @@ export default function BattleScreen() {
 
   return (
     <ScreenShell>
-      {match.status === 'inviting' ? <InvitePhase matchId={match.id} code={match.invite_code} /> : null}
-      {match.status === 'matched' ? <VsPhase matchId={match.id} me={me} them={them} /> : null}
+      {match.status === 'inviting' ? <InvitePhase matchId={match.id} code={match.invite_code} format={match.format} /> : null}
+      {match.status === 'matched' ? <VsPhase matchId={match.id} me={me} them={them} format={match.format} /> : null}
       {match.status === 'active' ? (
         <ActivePhase matchId={match.id} data={data} me={me} them={them} userId={userId} />
       ) : null}
@@ -101,19 +113,20 @@ export default function BattleScreen() {
 
 // ------------------------------------------------------------------ phases
 
-function InvitePhase({ matchId, code }: { matchId: string; code: string | null }) {
+function InvitePhase({ matchId, code, format }: { matchId: string; code: string | null; format: string | null }) {
   const router = useRouter();
   const cancel = useCancelBattle(matchId);
+  const duel = format === 'volume_duel';
   return (
     <>
-      <ScreenHeader kicker="FRIENDLY BLITZ" title="CHALLENGE SENT" />
-      <GlowCard glow={tokens.colors.accent}>
+      <ScreenHeader kicker={formatName(format)} title="CHALLENGE SENT" />
+      <GlowCard glow={duel ? tokens.colors.danger : tokens.colors.accent}>
         {code ? <CodeCard code={code} /> : null}
         <Text className="mt-s3 text-center text-2xs text-text-mute">
           Waiting for a challenger… the screen advances the moment they join.
         </Text>
       </GlowCard>
-      <RulesStrip rules={BLITZ_RULES} />
+      <RulesStrip rules={duel ? DUEL_RULES : BLITZ_RULES} />
       <NeonButton
         title="CANCEL INVITE"
         variant="ghost"
@@ -215,14 +228,15 @@ function AbandonedPhase({
   );
 }
 
-function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant | null; them: BattleParticipant | null }) {
+function VsPhase({ matchId, me, them, format }: { matchId: string; me: BattleParticipant | null; them: BattleParticipant | null; format: string | null }) {
   const ready = useReadyUp(matchId);
   const iAmReady = me?.ready_at != null;
+  const duel = format === 'volume_duel';
   return (
     <>
-      <ScreenHeader kicker="FRIENDLY BLITZ" title="FACE OFF" />
+      <ScreenHeader kicker={formatName(format)} title="FACE OFF" />
       <FaceOffScene me={me} them={them} />
-      <BattleRulesPanel rules={BLITZ_RULES} />
+      <BattleRulesPanel rules={duel ? DUEL_RULES : BLITZ_RULES} />
       <ReadyCTA
         title={iAmReady ? 'WAITING FOR OPPONENT…' : 'READY UP'}
         onPress={() => ready.mutate()}
@@ -231,7 +245,9 @@ function VsPhase({ matchId, me, them }: { matchId: string; me: BattleParticipant
         testID="battle-ready"
       />
       <Text className="text-center text-2xs text-text-mute">
-        When both athletes are ready the object is rolled and the 12-minute bell sounds.
+        {duel
+          ? 'When both athletes are ready the 75-minute window opens — your whole workout counts.'
+          : 'When both athletes are ready the object is rolled and the 12-minute bell sounds.'}
       </Text>
       <AbandonControl matchId={matchId} />
     </>
@@ -303,6 +319,8 @@ function ProgressBar({ pct, colour, label, kg, unit = 'kg' }: { pct: number; col
 /** Which round we're in, with the scores banked so far. */
 function RoundStrip({ data, userId }: { data: BattleBundle; userId: string | null }) {
   const current = data.match?.current_round ?? 1;
+  // Single-round duels have no round journey to narrate.
+  if (data.match && ['volume_duel', 'heads_or_tails'].includes(String(data.match.format))) return null;
   return (
     <View className="flex-row gap-s2">
       {[1, 2, 3].map((n) => {
@@ -350,7 +368,9 @@ function ActivePhase({
   if (!round) return null;
   return (
     <>
-      {round.kind === 'strength' ? (
+      {round.kind === 'volume_duel' ? (
+        <VolumeDuelRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
+      ) : round.kind === 'strength' ? (
         <StrengthRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
       ) : round.kind === 'cardio' ? (
         <CardioRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
@@ -370,6 +390,152 @@ interface RoundProps {
   me: BattleParticipant | null;
   them: BattleParticipant | null;
   userId: string | null;
+}
+
+/**
+ * VOLUME DUEL (design §16, MG1): the Today screen wearing war paint. The
+ * athlete logs their OWN day plan through the SHARED ExerciseCard — every
+ * set is a real workout_log row (streak/stats/XP bank exactly like Today) —
+ * and each confirmed INSERT also posts a battle 'volume' event with the
+ * row id. Scores freeze at first log (the guard rebuilds payloads at event
+ * insert), so a post-hoc edit can never inflate a duel.
+ */
+function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const secondsLeft = useCountdown(round.ends_at ?? null);
+  const settle = useSettleBattle(matchId);
+  const workouts = useWorkoutLog();
+  const aiPlan = useCustomPlan();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
+  const [day, setDay] = useState(days[0]);
+  const [source, setSource] = useState<0 | 1>(0);
+  const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
+  const prNoop = useRef(0);
+
+  const roundNo = round.round_no;
+  const myEvents = useMemo(
+    () => data.events.filter((e) => e.user_id === userId && e.kind === 'volume' && e.round_no === roundNo).map(toVolume),
+    [data.events, userId, roundNo]
+  );
+  const theirEvents = useMemo(
+    () => data.events.filter((e) => e.user_id !== userId && e.kind === 'volume' && e.round_no === roundNo).map(toVolume),
+    [data.events, userId, roundNo]
+  );
+  const myKg = totalEffectiveKg(myEvents);
+  const theirKg = totalEffectiveKg(theirEvents);
+  // No target: the leader defines 100% and the other bar chases them.
+  const lead = Math.max(myKg, theirKg, 1);
+  const over = secondsLeft !== null && secondsLeft <= 0;
+
+  const todayRows = useMemo(
+    () =>
+      normaliseWorkoutLog(workouts.data ?? []).filter(
+        (r) => String(r.date) === todayIso && String(r.workout) === day
+      ),
+    [workouts.data, todayIso, day]
+  );
+  const validCount = (exercise: string) =>
+    todayRows.filter(
+      (r) => String(r.exercise) === exercise && (pyFloat(r.weight) ?? 0) > 0 && (pyFloat(r.reps) ?? 0) > 0
+    ).length;
+
+  const builtIn = ROUTINE[day];
+  const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
+  const plan: readonly (readonly [string, number, string])[] = aiDay
+    ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
+    : builtIn;
+  const nextExercise = plan.find(([exercise, sets]) => validCount(exercise) < sets)?.[0] ?? null;
+
+  const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
+  const ss = secondsLeft === null ? '––' : String(secondsLeft % 60).padStart(2, '0');
+  const tint = tokens.colors.danger;
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="VOLUME DUEL · LIVE"
+        title="MOVE THE MOST WEIGHT"
+        titleLines={2}
+        autoSize
+        right={
+          <Text
+            className="text-2xl font-bold"
+            style={{
+              color: over ? tokens.colors.danger : tint,
+              textShadowColor: 'rgba(251,113,133,0.6)',
+              textShadowRadius: 14,
+            }}
+          >
+            {over ? 'TIME' : `${mm}:${ss}`}
+          </Text>
+        }
+      />
+
+      <GlowCard glow={myKg >= theirKg && myKg > 0 ? tint : undefined}>
+        <ProgressBar
+          pct={(myKg / lead) * 100}
+          colour={tint}
+          label={`${String(me?.snapshot.name ?? 'YOU').toUpperCase()}${myKg >= theirKg && myKg > 0 ? ' · LEADING' : ''}`}
+          kg={myKg}
+        />
+        <ProgressBar
+          pct={(theirKg / lead) * 100}
+          colour={tokens.colors.epic}
+          label={`${String(them?.snapshot.name ?? 'RIVAL').toUpperCase()}${theirKg > myKg ? ' · LEADING' : ''}`}
+          kg={theirKg}
+        />
+        <Text className="text-2xs text-text-mute">
+          Effective kg = weight × reps × exercise coefficient. Log here, not on Today —
+          only sets logged on THIS screen enter the duel. A set banks as first logged.
+        </Text>
+      </GlowCard>
+
+      {!over ? (
+        <>
+          <View className="flex-row flex-wrap gap-s2">
+            {days.map((d) => (
+              <Chip key={d} label={d.split(' - ')[0]} active={d === day} onPress={() => setDay(d)} />
+            ))}
+          </View>
+          {aiPlan.data ? (
+            <View className="flex-row gap-s2">
+              <Chip label="BUILT-IN" active={source === 0} onPress={() => setSource(0)} />
+              <Chip label="AI PLAN" active={source === 1} onPress={() => setSource(1)} />
+            </View>
+          ) : null}
+          {plan.map(([exercise, sets, scheme]) => (
+            <ExerciseCard
+              key={`${day}:${exercise}`}
+              date={todayIso}
+              workout={day}
+              exercise={exercise}
+              targetSets={sets}
+              scheme={scheme}
+              loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
+              allRows={workouts.data ?? []}
+              doneCount={validCount(exercise)}
+              isNext={exercise === nextExercise}
+              onPr={() => (prNoop.current += 1)}
+              tint={tint}
+              onLogged={(verdict) => {
+                if (verdict.action === 'insert' && verdict.rowId) {
+                  void postBattleVolume(matchId, roundNo, verdict.rowId);
+                }
+              }}
+            />
+          ))}
+        </>
+      ) : (
+        <NeonButton
+          title="LOCK IN THE DUEL · REVEAL THE VERDICT"
+          variant="danger"
+          onPress={() => settle.mutate()}
+          busy={settle.isPending}
+          testID="battle-settle"
+        />
+      )}
+    </>
+  );
 }
 
 function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {

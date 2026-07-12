@@ -19,8 +19,10 @@ import {
   scoreCardioRound,
   scorePhysiqueRound,
   scoreStrengthRound,
+  scoreVolumeDuel,
   totalEffectiveKg,
   totalEnergyUnits,
+  totalRoundsFor,
   type CardioEvent,
   type PhysiqueVerdict,
   type StrengthSpec,
@@ -73,7 +75,7 @@ Deno.serve(async (req) => {
 
   const { data: matches } = await svc
     .from('battle_matches')
-    .select('id,status,current_round,winner_user_id')
+    .select('id,status,current_round,winner_user_id,format')
     .eq('id', matchId)
     .limit(1);
   if (!matches || matches.length === 0) return json({ error: 'No such battle.' }, 404);
@@ -111,7 +113,17 @@ Deno.serve(async (req) => {
   // ---- score the open round ------------------------------------------------
   let results: { user_id: string; points: number; components: Record<string, unknown> }[];
 
-  if (round.kind === 'strength') {
+  if (round.kind === 'volume_duel') {
+    // No target, no early finish — the window IS the duel (§16, D5/D6).
+    if (!windowOver) {
+      return json({ error: 'Round 1 is still open.', ends_at: round.ends_at }, 409);
+    }
+    results = participants.map((p) => {
+      const events = (byUser.get(p.user_id) ?? []).filter((e) => e.kind === 'volume').map(toVolume);
+      const c = scoreVolumeDuel(events);
+      return { user_id: p.user_id, points: c.points, components: c as unknown as Record<string, unknown> };
+    });
+  } else if (round.kind === 'strength') {
     const spec = round.spec as unknown as StrengthSpec;
     const vols = new Map(participants.map((p) => [p.user_id, (byUser.get(p.user_id) ?? []).map(toVolume)]));
     const bothDone = participants.every(
@@ -221,7 +233,7 @@ Deno.serve(async (req) => {
   await svc.from('battle_rounds').update({ status: 'scored' }).eq('match_id', matchId).eq('round_no', roundNo);
 
   // ---- open the next round, or finalize -----------------------------------
-  if (roundNo < 3) {
+  if (roundNo < totalRoundsFor(String(match.format ?? 'blitz'))) {
     const hash = await sha256Hex(matchId);
     const nextNo = roundNo + 1;
     const startsAt = new Date();

@@ -6,7 +6,7 @@
  */
 
 import { CORS_HEADERS, json, sha256Hex } from '../_shared/ai.ts';
-import { BATTLE_OBJECTS, ENGINE_VERSION } from '../_shared/battle/engine.ts';
+import { BATTLE_OBJECTS, ENGINE_VERSION, VOLUME_DUEL_MINUTES } from '../_shared/battle/engine.ts';
 import { callerUserId, participantsOf, serviceClient } from '../_shared/battle/service.ts';
 
 const BLITZ_STRENGTH_MINUTES = 12;
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
   const { data: matches } = await svc
     .from('battle_matches')
-    .select('id,status')
+    .select('id,status,format')
     .eq('id', matchId)
     .limit(1);
   if (!matches || matches.length === 0) return json({ error: 'No such battle.' }, 404);
@@ -51,25 +51,38 @@ Deno.serve(async (req) => {
     return json({ ready: true, both_ready: bothReady });
   }
 
-  // Roll the object from the match id: deterministic, auditable, unbiased-enough.
-  const hash = await sha256Hex(matchId);
-  const roll = parseInt(hash.slice(0, 8), 16) % BATTLE_OBJECTS.length;
-  const object = BATTLE_OBJECTS[roll];
-
+  const format = String(matches[0].format ?? 'blitz');
   const startsAt = new Date();
-  const endsAt = new Date(startsAt.getTime() + BLITZ_STRENGTH_MINUTES * 60_000);
-
-  const { error: rErr } = await svc.from('battle_rounds').insert({
-    match_id: matchId,
-    round_no: 1,
-    kind: 'strength',
-    spec: {
+  let kind: string;
+  let spec: Record<string, unknown>;
+  let minutes: number;
+  if (format === 'volume_duel') {
+    // No object, no target — the duel is raw output inside the window.
+    kind = 'volume_duel';
+    minutes = VOLUME_DUEL_MINUTES;
+    spec = { engineVersion: ENGINE_VERSION, windowMinutes: VOLUME_DUEL_MINUTES };
+  } else {
+    // Roll the object from the match id: deterministic, auditable, unbiased-enough.
+    const hash = await sha256Hex(matchId);
+    const roll = parseInt(hash.slice(0, 8), 16) % BATTLE_OBJECTS.length;
+    const object = BATTLE_OBJECTS[roll];
+    kind = 'strength';
+    minutes = BLITZ_STRENGTH_MINUTES;
+    spec = {
       objectKey: object.key,
       targetEffectiveKg: object.blitzTargetKg,
       displayKg: object.displayKg,
       engineVersion: ENGINE_VERSION,
       roll_seed: hash.slice(0, 8),
-    },
+    };
+  }
+  const endsAt = new Date(startsAt.getTime() + minutes * 60_000);
+
+  const { error: rErr } = await svc.from('battle_rounds').insert({
+    match_id: matchId,
+    round_no: 1,
+    kind,
+    spec,
     starts_at: startsAt.toISOString(),
     ends_at: endsAt.toISOString(),
     status: 'open',

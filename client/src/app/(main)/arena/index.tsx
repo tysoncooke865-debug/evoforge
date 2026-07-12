@@ -38,10 +38,13 @@ export default function ArenaScreen() {
   // The live invite, if one is out there — its code belongs on this screen.
   const openInvite = (battles.data ?? []).find((m) => m.status === 'inviting') ?? null;
 
-  const createBattle = () => {
-    invite.mutate(snapshot, {
-      onSuccess: (data) => router.push(`/arena/battle/${String(data.match_id)}`),
-    });
+  const createBattle = (format: string) => {
+    invite.mutate(
+      { snapshot, format },
+      {
+        onSuccess: (data) => router.push(`/arena/battle/${String(data.match_id)}`),
+      }
+    );
   };
 
   const joinBattle = () => {
@@ -114,7 +117,7 @@ export default function ArenaScreen() {
           ) : (
             <NeonButton
               title="CREATE BATTLE · GET CODE"
-              onPress={createBattle}
+              onPress={() => createBattle('blitz')}
               busy={invite.isPending}
               testID="arena-create"
             />
@@ -158,6 +161,41 @@ export default function ArenaScreen() {
       )}
 
       <RulesStrip rules={BLITZ_RULES} />
+
+      {/* MINI GAMES (design §16): single-round duels on the battle spine. */}
+      {tab === 0 && !openInvite ? (
+        <View>
+          <SectionLabel>MINI GAMES</SectionLabel>
+          <GlowCard glow={tokens.colors.danger}>
+            <View className="mb-s3 flex-row items-center gap-s3">
+              <IconBadge glyph="⚖" tint={tokens.colors.danger} />
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                  VOLUME DUEL
+                </Text>
+                <View className="mt-s1 flex-row gap-s2">
+                  <MiniChip label="👥 1V1" />
+                  <MiniChip label="⏱ 75 MIN" />
+                </View>
+              </View>
+            </View>
+            <Text className="mb-s4 text-2xs text-text-mute">
+              Same gym hour, your own workout. Every set counts, coefficients keep it honest —
+              most weight moved takes the duel. Every set is a REAL set: streak, stats and XP all bank.
+            </Text>
+            <NeonButton
+              title="START VOLUME DUEL · GET CODE"
+              variant="danger"
+              onPress={() => createBattle('volume_duel')}
+              busy={invite.isPending}
+              testID="arena-create-duel"
+            />
+          </GlowCard>
+          <View className="mt-s3">
+            <ComingCard glyph="🪙" tint={tokens.colors.legendary} title="HEADS OR TAILS" note="Coin flips pick the muscle — and your exercise" />
+          </View>
+        </View>
+      ) : null}
 
       {/* The queue modes — coming, honestly labelled, dressed like Home cards. */}
       <View className="flex-row gap-s3">

@@ -18,7 +18,7 @@
  * dominates (BATTLE_ARENA_DESIGN.md §7).
  */
 
-export const ENGINE_VERSION = 2;
+export const ENGINE_VERSION = 3;
 
 // ---------------------------------------------------------------- objects
 
@@ -455,6 +455,44 @@ export function scorePhysiqueRound(
   const multiplier = characterMultiplier(aestheticStat);
   const points = Math.min(PHYSIQUE_BUDGET, Math.trunc(base * multiplier));
   return { judged, base, multiplier, points, floored: false };
+}
+
+// ------------------------------------------------------- arena mini games
+
+/**
+ * MINI GAME FORMATS (design §16, D5–D9 answered 2026-07-12). Single-round
+ * duels: no budgets, no stat multiplier — points ARE effective kg, raw
+ * output head-to-head. Effective (coefficient-weighted) kg keeps the
+ * leg-press farm closed, same table as the blitz round; D5's "absolute"
+ * means no bodyweight scaling, not no coefficients.
+ */
+export const VOLUME_DUEL_MINUTES = 75;
+export const HEADS_OR_TAILS_MINUTES = 30;
+export const PICK_MINUTES = 5;
+
+export function totalRoundsFor(format: string): number {
+  return format === 'volume_duel' || format === 'heads_or_tails' ? 1 : 3;
+}
+
+export interface DuelComponents {
+  effectiveKg: number;
+  points: number;
+}
+
+/** Volume Duel: every in-window set counts. */
+export function scoreVolumeDuel(myEvents: readonly VolumeEvent[]): DuelComponents {
+  const kg = Math.trunc(totalEffectiveKg(myEvents));
+  return { effectiveKg: kg, points: kg };
+}
+
+/** Heads or Tails: ONLY the assigned exercise counts (D7). */
+export function scoreHeadsOrTails(
+  myEvents: readonly VolumeEvent[],
+  assignedExercise: string
+): DuelComponents {
+  const mine = myEvents.filter((e) => e.exercise === assignedExercise);
+  const kg = Math.trunc(totalEffectiveKg(mine));
+  return { effectiveKg: kg, points: kg };
 }
 
 // ---------------------------------------------------------------- rewards

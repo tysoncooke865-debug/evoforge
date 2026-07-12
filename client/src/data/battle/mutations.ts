@@ -59,7 +59,8 @@ export function useCreateInvite() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: (snapshot: Record<string, unknown>) => invokeBattle('battle-invite', { snapshot }),
+    mutationFn: ({ snapshot, format = 'blitz' }: { snapshot: Record<string, unknown>; format?: string }) =>
+      invokeBattle('battle-invite', { snapshot, format }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
     },

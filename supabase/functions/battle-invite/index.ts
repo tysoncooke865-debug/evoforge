@@ -24,6 +24,12 @@ Deno.serve(async (req) => {
   if (!userId) return json({ error: 'Not signed in.' }, 401);
 
   const body = await req.json().catch(() => ({}));
+  // Formats a friendly invite may mint. 'full' waits on its implementation;
+  // 'heads_or_tails' joins this list when battle-pick ships (MG2).
+  const format = String(body.format ?? 'blitz');
+  if (!['blitz', 'volume_duel'].includes(format)) {
+    return json({ error: `Unknown format: ${format}` }, 400);
+  }
   const svc = serviceClient();
 
   const name = await displayNameOf(svc, userId);
@@ -43,7 +49,7 @@ Deno.serve(async (req) => {
     const code = mintCode();
     const { data: match, error } = await svc
       .from('battle_matches')
-      .insert({ season_id: seasonId, mode: 'friendly', format: 'blitz', status: 'inviting', invite_code: code })
+      .insert({ season_id: seasonId, mode: 'friendly', format, status: 'inviting', invite_code: code })
       .select('id,invite_code')
       .single();
     if (error) {
