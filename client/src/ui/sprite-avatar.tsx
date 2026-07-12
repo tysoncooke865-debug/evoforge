@@ -67,7 +67,7 @@ const SEQUENCE: Record<Anim, number[]> = {
   victory: [0, 1, 2, 2, 1],
 };
 
-const FPS: Record<Anim, number> = { idle: 5, run: 11, punch: 9, victory: 5 };
+const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 9, victory: 5 };
 
 export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: number }) {
   const reducedMotion = useReducedMotion();
@@ -82,12 +82,30 @@ export function SpriteAvatar({ anim, height = 72 }: { anim: Anim; height?: numbe
   }, [anim, frozen]);
 
   const seq = SEQUENCE[anim];
-  const frame = FRAMES[anim][frozen ? seq[0] : seq[tick % seq.length]];
+  const active = FRAMES[anim][frozen ? seq[0] : seq[tick % seq.length]];
   const width = Math.round(height * ASPECT[anim]);
 
+  // EVERY frame stays mounted; only opacity flips. Swapping a single
+  // Image's source reloads it asynchronously on web, which blanks the
+  // sprite between frames — the flicker that made the run look broken.
   return (
     <View style={{ width, height }} pointerEvents="none">
-      <Image source={frame} style={{ width, height }} contentFit="contain" />
+      {FRAMES[anim].map((frame, i) => (
+        <Image
+          key={i}
+          source={frame}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width,
+            height,
+            opacity: frame === active ? 1 : 0,
+          }}
+          contentFit="contain"
+          cachePolicy="memory"
+        />
+      ))}
     </View>
   );
 }
