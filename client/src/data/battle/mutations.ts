@@ -119,6 +119,23 @@ export function useCancelBattle(matchId: string) {
   });
 }
 
+/** Heads or Tails: apply a coin-flip pick (or claim a stalled one via auto). */
+export function useBattlePick(matchId: string) {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useMutation({
+    mutationFn: ({ pick, auto = false }: { pick?: string; auto?: boolean }) =>
+      invokeBattle('battle-pick', { match_id: matchId, pick, auto }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_bundle', userId, matchId] });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'PICK NOT APPLIED', subtitle: e.message });
+    },
+  });
+}
+
 export function useSettleBattle(matchId: string) {
   const queryClient = useQueryClient();
   const { session } = useAuth();

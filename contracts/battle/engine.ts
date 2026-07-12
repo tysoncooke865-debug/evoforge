@@ -18,7 +18,7 @@
  * dominates (BATTLE_ARENA_DESIGN.md §7).
  */
 
-export const ENGINE_VERSION = 3;
+export const ENGINE_VERSION = 4;
 
 // ---------------------------------------------------------------- objects
 
@@ -493,6 +493,84 @@ export function scoreHeadsOrTails(
   const mine = myEvents.filter((e) => e.exercise === assignedExercise);
   const kg = Math.trunc(totalEffectiveKg(mine));
   return { effectiveKg: kg, points: kg };
+}
+
+/**
+ * HEADS OR TAILS pick groups — the coin-flip winner picks a GROUP, later
+ * flips assign each athlete ONE exercise from it. Curated from the app
+ * catalog (every entry is a ROUTINE exercise the logger knows); baked into
+ * the engine so client previews and the battle-pick validator agree byte
+ * for byte.
+ */
+export interface PickGroup {
+  key: string;
+  name: string;
+  emoji: string;
+  exercises: readonly string[];
+}
+
+export const PICK_GROUPS: readonly PickGroup[] = [
+  {
+    key: 'chest',
+    name: 'Chest',
+    emoji: '🛡️',
+    exercises: [
+      'Barbell Bench Press (Strength)',
+      'Paused Barbell Bench Press',
+      'Dumbbell Flat Bench Press',
+      'Pec Deck Machine Fly',
+    ],
+  },
+  {
+    key: 'back',
+    name: 'Back',
+    emoji: '🦅',
+    exercises: [
+      'Lat Pulldown',
+      'Chest-Supported Machine Row',
+      'Chest-Supported Dumbbell Row',
+      'Cable Lat Pullover (Straight-Arm Pulldown)',
+    ],
+  },
+  {
+    key: 'shoulders',
+    name: 'Shoulders',
+    emoji: '🪨',
+    exercises: [
+      'Cable Lateral Raise',
+      'Dumbbell Lateral Raise',
+      'Reverse Pec Deck (Rear Delt Fly)',
+      'Face Pull',
+    ],
+  },
+  {
+    key: 'arms',
+    name: 'Arms',
+    emoji: '💪',
+    exercises: ['EZ-Bar Curl', 'Dumbbell Biceps Curl', 'Cable Triceps Pushdown'],
+  },
+  {
+    key: 'legs',
+    name: 'Legs',
+    emoji: '🦵',
+    exercises: [
+      'Barbell Back Squat',
+      'Hack Squat Machine',
+      'Seated/Lying Leg Curl',
+      'Leg Extension',
+      'Seated Calf Raise',
+    ],
+  },
+  {
+    key: 'abs',
+    name: 'Abs',
+    emoji: '🎯',
+    exercises: ['Machine Ab Crunch', 'Lying Leg Raise', 'Weighted Sit-Up'],
+  },
+];
+
+export function pickGroupByKey(key: string): PickGroup | null {
+  return PICK_GROUPS.find((g) => g.key === key) ?? null;
 }
 
 // ---------------------------------------------------------------- rewards

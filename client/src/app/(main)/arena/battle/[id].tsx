@@ -19,6 +19,7 @@ import {
   postBattleCardio,
   postBattleVolume,
   useBattlePhysique,
+  useBattlePick,
   useCancelBattle,
   useReadyUp,
   useSettleBattle,
@@ -27,10 +28,13 @@ import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useLogCardio, useSaveSet } from '@/data/mutations';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { normaliseWorkoutLog } from '@/domain/summary';
+import { CoinFlip } from '@/ui/coin-flip';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import {
   cardioChallengeByKey,
   objectByKey,
+  PICK_GROUPS,
+  pickGroupByKey,
   poseByKey,
   totalEffectiveKg,
   totalEnergyUnits,
@@ -370,6 +374,8 @@ function ActivePhase({
     <>
       {round.kind === 'volume_duel' ? (
         <VolumeDuelRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
+      ) : round.kind === 'heads_or_tails' ? (
+        <HeadsOrTailsRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
       ) : round.kind === 'strength' ? (
         <StrengthRound matchId={matchId} data={data} round={round} me={me} them={them} userId={userId} />
       ) : round.kind === 'cardio' ? (
@@ -390,6 +396,192 @@ interface RoundProps {
   me: BattleParticipant | null;
   them: BattleParticipant | null;
   userId: string | null;
+}
+
+/**
+ * HEADS OR TAILS (design §16, MG2): three server-side coin flips assign a
+ * muscle group and each athlete's exercise; then a 30-minute locked duel —
+ * most effective kg on YOUR assigned exercise wins. The client never flips
+ * a coin: it replays server verdicts, with a short one-shot spin ceremony
+ * per step (a single timeout state flip — not frame driving).
+ */
+function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const spec = round.spec as Record<string, unknown>;
+  const state = String(spec.state ?? 'awaiting_muscle');
+  const step = Math.min(3, Number(spec.step ?? 1));
+  const face = (String(spec.face ?? 'heads') === 'tails' ? 'tails' : 'heads') as 'heads' | 'tails';
+  const pickerId = spec.picker == null ? null : String(spec.picker);
+  const secondsLeft = useCountdown(round.ends_at ?? null);
+  const pickMut = useBattlePick(matchId);
+  const settle = useSettleBattle(matchId);
+  const gold = tokens.colors.legendary;
+
+  // The ceremony: spin briefly whenever a new flip lands, then reveal.
+  const [revealedStep, setRevealedStep] = useState(0);
+  useEffect(() => {
+    if (state === 'live') return;
+    const t = setTimeout(() => setRevealedStep(step), 1500);
+    return () => clearTimeout(t);
+  }, [step, state]);
+  const spinning = state !== 'live' && revealedStep < step;
+
+  const group = pickGroupByKey(String(spec.muscleGroup ?? ''));
+  const iAmPicker = pickerId !== null && pickerId === userId;
+  const pickerName =
+    pickerId === me?.user_id ? 'YOU' : String(them?.snapshot.name ?? 'YOUR RIVAL').toUpperCase();
+  const seat1 = data.participants.find((p) => p.seat === 1) ?? null;
+  const seat2 = data.participants.find((p) => p.seat === 2) ?? null;
+  const nameOf = (p: BattleParticipant | null) =>
+    p === null ? '?' : p.user_id === userId ? 'YOUR' : `${String(p.snapshot.name ?? 'RIVAL').toUpperCase()}'S`;
+  const over = secondsLeft !== null && secondsLeft <= 0;
+  const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
+  const ss = secondsLeft === null ? '––' : String(secondsLeft % 60).padStart(2, '0');
+
+  if (state !== 'live') {
+    const stepLabel =
+      state === 'awaiting_muscle'
+        ? 'THE MUSCLE GROUP'
+        : state === 'awaiting_ex_p1'
+          ? `${nameOf(seat1)} EXERCISE`
+          : `${nameOf(seat2)} EXERCISE`;
+    return (
+      <>
+        <ScreenHeader
+          kicker={`HEADS OR TAILS · FLIP ${step} OF 3`}
+          title="THE COIN DECIDES"
+          titleLines={2}
+          autoSize
+          right={
+            <Text className="text-2xl font-bold" style={{ color: gold, textShadowColor: 'rgba(251,191,36,0.6)', textShadowRadius: 14 }}>
+              {over ? 'TIME' : `${mm}:${ss}`}
+            </Text>
+          }
+        />
+        <GlowCard glow={gold}>
+          <View className="items-center py-s3">
+            <CoinFlip spinning={spinning} face={face} />
+            <Text className="mt-s3 text-center text-sm font-bold text-text" style={{ letterSpacing: 1 }}>
+              {spinning ? 'THE COIN IS IN THE AIR…' : `${face.toUpperCase()} · ${pickerName} PICK${pickerName === 'YOU' ? '' : 'S'} ${stepLabel}`}
+            </Text>
+            <Text className="mt-s1 text-center text-2xs text-text-mute">
+              Heads is seat one, tails is seat two. Three flips: the group, their exercise, yours.
+            </Text>
+            {group && state !== 'awaiting_muscle' ? (
+              <Text className="mt-s2 text-2xs font-bold" style={{ color: gold, letterSpacing: 1.5 }}>
+                GROUP LOCKED: {group.emoji} {group.name.toUpperCase()}
+                {spec.exerciseSeat1 ? ` · ${nameOf(seat1)} LIFT: ${String(spec.exerciseSeat1).toUpperCase()}` : ''}
+              </Text>
+            ) : null}
+          </View>
+        </GlowCard>
+
+        {!spinning && iAmPicker && !over ? (
+          <GlowCard glow={gold}>
+            <View className="mb-s3">
+              <EdgeLabel>{`YOUR CALL — ${stepLabel}`}</EdgeLabel>
+            </View>
+            <View className="flex-row flex-wrap gap-s2">
+              {state === 'awaiting_muscle'
+                ? PICK_GROUPS.map((g) => (
+                    <Chip
+                      key={g.key}
+                      label={`${g.emoji} ${g.name}`}
+                      active={false}
+                      onPress={() => {
+                        if (!pickMut.isPending) pickMut.mutate({ pick: g.key });
+                      }}
+                    />
+                  ))
+                : (group?.exercises ?? []).map((ex) => (
+                    <Chip
+                      key={ex}
+                      label={ex.replace(' (Strength)', '')}
+                      active={false}
+                      onPress={() => {
+                        if (!pickMut.isPending) pickMut.mutate({ pick: ex });
+                      }}
+                    />
+                  ))}
+            </View>
+          </GlowCard>
+        ) : null}
+        {!spinning && !iAmPicker && !over ? (
+          <Text className="text-center text-2xs text-text-mute">
+            {pickerName} won the toss and is choosing… the pick locks in {mm}:{ss}.
+          </Text>
+        ) : null}
+        {!spinning && over ? (
+          <NeonButton
+            title="TIME'S UP · CLAIM A RANDOM PICK"
+            variant="danger"
+            onPress={() => pickMut.mutate({ auto: true })}
+            busy={pickMut.isPending}
+            testID="battle-claim-pick"
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  // LIVE: locked exercises, 30-minute window, assigned-only scoring.
+  const myAssigned = String(me?.seat === 1 ? spec.exerciseSeat1 ?? '' : spec.exerciseSeat2 ?? '');
+  const theirAssigned = String(me?.seat === 1 ? spec.exerciseSeat2 ?? '' : spec.exerciseSeat1 ?? '');
+  const liveAt = String(spec.liveAt ?? '');
+  const countFor = (uid: string | null, assigned: string) =>
+    totalEffectiveKg(
+      data.events
+        .filter((e) => (uid === null ? e.user_id !== userId : e.user_id === uid) && e.kind === 'volume' && e.round_no === round.round_no && e.server_ts >= liveAt)
+        .map(toVolume)
+        .filter((e) => e.exercise === assigned)
+    );
+  const myKg = countFor(userId, myAssigned);
+  const theirKg = countFor(null, theirAssigned);
+  const lead = Math.max(myKg, theirKg, 1);
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="HEADS OR TAILS · LIVE"
+        title={`OWN THE ${group ? group.name.toUpperCase() : 'LIFT'}`}
+        titleLines={2}
+        autoSize
+        right={
+          <Text className="text-2xl font-bold" style={{ color: over ? tokens.colors.danger : gold, textShadowColor: 'rgba(251,191,36,0.6)', textShadowRadius: 14 }}>
+            {over ? 'TIME' : `${mm}:${ss}`}
+          </Text>
+        }
+      />
+      <GlowCard glow={myKg >= theirKg && myKg > 0 ? gold : undefined}>
+        <ProgressBar
+          pct={(myKg / lead) * 100}
+          colour={gold}
+          label={`YOU · ${myAssigned.replace(' (Strength)', '').toUpperCase()}${myKg >= theirKg && myKg > 0 ? ' · LEADING' : ''}`}
+          kg={myKg}
+        />
+        <ProgressBar
+          pct={(theirKg / lead) * 100}
+          colour={tokens.colors.epic}
+          label={`${String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} · ${theirAssigned.replace(' (Strength)', '').toUpperCase()}${theirKg > myKg ? ' · LEADING' : ''}`}
+          kg={theirKg}
+        />
+        <Text className="text-2xs text-text-mute">
+          Only sets on YOUR assigned exercise count, logged after the coin settled. Effective kg —
+          coefficients apply.
+        </Text>
+      </GlowCard>
+      {!over ? (
+        <BattleLogger matchId={matchId} roundNo={round.round_no} exercises={[myAssigned]} />
+      ) : (
+        <NeonButton
+          title="LOCK IN THE DUEL · REVEAL THE VERDICT"
+          variant="danger"
+          onPress={() => settle.mutate()}
+          busy={settle.isPending}
+          testID="battle-settle"
+        />
+      )}
+    </>
+  );
 }
 
 /**
@@ -901,8 +1093,17 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
 
 /** Log a battle set: the NORMAL save path (update-in-place, real XP), then
  *  the confirmed row id is tied to the battle. Never optimistic. */
-function BattleLogger({ matchId, roundNo }: { matchId: string; roundNo: number }) {
-  const [exercise, setExercise] = useState(BATTLE_EXERCISES[0]);
+function BattleLogger({
+  matchId,
+  roundNo,
+  exercises = BATTLE_EXERCISES,
+}: {
+  matchId: string;
+  roundNo: number;
+  /** Heads or Tails locks this to the single assigned exercise. */
+  exercises?: readonly string[];
+}) {
+  const [exercise, setExercise] = useState(exercises[0]);
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
   const save = useSaveSet();
@@ -961,7 +1162,7 @@ function BattleLogger({ matchId, roundNo }: { matchId: string; roundNo: number }
         <EdgeLabel>LOG A BATTLE SET</EdgeLabel>
       </View>
       <View className="mb-s3 flex-row flex-wrap gap-s2">
-        {BATTLE_EXERCISES.map((ex) => (
+        {exercises.map((ex) => (
           <Chip key={ex} label={ex.replace(' (Strength)', '')} active={ex === exercise} onPress={() => setExercise(ex)} />
         ))}
       </View>
@@ -1081,7 +1282,9 @@ function DuelPanel({
 const ROUND_LABELS: Record<number, string> = { 1: 'STRENGTH', 2: 'CARDIO', 3: 'PHYSIQUE' };
 const ROUND_BUDGETS: Record<number, number> = { 1: 1200, 2: 1050, 3: 750 };
 
-function ScoreCard({ p, scores, won }: { p: BattleParticipant | null; scores: BattleBundle['scores']; won: boolean }) {
+function ScoreCard({ p, scores, won, format }: { p: BattleParticipant | null; scores: BattleBundle['scores']; won: boolean; format?: string | null }) {
+  // Duels: one round, no budget — points ARE effective kg.
+  const duel = format === 'volume_duel' || format === 'heads_or_tails';
   const mine = scores.filter((s) => s.user_id === p?.user_id).sort((a, b) => a.round_no - b.round_no);
   const total = p?.total_score ?? mine.reduce((acc, s) => acc + s.points, 0);
   const tint = won ? tokens.colors.success : tokens.colors.border;
@@ -1102,10 +1305,10 @@ function ScoreCard({ p, scores, won }: { p: BattleParticipant | null; scores: Ba
       {mine.map((s) => (
         <View key={s.round_no} className="flex-row justify-between">
           <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
-            R{s.round_no} {ROUND_LABELS[s.round_no] ?? ''}
+            {duel ? 'WEIGHT MOVED' : `R${s.round_no} ${ROUND_LABELS[s.round_no] ?? ''}`}
           </Text>
           <Text className="text-2xs font-bold text-text-dim">
-            {s.points} / {ROUND_BUDGETS[s.round_no] ?? ''}
+            {duel ? `${s.points} EFFECTIVE KG` : `${s.points} / ${ROUND_BUDGETS[s.round_no] ?? ''}`}
           </Text>
         </View>
       ))}
@@ -1129,8 +1332,8 @@ function ResultsPhase({ data, me, them }: { data: BattleBundle; me: BattlePartic
         kicker="THE VERDICT"
         title={draw ? 'DEAD EVEN' : iWon ? 'VICTORY' : 'DEFEAT'}
       />
-      <ScoreCard p={me} scores={data.scores} won={iWon} />
-      <ScoreCard p={them} scores={data.scores} won={!iWon && !draw && match.status === 'settled'} />
+      <ScoreCard p={me} scores={data.scores} won={iWon} format={match.format} />
+      <ScoreCard p={them} scores={data.scores} won={!iWon && !draw && match.status === 'settled'} format={match.format} />
       {/* replace, not back(): from a deep link or refresh, back() can land
           on Home or exit the group -- and the settled battle should not be
           back-reachable into a stale state (IMPROVEMENT_PLAN #7). */}

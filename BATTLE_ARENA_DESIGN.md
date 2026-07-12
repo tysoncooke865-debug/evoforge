@@ -463,7 +463,7 @@ blur (tab focus effect); no polling anywhere — push or fetch-on-focus.
 - **D4 Identity**: reuse the `public_profile` opt-in display name; entering
   the Arena requires it.
 
-## 16. ARENA MINI GAMES (Tyson's spec; D5–D9 answered. MG1 SHIPPED 2026-07-12; MG2 in progress)
+## 16. ARENA MINI GAMES (Tyson's spec; D5–D9 answered. MG1 + MG2 BOTH SHIPPED 2026-07-12)
 
 Two new single-round competitive formats beside FRIENDLY BLITZ. Both reuse
 the battle spine end-to-end: invite-code flow, battle_matches/rounds/

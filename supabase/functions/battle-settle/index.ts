@@ -17,6 +17,7 @@ import {
   CARDIO_CHALLENGES,
   battleXp,
   scoreCardioRound,
+  scoreHeadsOrTails,
   scorePhysiqueRound,
   scoreStrengthRound,
   scoreVolumeDuel,
@@ -113,7 +114,28 @@ Deno.serve(async (req) => {
   // ---- score the open round ------------------------------------------------
   let results: { user_id: string; points: number; components: Record<string, unknown> }[];
 
-  if (round.kind === 'volume_duel') {
+  if (round.kind === 'heads_or_tails') {
+    const spec = round.spec as Record<string, unknown>;
+    if (String(spec.state ?? '') !== 'live') {
+      return json({ error: 'Picks are still in progress.', ends_at: round.ends_at }, 409);
+    }
+    if (!windowOver) {
+      return json({ error: 'Round 1 is still open.', ends_at: round.ends_at }, 409);
+    }
+    const liveAt = String(spec.liveAt ?? '');
+    results = participants.map((p) => {
+      const assigned = String(p.seat === 1 ? spec.exerciseSeat1 ?? '' : spec.exerciseSeat2 ?? '');
+      const events = (byUser.get(p.user_id) ?? [])
+        .filter((e) => e.kind === 'volume' && e.server_ts >= liveAt)
+        .map(toVolume);
+      const c = scoreHeadsOrTails(events, assigned);
+      return {
+        user_id: p.user_id,
+        points: c.points,
+        components: { ...c, assigned } as unknown as Record<string, unknown>,
+      };
+    });
+  } else if (round.kind === 'volume_duel') {
     // No target, no early finish — the window IS the duel (§16, D5/D6).
     if (!windowOver) {
       return json({ error: 'Round 1 is still open.', ends_at: round.ends_at }, 409);

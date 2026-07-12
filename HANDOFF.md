@@ -223,9 +223,24 @@ ui/exercise-logger ExerciseCard (tint + onLogged seams; Today imports from
 there now), leader-relative dual bars. Sets are REAL Today sets (streak/
 stats/XP bank; duel banks a set AS FIRST LOGGED — edits can't inflate).
 Two-account prod tour: tour_duel.py (500 vs 300 effective kg verified,
-winner correct, smoke match cleaned). MG2 HEADS OR TAILS next: battle-pick
-+ server flips; coin flip art SLICED READY at client/src/assets/battle/
-coin_{heads,tails,edge}.png (Tyson's sheet, checker keyed out).
+winner correct, smoke match cleaned).
+**MG2 HEADS OR TAILS SHIPPED (2026-07-12):** engine v4 adds PICK_GROUPS
+(six catalog-derived groups — the allowlist battle-pick validates
+against). battle-ready rolls FLIP 1 (live crypto RNG, seat 1 = heads);
+NEW battle-pick advances the state machine (awaiting_muscle →
+awaiting_ex_p1 → awaiting_ex_p2 → live), rolls flips 2/3 as their steps
+open (no spoilers), CAS-guards on spec->>state, writes server-only
+'pick' events, resets the window per step (5 min picks, 30 min live) and
+stamps spec.liveAt — settle counts ONLY volume with server_ts >= liveAt
+on YOUR assigned exercise. Stalled picker: after the deadline EITHER
+player claims a random legal pick ({auto:true}). Client: CoinFlip
+(ui/coin-flip.tsx — Tyson's gold coin, strip spin via the sprite
+contract, static face on verdict), pick ceremony + chips, locked
+BattleLogger (exercises prop), gold skin; ScoreCard shows EFFECTIVE KG
+for duels (no /1200). Prod tour: tour_hot.py — three flips, picks, live,
+400 vs 250 on Barbell Back Squat, verdict + assigned recorded, cleaned.
+GOTCHA: ActivePhase already renders AbandonControl — round components
+must NOT add their own (double control shipped briefly in the tour).
 
 ## Sex calibration (2026-07-12, Tyson-requested)
 Female athletes no longer grade against male standards. `SexCalibration`

@@ -24,10 +24,9 @@ Deno.serve(async (req) => {
   if (!userId) return json({ error: 'Not signed in.' }, 401);
 
   const body = await req.json().catch(() => ({}));
-  // Formats a friendly invite may mint. 'full' waits on its implementation;
-  // 'heads_or_tails' joins this list when battle-pick ships (MG2).
+  // Formats a friendly invite may mint. 'full' waits on its implementation.
   const format = String(body.format ?? 'blitz');
-  if (!['blitz', 'volume_duel'].includes(format)) {
+  if (!['blitz', 'volume_duel', 'heads_or_tails'].includes(format)) {
     return json({ error: `Unknown format: ${format}` }, 400);
   }
   const svc = serviceClient();

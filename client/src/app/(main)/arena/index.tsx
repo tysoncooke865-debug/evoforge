@@ -192,7 +192,31 @@ export default function ArenaScreen() {
             />
           </GlowCard>
           <View className="mt-s3">
-            <ComingCard glyph="🪙" tint={tokens.colors.legendary} title="HEADS OR TAILS" note="Coin flips pick the muscle — and your exercise" />
+            <GlowCard glow={tokens.colors.legendary}>
+              <View className="mb-s3 flex-row items-center gap-s3">
+                <IconBadge glyph="🪙" tint={tokens.colors.legendary} />
+                <View className="flex-1">
+                  <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                    HEADS OR TAILS
+                  </Text>
+                  <View className="mt-s1 flex-row gap-s2">
+                    <MiniChip label="👥 1V1" />
+                    <MiniChip label="🪙 3 FLIPS" />
+                    <MiniChip label="⏱ 30 MIN" />
+                  </View>
+                </View>
+              </View>
+              <Text className="mb-s4 text-2xs text-text-mute">
+                The coin picks the muscle group — and who chooses each fighter{'’'}s exercise.
+                Locked lifts, thirty minutes, most weight moved on YOUR lift wins.
+              </Text>
+              <NeonButton
+                title="FLIP THE COIN · GET CODE"
+                onPress={() => createBattle('heads_or_tails')}
+                busy={invite.isPending}
+                testID="arena-create-hot"
+              />
+            </GlowCard>
           </View>
         </View>
       ) : null}

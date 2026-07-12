@@ -6,7 +6,7 @@
  */
 
 import { CORS_HEADERS, json, sha256Hex } from '../_shared/ai.ts';
-import { BATTLE_OBJECTS, ENGINE_VERSION, VOLUME_DUEL_MINUTES } from '../_shared/battle/engine.ts';
+import { BATTLE_OBJECTS, ENGINE_VERSION, PICK_MINUTES, VOLUME_DUEL_MINUTES } from '../_shared/battle/engine.ts';
 import { callerUserId, participantsOf, serviceClient } from '../_shared/battle/service.ts';
 
 const BLITZ_STRENGTH_MINUTES = 12;
@@ -61,6 +61,25 @@ Deno.serve(async (req) => {
     kind = 'volume_duel';
     minutes = VOLUME_DUEL_MINUTES;
     spec = { engineVersion: ENGINE_VERSION, windowMinutes: VOLUME_DUEL_MINUTES };
+  } else if (format === 'heads_or_tails') {
+    // FLIP 1, live crypto RNG — never derivable in advance (later flips are
+    // rolled by battle-pick as each step opens, so nothing is spoiled).
+    // Convention: seat 1 calls HEADS, seat 2 is TAILS.
+    const face = (crypto.getRandomValues(new Uint8Array(1))[0] & 1) === 0 ? 'heads' : 'tails';
+    const winner = fresh.find((p) => p.seat === (face === 'heads' ? 1 : 2))!;
+    kind = 'heads_or_tails';
+    minutes = PICK_MINUTES; // the round window IS the pick deadline until live
+    spec = {
+      engineVersion: ENGINE_VERSION,
+      state: 'awaiting_muscle',
+      step: 1,
+      face,
+      picker: winner.user_id,
+      muscleGroup: null,
+      exerciseSeat1: null,
+      exerciseSeat2: null,
+      liveAt: null,
+    };
   } else {
     // Roll the object from the match id: deterministic, auditable, unbiased-enough.
     const hash = await sha256Hex(matchId);
