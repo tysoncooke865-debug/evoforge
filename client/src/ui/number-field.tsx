@@ -39,12 +39,14 @@ function StepButton({
   onStep,
   onHoldStep,
   tint,
+  narrow = false,
   testID,
 }: {
   glyph: string;
   onStep: () => void;
   onHoldStep: () => void;
   tint: string;
+  narrow?: boolean;
   testID?: string;
 }) {
   const repeat = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -65,7 +67,7 @@ function StepButton({
       // Chrome lives on the FUSED PILL wrapper (P2 C2 item 11); the halves
       // stay bare so the pill reads as one control.
       className="items-center justify-center"
-      style={{ width: 32, height: 27 }}
+      style={{ width: narrow ? 26 : 32, height: 27 }}
       accessibilityRole="button"
       accessibilityLabel={glyph === '+' ? 'increase' : 'decrease'}
       testID={testID}
@@ -186,6 +188,7 @@ export function NumberField({
   width = 68,
   bigStep,
   dim = false,
+  narrow = false,
   testID,
 }: {
   value: string;
@@ -201,6 +204,8 @@ export function NumberField({
   bigStep?: number;
   /** True = render the value dimmed (untouched last-session prefill). */
   dim?: boolean;
+  /** Sub-360px screens: slimmer steppers (P2 sweep, iPhone SE1/5s). */
+  narrow?: boolean;
   testID?: string;
 }) {
   const [padOpen, setPadOpen] = useState(false);
@@ -271,6 +276,7 @@ export function NumberField({
           onStep={() => bump(1)}
           onHoldStep={() => bump(1, true)}
           tint={tint}
+          narrow={narrow}
           testID={testID ? `${testID}-inc` : undefined}
         />
         <View style={{ height: 1, backgroundColor: `${tint}40` }} />
@@ -279,6 +285,7 @@ export function NumberField({
           onStep={() => bump(-1)}
           onHoldStep={() => bump(-1, true)}
           tint={tint}
+          narrow={narrow}
           testID={testID ? `${testID}-dec` : undefined}
         />
       </View>

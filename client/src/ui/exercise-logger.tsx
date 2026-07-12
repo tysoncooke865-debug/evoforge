@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { useSaveSet } from '@/data/mutations';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
@@ -13,8 +13,12 @@ import { NumberField } from '@/ui/number-field';
 import { schemeSentence } from '@/ui/scheme-sentence';
 import { GlowCard } from '@/ui/shell';
 
-/** Item 10: both value boxes share one fixed 4-char width (tabular-nums). */
+/** Item 10: both value boxes share one fixed 4-char width (tabular-nums).
+ *  Sub-360px screens (iPhone SE1/5s) drop to the compact metrics — the only
+ *  width where the row otherwise clips its LOG button (P2 size sweep). */
 const FIELD_WIDTH = 64;
+const FIELD_WIDTH_COMPACT = 48;
+const useCompact = () => useWindowDimensions().width < 360;
 
 /**
  * The exercise logging card — EXTRACTED from today.tsx (2026-07-12) so the
@@ -82,6 +86,9 @@ export function ExerciseCard({
   onLogged?: (verdict: SetVerdict) => void;
 }) {
   const done = doneCount >= targetSets;
+  const compact = useCompact();
+  const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
+  const stepperW = compact ? 26 : 32;
   // What this athlete did LAST session on this exercise (IMPROVEMENT_PLAN #2).
   const last = lastPerformance(allRows, exercise, date);
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
@@ -107,18 +114,18 @@ export function ExerciseCard({
       {/* Item 1.6: column headers mirror the row skeleton (same widths and
           gap classes as SetRow) so alignment is structural, not tuned. */}
       <View className="mb-s1 flex-row items-center gap-s1 px-[2px]">
-        <View className="w-s10" />
+        <View style={{ width: compact ? 30 : 40 }} />
         <View className="flex-row items-center gap-s1">
-          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: FIELD_WIDTH, letterSpacing: 1 }}>
-            WEIGHT (KG)
+          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: fieldW, letterSpacing: 1 }} numberOfLines={1}>
+            {compact ? 'KG' : 'WEIGHT (KG)'}
           </Text>
-          <View style={{ width: 32 }} />
+          <View style={{ width: stepperW }} />
         </View>
         <View className="flex-row items-center gap-s1">
-          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: FIELD_WIDTH, letterSpacing: 1 }}>
+          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: fieldW, letterSpacing: 1 }}>
             REPS
           </Text>
-          <View style={{ width: 32 }} />
+          <View style={{ width: stepperW }} />
         </View>
       </View>
       {Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
@@ -209,12 +216,14 @@ function SetRow({
   };
 
   const standardTint = tint === tokens.colors.accent;
+  const compact = useCompact();
+  const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   return (
     <View className="mb-s2 flex-row items-center gap-s1 px-[2px] py-s1">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
-      <View className="w-s10 justify-center">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
-          SET {setNo}
+      <View className="justify-center" style={{ width: compact ? 30 : 40 }}>
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: compact ? 0 : 1 }}>
+          {compact ? `S${setNo}` : `SET ${setNo}`}
         </Text>
       </View>
       <NumberField
@@ -228,7 +237,8 @@ function SetRow({
         placeholder="kg"
         label="WEIGHT · KG"
         tint={tint}
-        width={FIELD_WIDTH}
+        width={fieldW}
+        narrow={compact}
         dim={!logged && prefill !== null && !weightDirty}
         testID={`${exercise}-w-${setNo}`}
       />
@@ -243,7 +253,8 @@ function SetRow({
         placeholder="reps"
         label="REPS"
         tint={tint}
-        width={FIELD_WIDTH}
+        width={fieldW}
+        narrow={compact}
         dim={!logged && prefill !== null && !repsDirty}
         testID={`${exercise}-r-${setNo}`}
       />
@@ -268,7 +279,7 @@ function SetRow({
           <ActivityIndicator size="small" color={logged ? tint : '#04121a'} />
         ) : (
           <Text className={`text-xs font-bold ${logged ? 'text-text-dim' : 'text-accent-ink'}`}>
-            {logged ? 'UPDATE' : 'LOG'}
+            {logged ? (compact ? '✓' : 'UPDATE') : 'LOG'}
           </Text>
         )}
       </Pressable>
