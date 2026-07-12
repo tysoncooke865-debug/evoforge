@@ -21,6 +21,20 @@ import tokens from '@/theme/tokens';
 
 const REPEAT_MS = 140;
 
+/**
+ * The custom keypad belongs on every TOUCH screen, not just the native app —
+ * Tyson uses the deployed WEB app on his phone, where Platform.OS is 'web'
+ * but the iOS keyboard is exactly the thing he complained about. Coarse
+ * pointer = touch device: keypad on, virtual keyboard suppressed via
+ * inputMode 'none'. Fine pointer (desktop, and the Playwright tours) keeps
+ * a normally typeable input.
+ */
+const USE_CUSTOM_PAD =
+  Platform.OS !== 'web' ||
+  (typeof window !== 'undefined' &&
+    ((typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches) ||
+      (typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 0)));
+
 function formatValue(n: number, integer: boolean): string {
   if (integer) return String(Math.max(0, Math.trunc(n)));
   const clamped = Math.max(0, Math.round(n * 100) / 100);
@@ -81,13 +95,18 @@ function KeyPad({
   // Mounted fresh on every open (the parent conditions the render), so the
   // draft always seeds from the value as it was when the pad opened.
   const [draft, setDraft] = useState(initial);
+  // Calculator convention: the FIRST keystroke replaces the seeded value
+  // (typing 82.5 over a 70 must give 82.5, not 7082.5); backspace edits it.
+  const [touched, setTouched] = useState(false);
   const press = (k: string) => {
-    if (k === '⌫') return setDraft((d) => d.slice(0, -1));
+    const base = touched ? draft : k === '⌫' ? draft : '';
+    setTouched(true);
+    if (k === '⌫') return setDraft(draft.slice(0, -1));
     if (k === '.') {
-      if (integer || draft.includes('.')) return;
-      return setDraft((d) => (d === '' ? '0.' : `${d}.`));
+      if (integer || base.includes('.')) return;
+      return setDraft(base === '' ? '0.' : `${base}.`);
     }
-    setDraft((d) => (d === '0' ? k : d.length >= 6 ? d : `${d}${k}`));
+    setDraft(base === '0' ? k : base.length >= 6 ? base : `${base}${k}`);
   };
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -164,7 +183,6 @@ export function NumberField({
   testID?: string;
 }) {
   const [padOpen, setPadOpen] = useState(false);
-  const native = Platform.OS !== 'web';
   const bump = (dir: 1 | -1) => {
     const current = pyFloat(value) ?? 0;
     onChange(formatValue(current + dir * step, integer));
@@ -177,19 +195,20 @@ export function NumberField({
       <TextInput
         className="rounded-md border border-border bg-surface-2 p-s2 text-center text-text"
         style={{ width, minHeight: 44 }}
-        inputMode={integer ? 'numeric' : 'decimal'}
+        inputMode={USE_CUSTOM_PAD ? 'none' : integer ? 'numeric' : 'decimal'}
         placeholder={placeholder}
         placeholderTextColor="#64758f"
         value={value}
         onChangeText={onChange}
-        showSoftInputOnFocus={!native}
-        onPressIn={native ? () => setPadOpen(true) : undefined}
+        showSoftInputOnFocus={!USE_CUSTOM_PAD}
+        onPressIn={USE_CUSTOM_PAD ? () => setPadOpen(true) : undefined}
+        onFocus={USE_CUSTOM_PAD ? () => setPadOpen(true) : undefined}
         testID={testID}
       />
       {steppers ? (
         <StepButton glyph="+" onStep={() => bump(1)} tint={tint} testID={testID ? `${testID}-inc` : undefined} />
       ) : null}
-      {native && padOpen ? (
+      {USE_CUSTOM_PAD && padOpen ? (
         <KeyPad
           label={label}
           initial={value}
