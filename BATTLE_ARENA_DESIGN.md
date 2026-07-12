@@ -462,3 +462,88 @@ blur (tab focus effect); no polling anywhere — push or fetch-on-focus.
 - **D3 Coins**: deferred. XP + trophies only in v1.
 - **D4 Identity**: reuse the `public_profile` opt-in display name; entering
   the Arena requires it.
+
+## 16. ARENA MINI GAMES (planned 2026-07-12, Tyson's spec; gated on D5–D9)
+
+Two new single-round competitive formats beside FRIENDLY BLITZ. Both reuse
+the battle spine end-to-end: invite-code flow, battle_matches/rounds/
+events, the append-only volume guard, realtime dual bars, battle-settle,
+engine scoring, results + history. Neither touches BLITZ.
+
+### Game 1 — VOLUME DUEL (`format: 'volume_duel'`)
+Compete during the same workout to move the most total weight.
+- **Score** = Σ weight×reps over ALL sets logged in the window. Winner =
+  higher total; tie = draw (winner_user_id null, like BLITZ).
+- **The streak/stats contribution is FREE**: duel sets ride the NORMAL
+  useSaveSet path (update-in-place, real 10 XP/set, PR detection) and then
+  post battle_events 'volume' with the confirmed rowId — exactly the P1
+  round-1 pattern. computeStreak and calculateAvatarStats read workout_log,
+  so the duel workout counts automatically. No new grant paths.
+- **Anti-cheat**: nothing new — the existing battle_events guard already
+  rebuilds volume payloads from owned in-window workout_log rows.
+- **UI**: a Today-screen twin with a competitive skin. Extract Today's
+  ExerciseCard/SetRow into a shared ui/exercise-logger.tsx taking a tint
+  (Today = standard cyan; duel = danger/mythic palette, "VOLUME DUEL"
+  kicker, round clock in the header, opponent's live total + dual bars).
+  Extraction must not regress Today (tap contract; keep the day:exercise
+  key fix). The athlete logs their OWN day plan, any exercises count.
+- **Server**: battle-settle becomes format-aware — totalRounds('blitz'|
+  'full')=3, mini games=1 — finalizing after round 1. Engine v3 adds the
+  volume-duel scorer (byte-copied ×3, CI pin unchanged).
+
+### Game 2 — MUSCLE DUEL (`format: 'muscle_duel'`)
+A coin-flip gauntlet locks each athlete to one exercise in one muscle
+group; most weight moved on YOUR assigned exercise wins.
+- **Coin flips are SERVER-side** (crypto RNG in the edge function at
+  ready-up; the client never flips, it only replays verdicts). Three
+  flips, revealed one per pick step so later ones can't be predicted:
+  1. Flip 1 winner picks the MUSCLE GROUP.
+  2. Flip 2 winner picks PLAYER 1's exercise (within that group).
+  3. Flip 3 winner picks PLAYER 2's exercise (within that group).
+- **Pick state machine** lives in battle_rounds.spec:
+  `awaiting_muscle(w1) → awaiting_ex_p1(w2) → awaiting_ex_p2(w3) → open`,
+  with {muscleGroup, exerciseA, exerciseB} locked at open. A stalled
+  picker times out (5 min) to an auto-random legal pick — no hostage
+  matches.
+- **New edge function `battle-pick`**: validates caller = current step's
+  flip winner, validates the exercise's inferMuscleGroup matches the
+  picked group (catalog-derived allowlist), writes the pick as a
+  server-only battle_events 'pick' row, advances the state, opens the
+  logging round after pick 3.
+- **Pickable groups**: catalog groups with ≥3 exercises (Chest, Upper
+  Chest, Back Width, Back Thickness, Side/Rear Delts, Biceps, Triceps,
+  Quads, Hamstrings, Glutes, Abs — final list derived from the catalog).
+- **UI**: coin-flip ceremony (ONE-SHOT animation per the animation rules,
+  server verdict revealed), pick screens (group chips → exercise list),
+  then the shared duel logger locked to the assigned exercise.
+- Sets again ride the normal path → streak/stats/XP automatic.
+
+### Shared work
+- **Migration 015** (`[architect]`): widen the format check to
+  ('blitz','full','volume_duel','muscle_duel'); round kinds; battle_events
+  kind 'pick' insertable by the service role only; STEP-9-style
+  falsification checklist (stranger reads nothing; non-winner pick
+  rejected; out-of-group exercise rejected; forged volume rejected;
+  positive control green).
+- battle-invite takes a `format` param (default 'blitz'); Arena hub grows
+  a MINI GAMES section with two PressCards; battle screen routes on
+  format. XP on settle: existing battleXp. Winner coins: see D8.
+
+### Phases (each shippable, BLITZ untouched)
+- **MG1**: migration 015 + engine v3 + format-aware invite/settle +
+  VOLUME DUEL end-to-end + ExerciseLogger extraction + two-account tour.
+- **MG2**: battle-pick + flip ceremony + MUSCLE DUEL end-to-end + tour.
+
+### Decisions — D5–D9 (implementation gated on these)
+- **D5 Scoring basis**: absolute kg moved (RECOMMENDED — legible, it's
+  the same bar) vs bodyweight-relative (fairer across sizes; could land
+  later as a variant). Sex calibration does NOT apply here — duels are
+  head-to-head absolute contests unless D5 says otherwise.
+- **D6 Windows**: Volume Duel 75 min; Muscle Duel 30 min logging + 5 min
+  per pick. Confirm or adjust.
+- **D7 Muscle Duel counting**: assigned exercise ONLY (RECOMMENDED) vs
+  every set in the picked muscle group.
+- **D8 Winner coins**: defer (RECOMMENDED, consistent with D3) vs +50
+  winner coin (needs a 013-style server guard migration).
+- **D9 Reach at launch**: invite-code only (RECOMMENDED); P3's
+  quick-match queue can offer duels once it exists.
