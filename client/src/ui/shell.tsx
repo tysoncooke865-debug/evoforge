@@ -1,9 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import tokens from '@/theme/tokens';
+import { clearActiveScroller, setActiveScroller } from '@/ui/scroll-registry';
 
 /**
  * The screen shell: near-black stage lighting instead of a flat background.
@@ -17,11 +19,22 @@ import tokens from '@/theme/tokens';
  */
 export function ScreenShell({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
+  // P2 C4: the FOCUSED shell owns the scroll-to-top registration; blur
+  // clears it (focus-scoped — never keyed by pathname, see scroll-registry).
+  const scrollRef = useRef<ScrollView>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
+      setActiveScroller(toTop);
+      return () => clearActiveScroller(toTop);
+    }, [])
+  );
   return (
     <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
       <View pointerEvents="none" style={{ position: 'absolute', top: -180, left: -160, width: 480, height: 480, borderRadius: 240, backgroundColor: 'rgba(34, 211, 238, 0.09)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', top: -140, right: -180, width: 420, height: 420, borderRadius: 210, backgroundColor: 'rgba(168, 85, 247, 0.08)' }} />
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerClassName="items-center px-s4"
         contentContainerStyle={{

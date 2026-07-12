@@ -8,6 +8,7 @@ import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
+import { scrollActiveToTop } from '@/ui/scroll-registry';
 import tokens from '@/theme/tokens';
 
 /**
@@ -62,6 +63,10 @@ export default function MainLayout() {
   return (
     <>
     <Tabs
+      // P2 C4: EVERY tab press scrolls the focused screen to the top. The
+      // deferred call lets a cross-tab press land focus first, so one code
+      // path covers re-pressing the current tab AND navigating to a page.
+      screenListeners={{ tabPress: () => setTimeout(scrollActiveToTop, 0) }}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: tokens.colors.bg },
