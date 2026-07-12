@@ -292,6 +292,17 @@ Lint is ZERO problems (was 12 warnings). Deliberately NOT done: pausing
 ambient loops on unfocused tabs and virtualising coin history — regression
 risk over speculative wins; revisit only with evidence.
 
+## UI tooling + PWA (2026-07-12)
+Installed on Tyson's machine (npm -g): **pngquant** (asset quantization —
+drove the 12.2MB→7.1MB asset diet in `e7ec10c`; when re-running, keep the
+side-by-side git-original-vs-compressed visual falsification at display
+size), **lighthouse** (audit the live app), **react-devtools**, **eas-cli**
+(future native build). The app is an **installable PWA**: client/public/
+carries manifest.webmanifest + maskable 192/512 emblem icons +
+apple-touch-icon (generated from Tyson's EvoForge emblem, dark #04070e);
++html.tsx links them — its tap-latency viewport contract is untouched.
+public/ rides `expo export` into dist automatically.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`
