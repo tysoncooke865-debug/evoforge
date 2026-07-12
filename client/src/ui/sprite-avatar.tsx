@@ -91,17 +91,17 @@ const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: true,
 
 // ---------------------------------------------------------------- web
 
-let cssInjected = false;
-
 /** Browser-native sprite playback: background-position through steps(). */
 function CssSprite({ anim, width, height, frozen }: { anim: Anim; width: number; height: number; frozen: boolean }) {
   const n = COUNT[anim];
   // resolveAssetSource does not exist on react-native-web; expo-asset
   // resolves Metro module ids to served URLs on every platform.
   const uri = Asset.fromModule(STRIPS[anim]).uri;
-  if (!cssInjected && typeof document !== 'undefined') {
-    cssInjected = true;
+  // Keyframes injected once, keyed by DOM id (no module-scope reassignment —
+  // the react compiler lint forbids it inside a component).
+  if (typeof document !== 'undefined' && !document.getElementById('evoforge-sprite-kf')) {
     const style = document.createElement('style');
+    style.id = 'evoforge-sprite-kf';
     style.textContent =
       '@keyframes evoforge-sprite { from { background-position-x: 0%; } to { background-position-x: 100%; } }';
     document.head.appendChild(style);
