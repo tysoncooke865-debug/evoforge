@@ -3,7 +3,7 @@
 > For a future Claude session. Read this, then `client/CLAUDE.md`, then
 > `IMPROVEMENT_PLAN.md` (the live work order — section H is the checklist),
 > then `BATTLE_ARENA_DESIGN.md` for arena internals.
-> Rewritten 2026-07-12 mid-autonomous-run; supersedes the 2026-07-11 handoff.
+> Rewritten 2026-07-12 (supersedes 2026-07-11); sprite/tap saga appended same day.
 
 ## What this is
 
@@ -132,27 +132,51 @@ Since then:
     planned streak calendar (#11) specifies LOCAL dates — reconcile when
     building it (a UTC "today" can differ from the athlete's wall clock).
 
-## Sprite companion (2026-07-12)
-Tyson's Cyber Athlete sheet is sliced into per-frame PNGs
-(client/src/assets/avatars/sprites/, slicer in scratchpad
-slice_sprites.py) and animated by ui/sprite-avatar.tsx. Placements: Home
-(idle, by the HUD chips), Today header (idle → victory on completion),
-Log cardio card (run; punch when Boxing selected), AI header (idle),
-Arena hub (punch, replaced the ⚔ emblem). REMOVAL: flip
-SPRITE_COMPANION_ENABLED to false in ui/sprite-avatar.tsx — every
-placement returns null and layouts collapse cleanly; that one-flag
-revert was Tyson's shipping condition. Freezes under reduced motion and
-perf mode.
+## Sprite companion (2026-07-12, hard-won — read before touching)
+
+Tyson's Cyber Athlete sheets LV.1–LV.4 (sources in `~/Downloads/
+aesthetic_avatar_spritesheet_l{1-4}.png`) are sliced into per-stage frame
+sets + CSS strips in `client/src/assets/avatars/sprites/` (`lv{stage}_
+{anim}_{n}.png` + `lv{stage}_{anim}_strip.png`; uniform 4 idle / 9 run /
+6 punch / 3 victory). Slicer: scratchpad `slice_stage_sheets.py` (auto
+row detection, label-zone trim, alpha-density segmentation, connected-
+component dust removal, shared baselines, torso-anchored run frames,
+label-fragment post-pass); component generator: `gen_sprite_component.py`
+regenerates `ui/sprite-avatar.tsx`'s require tables. Jesse's standalone
+`sprite_test/` at the repo root is a browser mini-game for eyeballing
+sheets — nothing imports it.
+
+`SpriteCompanion` derives the athlete's CURRENT stage itself (shredder →
+shredderStage(bfMid), else getBranchStage, clamped 1–4) so the sprite
+matures with the character. Placements: Home (idle, HUD chips row),
+Today header (idle → victory on completion), Log cardio card (run;
+punch when Boxing), AI header (idle), Arena hub (punch). REMOVAL:
+`SPRITE_COMPANION_ENABLED = false` in `ui/sprite-avatar.tsx` — one flag,
+every placement vanishes cleanly.
+
+**THE RENDERING CONTRACT (three live bugs paid for it):**
+1. Never swap one Image's `source` per frame — async reload blanks the
+   sprite between frames on web (flicker).
+2. Never drive frames with JS timers + React state — 14 re-renders/sec
+   broke FIRST-TAP presses on iOS phones app-wide.
+3. Reanimated worklets are NOT a fix on web — a browser has no separate
+   UI thread; the same tap breakage returned.
+   → WEB uses pure CSS `steps()` over the strip (compositor-only, zero
+   JS per frame). NATIVE uses the Reanimated clock over stacked frames.
+4. `Image.resolveAssetSource` does not exist on react-native-web — use
+   expo-asset's `Asset.fromModule(mod).uri`.
+5. Run frames must keep the SHEET's baseline (bottom-anchoring grounds
+   the airborne stride) and be torso-anchored (bbox-centering makes the
+   body wobble as limbs extend).
 
 ## Mobile tap gotcha (2026-07-12, cost a live bug)
 Expo's default web shell ships a viewport WITHOUT maximum-scale, leaving
 iOS double-tap-to-zoom armed — every first tap gets held, so all buttons
-need a double tap. src/app/+html.tsx pins the viewport and sets
-touch-action: manipulation. NEVER remove that file; if taps break again
-on device, check the served viewport meta first. Sprite animations must
-also never drive frames via React state timers (14fps re-renders broke
-press recognition once) — the Reanimated UI-thread clock in
-sprite-avatar.tsx is the pattern.
+need a double tap. `src/app/+html.tsx` pins the viewport
+(maximum-scale=1, user-scalable=no, viewport-fit=cover) and sets
+touch-action: manipulation. NEVER delete that file; if taps break again
+on device, check the served viewport meta first, then look for anything
+re-rendering per animation frame (rendering contract above).
 
 ## The loop (unchanged)
 
