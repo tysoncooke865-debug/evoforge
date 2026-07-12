@@ -14,6 +14,7 @@ import {
   RulesStrip,
 } from '@/ui/battle-arena';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
+import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { NeonButton } from '@/ui/neon-button';
 import { SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
@@ -74,25 +75,7 @@ export default function ArenaScreen() {
             </Text>
             <Text className="text-xs text-text-dim">Compete. Improve. Dominate.</Text>
           </View>
-          <View
-            style={{
-              width: 62,
-              height: 62,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: `${tokens.colors.epic}59`,
-              backgroundColor: `${tokens.colors.epic}0f`,
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ rotate: '8deg' }],
-              shadowColor: tokens.colors.epic,
-              shadowOpacity: 0.5,
-              shadowRadius: 16,
-              elevation: 6,
-            }}
-          >
-            <Text style={{ fontSize: 30, textShadowColor: 'rgba(34,211,238,0.8)', textShadowRadius: 12 }}>⚔️</Text>
-          </View>
+          <SpriteCompanion anim="punch" height={62} />
         </View>
       </View>
 

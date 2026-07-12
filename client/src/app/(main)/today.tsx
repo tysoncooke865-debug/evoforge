@@ -20,6 +20,7 @@ import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
+import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -145,7 +146,11 @@ export default function TodayScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker={`TODAY · ${todayIso}`} title={day.split(' - ')[0].toUpperCase()} />
+      <ScreenHeader
+        kicker={`TODAY · ${todayIso}`}
+        title={day.split(' - ')[0].toUpperCase()}
+        right={<SpriteCompanion anim={complete ? 'victory' : 'idle'} height={56} />}
+      />
 
       {aiPlan.data ? (
         <SegmentedTabs left="BUILT-IN" right="AI PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />

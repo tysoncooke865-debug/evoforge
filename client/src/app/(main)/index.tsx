@@ -12,6 +12,7 @@ import { computeStreak } from '@/domain/streak';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
+import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
 import { RarityBadge } from '@/ui/rarity-badge';
@@ -157,6 +158,7 @@ export default function HomeScreen() {
             />
           </Pressable>
         </Link>
+        <SpriteCompanion anim="idle" height={52} />
       </View>
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
 

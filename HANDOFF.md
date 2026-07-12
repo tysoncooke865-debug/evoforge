@@ -132,6 +132,18 @@ Since then:
     planned streak calendar (#11) specifies LOCAL dates — reconcile when
     building it (a UTC "today" can differ from the athlete's wall clock).
 
+## Sprite companion (2026-07-12)
+Tyson's Cyber Athlete sheet is sliced into per-frame PNGs
+(client/src/assets/avatars/sprites/, slicer in scratchpad
+slice_sprites.py) and animated by ui/sprite-avatar.tsx. Placements: Home
+(idle, by the HUD chips), Today header (idle → victory on completion),
+Log cardio card (run; punch when Boxing selected), AI header (idle),
+Arena hub (punch, replaced the ⚔ emblem). REMOVAL: flip
+SPRITE_COMPANION_ENABLED to false in ui/sprite-avatar.tsx — every
+placement returns null and layouts collapse cleanly; that one-flag
+revert was Tyson's shipping condition. Freezes under reduced motion and
+perf mode.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`

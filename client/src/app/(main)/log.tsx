@@ -10,6 +10,7 @@ import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
+import { SpriteCompanion } from '@/ui/sprite-avatar';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -169,6 +170,12 @@ function CardioCard() {
         >
           CARDIO SESSION
         </EdgeLabel>
+      </View>
+
+      {/* The companion trains what you're logging: gloves up for boxing,
+          full sprint for everything else. */}
+      <View className="mb-s2 items-center">
+        <SpriteCompanion anim={boxing ? 'punch' : 'run'} height={64} />
       </View>
 
       <View className="mb-s3 flex-row flex-wrap gap-s2">
