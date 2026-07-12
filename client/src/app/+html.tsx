@@ -20,7 +20,11 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
-        <style>{'html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}'}</style>
+        {/* background on html/body/root: an INSTALLED PWA paints the
+            safe-area insets (the iPhone home-indicator strip) with the BODY
+            background — default white showed as a white gap under the app.
+            min-height keeps the paint through rubber-band overscroll. */}
+        <style>{'html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#04070e;min-height:100%}#root{background:#04070e;min-height:100%}'}</style>
         {/* PWA (2026-07-12): installable to the home screen as a standalone
             dark app — manifest + icons live in client/public/. */}
         <link rel="manifest" href="/manifest.webmanifest" />
