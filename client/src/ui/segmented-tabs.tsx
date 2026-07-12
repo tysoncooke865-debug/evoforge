@@ -25,7 +25,11 @@ export function SegmentedTabs({
   const slider = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   const select = (index: 0 | 1) => {
-    x.value = withSpring((index * width) / 2, { damping: 20, stiffness: 260 });
+    // Spring tune (PHASE_2_PLAN commit 1, owner-decided): ζ = damping /
+    // (2·√(stiffness·mass)) = 32 / (2·√320) ≈ 0.89 vs the old 20/(2·√260)
+    // ≈ 0.62 — one barely-visible ~2% overshoot instead of a multi-cycle
+    // wobble, and the higher stiffness keeps the attack sharp.
+    x.value = withSpring((index * width) / 2, { damping: 32, stiffness: 320 });
     onChange(index);
   };
 
