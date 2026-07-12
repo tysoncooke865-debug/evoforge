@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, Switch, Text, TextInput, View } from 'react-native';
 
-import { useLeaderboardTop, usePublicIdentity } from '@/data/hooks';
+import { useLeaderboardTop, usePublicIdentity, useServerGrantedXp } from '@/data/hooks';
 import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
@@ -19,15 +19,27 @@ export default function RankScreen() {
   const { summary } = useAvatarData();
   const identity = usePublicIdentity();
   const board = useLeaderboardTop(50);
+  const serverGranted = useServerGrantedXp();
 
-  if (summary.xpDrift !== 0) {
+  // Migration 014's rule, applied to the CLIENT gate too: drift is only a
+  // problem when it isn't explained by server-granted XP (battles,
+  // adjustments) — those are legitimate ledger-over-derived surplus, and
+  // the server-side board admits them. Refusing here while the SQL admits
+  // was the bug Tyson hit ("drift 400" = his battle XP).
+  const unexplainedDrift =
+    serverGranted.data === null || serverGranted.data === undefined
+      ? summary.xpDrift // breakdown unavailable: fall back to the strict rule
+      : summary.xpDrift - serverGranted.data;
+
+  if (unexplainedDrift !== 0) {
     return (
       <Shell>
         <View className="rounded-lg border border-border bg-surface p-s6">
           <Text className="mb-s2 text-lg font-bold text-warn">RANKING UNAVAILABLE</Text>
           <Text className="text-sm text-text-dim">
-            Your XP ledger and activity recount disagree (drift {summary.xpDrift}). The board
-            refuses unreconciled accounts — reconciliation restores it.
+            Your XP ledger and activity recount disagree (drift {unexplainedDrift} beyond
+            server-granted XP). The board refuses unreconciled accounts — reconciliation
+            restores it.
           </Text>
         </View>
       </Shell>
