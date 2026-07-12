@@ -242,6 +242,16 @@ for duels (no /1200). Prod tour: tour_hot.py — three flips, picks, live,
 GOTCHA: ActivePhase already renders AbandonControl — round components
 must NOT add their own (double control shipped briefly in the tour).
 
+**NUMBER ENTRY (2026-07-12, Tyson):** ui/number-field.tsx replaces raw
+TextInputs for weight/reps (Today set rows + duel twin + battle logger).
+Weight: −/+ steppers (2.5 kg, hold-to-repeat) + tap-value → in-app KEYPAD
+on native (showSoftInputOnFocus=false — the iOS system keyboard never
+appears). Reps: keypad-only (steppers were traded for row width — double
+steppers clipped the LOG button at 390px). WEB stays typeable: tours
+.fill() the same testIDs; steppers add `-inc`/`-dec` suffixed testIDs.
+KeyPad must stay conditionally MOUNTED (remount per open seeds the draft).
+Keypad is native-only — verify on a device, web tours can't reach it.
+
 ## Sex calibration (2026-07-12, Tyson-requested)
 Female athletes no longer grade against male standards. `SexCalibration`
 in avatar-stats-calc.ts parameterises the pinned algorithm's CONSTANTS
