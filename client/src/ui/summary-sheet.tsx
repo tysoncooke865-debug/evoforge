@@ -43,6 +43,7 @@ export function SummarySheet({
   onClose,
   onSaveRoutine,
   defaultRoutineName = '',
+  onFinish,
 }: {
   data: WorkoutSummaryData | null;
   onClose: () => void;
@@ -50,6 +51,13 @@ export function SummarySheet({
    *  nothing was logged — there would be nothing to save. */
   onSaveRoutine?: (name: string) => void;
   defaultRoutineName?: string;
+  /**
+   * TRAIN_IMPROVEMENTS: end the workout FOR REAL — write the finish marker.
+   * When present, the ceremony's last button becomes FINISH WORKOUT and a
+   * KEEP TRAINING escape sits beside it. Without it the sheet is what it was:
+   * a summary you dismiss.
+   */
+  onFinish?: () => void;
 }) {
   if (!data) return null;
   // Phase state lives in Ceremony, which unmounts with the sheet — a fresh
@@ -60,6 +68,7 @@ export function SummarySheet({
       onClose={onClose}
       onSaveRoutine={onSaveRoutine}
       defaultRoutineName={defaultRoutineName}
+      onFinish={onFinish}
     />
   );
 }
@@ -69,11 +78,13 @@ function Ceremony({
   onClose,
   onSaveRoutine,
   defaultRoutineName,
+  onFinish,
 }: {
   data: WorkoutSummaryData;
   onClose: () => void;
   onSaveRoutine?: (name: string) => void;
   defaultRoutineName: string;
+  onFinish?: () => void;
 }) {
   const phases: PhaseKey[] = [
     'summary',
@@ -187,10 +198,39 @@ function Ceremony({
             {phase === 'next' ? <NextPhase data={data} /> : null}
 
             <NeonButton
-              title={last ? (phase === 'next' ? "I'LL BE THERE" : 'CONTINUE') : 'CONTINUE'}
-              onPress={last ? onClose : () => setIdx(idx + 1)}
+              title={
+                last
+                  ? onFinish
+                    ? 'FINISH WORKOUT'
+                    : phase === 'next'
+                      ? "I'LL BE THERE"
+                      : 'CONTINUE'
+                  : 'CONTINUE'
+              }
+              onPress={
+                last
+                  ? () => {
+                      // THE FIX: finishing writes a marker, so the decision
+                      // survives the sheet closing. Without it, `complete` was
+                      // re-derived on the next render and the workout sprang
+                      // back to life.
+                      onFinish?.();
+                      onClose();
+                    }
+                  : () => setIdx(idx + 1)
+              }
               testID={last ? 'summary-done' : 'summary-next'}
             />
+            {last && onFinish ? (
+              <View className="mt-s2">
+                <NeonButton
+                  title="KEEP TRAINING"
+                  variant="ghost"
+                  onPress={onClose}
+                  testID="summary-keep-training"
+                />
+              </View>
+            ) : null}
             {!last ? (
               <View className="mt-s2">
                 <NeonButton title="SKIP" variant="ghost" onPress={onClose} testID="summary-close" />

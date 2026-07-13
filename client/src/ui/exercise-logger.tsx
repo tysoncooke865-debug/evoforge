@@ -79,6 +79,7 @@ export function ExerciseCard({
   skipped = false,
   onAddSet,
   onRemoveSet,
+  readOnly = false,
 }: {
   date: string;
   workout: string;
@@ -107,6 +108,13 @@ export function ExerciseCard({
   onAddSet?: () => void;
   /** Undefined when at the floor (never orphan a logged row). */
   onRemoveSet?: () => void;
+  /**
+   * TRAIN_IMPROVEMENTS: the workout was FINISHED. Rows render as static text —
+   * no inputs, no LOG. This is a UX lock, NOT a security boundary: RLS still
+   * permits the write, and it does not need to stop it, because the XP contract
+   * already makes an edit grant nothing. REOPEN (on the day's bar) unlocks.
+   */
+  readOnly?: boolean;
 }) {
   const done = doneCount >= targetSets;
   const compact = useCompact();
@@ -151,6 +159,38 @@ export function ExerciseCard({
           </Pressable>
         ) : null}
       </View>
+    );
+  }
+
+  if (readOnly) {
+    const logged = Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
+      const r = loggedRows.find((x) => (pyInt(x.set) ?? 0) === setNo);
+      const w = r ? (pyFloat(r.weight) ?? 0) : 0;
+      const reps = r ? (pyInt(r.reps) ?? 0) : 0;
+      return { setNo, w, reps, done: w > 0 && reps > 0 };
+    });
+    return (
+      <GlowCard glow={done ? tokens.colors.success : undefined}>
+        <View className="mb-s2 flex-row items-center justify-between">
+          <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
+          <Text className={`text-xs font-bold ${done ? 'text-success' : 'text-text-mute'}`}>
+            {done ? '✓ DONE' : `${doneCount}/${targetSets}`}
+          </Text>
+        </View>
+        {logged.map((l) => (
+          <View key={l.setNo} className="flex-row items-center justify-between py-s1">
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+              SET {l.setNo}
+            </Text>
+            <Text
+              className={`text-sm font-bold ${l.done ? 'text-text' : 'text-text-mute'}`}
+              testID={`${exercise}-locked-${l.setNo}`}
+            >
+              {l.done ? `${l.w} kg × ${l.reps}` : '—'}
+            </Text>
+          </View>
+        ))}
+      </GlowCard>
     );
   }
 

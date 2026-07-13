@@ -6,6 +6,7 @@ import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useClaimCoin } from '@/data/coins';
 import { useDeleteRoutine, useRoutines, useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
+import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useUserPlans } from '@/data/user-plans';
 import {
   daysForSource,
@@ -158,6 +159,12 @@ export default function TodayScreen() {
 
   const claimCoins = useClaimCoin();
   const workouts = useWorkoutLog();
+  // TRAIN_IMPROVEMENTS: the finish marker. `complete` is derived every render,
+  // so without this a workout finished early sprang back to life the moment the
+  // summary closed. The marker is the athlete's decision, persisted.
+  const sessions = useWorkoutSessions();
+  const finishWorkout = useFinishWorkout();
+  const reopenWorkout = useReopenWorkout();
   const { summary, stats, bfMid } = useAvatarData();
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const prCountRef = useRef(0);
@@ -218,6 +225,10 @@ export default function TodayScreen() {
   const complete = totals.complete;
   const nextExercise = totals.nextExercise;
 
+  // Is THIS day (date + workout name) explicitly finished?
+  const marker = (sessions.data ?? []).find((m) => m.date === todayIso && m.workout === day) ?? null;
+  const finished = marker !== null;
+
   /** ✕ — but a logged exercise degrades to a skip, or the day bar would
    *  contradict the XP already banked beside it. */
   const removeOrSkip = (exercise: string) => {
@@ -266,7 +277,9 @@ export default function TodayScreen() {
       if (complete) announcedRef.current = sessionKey;
       return;
     }
-    if (complete && announcedRef.current !== sessionKey) {
+    // A workout already FINISHED never re-announces: the athlete has been
+    // through the ceremony, and re-firing it would be the app forgetting.
+    if (complete && announcedRef.current !== sessionKey && !finished) {
       announcedRef.current = sessionKey;
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSheet(buildSummary());
@@ -472,19 +485,25 @@ export default function TodayScreen() {
             // first, keeps it correct if the athlete switches day chips.)
             onLogged={() => markActive(day)}
             durable
-            onSubstitute={() => setSubFor(exercise)}
+            // A finished workout is READ-ONLY (a UX lock, not a security one —
+            // the XP contract already makes an edit grant nothing). REOPEN
+            // unlocks it, because a fat-fingered FINISH must be recoverable.
+            readOnly={finished}
+            onSubstitute={finished ? undefined : () => setSubFor(exercise)}
             skipped={skipped}
-            onRemove={() => removeOrSkip(exercise)}
-            onSkip={() => toggleSkip(day, exercise)}
-            onAddSet={canAddSet(sets) ? () => bumpSets(day, exercise, 1) : undefined}
+            onRemove={finished ? undefined : () => removeOrSkip(exercise)}
+            onSkip={finished ? undefined : () => toggleSkip(day, exercise)}
+            onAddSet={!finished && canAddSet(sets) ? () => bumpSets(day, exercise, 1) : undefined}
             // Absent, not disabled, at the floor — the row below it is logged.
-            onRemoveSet={canRemoveSet(sets, facts) ? () => bumpSets(day, exercise, -1) : undefined}
+            onRemoveSet={
+              !finished && canRemoveSet(sets, facts) ? () => bumpSets(day, exercise, -1) : undefined
+            }
           />
         );
       })}
 
       {/* STAGE 1: the plan is a suggestion, not a cage. */}
-      {noPlan ? null : (
+      {noPlan || finished ? null : (
         <NeonButton
           title="＋ ADD EXERCISE"
           variant="ghost"
@@ -493,7 +512,39 @@ export default function TodayScreen() {
         />
       )}
 
-      {totalDone > 0 && !complete ? (
+      {/* FINISHED — locked, with the hatch. */}
+      {finished ? (
+        <View
+          className="flex-row items-center justify-between rounded-xl p-s4"
+          style={{
+            borderWidth: 1,
+            borderColor: `${tokens.colors.success}66`,
+            backgroundColor: 'rgba(52,211,153,0.06)',
+          }}
+        >
+          <View className="flex-1">
+            <Text className="text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 2 }}>
+              ✓ WORKOUT COMPLETE
+            </Text>
+            <Text className="text-2xs text-text-mute">
+              {totalDone}/{totalTarget} sets · locked
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => marker && reopenWorkout.mutate(marker.id)}
+            accessibilityRole="button"
+            testID="reopen-workout"
+            className="items-center justify-center px-s3"
+            style={{ minHeight: 44 }}
+          >
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              REOPEN
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!finished && totalDone > 0 && !complete ? (
         <NeonButton
           title={`FINISH WORKOUT · ${totalDone}/${totalTarget} SETS`}
           variant="ghost"
@@ -540,9 +591,15 @@ export default function TodayScreen() {
       <SummarySheet
         data={sheet}
         onClose={() => {
-          // The ceremony closing IS the end of the workout: a cold start after
-          // this reopens Home, not a workout the athlete already finished.
+          // Closing without finishing (KEEP TRAINING / SKIP) leaves the workout
+          // open — but it is no longer the thing a cold start reopens into,
+          // because the athlete has seen their summary and moved on.
           setSheet(null);
+          clearActive();
+        }}
+        // THE FIX: this writes the marker. Finishing now STICKS.
+        onFinish={() => {
+          finishWorkout.mutate({ date: todayIso, workout: day });
           clearActive();
         }}
         // STAGE 1: save what you actually did, to do again. Never writes
