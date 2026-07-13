@@ -14,7 +14,7 @@ import { avatarArtV2 } from '@/ui/avatar-art';
 import { CoinIcon } from '@/ui/coin-icon';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
 import { LeaderboardTeaser } from '@/ui/leaderboard-teaser';
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { CompanionMenuButton } from '@/ui/companion-menu';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
 import { RarityBadge } from '@/ui/rarity-badge';
@@ -161,7 +161,7 @@ export default function HomeScreen() {
             />
           </Pressable>
         </Link>
-        <SpriteCompanion anim="idle" height={52} />
+        <CompanionMenuButton anim="idle" height={52} />
       </View>
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
 

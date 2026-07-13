@@ -8,7 +8,7 @@ import { Field } from '@/ui/field';
 import { EdgeLabel } from '@/ui/hud';
 import { NeonButton } from '@/ui/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { CompanionMenuButton } from '@/ui/companion-menu';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -19,7 +19,7 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 export default function LogScreen() {
   return (
     <ScreenShell>
-      <ScreenHeader kicker="TRACK THE BODY" title="STATS" right={<SpriteCompanion anim="idle" height={56} />} />
+      <ScreenHeader kicker="TRACK THE BODY" title="STATS" right={<CompanionMenuButton anim="idle" height={56} />} />
       <BodyweightCard />
       <MeasurementsCard />
     </ScreenShell>

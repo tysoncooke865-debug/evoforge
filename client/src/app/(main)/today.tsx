@@ -20,7 +20,7 @@ import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { CompanionMenuButton } from '@/ui/companion-menu';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
@@ -155,7 +155,7 @@ export default function TodayScreen() {
         kicker={`TODAY · ${todayIso}`}
         title={mode === 1 ? 'CARDIO' : day.split(' - ')[0].toUpperCase()}
         right={
-          <SpriteCompanion
+          <CompanionMenuButton
             anim={mode === 1 ? cardioAnim(cardioType) : complete ? 'victory' : 'idle'}
             height={56}
           />

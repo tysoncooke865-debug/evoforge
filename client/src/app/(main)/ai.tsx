@@ -18,7 +18,7 @@ import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScanFrame, type ScanState } from '@/ui/scan-frame';
 import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { CompanionMenuButton } from '@/ui/companion-menu';
 
 /**
  * The unified AI page: physique rating and body-fat estimate together (they
@@ -29,7 +29,7 @@ import { SpriteCompanion } from '@/ui/sprite-avatar';
  */
 export default function AiScreen() {
   return (
-    <ScreenShell><ScreenHeader kicker="THE ORACLE" title="AI ANALYSIS" right={<SpriteCompanion anim="idle" height={56} />} />
+    <ScreenShell><ScreenHeader kicker="THE ORACLE" title="AI ANALYSIS" right={<CompanionMenuButton anim="idle" height={56} />} />
         <PhysiqueSection />
         <BodyfatSection />
         <ForgeRoutineSection />

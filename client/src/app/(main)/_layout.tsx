@@ -84,15 +84,17 @@ export default function MainLayout() {
         tabBarLabelStyle: { fontWeight: '700' },
       }}
     >
+      {/* TRANSFORM P1: five majors. Everything else lives in the profile
+          menu (tap your companion, top-right of any screen). */}
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }} />
-      <Tabs.Screen name="today" options={{ title: 'Today', tabBarIcon: makeIcon('◎') }} />
-      <Tabs.Screen name="log" options={{ title: 'Stats', tabBarIcon: makeIcon('▤') }} />
-      <Tabs.Screen name="ai" options={{ title: 'AI', tabBarIcon: makeIcon('✦') }} />
-      <Tabs.Screen name="avatar" options={{ title: 'Avatar', tabBarIcon: makeIcon('◈') }} />
+      <Tabs.Screen name="today" options={{ title: 'Train', tabBarIcon: makeIcon('◎') }} />
+      <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }} />
+      <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
-      <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: makeIcon('≡') }} />
-      {/* Routable, not in the bar — reached from More. */}
-      <Tabs.Screen name="progress" options={{ href: null }} />
+      {/* Routable, not in the bar — reached from the profile menu. */}
+      <Tabs.Screen name="log" options={{ href: null }} />
+      <Tabs.Screen name="ai" options={{ href: null }} />
+      <Tabs.Screen name="more" options={{ href: null }} />
       <Tabs.Screen name="goals" options={{ href: null }} />
       <Tabs.Screen name="awards" options={{ href: null }} />
       <Tabs.Screen name="rank" options={{ href: null }} />

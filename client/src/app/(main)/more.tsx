@@ -6,6 +6,8 @@ import { ScreenShell } from '@/ui/shell';
 
 /** The overflow: everything that doesn't earn a bottom-bar slot. */
 const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
+  { href: '/ai', title: 'The Oracle', sub: 'AI physique + body fat analysis', glyph: '✦' },
+  { href: '/log', title: 'Stats Entry', sub: 'Log bodyweight and tape measurements', glyph: '▤' },
   { href: '/progress', title: 'Progress', sub: 'Bodyweight and bench e1RM over time', glyph: '◺' },
   { href: '/goals', title: 'Goals', sub: 'Targets with honest journey bars', glyph: '◎' },
   { href: '/awards', title: 'Awards', sub: 'All 64 achievements', glyph: '★' },
@@ -19,7 +21,7 @@ const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
 
 export default function MoreScreen() {
   return (
-    <ScreenShell><ScreenHeader kicker="EVERYTHING ELSE" title="MORE" />
+    <ScreenShell><ScreenHeader kicker="YOUR COMPANION'S BAG" title="MENU" />
         {ITEMS.map((item) => (
           <Link key={item.href} href={item.href as never} asChild>
             <View className="mb-s2 flex-row items-center rounded-lg border border-border bg-surface p-s4">

@@ -14,7 +14,7 @@ import {
   RulesStrip,
 } from '@/ui/battle-arena';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { CompanionMenuButton } from '@/ui/companion-menu';
 import { NeonButton } from '@/ui/neon-button';
 import { SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
@@ -78,7 +78,7 @@ export default function ArenaScreen() {
             </Text>
             <Text className="text-xs text-text-dim">Compete. Improve. Dominate.</Text>
           </View>
-          <SpriteCompanion anim="punch" height={62} />
+          <CompanionMenuButton anim="punch" height={62} />
         </View>
       </View>
 
