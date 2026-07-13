@@ -151,9 +151,10 @@
 - [x] **P6 Forge & Progress restructure** (Avatar→Forge naming, Paths
   tabs; Progress: This Week summary + metric/timeframe pickers +
   aggregates).
-- [ ] **P7 Arena** — active battle first (done in hub already for open
-  invites; extend to active matches), async default (is), notifications
-  (needs native).
+- [x] **P7 Arena** — active battle first (open invites already were;
+  now live matches lead the hub), async default (already true).
+  Notifications remain deferred — they need a native build to mean
+  anything, and the web PWA cannot deliver them on iOS.
 - [ ] **P8 Polish/release gates** — Lighthouse CI wiring, Sentry/PostHog
   (native builds), reduce-motion audit (largely done), large-account
   test fixture.
@@ -260,3 +261,25 @@ deploy gap meant P3 was invisible on the live URL until 9a2e4bc.
   series — the domain now floors at 0 when yMin >= 0. Volume's axis also
   mixed units per tick (23.1t beside 6493kg); the formatter is now chosen
   once from the series peak.
+
+**P7 (2026-07-13)**: the Arena leads with the battle you're already in.
+- domain/battle/format.ts (new, pure — structural MatchLike, NO import
+  from data/, so the domain layering holds): formatLabel/formatGlyph and
+  splitBattles() → {live, invites, history}. live = matched|active|
+  judging; an UNKNOWN status falls to history rather than vanishing (a
+  dropped match is a battle the athlete can never reach again). 9 vitest
+  cases (238 total).
+- arena/index.tsx: ACTIVE BATTLE(S) section above the CREATE/JOIN capsule,
+  one ActiveBattleCard per live match — format name, state (LIVE NOW /
+  BOTH READY TO START / JUDGING · REVEAL WAITING), round n/N from the
+  engine's totalRoundsFor (a duel has ONE round; the old UI would have
+  said 3), RESUME BATTLE (testID arena-resume-<id>). History now holds
+  only finished matches.
+- BUG FIXED: every history row said "Friendly Blitz" — a Volume Duel and a
+  Heads or Tails both lied about what they were. Format decides its name
+  and glyph now.
+- FALSIFIED on production: two-account tour (BRAVO creates a volume duel,
+  ALPHA joins by code) — both hubs then led with ACTIVE BATTLE / Volume
+  Duel / RESUME, and RESUME navigated back into the match. Smoke match
+  deleted afterwards.
+- DB: none. Packages: none. Engine byte-parity re-verified (18026 × 3).

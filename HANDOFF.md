@@ -388,9 +388,17 @@ commit, all CI-green:
   route: LineChart's y-padding printed a NEGATIVE tick on non-negative
   series (floors at 0 now), and the volume axis mixed t with kg per tick
   (one unit, chosen from the series peak).
-NEXT PHASES (per EVOFORGE_TRANSFORM.md): P7 Arena active-battle-first,
-P8 polish/Lighthouse CI/Sentry. Perf targets + release gates are in the
-brief inside EVOFORGE_TRANSFORM.md §audit.
+- **P7** Arena leads with the battle you're already in: new pure
+  domain/battle/format.ts (splitBattles → live | invites | history;
+  unknown statuses fall to history rather than vanishing; structural
+  MatchLike keeps domain/ free of data/ imports) drives an ACTIVE
+  BATTLE(S) section above CREATE/JOIN — state line, round n/N from the
+  engine's totalRoundsFor (a duel is ONE round), RESUME BATTLE
+  (testID arena-resume-<id>). BUG FIXED: every history row said "Friendly
+  Blitz" regardless of format. Falsified with a real two-account
+  production duel, then cleaned.
+NEXT PHASE: P8 polish/Lighthouse CI. Perf targets + release gates are in
+the brief inside EVOFORGE_TRANSFORM.md §audit.
 
 ## The loop (unchanged)
 

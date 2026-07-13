@@ -5,6 +5,8 @@ import { Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
 import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
+import { totalRoundsFor } from '@/domain/battle/engine';
+import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
 import tokens from '@/theme/tokens';
 import {
   BLITZ_RULES,
@@ -20,10 +22,12 @@ import { SectionLabel } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 
 /**
- * The Arena hub, in the Home screen's language: masthead with the emblem,
- * segmented CREATE/JOIN capsule, the blitz card with the live invite code,
- * the rules strip, the coming modes, and history rows that glow the way
- * they ended. Friendly BLITZ is live; Quick/Ranked are honest placeholders.
+ * The Arena hub, in the Home screen's language. TRANSFORM P7: A BATTLE IN
+ * FLIGHT COMES FIRST — an athlete with a live match opens the Arena to
+ * RESUME, not to a create form they don't want. Below that: the segmented
+ * CREATE/JOIN capsule, the blitz card with the live invite code, the rules
+ * strip, the mini games, the coming modes, and history rows that glow the
+ * way they ended.
  */
 export default function ArenaScreen() {
   const router = useRouter();
@@ -35,8 +39,10 @@ export default function ArenaScreen() {
   const [tab, setTab] = useState<0 | 1>(0);
   const [code, setCode] = useState('');
 
-  // The live invite, if one is out there — its code belongs on this screen.
-  const openInvite = (battles.data ?? []).find((m) => m.status === 'inviting') ?? null;
+  // Live matches lead; open invites keep their code card; history is what's
+  // actually over. Every match lands in exactly one bucket (pure, tested).
+  const { live, invites, history } = splitBattles(battles.data ?? []);
+  const openInvite = invites[0] ?? null;
 
   const createBattle = (format: string) => {
     invite.mutate(
@@ -81,6 +87,16 @@ export default function ArenaScreen() {
           <CompanionMenuButton anim="punch" height={62} />
         </View>
       </View>
+
+      {/* P7: the battle you are ALREADY IN, above everything else. */}
+      {live.length > 0 ? (
+        <View>
+          <SectionLabel>{live.length === 1 ? 'ACTIVE BATTLE' : 'ACTIVE BATTLES'}</SectionLabel>
+          {live.map((m) => (
+            <ActiveBattleCard key={m.id} match={m} onPress={() => router.push(`/arena/battle/${m.id}`)} />
+          ))}
+        </View>
+      ) : null}
 
       <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} />
 
@@ -229,15 +245,66 @@ export default function ArenaScreen() {
 
       <View>
         <SectionLabel>BATTLE HISTORY</SectionLabel>
-        {(battles.data ?? []).length === 0 ? (
-          <Text className="text-2xs text-text-mute">No battles yet. Mint a code and call someone out.</Text>
+        {history.length === 0 ? (
+          <Text className="text-2xs text-text-mute">
+            {live.length > 0 || openInvite
+              ? 'Nothing settled yet — finish what you started.'
+              : 'No battles yet. Mint a code and call someone out.'}
+          </Text>
         ) : (
-          (battles.data ?? []).map((m) => (
-            <HistoryRow key={m.id} match={m} xp={results.data?.[m.id]?.xp ?? null} />
-          ))
+          history.map((m) => <HistoryRow key={m.id} match={m} xp={results.data?.[m.id]?.xp ?? null} />)
         )}
       </View>
     </ScreenShell>
+  );
+}
+
+/**
+ * P7: the resume card. Live means the match is waiting on somebody — the
+ * status says which somebody, so the athlete knows whether to lift or to
+ * wait before they tap. Round n/N comes from the engine's own
+ * totalRoundsFor, not a hardcoded 3 (a duel has one round).
+ */
+function ActiveBattleCard({ match, onPress }: { match: BattleMatch; onPress: () => void }) {
+  const rounds = totalRoundsFor(match.format);
+  const state =
+    match.status === 'judging'
+      ? { text: 'JUDGING · REVEAL WAITING', tint: tokens.colors.epic }
+      : match.status === 'matched'
+        ? { text: 'BOTH READY TO START', tint: tokens.colors.legendary }
+        : { text: 'LIVE NOW', tint: tokens.colors.success };
+
+  return (
+    <View className="mb-s3">
+      <PressCard onPress={onPress} tint={state.tint}>
+        <View
+          className="rounded-xl p-s4"
+          style={{
+            borderWidth: 1,
+            borderColor: `${state.tint}66`,
+            backgroundColor: 'rgba(13,21,36,0.72)',
+            shadowColor: state.tint,
+            shadowOpacity: 0.35,
+            shadowRadius: 18,
+            elevation: 5,
+          }}
+        >
+          <View className="mb-s3 flex-row items-center gap-s3">
+            <IconBadge glyph={formatGlyph(match.format)} tint={state.tint} />
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                {formatLabel(match.format)}
+              </Text>
+              <Text className="mt-s1 text-2xs font-bold" style={{ color: state.tint, letterSpacing: 1.5 }}>
+                {state.text}
+                {rounds > 1 ? ` · ROUND ${Math.min(Math.max(match.current_round, 1), rounds)}/${rounds}` : ''}
+              </Text>
+            </View>
+          </View>
+          <NeonButton title="RESUME BATTLE" onPress={onPress} testID={`arena-resume-${match.id}`} />
+        </View>
+      </PressCard>
+    </View>
   );
 }
 
@@ -315,10 +382,13 @@ function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
             elevation: settled ? 3 : 0,
           }}
         >
-          <IconBadge glyph="⚔️" tint={tint} size={40} />
+          <IconBadge glyph={formatGlyph(match.format)} tint={tint} size={40} />
           <View className="flex-1">
+            {/* Every row used to say "Friendly Blitz" — a duel lied about
+                what it was. The format decides its own name now. */}
             <Text className="text-sm font-bold text-text">
-              Friendly Blitz{match.invite_code ? ` · ${match.invite_code}` : ''}
+              {formatLabel(match.format)}
+              {match.invite_code ? ` · ${match.invite_code}` : ''}
             </Text>
             <Text className="text-2xs text-text-mute">{String(match.created_at).slice(0, 10)}</Text>
           </View>
