@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
@@ -77,7 +77,8 @@ export default function OnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicName, setPublicName] = useState('');
-  const [goPublic, setGoPublic] = useState(true);
+  // PRIVATE BY DEFAULT — being seen is opted INTO, never out of.
+  const [goPublic, setGoPublic] = useState(false);
   const savePublic = useSavePublicIdentity();
   // STAGE 1: null = skip (the default — onboarding stays fast),
   // 'builder' = take me to the routine builder, else a split key to seed.
@@ -372,31 +373,68 @@ export default function OnboardingScreen() {
         {/* 6 · GO PUBLIC (P2 C7). Optional and NEVER gating: the profile
             row IS the onboarded flag, and a failure here must not block
             the redirect — the athlete recovers via Profile/Rank. */}
-        <Section n="6" title="GO PUBLIC (OPTIONAL)">
-          <Text className="mb-s3 text-2xs text-text-mute">
-            The leaderboard shows only a display name, level and XP — never body data. Leave
-            blank to stay private; you can join any time from Rank.
-          </Text>
-          <Text className="mb-s1 text-xs text-text-mute">DISPLAY NAME (3–24 CHARS)</Text>
-          <TextInput
-            className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
-            value={publicName}
-            onChangeText={setPublicName}
-            autoCapitalize="none"
-            testID="onboard-public-name"
-          />
-          {publicName.trim() && nameError(publicName) ? (
-            <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
-          ) : null}
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm text-text-dim">Visible on the leaderboard</Text>
-            <Switch
-              value={goPublic}
-              onValueChange={setGoPublic}
-              trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
-              thumbColor={tokens.colors.accent}
-            />
+        <Section n="6" title="YOUR PROFILE">
+          {/* Tyson 2026-07-14: the privacy choice is now an EXPLICIT two-way
+              switch, made BEFORE the name field. It was a toggle underneath a
+              blank input — which reads as "off by default" whichever way it is
+              set, and leaves an athlete unsure what they just agreed to. */}
+          <View className="mb-s3 flex-row gap-s2">
+            {([false, true] as const).map((isPublic) => (
+              <Pressable
+                key={String(isPublic)}
+                onPress={() => setGoPublic(isPublic)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: goPublic === isPublic }}
+                testID={isPublic ? 'onboard-public' : 'onboard-private'}
+                className="flex-1 items-center justify-center rounded-md border px-s3 py-s2"
+                style={{
+                  minHeight: 48,
+                  borderColor: goPublic === isPublic ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                  backgroundColor: goPublic === isPublic ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
+                }}
+              >
+                <Text
+                  className={`text-2xs font-bold ${goPublic === isPublic ? 'text-accent' : 'text-text-dim'}`}
+                  style={{ letterSpacing: 1 }}
+                >
+                  {goPublic === isPublic ? '✓ ' : ''}
+                  {isPublic ? '🌐 PUBLIC' : '🔒 PRIVATE'}
+                </Text>
+                <Text className="mt-s1 text-2xs text-text-mute" numberOfLines={1}>
+                  {isPublic ? 'On the leaderboard' : 'Nobody sees you'}
+                </Text>
+              </Pressable>
+            ))}
           </View>
+
+          {goPublic ? (
+            <>
+              <Text className="mb-s2 text-2xs text-text-mute">
+                The leaderboard shows a display name, level and XP — NEVER body data. You can
+                leave or rejoin any time from Rank.
+              </Text>
+              <Text className="mb-s1 text-xs text-text-mute">DISPLAY NAME (3–24 CHARS)</Text>
+              <TextInput
+                className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
+                value={publicName}
+                onChangeText={setPublicName}
+                autoCapitalize="none"
+                testID="onboard-public-name"
+              />
+              {publicName.trim() && nameError(publicName) ? (
+                <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
+              ) : null}
+              {!publicName.trim() ? (
+                <Text className="text-2xs text-text-mute">
+                  Pick a name to appear — no name, no listing.
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Text className="text-2xs text-text-mute">
+              Your character, lifts and body data stay yours alone.
+            </Text>
+          )}
         </Section>
 
         {previewLevel !== null ? (

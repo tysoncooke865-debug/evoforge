@@ -201,7 +201,7 @@ export function ExerciseCard({
         <View style={{ width: compact ? 30 : 40 }} />
         <View className="flex-row items-center gap-s1">
           <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: fieldW, letterSpacing: 1 }} numberOfLines={1}>
-            {compact ? 'KG' : 'WEIGHT (KG)'}
+            {compact ? 'KG' : 'WEIGHT'}
           </Text>
           <View style={{ width: stepperW }} />
         </View>
