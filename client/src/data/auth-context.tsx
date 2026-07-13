@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { useSessionStore } from '@/state/session-store';
 import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
 
@@ -52,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     useToastStore.getState().reset();
     useSettingsStore.getState().reset();
+    // Stage 1: today's skips/adds/ad-hoc workout belong to the athlete who
+    // signed out. It is PERSISTED, so clearing the in-memory store is not
+    // enough — the persisted copy must go too, or the next athlete on this
+    // device inherits yesterday's deviations.
+    useSessionStore.getState().reset();
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      AsyncStorage.removeItem('evoforge-session-v1').catch(() => undefined)
+    );
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

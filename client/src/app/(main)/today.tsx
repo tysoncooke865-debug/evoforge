@@ -8,7 +8,18 @@ import { useWorkoutSchedule } from '@/data/schedule';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
-import { pyFloat } from '@/domain/py';
+import { pyFloat, pyInt } from '@/domain/py';
+import {
+  buildEffectivePlan,
+  canAddSet,
+  canRemoveSet,
+  planTotals,
+  removeAction,
+  type LoggedFacts,
+  type PlanEntry,
+} from '@/domain/session-plan';
+import { overridesFor, useSessionStore } from '@/state/session-store';
+import { useToastStore } from '@/state/toast-store';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
@@ -104,6 +115,16 @@ export default function TodayScreen() {
         (pyFloat(r.reps) ?? 0) > 0
     );
 
+  // STAGE 1: what the log says about an exercise TODAY. maxSetNo counts every
+  // RENDERED row (valid or not, queued-optimistic included — they live in the
+  // same cache), because "− SET" must never orphan a row the athlete can see.
+  const loggedFacts = (exercise: string): LoggedFacts => {
+    const rows = todayRows.filter((r) => String(r.exercise) === exercise);
+    let maxSetNo = 0;
+    for (const r of rows) maxSetNo = Math.max(maxSetNo, pyInt(r.set) ?? 0);
+    return { validCount: validRowsFor(exercise).length, maxSetNo };
+  };
+
   const builtIn = ROUTINE[day] ?? [];
   const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
   // The same [exercise, sets, scheme] tuple shape either way — with any
@@ -111,17 +132,40 @@ export default function TodayScreen() {
   const basePlan: readonly (readonly [string, number, string])[] = aiDay
     ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
     : builtIn;
-  const plan: readonly (readonly [string, number, string])[] = basePlan.map(
+  const substituted: PlanEntry[] = basePlan.map(
     ([ex, sets, scheme]) => [subs[`${day}:${ex}`] ?? ex, sets, scheme] as const
   );
-  const totalTarget = plan.reduce((acc, [, sets]) => acc + sets, 0);
-  const totalDone = plan.reduce(
-    (acc, [exercise, sets]) => acc + Math.min(validRowsFor(exercise).length, sets),
-    0
-  );
-  const complete = totalTarget > 0 && totalDone >= totalTarget;
-  // The quest cursor: the first exercise still short of its target sets.
-  const nextExercise = plan.find(([exercise, sets]) => validRowsFor(exercise).length < sets)?.[0] ?? null;
+
+  // STAGE 1: the plan the athlete is ACTUALLY looking at — plan + today's
+  // adds/removes/skips/set-deltas. All the arithmetic lives in the pure
+  // domain module (session-plan.ts), which is where its honesty is tested.
+  const overrides = useSessionStore((s) => overridesFor(s, day));
+  const removeExercise = useSessionStore((s) => s.removeExercise);
+  const toggleSkip = useSessionStore((s) => s.toggleSkip);
+  const bumpSets = useSessionStore((s) => s.bumpSets);
+
+  const plan = buildEffectivePlan(substituted, overrides, loggedFacts);
+  const totals = planTotals(plan, loggedFacts);
+  const totalDone = totals.done;
+  const totalTarget = totals.target;
+  const complete = totals.complete;
+  const nextExercise = totals.nextExercise;
+
+  /** ✕ — but a logged exercise degrades to a skip, or the day bar would
+   *  contradict the XP already banked beside it. */
+  const removeOrSkip = (exercise: string) => {
+    const facts = loggedFacts(exercise);
+    if (removeAction(facts) === 'skip') {
+      toggleSkip(day, exercise);
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'SKIPPED INSTEAD',
+        subtitle: 'Sets already logged — they still count.',
+      });
+      return;
+    }
+    removeExercise(day, exercise);
+  };
 
 
   const buildSummary = (): WorkoutSummaryData => ({
@@ -234,30 +278,41 @@ export default function TodayScreen() {
         </View>
       </GlowCard>
 
-      {plan.map(([exercise, sets, scheme]) => (
-        <ExerciseCard
-          // Day is part of the key: ROUTINE reuses exercise names across days
-          // (e.g. Lat Pulldown on both Pull days), and SetRow seeds its typed
-          // state once on mount — a same-key day switch kept the previous
-          // day's numbers on screen and saved them under the NEW day.
-          key={`${day}:${exercise}`}
-          date={todayIso}
-          workout={day}
-          exercise={exercise}
-          targetSets={sets}
-          scheme={scheme}
-          loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
-          allRows={workouts.data ?? []}
-          doneCount={validRowsFor(exercise).length}
-          isNext={exercise === nextExercise}
-          onPr={() => {
-            prCountRef.current += 1;
-            prNamesRef.current.push(exercise);
-          }}
-          durable
-          onSubstitute={() => setSubFor(exercise)}
-        />
-      ))}
+      {plan.map((entry) => {
+        const { exercise, sets, reps, skipped } = entry;
+        const facts = loggedFacts(exercise);
+        return (
+          <ExerciseCard
+            // Day is part of the key: ROUTINE reuses exercise names across days
+            // (e.g. Lat Pulldown on both Pull days), and SetRow seeds its typed
+            // state once on mount — a same-key day switch kept the previous
+            // day's numbers on screen and saved them under the NEW day.
+            key={`${day}:${exercise}`}
+            date={todayIso}
+            workout={day}
+            exercise={exercise}
+            targetSets={sets}
+            scheme={reps}
+            loggedRows={todayRows.filter((r) => String(r.exercise) === exercise)}
+            allRows={workouts.data ?? []}
+            doneCount={facts.validCount}
+            isNext={exercise === nextExercise}
+            onPr={() => {
+              prCountRef.current += 1;
+              prNamesRef.current.push(exercise);
+            }}
+            durable
+            onSubstitute={() => setSubFor(exercise)}
+            skipped={skipped}
+            onRemove={() => removeOrSkip(exercise)}
+            onSkip={() => toggleSkip(day, exercise)}
+            onAddSet={canAddSet(sets) ? () => bumpSets(day, exercise, 1) : undefined}
+            // Absent, not disabled, at the floor — the row below it is logged.
+            onRemoveSet={canRemoveSet(sets, facts) ? () => bumpSets(day, exercise, -1) : undefined}
+          />
+        );
+      })}
+
 
       {totalDone > 0 && !complete ? (
         <NeonButton

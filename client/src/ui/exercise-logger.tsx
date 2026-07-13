@@ -74,6 +74,11 @@ export function ExerciseCard({
   onLogged,
   durable = false,
   onSubstitute,
+  onRemove,
+  onSkip,
+  skipped = false,
+  onAddSet,
+  onRemoveSet,
 }: {
   date: string;
   workout: string;
@@ -92,6 +97,16 @@ export function ExerciseCard({
   durable?: boolean;
   /** Tyson 2026-07-13: swap this exercise for a same-muscle alternative. */
   onSubstitute?: () => void;
+  /** STAGE 1 — all optional, so the Battle Arena's usage is untouched.
+   *  The caller decides what ✕ MEANS (removeAction degrades it to a skip
+   *  when sets are already logged); this component only reports the tap. */
+  onRemove?: () => void;
+  onSkip?: () => void;
+  /** Skipped = "not today": collapses to one ghost row with UNDO. */
+  skipped?: boolean;
+  onAddSet?: () => void;
+  /** Undefined when at the floor (never orphan a logged row). */
+  onRemoveSet?: () => void;
 }) {
   const done = doneCount >= targetSets;
   const compact = useCompact();
@@ -102,6 +117,43 @@ export function ExerciseCard({
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
   // WHOLE exercise card, not one set row. Battles follow their tint.
   const activeColor = tint === tokens.colors.accent ? tokens.colors.epic : tint;
+
+  // SKIPPED = "not today". The card collapses to a ghost row: the exercise is
+  // still visible (you chose to skip it, you didn't imagine it), any sets you
+  // already logged still count, and UNDO is one tap. Its obligation is
+  // clamped by the caller's planTotals, so the day bar stays honest.
+  if (skipped) {
+    return (
+      <View
+        className="flex-row items-center justify-between rounded-xl px-s4 py-s3"
+        style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}
+      >
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-text-mute" numberOfLines={1}>
+            {exercise}
+          </Text>
+          <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+            SKIPPED{doneCount > 0 ? ` · ${doneCount} SET${doneCount === 1 ? '' : 'S'} BANKED` : ''}
+          </Text>
+        </View>
+        {onSkip ? (
+          <Pressable
+            onPress={onSkip}
+            accessibilityRole="button"
+            accessibilityLabel={`undo skip ${exercise}`}
+            testID={`${exercise}-unskip`}
+            className="items-center justify-center px-s2"
+            style={{ minWidth: 44, minHeight: 44 }}
+          >
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              UNDO
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
@@ -126,6 +178,18 @@ export function ExerciseCard({
         <Text className={`text-xs font-bold ${done ? 'text-success' : 'text-text-mute'}`}>
           {done ? '✓ DONE' : `${doneCount}/${targetSets}`}
         </Text>
+        {onRemove ? (
+          <Pressable
+            onPress={onRemove}
+            accessibilityRole="button"
+            accessibilityLabel={`remove ${exercise}`}
+            testID={`${exercise}-remove`}
+            className="ml-s1 items-center justify-center"
+            style={{ minWidth: 44, minHeight: 44 }}
+          >
+            <Text className="text-sm text-text-mute">✕</Text>
+          </Pressable>
+        ) : null}
       </View>
       <View className="mb-s4 flex-row items-center justify-between">
         <Text className="text-xs text-text-dim">{schemeSentence(scheme)}</Text>
@@ -168,6 +232,58 @@ export function ExerciseCard({
           />
         );
       })}
+
+      {/* STAGE 1 — the footer controls. One VISIBLE tap per action: no kebab,
+          no long-press, no hidden gesture. Rendered only when the caller
+          supplies the handler, so battles get none of it. − SET is absent
+          (not disabled) at the floor: there is nothing to explain, the row
+          below it is logged. */}
+      {onAddSet || onRemoveSet || onSkip ? (
+        <View className="mt-s2 flex-row items-center border-t border-border-soft pt-s1">
+          {onAddSet ? (
+            <Pressable
+              onPress={onAddSet}
+              accessibilityRole="button"
+              accessibilityLabel={`add a set to ${exercise}`}
+              testID={`${exercise}-add-set`}
+              className="items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+                ＋ SET
+              </Text>
+            </Pressable>
+          ) : null}
+          {onRemoveSet ? (
+            <Pressable
+              onPress={onRemoveSet}
+              accessibilityRole="button"
+              accessibilityLabel={`remove a set from ${exercise}`}
+              testID={`${exercise}-remove-set`}
+              className="items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+                − SET
+              </Text>
+            </Pressable>
+          ) : null}
+          {onSkip ? (
+            <Pressable
+              onPress={onSkip}
+              accessibilityRole="button"
+              accessibilityLabel={`skip ${exercise} today`}
+              testID={`${exercise}-skip`}
+              className="ml-auto items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+                SKIP TODAY
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </GlowCard>
   );
 }
