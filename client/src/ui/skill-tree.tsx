@@ -22,7 +22,8 @@ import { avatarArtV2 } from '@/ui/avatar-art';
 import { Silhouette } from '@/ui/silhouette';
 
 /**
- * The SKILL TREE subview: individual attributes as progress nodes, each
+ * The PATHS subview (was "skill tree"; P6 renamed the label, not the
+ * engine): individual attributes as progress nodes, each
  * path flowing into the branch(es) it feeds. Reads ONLY what the app
  * already tracks — a node with no data source says so honestly instead of
  * inventing a number. Branch destination states come from branchPathsV2 +
@@ -814,7 +815,7 @@ export function SkillTreeView({ onViewEvolution }: { onViewEvolution: () => void
     <>
       <View className="items-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
-          FITNESS SKILL TREE
+          ATTRIBUTE PATHS
         </Text>
         <Text
           className="text-xl font-bold text-text"

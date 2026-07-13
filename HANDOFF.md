@@ -378,10 +378,19 @@ commit, all CI-green:
   Home streak chip goes SCHEDULE-AWARE when a schedule exists (rest days
   bridge; label FORGE STREAK) and falls back to the daily streak + DAY
   STREAK otherwise. All four states falsified in-browser.
-NEXT PHASES (per EVOFORGE_TRANSFORM.md): P6 Forge/Progress
-restructure, P7 Arena active-battle-first, P8 polish/Lighthouse
-CI/Sentry. Perf targets + release gates are in the brief inside
-EVOFORGE_TRANSFORM.md §audit.
+- **P6** Forge + Progress. The Forge screen says so (ScreenHeader THE
+  FORGE) and SKILL TREE is now the PATHS tab — LABEL ONLY, the skill-tree
+  engine is untouched; ?view=paths is canonical and ?view=skill-tree still
+  resolves. Progress leads with THIS WEEK (sessions/sets/volume/cardio/XP
+  over the same Monday-start window as Home's contract) and the lift chart
+  gains METRIC (E1RM|VOLUME|SETS) × TIMEFRAME (4W|12W|1Y|ALL) pills. New
+  pure domain/progress-aggregates.ts (12 tests). TWO CHART BUGS fixed en
+  route: LineChart's y-padding printed a NEGATIVE tick on non-negative
+  series (floors at 0 now), and the volume axis mixed t with kg per tick
+  (one unit, chosen from the series peak).
+NEXT PHASES (per EVOFORGE_TRANSFORM.md): P7 Arena active-battle-first,
+P8 polish/Lighthouse CI/Sentry. Perf targets + release gates are in the
+brief inside EVOFORGE_TRANSFORM.md §audit.
 
 ## The loop (unchanged)
 

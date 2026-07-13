@@ -48,8 +48,12 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
     const yMin = Math.min(...ys);
     const yMax = Math.max(...ys);
     const ySpan = yMax - yMin || 1;
-    // Pad the y-domain 10% so the line never kisses the frame.
-    const y0 = yMin - ySpan * 0.1;
+    // Pad the y-domain 10% so the line never kisses the frame — but never
+    // below zero for a non-negative series. Volume, sets, e1RM and
+    // bodyweight are all >= 0 by construction, and the raw padding was
+    // printing a NEGATIVE axis tick (-1831kg on a volume chart) that
+    // claims a value the data cannot take.
+    const y0 = yMin >= 0 ? Math.max(0, yMin - ySpan * 0.1) : yMin - ySpan * 0.1;
     const y1 = yMax + ySpan * 0.1;
     const plotW = width - PAD.left - PAD.right;
     const plotH = height - PAD.top - PAD.bottom;

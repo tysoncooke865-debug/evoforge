@@ -15,25 +15,30 @@ import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel } from '@/ui/hud';
 import { RarityBadge } from '@/ui/rarity-badge';
 import { RequirementRow } from '@/ui/requirement-row';
+import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
 
 /**
- * The Avatar area: two subviews behind a segmented submenu. EVOLUTION is
- * the untouched progression screen; SKILL TREE breaks the same stats into
- * attribute nodes feeding the branch gates. The choice rides ?view= so it
- * survives refresh, and the Avatar tab stays highlighted throughout.
+ * THE FORGE (TRANSFORM P6 — the tab is Forge; this screen now says so):
+ * two subviews behind a segmented submenu. EVOLUTION is the progression
+ * screen; PATHS breaks the same stats into the five attribute paths that
+ * feed the branch gates (the skill tree, renamed to what it shows). The
+ * choice rides ?view= so it survives refresh — 'paths' is the name, and
+ * the old 'skill-tree' value still resolves so existing links and tours
+ * keep working. testIDs (avatar-tab-0/1) are unchanged for the same reason.
  */
 export default function AvatarScreen() {
   const params = useLocalSearchParams<{ view?: string }>();
   const router = useRouter();
-  const view: 0 | 1 = params.view === 'skill-tree' ? 1 : 0;
-  const setView = (i: 0 | 1) => router.setParams({ view: i === 1 ? 'skill-tree' : 'evolution' });
+  const view: 0 | 1 = params.view === 'paths' || params.view === 'skill-tree' ? 1 : 0;
+  const setView = (i: 0 | 1) => router.setParams({ view: i === 1 ? 'paths' : 'evolution' });
 
   return (
     <ScreenShell>
+      <ScreenHeader kicker="THE FORGE" title={view === 1 ? 'PATHS' : 'EVOLUTION'} />
       <SegmentedTabs
         left="◈ EVOLUTION"
-        right="⬢ SKILL TREE"
+        right="⬢ PATHS"
         active={view}
         onChange={setView}
         testIDPrefix="avatar-tab"

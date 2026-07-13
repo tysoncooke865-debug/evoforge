@@ -148,7 +148,7 @@
   confirmation; skippable at every phase).
 - [x] **P5 Home & return loop** — Today's Quest card + dynamic states +
   weekly contract + Forge streak (schedule-aware).
-- [ ] **P6 Forge & Progress restructure** (Avatar→Forge naming, Paths
+- [x] **P6 Forge & Progress restructure** (Avatar→Forge naming, Paths
   tabs; Progress: This Week summary + metric/timeframe pickers +
   aggregates).
 - [ ] **P7 Arena** — active battle first (done in hub already for open
@@ -239,3 +239,24 @@ deploy gap meant P3 was invisible on the live URL until 9a2e4bc.
   removed server-side for BRAVO): none → pending → completed → rest, plus
   START MISSION navigating to Train.
 - DB: none. Packages: none.
+
+**P6 (2026-07-13)**: Forge + Progress restructure.
+- FORGE: avatar.tsx gains a ScreenHeader (THE FORGE · EVOLUTION|PATHS) and
+  the SKILL TREE tab is renamed PATHS — the label, not the engine
+  (skill-tree.tsx's branch/gate logic is untouched; its inner heading is
+  now ATTRIBUTE PATHS). ?view=paths is the name; ?view=skill-tree still
+  resolves (old links/tours) and testIDs avatar-tab-0/1 are unchanged.
+- PROGRESS: THIS WEEK aggregate card leads (sessions — done/target when a
+  schedule exists — sets, volume, cardio minutes, XP), over the SAME
+  Monday-start window Home's contract uses. Then the lift chart with
+  METRIC (E1RM | VOLUME | SETS) × TIMEFRAME (4W | 12W | 1Y | ALL) pills
+  and the exercise pills; bodyweight keeps its own scale and honours the
+  timeframe.
+- domain/progress-aggregates.ts (new, pure): weekStart, periodTotals
+  (XP via activityXp — never a private formula), timeframeStart,
+  exerciseSeries. 12 vitest cases (229 total).
+- BUG FOUND + FIXED en route (visible in the volume tour): LineChart's 10%
+  y-padding printed a NEGATIVE axis tick (-1831kg) on strictly non-negative
+  series — the domain now floors at 0 when yMin >= 0. Volume's axis also
+  mixed units per tick (23.1t beside 6493kg); the formatter is now chosen
+  once from the series peak.
