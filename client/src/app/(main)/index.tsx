@@ -5,9 +5,11 @@ import { Link } from 'expo-router';
 
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
 import { useServerGrantedXp, useWorkoutLog } from '@/data/hooks';
+import { useWorkoutSchedule } from '@/data/schedule';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
+import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
@@ -17,6 +19,7 @@ import { LeaderboardTeaser } from '@/ui/leaderboard-teaser';
 import { CompanionMenuButton } from '@/ui/companion-menu';
 import { HeroStage } from '@/ui/hero-stage';
 import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
+import { QuestCard } from '@/ui/quest-card';
 import { RarityBadge } from '@/ui/rarity-badge';
 import { ScreenShell } from '@/ui/shell';
 import { StatBar } from '@/ui/stat-bar';
@@ -61,9 +64,27 @@ export default function HomeScreen() {
   }, [ready]);
 
   const todayIso = new Date().toISOString().slice(0, 10);
+  // P5: the return loop. With a schedule the streak is SCHEDULE-AWARE
+  // (rest days bridge instead of reading as gaps) and Home leads with
+  // Today's Quest + the weekly contract; without one, the old daily
+  // streak stands and the quest card invites forging a week.
+  const schedule = useWorkoutSchedule();
+  const scheduleRows = useMemo(() => schedule.data ?? [], [schedule.data]);
+  const hasSchedule = scheduleRows.length > 0;
   const streak = useMemo(
-    () => computeStreak(workouts.data ?? [], todayIso),
-    [workouts.data, todayIso]
+    () =>
+      hasSchedule
+        ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
+        : computeStreak(workouts.data ?? [], todayIso),
+    [hasSchedule, scheduleRows, workouts.data, todayIso]
+  );
+  const contract = useMemo(
+    () => weeklyContract(scheduleRows, workouts.data ?? [], todayIso),
+    [scheduleRows, workouts.data, todayIso]
+  );
+  const nextSession = useMemo(
+    () => nextScheduledSession(scheduleRows, todayIso),
+    [scheduleRows, todayIso]
   );
 
   const evolution = nextEvolutionV2(branchV2, {
@@ -110,6 +131,9 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* A2. Today's Quest — the loop starts HERE (TRANSFORM P5). */}
+      <QuestCard hasSchedule={hasSchedule} contract={contract} next={nextSession} todayIso={todayIso} />
+
       {/* B. The stage — the character owns the viewport. */}
       <HeroStage
         branch={stats.branch}
@@ -145,7 +169,7 @@ export default function HomeScreen() {
         <Link href={'/streak' as never} asChild>
           <Pressable accessibilityRole="button" testID="streak-chip">
             <HUDChip
-              label="DAY STREAK"
+              label={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
               value={`${streak.current}🔥`}
               tint={streak.current > 0 ? tokens.colors.legendary : tokens.colors.common}
             />

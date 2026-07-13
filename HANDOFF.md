@@ -370,8 +370,15 @@ commit, all CI-green:
   every non-final phase (old tours still pass); advance=summary-next,
   final=summary-done. Verified: 3-phase and 5-phase walks in-browser
   (PR + schedule seeded for BRAVO, then cleaned server-side).
-NEXT PHASES (per EVOFORGE_TRANSFORM.md): P5 Home Today's Quest +
-dynamic states + weekly contract/Forge streak, P6 Forge/Progress
+- **P5** Home = the return loop: ui/quest-card.tsx (TODAY'S QUEST, four
+  states — no-schedule / rest / pending / completed — + the weekly
+  contract's seven Monday-start pips and done/target) sits directly under
+  identity. domain weeklyContract() is effective-dated and counts ONLY
+  scheduled sessions (a rest-day set is a bonus pip, never quota). The
+  Home streak chip goes SCHEDULE-AWARE when a schedule exists (rest days
+  bridge; label FORGE STREAK) and falls back to the daily streak + DAY
+  STREAK otherwise. All four states falsified in-browser.
+NEXT PHASES (per EVOFORGE_TRANSFORM.md): P6 Forge/Progress
 restructure, P7 Arena active-battle-first, P8 polish/Lighthouse
 CI/Sentry. Perf targets + release gates are in the brief inside
 EVOFORGE_TRANSFORM.md §audit.

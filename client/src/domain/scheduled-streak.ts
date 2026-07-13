@@ -141,6 +141,67 @@ export function nextScheduledSession(
   return null;
 }
 
+export interface WeekDayPip {
+  date: string; // YYYY-MM-DD
+  state: DayState;
+  assigned: string | null; // plan day name, null when no plan / 'Rest'
+}
+
+export interface WeeklyContract {
+  /** Scheduled sessions completed this week. */
+  done: number;
+  /** Scheduled (non-Rest) sessions this week. */
+  target: number;
+  /** Monday-start, always 7 entries. */
+  pips: WeekDayPip[];
+}
+
+/** TRANSFORM P5: this week's contract — Monday-start (UTC, matching the
+ *  app's toISOString date convention), judged against the plan in force
+ *  on each day. A session trained on a Rest day shows as completed but
+ *  never counts toward the target (honest bonus, not quota). */
+export function weeklyContract(
+  schedules: ScheduleRow[],
+  workoutRows: WorkoutRow[],
+  todayIso: string
+): WeeklyContract {
+  const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+  const trained = new Set<string>();
+  for (const r of workoutRows) {
+    const w = pyFloat(r.weight) ?? 0;
+    const reps = pyFloat(r.reps) ?? 0;
+    if (w > 0 && reps > 0) trained.add(String(r.date));
+  }
+
+  const monday = addDays(todayIso, -((Number(dowOf(todayIso)) + 6) % 7));
+  const pips: WeekDayPip[] = [];
+  let done = 0;
+  let target = 0;
+  for (let i = 0; i < 7; i++) {
+    const iso = addDays(monday, i);
+    const raw = planInForce(sorted, iso)?.[dowOf(iso)];
+    const assigned = raw && raw !== 'Rest' ? raw : null;
+    let state: DayState;
+    if (trained.has(iso)) {
+      state = 'completed';
+    } else if (!assigned) {
+      state = iso > todayIso ? 'future' : 'rest';
+    } else if (iso < todayIso) {
+      state = 'missed';
+    } else if (iso === todayIso) {
+      state = 'pending';
+    } else {
+      state = 'future';
+    }
+    if (assigned) {
+      target += 1;
+      if (state === 'completed') done += 1;
+    }
+    pips.push({ date: iso, state, assigned });
+  }
+  return { done, target, pips };
+}
+
 export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100] as const;
 
 /** The dedupe keys of every milestone this run has crossed. */

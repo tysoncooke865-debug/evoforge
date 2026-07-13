@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeScheduledStreak, crossedMilestones, nextScheduledSession, type ScheduleRow } from '../scheduled-streak';
+import { computeScheduledStreak, crossedMilestones, nextScheduledSession, weeklyContract, type ScheduleRow } from '../scheduled-streak';
 import type { WorkoutRow } from '../summary';
 
 const set = (date: string): WorkoutRow => ({
@@ -110,6 +110,45 @@ describe('nextScheduledSession', () => {
       plan: { '0': 'Rest', '1': 'Rest', '2': 'Rest', '3': 'Rest', '4': 'Rest', '5': 'Rest', '6': 'Rest' },
     };
     expect(nextScheduledSession([allRest], TODAY)).toBeNull();
+  });
+});
+
+describe('weeklyContract', () => {
+  // TODAY 2026-07-12 is a Sunday → its week is Mon 07-06 .. Sun 07-12.
+  it('no schedule → target 0, every day rest/future', () => {
+    const c = weeklyContract([], [set('2026-07-08')], TODAY);
+    expect(c.target).toBe(0);
+    expect(c.pips).toHaveLength(7);
+    expect(c.pips[0].date).toBe('2026-07-06'); // Monday
+    // Trained on an unscheduled day still shows as completed (bonus).
+    expect(c.pips[2].state).toBe('completed');
+    expect(c.done).toBe(0);
+  });
+
+  it('counts done/target over the Monday-start week', () => {
+    // WEEK schedules Mon-Sat (6 sessions); trained Mon+Tue only.
+    const c = weeklyContract([WEEK], [set('2026-07-06'), set('2026-07-07')], TODAY);
+    expect(c.target).toBe(6);
+    expect(c.done).toBe(2);
+    expect(c.pips[0].state).toBe('completed');
+    expect(c.pips[2].state).toBe('missed'); // Wednesday, past, untrained
+    expect(c.pips[6].state).toBe('rest'); // Sunday
+  });
+
+  it('today untrained is pending, later scheduled days are future', () => {
+    // Monday as today: nothing trained yet.
+    const c = weeklyContract([WEEK], [], '2026-07-06');
+    expect(c.pips[0].state).toBe('pending');
+    expect(c.pips[1].state).toBe('future');
+    expect(c.done).toBe(0);
+  });
+
+  it('a rest-day session is a completed pip but never quota', () => {
+    // Sunday (rest) trained; no scheduled day trained.
+    const c = weeklyContract([WEEK], [set('2026-07-12')], TODAY);
+    expect(c.pips[6].state).toBe('completed');
+    expect(c.done).toBe(0);
+    expect(c.target).toBe(6);
   });
 });
 

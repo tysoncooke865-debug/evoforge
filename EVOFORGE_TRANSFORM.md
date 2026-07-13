@@ -146,7 +146,7 @@
 - [x] **P4 Completion payoff** — ordered MISSION COMPLETE ceremony
   (summary → PR reveal → level path → evolution progress → next-session
   confirmation; skippable at every phase).
-- [ ] **P5 Home & return loop** — Today's Quest card + dynamic states +
+- [x] **P5 Home & return loop** — Today's Quest card + dynamic states +
   weekly contract + Forge streak (schedule-aware).
 - [ ] **P6 Forge & Progress restructure** (Avatar→Forge naming, Paths
   tabs; Progress: This Week summary + metric/timeframe pickers +
@@ -217,4 +217,25 @@ deploy gap meant P3 was invisible on the live URL until 9a2e4bc.
   cases (213 total).
 - (main)/today.tsx: prNamesRef captures WHICH lifts PR'd (deduped into
   prExercises); buildSummary passes nextSession.
+- DB: none. Packages: none.
+
+**P5 (2026-07-13)**: Home leads the return loop.
+- ui/quest-card.tsx: TODAY'S QUEST as the first card under identity, four
+  honest states off the persisted schedule — none (⚒ FORGE MY WEEK →
+  /schedule), rest (recovery + next mission), pending (START MISSION →
+  /today), completed (✓ MISSION COMPLETE + next mission). Weekly-contract
+  row: seven Monday-start pips (completed ✓ / missed / pending / rest /
+  future) + done/target.
+- domain/scheduled-streak.ts: weeklyContract() — Monday-start (UTC, the
+  app's date convention), effective-dated per day, and a set trained on a
+  Rest day is a completed pip but NEVER quota (bonus, not target). 4 new
+  vitest cases (217 total).
+- Home's streak chip is now SCHEDULE-AWARE when a schedule exists
+  (computeScheduledStreak — rest days bridge instead of reading as gaps)
+  and reads FORGE STREAK; with no schedule the old daily computeStreak
+  and DAY STREAK label stand, so nothing regresses for scheduleless
+  accounts.
+- FALSIFIED in-browser, all four states (schedule + set seeded and then
+  removed server-side for BRAVO): none → pending → completed → rest, plus
+  START MISSION navigating to Train.
 - DB: none. Packages: none.
