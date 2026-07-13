@@ -327,6 +327,42 @@ reached disk; swap the PNG to upgrade), and the PWA safe-area fix
 strip). Sprite placement change: Today header sprite follows the mode
 (cardioAnim(type) when CARDIO is active); STATS keeps an idle companion.
 
+## TRANSFORM PROGRAM (2026-07-13 — READ EVOFORGE_TRANSFORM.md)
+Tyson commissioned a full product transform (brief in the 2026-07-13
+session; EVOFORGE_TRANSFORM.md at repo root is the living audit + phase
+tracker — UPDATE IT WITH EACH PHASE). Executed so far, each its own
+commit, all CI-green:
+- **P1** `016d40d`: FIVE-TAB NAV (Home/Train/Progress/Forge/Arena; today
+  =Train, avatar=Forge, log/ai/more hidden). THE COMPANION SPRITE IS THE
+  PROFILE MENU (ui/companion-menu.tsx, testID profile-menu → /more =
+  "MENU"). React Query PERSISTED to AsyncStorage (key
+  evoforge-query-cache-v1, purged on sign-out in auth-context — cache
+  hygiene invariant).
+- **P2** `087d0d6`: OFFLINE-FIRST SET LOGGING — data/set-queue.ts queues
+  durable inserts with CLIENT-MINTED UUID row ids (PK = idempotency;
+  retries can't duplicate), optimistic cache append (invalidations
+  SKIPPED for queued verdicts — refetch would drop the row), XP grant on
+  flush (unique index dedupes), flush on boot/online/enqueue/30s.
+  useSaveSet takes {durable}; Today passes durable, BATTLES MUST NOT
+  (battle_events need server-confirmed rows). ui/rest-timer.tsx stores
+  ONLY restEndAt (absolute) — timer survives everything by construction;
+  starts on each confirmed new set; RestTimerBar lives in Train's LIFT
+  panel. FALSIFIED: offline-logged set synced exactly once (SQL).
+- **P3 batch** `6848ab6`: ui/tutorial-overlay.tsx (once-per-device flag
+  evoforge-tutorial-done-v1); domain/exercise-library.ts (100+ tagged
+  exercises, LIBRARY_SECTIONS, SPLITS, substitutesFor); (main)/routine.tsx
+  builder writing custom_workout_plan (SAME storage as the AI plan —
+  Train source toggle now says MY PLAN and custom plans drive their OWN
+  day chips; scheduled-day default only applies to built-in days);
+  ⇄ substitution on Train cards (session-level subs map in today.tsx,
+  logged sets record the REAL exercise).
+NEXT PHASES (per EVOFORGE_TRANSFORM.md): P4 completion ceremony (extend
+SummarySheet: PR/path/evolution/next-session phases), P5 Home Today's
+Quest + dynamic states + weekly contract/Forge streak, P6 Forge/Progress
+restructure, P7 Arena active-battle-first, P8 polish/Lighthouse
+CI/Sentry. Perf targets + release gates are in the brief inside
+EVOFORGE_TRANSFORM.md §audit.
+
 ## The loop (unchanged)
 
 Per change-set: `npx tsc --noEmit && npx vitest run src && npx expo lint`
