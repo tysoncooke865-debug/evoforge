@@ -45,6 +45,7 @@ import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { RestTimerBar } from '@/ui/rest-timer';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import { ExercisePicker } from '@/ui/exercise-picker';
+import { schemeSentence } from '@/ui/scheme-sentence';
 import { WeekBarRow } from '@/ui/week-bar';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
@@ -240,14 +241,27 @@ export default function TodayScreen() {
     );
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], hasValidSets, todayIso);
   const [openDate, setOpenDate] = useState<string | null>(null);
-  // Today's bar is the one they came to do; it opens on arrival.
-  const expandedDate = openDate ?? todayIso;
-  /** The logging UI is today's, and only today's. */
-  const viewingToday = weekBars === null || expandedDate === todayIso;
 
-  // Is THIS day (date + workout name) explicitly finished?
+  // Is TODAY's workout (date + name) explicitly finished?
   const marker = (sessions.data ?? []).find((m) => m.date === todayIso && m.workout === day) ?? null;
   const finished = marker !== null;
+
+  // Today's bar opens on arrival — it is the workout they came to do. A
+  // FINISHED workout collapses instead: the job is done, the list should not
+  // still be shouting it at you. It stays openable, and reopening shows the
+  // locked recap (Tyson, 2026-07-14).
+  const expandedDate = openDate ?? (finished ? 'none' : todayIso);
+  /** The LOGGING UI is today's, and only today's. */
+  const viewingToday = weekBars === null || expandedDate === todayIso;
+
+  /** The exercises a day is MEANT to hold, from whichever source is selected —
+   *  so tapping "Pull 1" shows Pull 1, not a shrug. */
+  const exercisesForDay = (workout: string | null): PlanEntry[] => {
+    if (!workout) return [];
+    const fromPlan = activePlan?.days.find((d) => d.day === workout);
+    if (fromPlan) return fromPlan.exercises.map((e) => [e.exercise, e.sets, e.reps] as const);
+    return [...(ROUTINE[workout] ?? [])];
+  };
 
   /** ✕ — but a logged exercise degrades to a skip, or the day bar would
    *  contradict the XP already banked beside it. */
@@ -469,7 +483,12 @@ export default function TodayScreen() {
               }}
             >
               {bar.date === todayIso ? undefined : (
-                <PastRecap rows={allRows} date={bar.date} workout={bar.workout} />
+                <DayPanel
+                  rows={allRows}
+                  date={bar.date}
+                  workout={bar.workout}
+                  planned={exercisesForDay(bar.workout)}
+                />
               )}
             </WeekBarRow>
           ))}
@@ -671,6 +690,11 @@ export default function TodayScreen() {
         onFinish={() => {
           finishWorkout.mutate({ date: todayIso, workout: day });
           clearActive();
+          // The job is done — close the day. It stays openable (the bar is
+          // still there), it just stops shouting at you. An explicit collapse,
+          // because the athlete had OPENED it by hand and that choice would
+          // otherwise outrank the finished default.
+          setOpenDate('none');
         }}
         // STAGE 1: save what you actually did, to do again. Never writes
         // custom_workout_plan — a routine is a workout, not a split.
@@ -812,61 +836,114 @@ export default function TodayScreen() {
 }
 
 /**
- * A past or future day's bar, opened. There is nothing to log here — the cards
- * write to TODAY, so pointing them at last Tuesday would file today's sets
- * under it. This shows what happened, or what is coming.
+ * A day's drop-down: WHAT IS IN IT.
+ *
+ * Tapping "Pull 1 - Back Thickness" means "show me Pull 1 - Back Thickness".
+ * It used to answer "Not yet — this one is ahead of you", which tells the
+ * athlete nothing they did not already know (Tyson, 2026-07-14).
+ *
+ * So every day lists its exercises. Where sets were logged, it shows what was
+ * lifted; where they were not, it shows what the plan asks for. It is READ-ONLY
+ * by construction — the logging cards write to TODAY, so pointing them at
+ * Thursday would file today's sets under Thursday's name.
  */
-function PastRecap({
+function DayPanel({
   rows,
   date,
   workout,
+  planned,
 }: {
   rows: import('@/domain/summary').WorkoutRow[];
   date: string;
   workout: string | null;
+  planned: readonly PlanEntry[];
 }) {
   if (!workout) return null;
-  const mine = rows.filter(
-    (r) =>
-      String(r.date) === date &&
-      String(r.workout) === workout &&
-      (pyFloat(r.weight) ?? 0) > 0 &&
-      (pyFloat(r.reps) ?? 0) > 0
-  );
 
-  if (mine.length === 0) {
-    const future = date > new Date().toISOString().slice(0, 10);
+  const loggedFor = (exercise: string) =>
+    rows.filter(
+      (r) =>
+        String(r.date) === date &&
+        String(r.workout) === workout &&
+        String(r.exercise) === exercise &&
+        (pyFloat(r.weight) ?? 0) > 0 &&
+        (pyFloat(r.reps) ?? 0) > 0
+    );
+
+  // Anything logged that the plan does not list (an added exercise, a swap)
+  // still belongs in the recap — it happened.
+  const plannedNames = new Set(planned.map(([e]) => e));
+  const extras = [
+    ...new Set(
+      rows
+        .filter(
+          (r) =>
+            String(r.date) === date &&
+            String(r.workout) === workout &&
+            !plannedNames.has(String(r.exercise)) &&
+            (pyFloat(r.weight) ?? 0) > 0 &&
+            (pyFloat(r.reps) ?? 0) > 0
+        )
+        .map((r) => String(r.exercise))
+    ),
+  ];
+
+  const entries: { exercise: string; sets: number; scheme: string }[] = [
+    ...planned.map(([exercise, sets, scheme]) => ({ exercise, sets, scheme })),
+    ...extras.map((exercise) => ({ exercise, sets: 0, scheme: '' })),
+  ];
+
+  if (entries.length === 0) {
     return (
       <View className="rounded-xl border border-border p-s4" style={{ backgroundColor: 'rgba(13,21,36,0.5)' }}>
-        <Text className="text-2xs text-text-mute">
-          {future ? 'Not yet — this one is ahead of you.' : '0 SETS LOGGED'}
-        </Text>
+        <Text className="text-2xs text-text-mute">No exercises in this day yet.</Text>
       </View>
     );
   }
 
-  const byExercise = new Map<string, { weight: number; reps: number }[]>();
-  for (const r of mine) {
-    const name = String(r.exercise);
-    const list = byExercise.get(name) ?? [];
-    list.push({ weight: pyFloat(r.weight) ?? 0, reps: pyInt(r.reps) ?? 0 });
-    byExercise.set(name, list);
-  }
+  const totalLogged = entries.reduce((n, e) => n + loggedFor(e.exercise).length, 0);
 
   return (
     <View className="rounded-xl border border-border p-s4" style={{ backgroundColor: 'rgba(13,21,36,0.5)' }}>
-      {[...byExercise.entries()].map(([name, sets]) => (
-        <View key={name} className="mb-s2">
-          <Text className="text-sm font-bold text-text" numberOfLines={1}>
-            {name}
-          </Text>
-          <Text className="text-2xs text-text-mute">
-            {sets.map((x) => `${x.weight} kg × ${x.reps}`).join('  ·  ')}
-          </Text>
-        </View>
-      ))}
-      <Text className="mt-s1 text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 1.5 }}>
-        {mine.length} SET{mine.length === 1 ? '' : 'S'} LOGGED
+      {entries.map((e) => {
+        const done = loggedFor(e.exercise);
+        return (
+          <View key={e.exercise} className="mb-s3">
+            <View className="flex-row items-center justify-between">
+              <Text className="flex-1 text-sm font-bold text-text" numberOfLines={1}>
+                {e.exercise}
+              </Text>
+              <Text
+                className="text-2xs font-bold"
+                style={{ color: done.length > 0 ? tokens.colors.success : tokens.colors['text-mute'] }}
+              >
+                {done.length > 0 ? `✓ ${done.length}` : e.sets > 0 ? `${e.sets} SETS` : ''}
+              </Text>
+            </View>
+            <Text className="text-2xs text-text-mute" numberOfLines={2}>
+              {done.length > 0
+                ? done
+                    .map((r) => `${pyFloat(r.weight) ?? 0} kg × ${pyInt(r.reps) ?? 0}`)
+                    .join('  ·  ')
+                : e.scheme
+                  ? schemeSentence(e.scheme)
+                  : ''}
+            </Text>
+          </View>
+        );
+      })}
+      <Text
+        className="text-2xs font-bold"
+        style={{
+          letterSpacing: 1.5,
+          color: totalLogged > 0 ? tokens.colors.success : tokens.colors['text-mute'],
+        }}
+      >
+        {totalLogged > 0
+          ? `${totalLogged} SET${totalLogged === 1 ? '' : 'S'} LOGGED`
+          : date > new Date().toISOString().slice(0, 10)
+            ? 'UPCOMING'
+            : '0 SETS LOGGED'}
       </Text>
     </View>
   );
