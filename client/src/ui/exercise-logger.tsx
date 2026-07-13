@@ -73,6 +73,7 @@ export function ExerciseCard({
   tint = tokens.colors.accent,
   onLogged,
   durable = false,
+  onSubstitute,
 }: {
   date: string;
   workout: string;
@@ -89,6 +90,8 @@ export function ExerciseCard({
   /** TRANSFORM P2: offline-first queued inserts (Today/Train). Battles
    *  stay direct — battle_events need a server-confirmed row. */
   durable?: boolean;
+  /** Tyson 2026-07-13: swap this exercise for a same-muscle alternative. */
+  onSubstitute?: () => void;
 }) {
   const done = doneCount >= targetSets;
   const compact = useCompact();
@@ -103,6 +106,18 @@ export function ExerciseCard({
     <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
         <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
+        {onSubstitute ? (
+          <Pressable
+            onPress={onSubstitute}
+            accessibilityRole="button"
+            accessibilityLabel={`substitute ${exercise}`}
+            className="mr-s2 items-center justify-center"
+            style={{ minWidth: 44, minHeight: 44 }}
+            testID={`${exercise}-substitute`}
+          >
+            <Text className="text-base" style={{ color: tint }}>⇄</Text>
+          </Pressable>
+        ) : null}
         {isNext && !done ? (
           <Text className="mr-s2 text-xs font-bold" style={{ color: activeColor, letterSpacing: 1 }}>
             ▸ NEXT

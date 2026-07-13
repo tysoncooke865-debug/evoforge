@@ -9,6 +9,7 @@ import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
+import { TutorialOverlay } from '@/ui/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/scroll-registry';
 import tokens from '@/theme/tokens';
 
@@ -101,6 +102,7 @@ export default function MainLayout() {
       <Tabs.Screen name="log" options={{ href: null }} />
       <Tabs.Screen name="ai" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
+      <Tabs.Screen name="routine" options={{ href: null }} />
       <Tabs.Screen name="goals" options={{ href: null }} />
       <Tabs.Screen name="awards" options={{ href: null }} />
       <Tabs.Screen name="rank" options={{ href: null }} />
@@ -113,6 +115,7 @@ export default function MainLayout() {
     {levelUp ? (
       <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />
     ) : null}
+    <TutorialOverlay />
     </>
   );
 }

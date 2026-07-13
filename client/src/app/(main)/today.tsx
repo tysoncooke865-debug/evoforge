@@ -14,6 +14,10 @@ import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
+import { Link } from 'expo-router';
+import { Modal, Pressable } from 'react-native';
+
+import { substitutesFor } from '@/domain/exercise-library';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { RestTimerBar } from '@/ui/rest-timer';
 import { ExerciseCard } from '@/ui/exercise-logger';
@@ -32,8 +36,8 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
  */
 export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
-  const [day, setDay] = useState(days[0]);
+  const builtInDays = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
+  const [day, setDay] = useState(builtInDays[0]);
 
   // IMPROVEMENT_PLAN #10: the workout source. The AI plan shares the six
   // day names, so the chips, completion and logging are source-agnostic --
@@ -41,6 +45,16 @@ export default function TodayScreen() {
   const aiPlan = useCustomPlan();
   const [source, setSource] = useState<0 | 1>(0);
   const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
+  // Custom plans (AI or hand-built) drive their OWN day list — builder
+  // splits use names like "Upper A" that are not in ROUTINE_ORDER.
+  const days = useAi && aiPlan.data ? aiPlan.data.days.map((d) => d.day) : builtInDays;
+  useEffect(() => {
+    if (!days.includes(day)) setDay(days[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, aiPlan.data]);
+  // Tyson 2026-07-13: session-level exercise substitution (same muscle).
+  const [subs, setSubs] = useState<Record<string, string>>({});
+  const [subFor, setSubFor] = useState<string | null>(null);
 
   // P2 C3: LIFT | CARDIO mode; cardio type hoisted so the header sprite can
   // train what's being logged (the old log.tsx rationale, relocated).
@@ -60,7 +74,7 @@ export default function TodayScreen() {
       const plan = rows[rows.length - 1].plan;
       const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
       const assigned = plan[dow];
-      if (assigned && assigned !== 'Rest' && days.includes(assigned)) setDay(assigned);
+      if (assigned && assigned !== 'Rest' && builtInDays.includes(assigned)) setDay(assigned);
     }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,12 +101,16 @@ export default function TodayScreen() {
         (pyFloat(r.reps) ?? 0) > 0
     );
 
-  const builtIn = ROUTINE[day];
+  const builtIn = ROUTINE[day] ?? [];
   const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
-  // The same [exercise, sets, scheme] tuple shape either way.
-  const plan: readonly (readonly [string, number, string])[] = aiDay
+  // The same [exercise, sets, scheme] tuple shape either way — with any
+  // session substitutions applied (key `day:original` -> replacement).
+  const basePlan: readonly (readonly [string, number, string])[] = aiDay
     ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
     : builtIn;
+  const plan: readonly (readonly [string, number, string])[] = basePlan.map(
+    ([ex, sets, scheme]) => [subs[`${day}:${ex}`] ?? ex, sets, scheme] as const
+  );
   const totalTarget = plan.reduce((acc, [, sets]) => acc + sets, 0);
   const totalDone = plan.reduce(
     (acc, [exercise, sets]) => acc + Math.min(validRowsFor(exercise).length, sets),
@@ -171,8 +189,16 @@ export default function TodayScreen() {
       <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 16 }}>
       <RestTimerBar />
       {aiPlan.data ? (
-        <SegmentedTabs left="BUILT-IN" right="AI PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
-      ) : null}
+        <SegmentedTabs left="BUILT-IN" right="MY PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
+      ) : (
+        <Link href={'/routine' as never} asChild>
+          <Pressable accessibilityRole="button" testID="build-routine" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              ⚒ BUILD MY OWN ROUTINE →
+            </Text>
+          </Pressable>
+        </Link>
+      )}
 
       <GlowCard glow={complete ? tokens.colors.success : undefined}>
         <View className="mb-s4 flex-row flex-wrap gap-s2">
@@ -221,6 +247,7 @@ export default function TodayScreen() {
           isNext={exercise === nextExercise}
           onPr={() => (prCountRef.current += 1)}
           durable
+          onSubstitute={() => setSubFor(exercise)}
         />
       ))}
 
@@ -238,6 +265,62 @@ export default function TodayScreen() {
         <CardioCard type={cardioType} setType={setCardioType} />
       </View>
       <SummarySheet data={sheet} onClose={() => setSheet(null)} />
+
+      {/* Substitution sheet: same-muscle alternatives, one tap. */}
+      {subFor !== null ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setSubFor(null)}>
+          <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={() => setSubFor(null)}>
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-t-xl border-t p-s4"
+              style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 520 }}
+            >
+              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                SWAP · SAME MUSCLE GROUP
+              </Text>
+              <Text className="mb-s3 text-sm font-bold text-text">{subFor}</Text>
+              <View className="flex-row flex-wrap gap-s2">
+                {substitutesFor(subFor).slice(0, 12).map((alt) => (
+                  <Pressable
+                    key={alt.name}
+                    onPress={() => {
+                      setSubs((s) => {
+                        const next = { ...s };
+                        // Re-substituting an already-swapped card keys back
+                        // to the ORIGINAL plan exercise so RESET works.
+                        const orig = Object.keys(next).find((k) => next[k] === subFor && k.startsWith(`${day}:`));
+                        const key = orig ?? `${day}:${subFor}`;
+                        next[key] = alt.name;
+                        return next;
+                      });
+                      setSubFor(null);
+                    }}
+                    accessibilityRole="button"
+                    className="rounded-md border border-border px-s3 py-s2"
+                    style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}
+                  >
+                    <Text className="text-2xs font-bold text-text-dim">{alt.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View className="mt-s3">
+                <NeonButton
+                  title="RESET TO PLAN"
+                  variant="ghost"
+                  onPress={() => {
+                    setSubs((s) => {
+                      const next = { ...s };
+                      for (const k of Object.keys(next)) if (next[k] === subFor) delete next[k];
+                      return next;
+                    });
+                    setSubFor(null);
+                  }}
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
     </ScreenShell>
   );
 }
