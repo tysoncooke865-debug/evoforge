@@ -397,8 +397,35 @@ commit, all CI-green:
   (testID arena-resume-<id>). BUG FIXED: every history row said "Friendly
   Blitz" regardless of format. Falsified with a real two-account
   production duel, then cleaned.
-NEXT PHASE: P8 polish/Lighthouse CI. Perf targets + release gates are in
-the brief inside EVOFORGE_TRANSFORM.md §audit.
+- **P8** the release gates. THREE THINGS A FUTURE SESSION MUST KNOW:
+  1. `scripts/verify-motion.mjs` is now a CI step: any component calling
+     `withRepeat` MUST also call `useReducedMotion(`. It found two real
+     offenders (the toast's XP pulse, the HEADS OR TAILS coin) and both
+     are fixed. NEVER satisfy it by fast-forwarding a ONE-SHOT — those end
+     at opacity 0, so a fast-forwarded toast is an invisible toast.
+     (The guard's own first version was vacuous — it matched the bare
+     identifier, so `const reducedMotion = false` passed. Falsify your
+     guards.)
+  2. `client/lighthouserc.json` + the `lighthouse` CI job run against the
+     SAME artifact the deploy ships. Budgets are RATCHETS under the
+     measured build (perf 50–53, a11y 88, BP 93, LCP ~6.0s). Raise a floor
+     when the build clears it; never lower one to turn a red run green. It
+     is intentionally NOT a `deploy: needs:` — a lab measurement on a
+     shared runner can flake, and a flaky blocker gets deleted.
+  3. `large-account.test.ts` builds 5,000 sets and pins both correctness
+     and cost (<400ms per hot path) — the guard against an accidental
+     O(n²) in summary/aggregates.
+
+**THE TRANSFORM PROGRAM IS COMPLETE (P1–P8).** 249 tests, four executable
+guards (tokens · battle-engine byte-parity · motion · Lighthouse), lint
+0/0. Deliberately deferred, with reasons: Sentry/PostHog (earn their
+weight on native, and the web bundle is already the LCP problem), push
+notifications (need a native build), and the Train focus-console
+(single-set console / undo / warm-up toggle — the P2 active-card work
+covers the core need). LCP ~6s is THE remaining weakness: one ~2.5MB JS
+bundle, because Expo web has no route-level code splitting on this
+pipeline. The fix is native builds or splitting — not another web
+micro-optimisation.
 
 ## The loop (unchanged)
 

@@ -93,6 +93,14 @@ jobs:
       - name: verify-battle-engine — client and server scoring are byte-identical
         run: node scripts/verify-battle-engine.mjs
 
+      # TRANSFORM P8. withRepeat is Reanimated's only looping primitive, so a
+      # component that loops without consulting useReducedMotion is exactly the
+      # a11y bug this catches. It found two on the day it was written (the
+      # toast's XP pulse and the HEADS OR TAILS coin), and it was falsified by
+      # deleting a gate and watching it go red.
+      - name: verify-motion — every ambient loop honours reduced motion
+        run: node scripts/verify-motion.mjs
+
       - name: Parity suite — TS domain reproduces every golden case exactly
         run: npx vitest run src/domain
 
@@ -138,6 +146,56 @@ jobs:
         with:
           name: web-dist
           path: client/dist
+          retention-days: 7
+
+  # TRANSFORM P8 — the Lighthouse release gate. Runs against the SAME artifact
+  # the deploy ships, so the number is the build's, not a rebuild's.
+  #
+  # Deliberately NOT in `deploy: needs:`. Lighthouse is a lab measurement on a
+  # shared runner: it can flake (Chrome trace/launch errors) in a way the unit
+  # gates cannot, and a flaky blocker gets deleted within a week. Instead it is
+  # its own required-visible check — a regression turns the commit red and
+  # nobody can miss it, but a bad Chrome launch cannot wedge a good deploy.
+  # The budgets in client/lighthouserc.json are ratchets under the measured
+  # build; raise them when the build clears them, never lower them to go green.
+  lighthouse:
+    needs: [client]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: client/dist
+
+      - name: Lighthouse CI — budgets in client/lighthouserc.json
+        run: |
+          set -o pipefail
+          if ! npx --yes @lhci/cli@0.14.x autorun 2>&1 | tee /tmp/lhci.log; then
+            grep -iE 'assertion|expected:|found:|minScore|maxNumericValue' /tmp/lhci.log \
+              | head -n 9 \
+              | while IFS= read -r line; do echo "::error title=lighthouse::${line}"; done
+            exit 1
+          fi
+          {
+            echo "### Lighthouse"
+            grep -E '^\s+(⚠️|❌|✅)' /tmp/lhci.log || echo "all budgets met"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: client/.lighthouseci
           retention-days: 7
 
   fixtures:

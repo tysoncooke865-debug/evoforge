@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -10,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { animations } from '@/theme/animations';
+import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore, type Toast } from '@/state/toast-store';
 
 /**
@@ -33,6 +35,12 @@ export function ToastHost() {
 function ToastCard({ toast }: { toast: Toast }) {
   const dismiss = useToastStore((s) => s.dismiss);
   const spec = toast.kind === 'xp' ? animations.xpToastPop : animations.toastIn;
+  // P8: the XP pulse is an ambient LOOP and must yield to reduced motion /
+  // perf mode. The toast's own entrance is a ONE-SHOT that ends at opacity 0
+  // — never fast-forward or disable that, or the toast becomes invisible.
+  const reducedMotion = useReducedMotion();
+  const perfMode = useSettingsStore((s) => s.perfMode);
+  const loopsAllowed = !reducedMotion && !perfMode;
 
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
@@ -57,15 +65,18 @@ function ToastCard({ toast }: { toast: Toast }) {
         withTiming(0.96, { duration: d * 0.18, easing: ease })
       );
       translateY.value = 0;
-      // The XP number pulses while the toast lives (ambient loop; perf mode
-      // may disable loops, never one-shots).
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1.16, { duration: animations.xpPulse.duration / 2 }),
-          withTiming(1, { duration: animations.xpPulse.duration / 2 })
-        ),
-        -1
-      );
+      // The XP number pulses while the toast lives — an ambient loop, so it
+      // is disabled (held at rest scale 1, still fully legible) rather than
+      // fast-forwarded when motion is unwelcome.
+      if (loopsAllowed) {
+        pulse.value = withRepeat(
+          withSequence(
+            withTiming(1.16, { duration: animations.xpPulse.duration / 2 }),
+            withTiming(1, { duration: animations.xpPulse.duration / 2 })
+          ),
+          -1
+        );
+      }
     } else {
       // toastIn: rise+appear @8%, hold to 88%, sink+fade @100%
       opacity.value = withSequence(

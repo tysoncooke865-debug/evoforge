@@ -5,6 +5,7 @@ import { Platform, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -18,9 +19,12 @@ import Animated, {
  * per frame; Reanimated stacked frames on native). When the server verdict
  * lands, spinning stops and ONE static face renders (a single source
  * assignment — the contract forbids per-frame source swaps, not state
- * transitions). The spin is a short ceremony one-shot, never ambient: the
- * parent flips `spinning` off on a timeout, so perf mode/reduced motion
- * need no gate here.
+ * transitions). The parent flips `spinning` off when the verdict lands.
+ *
+ * P8: the spin IS bounded, but it is still a fast rotating object, which is
+ * exactly what a vestibular-sensitive athlete asked the OS to stop. Under
+ * reduced motion the coin renders its FACE and never spins — the verdict is
+ * carried by the face, not by the motion, so nothing is lost but the flourish.
  */
 
 const STRIP = require('../assets/battle/coin_flip_strip.png');
@@ -91,9 +95,11 @@ function NativeSpin({ size }: { size: number }) {
 }
 
 export function CoinFlip({ spinning, face, size = 132 }: { spinning: boolean; face: 'heads' | 'tails'; size?: number }) {
+  const reducedMotion = useReducedMotion();
+  const spin = spinning && !reducedMotion;
   return (
     <View style={{ width: size, height: size }} pointerEvents="none">
-      {spinning ? (
+      {spin ? (
         Platform.OS === 'web' ? (
           <WebSpin size={size} />
         ) : (

@@ -1,0 +1,42 @@
+{
+  "//": [
+    "TRANSFORM P8 — the Lighthouse release gate.",
+    "Every floor is a RATCHET set just under what the build actually measures",
+    "(mobile, simulated throttling, 3 runs, median), NOT an aspiration: a gate",
+    "that fails on every green build gets switched off, and a gate that nothing",
+    "can trip is not a gate.",
+    "Measured on the P8 export, sign-in shell: perf 50-53, a11y 88,",
+    "best-practices 93, seo 86, FCP ~0.76s, LCP ~6.0s, TBT ~1.3-1.7s.",
+    "LCP and TBT are the KNOWN weakness — one ~2.5MB JS bundle, because Expo",
+    "web has no route-level code splitting on this pipeline. They are asserted",
+    "as warnings so the number stays visible in CI without blocking; the real",
+    "fix is native builds / splitting, tracked in EVOFORGE_TRANSFORM.md.",
+    "Raise a floor whenever the build clears it comfortably — never lower one",
+    "to make a red run green."
+  ],
+  "ci": {
+    "collect": {
+      "staticDistDir": "dist",
+      "url": ["http://localhost/index.html"],
+      "numberOfRuns": 3,
+      "settings": {
+        "skipAudits": ["uses-http2", "canonical", "is-crawlable", "installable-manifest"]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 0.85 }],
+        "categories:best-practices": ["error", { "minScore": 0.9 }],
+        "categories:performance": ["error", { "minScore": 0.45 }],
+        "categories:seo": ["warn", { "minScore": 0.8 }],
+        "first-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 7000 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 1800 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci"
+    }
+  }
+}

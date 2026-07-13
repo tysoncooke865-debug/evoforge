@@ -155,9 +155,11 @@
   now live matches lead the hub), async default (already true).
   Notifications remain deferred — they need a native build to mean
   anything, and the web PWA cannot deliver them on iOS.
-- [ ] **P8 Polish/release gates** — Lighthouse CI wiring, Sentry/PostHog
-  (native builds), reduce-motion audit (largely done), large-account
-  test fixture.
+- [x] **P8 Polish/release gates** — Lighthouse CI wired (budgets as
+  ratchets, own job), reduce-motion audit (now an executable GUARD; found
+  and fixed two real offenders), large-account test fixture (5,000 sets).
+  Sentry/PostHog remain deliberately NOT installed — they earn their
+  weight on native builds, and the web bundle is already the LCP problem.
 
 ## 3. STATE DIAGRAMS (sync)
 
@@ -283,3 +285,42 @@ deploy gap meant P3 was invisible on the live URL until 9a2e4bc.
   Duel / RESUME, and RESUME navigated back into the match. Smoke match
   deleted afterwards.
 - DB: none. Packages: none. Engine byte-parity re-verified (18026 × 3).
+
+**P8 (2026-07-13)**: the release gates.
+- **verify-motion.mjs** (new CI step): `withRepeat` is Reanimated's only
+  looping primitive, so a component that loops without calling
+  useReducedMotion is the a11y bug. IT FOUND TWO REAL OFFENDERS: the
+  toast's XP pulse (looped for the toast's whole life) and the HEADS OR
+  TAILS coin (spun a fast rotating object at exactly the athlete who asked
+  the OS to stop). Both fixed — the pulse holds at rest scale, the coin
+  renders its FACE (the verdict is in the face, not the motion).
+  THE GUARD ITSELF WAS FALSIFIED TWICE: the first version matched the bare
+  identifier `reducedMotion`, so `const reducedMotion = false` passed and
+  the falsification run stayed GREEN with the gate deliberately removed —
+  a vacuous guard, exactly what the doctrine warns about. It now requires
+  a real `useReducedMotion(` call, and breaking a gate turns it red.
+  One-shots are NEVER disabled: a fast-forwarded toast ends at opacity 0,
+  which is an invisible toast.
+- **Lighthouse CI** (client/lighthouserc.json + its own `lighthouse` job,
+  running against the SAME artifact the deploy ships). MEASURED baseline
+  (mobile, 3 runs, sign-in shell): perf 50–53, a11y 88, best-practices 93,
+  seo 86, FCP ~0.76s, LCP ~6.0s, TBT ~1.3–1.7s. Every floor is a RATCHET
+  set just under measured (a11y 0.85, BP 0.90, perf 0.45, FCP 2s as
+  errors; LCP/TBT/seo as warnings) — raise them when the build clears
+  them, never lower one to make a red run green. It is deliberately NOT in
+  `deploy: needs:` — Lighthouse is a lab measurement on a shared runner and
+  CAN flake (Chrome trace/launch errors, seen locally); a flaky blocker
+  gets deleted within a week, so it is a required-visible check that reds
+  the commit instead of wedging the pipeline.
+- **Large-account fixture** (`large-account.test.ts`, 11 cases): 5,000
+  valid sets over ~3.4 years, deterministic (no Math.random — a flaky
+  fixture is worse than none). Pins BOTH correctness (summary,
+  periodTotals, exerciseSeries and the streak all agree with what the
+  generator put in) and COST (each hot path < 400ms, ~10× a dev-machine
+  measurement, so it catches an accidental O(n²) rather than a busy
+  runner). Whole file runs in ~100ms today.
+- Totals: 249 tests, four executable guards (tokens, engine, motion,
+  Lighthouse), lint 0/0.
+- LCP ~6s remains THE known weakness — one ~2.5MB JS bundle, because Expo
+  web has no route-level code splitting on this pipeline. The real fix is
+  native builds / splitting, not another web micro-optimisation.

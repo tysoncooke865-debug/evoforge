@@ -63,7 +63,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:tokens": "node scripts/verify-tokens.mjs",
+    "verify:engine": "node scripts/verify-battle-engine.mjs",
+    "verify:motion": "node scripts/verify-motion.mjs",
+    "lighthouse": "lhci autorun"
   },
   "private": true
 }

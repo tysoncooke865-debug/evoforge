@@ -21,6 +21,10 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Lighthouse CI reports (the budgets in lighthouserc.json are tracked; the
+# per-run HTML/JSON output is not)
+.lighthouseci/
+
 # debug
 npm-debug.*
 yarn-debug.*
