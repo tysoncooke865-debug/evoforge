@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeScheduledStreak, crossedMilestones, type ScheduleRow } from '../scheduled-streak';
+import { computeScheduledStreak, crossedMilestones, nextScheduledSession, type ScheduleRow } from '../scheduled-streak';
 import type { WorkoutRow } from '../summary';
 
 const set = (date: string): WorkoutRow => ({
@@ -66,6 +66,50 @@ describe('computeScheduledStreak', () => {
     const s = computeScheduledStreak([WEEK], rows, TODAY, 10); // Thu+Fri+Sat missed
     expect(s.current).toBe(0);
     expect(s.best).toBe(3);
+  });
+});
+
+describe('nextScheduledSession', () => {
+  it('no schedule → null', () => {
+    expect(nextScheduledSession([], TODAY)).toBeNull();
+  });
+
+  it('from Sunday, next is Monday Push (strictly after today)', () => {
+    // TODAY 2026-07-12 is a Sunday; '1' = Push 1.
+    expect(nextScheduledSession([WEEK], TODAY)).toEqual({
+      date: '2026-07-13',
+      day: 'Push 1 - Strength',
+      inDays: 1,
+    });
+  });
+
+  it("skips Rest days: from Saturday the answer is Monday's session, not Sunday", () => {
+    expect(nextScheduledSession([WEEK], '2026-07-11')).toEqual({
+      date: '2026-07-13',
+      day: 'Push 1 - Strength',
+      inDays: 2,
+    });
+  });
+
+  it('a future-dated reschedule governs the days it covers', () => {
+    // Monday becomes Rest from 07-13 → next session is Tuesday Pull.
+    const reschedule: ScheduleRow = {
+      effective_from: '2026-07-13',
+      plan: { ...WEEK.plan, '1': 'Rest' },
+    };
+    expect(nextScheduledSession([WEEK, reschedule], TODAY)).toEqual({
+      date: '2026-07-14',
+      day: 'Pull 1 - Back Thickness',
+      inDays: 2,
+    });
+  });
+
+  it('an all-Rest plan → null within the horizon', () => {
+    const allRest: ScheduleRow = {
+      effective_from: '2026-01-01',
+      plan: { '0': 'Rest', '1': 'Rest', '2': 'Rest', '3': 'Rest', '4': 'Rest', '5': 'Rest', '6': 'Rest' },
+    };
+    expect(nextScheduledSession([allRest], TODAY)).toBeNull();
   });
 });
 

@@ -39,6 +39,17 @@ const addDays = (iso: string, n: number): string => {
 
 const dowOf = (iso: string): string => String(new Date(`${iso}T00:00:00Z`).getUTCDay());
 
+/** The plan in force on a given day: the latest row effective on or before
+ *  it. `sorted` must be ascending by effective_from. */
+const planInForce = (sorted: ScheduleRow[], iso: string): Record<string, string> | null => {
+  let found: Record<string, string> | null = null;
+  for (const s of sorted) {
+    if (s.effective_from <= iso) found = s.plan;
+    else break;
+  }
+  return found;
+};
+
 export function computeScheduledStreak(
   schedules: ScheduleRow[],
   workoutRows: WorkoutRow[],
@@ -46,14 +57,7 @@ export function computeScheduledStreak(
   windowDays = 180
 ): ScheduledStreak {
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
-  const planFor = (iso: string): Record<string, string> | null => {
-    let found: Record<string, string> | null = null;
-    for (const s of sorted) {
-      if (s.effective_from <= iso) found = s.plan;
-      else break;
-    }
-    return found;
-  };
+  const planFor = (iso: string): Record<string, string> | null => planInForce(sorted, iso);
 
   const trained = new Set<string>();
   for (const r of workoutRows) {
@@ -109,6 +113,32 @@ export function computeScheduledStreak(
   if (current > best) best = current;
 
   return { current, best, runStart, days };
+}
+
+export interface NextSession {
+  date: string; // YYYY-MM-DD
+  day: string; // the plan's day name
+  inDays: number; // 1 = tomorrow
+}
+
+/** TRANSFORM P4: the next non-Rest scheduled day strictly AFTER todayIso —
+ *  the ceremony's "confirm next session" phase reads it. Effective-dating
+ *  honoured: each future day is judged against the plan in force THEN
+ *  (a reschedule saved today changes tomorrow, not history). Null when no
+ *  schedule exists or the horizon holds only Rest. */
+export function nextScheduledSession(
+  schedules: ScheduleRow[],
+  todayIso: string,
+  horizonDays = 14
+): NextSession | null {
+  if (schedules.length === 0) return null;
+  const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+  for (let i = 1; i <= horizonDays; i++) {
+    const iso = addDays(todayIso, i);
+    const assigned = planInForce(sorted, iso)?.[dowOf(iso)];
+    if (assigned && assigned !== 'Rest') return { date: iso, day: assigned, inDays: i };
+  }
+  return null;
 }
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100] as const;

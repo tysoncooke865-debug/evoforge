@@ -136,11 +136,16 @@
   pending/synced/failed_retryable), crash-safe draft persistence for the
   active day's typed sets, REST TIMER (absolute end timestamp, survives
   remount/background, opt-in per set log).
-- [ ] **P3 Train focus mode** — active-set console on Today/Train (large
-  current-set card driven from the active ExerciseCard state), undo,
-  warm-up toggle, collapse completed, persistent Finish bar.
-- [ ] **P4 Completion payoff** — ordered MISSION COMPLETE ceremony
-  (summary exists; add PR/path/evolution/next-session phases; skippable).
+- [x] **P3 (shipped as the onboarding/plan batch)** — first-run tutorial
+  overlay, exercise library (100+ tagged), routine builder writing
+  custom_workout_plan, same-muscle ⇄ substitution on Train cards. The
+  originally-sketched focus-console items (single-set console, undo,
+  warm-up toggle, collapse completed) are DEFERRED post-P8 — the P2
+  active-card polish (purple row, prefill, steppers, keypad) covers the
+  core of that need.
+- [x] **P4 Completion payoff** — ordered MISSION COMPLETE ceremony
+  (summary → PR reveal → level path → evolution progress → next-session
+  confirmation; skippable at every phase).
 - [ ] **P5 Home & return loop** — Today's Quest card + dynamic states +
   weekly contract + Forge streak (schedule-aware).
 - [ ] **P6 Forge & Progress restructure** (Avatar→Forge naming, Paths
@@ -188,3 +193,28 @@ persister. DB: none. Verified: 208 tests, lint 0/0, tours.
   landed on the server EXACTLY ONCE (SQL-verified); online log shows
   timer + UPDATE flip. Known limitation: typed-but-unlogged drafts are
   not yet persisted (P3, with the focus console).
+
+**P3 batch (2026-07-13, `6848ab6` + hotfix `9a2e4bc`)**: first-run
+tutorial overlay (once-per-device), domain/exercise-library.ts, routine
+builder ((main)/routine.tsx → custom_workout_plan; custom plans drive
+their own day chips), ⇄ same-muscle substitution. LESSON RELEARNED: the
+push went out on a warm local lint cache and CI (cold) refused it —
+react-hooks/set-state-in-effect on the day-clamp effect. The hotfix
+derives the effective day at render (dayChoice raw, day clamped); the
+deploy gap meant P3 was invisible on the live URL until 9a2e4bc.
+
+**P4 (2026-07-13)**: MISSION COMPLETE ceremony.
+- ui/summary-sheet.tsx: phased sequence summary → PR reveal → LEVEL path
+  (XpBar) → evolution progress (per-requirement bars via
+  requirementProgress) → NEXT MISSION confirm ("I'LL BE THERE"). Phases
+  are data-gated: PR phase only when a PR landed, next-session only when
+  a schedule exists. SKIP (ghost) on every non-final phase keeps testID
+  summary-close, so pre-ceremony tours still dismiss in one click;
+  advance = summary-next, final = summary-done. Phase dots in the
+  header. All confirmed state — nothing projected.
+- domain/scheduled-streak.ts: nextScheduledSession() (effective-dated,
+  14-day horizon, skips Rest) + extracted planInForce; 5 new vitest
+  cases (213 total).
+- (main)/today.tsx: prNamesRef captures WHICH lifts PR'd (deduped into
+  prExercises); buildSummary passes nextSession.
+- DB: none. Packages: none.

@@ -356,9 +356,22 @@ commit, all CI-green:
   day chips; scheduled-day default only applies to built-in days);
   ⇄ substitution on Train cards (session-level subs map in today.tsx,
   logged sets record the REAL exercise).
-NEXT PHASES (per EVOFORGE_TRANSFORM.md): P4 completion ceremony (extend
-SummarySheet: PR/path/evolution/next-session phases), P5 Home Today's
-Quest + dynamic states + weekly contract/Forge streak, P6 Forge/Progress
+- **P3 hotfix** `9a2e4bc`: CI (cold cache) had REFUSED 6848ab6 —
+  react-hooks/set-state-in-effect on Today's day-clamp effect + duplicate
+  react-native imports — so P3 never deployed (gotcha 14 strikes again;
+  the live-bundle marker-string check found it). Day now clamps at
+  RENDER (dayChoice raw, day effective).
+- **P4** MISSION COMPLETE ceremony: summary-sheet.tsx is a phased
+  sequence — summary → PR reveal (only when a PR landed; today.tsx
+  captures WHICH lifts via prNamesRef) → LEVEL path → evolution progress
+  (per-requirement bars) → NEXT MISSION confirm from the persisted
+  schedule (domain nextScheduledSession(), effective-dated, skips Rest,
+  14-day horizon; 5 vitest cases). SKIP keeps testID summary-close on
+  every non-final phase (old tours still pass); advance=summary-next,
+  final=summary-done. Verified: 3-phase and 5-phase walks in-browser
+  (PR + schedule seeded for BRAVO, then cleaned server-side).
+NEXT PHASES (per EVOFORGE_TRANSFORM.md): P5 Home Today's Quest +
+dynamic states + weekly contract/Forge streak, P6 Forge/Progress
 restructure, P7 Arena active-battle-first, P8 polish/Lighthouse
 CI/Sentry. Perf targets + release gates are in the brief inside
 EVOFORGE_TRANSFORM.md §audit.

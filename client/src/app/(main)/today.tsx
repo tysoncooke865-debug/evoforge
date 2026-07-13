@@ -10,6 +10,7 @@ import { CARDIO_TYPES } from '@/domain/cardio';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat } from '@/domain/py';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { nextScheduledSession } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
@@ -85,6 +86,8 @@ export default function TodayScreen() {
   const { summary, stats, bfMid } = useAvatarData();
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const prCountRef = useRef(0);
+  // P4: which lifts PR'd this session, for the ceremony's reveal phase.
+  const prNamesRef = useRef<string[]>([]);
   const todayRows = useMemo(
     () =>
       normaliseWorkoutLog(workouts.data ?? []).filter(
@@ -127,6 +130,7 @@ export default function TodayScreen() {
     setsTarget: totalTarget,
     xpBanked: totalDone * XP_PER_SET,
     prCount: prCountRef.current,
+    prExercises: [...new Set(prNamesRef.current)],
     streak: computeStreak(workouts.data ?? [], todayIso).current,
     level: summary.level,
     xpIntoLevel: summary.xpIntoLevel,
@@ -138,6 +142,7 @@ export default function TodayScreen() {
       totalSets: summary.totalSets,
       cardioMinutes: summary.cardioMinutes,
     }),
+    nextSession: nextScheduledSession(schedule.data ?? [], todayIso),
   });
 
   const announcedRef = useRef<string | null>(null);
@@ -245,7 +250,10 @@ export default function TodayScreen() {
           allRows={workouts.data ?? []}
           doneCount={validRowsFor(exercise).length}
           isNext={exercise === nextExercise}
-          onPr={() => (prCountRef.current += 1)}
+          onPr={() => {
+            prCountRef.current += 1;
+            prNamesRef.current.push(exercise);
+          }}
           durable
           onSubstitute={() => setSubFor(exercise)}
         />
