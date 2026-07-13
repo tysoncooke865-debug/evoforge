@@ -10,6 +10,7 @@ import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/floating-xp';
 import { NumberField } from '@/ui/number-field';
+import { startRest } from '@/ui/rest-timer';
 import { schemeSentence } from '@/ui/scheme-sentence';
 import { GlowCard } from '@/ui/shell';
 
@@ -71,6 +72,7 @@ export function ExerciseCard({
   onPr,
   tint = tokens.colors.accent,
   onLogged,
+  durable = false,
 }: {
   date: string;
   workout: string;
@@ -84,6 +86,9 @@ export function ExerciseCard({
   onPr: () => void;
   tint?: string;
   onLogged?: (verdict: SetVerdict) => void;
+  /** TRANSFORM P2: offline-first queued inserts (Today/Train). Battles
+   *  stay direct — battle_events need a server-confirmed row. */
+  durable?: boolean;
 }) {
   const done = doneCount >= targetSets;
   const compact = useCompact();
@@ -144,6 +149,7 @@ export function ExerciseCard({
             onPr={onPr}
             tint={tint}
             onLogged={onLogged}
+            durable={durable}
           />
         );
       })}
@@ -162,6 +168,7 @@ function SetRow({
   onPr,
   tint,
   onLogged,
+  durable = false,
 }: {
   date: string;
   workout: string;
@@ -174,6 +181,7 @@ function SetRow({
   onPr: () => void;
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
+  durable?: boolean;
 }) {
   const [weight, setWeight] = useState(initialWeight !== '' ? initialWeight : prefill ? String(prefill.weight) : '');
   const [reps, setReps] = useState(initialReps !== '' ? initialReps : prefill ? String(prefill.reps) : '');
@@ -202,12 +210,17 @@ function SetRow({
         setNo,
         weight: w,
         reps: Math.trunc(r),
+        durable,
       },
       {
         // Confirmed state only: the float fires on a REAL insert verdict,
         // never optimistically -- a failed save must not celebrate.
         onSuccess: (verdict) => {
-          if (verdict.action === 'insert') setFloatXp(true);
+          if (verdict.action === 'insert') {
+            setFloatXp(true);
+            // P2: the rest clock starts the moment a NEW set banks.
+            startRest();
+          }
           if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) onPr();
           onLogged?.(verdict);
         },

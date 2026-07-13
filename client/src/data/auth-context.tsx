@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     queryClient.clear();
+    void import('./set-queue').then(({ clearSetQueue }) => clearSetQueue().catch(() => undefined));
     // TRANSFORM P1: the PERSISTED query cache must die with the session —
     // same invariant as the in-memory clear (never hand the last athlete's
     // character to the next visitor on a shared device).

@@ -8,9 +8,12 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
 import { announceXp, useToastStore } from '@/state/toast-store';
 
+import * as Crypto from 'expo-crypto';
+
 import { runAchievementSweep } from './achievement-sweep';
 import { useAuth } from './auth-context';
 import { fetchWorkoutLog } from './hooks';
+import { enqueueSet } from './set-queue';
 import { supabase } from './supabase';
 
 /**
@@ -34,7 +37,7 @@ export function useSaveSet() {
   const userId = session?.user?.id ?? null;
 
   return useMutation({
-    mutationFn: async (input: SetInput): Promise<SetVerdict> => {
+    mutationFn: async (input: SetInput & { durable?: boolean }): Promise<SetVerdict> => {
       // An ABSENT cache is not an EMPTY log: deciding against [] classifies
       // an existing set as new — duplicate row + second XP grant. Fall back
       // to a fresh read exactly like Python's save_set_auto() did.
@@ -50,6 +53,32 @@ export function useSaveSet() {
 
       const timestamp = new Date().toISOString().slice(0, 19);
       const row = buildSetRow(input, inferMuscleGroup(input.exercise), timestamp);
+
+      // TRANSFORM P2: durable INSERTS never wait for the network. The row id
+      // is minted HERE (idempotency key — a retried insert collides on the
+      // PK), the set lands in AsyncStorage within ~ms, the query cache gains
+      // the row optimistically, and the queue syncs in the background.
+      // Battles keep the direct path: battle_events need a SERVER-confirmed
+      // row inside the round window.
+      if (input.durable && verdict.action === 'insert') {
+        const id = Crypto.randomUUID();
+        await enqueueSet(id, {
+          workoutDate: input.workoutDate,
+          workout: input.workout,
+          exercise: input.exercise,
+          setNo: input.setNo,
+          weight: input.weight,
+          reps: input.reps,
+        }, timestamp);
+        verdict.rowId = id;
+        (verdict as SetVerdict & { queued?: boolean }).queued = true;
+        queryClient.setQueryData(
+          ['workout_log', userId],
+          (old: import('@/domain/summary').WorkoutRow[] | undefined) =>
+            old ? [...old, { id, ...row } as unknown as import('@/domain/summary').WorkoutRow] : old
+        );
+        return verdict;
+      }
 
       if (verdict.action === 'update') {
         const { error } = await supabase.from('workout_log').update(row).eq('id', verdict.rowId);
@@ -87,8 +116,15 @@ export function useSaveSet() {
       return verdict;
     },
     onSuccess: (verdict, input) => {
-      queryClient.invalidateQueries({ queryKey: ['workout_log', userId] });
-      queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+      const queued = Boolean((verdict as SetVerdict & { queued?: boolean }).queued);
+      if (!queued) {
+        // A queued insert already updated the cache optimistically; an
+        // immediate refetch would DROP the row (the server hasn't seen it
+        // yet) and flicker the pips off. Reconciliation happens on the next
+        // natural refetch after the queue flushes.
+        queryClient.invalidateQueries({ queryKey: ['workout_log', userId] });
+        queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
+      }
 
       if (verdict.action === 'insert' || verdict.action === 'update') {
         // Fire-and-forget, like Python running the sweep inside the save: a

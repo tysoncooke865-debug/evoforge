@@ -166,4 +166,25 @@ UI derives remaining from Date.now() every second → survives remount/
 background because only restEndAt is stored.
 
 ## 4. PHASE LOG
-(append per phase: files, packages, DB, measurements, risks)
+
+**P1 (2026-07-13, `016d40d`)**: five-tab bar (Home/Train/Progress/Forge/
+Arena), companion-as-profile-menu (44pt, testID profile-menu), menu gains
+Oracle + Stats Entry; React Query persisted to AsyncStorage (24h, purged
+on sign-out). Packages: +react-query-persist-client, +query-async-storage-
+persister. DB: none. Verified: 208 tests, lint 0/0, tours.
+
+**P2 (2026-07-13)**: offline-first set logging + rest timer.
+- data/set-queue.ts: AsyncStorage queue, client-minted UUID row ids (PK =
+  idempotency; duplicate sets via retry impossible), XP grant after
+  confirmed insert (unique index dedupes), flush on boot/online/enqueue/
+  30s, states pending|failed_permanent; purged on sign-out.
+- useSaveSet({durable}) — Today/Train inserts are queued + optimistic
+  cache append (no invalidation flicker); battles keep the direct path
+  (battle_events need server-confirmed rows).
+- ui/rest-timer.tsx: absolute restEndAt in storage; remaining DERIVED per
+  tick — remount/background/lock-proof by construction; haptic on done;
+  SKIP; lingers 8s. Starts on every confirmed NEW set.
+- MEASURED: offline-logged set flipped UI instantly, survived reconnect,
+  landed on the server EXACTLY ONCE (SQL-verified); online log shows
+  timer + UPDATE flip. Known limitation: typed-but-unlogged drafts are
+  not yet persisted (P3, with the focus console).

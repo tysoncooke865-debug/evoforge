@@ -15,6 +15,7 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
+import { RestTimerBar } from '@/ui/rest-timer';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
@@ -168,6 +169,7 @@ export default function TodayScreen() {
       <SegmentedTabs left="LIFT" right="CARDIO" active={mode} onChange={setMode} testIDPrefix="today-mode" />
 
       <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 16 }}>
+      <RestTimerBar />
       {aiPlan.data ? (
         <SegmentedTabs left="BUILT-IN" right="AI PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
       ) : null}
@@ -218,6 +220,7 @@ export default function TodayScreen() {
           doneCount={validRowsFor(exercise).length}
           isNext={exercise === nextExercise}
           onPr={() => (prCountRef.current += 1)}
+          durable
         />
       ))}
 

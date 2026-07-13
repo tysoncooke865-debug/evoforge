@@ -5,6 +5,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/data/auth-context';
+import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
@@ -22,6 +23,11 @@ import tokens from '@/theme/tokens';
  */
 export default function MainLayout() {
   const { session, loading } = useAuth();
+  // TRANSFORM P2: resume flushing any offline-logged sets after a cold
+  // start; also re-flushes on the browser 'online' event.
+  useEffect(() => {
+    initSetQueue();
+  }, []);
   const profile = useProfile();
   const insets = useSafeAreaInsets();
 
