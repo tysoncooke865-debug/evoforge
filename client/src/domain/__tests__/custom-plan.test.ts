@@ -76,3 +76,40 @@ describe('flatten ↔ group round-trip', () => {
     expect(groupPlanRows([])).toBeNull();
   });
 });
+
+describe("flattenPlan and the athlete's own exercises (STAGE 1)", () => {
+  const customPlan = () => {
+    const p = goodPlan();
+    p.days[0].exercises[0] = {
+      exercise: 'Jefferson Curl',
+      sets: 3,
+      reps: '8-12',
+      reason: 'spinal flexion',
+    };
+    return p;
+  };
+
+  it('a custom exercise carries the muscle the ATHLETE chose', () => {
+    const { plan } = validatePlan(customPlan());
+    const rows = flattenPlan(plan!, '2026-07-13T10:00:00', [
+      { name: 'Jefferson Curl', muscle: 'Hamstrings' },
+    ]);
+    expect(rows[0]).toMatchObject({ exercise: 'Jefferson Curl', muscle: 'Hamstrings' });
+  });
+
+  it('POSITIVE CONTROL: without their list, the same name only INFERS', () => {
+    // Proves the previous test measured the threading, not a coincidence —
+    // inferMuscleGroup has never seen "Jefferson Curl" and cannot know it is
+    // a hamstring lift.
+    const { plan } = validatePlan(customPlan());
+    const rows = flattenPlan(plan!, '2026-07-13T10:00:00');
+    expect(rows[0].muscle).not.toBe('Hamstrings');
+  });
+
+  it('the default [] keeps every existing caller byte-identical', () => {
+    const { plan } = validatePlan(goodPlan());
+    expect(flattenPlan(plan!, '2026-07-13T10:00:00')).toEqual(
+      flattenPlan(plan!, '2026-07-13T10:00:00', [])
+    );
+  });
+});

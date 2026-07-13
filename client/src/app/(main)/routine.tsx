@@ -11,6 +11,7 @@ import {
   SPLITS,
 } from '@/domain/exercise-library';
 import tokens from '@/theme/tokens';
+import { ExercisePicker } from '@/ui/exercise-picker';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -32,6 +33,9 @@ export default function RoutineBuilderScreen() {
   const [dayIx, setDayIx] = useState(0);
   const [section, setSection] = useState(0);
   const [plan, setPlan] = useState<Record<string, PlanExercise[]>>({});
+  // STAGE 1: the section chips show the library; the picker also SEARCHES it
+  // and can create what the library doesn't have.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const split = SPLITS.find((s) => s.key === splitKey) ?? null;
   const day = split?.days[dayIx] ?? null;
@@ -175,6 +179,7 @@ export default function RoutineBuilderScreen() {
               {LIBRARY_SECTIONS.map((s, i) => (
                 <Chip key={s.label} label={s.label} active={i === section} onPress={() => setSection(i)} />
               ))}
+              <Chip label="🔍 SEARCH / CUSTOM" active={false} onPress={() => setPickerOpen(true)} />
             </View>
             <View className="mt-s3 flex-row flex-wrap gap-s2">
               {exercisesFor(LIBRARY_SECTIONS[section]).map((e) => {
@@ -221,6 +226,16 @@ export default function RoutineBuilderScreen() {
           Pick a split to start — you can rebuild any time; saving replaces your current custom plan.
         </Text>
       )}
+
+      <ExercisePicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(e) => {
+          addExercise(e.name);
+          setPickerOpen(false);
+        }}
+        excludeNames={dayList.map((e) => e.exercise)}
+      />
     </ScreenShell>
   );
 }

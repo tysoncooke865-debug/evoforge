@@ -1,4 +1,5 @@
 import { ROUTINE, ROUTINE_ORDER } from './catalogs';
+import { userMuscleFor, type UserExercise } from './exercise-search';
 import { pyInt } from './py';
 import { inferMuscleGroup } from './workouts';
 
@@ -76,8 +77,16 @@ export interface PlanRow {
   timestamp: string;
 }
 
-/** Flatten for insert: one row per exercise, the Streamlit row shape. */
-export function flattenPlan(plan: CustomPlan, timestamp: string): PlanRow[] {
+/** Flatten for insert: one row per exercise, the Streamlit row shape.
+ *  STAGE 1: `userExercises` lets an athlete-created lift carry the muscle
+ *  THEY chose. It defaults to [] so every existing caller — and the parity
+ *  suite — behaves byte-identically (inferMuscleGroup is pinned; it moves for
+ *  nobody). */
+export function flattenPlan(
+  plan: CustomPlan,
+  timestamp: string,
+  userExercises: readonly UserExercise[] = []
+): PlanRow[] {
   const rows: PlanRow[] = [];
   for (const day of plan.days) {
     for (const e of day.exercises) {
@@ -87,7 +96,7 @@ export function flattenPlan(plan: CustomPlan, timestamp: string): PlanRow[] {
         exercise: e.exercise,
         sets: e.sets,
         reps: e.reps,
-        muscle: inferMuscleGroup(e.exercise),
+        muscle: userMuscleFor(e.exercise, userExercises) ?? inferMuscleGroup(e.exercise),
         reason: e.reason,
         day_goal: day.goal,
         timestamp,

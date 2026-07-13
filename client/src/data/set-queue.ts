@@ -39,6 +39,11 @@ export interface QueuedSet {
   input: SetInput;
   /** ISO timestamp the set was performed (drives the stored row). */
   timestamp: string;
+  /** STAGE 1: resolved AT ENQUEUE (a custom exercise's muscle lives in the
+   *  athlete's user_exercises, which the flush — a plain module, no React —
+   *  cannot read). Absent on rows queued before this shipped: those fall back
+   *  to inferMuscleGroup, exactly the behaviour they were enqueued under. */
+  muscle?: string;
   state: 'pending' | 'failed_permanent';
   attempts: number;
   lastError?: string;
@@ -73,9 +78,14 @@ export async function pendingCount(): Promise<number> {
 }
 
 /** Durably record the set locally. Returns once storage has it (<250ms). */
-export async function enqueueSet(id: string, input: SetInput, timestamp: string): Promise<void> {
+export async function enqueueSet(
+  id: string,
+  input: SetInput,
+  timestamp: string,
+  muscle?: string
+): Promise<void> {
   const rows = await readQueue();
-  rows.push({ id, input, timestamp, state: 'pending', attempts: 0 });
+  rows.push({ id, input, timestamp, muscle, state: 'pending', attempts: 0 });
   await writeQueue(rows);
   ensureTimer();
   void flushQueue();
@@ -96,7 +106,10 @@ export async function flushQueue(): Promise<void> {
     for (const row of rows) {
       if (row.state !== 'pending') continue;
       // Identical row shape to the direct path (buildSetRow), plus OUR id.
-      const built = { id: row.id, ...buildSetRow(row.input, inferMuscleGroup(row.input.exercise), row.timestamp) };
+      const built = {
+        id: row.id,
+        ...buildSetRow(row.input, row.muscle ?? inferMuscleGroup(row.input.exercise), row.timestamp),
+      };
       const { error } = await supabase.from('workout_log').insert(built);
       row.attempts += 1;
       if (!error || /duplicate|unique|already exists/i.test(error.message)) {

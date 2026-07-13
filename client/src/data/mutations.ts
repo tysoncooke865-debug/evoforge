@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { cardioEventAmount } from '@/domain/cardio';
+import { userMuscleFor, type UserExercise } from '@/domain/exercise-search';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
@@ -52,7 +53,14 @@ export function useSaveSet() {
       }
 
       const timestamp = new Date().toISOString().slice(0, 19);
-      const row = buildSetRow(input, inferMuscleGroup(input.exercise), timestamp);
+      // STAGE 1: an exercise the athlete CREATED carries the muscle they
+      // chose; everything else infers, exactly as before (inferMuscleGroup is
+      // parity-pinned and must not move). Read from the cache — a custom lift
+      // must not make LOG SET wait on a network round-trip.
+      const userExercises =
+        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
+      const muscle = userMuscleFor(input.exercise, userExercises) ?? inferMuscleGroup(input.exercise);
+      const row = buildSetRow(input, muscle, timestamp);
 
       // TRANSFORM P2: durable INSERTS never wait for the network. The row id
       // is minted HERE (idempotency key — a retried insert collides on the
@@ -69,7 +77,7 @@ export function useSaveSet() {
           setNo: input.setNo,
           weight: input.weight,
           reps: input.reps,
-        }, timestamp);
+        }, timestamp, muscle);
         verdict.rowId = id;
         (verdict as SetVerdict & { queued?: boolean }).queued = true;
         queryClient.setQueryData(
@@ -329,11 +337,18 @@ export function useAcceptPlan() {
     mutationFn: async (plan: import('@/domain/custom-plan').CustomPlan) => {
       const { flattenPlan } = await import('@/domain/custom-plan');
       const timestamp = new Date().toISOString().slice(0, 19);
+      // STAGE 1: a routine can now contain the athlete's OWN exercises, so the
+      // stored muscle must be the one they chose — not an inference over a
+      // name inferMuscleGroup has never seen.
+      const userExercises =
+        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
       // .not('id','is',null): the match-everything filter that works on every
       // table (the neq-sentinel gotcha in root CLAUDE.md).
       const { error: delErr } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
       if (delErr) throw delErr;
-      const { error } = await supabase.from('custom_workout_plan').insert(flattenPlan(plan, timestamp));
+      const { error } = await supabase
+        .from('custom_workout_plan')
+        .insert(flattenPlan(plan, timestamp, userExercises));
       if (error) throw error;
     },
     onSuccess: () => {

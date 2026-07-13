@@ -32,6 +32,7 @@ import { substitutesFor } from '@/domain/exercise-library';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { RestTimerBar } from '@/ui/rest-timer';
 import { ExerciseCard } from '@/ui/exercise-logger';
+import { ExercisePicker } from '@/ui/exercise-picker';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -67,6 +68,8 @@ export default function TodayScreen() {
   // Tyson 2026-07-13: session-level exercise substitution (same muscle).
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
+  // STAGE 1: add an exercise the plan never thought of.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // P2 C3: LIFT | CARDIO mode; cardio type hoisted so the header sprite can
   // train what's being logged (the old log.tsx rationale, relocated).
@@ -140,6 +143,7 @@ export default function TodayScreen() {
   // adds/removes/skips/set-deltas. All the arithmetic lives in the pure
   // domain module (session-plan.ts), which is where its honesty is tested.
   const overrides = useSessionStore((s) => overridesFor(s, day));
+  const addExercise = useSessionStore((s) => s.addExercise);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
   const bumpSets = useSessionStore((s) => s.bumpSets);
@@ -313,6 +317,13 @@ export default function TodayScreen() {
         );
       })}
 
+      {/* STAGE 1: the plan is a suggestion, not a cage. */}
+      <NeonButton
+        title="＋ ADD EXERCISE"
+        variant="ghost"
+        onPress={() => setPickerOpen(true)}
+        testID="add-exercise"
+      />
 
       {totalDone > 0 && !complete ? (
         <NeonButton
@@ -323,6 +334,16 @@ export default function TodayScreen() {
         />
       ) : null}
       </View>
+
+      <ExercisePicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(e) => {
+          addExercise(day, { exercise: e.name, sets: 3, reps: '8-12' });
+          setPickerOpen(false);
+        }}
+        excludeNames={plan.map((p) => p.exercise)}
+      />
 
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
         <CardioCard type={cardioType} setType={setCardioType} />
