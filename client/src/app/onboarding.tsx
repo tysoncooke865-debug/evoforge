@@ -7,7 +7,8 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-nati
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
-import { acceptPlanDirect, useSavePublicIdentity } from '@/data/mutations';
+import { useSavePublicIdentity } from '@/data/mutations';
+import { saveUserPlanDirect } from '@/data/user-plans';
 import { supabase } from '@/data/supabase';
 import { defaultScheduleFor, seedPlanForSplit, SPLITS } from '@/domain/exercise-library';
 import { nameError } from '@/domain/leaderboard';
@@ -194,7 +195,8 @@ export default function OnboardingScreen() {
       try {
         const seed = seedPlanForSplit(splitKey);
         if (seed) {
-          await acceptPlanDirect({ plan_name: seed.plan_name, days: seed.days });
+          // A split the athlete chose is THEIR plan (MY PLAN), not the AI's.
+          await saveUserPlanDirect('custom', { plan_name: seed.plan_name, days: seed.days });
           const week = defaultScheduleFor(splitKey);
           if (week) {
             await supabase

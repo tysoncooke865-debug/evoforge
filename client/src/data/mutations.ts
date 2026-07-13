@@ -371,10 +371,16 @@ export function useAcceptPlan() {
       const userExercises =
         (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
       await acceptPlanDirect(plan, userExercises);
+      // TYSON 2026-07-14: the AI plan also lands in its OWN slot (018), so a
+      // hand-built split can coexist with it instead of being destroyed by it.
+      // custom_workout_plan is still written above — Streamlit reads it.
+      const { saveUserPlanDirect } = await import('./user-plans');
+      await saveUserPlanDirect('ai', plan);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
-      useToastStore.getState().push({ kind: 'info', title: 'ROUTINE FORGED', subtitle: 'Find it on Today under AI PLAN' });
+      queryClient.invalidateQueries({ queryKey: ['user_plans', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'ROUTINE FORGED', subtitle: 'Find it on Train under AI PLAN' });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'PLAN NOT SAVED', subtitle: e.message });

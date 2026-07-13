@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { useAcceptPlan } from '@/data/mutations';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
+import { useSaveUserPlan } from '@/data/user-plans';
 import type { CustomPlan, PlanExercise } from '@/domain/custom-plan';
 import {
   exercisesFor,
@@ -32,7 +32,7 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 
 export default function RoutineBuilderScreen() {
   const router = useRouter();
-  const accept = useAcceptPlan();
+  const savePlan = useSaveUserPlan();
   const [splitKey, setSplitKey] = useState<string | null>(null);
   const [dayIx, setDayIx] = useState(0);
   const [section, setSection] = useState(0);
@@ -121,7 +121,7 @@ export default function RoutineBuilderScreen() {
 
   const emptyDays = split ? split.days.filter((d) => (plan[d] ?? []).length === 0) : [];
   const canSave =
-    split !== null && split.days.length > 0 && emptyDays.length === 0 && !accept.isPending;
+    split !== null && split.days.length > 0 && emptyDays.length === 0 && !savePlan.isPending;
 
   const save = () => {
     if (!split) return;
@@ -130,7 +130,22 @@ export default function RoutineBuilderScreen() {
       rationale: 'Built by hand in the Routine Builder',
       days: split.days.map((d) => ({ day: d, goal: '', exercises: plan[d] ?? [] })),
     };
-    accept.mutate(built, { onSuccess: () => router.replace('/today') });
+    // TYSON 2026-07-14: MY PLAN has its OWN slot now (migration 018). Saving a
+    // hand-built split can no longer destroy the AI's plan — they are different
+    // things, and Train offers both.
+    savePlan.mutate(
+      { kind: 'custom', plan: built },
+      {
+        onSuccess: () => {
+          useToastStore.getState().push({
+            kind: 'info',
+            title: 'MY PLAN SAVED',
+            subtitle: 'Find it on Train under MY PLAN',
+          });
+          router.replace('/today');
+        },
+      }
+    );
   };
 
   return (
@@ -340,10 +355,10 @@ export default function RoutineBuilderScreen() {
             </Text>
           ) : null}
           <NeonButton
-            title={accept.isPending ? 'FORGING…' : 'SAVE MY ROUTINE'}
+            title={savePlan.isPending ? 'SAVING…' : 'SAVE MY PLAN'}
             onPress={save}
             disabled={!canSave}
-            busy={accept.isPending}
+            busy={savePlan.isPending}
             testID="routine-save"
           />
         </>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -6,6 +6,13 @@ import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useClaimCoin } from '@/data/coins';
 import { useDeleteRoutine, useRoutines, useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
+import { useUserPlans } from '@/data/user-plans';
+import {
+  daysForSource,
+  defaultSource,
+  resolvePlanSources,
+  type SourceIndex,
+} from '@/domain/plan-sources';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
@@ -49,20 +56,32 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
  * exercise, the day bar, WORKOUT COMPLETE once per (day,date), FINISH EARLY
  * with an honest summary.
  */
+/** The app's own six-day routine. Static — derived from a generated catalog. */
+const BUILT_IN_DAYS: readonly string[] = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
+
 export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const builtInDays = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
-  const [dayChoice, setDay] = useState(builtInDays[0]);
+  const builtInDays = BUILT_IN_DAYS;
+  const [dayChoice, setDay] = useState(BUILT_IN_DAYS[0]);
 
-  // IMPROVEMENT_PLAN #10: the workout source. The AI plan shares the six
-  // day names, so the chips, completion and logging are source-agnostic --
-  // only the exercise list under each day changes.
-  const aiPlan = useCustomPlan();
-  const [source, setSource] = useState<0 | 1>(0);
-  const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
-  // Custom plans (AI or hand-built) drive their OWN day list — builder
-  // splits use names like "Upper A" that are not in ROUTINE_ORDER.
-  const planDays = useAi && aiPlan.data ? aiPlan.data.days.map((d) => d.day) : builtInDays;
+  // TYSON 2026-07-14: THREE sources — MY PLAN · AI PLAN · BUILT-IN, in that
+  // order. They used to be two, because the hand-built split and the AI plan
+  // shared one database slot and overwrote each other (migration 018 split
+  // them). Every source drives its OWN day list; logging is source-agnostic.
+  const legacyPlan = useCustomPlan(); // custom_workout_plan — the pre-018 slot
+  const userPlans = useUserPlans();
+  const sources = resolvePlanSources({
+    customPlan: userPlans.data?.custom ?? null,
+    aiPlan: userPlans.data?.ai ?? null,
+    legacyPlan: legacyPlan.data ?? null,
+    builtInDays: BUILT_IN_DAYS,
+  });
+
+  const [sourceChoice, setSource] = useState<SourceIndex | null>(null);
+  // Until the athlete picks, open on what they meant to train (their plan, else
+  // the AI's, else built-in) — and never open on an empty tab.
+  const source: SourceIndex = sourceChoice ?? defaultSource(sources);
+  const planDays = daysForSource(source, sources, builtInDays);
 
   // STAGE 1: an ad-hoc workout — "just train, name it what I like". It is an
   // EXTRA day chip (visible under BOTH plan sources, because it belongs to
@@ -78,8 +97,11 @@ export default function TodayScreen() {
   // switching source can leave the chosen chip outside the new day list —
   // the EFFECTIVE day falls back to the list's first entry, and the raw
   // choice is restored if the athlete toggles back.
-  const day = days.includes(dayChoice) ? dayChoice : days[0];
+  const day = days.includes(dayChoice) ? dayChoice : (days[0] ?? '');
   const onAdhocDay = adhoc !== null && day === adhoc.name;
+  // A source the athlete has no plan for. Legitimate — the tab still exists so
+  // they can see it is empty and act — but there is no day to log against.
+  const noPlan = day === '';
   // Tyson 2026-07-13: session-level exercise substitution (same muscle).
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
@@ -141,12 +163,8 @@ export default function TodayScreen() {
   const prCountRef = useRef(0);
   // P4: which lifts PR'd this session, for the ceremony's reveal phase.
   const prNamesRef = useRef<string[]>([]);
-  const todayRows = useMemo(
-    () =>
-      normaliseWorkoutLog(workouts.data ?? []).filter(
-        (r) => String(r.date) === todayIso && String(r.workout) === day
-      ),
-    [workouts.data, todayIso, day]
+  const todayRows = normaliseWorkoutLog(workouts.data ?? []).filter(
+    (r) => String(r.date) === todayIso && String(r.workout) === day
   );
 
   const validRowsFor = (exercise: string) =>
@@ -167,16 +185,16 @@ export default function TodayScreen() {
     return { validCount: validRowsFor(exercise).length, maxSetNo };
   };
 
-  const builtIn = ROUTINE[day] ?? [];
-  const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
-  // The same [exercise, sets, scheme] tuple shape whatever the source — an
-  // ad-hoc workout's "plan" is simply whatever it was started with (empty, or
-  // a saved routine's exercises).
+  // The day's exercises, from whichever source is selected. Same
+  // [exercise, sets, scheme] tuple shape either way — an ad-hoc workout's
+  // "plan" is simply whatever it was started with (empty, or a routine's).
+  const activePlan = source === 0 ? sources.myPlan : source === 1 ? sources.aiPlan : null;
+  const planDay = activePlan?.days.find((d) => d.day === day) ?? null;
   const basePlan: readonly (readonly [string, number, string])[] = onAdhocDay
     ? (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets, e.reps] as const)
-    : aiDay
-      ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
-      : builtIn;
+    : planDay
+      ? planDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
+      : (ROUTINE[day] ?? []);
   const substituted: PlanEntry[] = basePlan.map(
     ([ex, sets, scheme]) => [subs[`${day}:${ex}`] ?? ex, sets, scheme] as const
   );
@@ -299,7 +317,7 @@ export default function TodayScreen() {
     <ScreenShell>
       <ScreenHeader
         kicker={`TODAY · ${todayIso}`}
-        title={mode === 1 ? 'CARDIO' : day.split(' - ')[0].toUpperCase()}
+        title={mode === 1 ? 'CARDIO' : noPlan ? 'NO PLAN YET' : day.split(' - ')[0].toUpperCase()}
         right={
           <CompanionMenuButton
             anim={mode === 1 ? cardioAnim(cardioType) : complete ? 'victory' : 'idle'}
@@ -315,17 +333,70 @@ export default function TodayScreen() {
 
       <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 16 }}>
       <RestTimerBar />
-      {aiPlan.data ? (
-        <SegmentedTabs left="BUILT-IN" right="MY PLAN" active={source} onChange={setSource} testIDPrefix="today-source" />
-      ) : (
+      {/* TYSON 2026-07-14: MY PLAN · AI PLAN · BUILT-IN, in that order. A source
+          with nothing behind it is still offered — tapping it says what to do
+          about that, which beats hiding the tab and leaving the athlete to
+          wonder where their plan went. */}
+      <View className="flex-row gap-s2">
+        {([0, 1, 2] as SourceIndex[]).map((i) => {
+          const label = i === 0 ? 'MY PLAN' : i === 1 ? 'AI PLAN' : 'BUILT-IN';
+          const empty = (i === 0 && !sources.has.myPlan) || (i === 1 && !sources.has.aiPlan);
+          const active = i === source;
+          return (
+            <Pressable
+              key={label}
+              onPress={() => setSource(i)}
+              accessibilityRole="button"
+              testID={`today-source-${i}`}
+              className="flex-1 items-center justify-center rounded-pill border px-s2"
+              style={{
+                minHeight: 44,
+                borderColor: active ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                backgroundColor: active ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
+                opacity: empty && !active ? 0.55 : 1,
+              }}
+            >
+              <Text
+                className="text-2xs font-bold"
+                style={{ letterSpacing: 1, color: active ? tokens.colors.accent : tokens.colors['text-dim'] }}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* The selected source has no plan behind it — say what to do. */}
+      {source === 0 && !sources.has.myPlan ? (
         <Link href={'/routine' as never} asChild>
-          <Pressable accessibilityRole="button" testID="build-routine" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Pressable accessibilityRole="button" testID="create-my-plan" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
             <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
-              ⚒ BUILD MY OWN ROUTINE →
+              ⚒ CREATE MY PLAN →
             </Text>
           </Pressable>
         </Link>
-      )}
+      ) : null}
+      {source === 1 && !sources.has.aiPlan ? (
+        <Link href={'/ai' as never} asChild>
+          <Pressable accessibilityRole="button" testID="forge-ai-plan" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
+              ✦ FORGE AN AI PLAN →
+            </Text>
+          </Pressable>
+        </Link>
+      ) : null}
+      {/* Always reachable: building a plan should never require emptying one. */}
+      {sources.has.myPlan ? (
+        <Link href={'/routine' as never} asChild>
+          <Pressable accessibilityRole="button" testID="build-routine" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+              ⚒ EDIT MY PLAN →
+            </Text>
+          </Pressable>
+        </Link>
+      ) : null}
 
       {/* STAGE 1: train something the plan never heard of. */}
       {!adhoc ? (
@@ -342,6 +413,7 @@ export default function TodayScreen() {
         </Pressable>
       ) : null}
 
+      {noPlan ? null : (
       <GlowCard glow={complete ? tokens.colors.success : undefined}>
         <View className="mb-s4 flex-row flex-wrap gap-s2">
           {days.map((d) => (
@@ -370,8 +442,9 @@ export default function TodayScreen() {
           <Text className="text-2xs font-bold text-accent">+{totalDone * XP_PER_SET} XP TODAY</Text>
         </View>
       </GlowCard>
+      )}
 
-      {plan.map((entry) => {
+      {noPlan ? null : plan.map((entry) => {
         const { exercise, sets, reps, skipped } = entry;
         const facts = loggedFacts(exercise);
         return (
@@ -411,12 +484,14 @@ export default function TodayScreen() {
       })}
 
       {/* STAGE 1: the plan is a suggestion, not a cage. */}
-      <NeonButton
-        title="＋ ADD EXERCISE"
-        variant="ghost"
-        onPress={() => setPickerOpen(true)}
-        testID="add-exercise"
-      />
+      {noPlan ? null : (
+        <NeonButton
+          title="＋ ADD EXERCISE"
+          variant="ghost"
+          onPress={() => setPickerOpen(true)}
+          testID="add-exercise"
+        />
+      )}
 
       {totalDone > 0 && !complete ? (
         <NeonButton
@@ -434,7 +509,7 @@ export default function TodayScreen() {
           onPress={() => {
             endAdhoc();
             clearActive();
-            setDay(planDays[0]);
+            setDay(planDays[0] ?? BUILT_IN_DAYS[0]);
           }}
           className="items-center"
           style={{ minHeight: 44, justifyContent: 'center' }}
