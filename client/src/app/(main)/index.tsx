@@ -25,6 +25,7 @@ import { ScreenShell } from '@/ui/shell';
 import { StatBar } from '@/ui/stat-bar';
 import { StatRadar } from '@/ui/stat-radar';
 import { XpBar } from '@/ui/xp-bar';
+import { todayIso as calendarToday } from '@/domain/today';
 
 /**
  * Home: the character screen. Layered HUD over a stage — not a stack of
@@ -63,7 +64,7 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   // P5: the return loop. With a schedule the streak is SCHEDULE-AWARE
   // (rest days bridge instead of reading as gaps) and Home leads with
   // Today's Quest + the weekly contract; without one, the old daily

@@ -68,7 +68,7 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
   }
 
   const recent = [...newest.entries()]
-    .sort((a, b) => (a[1] < b[1] ? 1 : -1))
+    .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0))
     .slice(0, recentLimit)
     .map(([key]) => display.get(key) as string);
 

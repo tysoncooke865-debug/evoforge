@@ -51,6 +51,7 @@ import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 import tokens from '@/theme/tokens';
+import { todayIso as calendarToday } from '@/domain/today';
 
 const BATTLE_WORKOUT = 'Battle Arena';
 
@@ -598,7 +599,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
   const settle = useSettleBattle(matchId);
   const workouts = useWorkoutLog();
   const aiPlan = useCustomPlan();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
   const [day, setDay] = useState(days[0]);
   const [source, setSource] = useState<0 | 1>(0);
@@ -1109,7 +1110,7 @@ function BattleLogger({
   const [reps, setReps] = useState('');
   const save = useSaveSet();
   const workouts = useWorkoutLog();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   // Set numbers already handed out this session, per exercise. The query
   // cache lags the refetch after each save, so two identical rapid sets
   // would otherwise collide on the same setNo and collapse into a noop —

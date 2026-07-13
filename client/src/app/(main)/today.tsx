@@ -53,6 +53,7 @@ import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { CompanionMenuButton } from '@/ui/companion-menu';
 import { GlowCard, ScreenShell } from '@/ui/shell';
+import { todayIso as calendarToday } from '@/domain/today';
 
 /**
  * Today: the logging loop. Saves go through useSaveSet -- an edit updates in
@@ -64,7 +65,7 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 const BUILT_IN_DAYS: readonly string[] = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
 
 export default function TodayScreen() {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   const builtInDays = BUILT_IN_DAYS;
   const [dayChoice, setDay] = useState(BUILT_IN_DAYS[0]);
 
@@ -173,7 +174,11 @@ export default function TodayScreen() {
   const prCountRef = useRef(0);
   // P4: which lifts PR'd this session, for the ceremony's reveal phase.
   const prNamesRef = useRef<string[]>([]);
-  const todayRows = normaliseWorkoutLog(workouts.data ?? []).filter(
+  // ONE normalisation of the log per render — it was being sorted twice, over
+  // up to 2,500 rows, to produce the same array (allRows below used to do it
+  // again). todayRows is now a plain filter of it.
+  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  const todayRows = allRows.filter(
     (r) => String(r.date) === todayIso && String(r.workout) === day
   );
 
@@ -230,7 +235,6 @@ export default function TodayScreen() {
 
   // TRAIN_IMPROVEMENTS: THIS WEEK as bars. Null when no schedule is in force —
   // the athlete then keeps the day chips, and nothing regresses for them.
-  const allRows = normaliseWorkoutLog(workouts.data ?? []);
   const hasValidSets = (date: string, workout: string): boolean =>
     allRows.some(
       (r) =>
@@ -941,7 +945,7 @@ function DayPanel({
       >
         {totalLogged > 0
           ? `${totalLogged} SET${totalLogged === 1 ? '' : 'S'} LOGGED`
-          : date > new Date().toISOString().slice(0, 10)
+          : date > calendarToday()
             ? 'UPCOMING'
             : '0 SETS LOGGED'}
       </Text>

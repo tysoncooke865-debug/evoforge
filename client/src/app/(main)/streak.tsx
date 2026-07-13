@@ -12,6 +12,7 @@ import { NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
 import { StreakCalendar } from '@/ui/streak-calendar';
+import { todayIso as calendarToday } from '@/domain/today';
 
 /**
  * IMPROVEMENT_PLAN #11: the streak calendar. Everything derives from
@@ -19,7 +20,7 @@ import { StreakCalendar } from '@/ui/streak-calendar';
  * coin claim whose amount and truth the 013 guard re-proves server-side.
  */
 export default function StreakScreen() {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   const schedule = useWorkoutSchedule();
   const workouts = useWorkoutLog();
   const claim = useClaimCoin();

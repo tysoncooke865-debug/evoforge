@@ -23,6 +23,7 @@ import {
 import tokens from '@/theme/tokens';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScanFrame, type ScanState } from '@/ui/scan-frame';
+import { todayIso } from '@/domain/today';
 
 /**
  * CHARACTER CREATION V2. Quick questions, zero self-scoring:
@@ -203,7 +204,7 @@ export default function OnboardingScreen() {
             await supabase
               .from('workout_schedule')
               .upsert(
-                { effective_from: new Date().toISOString().slice(0, 10), plan: week },
+                { effective_from: todayIso(), plan: week },
                 { onConflict: 'user_id,effective_from' }
               );
           }

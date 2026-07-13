@@ -97,6 +97,45 @@ describe('search: names, partials, aliases, abbreviations, typos', () => {
   });
 });
 
+describe('the highlight points at the right characters (REGRESSION)', () => {
+  // THE BUG: matchStart was measured against the NORMALISED name, where "(" is
+  // a space and runs of space collapse. Applied to the RAW name, every index
+  // past a parenthesis was shifted — searching "rear" highlighted "(Rea" in
+  // "Reverse Pec Deck (Rear Delt Fly)". 18 library names contain parentheses.
+  const scoredFor = (q: string, name: string) =>
+    rankExercises(EXERCISE_LIBRARY, { query: q }).find((s) => s.exercise.name === name)!;
+
+  it('the matched TEXT is returned, and it is found in the real name', () => {
+    const s = scoredFor('rear', 'Reverse Pec Deck (Rear Delt Fly)');
+    expect(s.match).toBe('rear');
+    // What the row does: locate it in the name it renders.
+    const at = s.exercise.name.toLowerCase().indexOf(s.match);
+    expect(s.exercise.name.slice(at, at + s.match.length)).toBe('Rear');
+  });
+
+  it('a name with parentheses still highlights the right word', () => {
+    const s = scoredFor('pulldown', 'Cable Lat Pullover (Straight-Arm Pulldown)');
+    const at = s.exercise.name.toLowerCase().indexOf(s.match);
+    expect(s.exercise.name.slice(at, at + s.match.length).toLowerCase()).toBe('pulldown');
+  });
+
+  it('a MUSCLE-only match highlights nothing in the name rather than guessing', () => {
+    // "back width" is a muscle tag; no exercise is called that.
+    const hits = rankExercises(EXERCISE_LIBRARY, { query: 'back width' });
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].exercise.muscle).toBe('Back Width');
+    expect(hits[0].exercise.name.toLowerCase()).not.toContain('back width');
+    expect(hits[0].match).toBe(''); // nothing in the NAME to point at
+  });
+
+  it('every match, when non-empty, really is IN the name', () => {
+    for (const s of rankExercises(EXERCISE_LIBRARY, { query: 'press' }).slice(0, 40)) {
+      if (s.match === '') continue;
+      expect(s.exercise.name.toLowerCase()).toContain(s.match);
+    }
+  });
+});
+
 describe('expandQuery', () => {
   it('expands abbreviations into their words', () => {
     expect(expandQuery('db incline')).toContain('dumbbell');

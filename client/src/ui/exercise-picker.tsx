@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { prefSets, useExercisePrefs, useHideExercise, useToggleFavourite } from '@/data/exercise-prefs';
+import { prefSets, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
 import { useCreateUserExercise, useUserExercises } from '@/data/exercises';
 import { useWorkoutLog } from '@/data/hooks';
 import { digestHistory, lastPerformanceLabel } from '@/domain/exercise-history';
@@ -59,7 +59,7 @@ export interface PickedExercise {
 
 type Row =
   | { kind: 'header'; key: string; title: string; count?: number }
-  | { kind: 'exercise'; key: string; exercise: LibraryExercise; matchStart: number; matchLength: number };
+  | { kind: 'exercise'; key: string; exercise: LibraryExercise; match: string };
 
 const SEARCH_DEBOUNCE_MS = 120;
 
@@ -95,7 +95,6 @@ export function ExercisePicker({
   const create = useCreateUserExercise();
   const prefs = useExercisePrefs();
   const toggleFav = useToggleFavourite();
-  const hideEx = useHideExercise();
   const workouts = useWorkoutLog();
 
   // A keystroke must not re-rank 960 exercises. 120ms is below the threshold
@@ -104,6 +103,14 @@ export function ExercisePicker({
     const t = setTimeout(() => setDebounced(query), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query]);
+
+  // PERF (found 2026-07-14): everything below this line is real work — a
+  // 2,500-row history digest, a 960-entry library, a full rank+sort for the
+  // default sections. The picker is MOUNTED by Train the whole time and only
+  // `visible` when opened, so all of it was running on EVERY Today render:
+  // every keystroke in a set row, every logged set. Bail out first. (Hooks are
+  // all above; nothing below this point calls one, so the early return is safe.)
+  if (!visible) return null;
 
   const history = digestHistory(workouts.data);
   const { favourites, hidden } = prefSets(prefs.data);
@@ -121,7 +128,11 @@ export function ExercisePicker({
 
   const alreadyAdded = new Set(excludeNames.map((n) => n.toLowerCase()));
   const targetMuscles = (() => {
-    const byName = new Map(EXERCISE_LIBRARY.map((e) => [e.name.toLowerCase(), e.muscle]));
+    // The WHOLE library — the athlete's own exercises carry a real muscle, and
+    // a day built from them would otherwise yield no target muscles at all,
+    // silently deleting SUGGESTED FOR TODAY for exactly the athletes who
+    // customised most.
+    const byName = new Map(library.map((e) => [e.name.toLowerCase(), e.muscle]));
     const out = new Set<string>();
     for (const p of programExercises) {
       const m = byName.get(p.toLowerCase());
@@ -178,13 +189,7 @@ export function ExercisePicker({
         { kind: 'header', key: 'results', title: 'RESULTS', count: results.length },
       ];
       for (const r of results) {
-        out.push({
-          kind: 'exercise',
-          key: r.exercise.name,
-          exercise: r.exercise,
-          matchStart: r.matchStart,
-          matchLength: r.matchLength,
-        });
+        out.push({ kind: 'exercise', key: r.exercise.name, exercise: r.exercise, match: r.match });
       }
       return out;
     }
@@ -192,11 +197,15 @@ export function ExercisePicker({
     for (const s of sections) {
       out.push({ kind: 'header', key: s.key, title: s.title });
       for (const e of s.exercises) {
-        out.push({ kind: 'exercise', key: `${s.key}:${e.name}`, exercise: e, matchStart: -1, matchLength: 0 });
+        out.push({ kind: 'exercise', key: `${s.key}:${e.name}`, exercise: e, match: '' });
       }
     }
     return out;
   })();
+
+  /** Emptiness is a property of the RESULTS, not of the row list — the row list
+   *  always has a header in it while searching. */
+  const isEmpty = searching ? results.length === 0 : sections.length === 0;
 
   const filterCount =
     (filters.equipment?.length ?? 0) +
@@ -263,20 +272,16 @@ export function ExercisePicker({
       return (
         <ExerciseRow
           exercise={e}
-          matchStart={item.matchStart}
-          matchLength={item.matchLength}
+          match={item.match}
           last={lastPerformanceLabel(history, e.name)}
           favourite={favourites.has(key)}
           added={alreadyAdded.has(key)}
           selected={selected.includes(e.name)}
           onAdd={() => add(e)}
           onFavourite={() => toggleFav.mutate({ exercise: e.name, favourite: !favourites.has(key) })}
-          onHide={() => hideEx.mutate({ exercise: e.name, hidden: true })}
         />
       );
   };
-
-  if (!visible) return null;
 
   const trimmed = query.trim();
   const exactExists = library.some((e) => e.name.toLowerCase() === trimmed.toLowerCase());
@@ -425,7 +430,7 @@ export function ExercisePicker({
             </View>
 
             {/* THE LIST — one FlatList, flattened items, windowed. */}
-            {rows.length === 0 ? (
+            {isEmpty ? (
               <EmptyState
                 query={trimmed}
                 hasFilters={filterCount > 0 || groupKey !== 'all'}
@@ -497,8 +502,15 @@ export function ExercisePicker({
         {filterSheet ? (
           <FilterSheet
             filters={filters}
-            resultCount={
-              rankExercises(library, { query: debounced, filters: activeFilters, context, isCustom }).length
+            // Count the DRAFT, not the committed filters — a preview of the
+            // filters you already had is not a preview.
+            countFor={(draft) =>
+              rankExercises(library, {
+                query: debounced,
+                filters: { ...draft, muscles: activeFilters.muscles },
+                context,
+                isCustom,
+              }).length
             }
             onApply={(f) => {
               setFilters(f);
@@ -516,32 +528,33 @@ export function ExercisePicker({
 
 function ExerciseRow({
   exercise,
-  matchStart,
-  matchLength,
+  match,
   last,
   favourite,
   added,
   selected,
   onAdd,
   onFavourite,
-  onHide,
 }: {
   exercise: LibraryExercise;
-  matchStart: number;
-  matchLength: number;
+  /** The text that matched, lowercased. '' = nothing in the NAME matched. */
+  match: string;
   last: string | null;
   favourite: boolean;
   added: boolean;
   selected: boolean;
   onAdd: () => void;
   onFavourite: () => void;
-  onHide: () => void;
 }) {
   const name = exercise.name;
-  // Highlight the matched span — the athlete sees WHY this row is here.
-  const before = matchStart >= 0 ? name.slice(0, matchStart) : name;
-  const hit = matchStart >= 0 ? name.slice(matchStart, matchStart + matchLength) : '';
-  const after = matchStart >= 0 ? name.slice(matchStart + matchLength) : '';
+  // Locate the matched text in the name we are ACTUALLY RENDERING. The old code
+  // used an offset measured against the NORMALISED name, where "(" had become a
+  // space and runs were collapsed — so in "Reverse Pec Deck (Rear Delt Fly)" a
+  // search for "rear" highlighted "(Rea".
+  const at = match ? name.toLowerCase().indexOf(match) : -1;
+  const before = at >= 0 ? name.slice(0, at) : name;
+  const hit = at >= 0 ? name.slice(at, at + match.length) : '';
+  const after = at >= 0 ? name.slice(at + match.length) : '';
 
   const state = added ? 'added' : selected ? 'selected' : 'idle';
 
@@ -556,7 +569,6 @@ function ExerciseRow({
     >
       <Pressable
         onPress={onFavourite}
-        onLongPress={onHide}
         accessibilityRole="button"
         accessibilityLabel={`${favourite ? 'unfavourite' : 'favourite'} ${name}`}
         accessibilityState={{ selected: favourite }}
@@ -660,12 +672,13 @@ function Chip({
 
 function FilterSheet({
   filters,
-  resultCount,
+  countFor,
   onApply,
   onClose,
 }: {
   filters: ExerciseFilters;
-  resultCount: number;
+  /** How many exercises a given draft would leave. Live, as they tap. */
+  countFor: (draft: ExerciseFilters) => number;
   onApply: (f: ExerciseFilters) => void;
   onClose: () => void;
 }) {
@@ -764,7 +777,7 @@ function FilterSheet({
             </View>
             <View className="flex-1">
               <NeonButton
-                title={`APPLY · ${resultCount}`}
+                title={`APPLY · ${countFor(draft)}`}
                 onPress={() => onApply(draft)}
                 testID="filters-apply"
               />

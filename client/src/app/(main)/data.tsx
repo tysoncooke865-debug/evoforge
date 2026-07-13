@@ -8,6 +8,7 @@ import { supabase } from '@/data/supabase';
 import { useToastStore } from '@/state/toast-store';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
+import { todayIso } from '@/domain/today';
 
 /**
  * Data: export everything as a ZIP of CSVs (client-side fflate, the plan's
@@ -77,7 +78,7 @@ function ExportCard() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `evoforge-export-${new Date().toISOString().slice(0, 10)}.zip`;
+        a.download = `evoforge-export-${todayIso()}.zip`;
         a.click();
         URL.revokeObjectURL(url);
         setStatus(`Exported ${total} rows across ${Object.keys(files).length} tables.`);

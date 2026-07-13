@@ -53,9 +53,14 @@ export interface ExerciseFilters {
 export interface Scored {
   exercise: LibraryExercise;
   score: number;
-  /** Why it matched — the row highlights this span of the name. */
-  matchStart: number;
-  matchLength: number;
+  /**
+   * The TEXT that matched, lowercased. The row locates it in the name it is
+   * actually rendering — never an offset, which was measured against the
+   * NORMALISED name and pointed at the wrong character in any name containing
+   * punctuation ("(Rea" got highlighted in "Reverse Pec Deck (Rear Delt Fly)").
+   * Empty when the match was not on the name (muscle, equipment, alias).
+   */
+  match: string;
 }
 
 /**
@@ -149,54 +154,39 @@ export function passesFilters(
 /** The match part of the score, plus where in the name to highlight. */
 function matchScore(e: LibraryExercise, rawQuery: string, expanded: string[]): Scored | null {
   const q = normaliseTerm(rawQuery);
-  if (q === '') return { exercise: e, score: 0, matchStart: -1, matchLength: 0 };
+  if (q === '') return { exercise: e, score: 0, match: '' };
 
   const name = normaliseTerm(e.name);
   const text = searchableText(e);
   const hay = name.split(' ');
 
-  if (name === q) return { exercise: e, score: S_EXACT, matchStart: 0, matchLength: e.name.length };
-  if (name.startsWith(q)) {
-    return { exercise: e, score: S_WORD + S_LEADING, matchStart: 0, matchLength: q.length };
-  }
+  if (name === q) return { exercise: e, score: S_EXACT, match: q };
+  if (name.startsWith(q)) return { exercise: e, score: S_WORD + S_LEADING, match: q };
 
   // A WORD of the name starts with the query: "bench" → "Barbell BENCH Press".
-  const wordIx = hay.findIndex((w) => w.startsWith(q));
-  if (wordIx >= 0) {
-    const at = name.indexOf(hay[wordIx]);
-    return { exercise: e, score: S_WORD, matchStart: at, matchLength: q.length };
-  }
+  if (hay.some((w) => w.startsWith(q))) return { exercise: e, score: S_WORD, match: q };
 
   // Every expanded token present ("db incline" → dumbbell + incline).
   if (expanded.length > 0 && expanded.every((t) => text.includes(t))) {
     const first = expanded.find((t) => name.includes(t));
-    const at = first ? name.indexOf(first) : -1;
     const viaAlias = expanded.some((t) => !q.includes(t));
-    return {
-      exercise: e,
-      score: viaAlias ? S_ALIAS : S_ALL_TOKENS,
-      matchStart: at,
-      matchLength: first ? first.length : 0,
-    };
+    return { exercise: e, score: viaAlias ? S_ALIAS : S_ALL_TOKENS, match: first ?? '' };
   }
 
-  if (name.includes(q)) {
-    return { exercise: e, score: S_SUBSTRING, matchStart: name.indexOf(q), matchLength: q.length };
-  }
+  if (name.includes(q)) return { exercise: e, score: S_SUBSTRING, match: q };
 
-  // Muscle / equipment text ("rear delt", "cable").
-  if (normaliseTerm(e.muscle).includes(q)) return { exercise: e, score: S_MUSCLE, matchStart: -1, matchLength: 0 };
-  if (normaliseTerm(e.equipment ?? '').includes(q)) {
-    return { exercise: e, score: S_EQUIPMENT, matchStart: -1, matchLength: 0 };
-  }
-  if (text.includes(q)) return { exercise: e, score: S_SUBSTRING - 500, matchStart: -1, matchLength: 0 };
+  // Muscle / equipment text ("rear delt", "cable") — nothing in the NAME to
+  // highlight, so the row highlights nothing rather than guessing.
+  if (normaliseTerm(e.muscle).includes(q)) return { exercise: e, score: S_MUSCLE, match: '' };
+  if (normaliseTerm(e.equipment ?? '').includes(q)) return { exercise: e, score: S_EQUIPMENT, match: '' };
+  if (text.includes(q)) return { exercise: e, score: S_SUBSTRING - 500, match: '' };
 
   // Typos: only for words long enough that a typo is plausible, and only
   // against WORDS — fuzzy-matching whole names invites nonsense.
   if (q.length >= 4) {
     for (const w of hay) {
       if (Math.abs(w.length - q.length) <= 2 && editDistance(q, w) <= (q.length >= 7 ? 2 : 1)) {
-        return { exercise: e, score: S_FUZZY, matchStart: name.indexOf(w), matchLength: w.length };
+        return { exercise: e, score: S_FUZZY, match: w };
       }
     }
   }

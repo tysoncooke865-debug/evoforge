@@ -20,6 +20,7 @@ import tokens from '@/theme/tokens';
 import { LineChart, type ChartPoint } from '@/ui/line-chart';
 import { ScreenHeader } from '@/ui/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/shell';
+import { todayIso as calendarToday } from '@/domain/today';
 
 /**
  * Progress: the receipts. THIS WEEK leads (aggregates over the same
@@ -34,7 +35,7 @@ export default function ProgressScreen() {
   const cardio = useCardioLog();
   const schedule = useWorkoutSchedule();
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = calendarToday();
   const [timeframe, setTimeframe] = useState<TimeframeKey>('12W');
   const [metric, setMetric] = useState<MetricKey>('E1RM');
   const [selected, setSelected] = useState<string | null>(null);

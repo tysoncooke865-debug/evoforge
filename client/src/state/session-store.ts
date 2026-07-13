@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { EMPTY_OVERRIDES, type DayOverrides, type SessionExercise } from '@/domain/session-plan';
+import { todayIso } from '@/domain/today';
 
 /**
  * PHASE_3 Stage 1 — today's deviations from the plan.
@@ -63,7 +64,7 @@ interface SessionState {
   reset: () => void;
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
+// The athlete's calendar day (domain/today.ts) — NOT the UTC date.
 
 const emptyDay = (): DayOverrides => ({ added: [], removed: [], skipped: [], setDelta: {} });
 

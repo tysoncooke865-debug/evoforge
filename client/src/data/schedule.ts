@@ -5,6 +5,7 @@ import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
+import { todayIso } from '@/domain/today';
 
 /** IMPROVEMENT_PLAN #11: the weekly schedule rows, oldest first. */
 export function useWorkoutSchedule() {
@@ -32,7 +33,7 @@ export function useSaveSchedule() {
   const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async (plan: Record<string, string>) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayIso();
       const { error } = await supabase
         .from('workout_schedule')
         .upsert({ effective_from: today, plan }, { onConflict: 'user_id,effective_from' });
