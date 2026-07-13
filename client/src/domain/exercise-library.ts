@@ -169,14 +169,190 @@ export function substitutesFor(exercise: string): LibraryExercise[] {
   return section ? exercisesFor(section).filter((e) => e.name !== hit.name) : same;
 }
 
+/**
+ * STAGE 1 — the staples behind each kind of training day. Every name here is
+ * copied VERBATIM from EXERCISE_LIBRARY above, and a test pins that: a typo
+ * would seed a routine with an exercise that has no muscle tag, and it would
+ * quietly grade against nothing.
+ */
+export const DAY_PRESETS: Readonly<Record<string, readonly (readonly [string, number, string])[]>> = {
+  'Chest & Back': [
+    ['Barbell Bench Press', 4, '5-8'],
+    ['Incline Dumbbell Bench Press', 3, '8-12'],
+    ['Lat Pulldown', 4, '8-12'],
+    ['Chest-Supported Machine Row', 3, '8-12'],
+    ['Cable Chest Fly', 3, '12-20'],
+  ],
+  Arms: [
+    ['EZ-Bar Curl', 3, '8-12'],
+    ['Cable Triceps Pushdown', 3, '8-12'],
+    ['Hammer Curl', 3, '12-20'],
+    ['Overhead Cable Triceps Extension', 3, '12-20'],
+    ['Cable Lateral Raise', 3, '12-20'],
+  ],
+  'Legs & Core': [
+    ['Barbell Back Squat', 4, '5-8'],
+    ['Romanian Deadlift', 3, '8-12'],
+    ['Leg Press', 3, '8-12'],
+    ['Seated Leg Curl', 3, '12-20'],
+    ['Hanging Leg Raise', 3, '12-20'],
+  ],
+  Upper: [
+    ['Barbell Bench Press', 4, '5-8'],
+    ['Lat Pulldown', 4, '8-12'],
+    ['Overhead Barbell Press', 3, '8-12'],
+    ['Seated Cable Row', 3, '8-12'],
+    ['Dumbbell Lateral Raise', 3, '12-20'],
+    ['EZ-Bar Curl', 3, '12-20'],
+  ],
+  Lower: [
+    ['Barbell Back Squat', 4, '5-8'],
+    ['Romanian Deadlift', 3, '8-12'],
+    ['Leg Press', 3, '8-12'],
+    ['Lying Leg Curl', 3, '12-20'],
+    ['Standing Calf Raise', 4, '12-20'],
+  ],
+  Push: [
+    ['Barbell Bench Press', 4, '5-8'],
+    ['Overhead Barbell Press', 3, '8-12'],
+    ['Incline Dumbbell Bench Press', 3, '8-12'],
+    ['Cable Lateral Raise', 3, '12-20'],
+    ['Cable Triceps Pushdown', 3, '12-20'],
+  ],
+  Pull: [
+    ['Weighted Pull-Up', 4, '5-8'],
+    ['Barbell Bent-Over Row', 3, '8-12'],
+    ['Seated Cable Row', 3, '8-12'],
+    ['Face Pull', 3, '12-20'],
+    ['EZ-Bar Curl', 3, '12-20'],
+  ],
+  Legs: [
+    ['Barbell Back Squat', 4, '5-8'],
+    ['Romanian Deadlift', 3, '8-12'],
+    ['Leg Extension', 3, '12-20'],
+    ['Seated Leg Curl', 3, '12-20'],
+    ['Seated Calf Raise', 4, '12-20'],
+  ],
+  'Full Body': [
+    ['Barbell Back Squat', 3, '5-8'],
+    ['Barbell Bench Press', 3, '5-8'],
+    ['Lat Pulldown', 3, '8-12'],
+    ['Romanian Deadlift', 3, '8-12'],
+    ['Dumbbell Lateral Raise', 3, '12-20'],
+  ],
+};
+
 /** The routine-builder split presets. Day names become the plan's day
- *  chips on Train (custom plans drive their own day list). */
-export const SPLITS: readonly { key: string; name: string; days: readonly string[] }[] = [
-  { key: 'ppl6', name: 'Push / Pull / Legs · 6 days', days: ['Push A', 'Pull A', 'Legs A', 'Push B', 'Pull B', 'Legs B'] },
-  { key: 'ppl3', name: 'Push / Pull / Legs · 3 days', days: ['Push', 'Pull', 'Legs'] },
-  { key: 'ul4', name: 'Upper / Lower · 4 days', days: ['Upper A', 'Lower A', 'Upper B', 'Lower B'] },
-  { key: 'fb3', name: 'Full Body · 3 days', days: ['Full Body 1', 'Full Body 2', 'Full Body 3'] },
-  { key: 'bro5', name: 'Bro Split · 5 days', days: ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'] },
+ *  chips on Train (custom plans drive their own day list).
+ *  `preset` names the DAY_PRESETS entry each day seeds from — a day with no
+ *  preset seeds empty, which is what `custom` wants. */
+export interface Split {
+  key: string;
+  name: string;
+  days: readonly string[];
+  /** day name -> DAY_PRESETS key. */
+  presets?: Readonly<Record<string, string>>;
+  /** Weekdays to train, as JS getUTCDay() numbers. */
+  weekdays?: readonly number[];
+}
+
+export const SPLITS: readonly Split[] = [
+  {
+    key: 'ppl6',
+    name: 'Push / Pull / Legs · 6 days',
+    days: ['Push A', 'Pull A', 'Legs A', 'Push B', 'Pull B', 'Legs B'],
+    presets: { 'Push A': 'Push', 'Pull A': 'Pull', 'Legs A': 'Legs', 'Push B': 'Push', 'Pull B': 'Pull', 'Legs B': 'Legs' },
+    weekdays: [1, 2, 3, 4, 5, 6],
+  },
+  {
+    key: 'ppl3',
+    name: 'Push / Pull / Legs · 3 days',
+    days: ['Push', 'Pull', 'Legs'],
+    presets: { Push: 'Push', Pull: 'Pull', Legs: 'Legs' },
+    weekdays: [1, 3, 5],
+  },
+  {
+    key: 'ul4',
+    name: 'Upper / Lower · 4 days',
+    days: ['Upper A', 'Lower A', 'Upper B', 'Lower B'],
+    presets: { 'Upper A': 'Upper', 'Lower A': 'Lower', 'Upper B': 'Upper', 'Lower B': 'Lower' },
+    weekdays: [1, 2, 4, 5],
+  },
+  {
+    key: 'cbal3',
+    name: 'Chest&Back / Arms / Legs&Core · 3 days',
+    days: ['Chest & Back', 'Arms', 'Legs & Core'],
+    presets: { 'Chest & Back': 'Chest & Back', Arms: 'Arms', 'Legs & Core': 'Legs & Core' },
+    weekdays: [1, 3, 5],
+  },
+  {
+    key: 'fb3',
+    name: 'Full Body · 3 days',
+    days: ['Full Body 1', 'Full Body 2', 'Full Body 3'],
+    presets: { 'Full Body 1': 'Full Body', 'Full Body 2': 'Full Body', 'Full Body 3': 'Full Body' },
+    weekdays: [1, 3, 5],
+  },
+  {
+    key: 'bro5',
+    name: 'Bro Split · 5 days',
+    days: ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'],
+    presets: { Arms: 'Arms', Legs: 'Legs' },
+    weekdays: [1, 2, 3, 4, 5],
+  },
+  { key: 'custom', name: 'Custom · name your own days', days: [] },
 ];
 
 export const REP_SCHEMES = ['5-8', '8-12', '12-20', 'AMRAP'] as const;
+
+/** The staples for a day, or [] when that day has no preset (custom days). */
+export function presetFor(split: Split, day: string): readonly (readonly [string, number, string])[] {
+  const key = split.presets?.[day];
+  return key ? (DAY_PRESETS[key] ?? []) : [];
+}
+
+export interface SeedExercise {
+  exercise: string;
+  sets: number;
+  reps: string;
+  reason: string;
+}
+
+/**
+ * A ready-to-save plan for a split — onboarding's one-tap path. Null for
+ * `custom` (there is nothing to seed) and for any split without presets.
+ */
+export function seedPlanForSplit(
+  splitKey: string
+): { plan_name: string; days: { day: string; goal: string; exercises: SeedExercise[] }[] } | null {
+  const split = SPLITS.find((s) => s.key === splitKey);
+  if (!split || split.days.length === 0 || !split.presets) return null;
+  const days = split.days.map((day) => ({
+    day,
+    goal: '',
+    exercises: presetFor(split, day).map(([exercise, sets, reps]) => ({
+      exercise,
+      sets,
+      reps,
+      reason: '',
+    })),
+  }));
+  // A split whose days seed nothing is not a seedable split.
+  if (days.every((d) => d.exercises.length === 0)) return null;
+  return { plan_name: split.name, days };
+}
+
+/**
+ * The weekly schedule a split implies: workout_schedule's jsonb shape
+ * (keys '0'..'6' = getUTCDay, values a day name or 'Rest'). Days beyond the
+ * split's weekday count are Rest — a 3-day split must not silently claim six.
+ */
+export function defaultScheduleFor(splitKey: string): Record<string, string> | null {
+  const split = SPLITS.find((s) => s.key === splitKey);
+  if (!split || split.days.length === 0 || !split.weekdays) return null;
+  const plan: Record<string, string> = { '0': 'Rest', '1': 'Rest', '2': 'Rest', '3': 'Rest', '4': 'Rest', '5': 'Rest', '6': 'Rest' };
+  split.weekdays.forEach((dow, i) => {
+    const day = split.days[i];
+    if (day) plan[String(dow)] = day;
+  });
+  return plan;
+}
