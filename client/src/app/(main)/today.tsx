@@ -529,6 +529,9 @@ export default function TodayScreen() {
           setPickerOpen(false);
         }}
         excludeNames={plan.map((p) => p.exercise)}
+        // The day being trained: drives IN YOUR PROGRAM, the target muscles,
+        // and therefore SUGGESTED FOR TODAY and the ranking.
+        programExercises={plan.map((p) => p.exercise)}
       />
 
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>

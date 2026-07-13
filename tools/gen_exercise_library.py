@@ -1,21 +1,19 @@
-# Generates client/src/domain/exercise-library-imported.ts from the public
-# domain exercise dataset (873 exercises, name + primary muscles).
+# Regenerates client/src/domain/exercise-library-imported.ts with the FULL
+# taxonomy the Add Exercise redesign needs — not just name + muscle.
 #
-# The dataset's 17 muscle labels are mapped onto the app's OWN tag vocabulary
-# (the 17 tags LIBRARY_SECTIONS already collapses into six gym-familiar
-# sections) — a tag outside that vocabulary would render in no section and be
-# unpickable, so the generator asserts every mapped tag is legal.
+# The source dataset (yuhonas/free-exercise-db, Unlicense) already carries
+# equipment, mechanic (compound/isolation), level (difficulty), force
+# (push/pull/static) and secondary muscles. We were throwing all of it away.
 #
-# "shoulders" and "chest" are split by NAME, because the dataset does not
-# distinguish them and the app does: a lateral raise is not an overhead press,
-# and an incline press is not a flat one.
-import json, re, sys
+# Muscle labels map onto the app's OWN 17-tag vocabulary (unchanged — the
+# picker's sections, the heat map and every logged row depend on it).
+import json, re
+from collections import Counter
 
 RAW = "exercises_raw.json"
 OUT = r"C:\Users\tyson\Downloads\Previous_Code\evoforge\client\src\domain\exercise-library-imported.ts"
 CORE = r"C:\Users\tyson\Downloads\Previous_Code\evoforge\client\src\domain\exercise-library.ts"
 
-# The app's legal tags (must match LIBRARY_SECTIONS in exercise-library.ts).
 LEGAL = {
     "Chest", "Upper Chest", "Back Width", "Back Thickness", "Traps",
     "Side Delts", "Rear Delts", "Front Delts", "Biceps", "Triceps",
@@ -23,29 +21,36 @@ LEGAL = {
 }
 
 SIMPLE = {
-    "abdominals": "Abs",
-    "hamstrings": "Hamstrings",
-    "adductors": "Adductors",
-    "abductors": "Adductors",
-    "quadriceps": "Quads",
-    "biceps": "Biceps",
-    "triceps": "Triceps",
-    "calves": "Calves",
-    "glutes": "Glutes",
-    "forearms": "Forearms",
-    "lats": "Back Width",
-    "middle back": "Back Thickness",
-    "lower back": "Back Thickness",
-    "traps": "Traps",
-    "neck": "Traps",
+    "abdominals": "Abs", "hamstrings": "Hamstrings", "adductors": "Adductors",
+    "abductors": "Adductors", "quadriceps": "Quads", "biceps": "Biceps",
+    "triceps": "Triceps", "calves": "Calves", "glutes": "Glutes",
+    "forearms": "Forearms", "lats": "Back Width", "middle back": "Back Thickness",
+    "lower back": "Back Thickness", "traps": "Traps", "neck": "Traps",
 }
 
 REAR = re.compile(r"rear|reverse|face pull|bent[- ]over lateral|posterior", re.I)
 SIDE = re.compile(r"lateral|side|upright row|egyptian", re.I)
 INCLINE = re.compile(r"incline", re.I)
 
+# The dataset's equipment strings -> the app's equipment vocabulary.
+EQUIP = {
+    "barbell": "Barbell",
+    "dumbbell": "Dumbbell",
+    "cable": "Cable",
+    "machine": "Machine",
+    "body only": "Bodyweight",
+    "bands": "Band",
+    "kettlebells": "Kettlebell",
+    "e-z curl bar": "EZ Bar",
+    "medicine ball": "Other",
+    "exercise ball": "Other",
+    "foam roll": "Other",
+    "other": "Other",
+    None: "Other",
+}
 
-def muscle_for(name: str, primaries: list) -> str | None:
+
+def muscle_for(name, primaries):
     if not primaries:
         return None
     p = primaries[0].lower()
@@ -62,73 +67,108 @@ def muscle_for(name: str, primaries: list) -> str | None:
     return None
 
 
-def clean(name: str) -> str:
-    n = " ".join(name.split()).strip()
-    return n
+def secondaries_for(name, secs):
+    out = []
+    for s in secs or []:
+        m = muscle_for(name, [s])
+        if m and m not in out:
+            out.append(m)
+    return out
+
+
+# Popularity: the dataset has no score, so derive an honest one from how
+# canonical a movement is. Compound beginner barbell/dumbbell basics are what
+# most people log; obscure variations are not. This only ever BREAKS TIES —
+# nothing is hidden by it.
+POPULAR = re.compile(
+    r"^(barbell |dumbbell |cable |machine )?(bench press|squat|deadlift|overhead press|"
+    r"pull-?up|chin-?up|row|lat pulldown|curl|dip|lunge|press|fly|raise|extension|pushdown|"
+    r"leg press|calf raise|crunch|plank|hip thrust)",
+    re.I,
+)
+
+
+def popularity(name, mechanic, level):
+    score = 50
+    if mechanic == "compound":
+        score += 20
+    if level == "beginner":
+        score += 15
+    elif level == "expert":
+        score -= 10
+    if POPULAR.search(name):
+        score += 15
+    # Long, qualifier-heavy names are variations, not staples.
+    score -= max(0, len(name.split()) - 3) * 3
+    return max(1, min(100, score))
 
 
 def main():
     data = json.load(open(RAW, encoding="utf-8"))
     core_src = open(CORE, encoding="utf-8").read()
-    core_names = set(re.findall(r"\{ name: '([^']+)'", core_src))
-    core_lower = {n.lower() for n in core_names}
+    core_lower = {n.lower() for n in re.findall(r"\{ name: '([^']+)'", core_src)}
 
     seen = set(core_lower)
     rows = []
-    skipped_dupe = 0
-    skipped_nomuscle = 0
-
     for e in data:
-        name = clean(e.get("name", ""))
-        if len(name) < 2 or len(name) > 60:
-            continue
-        if "'" in name:
-            name = name.replace("'", "’")  # keep the TS string literal safe
-        key = name.lower()
-        if key in seen:
-            skipped_dupe += 1
+        name = " ".join(e.get("name", "").split()).strip().replace("'", "’")
+        if not (2 <= len(name) <= 60) or name.lower() in seen:
             continue
         muscle = muscle_for(name, e.get("primaryMuscles", []))
         if muscle is None:
-            skipped_nomuscle += 1
             continue
-        assert muscle in LEGAL, f"illegal tag {muscle}"
-        seen.add(key)
-        rows.append((name, muscle))
+        assert muscle in LEGAL
+        seen.add(name.lower())
+        equip = EQUIP.get(e.get("equipment"), "Other")
+        mech = (e.get("mechanic") or "").lower()
+        level = (e.get("level") or "").lower()
+        category = "Compound" if mech == "compound" else "Isolation" if mech == "isolation" else "Other"
+        difficulty = {"beginner": "Beginner", "intermediate": "Intermediate", "expert": "Advanced"}.get(level, "Intermediate")
+        secs = secondaries_for(name, e.get("secondaryMuscles"))
+        rows.append({
+            "name": name, "muscle": muscle, "equipment": equip,
+            "category": category, "difficulty": difficulty,
+            "secondary": secs, "popularity": popularity(name, mech, level),
+        })
 
-    rows.sort(key=lambda r: (r[1], r[0]))
+    rows.sort(key=lambda r: (r["muscle"], r["name"]))
 
     header = f"""/**
- * GENERATED — do not hand-edit. Regenerate with the scratchpad script
- * (gen_library.py) over the public-domain exercise dataset
- * (github.com/yuhonas/free-exercise-db, Unlicense).
+ * GENERATED — do not hand-edit. Regenerate with tools/gen_exercise_library.py
+ * over the public-domain dataset (github.com/yuhonas/free-exercise-db,
+ * Unlicense).
  *
- * {len(rows)} exercises the hand-curated core (exercise-library.ts) did not
- * already carry. EXACT-NAME DUPLICATES ARE EXCLUDED, case-insensitively: the
- * core's names win, because they are the ones DAY_PRESETS seeds and the ones
- * whose wording the substitution engine was tuned against.
+ * {len(rows)} exercises the curated core does not already carry, with the FULL
+ * taxonomy the Add Exercise menu needs: equipment, category, difficulty,
+ * secondary muscles and a popularity score.
  *
- * The dataset's muscle labels are mapped onto THIS APP'S tag vocabulary (the
- * 17 tags LIBRARY_SECTIONS collapses into six sections). A tag outside that
- * vocabulary would render in no section and be unpickable, so the generator
- * asserts every tag is legal and a test re-asserts it here.
+ * EXACT-NAME DUPLICATES OF THE CORE ARE EXCLUDED (case-insensitively) — the
+ * core's names win, because they are what DAY_PRESETS seeds and what the
+ * substitution engine was tuned against.
  *
- * "shoulders" and "chest" are split by NAME because the dataset does not
- * distinguish what the app does: a lateral raise is not an overhead press,
- * and an incline press is not a flat one.
+ * Muscle tags are the app's OWN 17-tag vocabulary. Popularity is DERIVED
+ * (compound + beginner + canonical-movement + short-name), because the dataset
+ * has no score; it only ever BREAKS TIES in ranking — it hides nothing.
  */
 
-/** Structurally a LibraryExercise — declared inline so the generated file
- *  imports nothing and cannot form a cycle with exercise-library.ts. */
-export const IMPORTED_EXERCISES: readonly {{ name: string; muscle: string }}[] = [
-"""
-    body = "".join(f"  {{ name: '{n}', muscle: '{m}' }},\n" for n, m in rows)
-    open(OUT, "w", encoding="utf-8", newline="\n").write(header + body + "];\n")
+import type {{ LibraryExercise }} from './exercise-taxonomy';
 
-    from collections import Counter
+export const IMPORTED_EXERCISES: readonly LibraryExercise[] = [
+"""
+    def fmt(r):
+        secs = "".join(f"'{s}', " for s in r["secondary"])
+        secs = f"[{secs.rstrip(', ')}]" if r["secondary"] else "[]"
+        return (
+            f"  {{ name: '{r['name']}', muscle: '{r['muscle']}', equipment: '{r['equipment']}', "
+            f"category: '{r['category']}', difficulty: '{r['difficulty']}', "
+            f"secondary: {secs}, popularity: {r['popularity']} }},\n"
+        )
+
+    open(OUT, "w", encoding="utf-8", newline="\n").write(header + "".join(fmt(r) for r in rows) + "];\n")
     print(f"wrote {len(rows)} exercises")
-    print(f"skipped {skipped_dupe} exact duplicates of the core, {skipped_nomuscle} with no usable muscle")
-    print("by tag:", dict(Counter(m for _, m in rows).most_common()))
+    print("equipment:", dict(Counter(r["equipment"] for r in rows).most_common()))
+    print("category:", dict(Counter(r["category"] for r in rows).most_common()))
+    print("difficulty:", dict(Counter(r["difficulty"] for r in rows).most_common()))
 
 
 main()
