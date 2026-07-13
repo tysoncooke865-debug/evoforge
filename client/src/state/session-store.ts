@@ -32,6 +32,17 @@ interface SessionState {
   date: string;
   days: Record<string, DayOverrides>;
   adhoc: AdhocWorkout | null;
+  /**
+   * Tyson, 2026-07-14: the workout IN PROGRESS. Set the moment a set lands,
+   * cleared when the athlete finishes (the summary ceremony) or ends an ad-hoc
+   * workout. It exists so a cold start reopens the workout you are standing in
+   * the middle of, instead of dumping you on Home — and it is LOCAL state, so
+   * that decision is instant at boot and never waits on the network.
+   *
+   * Same date guard as everything else here: yesterday's unfinished workout is
+   * not today's.
+   */
+  activeDay: string | null;
   _hydrated: boolean;
 
   addExercise: (day: string, e: SessionExercise) => void;
@@ -40,9 +51,14 @@ interface SessionState {
   toggleSkip: (day: string, exercise: string) => void;
   bumpSets: (day: string, exercise: string, delta: number) => void;
 
+  /** Adding to an ad-hoc day goes through addExercise like any other day —
+   *  the override layer keys on the day NAME, and an ad-hoc workout's name is
+   *  a day name. There is deliberately no separate add-to-adhoc action. */
   startAdhoc: (w: AdhocWorkout) => void;
-  addAdhocExercise: (e: SessionExercise) => void;
   endAdhoc: () => void;
+
+  markActive: (day: string) => void;
+  clearActive: () => void;
 
   reset: () => void;
 }
@@ -75,6 +91,7 @@ export const useSessionStore = create<SessionState>()(
       date: todayIso(),
       days: {},
       adhoc: null,
+      activeDay: null,
       _hydrated: false,
 
       addExercise: (day, e) =>
@@ -125,31 +142,19 @@ export const useSessionStore = create<SessionState>()(
           }))
         ),
 
-      startAdhoc: (w) => set({ date: todayIso(), adhoc: w }),
+      startAdhoc: (w) => set({ date: todayIso(), adhoc: w, activeDay: w.name }),
 
-      addAdhocExercise: (e) =>
-        set((s) =>
-          s.adhoc === null
-            ? {}
-            : {
-                date: todayIso(),
-                adhoc: {
-                  ...s.adhoc,
-                  exercises: s.adhoc.exercises.some((x) => x.exercise === e.exercise)
-                    ? s.adhoc.exercises
-                    : [...s.adhoc.exercises, e],
-                },
-              }
-        ),
+      endAdhoc: () => set((s) => ({ adhoc: null, activeDay: s.activeDay === s.adhoc?.name ? null : s.activeDay })),
 
-      endAdhoc: () => set({ adhoc: null }),
+      markActive: (day) => set({ date: todayIso(), activeDay: day }),
+      clearActive: () => set({ activeDay: null }),
 
-      reset: () => set({ date: todayIso(), days: {}, adhoc: null }),
+      reset: () => set({ date: todayIso(), days: {}, adhoc: null, activeDay: null }),
     }),
     {
       name: 'evoforge-session-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ date: s.date, days: s.days, adhoc: s.adhoc }),
+      partialize: (s) => ({ date: s.date, days: s.days, adhoc: s.adhoc, activeDay: s.activeDay }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // The rollover on READ (see the header): a persisted yesterday is
@@ -158,6 +163,7 @@ export const useSessionStore = create<SessionState>()(
           state.date = todayIso();
           state.days = {};
           state.adhoc = null;
+          state.activeDay = null;
         }
         state._hydrated = true;
       },
@@ -175,4 +181,11 @@ export function overridesFor(state: SessionState, day: string): DayOverrides {
 export function adhocOf(state: SessionState): AdhocWorkout | null {
   if (state.date !== todayIso()) return null;
   return state.adhoc;
+}
+
+/** The workout in progress RIGHT NOW, or null. Date-guarded: an unfinished
+ *  workout from yesterday is not a workout you are standing in the middle of. */
+export function activeWorkout(state: SessionState): string | null {
+  if (state.date !== todayIso()) return null;
+  return state.activeDay;
 }

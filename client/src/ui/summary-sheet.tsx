@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Modal, Text, View } from 'react-native';
+import { Modal, Text, TextInput, View } from 'react-native';
 
 import { evolutionReadiness, requirementProgress } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
@@ -41,17 +41,40 @@ type PhaseKey = 'summary' | 'pr' | 'path' | 'evolution' | 'next';
 export function SummarySheet({
   data,
   onClose,
+  onSaveRoutine,
+  defaultRoutineName = '',
 }: {
   data: WorkoutSummaryData | null;
   onClose: () => void;
+  /** STAGE 1: save what was performed as a reusable routine. Absent when
+   *  nothing was logged — there would be nothing to save. */
+  onSaveRoutine?: (name: string) => void;
+  defaultRoutineName?: string;
 }) {
   if (!data) return null;
   // Phase state lives in Ceremony, which unmounts with the sheet — a fresh
   // finish always starts at phase one.
-  return <Ceremony data={data} onClose={onClose} />;
+  return (
+    <Ceremony
+      data={data}
+      onClose={onClose}
+      onSaveRoutine={onSaveRoutine}
+      defaultRoutineName={defaultRoutineName}
+    />
+  );
 }
 
-function Ceremony({ data, onClose }: { data: WorkoutSummaryData; onClose: () => void }) {
+function Ceremony({
+  data,
+  onClose,
+  onSaveRoutine,
+  defaultRoutineName,
+}: {
+  data: WorkoutSummaryData;
+  onClose: () => void;
+  onSaveRoutine?: (name: string) => void;
+  defaultRoutineName: string;
+}) {
   const phases: PhaseKey[] = [
     'summary',
     ...(data.prCount > 0 ? (['pr'] as const) : []),
@@ -62,6 +85,12 @@ function Ceremony({ data, onClose }: { data: WorkoutSummaryData; onClose: () => 
   const [idx, setIdx] = useState(0);
   const phase = phases[idx];
   const last = idx === phases.length - 1;
+
+  // SAVE AS ROUTINE lives on the summary phase only — it is about the workout
+  // you just did, not about the level or the evolution.
+  const [naming, setNaming] = useState(false);
+  const [routineName, setRoutineName] = useState(defaultRoutineName);
+  const [saved, setSaved] = useState(false);
 
   const complete = data.setsDone >= data.setsTarget;
   const accent = complete ? tokens.colors.success : tokens.colors.accent;
@@ -104,6 +133,54 @@ function Ceremony({ data, onClose }: { data: WorkoutSummaryData; onClose: () => 
             </View>
 
             {phase === 'summary' ? <SummaryPhase data={data} accent={accent} /> : null}
+
+            {phase === 'summary' && onSaveRoutine && !saved ? (
+              naming ? (
+                <View className="mb-s4">
+                  <TextInput
+                    className="min-h-[44px] rounded-xl border bg-surface-2 px-s3 text-sm text-text"
+                    style={{ borderColor: tokens.colors.border }}
+                    value={routineName}
+                    onChangeText={setRoutineName}
+                    maxLength={60}
+                    placeholder="Name this routine"
+                    placeholderTextColor="#64758f"
+                    testID="routine-name"
+                  />
+                  <View className="mt-s2">
+                    <NeonButton
+                      title="SAVE"
+                      variant="ghost"
+                      onPress={() => {
+                        const n = routineName.trim();
+                        if (n.length < 2) return;
+                        onSaveRoutine(n);
+                        // Optimistic: the mutation toasts its own failure, and
+                        // a second tap would only collide on the unique index.
+                        setSaved(true);
+                        setNaming(false);
+                      }}
+                      testID="routine-save-confirm"
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View className="mb-s4">
+                  <NeonButton
+                    title="SAVE AS ROUTINE"
+                    variant="ghost"
+                    onPress={() => setNaming(true)}
+                    testID="save-as-routine"
+                  />
+                </View>
+              )
+            ) : null}
+
+            {phase === 'summary' && saved ? (
+              <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 1.5 }}>
+                ✓ SAVED TO MY ROUTINES
+              </Text>
+            ) : null}
             {phase === 'pr' ? <PrPhase data={data} /> : null}
             {phase === 'path' ? <PathPhase data={data} /> : null}
             {phase === 'evolution' ? <EvolutionPhase data={data} /> : null}

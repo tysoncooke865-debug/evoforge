@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { useAuth } from '@/data/auth-context';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { activeWorkout, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
 import { TutorialOverlay } from '@/ui/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/scroll-registry';
@@ -31,6 +32,29 @@ export default function MainLayout() {
   }, []);
   const profile = useProfile();
   const insets = useSafeAreaInsets();
+
+  /**
+   * Tyson, 2026-07-14: CLOSE THE APP MID-WORKOUT, REOPEN INTO IT.
+   *
+   * If a workout is underway (a set banked today, or an ad-hoc workout
+   * started) the cold start lands on Train; otherwise Home, as always. The
+   * decision reads ONLY the persisted session store — no network — so it is
+   * made on the first frame the athlete could act on.
+   *
+   * ONCE PER LAUNCH (the ref): this must not fight the athlete. If they open
+   * mid-workout, land on Train, and then tap Home, they stay on Home.
+   *
+   * It waits for hydration: the persisted store arrives asynchronously, and
+   * redirecting on the pre-hydration snapshot would always read "no workout".
+   */
+  const hydrated = useSessionStore((s) => s._hydrated);
+  const active = useSessionStore(activeWorkout);
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || !hydrated || !session || profile.data === undefined) return;
+    resumedRef.current = true;
+    if (active !== null) router.replace('/today');
+  }, [hydrated, active, session, profile.data]);
 
   // Level-up detector: compares CONFIRMED summary.level across refetches.
   // First observation only arms it (no ceremony for merely opening the app);

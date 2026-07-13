@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useClaimCoin } from '@/data/coins';
+import { useDeleteRoutine, useRoutines, useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { pyFloat, pyInt } from '@/domain/py';
 import {
+  adhocNameError,
   buildEffectivePlan,
   canAddSet,
   canRemoveSet,
@@ -17,8 +19,9 @@ import {
   removeAction,
   type LoggedFacts,
   type PlanEntry,
+  type SessionExercise,
 } from '@/domain/session-plan';
-import { overridesFor, useSessionStore } from '@/state/session-store';
+import { activeWorkout, adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
@@ -59,22 +62,55 @@ export default function TodayScreen() {
   const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
   // Custom plans (AI or hand-built) drive their OWN day list — builder
   // splits use names like "Upper A" that are not in ROUTINE_ORDER.
-  const days = useAi && aiPlan.data ? aiPlan.data.days.map((d) => d.day) : builtInDays;
+  const planDays = useAi && aiPlan.data ? aiPlan.data.days.map((d) => d.day) : builtInDays;
+
+  // STAGE 1: an ad-hoc workout — "just train, name it what I like". It is an
+  // EXTRA day chip (visible under BOTH plan sources, because it belongs to
+  // neither) and its name becomes workout_log.workout, which is the grouping
+  // key for a workout. adhocNameError refuses a name that collides with a day
+  // chip: two different workouts merging into one day's math is a silent lie.
+  const adhoc = useSessionStore(adhocOf);
+  const startAdhoc = useSessionStore((s) => s.startAdhoc);
+  const endAdhoc = useSessionStore((s) => s.endAdhoc);
+  const days = adhoc ? [...planDays, adhoc.name] : planDays;
+
   // Clamp at render, not in an effect (react-hooks/set-state-in-effect):
   // switching source can leave the chosen chip outside the new day list —
   // the EFFECTIVE day falls back to the list's first entry, and the raw
   // choice is restored if the athlete toggles back.
   const day = days.includes(dayChoice) ? dayChoice : days[0];
+  const onAdhocDay = adhoc !== null && day === adhoc.name;
   // Tyson 2026-07-13: session-level exercise substitution (same muscle).
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
   // STAGE 1: add an exercise the plan never thought of.
   const [pickerOpen, setPickerOpen] = useState(false);
+  // STAGE 1: start a workout that isn't in any plan.
+  const [emptyOpen, setEmptyOpen] = useState(false);
+  const [adhocName, setAdhocName] = useState('');
+  const routines = useRoutines();
+  const saveRoutine = useSaveRoutine();
+  const deleteRoutine = useDeleteRoutine();
 
   // P2 C3: LIFT | CARDIO mode; cardio type hoisted so the header sprite can
   // train what's being logged (the old log.tsx rationale, relocated).
   const [mode, setMode] = useState<0 | 1>(0);
   const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
+
+  // Tyson 2026-07-14: reopening mid-workout must land on THE WORKOUT, not
+  // just on Train. Same one-shot + setTimeout pattern as the scheduled
+  // default below (a bare setState in an effect is a lint error here).
+  const hydrated = useSessionStore((s) => s._hydrated);
+  const active = useSessionStore(activeWorkout);
+  const activeDefaultRef = useRef(false);
+  useEffect(() => {
+    if (activeDefaultRef.current || !hydrated) return;
+    activeDefaultRef.current = true;
+    if (active === null) return;
+    const t = setTimeout(() => setDay(active), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // IMPROVEMENT_PLAN #11: default the day chip to today's SCHEDULED day
   // once a schedule exists; manual override stays (it's just useState).
@@ -85,6 +121,9 @@ export default function TodayScreen() {
     const rows = schedule.data;
     if (!rows || rows.length === 0) return;
     scheduledDefaultRef.current = true;
+    // A workout ALREADY UNDERWAY outranks the schedule's suggestion — you are
+    // standing in the gym mid-set; the calendar's opinion can wait.
+    if (useSessionStore.getState().activeDay !== null) return;
     const t = setTimeout(() => {
       const plan = rows[rows.length - 1].plan;
       const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
@@ -130,11 +169,14 @@ export default function TodayScreen() {
 
   const builtIn = ROUTINE[day] ?? [];
   const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
-  // The same [exercise, sets, scheme] tuple shape either way — with any
-  // session substitutions applied (key `day:original` -> replacement).
-  const basePlan: readonly (readonly [string, number, string])[] = aiDay
-    ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
-    : builtIn;
+  // The same [exercise, sets, scheme] tuple shape whatever the source — an
+  // ad-hoc workout's "plan" is simply whatever it was started with (empty, or
+  // a saved routine's exercises).
+  const basePlan: readonly (readonly [string, number, string])[] = onAdhocDay
+    ? (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets, e.reps] as const)
+    : aiDay
+      ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
+      : builtIn;
   const substituted: PlanEntry[] = basePlan.map(
     ([ex, sets, scheme]) => [subs[`${day}:${ex}`] ?? ex, sets, scheme] as const
   );
@@ -143,6 +185,9 @@ export default function TodayScreen() {
   // adds/removes/skips/set-deltas. All the arithmetic lives in the pure
   // domain module (session-plan.ts), which is where its honesty is tested.
   const overrides = useSessionStore((s) => overridesFor(s, day));
+  // Tyson 2026-07-14: a workout in progress reopens itself on a cold start.
+  const markActive = useSessionStore((s) => s.markActive);
+  const clearActive = useSessionStore((s) => s.clearActive);
   const addExercise = useSessionStore((s) => s.addExercise);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
@@ -218,6 +263,35 @@ export default function TodayScreen() {
     setSheet(buildSummary());
   };
 
+  /** What the athlete ACTUALLY did today — the only honest thing to save as a
+   *  routine. Sets = what they logged, not what the plan asked for. */
+  const performed = (): SessionExercise[] =>
+    plan
+      .map((e) => ({ exercise: e.exercise, sets: loggedFacts(e.exercise).validCount, reps: e.reps }))
+      .filter((e) => e.sets > 0);
+
+  const startEmpty = () => {
+    const err = adhocNameError(adhocName, days);
+    if (err !== null) {
+      useToastStore.getState().push({ kind: 'error', title: 'PICK ANOTHER NAME', subtitle: err });
+      return;
+    }
+    const name = adhocName.trim();
+    startAdhoc({ name, exercises: [] });
+    setDay(name);
+    setAdhocName('');
+    setEmptyOpen(false);
+  };
+
+  const startRoutine = (routineName: string, exercises: SessionExercise[]) => {
+    // A routine's own name may collide with a day chip (they are saved
+    // independently); suffix rather than refuse — the athlete asked to train.
+    const base = adhocNameError(routineName, days) === null ? routineName : `${routineName} (today)`;
+    startAdhoc({ name: base, exercises });
+    setDay(base);
+    setEmptyOpen(false);
+  };
+
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
 
 
@@ -252,6 +326,21 @@ export default function TodayScreen() {
           </Pressable>
         </Link>
       )}
+
+      {/* STAGE 1: train something the plan never heard of. */}
+      {!adhoc ? (
+        <Pressable
+          accessibilityRole="button"
+          testID="start-empty"
+          onPress={() => setEmptyOpen(true)}
+          className="items-center"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+            ＋ START AN EMPTY WORKOUT
+          </Text>
+        </Pressable>
+      ) : null}
 
       <GlowCard glow={complete ? tokens.colors.success : undefined}>
         <View className="mb-s4 flex-row flex-wrap gap-s2">
@@ -305,6 +394,10 @@ export default function TodayScreen() {
               prCountRef.current += 1;
               prNamesRef.current.push(exercise);
             }}
+            // A banked set means a workout is UNDERWAY — that is what a cold
+            // start reopens to. (Marking on every logged set, not just the
+            // first, keeps it correct if the athlete switches day chips.)
+            onLogged={() => markActive(day)}
             durable
             onSubstitute={() => setSubFor(exercise)}
             skipped={skipped}
@@ -333,6 +426,24 @@ export default function TodayScreen() {
           testID="finish-workout"
         />
       ) : null}
+
+      {onAdhocDay ? (
+        <Pressable
+          accessibilityRole="button"
+          testID="end-adhoc"
+          onPress={() => {
+            endAdhoc();
+            clearActive();
+            setDay(planDays[0]);
+          }}
+          className="items-center"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            END “{adhoc?.name}”
+          </Text>
+        </Pressable>
+      ) : null}
       </View>
 
       <ExercisePicker
@@ -348,7 +459,93 @@ export default function TodayScreen() {
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
         <CardioCard type={cardioType} setType={setCardioType} />
       </View>
-      <SummarySheet data={sheet} onClose={() => setSheet(null)} />
+      <SummarySheet
+        data={sheet}
+        onClose={() => {
+          // The ceremony closing IS the end of the workout: a cold start after
+          // this reopens Home, not a workout the athlete already finished.
+          setSheet(null);
+          clearActive();
+        }}
+        // STAGE 1: save what you actually did, to do again. Never writes
+        // custom_workout_plan — a routine is a workout, not a split.
+        onSaveRoutine={
+          performed().length > 0
+            ? (name) => saveRoutine.mutate({ name, exercises: performed() })
+            : undefined
+        }
+        defaultRoutineName={day}
+      />
+
+      {/* STAGE 1: the empty-workout sheet — name it, or start a saved routine. */}
+      {emptyOpen ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setEmptyOpen(false)}>
+          <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={() => setEmptyOpen(false)}>
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-t-xl border-t p-s4"
+              style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 560 }}
+            >
+              <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                START A WORKOUT
+              </Text>
+              <TextInput
+                className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
+                style={{ borderColor: tokens.colors.border }}
+                placeholder="Name it — e.g. Beach Day"
+                placeholderTextColor="#64758f"
+                value={adhocName}
+                onChangeText={setAdhocName}
+                maxLength={40}
+                testID="adhoc-name"
+              />
+              <View className="mt-s3">
+                <NeonButton title="START EMPTY WORKOUT" onPress={startEmpty} testID="adhoc-start" />
+              </View>
+
+              {(routines.data ?? []).length > 0 ? (
+                <View className="mt-s4">
+                  <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                    MY ROUTINES
+                  </Text>
+                  <ScrollView style={{ maxHeight: 240 }}>
+                    {(routines.data ?? []).map((r) => (
+                      <View key={r.id} className="mb-s2 flex-row items-center gap-s2">
+                        <Pressable
+                          onPress={() => startRoutine(r.name, r.payload?.exercises ?? [])}
+                          accessibilityRole="button"
+                          testID={`routine-start-${r.name}`}
+                          className="flex-1 rounded-md border border-border px-s3 py-s2"
+                          style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}
+                        >
+                          <Text className="text-sm font-bold text-text">{r.name}</Text>
+                          <Text className="text-2xs text-text-mute">
+                            {(r.payload?.exercises ?? []).length} exercises · START TODAY
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => deleteRoutine.mutate(r.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`delete routine ${r.name}`}
+                          testID={`routine-delete-${r.name}`}
+                          className="items-center justify-center"
+                          style={{ minWidth: 44, minHeight: 44 }}
+                        >
+                          <Text className="text-sm text-text-mute">✕</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+
+              <View className="mt-s3">
+                <NeonButton title="CLOSE" variant="ghost" onPress={() => setEmptyOpen(false)} testID="adhoc-close" />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
 
       {/* Substitution sheet: same-muscle alternatives, one tap. */}
       {subFor !== null ? (

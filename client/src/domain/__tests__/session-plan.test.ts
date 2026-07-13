@@ -185,6 +185,13 @@ describe('canAddSet / canRemoveSet', () => {
   });
 });
 
+describe('the ad-hoc name is a WORKOUT name (workout_log.workout)', () => {
+  it('a saved routine can reuse a name that is not a plan day', () => {
+    // Routines are named independently of the plan, so this is the common case.
+    expect(adhocNameError('Beach Day', ['Push 1 - Strength', 'Legs'])).toBeNull();
+  });
+});
+
 describe('adhocNameError', () => {
   const DAYS = ['Push 1 - Strength', 'Legs'];
 
