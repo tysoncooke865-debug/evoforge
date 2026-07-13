@@ -34,6 +34,7 @@ import { useToastStore } from '@/state/toast-store';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
+import { buildWeekBars } from '@/domain/week-status';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
@@ -44,6 +45,7 @@ import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { RestTimerBar } from '@/ui/rest-timer';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import { ExercisePicker } from '@/ui/exercise-picker';
+import { WeekBarRow } from '@/ui/week-bar';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -224,6 +226,24 @@ export default function TodayScreen() {
   const totalTarget = totals.target;
   const complete = totals.complete;
   const nextExercise = totals.nextExercise;
+
+  // TRAIN_IMPROVEMENTS: THIS WEEK as bars. Null when no schedule is in force —
+  // the athlete then keeps the day chips, and nothing regresses for them.
+  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  const hasValidSets = (date: string, workout: string): boolean =>
+    allRows.some(
+      (r) =>
+        String(r.date) === date &&
+        String(r.workout) === workout &&
+        (pyFloat(r.weight) ?? 0) > 0 &&
+        (pyFloat(r.reps) ?? 0) > 0
+    );
+  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], hasValidSets, todayIso);
+  const [openDate, setOpenDate] = useState<string | null>(null);
+  // Today's bar is the one they came to do; it opens on arrival.
+  const expandedDate = openDate ?? todayIso;
+  /** The logging UI is today's, and only today's. */
+  const viewingToday = weekBars === null || expandedDate === todayIso;
 
   // Is THIS day (date + workout name) explicitly finished?
   const marker = (sessions.data ?? []).find((m) => m.date === todayIso && m.workout === day) ?? null;
@@ -426,13 +446,63 @@ export default function TodayScreen() {
         </Pressable>
       ) : null}
 
-      {noPlan ? null : (
-      <GlowCard glow={complete ? tokens.colors.success : undefined}>
-        <View className="mb-s4 flex-row flex-wrap gap-s2">
-          {days.map((d) => (
-            <Chip key={d} label={d} active={d === day} onPress={() => setDay(d)} />
+      {/* THIS WEEK — one bar per day, with the truth on the right. */}
+      {weekBars ? (
+        <View>
+          <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+            THIS WEEK
+          </Text>
+          {weekBars.map((bar) => (
+            <WeekBarRow
+              key={bar.date}
+              bar={bar}
+              expanded={expandedDate === bar.date && bar.status !== 'rest'}
+              onToggle={() => {
+                // 'none' = everything collapsed (distinct from null = "not yet
+                // chosen", which opens today).
+                const collapsing = expandedDate === bar.date;
+                setOpenDate(collapsing ? 'none' : bar.date);
+                // ONLY today's bar drives the logging column. The cards log to
+                // todayIso — repointing them at a past bar would write today's
+                // date under last Tuesday's name.
+                if (!collapsing && bar.date === todayIso && bar.workout) setDay(bar.workout);
+              }}
+            >
+              {bar.date === todayIso ? undefined : (
+                <PastRecap rows={allRows} date={bar.date} workout={bar.workout} />
+              )}
+            </WeekBarRow>
           ))}
+          <Link href={'/schedule' as never} asChild>
+            <Pressable accessibilityRole="button" testID="edit-week" className="mt-s1 items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+                ◫ EDIT MY WEEK →
+              </Text>
+            </Pressable>
+          </Link>
         </View>
+      ) : (
+        <Link href={'/schedule' as never} asChild>
+          <Pressable accessibilityRole="button" testID="set-your-week" className="items-center" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              ◫ SET YOUR WEEK →
+            </Text>
+          </Pressable>
+        </Link>
+      )}
+
+      {noPlan || !viewingToday ? null : (
+      <GlowCard glow={complete ? tokens.colors.success : undefined}>
+        {/* The chips remain the day picker for athletes with no schedule; with
+            a schedule, the week bars above choose the day and the chips are
+            redundant noise. */}
+        {weekBars ? null : (
+          <View className="mb-s4 flex-row flex-wrap gap-s2">
+            {days.map((d) => (
+              <Chip key={d} label={d} active={d === day} onPress={() => setDay(d)} />
+            ))}
+          </View>
+        )}
 
         <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
           <View
@@ -457,7 +527,7 @@ export default function TodayScreen() {
       </GlowCard>
       )}
 
-      {noPlan ? null : plan.map((entry) => {
+      {noPlan || !viewingToday ? null : plan.map((entry) => {
         const { exercise, sets, reps, skipped } = entry;
         const facts = loggedFacts(exercise);
         return (
@@ -503,7 +573,7 @@ export default function TodayScreen() {
       })}
 
       {/* STAGE 1: the plan is a suggestion, not a cage. */}
-      {noPlan || finished ? null : (
+      {noPlan || finished || !viewingToday ? null : (
         <NeonButton
           title="＋ ADD EXERCISE"
           variant="ghost"
@@ -513,7 +583,7 @@ export default function TodayScreen() {
       )}
 
       {/* FINISHED — locked, with the hatch. */}
-      {finished ? (
+      {finished && viewingToday ? (
         <View
           className="flex-row items-center justify-between rounded-xl p-s4"
           style={{
@@ -544,7 +614,7 @@ export default function TodayScreen() {
         </View>
       ) : null}
 
-      {!finished && totalDone > 0 && !complete ? (
+      {!finished && viewingToday && totalDone > 0 && !complete ? (
         <NeonButton
           title={`FINISH WORKOUT · ${totalDone}/${totalTarget} SETS`}
           variant="ghost"
@@ -738,5 +808,66 @@ export default function TodayScreen() {
         </Modal>
       ) : null}
     </ScreenShell>
+  );
+}
+
+/**
+ * A past or future day's bar, opened. There is nothing to log here — the cards
+ * write to TODAY, so pointing them at last Tuesday would file today's sets
+ * under it. This shows what happened, or what is coming.
+ */
+function PastRecap({
+  rows,
+  date,
+  workout,
+}: {
+  rows: import('@/domain/summary').WorkoutRow[];
+  date: string;
+  workout: string | null;
+}) {
+  if (!workout) return null;
+  const mine = rows.filter(
+    (r) =>
+      String(r.date) === date &&
+      String(r.workout) === workout &&
+      (pyFloat(r.weight) ?? 0) > 0 &&
+      (pyFloat(r.reps) ?? 0) > 0
+  );
+
+  if (mine.length === 0) {
+    const future = date > new Date().toISOString().slice(0, 10);
+    return (
+      <View className="rounded-xl border border-border p-s4" style={{ backgroundColor: 'rgba(13,21,36,0.5)' }}>
+        <Text className="text-2xs text-text-mute">
+          {future ? 'Not yet — this one is ahead of you.' : '0 SETS LOGGED'}
+        </Text>
+      </View>
+    );
+  }
+
+  const byExercise = new Map<string, { weight: number; reps: number }[]>();
+  for (const r of mine) {
+    const name = String(r.exercise);
+    const list = byExercise.get(name) ?? [];
+    list.push({ weight: pyFloat(r.weight) ?? 0, reps: pyInt(r.reps) ?? 0 });
+    byExercise.set(name, list);
+  }
+
+  return (
+    <View className="rounded-xl border border-border p-s4" style={{ backgroundColor: 'rgba(13,21,36,0.5)' }}>
+      {[...byExercise.entries()].map(([name, sets]) => (
+        <View key={name} className="mb-s2">
+          <Text className="text-sm font-bold text-text" numberOfLines={1}>
+            {name}
+          </Text>
+          <Text className="text-2xs text-text-mute">
+            {sets.map((x) => `${x.weight} kg × ${x.reps}`).join('  ·  ')}
+          </Text>
+        </View>
+      ))}
+      <Text className="mt-s1 text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 1.5 }}>
+        {mine.length} SET{mine.length === 1 ? '' : 'S'} LOGGED
+      </Text>
+    </View>
   );
 }
