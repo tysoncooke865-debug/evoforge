@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { libraryMuscleFor } from '@/domain/exercise-library';
 import { buildSetRow, type SetInput } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
@@ -108,7 +109,13 @@ export async function flushQueue(): Promise<void> {
       // Identical row shape to the direct path (buildSetRow), plus OUR id.
       const built = {
         id: row.id,
-        ...buildSetRow(row.input, row.muscle ?? inferMuscleGroup(row.input.exercise), row.timestamp),
+        ...buildSetRow(
+          row.input,
+          // Resolved at enqueue (athlete's tag > library's); a row queued
+          // before that shipped falls back to the library, then inference.
+          row.muscle ?? libraryMuscleFor(row.input.exercise) ?? inferMuscleGroup(row.input.exercise),
+          row.timestamp
+        ),
       };
       const { error } = await supabase.from('workout_log').insert(built);
       row.attempts += 1;

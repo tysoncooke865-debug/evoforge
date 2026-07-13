@@ -4,13 +4,64 @@ import {
   DAY_PRESETS,
   defaultScheduleFor,
   EXERCISE_LIBRARY,
+  libraryMuscleFor,
+  LIBRARY_SECTIONS,
   presetFor,
   REP_SCHEMES,
   seedPlanForSplit,
   SPLITS,
 } from '../exercise-library';
+import { IMPORTED_EXERCISES } from '../exercise-library-imported';
 
 const LIBRARY_NAMES = new Set(EXERCISE_LIBRARY.map((e) => e.name));
+/** Every tag the six UI sections can render. A tag outside this set belongs
+ *  to no section, so the exercise carrying it is unpickable. */
+const LEGAL_TAGS = new Set(LIBRARY_SECTIONS.flatMap((s) => s.muscles));
+
+describe('the imported dataset (2026-07-14)', () => {
+  it('is actually large (a shrunken import would pass every check below)', () => {
+    expect(IMPORTED_EXERCISES.length).toBeGreaterThan(800);
+    expect(EXERCISE_LIBRARY.length).toBeGreaterThan(900);
+  });
+
+  it('EVERY exercise carries a tag one of the six sections renders', () => {
+    for (const e of EXERCISE_LIBRARY) {
+      expect(LEGAL_TAGS.has(e.muscle), `"${e.name}" has unrenderable tag "${e.muscle}"`).toBe(true);
+    }
+  });
+
+  it('NO EXACT DUPLICATE NAMES, case-insensitively', () => {
+    const seen = new Map<string, string>();
+    for (const e of EXERCISE_LIBRARY) {
+      const key = e.name.trim().toLowerCase();
+      expect(seen.has(key), `"${e.name}" duplicates "${seen.get(key)}"`).toBe(false);
+      seen.set(key, e.name);
+    }
+  });
+
+  it('the curated core still comes FIRST — staples before the long tail', () => {
+    expect(EXERCISE_LIBRARY[0].name).toBe('Barbell Bench Press');
+  });
+});
+
+describe('libraryMuscleFor — the library outranks the name heuristic', () => {
+  it('answers for a core exercise', () => {
+    expect(libraryMuscleFor('Barbell Bench Press')).toBe('Chest');
+  });
+
+  it('answers for an IMPORTED exercise inferMuscleGroup never saw', () => {
+    const sample = IMPORTED_EXERCISES[0];
+    expect(libraryMuscleFor(sample.name)).toBe(sample.muscle);
+  });
+
+  it('is case- and whitespace-insensitive', () => {
+    expect(libraryMuscleFor('  barbell BENCH press ')).toBe('Chest');
+  });
+
+  it('null for an unknown name, so the caller falls back to inference', () => {
+    expect(libraryMuscleFor('Tyson’s Secret Lift')).toBeNull();
+  });
+});
 
 describe('DAY_PRESETS — the guard that keeps a seeded routine real', () => {
   it('the presets are non-empty (an empty collection would pass every check below)', () => {

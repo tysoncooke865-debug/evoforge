@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { cardioEventAmount } from '@/domain/cardio';
+import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor, type UserExercise } from '@/domain/exercise-search';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
@@ -59,7 +60,14 @@ export function useSaveSet() {
       // must not make LOG SET wait on a network round-trip.
       const userExercises =
         (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
-      const muscle = userMuscleFor(input.exercise, userExercises) ?? inferMuscleGroup(input.exercise);
+      // Precedence: what the ATHLETE said it trains > what the LIBRARY says >
+      // what the name heuristic can infer. inferMuscleGroup is parity-pinned
+      // and stays the last resort, never the first answer for a name the
+      // library already knows.
+      const muscle =
+        userMuscleFor(input.exercise, userExercises) ??
+        libraryMuscleFor(input.exercise) ??
+        inferMuscleGroup(input.exercise);
       const row = buildSetRow(input, muscle, timestamp);
 
       // TRANSFORM P2: durable INSERTS never wait for the network. The row id

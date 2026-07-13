@@ -1,17 +1,30 @@
 /**
  * THE EXERCISE LIBRARY (Tyson, 2026-07-13): the big muscle-tagged list
- * behind the routine builder and exercise substitution. Names are chosen
- * so `inferMuscleGroup()` (the heat-map/coefficient cascade) agrees with
- * the explicit tag — logged rows keep feeding stats exactly as before.
- * UI groups collapse the fine-grained tags into gym-familiar sections.
+ * behind the routine builder and exercise substitution. UI groups collapse
+ * the fine-grained tags into gym-familiar sections.
+ *
+ * TWO TIERS (2026-07-14):
+ *  - CORE_EXERCISES below: hand-curated, and the ONLY names DAY_PRESETS
+ *    seeds. Their wording was chosen so `inferMuscleGroup()` agrees with the
+ *    explicit tag.
+ *  - IMPORTED_EXERCISES: 848 more from the public-domain dataset, generated
+ *    (exercise-library-imported.ts), exact-duplicate-free.
+ *
+ * THE LIBRARY'S TAG IS AUTHORITATIVE FOR A LOGGED SET (`libraryMuscleFor`,
+ * threaded through useSaveSet): inferMuscleGroup is a heuristic over names it
+ * was tuned for, and it has never seen most of the imported ones. Where the
+ * library knows, it says; only an unknown name falls back to inference.
+ * inferMuscleGroup itself is parity-pinned and does not move.
  */
+
+import { IMPORTED_EXERCISES } from './exercise-library-imported';
 
 export interface LibraryExercise {
   name: string;
-  muscle: string; // inferMuscleGroup-compatible tag
+  muscle: string; // one of the 17 tags LIBRARY_SECTIONS collapses
 }
 
-export const EXERCISE_LIBRARY: readonly LibraryExercise[] = [
+const CORE_EXERCISES: readonly LibraryExercise[] = [
   // ------------------------------------------------------------- chest
   { name: 'Barbell Bench Press', muscle: 'Chest' },
   { name: 'Paused Barbell Bench Press', muscle: 'Chest' },
@@ -137,6 +150,30 @@ export const EXERCISE_LIBRARY: readonly LibraryExercise[] = [
   { name: 'Dumbbell Shrug', muscle: 'Traps' },
   { name: 'Cable Shrug', muscle: 'Traps' },
 ];
+
+/** The whole library: the curated core FIRST (so search and substitution keep
+ *  offering the staples before the long tail), then the imported set. */
+export const EXERCISE_LIBRARY: readonly LibraryExercise[] = [
+  ...CORE_EXERCISES,
+  ...IMPORTED_EXERCISES,
+];
+
+/** Case-insensitive name → tag. Built once; the library is ~960 entries and
+ *  this is read on every set save. */
+const BY_NAME: ReadonlyMap<string, string> = new Map(
+  EXERCISE_LIBRARY.map((e) => [e.name.trim().toLowerCase(), e.muscle])
+);
+
+/**
+ * The muscle THE LIBRARY says this exercise trains, or null if it has never
+ * heard of it. Callers fall back to inferMuscleGroup (pinned) — see
+ * useSaveSet. This exists because inferMuscleGroup is a name heuristic, and
+ * the 848 imported names are not names it was tuned for: without this, a
+ * logged "Landmine Twist" would land in the fallback bucket instead of Abs.
+ */
+export function libraryMuscleFor(exercise: string): string | null {
+  return BY_NAME.get(exercise.trim().toLowerCase()) ?? null;
+}
 
 /** Gym-familiar UI sections → the fine-grained tags they collapse. */
 export const LIBRARY_SECTIONS: readonly { label: string; muscles: readonly string[] }[] = [

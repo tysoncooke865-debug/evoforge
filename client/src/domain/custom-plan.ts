@@ -1,4 +1,5 @@
 import { ROUTINE, ROUTINE_ORDER } from './catalogs';
+import { libraryMuscleFor } from './exercise-library';
 import { userMuscleFor, type UserExercise } from './exercise-search';
 import { pyInt } from './py';
 import { inferMuscleGroup } from './workouts';
@@ -106,7 +107,10 @@ export function flattenPlan(
         exercise: e.exercise,
         sets: e.sets,
         reps: e.reps,
-        muscle: userMuscleFor(e.exercise, userExercises) ?? inferMuscleGroup(e.exercise),
+        muscle:
+          userMuscleFor(e.exercise, userExercises) ??
+          libraryMuscleFor(e.exercise) ??
+          inferMuscleGroup(e.exercise),
         reason: e.reason,
         day_goal: day.goal,
         timestamp: stamp,
