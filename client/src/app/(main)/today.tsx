@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
@@ -15,7 +15,6 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { Link } from 'expo-router';
-import { Modal, Pressable } from 'react-native';
 
 import { substitutesFor } from '@/domain/exercise-library';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
@@ -37,7 +36,7 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 export default function TodayScreen() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const builtInDays = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
-  const [day, setDay] = useState(builtInDays[0]);
+  const [dayChoice, setDay] = useState(builtInDays[0]);
 
   // IMPROVEMENT_PLAN #10: the workout source. The AI plan shares the six
   // day names, so the chips, completion and logging are source-agnostic --
@@ -48,10 +47,11 @@ export default function TodayScreen() {
   // Custom plans (AI or hand-built) drive their OWN day list — builder
   // splits use names like "Upper A" that are not in ROUTINE_ORDER.
   const days = useAi && aiPlan.data ? aiPlan.data.days.map((d) => d.day) : builtInDays;
-  useEffect(() => {
-    if (!days.includes(day)) setDay(days[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, aiPlan.data]);
+  // Clamp at render, not in an effect (react-hooks/set-state-in-effect):
+  // switching source can leave the chosen chip outside the new day list —
+  // the EFFECTIVE day falls back to the list's first entry, and the raw
+  // choice is restored if the athlete toggles back.
+  const day = days.includes(dayChoice) ? dayChoice : days[0];
   // Tyson 2026-07-13: session-level exercise substitution (same muscle).
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
