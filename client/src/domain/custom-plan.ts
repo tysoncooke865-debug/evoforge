@@ -88,8 +88,18 @@ export function flattenPlan(
   userExercises: readonly UserExercise[] = []
 ): PlanRow[] {
   const rows: PlanRow[] = [];
-  for (const day of plan.days) {
-    for (const e of day.exercises) {
+  // ORDER IS DATA. custom_workout_plan has no ordering column (Streamlit reads
+  // it — never add one), and a plain SELECT gives no order guarantee, so every
+  // row gets a DISTINCT, increasing timestamp: day index in minutes, exercise
+  // index in seconds. Reading back ordered by timestamp then reproduces the
+  // plan exactly as it was built. "Newest plan wins" still works — it compares
+  // the max timestamp across plan_names, and every row of a plan shares one.
+  const base = Date.parse(`${timestamp}Z`);
+  plan.days.forEach((day, dayIx) => {
+    day.exercises.forEach((e, exIx) => {
+      const stamp = Number.isFinite(base)
+        ? new Date(base + (dayIx * 60 + exIx) * 1000).toISOString().slice(0, 19)
+        : timestamp;
       rows.push({
         plan_name: plan.plan_name,
         workout: day.day,
@@ -99,10 +109,10 @@ export function flattenPlan(
         muscle: userMuscleFor(e.exercise, userExercises) ?? inferMuscleGroup(e.exercise),
         reason: e.reason,
         day_goal: day.goal,
-        timestamp,
+        timestamp: stamp,
       });
-    }
-  }
+    });
+  });
   return rows;
 }
 
@@ -120,7 +130,12 @@ export function groupPlanRows(
       newestName = String(r.plan_name ?? '');
     }
   }
-  const mine = rows.filter((r) => String(r.plan_name ?? '') === newestName);
+  const mine = rows
+    .filter((r) => String(r.plan_name ?? '') === newestName)
+    // Stable order regardless of what the database hands back (flattenPlan
+    // stamps each row distinctly for exactly this).
+    .sort((a, b) => (String(a.timestamp ?? '') < String(b.timestamp ?? '') ? -1 : 1));
+
   const byDay = new Map<string, PlanDay>();
   for (const r of mine) {
     const day = String(r.workout ?? '');
@@ -132,8 +147,20 @@ export function groupPlanRows(
       reason: String(r.reason ?? ''),
     });
   }
-  // Present in the canonical week order.
-  const days = PPPPLA_DAYS.filter((d) => byDay.has(d)).map((d) => byDay.get(d)!);
+
+  // BUG (shipped, found 2026-07-14): this used to return ONLY days whose names
+  // are in PPPPLA_DAYS — so a plan built by the routine builder, or seeded by
+  // onboarding, had every day filtered out, groupPlanRows returned null, and
+  // "MY PLAN" never appeared on Train. The athlete's split existed in the
+  // database and was invisible in the app.
+  //
+  // A plan made ENTIRELY of the built-in six is presented in the canonical week
+  // order (that is the AI plan's contract, and it is what those rows mean).
+  // Any other plan keeps ITS OWN day order, which the timestamps preserve.
+  const names = [...byDay.keys()];
+  const allCanonical = names.every((d) => PPPPLA_DAYS.includes(d));
+  const ordered = allCanonical ? PPPPLA_DAYS.filter((d) => byDay.has(d)) : names;
+  const days = ordered.map((d) => byDay.get(d)!);
   if (days.length === 0) return null;
   return { plan_name: newestName, days };
 }

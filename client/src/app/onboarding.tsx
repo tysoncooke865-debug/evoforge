@@ -7,8 +7,9 @@ import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-nati
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
-import { useSavePublicIdentity } from '@/data/mutations';
+import { acceptPlanDirect, useSavePublicIdentity } from '@/data/mutations';
 import { supabase } from '@/data/supabase';
+import { defaultScheduleFor, seedPlanForSplit, SPLITS } from '@/domain/exercise-library';
 import { nameError } from '@/domain/leaderboard';
 import { rankName } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
@@ -30,6 +31,9 @@ import { ScanFrame, type ScanState } from '@/ui/scan-frame';
  *   3. FUEL   — cutting / maintaining / bulking / flexible
  *   4. SCAN   — AI physique + body fat (skippable; skipping uses the
  *               documented derived defaults, never a slider)
+ *   5. TRAINING — a split (STAGE 1). Seeds the plan AND the week; default
+ *               SKIP, so onboarding stays fast. BUILD MY OWN retargets the
+ *               post-onboarding redirect to the routine builder.
  *
  * A SAVED PROFILE ROW IS STILL THE ONBOARDED FLAG. The insert never includes
  * user_id (DEFAULT auth.uid() fills it). physique/leanness scores stored on
@@ -43,6 +47,10 @@ const PHASES: { key: NutritionPhase; label: string }[] = [
   { key: 'bulking', label: '🍚 Bulking' },
   { key: 'flexible', label: '🍕 Eat whatever' },
 ];
+
+/** A curated few — every split the builder offers would be a wall of choice
+ *  on day one, and only seedable splits belong here. */
+const ONBOARDING_SPLITS = SPLITS.filter((s) => ['ppl3', 'ul4', 'cbal3', 'fb3'].includes(s.key));
 
 export default function OnboardingScreen() {
   const { session, loading } = useAuth();
@@ -70,9 +78,14 @@ export default function OnboardingScreen() {
   const [publicName, setPublicName] = useState('');
   const [goPublic, setGoPublic] = useState(true);
   const savePublic = useSavePublicIdentity();
+  // STAGE 1: null = skip (the default — onboarding stays fast),
+  // 'builder' = take me to the routine builder, else a split key to seed.
+  const [splitKey, setSplitKey] = useState<string | null>(null);
 
   if (!loading && !session) return <Redirect href="/sign-in" />;
-  if (profile.data) return <Redirect href="/" />;
+  // An onboarded athlete who asked to BUILD MY OWN lands in the builder, not
+  // on Home — that was the whole point of the tap.
+  if (profile.data) return <Redirect href={(splitKey === 'builder' ? '/routine' : '/') as never} />;
 
   const nums = {
     height: pyFloat(height) ?? 0,
@@ -172,6 +185,31 @@ export default function OnboardingScreen() {
         /* never block onboarding; the athlete recovers via Profile/Rank */
       }
     }
+
+    // STAGE 1: seed the chosen split — the plan AND the week it implies. Same
+    // "never blocks" rule as GO PUBLIC: the profile row is the onboarded flag,
+    // and a dead network here must not trap a new athlete on the wizard. They
+    // land on the built-in routine and can build their own any time.
+    if (splitKey !== null && splitKey !== 'builder') {
+      try {
+        const seed = seedPlanForSplit(splitKey);
+        if (seed) {
+          await acceptPlanDirect({ plan_name: seed.plan_name, days: seed.days });
+          const week = defaultScheduleFor(splitKey);
+          if (week) {
+            await supabase
+              .from('workout_schedule')
+              .upsert(
+                { effective_from: new Date().toISOString().slice(0, 10), plan: week },
+                { onConflict: 'user_id,effective_from' }
+              );
+          }
+        }
+      } catch {
+        /* never block onboarding */
+      }
+    }
+
     await queryClient.invalidateQueries({ queryKey: ['profile'] });
     setBusy(false);
   };
@@ -276,10 +314,63 @@ export default function OnboardingScreen() {
           </View>
         </Section>
 
-        {/* 5 · GO PUBLIC (P2 C7). Optional and NEVER gating: the profile
+        {/* 5 · TRAINING (STAGE 1). A curated few splits, one tap, default
+            SKIP — onboarding stays fast, and an athlete with no plan still
+            gets the built-in routine on Train. Seeding NEVER gates the
+            redirect (same rule as GO PUBLIC below). */}
+        <Section n="5" title="YOUR TRAINING WEEK (OPTIONAL)">
+          <Text className="mb-s3 text-2xs text-text-mute">
+            Pick a split and we&apos;ll fill it with staples and map your week. Skip it and you
+            get the built-in routine — you can build your own any time.
+          </Text>
+          <View className="flex-row flex-wrap gap-s2">
+            {ONBOARDING_SPLITS.map((s) => (
+              <Pressable
+                key={s.key}
+                onPress={() => setSplitKey(splitKey === s.key ? null : s.key)}
+                accessibilityRole="button"
+                testID={`onboard-split-${s.key}`}
+                className="rounded-md border px-s3 py-s2"
+                style={{
+                  minHeight: 44,
+                  justifyContent: 'center',
+                  borderColor: splitKey === s.key ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                  backgroundColor: splitKey === s.key ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
+                }}
+              >
+                <Text
+                  className={`text-2xs font-bold ${splitKey === s.key ? 'text-accent' : 'text-text-dim'}`}
+                >
+                  {s.name}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setSplitKey('builder')}
+              accessibilityRole="button"
+              testID="onboard-split-builder"
+              className="rounded-md border px-s3 py-s2"
+              style={{
+                minHeight: 44,
+                justifyContent: 'center',
+                borderColor: splitKey === 'builder' ? `${tokens.colors.epic}8c` : tokens.colors.border,
+                backgroundColor: splitKey === 'builder' ? 'rgba(168,85,247,0.08)' : 'rgba(13,21,36,0.6)',
+              }}
+            >
+              <Text className={`text-2xs font-bold ${splitKey === 'builder' ? 'text-epic' : 'text-text-dim'}`}>
+                ⚒ BUILD MY OWN
+              </Text>
+            </Pressable>
+          </View>
+          {splitKey === null ? (
+            <Text className="mt-s2 text-2xs text-text-mute">Skipping — the built-in routine it is.</Text>
+          ) : null}
+        </Section>
+
+        {/* 6 · GO PUBLIC (P2 C7). Optional and NEVER gating: the profile
             row IS the onboarded flag, and a failure here must not block
             the redirect — the athlete recovers via Profile/Rank. */}
-        <Section n="5" title="GO PUBLIC (OPTIONAL)">
+        <Section n="6" title="GO PUBLIC (OPTIONAL)">
           <Text className="mb-s3 text-2xs text-text-mute">
             The leaderboard shows only a display name, level and XP — never body data. Leave
             blank to stay private; you can join any time from Rank.

@@ -77,6 +77,58 @@ describe('flatten ↔ group round-trip', () => {
   });
 });
 
+describe('REGRESSION: a custom split must survive the round-trip', () => {
+  // THE BUG (shipped, found 2026-07-14): groupPlanRows kept only days whose
+  // names are in PPPPLA_DAYS, so a routine-builder / onboarding-seeded split
+  // ("Push", "Chest & Back", …) had EVERY day filtered out. It returned null,
+  // "MY PLAN" never appeared on Train, and the athlete's split existed in the
+  // database while being invisible in the app.
+  const customSplit = {
+    plan_name: 'Chest&Back / Arms / Legs&Core · 3 days',
+    days: [
+      { day: 'Chest & Back', goal: '', exercises: [{ exercise: 'Barbell Bench Press', sets: 4, reps: '5-8', reason: '' }] },
+      { day: 'Arms', goal: '', exercises: [{ exercise: 'EZ-Bar Curl', sets: 3, reps: '8-12', reason: '' }] },
+      { day: 'Legs & Core', goal: '', exercises: [{ exercise: 'Barbell Back Squat', sets: 4, reps: '5-8', reason: '' }] },
+    ],
+  };
+
+  it('non-PPPPLA day names SURVIVE the round-trip, in their own order', () => {
+    const rows = flattenPlan(customSplit, '2026-07-14T10:00:00');
+    const grouped = groupPlanRows(rows);
+    expect(grouped).not.toBeNull();
+    expect(grouped!.days.map((d) => d.day)).toEqual(['Chest & Back', 'Arms', 'Legs & Core']);
+    expect(grouped!.days[1].exercises[0].exercise).toBe('EZ-Bar Curl');
+  });
+
+  it('day order survives even when the database hands rows back SHUFFLED', () => {
+    // A plain SELECT gives no order guarantee; flattenPlan stamps each row
+    // distinctly and groupPlanRows sorts on it.
+    const rows = flattenPlan(customSplit, '2026-07-14T10:00:00');
+    const shuffled = [...rows].reverse();
+    expect(groupPlanRows(shuffled)!.days.map((d) => d.day)).toEqual([
+      'Chest & Back',
+      'Arms',
+      'Legs & Core',
+    ]);
+  });
+
+  it('a plan of the built-in six still comes back in CANONICAL week order', () => {
+    const { plan } = validatePlan(goodPlan());
+    const rows = flattenPlan(plan!, '2026-07-14T10:00:00');
+    const grouped = groupPlanRows([...rows].reverse());
+    expect(grouped!.days.map((d) => d.day)).toEqual([...PPPPLA_DAYS]);
+  });
+
+  it('exercise order within a day is preserved too', () => {
+    const { plan } = validatePlan(goodPlan());
+    const rows = flattenPlan(plan!, '2026-07-14T10:00:00');
+    const grouped = groupPlanRows([...rows].reverse());
+    expect(grouped!.days[0].exercises.map((e) => e.exercise)).toEqual(
+      plan!.days[0].exercises.map((e) => e.exercise)
+    );
+  });
+});
+
 describe("flattenPlan and the athlete's own exercises (STAGE 1)", () => {
   const customPlan = () => {
     const p = goodPlan();

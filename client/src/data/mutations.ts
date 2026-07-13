@@ -329,27 +329,40 @@ export function useUpdateTrainingNumbers() {
  * precedent; no XP is keyed to plan rows, so delete is safe here — unlike
  * sets, where delete-and-insert is forbidden).
  */
+/**
+ * STAGE 1: the plan write itself, extracted so ONBOARDING can seed a split
+ * without a React hook (it runs inside forge()'s async flow, not a component
+ * event). The hook below is now a thin wrapper — one code path, one behaviour.
+ * Replaces the whole plan: custom_workout_plan is a single-slot store.
+ */
+export async function acceptPlanDirect(
+  plan: import('@/domain/custom-plan').CustomPlan,
+  userExercises: UserExercise[] = []
+): Promise<void> {
+  const { flattenPlan } = await import('@/domain/custom-plan');
+  const timestamp = new Date().toISOString().slice(0, 19);
+  // .not('id','is',null): the match-everything filter that works on every
+  // table (the neq-sentinel gotcha in root CLAUDE.md).
+  const { error: delErr } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
+  if (delErr) throw delErr;
+  const { error } = await supabase
+    .from('custom_workout_plan')
+    .insert(flattenPlan(plan, timestamp, userExercises));
+  if (error) throw error;
+}
+
 export function useAcceptPlan() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async (plan: import('@/domain/custom-plan').CustomPlan) => {
-      const { flattenPlan } = await import('@/domain/custom-plan');
-      const timestamp = new Date().toISOString().slice(0, 19);
-      // STAGE 1: a routine can now contain the athlete's OWN exercises, so the
-      // stored muscle must be the one they chose — not an inference over a
-      // name inferMuscleGroup has never seen.
+      // A routine can contain the athlete's OWN exercises, so the stored
+      // muscle must be the one they chose — not an inference over a name
+      // inferMuscleGroup has never seen.
       const userExercises =
         (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
-      // .not('id','is',null): the match-everything filter that works on every
-      // table (the neq-sentinel gotcha in root CLAUDE.md).
-      const { error: delErr } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
-      if (delErr) throw delErr;
-      const { error } = await supabase
-        .from('custom_workout_plan')
-        .insert(flattenPlan(plan, timestamp, userExercises));
-      if (error) throw error;
+      await acceptPlanDirect(plan, userExercises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
