@@ -436,3 +436,54 @@ and update the affected doc in the same commit), `git pull --rebase` (the
 branch is active), push, verify CI + live marker. Python-side edits also
 need the eleven verify tools and `[architect]` on protected paths
 (`migrations/` included).
+
+## 2026-07-14 — STAGE 1 + ADD EXERCISE + THE FINISH BUG (read this next)
+
+**PHASE_3_PLAN.md (Stage 1) EXECUTED IN FULL** — 6 commits. The workout log is
+no longer a cage: skip/remove/±sets mid-workout (pure math in
+`domain/session-plan.ts`; REMOVE degrades to SKIP when sets are logged, or the
+day bar would contradict banked XP), a persisted+self-expiring session store
+(`state/session-store.ts`), the exercise picker, empty/named workouts,
+save-as-routine, split presets + PREFILL, and an onboarding TRAINING section.
+Migrations **016** (user_exercises, routines).
+
+**TYSON'S REQUESTS, all shipped:**
+- **Close the app mid-workout, reopen INTO it.** The session store marks the
+  workout in progress; a cold start lands on Train, on that day, with its rows.
+  Cleared on finish/end. Local-only, so the decision is made on the first frame.
+- **MY PLAN · AI PLAN · BUILT-IN** (migration **018** `user_plans`). They used
+  to share ONE slot (custom_workout_plan) and destroy each other. Back-compat is
+  a pure tested rule (`domain/plan-sources.ts`): a legacy plan made of the six
+  built-in day names is the AI's; anything else is theirs.
+- **The exercise library is ~960** (848 imported from the public-domain
+  free-exercise-db, exact-dupe-free; regenerate with
+  `tools/gen_exercise_library.py`). **`libraryMuscleFor()` now beats
+  inferMuscleGroup** on every set-save path — inference has never seen those
+  names and would bucket them wrong. inferMuscleGroup itself is still pinned.
+- **ADD EXERCISE redesigned** (migration **019** `user_exercise_prefs`): opens on
+  personalised sections (IN YOUR PROGRAM / RECENT / FAVOURITES / SUGGESTED /
+  POPULAR), never a wall. Search speaks gym ("rdl", "db incline",
+  "skullcrusher", typos). **`domain/exercise-rank.ts` is the feature** — match
+  CLASS dominates (exact > alias > word > substring; class gaps exceed
+  popularity + every context boost, so ordering between classes is a guarantee),
+  popularity orders within a class, the athlete's signal nudges. A test pins
+  "bench" -> Barbell Bench Press.
+- Onboarding has an explicit 🔒 PRIVATE | 🌐 PUBLIC switch, **private by default**.
+
+**TRAIN_IMPROVEMENTS.md EXECUTED IN FULL** — 3 commits. **THE BUG: FINISH
+WORKOUT finished nothing** (`complete` is derived every render, so an
+early-finished workout sprang back to life when the sheet closed). Migration
+**017** `workout_sessions` records the decision. `domain/week-status.ts` holds
+the rule that makes it safe: **STATUS derives without a marker** (past + sets =
+COMPLETED, so pre-feature history is not all MISSED) but **LOCKING keys ONLY on
+the marker** (history stays editable; only an explicit FINISH locks). Today is
+now a THIS WEEK list of collapsible bars; past/future bars open a READ-ONLY
+recap (the cards write to todayIso — pointing them at last Tuesday would file
+today's sets under it). Scheduleless athletes keep the day chips.
+
+**BUG FOUND EN ROUTE (was shipped):** `groupPlanRows` filtered days to the six
+PPPPLA names, so EVERY routine-builder split was invisible on Train — the plan
+sat in the database and never rendered. Fixed; flattenPlan now stamps rows with
+distinct timestamps so day/exercise order survives an unordered SELECT.
+
+Migrations applied through **019**. Next free number: **020**.
