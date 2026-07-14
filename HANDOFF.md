@@ -1,5 +1,9 @@
 # HANDOFF.md — continuing EvoForge (Expo client + Battle Arena era)
 
+> **NEW SESSION? READ `HANDOVER.md` FIRST.** It is the current state, the
+> rules that cost real bugs, and how to work here. This file is the layered
+> history behind it — still accurate, but chronological and long.
+
 > For a future Claude session. Read this, then `client/CLAUDE.md`, then
 > `IMPROVEMENT_PLAN.md` (the live work order — section H is the checklist),
 > then `BATTLE_ARENA_DESIGN.md` for arena internals.

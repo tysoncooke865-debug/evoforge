@@ -1,7 +1,8 @@
 # EvoForge client — project memory
 
-> **Resuming a session? Read `../HANDOFF.md` FIRST** — full state, invariants,
-> operational gotchas, credentials map, and the verification workflow.
+> **Resuming a session? Read `../HANDOVER.md` FIRST** — current state, the rules
+> that cost real bugs, the verification loop, and what's next.
+> (`../HANDOFF.md` is the layered history behind it.)
 
 The Expo rewrite of EvoForge (MIGRATION_PLAN.md at repo root is the plan; the
 root CLAUDE.md is the Streamlit app's memory and stays authoritative for the
