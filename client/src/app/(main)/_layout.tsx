@@ -5,6 +5,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/data/auth-context';
+import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -29,6 +30,8 @@ export default function MainLayout() {
   // start; also re-flushes on the browser 'online' event.
   useEffect(() => {
     initSetQueue();
+    // A finish is as losable as a set was — and now as durable.
+    initFinishQueue();
   }, []);
   const profile = useProfile();
   const insets = useSafeAreaInsets();

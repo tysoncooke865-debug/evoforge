@@ -624,7 +624,7 @@ export default function TodayScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => marker && reopenWorkout.mutate(marker.id)}
+            onPress={() => marker && reopenWorkout.mutate(marker)}
             accessibilityRole="button"
             testID="reopen-workout"
             className="items-center justify-center px-s3"

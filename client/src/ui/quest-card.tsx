@@ -24,11 +24,19 @@ export function QuestCard({
   contract,
   next,
   todayIso,
+  finishedToday = false,
 }: {
   hasSchedule: boolean;
   contract: WeeklyContract;
   next: NextSession | null;
   todayIso: string;
+  /**
+   * TRAIN_PAGE_V2: the athlete pressed FINISH. A workout finished EARLY has a
+   * marker but not a full day of logged sets, so a quest derived from sets
+   * alone still said "pending" — Home disagreeing with a decision the athlete
+   * had already made, and had seen a ceremony for.
+   */
+  finishedToday?: boolean;
 }) {
   const todayPip = contract.pips.find((p) => p.date === todayIso) ?? null;
   // Today's pip is only ever completed / pending / rest (missed and future
@@ -37,7 +45,7 @@ export function QuestCard({
     ? 'none'
     : todayPip === null
       ? 'none'
-      : todayPip.state === 'completed'
+      : finishedToday || todayPip.state === 'completed'
         ? 'completed'
         : todayPip.state === 'pending'
           ? 'pending'

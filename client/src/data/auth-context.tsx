@@ -45,6 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     queryClient.clear();
     void import('./set-queue').then(({ clearSetQueue }) => clearSetQueue().catch(() => undefined));
+    // A pending FINISH belongs to the athlete who signed out (the
+    // every-cache-layer doctrine — add a store, clear it here).
+    void import('./finish-queue').then(({ clearFinishQueue }) =>
+      clearFinishQueue().catch(() => undefined)
+    );
     // TRANSFORM P1: the PERSISTED query cache must die with the session —
     // same invariant as the in-memory clear (never hand the last athlete's
     // character to the next visitor on a shared device).

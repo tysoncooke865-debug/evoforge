@@ -6,6 +6,7 @@ import { Link } from 'expo-router';
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
 import { useServerGrantedXp, useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
+import { useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
@@ -70,6 +71,8 @@ export default function HomeScreen() {
   // Today's Quest + the weekly contract; without one, the old daily
   // streak stands and the quest card invites forging a week.
   const schedule = useWorkoutSchedule();
+  const sessions = useWorkoutSessions();
+  const finishedToday = (sessions.data ?? []).some((m) => m.date === todayIso);
   const scheduleRows = useMemo(() => schedule.data ?? [], [schedule.data]);
   const hasSchedule = scheduleRows.length > 0;
   const streak = useMemo(
@@ -133,7 +136,13 @@ export default function HomeScreen() {
       </View>
 
       {/* A2. Today's Quest — the loop starts HERE (TRANSFORM P5). */}
-      <QuestCard hasSchedule={hasSchedule} contract={contract} next={nextSession} todayIso={todayIso} />
+      <QuestCard
+        hasSchedule={hasSchedule}
+        contract={contract}
+        next={nextSession}
+        todayIso={todayIso}
+        finishedToday={finishedToday}
+      />
 
       {/* B. The stage — the character owns the viewport. */}
       <HeroStage

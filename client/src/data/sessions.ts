@@ -5,6 +5,7 @@ import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { useClaimCoin } from './coins';
+import { enqueueFinish } from './finish-queue';
 import { supabase } from './supabase';
 
 /**
@@ -43,11 +44,31 @@ export function useWorkoutSessions() {
   });
 }
 
+/**
+ * TRAIN_PAGE_V2 — finishing is now OPTIMISTIC and DURABLE.
+ *
+ * Optimistic: the marker lands in the cache before the network is asked, so the
+ * bar goes green and the workout locks on the frame the athlete tapped. A
+ * workout ends when they say it ends, not when a server agrees.
+ *
+ * Durable: a failed insert goes into the persistent finish queue and retries on
+ * boot / reconnect / 30s, exactly like a set. It used to be fire-and-forget —
+ * offline, the decision evaporated while the SETS survived, which is nonsense:
+ * a set cannot outlive the workout it belongs to.
+ *
+ * TEMP-ID RECONCILIATION: the optimistic row carries a `pending:` id, because it
+ * has no server id yet. REOPEN must never try to DELETE BY that id — it does not
+ * exist server-side. useReopenWorkout deletes by (date, workout) when it sees
+ * one, which is the marker's real identity anyway (017's unique index).
+ */
+export const PENDING_PREFIX = 'pending:';
+
 export function useFinishWorkout() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   const claimCoins = useClaimCoin();
+  const key = ['workout_sessions', userId];
 
   return useMutation({
     mutationFn: async (input: { date: string; workout: string }) => {
@@ -57,19 +78,39 @@ export function useFinishWorkout() {
       // Already finished IS finished. The unique index is the authority.
       if (error && !/duplicate|unique|already exists/i.test(error.message)) throw error;
     },
+
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<SessionMarker[]>(key) ?? [];
+      if (!prev.some((m) => m.date === input.date && m.workout === input.workout)) {
+        queryClient.setQueryData<SessionMarker[]>(key, [
+          ...prev,
+          { id: `${PENDING_PREFIX}${input.date}|${input.workout}`, ...input },
+        ]);
+      }
+      return { prev };
+    },
+
+    onError: async (e: Error, input, ctx) => {
+      // The network is not the athlete's problem. Keep the optimistic marker,
+      // queue the write, and say so honestly.
+      void ctx; // the rollback is deliberately NOT taken — see below
+      await enqueueFinish(input.date, input.workout);
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'FINISH SAVED',
+        subtitle: 'Offline — it will sync.',
+      });
+    },
+
     onSuccess: (_d, input) => {
-      void queryClient.invalidateQueries({ queryKey: ['workout_sessions', userId] });
-      // The coin claim was already fired on derived-complete; firing it here too
-      // is safe — the 013 guard re-proves eligibility server-side (10-valid-set
-      // floor) and the unique index absorbs the repeat. The client never decides.
       claimCoins.mutate({ kind: 'workout_complete', sourceId: input.date });
     },
-    onError: (e: Error) => {
-      useToastStore.getState().push({
-        kind: 'error',
-        title: 'NOT FINISHED',
-        subtitle: e.message,
-      });
+
+    onSettled: () => {
+      // A refetch replaces the pending row with the real one. If we are offline
+      // the refetch fails, the optimistic row stays, and the queue keeps trying.
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }
@@ -79,17 +120,35 @@ export function useReopenWorkout() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: async (sessionId: string) => {
-      const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
+    mutationFn: async (marker: SessionMarker) => {
+      // A PENDING marker has no server id — deleting by it would delete nothing
+      // and leave the workout finished forever. Its real identity is
+      // (date, workout), which is what 017's unique index keys on, so delete by
+      // that. (Also correct for a real row; the id is just faster.)
+      const q = supabase.from('workout_sessions').delete();
+      const { error } = marker.id.startsWith(PENDING_PREFIX)
+        ? await q.eq('date', marker.date).eq('workout', marker.workout)
+        : await q.eq('id', marker.id);
       if (error) throw error;
     },
+    onMutate: async (marker) => {
+      await queryClient.cancelQueries({ queryKey: ['workout_sessions', userId] });
+      const prev = queryClient.getQueryData<SessionMarker[]>(['workout_sessions', userId]) ?? [];
+      queryClient.setQueryData<SessionMarker[]>(
+        ['workout_sessions', userId],
+        prev.filter((m) => !(m.date === marker.date && m.workout === marker.workout))
+      );
+      return { prev };
+    },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['workout_sessions', userId] });
       useToastStore.getState().push({
         kind: 'info',
         title: 'REOPENED',
         subtitle: 'Log away — the workout is unlocked.',
       });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workout_sessions', userId] });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'NOT REOPENED', subtitle: e.message });
