@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -12,11 +12,13 @@ import {
   REP_SCHEMES,
   SPLITS,
 } from '@/domain/exercise-library';
+import { type MappedDay, type MatchConfidence } from '@/domain/workout-import';
 import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { ExercisePicker } from '@/ui/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
+import { PlanImportSheet } from '@/ui/plan-import';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -47,6 +49,41 @@ export default function RoutineBuilderScreen() {
   const routines = useRoutines();
   const deleteRoutine = useDeleteRoutine();
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
+
+  // PLAN SCAN: `?import=1` (the onboarding tile) opens the sheet on arrival.
+  const params = useLocalSearchParams<{ import?: string }>();
+  const [importOpen, setImportOpen] = useState(params.import === '1');
+  // The scanned program's own title — the save uses it over the split's name.
+  const [importedName, setImportedName] = useState<string | null>(null);
+  // day:exercise → what the page actually said, for the confidence badges.
+  const [importMeta, setImportMeta] = useState<
+    Record<string, { raw: string; confidence: MatchConfidence }>
+  >({});
+
+  /** The scanned draft becomes a CUSTOM split seeded into the normal editor —
+   *  review/edit/confirm is the builder itself; nothing new to learn. */
+  const seedFromImport = (draft: { planName: string; days: MappedDay[] }) => {
+    const rec: Record<string, PlanExercise[]> = {};
+    const meta: Record<string, { raw: string; confidence: MatchConfidence }> = {};
+    for (const d of draft.days) {
+      rec[d.day] = d.exercises.map(({ raw: _raw, confidence: _c, ...pe }) => pe);
+      for (const e of d.exercises) {
+        if (e.confidence !== 'exact') meta[`${d.day}:${e.exercise}`] = { raw: e.raw, confidence: e.confidence };
+      }
+    }
+    setSplitKey('custom');
+    setCustomDays(draft.days.map((d) => d.day).slice(0, 7));
+    setDayIx(0);
+    setPlan(rec);
+    setImportedName(draft.planName);
+    setImportMeta(meta);
+    setImportOpen(false);
+    useToastStore.getState().push({
+      kind: 'info',
+      title: 'WORKOUT READ',
+      subtitle: 'Check the guesses, then SAVE MY PLAN.',
+    });
+  };
 
   const preset = SPLITS.find((s) => s.key === splitKey) ?? null;
   // A custom split's days live in component state, not in the preset table.
@@ -127,8 +164,8 @@ export default function RoutineBuilderScreen() {
   const save = () => {
     if (!split) return;
     const built: CustomPlan = {
-      plan_name: split.name,
-      rationale: 'Built by hand in the Routine Builder',
+      plan_name: importedName ?? split.name,
+      rationale: importedName ? 'Imported from a written workout (PLAN SCAN)' : 'Built by hand in the Routine Builder',
       days: split.days.map((d) => ({ day: d, goal: '', exercises: plan[d] ?? [] })),
     };
     // TYSON 2026-07-14: MY PLAN has its OWN slot now (migration 018). Saving a
@@ -152,6 +189,15 @@ export default function RoutineBuilderScreen() {
   return (
     <ScreenShell>
       <ScreenHeader kicker="BUILD YOUR OWN" title="MY ROUTINE" />
+
+      {/* PLAN SCAN: photograph or paste an existing program; the AI reads it,
+          the corpus maps it, this editor reviews it. */}
+      <NeonButton
+        title="📷 SCAN A WRITTEN WORKOUT"
+        variant="ghost"
+        onPress={() => setImportOpen(true)}
+        testID="routine-import"
+      />
 
       {/* STAGE 1: the workouts you already saved — train one today, or bin it. */}
       {(routines.data ?? []).length > 0 ? (
@@ -278,7 +324,9 @@ export default function RoutineBuilderScreen() {
             {dayList.length === 0 ? (
               <Text className="text-2xs text-text-mute">Nothing yet — tap exercises below to add them.</Text>
             ) : (
-              dayList.map((e) => (
+              dayList.map((e) => {
+                const meta = day ? importMeta[`${day}:${e.exercise}`] : undefined;
+                return (
                 <View key={e.exercise} className="mb-s2 flex-row items-center gap-s2">
                   <Pressable
                     onPress={() => removeExercise(e.exercise)}
@@ -289,9 +337,29 @@ export default function RoutineBuilderScreen() {
                   >
                     <Text className="text-xs font-bold text-danger">✕</Text>
                   </Pressable>
-                  <Text className="flex-1 text-xs font-bold text-text" numberOfLines={2}>
-                    {e.exercise}
-                  </Text>
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-text" numberOfLines={2}>
+                      {e.exercise}
+                    </Text>
+                    {/* PLAN SCAN confidence: the page's words, kept honest. */}
+                    {meta ? (
+                      <Text
+                        className="text-2xs"
+                        style={{
+                          color:
+                            meta.confidence === 'unmatched'
+                              ? tokens.colors.warn
+                              : tokens.colors['text-mute'],
+                        }}
+                        numberOfLines={1}
+                        testID={`import-badge-${e.exercise}`}
+                      >
+                        {meta.confidence === 'unmatched'
+                          ? `⚠ not in the library — ✕ and re-add, or keep as written`
+                          : `≈ read as “${meta.raw}”`}
+                      </Text>
+                    ) : null}
+                  </View>
                   <Pressable
                     onPress={() => cycleSets(e.exercise)}
                     accessibilityRole="button"
@@ -311,7 +379,8 @@ export default function RoutineBuilderScreen() {
                     </Text>
                   </Pressable>
                 </View>
-              ))
+                );
+              })
             )}
           </GlowCard>
 
@@ -388,6 +457,8 @@ export default function RoutineBuilderScreen() {
         }}
         excludeNames={dayList.map((e) => e.exercise)}
       />
+
+      {importOpen ? <PlanImportSheet onClose={() => setImportOpen(false)} onImported={seedFromImport} /> : null}
     </ScreenShell>
   );
 }

@@ -130,6 +130,15 @@ export function runAiPlan(payload: { goal: string; physique: unknown; volume: Re
   return invoke<import('@/domain/custom-plan').CustomPlan>('ai-plan', payload);
 }
 
+/** PLAN SCAN: photo(s) of a written workout, or its typed text → a structured
+ *  transcription. The photos are read server-side and discarded. */
+export function runAiReadPlan(input: { images?: string[]; text?: string }) {
+  return invoke<{ plan_name: string; days: import('@/domain/workout-import').ImportedDay[] }>(
+    'ai-plan-scan',
+    input
+  );
+}
+
 export function runAiBodyfat(
   images: string[],
   context: {
