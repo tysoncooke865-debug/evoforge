@@ -131,6 +131,7 @@ export default function MainLayout() {
       <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
+      <Tabs.Screen name="fuel" options={{ title: 'Fuel', tabBarIcon: makeIcon('◐') }} />
       {/* Routable, not in the bar — reached from the profile menu. */}
       {/* TRAIN_PAGE_V2: the workout is a PAGE, pushed over Train. Routable,
           hidden from the bar (the bar stays visible on it). */}
