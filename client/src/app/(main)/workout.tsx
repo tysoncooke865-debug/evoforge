@@ -1,0 +1,461 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+
+import { useClaimCoin } from '@/data/coins';
+import { useWorkoutLog } from '@/data/hooks';
+import { useSaveRoutine } from '@/data/routines';
+import { useWorkoutSchedule } from '@/data/schedule';
+import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
+import { useAvatarData } from '@/data/use-avatar-data';
+import { useDayPlan } from '@/data/use-day-plan';
+import { substitutesFor } from '@/domain/exercise-library';
+import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { pyFloat, pyInt } from '@/domain/py';
+import { nextScheduledSession } from '@/domain/scheduled-streak';
+import {
+  buildEffectivePlan,
+  canAddSet,
+  canRemoveSet,
+  planTotals,
+  removeAction,
+  type LoggedFacts,
+  type PlanEntry,
+  type SessionExercise,
+} from '@/domain/session-plan';
+import { computeStreak } from '@/domain/streak';
+import { normaliseWorkoutLog } from '@/domain/summary';
+import { todayIso as calendarToday } from '@/domain/today';
+import { XP_PER_SET } from '@/domain/xp';
+import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
+import { useToastStore } from '@/state/toast-store';
+import tokens from '@/theme/tokens';
+import { ExerciseCard } from '@/ui/exercise-logger';
+import { ExercisePicker } from '@/ui/exercise-picker';
+import { NeonButton } from '@/ui/neon-button';
+import { RestTimerBar } from '@/ui/rest-timer';
+import { ScreenHeader } from '@/ui/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/shell';
+import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
+
+/**
+ * THE WORKOUT PAGE (TRAIN_PAGE_V2).
+ *
+ * A workout is now ENTERED, not expanded inline: Train is the hub, this is the
+ * thing you are doing. Pushed on top of Train with a back arrow, so leaving is
+ * one tap and the tab bar never disappears.
+ *
+ * Params: `date` + `workout`. EDITABLE ONLY WHEN date === today AND the workout
+ * is not finished — the logging cards write to the date in the URL, and a page
+ * that let you "log" last Tuesday would file today's sets under it. Past and
+ * future days open a read-only recap instead.
+ *
+ * FINISH IS ALWAYS THERE (the trap this closes): it used to render only while
+ * `totalDone > 0 && !complete`, so once every set was done the button vanished,
+ * the auto-ceremony fired once, and KEEP TRAINING left the athlete with no
+ * button, no ceremony, and no way to finish at all. It now renders whenever the
+ * workout is not finished, disabled until one real set exists — a 0-set finish
+ * would paint a day green with no training in it, and `past + no sets = MISSED`
+ * is load-bearing in week-status.
+ */
+export default function WorkoutScreen() {
+  const params = useLocalSearchParams<{ date?: string; workout?: string }>();
+  const todayIso = calendarToday();
+  const date = params.date ?? todayIso;
+  const workoutName = params.workout ?? '';
+
+  /**
+   * BACK GOES TO TRAIN — explicitly.
+   *
+   * router.back() pops the NAVIGATION stack, and on a tab layout that is the
+   * previously focused TAB: finishing a workout landed the athlete on Home if
+   * that is where they had been, which is not where they came from and not
+   * where the green bar they just earned is. The workout page is only ever
+   * entered from Train, so Train is where leaving it means.
+   */
+  const back = () => router.replace('/today' as never);
+
+  const workouts = useWorkoutLog();
+  const schedule = useWorkoutSchedule();
+  const sessions = useWorkoutSessions();
+  const finishWorkout = useFinishWorkout();
+  const reopenWorkout = useReopenWorkout();
+  const claimCoins = useClaimCoin();
+  const saveRoutine = useSaveRoutine();
+  const { summary, stats, bfMid } = useAvatarData();
+  const { exercisesForDay } = useDayPlan();
+
+  const adhoc = useSessionStore(adhocOf);
+  const overrides = useSessionStore((s) => overridesFor(s, workoutName));
+  const markActive = useSessionStore((s) => s.markActive);
+  const clearActive = useSessionStore((s) => s.clearActive);
+  const addExercise = useSessionStore((s) => s.addExercise);
+  const removeExercise = useSessionStore((s) => s.removeExercise);
+  const toggleSkip = useSessionStore((s) => s.toggleSkip);
+  const bumpSets = useSessionStore((s) => s.bumpSets);
+
+  const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [subs, setSubs] = useState<Record<string, string>>({});
+  const [subFor, setSubFor] = useState<string | null>(null);
+  const prCountRef = useRef(0);
+  const prNamesRef = useRef<string[]>([]);
+
+  const marker =
+    (sessions.data ?? []).find((m) => m.date === date && m.workout === workoutName) ?? null;
+  const finished = marker !== null;
+  const isToday = date === todayIso;
+  const editable = isToday && !finished;
+
+  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  const dayRows = allRows.filter(
+    (r) => String(r.date) === date && String(r.workout) === workoutName
+  );
+
+  const validRowsFor = (exercise: string) =>
+    dayRows.filter(
+      (r) =>
+        String(r.exercise) === exercise &&
+        (pyFloat(r.weight) ?? 0) > 0 &&
+        (pyFloat(r.reps) ?? 0) > 0
+    );
+
+  const loggedFacts = (exercise: string): LoggedFacts => {
+    let maxSetNo = 0;
+    for (const r of dayRows) {
+      if (String(r.exercise) !== exercise) continue;
+      maxSetNo = Math.max(maxSetNo, pyInt(r.set) ?? 0);
+    }
+    return { validCount: validRowsFor(exercise).length, maxSetNo };
+  };
+
+  // An ad-hoc workout's exercises live in the session store; everything else
+  // comes from whichever plan holds this day.
+  const isAdhoc = adhoc !== null && adhoc.name === workoutName;
+  const basePlan: PlanEntry[] = isAdhoc
+    ? (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets, e.reps] as const)
+    : exercisesForDay(workoutName);
+  const substituted: PlanEntry[] = basePlan.map(
+    ([ex, sets, scheme]) => [subs[`${workoutName}:${ex}`] ?? ex, sets, scheme] as const
+  );
+
+  const plan = buildEffectivePlan(substituted, overrides, loggedFacts);
+  const totals = planTotals(plan, loggedFacts);
+  const { done: totalDone, target: totalTarget, complete, nextExercise } = totals;
+  const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
+
+  const buildSummary = (): WorkoutSummaryData => ({
+    day: workoutName,
+    setsDone: totalDone,
+    setsTarget: totalTarget,
+    xpBanked: totalDone * XP_PER_SET,
+    prCount: prCountRef.current,
+    prExercises: [...new Set(prNamesRef.current)],
+    streak: computeStreak(workouts.data ?? [], todayIso).current,
+    level: summary.level,
+    xpIntoLevel: summary.xpIntoLevel,
+    xpNeeded: summary.xpNeeded,
+    evolution: nextEvolutionInfo(stats.branch, {
+      level: summary.level,
+      benchE1rm: stats.benchE1rm,
+      bfMid,
+      totalSets: summary.totalSets,
+      cardioMinutes: summary.cardioMinutes,
+    }),
+    nextSession: nextScheduledSession(schedule.data ?? [], todayIso),
+  });
+
+  // The completion ceremony, once per workout — and never for one already
+  // finished (the athlete has been through it; re-firing would be the app
+  // forgetting).
+  const announcedRef = useRef(false);
+  const hadDataRef = useRef(false);
+  useEffect(() => {
+    if (!workouts.data || !editable) return;
+    if (!hadDataRef.current) {
+      hadDataRef.current = true;
+      if (complete) announcedRef.current = true;
+      return;
+    }
+    if (complete && !announcedRef.current) {
+      announcedRef.current = true;
+      if (Platform.OS !== 'web') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setSheet(buildSummary());
+      claimCoins.mutate({ kind: 'workout_complete', sourceId: date });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complete, workouts.data, editable]);
+
+  const removeOrSkip = (exercise: string) => {
+    const facts = loggedFacts(exercise);
+    if (removeAction(facts) === 'skip') {
+      toggleSkip(workoutName, exercise);
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'SKIPPED INSTEAD',
+        subtitle: 'Sets already logged — they still count.',
+      });
+      return;
+    }
+    removeExercise(workoutName, exercise);
+  };
+
+  /** What the athlete actually DID — the only honest thing to save as a routine. */
+  const performed = (): SessionExercise[] =>
+    plan
+      .map((e) => ({ exercise: e.exercise, sets: loggedFacts(e.exercise).validCount, reps: e.reps }))
+      .filter((e) => e.sets > 0);
+
+  const finish = () => {
+    finishWorkout.mutate({ date, workout: workoutName });
+    clearActive();
+    // Back to Train, where the bar is already green from the optimistic write.
+    back();
+  };
+
+  if (workoutName === '') {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="WORKOUT" title="NOTHING TO TRAIN" onBack={back} />
+        <Text className="text-2xs text-text-mute">This workout has no name. Go back and pick a day.</Text>
+      </ScreenShell>
+    );
+  }
+
+  return (
+    <ScreenShell>
+      <ScreenHeader
+        kicker={`${isToday ? 'TODAY' : date} · ${totalDone}/${totalTarget} SETS`}
+        title={workoutName.split(' - ')[0].toUpperCase()}
+        titleLines={2}
+        onBack={back}
+      />
+
+      {editable ? <RestTimerBar /> : null}
+
+      {/* Progress. */}
+      <GlowCard glow={complete ? tokens.colors.success : undefined}>
+        <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
+          <View
+            style={{
+              width: `${dayPct}%`,
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: complete ? tokens.colors.success : tokens.colors.accent,
+              minWidth: totalDone > 0 ? 4 : 0,
+              shadowColor: complete ? tokens.colors.success : tokens.colors.accent,
+              shadowOpacity: 0.5,
+              shadowRadius: 8,
+            }}
+          />
+        </View>
+        <View className="mt-s2 flex-row justify-between">
+          <Text
+            className={`text-2xs font-bold ${complete ? 'text-success' : 'text-text-mute'}`}
+            style={{ letterSpacing: 1.5 }}
+          >
+            {complete ? '✓ ALL SETS COMPLETE' : `${totalDone} / ${totalTarget} SETS`}
+          </Text>
+          <Text className="text-2xs font-bold text-accent">+{totalDone * XP_PER_SET} XP</Text>
+        </View>
+      </GlowCard>
+
+      {/* FINISHED — locked, with the hatch. */}
+      {finished ? (
+        <View
+          className="flex-row items-center justify-between rounded-xl p-s4"
+          style={{
+            borderWidth: 1,
+            borderColor: `${tokens.colors.success}66`,
+            backgroundColor: 'rgba(52,211,153,0.06)',
+          }}
+        >
+          <View className="flex-1">
+            <Text className="text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 2 }}>
+              ✓ WORKOUT COMPLETE
+            </Text>
+            <Text className="text-2xs text-text-mute">
+              {totalDone}/{totalTarget} sets · locked
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => marker && reopenWorkout.mutate(marker)}
+            accessibilityRole="button"
+            testID="reopen-workout"
+            className="items-center justify-center px-s3"
+            style={{ minHeight: 44 }}
+          >
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+              REOPEN
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!isToday && !finished ? (
+        <Text className="text-2xs text-text-mute">
+          {date > todayIso
+            ? 'Upcoming — this is what the day holds.'
+            : 'A past workout. Read-only; today is where you log.'}
+        </Text>
+      ) : null}
+
+      {plan.length === 0 ? (
+        <Text className="py-s5 text-center text-2xs text-text-mute">
+          Nothing in this workout yet.
+        </Text>
+      ) : null}
+
+      {plan.map((entry) => {
+        const { exercise, sets, reps, skipped } = entry;
+        const facts = loggedFacts(exercise);
+        return (
+          <ExerciseCard
+            key={`${workoutName}:${exercise}`}
+            date={date}
+            workout={workoutName}
+            exercise={exercise}
+            targetSets={sets}
+            scheme={reps}
+            loggedRows={dayRows.filter((r) => String(r.exercise) === exercise)}
+            allRows={workouts.data ?? []}
+            doneCount={facts.validCount}
+            isNext={exercise === nextExercise}
+            onPr={() => {
+              prCountRef.current += 1;
+              prNamesRef.current.push(exercise);
+            }}
+            onLogged={() => markActive(workoutName)}
+            durable
+            // Read-only unless it is today and unfinished — the cards write to
+            // the date in the URL.
+            readOnly={!editable}
+            onSubstitute={editable ? () => setSubFor(exercise) : undefined}
+            skipped={skipped}
+            onRemove={editable ? () => removeOrSkip(exercise) : undefined}
+            onSkip={editable ? () => toggleSkip(workoutName, exercise) : undefined}
+            onAddSet={editable && canAddSet(sets) ? () => bumpSets(workoutName, exercise, 1) : undefined}
+            onRemoveSet={
+              editable && canRemoveSet(sets, facts)
+                ? () => bumpSets(workoutName, exercise, -1)
+                : undefined
+            }
+          />
+        );
+      })}
+
+      {editable ? (
+        <NeonButton
+          title="＋ ADD EXERCISE"
+          variant="ghost"
+          onPress={() => setPickerOpen(true)}
+          testID="add-exercise"
+        />
+      ) : null}
+
+      {/* FINISH — always here while the workout is open. Disabled until one real
+          set exists: a 0-set finish would paint the day green with no training
+          in it, and "past + no sets = MISSED" is load-bearing. */}
+      {editable ? (
+        <NeonButton
+          title={totalDone > 0 ? `FINISH WORKOUT · ${totalDone}/${totalTarget} SETS` : 'LOG A SET TO FINISH'}
+          onPress={() => setSheet(buildSummary())}
+          disabled={totalDone === 0}
+          busy={finishWorkout.isPending}
+          testID="finish-workout"
+        />
+      ) : null}
+
+      <SummarySheet
+        data={sheet}
+        onClose={() => setSheet(null)}
+        onFinish={finish}
+        onSaveRoutine={
+          performed().length > 0
+            ? (name) => saveRoutine.mutate({ name, exercises: performed() })
+            : undefined
+        }
+        defaultRoutineName={workoutName}
+      />
+
+      <ExercisePicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(e) => {
+          addExercise(workoutName, { exercise: e.name, sets: 3, reps: '8-12' });
+          setPickerOpen(false);
+        }}
+        excludeNames={plan.map((p) => p.exercise)}
+        programExercises={plan.map((p) => p.exercise)}
+      />
+
+      {/* Substitution sheet: same-muscle alternatives, one tap. */}
+      {subFor !== null ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setSubFor(null)}>
+          <Pressable
+            className="flex-1 justify-end"
+            style={{ backgroundColor: 'rgba(2,5,11,0.72)' }}
+            onPress={() => setSubFor(null)}
+          >
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-t-xl border-t p-s4"
+              style={{
+                borderColor: `${tokens.colors.accent}40`,
+                backgroundColor: tokens.colors.surface,
+                maxHeight: 520,
+              }}
+            >
+              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                SWAP · SAME MUSCLE GROUP
+              </Text>
+              <Text className="mb-s3 text-sm font-bold text-text">{subFor}</Text>
+              <View className="flex-row flex-wrap gap-s2">
+                {substitutesFor(subFor)
+                  .slice(0, 12)
+                  .map((alt) => (
+                    <Pressable
+                      key={alt.name}
+                      onPress={() => {
+                        setSubs((s) => {
+                          const next = { ...s };
+                          const orig = Object.keys(next).find(
+                            (k) => next[k] === subFor && k.startsWith(`${workoutName}:`)
+                          );
+                          next[orig ?? `${workoutName}:${subFor}`] = alt.name;
+                          return next;
+                        });
+                        setSubFor(null);
+                      }}
+                      accessibilityRole="button"
+                      className="rounded-md border border-border px-s3 py-s2"
+                      style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}
+                    >
+                      <Text className="text-2xs font-bold text-text-dim">{alt.name}</Text>
+                    </Pressable>
+                  ))}
+              </View>
+              <View className="mt-s3">
+                <NeonButton
+                  title="RESET TO PLAN"
+                  variant="ghost"
+                  onPress={() => {
+                    setSubs((s) => {
+                      const next = { ...s };
+                      for (const k of Object.keys(next)) if (next[k] === subFor) delete next[k];
+                      return next;
+                    });
+                    setSubFor(null);
+                  }}
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+    </ScreenShell>
+  );
+}

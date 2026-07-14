@@ -120,3 +120,54 @@ export const STATUS_LABEL: Readonly<Record<WorkoutStatus, string>> = {
   upcoming: '—',
   rest: 'REST',
 };
+
+/**
+ * TRAIN_PAGE_V2 — the workouts that are NOT on the schedule.
+ *
+ * An ad-hoc workout ("Beach Day"), or a scheduled day the athlete swapped away
+ * from, has no bar in the week — so finishing one left it with NO HOME on
+ * Train: green nowhere, reachable nowhere. These are the extra bars for today.
+ *
+ * Only TODAY: a past off-schedule workout is history, and the week bars are
+ * about what the athlete is doing now. Rendered after the seven.
+ */
+export function extraBarsForToday(
+  rows: readonly { date?: unknown; workout?: unknown; weight?: unknown; reps?: unknown }[],
+  sessions: readonly SessionMarker[],
+  adhocName: string | null,
+  scheduledToday: string | null,
+  todayIso: string
+): WeekBar[] {
+  const names = new Set<string>();
+
+  // Anything trained today that is not the scheduled day.
+  for (const r of rows) {
+    if (String(r.date ?? '') !== todayIso) continue;
+    const w = String(r.workout ?? '');
+    if (w === '' || w === scheduledToday) continue;
+    const weight = Number(r.weight ?? 0);
+    const reps = Number(r.reps ?? 0);
+    if (!(weight > 0 && reps > 0)) continue;
+    names.add(w);
+  }
+  // Anything FINISHED today that is not the scheduled day (a finish with no
+  // sets cannot happen, but a marker is the decision and outranks inference).
+  for (const m of sessions) {
+    if (m.date === todayIso && m.workout !== scheduledToday) names.add(m.workout);
+  }
+  // The workout in progress right now, even before its first set lands.
+  if (adhocName !== null && adhocName !== scheduledToday) names.add(adhocName);
+
+  const dow = new Date(`${todayIso}T00:00:00Z`).getUTCDay();
+  return [...names].map((workout) => {
+    const marker = sessions.find((m) => m.date === todayIso && m.workout === workout) ?? null;
+    return {
+      date: todayIso,
+      dow,
+      workout,
+      status: marker ? ('completed' as const) : ('in_progress' as const),
+      sessionId: marker?.id ?? null,
+      locked: marker !== null,
+    };
+  });
+}

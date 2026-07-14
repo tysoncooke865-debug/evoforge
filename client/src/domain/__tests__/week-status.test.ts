@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ScheduleRow } from '../scheduled-streak';
-import { buildWeekBars, scheduledDayFor, todayBar, type SessionMarker } from '../week-status';
+import {
+  buildWeekBars,
+  extraBarsForToday,
+  scheduledDayFor,
+  todayBar,
+  type SessionMarker,
+} from '../week-status';
 
 // Mon–Fri training, weekend rest. 2026-07-15 is a Wednesday (UTC).
 const WEEK: ScheduleRow = {
@@ -123,5 +129,62 @@ describe('buildWeekBars', () => {
     const bars = buildWeekBars([WEEK, reschedule], [], noSets, TODAY)!;
     expect(bars.find((b) => b.date === MONDAY)!.workout).toBe('Push');
     expect(todayBar(bars, TODAY)!.workout).toBe('Arms');
+  });
+});
+
+describe('extraBarsForToday — an off-schedule workout must have a HOME', () => {
+  // Before this, finishing an ad-hoc workout left it green NOWHERE and
+  // reachable NOWHERE: the week only knows about scheduled days.
+  const set = (workout: string, date = TODAY, weight = 60, reps = 8) => ({
+    date,
+    workout,
+    weight,
+    reps,
+  });
+
+  it('nothing off-schedule → no extra bars', () => {
+    expect(extraBarsForToday([set('Legs')], [], null, 'Legs', TODAY)).toEqual([]);
+  });
+
+  it('a workout TRAINED today that is not the scheduled day gets a bar', () => {
+    const bars = extraBarsForToday([set('Beach Day')], [], null, 'Legs', TODAY);
+    expect(bars.map((b) => b.workout)).toEqual(['Beach Day']);
+    expect(bars[0].status).toBe('in_progress');
+    expect(bars[0].date).toBe(TODAY);
+  });
+
+  it('a workout FINISHED today off-schedule gets a bar, and it is COMPLETED + locked', () => {
+    const marker: SessionMarker = { id: 'm1', date: TODAY, workout: 'Beach Day' };
+    const bars = extraBarsForToday([], [marker], null, 'Legs', TODAY);
+    expect(bars[0]).toMatchObject({ workout: 'Beach Day', status: 'completed', locked: true, sessionId: 'm1' });
+  });
+
+  it('the ad-hoc workout IN PROGRESS gets a bar before its first set lands', () => {
+    const bars = extraBarsForToday([], [], 'Beach Day', 'Legs', TODAY);
+    expect(bars.map((b) => b.workout)).toEqual(['Beach Day']);
+  });
+
+  it('an INVALID set does not conjure a bar', () => {
+    expect(extraBarsForToday([set('Beach Day', TODAY, 0, 8)], [], null, 'Legs', TODAY)).toEqual([]);
+  });
+
+  it('YESTERDAY is history — the extra bars are only for today', () => {
+    expect(extraBarsForToday([set('Beach Day', MONDAY)], [], null, 'Legs', TODAY)).toEqual([]);
+  });
+
+  it('the scheduled day never doubles up', () => {
+    const marker: SessionMarker = { id: 'm', date: TODAY, workout: 'Legs' };
+    expect(extraBarsForToday([set('Legs')], [marker], 'Legs', 'Legs', TODAY)).toEqual([]);
+  });
+
+  it('two off-schedule workouts each get their own bar, deduped', () => {
+    const bars = extraBarsForToday(
+      [set('Beach Day'), set('Beach Day'), set('Arms Blast')],
+      [],
+      null,
+      'Legs',
+      TODAY
+    );
+    expect(bars.map((b) => b.workout).sort()).toEqual(['Arms Blast', 'Beach Day']);
   });
 });

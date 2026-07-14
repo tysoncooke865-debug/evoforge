@@ -9,6 +9,7 @@ import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { todayIso } from '@/domain/today';
 import { activeWorkout, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
 import { TutorialOverlay } from '@/ui/tutorial-overlay';
@@ -56,7 +57,12 @@ export default function MainLayout() {
   useEffect(() => {
     if (resumedRef.current || !hydrated || !session || profile.data === undefined) return;
     resumedRef.current = true;
-    if (active !== null) router.replace('/today');
+    // Straight back INTO the workout, not merely onto Train.
+    if (active !== null) {
+      router.replace(
+        `/workout?date=${encodeURIComponent(todayIso())}&workout=${encodeURIComponent(active)}` as never
+      );
+    }
   }, [hydrated, active, session, profile.data]);
 
   // Level-up detector: compares CONFIRMED summary.level across refetches.
@@ -126,6 +132,9 @@ export default function MainLayout() {
       <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
       {/* Routable, not in the bar — reached from the profile menu. */}
+      {/* TRAIN_PAGE_V2: the workout is a PAGE, pushed over Train. Routable,
+          hidden from the bar (the bar stays visible on it). */}
+      <Tabs.Screen name="workout" options={{ href: null }} />
       <Tabs.Screen name="log" options={{ href: null }} />
       <Tabs.Screen name="ai" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />

@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import tokens from '@/theme/tokens';
 
@@ -14,10 +14,14 @@ export function ScreenHeader({
   right,
   titleLines = 1,
   autoSize = false,
+  onBack,
 }: {
   kicker: string;
   title: string;
   right?: React.ReactNode;
+  /** TRAIN_PAGE_V2: a pushed page gets a back chevron (44pt), left of the
+   *  kicker. Absent on tab screens — there is nothing to go back to. */
+  onBack?: () => void;
   /** Allow wrapping instead of the default single ellipsized line. */
   titleLines?: number;
   /** Step long titles down one size token. adjustsFontSizeToFit is NOT
@@ -29,6 +33,18 @@ export function ScreenHeader({
   return (
     <View className="mb-s1 w-full">
       <View className="flex-row items-end justify-between">
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="back"
+            testID="screen-back"
+            className="mr-s1 items-center justify-center"
+            style={{ minWidth: 44, minHeight: 44 }}
+          >
+            <Text className="text-2xl text-text-dim">‹</Text>
+          </Pressable>
+        ) : null}
         <View className="flex-1" style={{ minWidth: 0 }}>
           <Text
             className="text-2xs font-bold text-text-mute"
