@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import type { WeightUnit } from '@/domain/units';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -22,6 +23,8 @@ export interface ExercisePref {
   exercise: string;
   is_favourite: boolean;
   is_hidden: boolean;
+  /** KG ⇄ LB (migration 020). Display/input only — the database stays kg. */
+  weight_unit?: WeightUnit;
 }
 
 export interface PrefSets {
@@ -39,9 +42,16 @@ export function useExercisePrefs() {
       try {
         const { data, error } = await supabase
           .from('user_exercise_prefs')
+          .select('exercise,is_favourite,is_hidden,weight_unit');
+        if (!error) return (data ?? []) as ExercisePref[];
+        // Pre-020 server: the unit column may not exist yet. Favourites and
+        // hidden MUST NOT vanish because a newer client asked for one more
+        // column — retry with the 019 projection before degrading to empty.
+        const fallback = await supabase
+          .from('user_exercise_prefs')
           .select('exercise,is_favourite,is_hidden');
-        if (error) return [];
-        return (data ?? []) as ExercisePref[];
+        if (fallback.error) return [];
+        return (fallback.data ?? []) as ExercisePref[];
       } catch {
         return [];
       }
@@ -92,6 +102,54 @@ export function useToggleFavourite() {
     onError: (e: Error, _input, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
       useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
+/** The unit an athlete sees/types for one exercise. Absent row/column = kg. */
+export function unitFor(rows: ExercisePref[] | undefined, exercise: string): WeightUnit {
+  const row = (rows ?? []).find((r) => r.exercise === exercise);
+  return row?.weight_unit === 'lb' ? 'lb' : 'kg';
+}
+
+export function useSetExerciseUnit() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const key = ['user_exercise_prefs', userId];
+
+  return useMutation({
+    mutationFn: async (input: { exercise: string; unit: WeightUnit }) => {
+      const { error } = await supabase.from('user_exercise_prefs').upsert(
+        {
+          exercise: input.exercise,
+          weight_unit: input.unit,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,exercise' }
+      );
+      if (error) throw error;
+    },
+    // The toggle relabels the card the athlete is mid-set on — it must flip on
+    // the frame it was tapped, exactly like a favourite star.
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<ExercisePref[]>(key) ?? [];
+      const next = prev.some((p) => p.exercise === input.exercise)
+        ? prev.map((p) => (p.exercise === input.exercise ? { ...p, weight_unit: input.unit } : p))
+        : [
+            ...prev,
+            { exercise: input.exercise, is_favourite: false, is_hidden: false, weight_unit: input.unit },
+          ];
+      queryClient.setQueryData(key, next);
+      return { prev };
+    },
+    onError: (e: Error, _input, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev);
+      useToastStore.getState().push({ kind: 'error', title: 'UNIT NOT SAVED', subtitle: e.message });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: key });
