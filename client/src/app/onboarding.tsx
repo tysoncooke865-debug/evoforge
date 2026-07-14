@@ -87,8 +87,16 @@ export default function OnboardingScreen() {
 
   if (!loading && !session) return <Redirect href="/sign-in" />;
   // An onboarded athlete who asked to BUILD MY OWN lands in the builder, not
-  // on Home — that was the whole point of the tap.
-  if (profile.data) return <Redirect href={(splitKey === 'builder' ? '/routine' : '/') as never} />;
+  // on Home — that was the whole point of the tap. SCAN MY PLAN lands there
+  // too, with the import sheet already open (PLAN SCAN).
+  if (profile.data)
+    return (
+      <Redirect
+        href={
+          (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never
+        }
+      />
+    );
 
   const nums = {
     height: pyFloat(height) ?? 0,
@@ -193,7 +201,7 @@ export default function OnboardingScreen() {
     // "never blocks" rule as GO PUBLIC: the profile row is the onboarded flag,
     // and a dead network here must not trap a new athlete on the wizard. They
     // land on the built-in routine and can build their own any time.
-    if (splitKey !== null && splitKey !== 'builder') {
+    if (splitKey !== null && splitKey !== 'builder' && splitKey !== 'scan') {
       try {
         const seed = seedPlanForSplit(splitKey);
         if (seed) {
@@ -363,6 +371,24 @@ export default function OnboardingScreen() {
             >
               <Text className={`text-2xs font-bold ${splitKey === 'builder' ? 'text-epic' : 'text-text-dim'}`}>
                 ⚒ BUILD MY OWN
+              </Text>
+            </Pressable>
+            {/* PLAN SCAN: already have a program on paper? Photograph it right
+                after your character is forged. */}
+            <Pressable
+              onPress={() => setSplitKey('scan')}
+              accessibilityRole="button"
+              testID="onboard-split-scan"
+              className="rounded-md border px-s3 py-s2"
+              style={{
+                minHeight: 44,
+                justifyContent: 'center',
+                borderColor: splitKey === 'scan' ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                backgroundColor: splitKey === 'scan' ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
+              }}
+            >
+              <Text className={`text-2xs font-bold ${splitKey === 'scan' ? 'text-accent' : 'text-text-dim'}`}>
+                📷 SCAN MY PLAN
               </Text>
             </Pressable>
           </View>
