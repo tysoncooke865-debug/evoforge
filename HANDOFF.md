@@ -487,3 +487,42 @@ sat in the database and never rendered. Fixed; flattenPlan now stamps rows with
 distinct timestamps so day/exercise order survives an unordered SELECT.
 
 Migrations applied through **019**. Next free number: **020**.
+
+## 2026-07-14 (later) — TRAIN PAGE V2 + the timezone bug
+
+**THE TIMEZONE BUG (read first).** "Today" was `toISOString().slice(0,10)` — the
+UTC date. East of Greenwich that is wrong for part of every day: at 8am Tuesday
+in Sydney the UTC date is still Monday, so Train showed Monday as today, marked
+Tuesday UPCOMING, and **filed early-morning sets under yesterday**.
+`domain/today.ts` is now the single source of the athlete's CALENDAR day and
+every screen/store/schedule reads it. **TIMESTAMPS DELIBERATELY STAY UTC** —
+xp_events.created_at is a timestamptz and Postgres reads a naive string as UTC;
+a local wall clock would file every grant hours in the future. A calendar date is
+what an athlete means by "today"; a timestamp is an instant.
+
+**TRAIN_PAGE_V2.md EXECUTED IN FULL** (3 commits):
+- **The workout is a PAGE** (`app/(main)/workout.tsx`, route `href: null`),
+  entered by tapping a week bar; Train (today.tsx, 954 → ~330 lines) is the HUB.
+  Leaving goes to Train EXPLICITLY — `router.back()` pops the previously focused
+  TAB and landed people on Home.
+- **The finish trap is closed**: FINISH used to render only while
+  `totalDone > 0 && !complete`, so all-sets-done + KEEP TRAINING = no button, no
+  ceremony, NO WAY TO FINISH. It renders whenever the workout is open, disabled
+  until one real set (a 0-set finish would break `past + no sets = MISSED`).
+- **Finish is optimistic + durable**: `data/finish-queue.ts` (set-queue pattern).
+  A DUPLICATE IS SUCCESS (017's unique index = idempotency). **A generation
+  counter closes a sign-out race** where an in-flight flush could resurrect the
+  queue and file the previous athlete's finish under the NEXT athlete's account.
+- **EDIT on a locked bar** reopens AND enters. **Ad-hoc workouts get their own
+  bar** (`extraBarsForToday`) — finishing one used to leave it green nowhere.
+- REOPEN takes the MARKER, not an id: an optimistic marker has a `pending:` id
+  that does not exist server-side.
+
+**Bug sweep (same day):** the Add Exercise menu was running its full pipeline
+while CLOSED (mounted by Train); a zero-result search could never reach the empty
+state; the filter sheet's APPLY count was frozen on the committed filters; the
+search highlight was computed in normalised coordinates and applied to the raw
+name ("(Rea" in "Reverse Pec Deck (Rear Delt Fly)"); hiding an exercise was a
+one-way door; SUGGESTED FOR TODAY vanished for athletes using custom exercises.
+
+Migrations still through **019**. Next free number: **020**. ~416 tests.
