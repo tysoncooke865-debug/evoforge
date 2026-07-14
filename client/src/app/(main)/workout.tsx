@@ -95,6 +95,7 @@ export default function WorkoutScreen() {
   const overrides = useSessionStore((s) => overridesFor(s, workoutName));
   const markActive = useSessionStore((s) => s.markActive);
   const clearActive = useSessionStore((s) => s.clearActive);
+  const endAdhoc = useSessionStore((s) => s.endAdhoc);
   const addExercise = useSessionStore((s) => s.addExercise);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
@@ -111,6 +112,7 @@ export default function WorkoutScreen() {
     (sessions.data ?? []).find((m) => m.date === date && m.workout === workoutName) ?? null;
   const finished = marker !== null;
   const isToday = date === todayIso;
+  /** Logging writes to the date in the URL, so only TODAY may log. */
   const editable = isToday && !finished;
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
@@ -181,6 +183,26 @@ export default function WorkoutScreen() {
   // forgetting).
   const announcedRef = useRef(false);
   const hadDataRef = useRef(false);
+
+  // The route stays MOUNTED between workouts (it is a tab with href:null), so
+  // opening another workout only swaps the params. Everything below is per
+  // (date, workout) and MUST be reset, or the ceremony fires once per app launch
+  // and workout A's PRs turn up in workout B's summary.
+  const keyRef = useRef(`${date}|${workoutName}`);
+  useEffect(() => {
+    const key = `${date}|${workoutName}`;
+    if (keyRef.current === key) return;
+    keyRef.current = key;
+    announcedRef.current = false;
+    hadDataRef.current = false;
+    prCountRef.current = 0;
+    prNamesRef.current = [];
+    setSheet(null);
+    setSubs({});
+    setSubFor(null);
+    setPickerOpen(false);
+  }, [date, workoutName]);
+
   useEffect(() => {
     if (!workouts.data || !editable) return;
     if (!hadDataRef.current) {
@@ -222,6 +244,9 @@ export default function WorkoutScreen() {
   const finish = () => {
     finishWorkout.mutate({ date, workout: workoutName });
     clearActive();
+    // An ad-hoc workout is DONE — releasing it restores START AN EMPTY WORKOUT.
+    // It used to survive forever, capping the athlete at one ad-hoc per day.
+    if (isAdhoc) endAdhoc();
     // Back to Train, where the bar is already green from the optimistic write.
     back();
   };
@@ -356,7 +381,7 @@ export default function WorkoutScreen() {
               prCountRef.current += 1;
               prNamesRef.current.push(exercise);
             }}
-            onLogged={() => markActive(workoutName)}
+            onLogged={() => markActive(workoutName, preferredSource)}
             durable
             // Read-only unless it is today and unfinished — the cards write to
             // the date in the URL.
@@ -384,10 +409,16 @@ export default function WorkoutScreen() {
         />
       ) : null}
 
-      {/* FINISH — always here while the workout is open. Disabled until one real
-          set exists: a 0-set finish would paint the day green with no training
-          in it, and "past + no sets = MISSED" is load-bearing. */}
-      {editable ? (
+      {/* FINISH — while the workout is open, whatever the clock says.
+          Disabled until one real set exists: a 0-set finish would paint the day
+          green with no training in it, and "past + no sets = MISSED" is
+          load-bearing.
+          NOT gated on `editable`: an athlete who starts at 23:50 and trains past
+          midnight was left with a read-only page and NO FINISH BUTTON — the
+          marker could never be written and the workout was unfinishable forever.
+          The marker's date comes from the URL, not the clock, so writing it for
+          yesterday is exactly right. */}
+      {!finished && (editable || totalDone > 0) ? (
         <NeonButton
           title={totalDone > 0 ? `FINISH WORKOUT · ${totalDone}/${totalTarget} SETS` : 'LOG A SET TO FINISH'}
           onPress={() => setSheet(buildSummary())}
@@ -395,6 +426,28 @@ export default function WorkoutScreen() {
           busy={finishWorkout.isPending}
           testID="finish-workout"
         />
+      ) : null}
+
+      {/* BUG 3: an ad-hoc workout used to be impossible to get rid of —
+          endAdhoc() was never called, so START AN EMPTY WORKOUT stayed hidden for
+          the rest of the day and a mistyped one could be neither finished (no
+          sets) nor dismissed. */}
+      {isAdhoc && !finished && totalDone === 0 ? (
+        <Pressable
+          onPress={() => {
+            endAdhoc();
+            clearActive();
+            back();
+          }}
+          accessibilityRole="button"
+          testID="discard-workout"
+          className="items-center"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            DISCARD THIS WORKOUT
+          </Text>
+        </Pressable>
       ) : null}
 
       <SummarySheet
@@ -443,6 +496,10 @@ export default function WorkoutScreen() {
               <Text className="mb-s3 text-sm font-bold text-text">{subFor}</Text>
               <View className="flex-row flex-wrap gap-s2">
                 {substitutesFor(subFor)
+                  // Never offer something already in the day: swapping onto it
+                  // produced TWO cards with the same key, both showing the same
+                  // logged rows, and planTotals counted its sets twice.
+                  .filter((alt) => !plan.some((p) => p.exercise === alt.name && p.exercise !== subFor))
                   .slice(0, 12)
                   .map((alt) => (
                     <Pressable

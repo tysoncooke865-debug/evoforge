@@ -85,6 +85,21 @@ export async function enqueueFinish(date: string, workout: string): Promise<void
   void flushFinishQueue();
 }
 
+/**
+ * Drop a queued finish — REOPEN undoing it. Without this the queue flushes on
+ * reconnect and re-finishes a workout the athlete has already reopened.
+ */
+export async function dequeueFinish(date: string, workout: string): Promise<void> {
+  const rows = await readQueue();
+  const left = rows.filter((r) => !(r.date === date && r.workout === workout));
+  if (left.length === rows.length) return;
+  // A flush in flight is reading the OLD list; bump the generation so it cannot
+  // write this row back after we have removed it (same race as sign-out).
+  generation += 1;
+  await writeQueue(left);
+  if (left.length === 0) stopTimer();
+}
+
 /** True when the failure is the server saying no — never retryable. */
 function isPermanent(message: string): boolean {
   return (

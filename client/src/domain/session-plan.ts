@@ -106,6 +106,10 @@ export function buildEffectivePlan(
   const out: EffectiveEntry[] = [];
   for (const [exercise, planSets, reps] of basePlan) {
     if (removed.has(exercise)) continue;
+    // AN EXERCISE APPEARS ONCE. A substitution onto something already in the day
+    // used to render it TWICE — same React key, same logged rows, and planTotals
+    // counted its target and its sets twice, so the bar and `complete` lied.
+    if (out.some((e) => e.exercise === exercise)) continue;
     out.push(entry(exercise, planSets, reps, false));
   }
   for (const a of overrides.added) {

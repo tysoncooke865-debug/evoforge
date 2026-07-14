@@ -37,11 +37,15 @@ export function WeekBarRow({
   onEdit,
   /** Extra (ad-hoc / off-schedule) bars show no weekday — they are today's. */
   showDay = true,
+  /** Sets logged / sets the day asks for. The hub said WHETHER a day happened;
+   *  this says HOW MUCH of it did, which is what an athlete mid-week wants. */
+  sets,
 }: {
   bar: WeekBar;
   onOpen: () => void;
   onEdit?: () => void;
   showDay?: boolean;
+  sets?: { done: number; target: number };
 }) {
   const rest = bar.status === 'rest';
   const colour = statusColour(bar);
@@ -92,6 +96,11 @@ export function WeekBarRow({
           <Text className={`text-sm font-bold ${rest ? 'text-text-mute' : 'text-text'}`} numberOfLines={1}>
             {bar.workout ?? 'Rest'}
           </Text>
+          {sets && sets.target > 0 && !rest ? (
+            <Text className="text-2xs text-text-mute">
+              {sets.done}/{sets.target} sets
+            </Text>
+          ) : null}
         </View>
 
         {/* Colour is never the only cue (a11y): the label says it too. */}

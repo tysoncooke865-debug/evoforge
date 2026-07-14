@@ -33,9 +33,8 @@ vi.mock('../../data/supabase', () => ({
   },
 }));
 
-const { clearFinishQueue, enqueueFinish, flushFinishQueue, pendingFinishes } = await import(
-  '../../data/finish-queue'
-);
+const { clearFinishQueue, dequeueFinish, enqueueFinish, flushFinishQueue, pendingFinishes } =
+  await import('../../data/finish-queue');
 
 /** enqueueFinish kicks a flush of its own (fire-and-forget). Let it land before
  *  asserting, or the test races the very single-flight guard that stops the
@@ -112,6 +111,31 @@ describe('the finish queue', () => {
       workout: 'Legs',
       finished_at: row.finishedAt,
     });
+  });
+
+  it('REOPEN DEQUEUES: a reopened workout does not re-finish itself on reconnect', async () => {
+    // Offline FINISH -> queued. The athlete changes their mind and REOPENs. On
+    // reconnect the queue used to flush and finish the workout again, mid-set,
+    // with no action of theirs.
+    insertResult = { error: { message: 'Failed to fetch' } };
+    await enqueueFinish('2026-07-14', 'Legs');
+    expect(await pendingFinishes()).toHaveLength(1);
+
+    await dequeueFinish('2026-07-14', 'Legs');
+    expect(await pendingFinishes()).toEqual([]);
+
+    // The network comes back. Nothing more may be posted: the finish was undone.
+    const before = inserts.length;
+    insertResult = { error: null };
+    await flush();
+    expect(inserts.length).toBe(before);
+  });
+
+  it('dequeuing a workout that is not queued is a no-op', async () => {
+    insertResult = { error: { message: 'Failed to fetch' } };
+    await enqueueFinish('2026-07-14', 'Legs');
+    await dequeueFinish('2026-07-14', 'Push');
+    expect(await pendingFinishes()).toHaveLength(1);
   });
 
   it('sign-out clears it', async () => {

@@ -5,7 +5,7 @@ import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { useClaimCoin } from './coins';
-import { enqueueFinish } from './finish-queue';
+import { dequeueFinish, enqueueFinish } from './finish-queue';
 import { supabase } from './supabase';
 
 /**
@@ -31,15 +31,22 @@ export function useWorkoutSessions() {
     queryKey: ['workout_sessions', userId],
     enabled: userId !== null,
     queryFn: async (): Promise<SessionMarker[]> => {
-      try {
-        const { data, error } = await supabase
-          .from('workout_sessions')
-          .select('id,date,workout,finished_at');
-        if (error) return [];
-        return (data ?? []) as SessionMarker[];
-      } catch {
-        return [];
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select('id,date,workout,finished_at');
+      if (error) {
+        // ONLY "the table isn't there yet" degrades to empty — that genuinely
+        // means "no markers exist". EVERYTHING ELSE THROWS.
+        //
+        // Swallowing every failure as an empty SUCCESS was catastrophic: React
+        // Query cached [], the optimistic finish marker was deleted by the
+        // refetch that onSettled fires, and the whole week's COMPLETED/🔒 state
+        // evaporated on any transient blip — including the very offline finish
+        // this feature exists to protect. A throw keeps the last good data.
+        if (/does not exist|schema cache|PGRST205/i.test(error.message)) return [];
+        throw error;
       }
+      return (data ?? []) as SessionMarker[];
     },
   });
 }
@@ -132,6 +139,10 @@ export function useReopenWorkout() {
       if (error) throw error;
     },
     onMutate: async (marker) => {
+      // A finish queued while offline must die with the REOPEN that undoes it.
+      // Otherwise the queue flushes on reconnect and re-finishes the workout
+      // the athlete just reopened — mid-set, with no action of theirs.
+      await dequeueFinish(marker.date, marker.workout);
       await queryClient.cancelQueries({ queryKey: ['workout_sessions', userId] });
       const prev = queryClient.getQueryData<SessionMarker[]>(['workout_sessions', userId]) ?? [];
       queryClient.setQueryData<SessionMarker[]>(

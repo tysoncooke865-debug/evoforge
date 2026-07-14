@@ -44,6 +44,10 @@ interface SessionState {
    * not today's.
    */
   activeDay: string | null;
+  /** Which plan source the workout was opened from (0 my / 1 ai / 2 built-in).
+   *  Without it, a cold-start resume re-resolved the day against BUILT-IN and
+   *  silently showed different exercises than the ones being trained. */
+  activeSource: number | null;
   _hydrated: boolean;
 
   addExercise: (day: string, e: SessionExercise) => void;
@@ -58,7 +62,7 @@ interface SessionState {
   startAdhoc: (w: AdhocWorkout) => void;
   endAdhoc: () => void;
 
-  markActive: (day: string) => void;
+  markActive: (day: string, source?: number) => void;
   clearActive: () => void;
 
   reset: () => void;
@@ -93,6 +97,7 @@ export const useSessionStore = create<SessionState>()(
       days: {},
       adhoc: null,
       activeDay: null,
+      activeSource: null,
       _hydrated: false,
 
       addExercise: (day, e) =>
@@ -143,19 +148,55 @@ export const useSessionStore = create<SessionState>()(
           }))
         ),
 
-      startAdhoc: (w) => set({ date: todayIso(), adhoc: w, activeDay: w.name }),
+      // BOTH of these used to stamp the new date WITHOUT clearing `days` — so an
+      // app left running across midnight carried yesterday's skips and set
+      // deltas into today, silently forgiving sets that were never done. They go
+      // through the same stale check as every other write now.
+      startAdhoc: (w) =>
+        set((s) => {
+          const stale = s.date !== todayIso();
+          return {
+            date: todayIso(),
+            days: stale ? {} : s.days,
+            adhoc: w,
+            activeDay: w.name,
+            activeSource: s.activeSource,
+          };
+        }),
 
-      endAdhoc: () => set((s) => ({ adhoc: null, activeDay: s.activeDay === s.adhoc?.name ? null : s.activeDay })),
+      endAdhoc: () =>
+        set((s) => ({
+          adhoc: null,
+          activeDay: s.activeDay === s.adhoc?.name ? null : s.activeDay,
+        })),
 
-      markActive: (day) => set({ date: todayIso(), activeDay: day }),
-      clearActive: () => set({ activeDay: null }),
+      markActive: (day, source) =>
+        set((s) => {
+          const stale = s.date !== todayIso();
+          return {
+            date: todayIso(),
+            days: stale ? {} : s.days,
+            adhoc: stale ? null : s.adhoc,
+            activeDay: day,
+            activeSource: source ?? s.activeSource,
+          };
+        }),
 
-      reset: () => set({ date: todayIso(), days: {}, adhoc: null, activeDay: null }),
+      clearActive: () => set({ activeDay: null, activeSource: null }),
+
+      reset: () =>
+        set({ date: todayIso(), days: {}, adhoc: null, activeDay: null, activeSource: null }),
     }),
     {
       name: 'evoforge-session-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ date: s.date, days: s.days, adhoc: s.adhoc, activeDay: s.activeDay }),
+      partialize: (s) => ({
+        date: s.date,
+        days: s.days,
+        adhoc: s.adhoc,
+        activeDay: s.activeDay,
+        activeSource: s.activeSource,
+      }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // The rollover on READ (see the header): a persisted yesterday is
@@ -165,6 +206,7 @@ export const useSessionStore = create<SessionState>()(
           state.days = {};
           state.adhoc = null;
           state.activeDay = null;
+          state.activeSource = null;
         }
         state._hydrated = true;
       },
@@ -189,4 +231,11 @@ export function adhocOf(state: SessionState): AdhocWorkout | null {
 export function activeWorkout(state: SessionState): string | null {
   if (state.date !== todayIso()) return null;
   return state.activeDay;
+}
+
+/** Which plan it was being trained from — so a resume reopens the SAME workout,
+ *  not the built-in day that happens to share its name. */
+export function activeWorkoutSource(state: SessionState): number | null {
+  if (state.date !== todayIso()) return null;
+  return state.activeSource;
 }

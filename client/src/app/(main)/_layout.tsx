@@ -10,7 +10,7 @@ import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { todayIso } from '@/domain/today';
-import { activeWorkout, useSessionStore } from '@/state/session-store';
+import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
 import { TutorialOverlay } from '@/ui/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/scroll-registry';
@@ -53,17 +53,24 @@ export default function MainLayout() {
    */
   const hydrated = useSessionStore((s) => s._hydrated);
   const active = useSessionStore(activeWorkout);
+  const activeSource = useSessionStore(activeWorkoutSource);
   const resumedRef = useRef(false);
   useEffect(() => {
     if (resumedRef.current || !hydrated || !session || profile.data === undefined) return;
     resumedRef.current = true;
-    // Straight back INTO the workout, not merely onto Train.
+    // Straight back INTO the workout, not merely onto Train — and into the SAME
+    // one: without the source the day was re-resolved against BUILT-IN, so an
+    // athlete mid-way through their AI plan's "Push 1" was resumed into the
+    // built-in routine's different exercises.
     if (active !== null) {
+      const src = activeSource ?? 2;
       router.replace(
-        `/workout?date=${encodeURIComponent(todayIso())}&workout=${encodeURIComponent(active)}` as never
+        `/workout?date=${encodeURIComponent(todayIso())}&workout=${encodeURIComponent(
+          active
+        )}&source=${src}` as never
       );
     }
-  }, [hydrated, active, session, profile.data]);
+  }, [hydrated, active, activeSource, session, profile.data]);
 
   // Level-up detector: compares CONFIRMED summary.level across refetches.
   // First observation only arms it (no ceremony for merely opening the app);

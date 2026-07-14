@@ -45,7 +45,7 @@ export default function TodayScreen() {
   const reopenWorkout = useReopenWorkout();
   const routines = useRoutines();
   const deleteRoutine = useDeleteRoutine();
-  const { sources } = useDayPlan();
+  const { sources, resolveDay } = useDayPlan();
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
@@ -81,6 +81,27 @@ export default function TodayScreen() {
     todayIso
   );
 
+  /** How much of a day is done: sets logged vs sets the plan asks for. The plan
+   *  is read from the SAME source the door will open, so the hub and the page
+   *  can never disagree about what the day contains. */
+  const setsFor = (date: string, workout: string | null): { done: number; target: number } => {
+    if (!workout) return { done: 0, target: 0 };
+    const entries = resolveDay(workout, source).entries;
+    const target = entries.reduce((n, [, sets]) => n + sets, 0);
+    const done = entries.reduce((n, [exercise, sets]) => {
+      const logged = allRows.filter(
+        (r) =>
+          String(r.date) === date &&
+          String(r.workout) === workout &&
+          String(r.exercise) === exercise &&
+          (pyFloat(r.weight) ?? 0) > 0 &&
+          (pyFloat(r.reps) ?? 0) > 0
+      ).length;
+      return n + Math.min(logged, sets);
+    }, 0);
+    return { done, target };
+  };
+
   /** The ONE entry path into a workout — and the SOURCE goes with it. Without
    *  that, the workout page had to guess whose plan you meant, and guessed the
    *  same way every time (whichever plan held the day name). */
@@ -100,7 +121,18 @@ export default function TodayScreen() {
   };
 
   const startEmpty = () => {
-    const taken = [...planDays, ...extraBars.map((b) => b.workout ?? '')];
+    // EVERY name that already means something — not just the tab you happen to
+    // be looking at. A custom split's day names are its own, so the SCHEDULED
+    // day was not in this list, and naming an ad-hoc after it merged the two
+    // workouts into one (blanking the scheduled day's exercises, and filing its
+    // sets under the scheduled key). adhocNameError exists to stop exactly that.
+    const taken = [
+      ...daysForSource(0, sources, BUILT_IN_DAYS),
+      ...daysForSource(1, sources, BUILT_IN_DAYS),
+      ...BUILT_IN_DAYS,
+      ...(scheduledToday ? [scheduledToday] : []),
+      ...extraBars.map((b) => b.workout ?? ''),
+    ];
     const err = adhocNameError(adhocName, taken);
     if (err !== null) {
       useToastStore.getState().push({ kind: 'error', title: 'PICK ANOTHER NAME', subtitle: err });
@@ -193,19 +225,21 @@ export default function TodayScreen() {
           </Link>
         ) : null}
 
-        {!adhoc ? (
-          <Pressable
-            accessibilityRole="button"
-            testID="start-empty"
-            onPress={() => setEmptyOpen(true)}
-            className="items-center"
-            style={{ minHeight: 44, justifyContent: 'center' }}
-          >
-            <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
-              ＋ START AN EMPTY WORKOUT
-            </Text>
-          </Pressable>
-        ) : null}
+        {/* ALWAYS offered. It used to hide whenever an ad-hoc existed — and since
+            nothing ever cleared one, a mistyped workout with no sets could be
+            neither finished nor replaced, and the athlete was capped at one
+            ad-hoc a day. startAdhoc overwrites; the door stays open. */}
+        <Pressable
+          accessibilityRole="button"
+          testID="start-empty"
+          onPress={() => setEmptyOpen(true)}
+          className="items-center"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+            ＋ START AN EMPTY WORKOUT
+          </Text>
+        </Pressable>
 
         {/* THIS WEEK — the doors. */}
         {weekBars ? (
@@ -217,8 +251,17 @@ export default function TodayScreen() {
               <WeekBarRow
                 key={bar.date}
                 bar={bar}
+                sets={setsFor(bar.date, bar.workout)}
                 onOpen={() => bar.workout && open(bar.date, bar.workout)}
-                onEdit={bar.locked && bar.workout ? () => editLocked(bar.date, bar.workout as string) : undefined}
+                // Only TODAY's workout can be edited — the cards log to today.
+                // EDIT on a past bar used to delete the marker and land the
+                // athlete on a read-only page: nothing edited, the lock gone,
+                // and no way to restore it.
+                onEdit={
+                  bar.locked && bar.workout && bar.date === todayIso
+                    ? () => editLocked(bar.date, bar.workout as string)
+                    : undefined
+                }
               />
             ))}
             {extraBars.map((bar) => (

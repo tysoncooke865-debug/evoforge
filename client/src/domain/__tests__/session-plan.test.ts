@@ -51,6 +51,25 @@ describe('buildEffectivePlan', () => {
     expect(e[e.length - 1]).toMatchObject({ exercise: 'Face Pull', sets: 3, added: true });
   });
 
+  it('AN EXERCISE APPEARS ONCE, even if the base plan lists it twice', () => {
+    // A substitution onto something already in the day produced a duplicate:
+    // two cards with the SAME React key, both showing the same logged rows, and
+    // planTotals counting its target and its sets twice — so the progress bar
+    // and `complete` were both wrong.
+    const dupe: PlanEntry[] = [
+      ['Barbell Bench Press', 4, '5-8'],
+      ['Barbell Bench Press', 3, '8-12'],
+    ];
+    const e = buildEffectivePlan(dupe, EMPTY_OVERRIDES, NOTHING);
+    expect(e).toHaveLength(1);
+    expect(e[0].sets).toBe(4); // the FIRST wins; the duplicate is dropped
+
+    const logged = loggedFrom({ 'Barbell Bench Press': { validCount: 4, maxSetNo: 4 } });
+    const t = planTotals(buildEffectivePlan(dupe, EMPTY_OVERRIDES, logged), logged);
+    expect(t.target).toBe(4); // not 7
+    expect(t.done).toBe(4); // not 8
+  });
+
   it('an added exercise already in the plan does not render twice', () => {
     const e = buildEffectivePlan(
       PLAN,
