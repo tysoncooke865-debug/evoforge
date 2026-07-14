@@ -22,6 +22,7 @@ import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { CompanionMenuButton } from '@/ui/companion-menu';
 import { Chip, NeonButton } from '@/ui/neon-button';
+import { NutritionIntake } from '@/ui/nutrition-intake';
 import { NumberField } from '@/ui/number-field';
 import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
@@ -75,6 +76,8 @@ export default function FuelScreen() {
   // Manual target sheet (the no-AI path; also the escape hatch when the AI
   // intake is unreachable).
   const [targetOpen, setTargetOpen] = useState(false);
+  // The AI intake — asks only what the profile doesn't already know.
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
   const enteredKcal = (): number | null => {
     const v = pyFloat(amount);
@@ -152,11 +155,18 @@ export default function FuelScreen() {
               Set a daily calorie budget and the meter fills as you log.
             </Text>
             <NeonButton
-              title="SET A DAILY TARGET"
-              variant="ghost"
-              onPress={() => setTargetOpen(true)}
-              testID="fuel-set-target"
+              title="✦ CALCULATE WITH AI"
+              onPress={() => setIntakeOpen(true)}
+              testID="fuel-ai-target"
             />
+            <View className="mt-s2">
+              <NeonButton
+                title="SET MANUALLY"
+                variant="ghost"
+                onPress={() => setTargetOpen(true)}
+                testID="fuel-set-target"
+              />
+            </View>
           </View>
         )}
       </GlowCard>
@@ -282,19 +292,36 @@ export default function FuelScreen() {
                 {GOAL_LABEL[target.goal]} · since {target.effective_from}
               </Text>
             </View>
-            <Pressable
-              onPress={() => setTargetOpen(true)}
-              accessibilityRole="button"
-              testID="fuel-edit-target"
-              className="items-center justify-center px-s3"
-              style={{ minHeight: 44 }}
-            >
-              <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
-                EDIT
-              </Text>
-            </Pressable>
+            <View>
+              <Pressable
+                onPress={() => setIntakeOpen(true)}
+                accessibilityRole="button"
+                testID="fuel-recalculate"
+                className="items-center justify-center px-s3"
+                style={{ minHeight: 44 }}
+              >
+                <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
+                  ✦ RECALCULATE
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setTargetOpen(true)}
+                accessibilityRole="button"
+                testID="fuel-edit-target"
+                className="items-center justify-center px-s3"
+                style={{ minHeight: 44 }}
+              >
+                <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+                  EDIT
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </GlowCard>
+      ) : null}
+
+      {intakeOpen ? (
+        <NutritionIntake onClose={() => setIntakeOpen(false)} onManual={() => setTargetOpen(true)} />
       ) : null}
 
       {targetOpen ? (
