@@ -16,6 +16,7 @@ import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { ExercisePicker } from '@/ui/exercise-picker';
+import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { EdgeLabel } from '@/ui/hud';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -316,6 +317,16 @@ export default function RoutineBuilderScreen() {
 
           {/* The library, one muscle section at a time. */}
           <View>
+            {/* Type a letter, get the exercise — the sections and the full
+                picker stay as the browse paths. */}
+            <View className="mb-s3">
+              <ExerciseSearchBar
+                onPick={(e) => addExercise(e.name)}
+                excludeNames={dayList.map((x) => x.exercise)}
+                placeholder="Add to this day — type to search…"
+                testIDPrefix="routine-search"
+              />
+            </View>
             <View className="flex-row flex-wrap gap-s2">
               {LIBRARY_SECTIONS.map((s, i) => (
                 <Chip key={s.label} label={s.label} active={i === section} onPress={() => setSection(i)} />

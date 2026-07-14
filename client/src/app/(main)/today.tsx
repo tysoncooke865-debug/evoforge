@@ -19,6 +19,7 @@ import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { CompanionMenuButton } from '@/ui/companion-menu';
+import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
@@ -55,6 +56,8 @@ export default function TodayScreen() {
   const [sourceChoice, setSource] = useState<SourceIndex | null>(null);
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [adhocName, setAdhocName] = useState('');
+  // Exercises picked in the sheet BEFORE starting — they seed the ad-hoc.
+  const [adhocPicks, setAdhocPicks] = useState<SessionExercise[]>([]);
 
   const source: SourceIndex = sourceChoice ?? defaultSource(sources);
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
@@ -139,8 +142,9 @@ export default function TodayScreen() {
       return;
     }
     const name = adhocName.trim();
-    startAdhoc({ name, exercises: [] });
+    startAdhoc({ name, exercises: adhocPicks });
     setAdhocName('');
+    setAdhocPicks([]);
     setEmptyOpen(false);
     open(todayIso, name);
   };
@@ -338,6 +342,44 @@ export default function TodayScreen() {
                 maxLength={40}
                 testID="adhoc-name"
               />
+              {/* Seed exercises before you even start — optional; the workout
+                  page can add more. Type a letter, tap a box. */}
+              <View className="mt-s3">
+                <ExerciseSearchBar
+                  onPick={(e) =>
+                    setAdhocPicks((p) =>
+                      p.some((x) => x.exercise === e.name)
+                        ? p
+                        : [...p, { exercise: e.name, sets: 3, reps: '8-12' }]
+                    )
+                  }
+                  excludeNames={adhocPicks.map((p) => p.exercise)}
+                  placeholder="Add exercises now (optional)…"
+                  testIDPrefix="adhoc-search"
+                />
+              </View>
+              {adhocPicks.length > 0 ? (
+                <View className="mt-s2 flex-row flex-wrap gap-s2">
+                  {adhocPicks.map((p) => (
+                    <Pressable
+                      key={p.exercise}
+                      onPress={() => setAdhocPicks((cur) => cur.filter((x) => x.exercise !== p.exercise))}
+                      accessibilityRole="button"
+                      accessibilityLabel={`remove ${p.exercise}`}
+                      testID={`adhoc-pick-${p.exercise}`}
+                      className="rounded-md border px-s3 py-s2"
+                      style={{
+                        minHeight: 44,
+                        justifyContent: 'center',
+                        borderColor: `${tokens.colors.success}8c`,
+                        backgroundColor: 'rgba(52,211,153,0.08)',
+                      }}
+                    >
+                      <Text className="text-2xs font-bold text-success">✓ {p.exercise} ✕</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
               <View className="mt-s3">
                 <NeonButton title="START EMPTY WORKOUT" onPress={startEmpty} testID="adhoc-start" />
               </View>

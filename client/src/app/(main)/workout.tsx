@@ -34,6 +34,7 @@ import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { ExerciseCard } from '@/ui/exercise-logger';
 import { ExercisePicker } from '@/ui/exercise-picker';
+import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { NeonButton } from '@/ui/neon-button';
 import { RestTimerBar } from '@/ui/rest-timer';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -105,6 +106,21 @@ export default function WorkoutScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
+
+  /** Swap the card being substituted for `altName` — keyed back to the
+   *  ORIGINAL plan exercise so RESET TO PLAN works. One path for the
+   *  same-muscle chips AND the search bar. */
+  const swapTo = (altName: string) => {
+    setSubs((s) => {
+      const next = { ...s };
+      const orig = Object.keys(next).find(
+        (k) => next[k] === subFor && k.startsWith(`${workoutName}:`)
+      );
+      next[orig ?? `${workoutName}:${subFor}`] = altName;
+      return next;
+    });
+    setSubFor(null);
+  };
   const prCountRef = useRef(0);
   const prNamesRef = useRef<string[]>([]);
 
@@ -401,12 +417,22 @@ export default function WorkoutScreen() {
       })}
 
       {editable ? (
-        <NeonButton
-          title="＋ ADD EXERCISE"
-          variant="ghost"
-          onPress={() => setPickerOpen(true)}
-          testID="add-exercise"
-        />
+        <View className="gap-s2">
+          {/* Type a letter, get the exercise — the picker stays for browsing. */}
+          <ExerciseSearchBar
+            onPick={(e) => addExercise(workoutName, { exercise: e.name, sets: 3, reps: '8-12' })}
+            excludeNames={plan.map((p) => p.exercise)}
+            programExercises={plan.map((p) => p.exercise)}
+            placeholder="Add an exercise — type to search…"
+            testIDPrefix="workout-search"
+          />
+          <NeonButton
+            title="＋ BROWSE ALL EXERCISES"
+            variant="ghost"
+            onPress={() => setPickerOpen(true)}
+            testID="add-exercise"
+          />
+        </View>
       ) : null}
 
       {/* FINISH — while the workout is open, whatever the clock says.
@@ -494,6 +520,16 @@ export default function WorkoutScreen() {
                 SWAP · SAME MUSCLE GROUP
               </Text>
               <Text className="mb-s3 text-sm font-bold text-text">{subFor}</Text>
+              {/* Search swaps to ANYTHING; the same-muscle chips below stay
+                  the zero-typing default. */}
+              <View className="mb-s3">
+                <ExerciseSearchBar
+                  onPick={(alt) => swapTo(alt.name)}
+                  excludeNames={plan.map((p) => p.exercise)}
+                  placeholder="Or search anything…"
+                  testIDPrefix="swap-search"
+                />
+              </View>
               <View className="flex-row flex-wrap gap-s2">
                 {substitutesFor(subFor)
                   // Never offer something already in the day: swapping onto it
@@ -504,17 +540,7 @@ export default function WorkoutScreen() {
                   .map((alt) => (
                     <Pressable
                       key={alt.name}
-                      onPress={() => {
-                        setSubs((s) => {
-                          const next = { ...s };
-                          const orig = Object.keys(next).find(
-                            (k) => next[k] === subFor && k.startsWith(`${workoutName}:`)
-                          );
-                          next[orig ?? `${workoutName}:${subFor}`] = alt.name;
-                          return next;
-                        });
-                        setSubFor(null);
-                      }}
+                      onPress={() => swapTo(alt.name)}
                       accessibilityRole="button"
                       className="rounded-md border border-border px-s3 py-s2"
                       style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}

@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { prefSets, unitFor, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
+import { buildCorpus } from '@/data/exercise-corpus';
+import { unitFor, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
 import { useCreateUserExercise, useUserExercises } from '@/data/exercises';
 import { useWorkoutLog } from '@/data/hooks';
-import { digestHistory, lastPerformanceLabel } from '@/domain/exercise-history';
-import { EXERCISE_LIBRARY } from '@/domain/exercise-library';
-import { passesFilters, rankExercises, type ExerciseFilters, type RankContext } from '@/domain/exercise-rank';
+import { lastPerformanceLabel } from '@/domain/exercise-history';
+import { passesFilters, rankExercises, type ExerciseFilters } from '@/domain/exercise-rank';
 import { buildSections } from '@/domain/exercise-sections';
 import {
   CATEGORY_OPTIONS,
@@ -112,50 +112,25 @@ export function ExercisePicker({
   // all above; nothing below this point calls one, so the early return is safe.)
   if (!visible) return null;
 
-  const history = digestHistory(workouts.data);
-  const { favourites, hidden } = prefSets(prefs.data);
-
-  // The athlete's own exercises are part of the library, not a special case.
-  const library: LibraryExercise[] = [
-    ...(userExercises.data ?? []).map((u) => ({ name: u.name, muscle: u.muscle, popularity: 90 })),
-    ...EXERCISE_LIBRARY,
-  ];
-  const customNames = new Set((userExercises.data ?? []).map((u) => u.name));
+  // The corpus recipe now lives in data/exercise-corpus.ts so the inline
+  // ExerciseSearchBar ranks against the SAME world as this picker.
+  const { library, context, isCustom, history } = buildCorpus(
+    { userExercises: userExercises.data, prefRows: prefs.data, workoutRows: workouts.data },
+    { programExercises, excludeNames }
+  );
+  const favourites = context.favourites;
+  const hidden = context.hidden;
+  const alreadyAdded = context.alreadyAdded;
+  const targetMuscles = context.targetMuscles;
 
   const group = MUSCLE_GROUPS.find((g) => g.key === groupKey) ?? MUSCLE_GROUPS[0];
   const sub = group.subgroups.find((s) => s.key === subKey) ?? null;
   const muscleFilter = sub ? sub.muscles : group.muscles;
 
-  const alreadyAdded = new Set(excludeNames.map((n) => n.toLowerCase()));
-  const targetMuscles = (() => {
-    // The WHOLE library — the athlete's own exercises carry a real muscle, and
-    // a day built from them would otherwise yield no target muscles at all,
-    // silently deleting SUGGESTED FOR TODAY for exactly the athletes who
-    // customised most.
-    const byName = new Map(library.map((e) => [e.name.toLowerCase(), e.muscle]));
-    const out = new Set<string>();
-    for (const p of programExercises) {
-      const m = byName.get(p.toLowerCase());
-      if (m) out.add(m);
-    }
-    return out;
-  })();
-
-  const context: RankContext = {
-    inProgram: new Set(programExercises.map((p) => p.toLowerCase())),
-    performed: history.performed,
-    favourites,
-    targetMuscles,
-    alreadyAdded,
-    hidden,
-  };
-
   const activeFilters: ExerciseFilters = {
     ...filters,
     muscles: muscleFilter.length > 0 ? muscleFilter : undefined,
   };
-
-  const isCustom = (n: string) => customNames.has(n);
 
   const searching = debounced.trim().length > 0;
 

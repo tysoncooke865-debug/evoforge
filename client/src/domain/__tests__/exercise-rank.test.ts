@@ -69,6 +69,18 @@ describe('search: names, partials, aliases, abbreviations, typos', () => {
     expect(top('tricep extension')[0]).toMatch(/triceps/i);
   });
 
+  // The search-bar brief, pinned 2026-07-15: a missed prefix must not skip
+  // the exercise — "incline press" still finds machine variants whose names
+  // it sits INSIDE.
+  it('MID-NAME MULTI-WORD: "incline press" finds Smith Machine Incline Bench Press', () => {
+    // "Smith Machine Incline Bench Press": neither word LEADS the name; the
+    // all-tokens branch is what finds it. This worked unpinned — now it can't
+    // silently stop working.
+    expect(top('incline press')).toContain('Smith Machine Incline Bench Press');
+    // And with the leading word supplied, it ranks well inside the top hits.
+    expect(top('machine incline press').slice(0, 8)).toContain('Smith Machine Incline Bench Press');
+  });
+
   it('MUSCLE TERM: "rear delt" finds rear-delt work', () => {
     const r = top('rear delt');
     expect(r.length).toBeGreaterThan(3);
