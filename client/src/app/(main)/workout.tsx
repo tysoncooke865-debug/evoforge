@@ -9,10 +9,11 @@ import { useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
-import { useDayPlan } from '@/data/use-day-plan';
+import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { pyFloat, pyInt } from '@/domain/py';
+import type { SourceIndex } from '@/domain/plan-sources';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
 import {
   buildEffectivePlan,
@@ -60,10 +61,14 @@ import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
  * is load-bearing in week-status.
  */
 export default function WorkoutScreen() {
-  const params = useLocalSearchParams<{ date?: string; workout?: string }>();
+  const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string }>();
   const todayIso = calendarToday();
   const date = params.date ?? todayIso;
   const workoutName = params.workout ?? '';
+  // Which plan the athlete was looking at when they opened this door.
+  const parsedSource = Number(params.source);
+  const preferredSource: SourceIndex =
+    parsedSource === 0 || parsedSource === 1 || parsedSource === 2 ? parsedSource : 2;
 
   /**
    * BACK GOES TO TRAIN — explicitly.
@@ -84,7 +89,7 @@ export default function WorkoutScreen() {
   const claimCoins = useClaimCoin();
   const saveRoutine = useSaveRoutine();
   const { summary, stats, bfMid } = useAvatarData();
-  const { exercisesForDay } = useDayPlan();
+  const { resolveDay } = useDayPlan();
 
   const adhoc = useSessionStore(adhocOf);
   const overrides = useSessionStore((s) => overridesFor(s, workoutName));
@@ -131,11 +136,16 @@ export default function WorkoutScreen() {
   };
 
   // An ad-hoc workout's exercises live in the session store; everything else
-  // comes from whichever plan holds this day.
+  // comes from THE SOURCE THE ATHLETE CHOSE (falling back only when that source
+  // does not contain the day — and saying so when it happens).
   const isAdhoc = adhoc !== null && adhoc.name === workoutName;
+  const resolved = resolveDay(workoutName, preferredSource);
   const basePlan: PlanEntry[] = isAdhoc
     ? (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets, e.reps] as const)
-    : exercisesForDay(workoutName);
+    : resolved.entries;
+  /** The day is not in the plan they picked — we are showing someone else's. */
+  const borrowedFrom =
+    !isAdhoc && resolved.from !== null && resolved.from !== preferredSource ? resolved.from : null;
   const substituted: PlanEntry[] = basePlan.map(
     ([ex, sets, scheme]) => [subs[`${workoutName}:${ex}`] ?? ex, sets, scheme] as const
   );
@@ -235,6 +245,24 @@ export default function WorkoutScreen() {
       />
 
       {editable ? <RestTimerBar /> : null}
+
+      {/* Whose workout is this? The tab said one thing; if the day only exists
+          in another plan we show that one, and we SAY so rather than quietly
+          passing it off as theirs. */}
+      {!isAdhoc && resolved.from !== null ? (
+        <Text
+          className="text-2xs font-bold"
+          style={{
+            letterSpacing: 1.5,
+            color: borrowedFrom !== null ? tokens.colors.warn : tokens.colors['text-mute'],
+          }}
+          testID="workout-source"
+        >
+          {borrowedFrom !== null
+            ? `NOT IN ${SOURCE_LABEL[preferredSource]} — SHOWING ${SOURCE_LABEL[borrowedFrom]}`
+            : `FROM ${SOURCE_LABEL[preferredSource]}`}
+        </Text>
+      ) : null}
 
       {/* Progress. */}
       <GlowCard glow={complete ? tokens.colors.success : undefined}>

@@ -2,15 +2,30 @@ import { useCustomPlan } from './hooks';
 import { useUserPlans } from './user-plans';
 
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
-import { resolvePlanSources, type PlanSources } from '@/domain/plan-sources';
+import {
+  resolveDayIn,
+  resolvePlanSources,
+  type PlanSources,
+  type ResolvedDay,
+  type SourceIndex,
+} from '@/domain/plan-sources';
 import type { PlanEntry } from '@/domain/session-plan';
 
 /**
- * TRAIN_PAGE_V2 — plan resolution, in one place.
+ * TRAIN_PAGE_V2 — plan resolution, in ONE place, and HONOURING THE CHOSEN SOURCE.
  *
- * Train (the hub) and /workout (the page) both need to know what a day holds.
- * This is thin wiring over the existing pure domain (resolvePlanSources): no
- * new logic, no second opinion about which plan is which.
+ * THE BUG (Tyson, 2026-07-14): "the workouts don't change when switching between
+ * MY PLAN, AI PLAN and BUILT-IN — it's the AI plan on all three." They were not
+ * changing because the source was never consulted: exercisesForDay() searched
+ * my-plan → AI → built-in in a FIXED order and returned the first hit, and the
+ * chosen tab never even travelled to the workout page. Whichever plan happened to
+ * hold the day name won, on every tab.
+ *
+ * Now: the SELECTED source is asked FIRST, and it is the answer whenever it has
+ * the day. A fallback still exists — a day the selected plan does not contain
+ * would otherwise be an empty screen — but it REPORTS ITSELF (`from`), so the
+ * workout page can say "showing the AI PLAN's version" instead of quietly lying
+ * about whose workout you are looking at.
  */
 
 /** The app's own six-day routine. Static — derived from a generated catalog. */
@@ -18,16 +33,16 @@ export const BUILT_IN_DAYS: readonly string[] = ROUTINE_ORDER.filter((d) => ROUT
 
 export interface DayPlan {
   sources: PlanSources;
-  /**
-   * The exercises a day holds. A day NAME identifies a workout, so it is looked
-   * up where it can actually be found: the athlete's own plan first (it is
-   * theirs), then the AI's, then the built-in routine. An ad-hoc workout is not
-   * in any of them and resolves to [] — its exercises live in the session store.
-   */
-  exercisesForDay: (workout: string) => PlanEntry[];
-  /** True while the plans are still loading — [] would otherwise read as "empty day". */
+  /** The exercises a day holds IN A GIVEN SOURCE, with a reporting fallback. */
+  resolveDay: (workout: string, preferred: SourceIndex) => ResolvedDay;
+  /** True while the plans load — [] would otherwise read as "empty day". */
   loading: boolean;
 }
+
+const builtInEntries = (workout: string): PlanEntry[] | null => {
+  const day = ROUTINE[workout];
+  return day && day.length > 0 ? [...day] : null;
+};
 
 export function useDayPlan(): DayPlan {
   const legacyPlan = useCustomPlan(); // custom_workout_plan — the pre-018 slot
@@ -40,17 +55,19 @@ export function useDayPlan(): DayPlan {
     builtInDays: BUILT_IN_DAYS,
   });
 
-  const exercisesForDay = (workout: string): PlanEntry[] => {
-    for (const plan of [sources.myPlan, sources.aiPlan]) {
-      const day = plan?.days.find((d) => d.day === workout);
-      if (day) return day.exercises.map((e) => [e.exercise, e.sets, e.reps] as const);
-    }
-    return [...(ROUTINE[workout] ?? [])];
-  };
+  // The RULE lives in the pure domain (resolveDayIn) — this is only wiring.
+  const resolveDay = (workout: string, preferred: SourceIndex): ResolvedDay =>
+    resolveDayIn(sources, builtInEntries, workout, preferred);
 
   return {
     sources,
-    exercisesForDay,
+    resolveDay,
     loading: userPlans.isPending || legacyPlan.isPending,
   };
 }
+
+export const SOURCE_LABEL: Readonly<Record<SourceIndex, string>> = {
+  0: 'MY PLAN',
+  1: 'AI PLAN',
+  2: 'BUILT-IN',
+};

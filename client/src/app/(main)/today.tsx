@@ -81,10 +81,14 @@ export default function TodayScreen() {
     todayIso
   );
 
-  /** The ONE entry path into a workout. */
+  /** The ONE entry path into a workout — and the SOURCE goes with it. Without
+   *  that, the workout page had to guess whose plan you meant, and guessed the
+   *  same way every time (whichever plan held the day name). */
   const open = (date: string, workout: string) =>
     router.push(
-      `/workout?date=${encodeURIComponent(date)}&workout=${encodeURIComponent(workout)}` as never
+      `/workout?date=${encodeURIComponent(date)}&workout=${encodeURIComponent(
+        workout
+      )}&source=${source}` as never
     );
 
   /** EDIT on a locked bar: unlock AND go in. One tap from bar to editing is what

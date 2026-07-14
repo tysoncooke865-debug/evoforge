@@ -20,6 +20,7 @@
  */
 
 import type { CustomPlan } from './custom-plan';
+import type { PlanEntry } from './session-plan';
 
 export type SourceIndex = 0 | 1 | 2;
 
@@ -85,4 +86,48 @@ export function defaultSource(sources: PlanSources): SourceIndex {
   if (sources.has.myPlan) return 0;
   if (sources.has.aiPlan) return 1;
   return 2;
+}
+
+export interface ResolvedDay {
+  entries: PlanEntry[];
+  /** Which source these exercises actually came from — null when nobody has it. */
+  from: SourceIndex | null;
+}
+
+/**
+ * THE EXERCISES A DAY HOLDS, IN THE SOURCE THE ATHLETE CHOSE.
+ *
+ * THE BUG (Tyson, 2026-07-14): "the workouts don't change when switching between
+ * MY PLAN, AI PLAN and BUILT-IN — it's the AI plan on all three." The old
+ * resolver searched my-plan → AI → built-in in a FIXED order and returned the
+ * first hit, ignoring the tab entirely: whichever plan happened to hold the day
+ * name won, every time, on every tab.
+ *
+ * THE SELECTED SOURCE IS ASKED FIRST and is the answer whenever it has the day.
+ * The fallback exists only so that a day the chosen plan lacks is not a blank
+ * screen — and it REPORTS ITSELF (`from`), so the screen can say whose workout it
+ * is actually showing instead of quietly passing it off as theirs.
+ */
+export function resolveDayIn(
+  sources: PlanSources,
+  builtInFor: (workout: string) => PlanEntry[] | null,
+  workout: string,
+  preferred: SourceIndex
+): ResolvedDay {
+  const inSource = (s: SourceIndex): PlanEntry[] | null => {
+    if (s === 2) return builtInFor(workout);
+    const plan = s === 0 ? sources.myPlan : sources.aiPlan;
+    const day = plan?.days.find((d) => d.day === workout);
+    return day ? day.exercises.map((e) => [e.exercise, e.sets, e.reps] as const) : null;
+  };
+
+  const own = inSource(preferred);
+  if (own && own.length > 0) return { entries: own, from: preferred };
+
+  for (const s of [0, 1, 2] as SourceIndex[]) {
+    if (s === preferred) continue;
+    const found = inSource(s);
+    if (found && found.length > 0) return { entries: found, from: s };
+  }
+  return { entries: [], from: null };
 }
