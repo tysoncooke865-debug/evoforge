@@ -2,10 +2,12 @@ import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
+import { useExercisePrefs, unitFor, useSetExerciseUnit } from '@/data/exercise-prefs';
 import { useSaveSet } from '@/data/mutations';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
 import { pyFloat, pyInt } from '@/domain/py';
 import type { SetVerdict } from '@/domain/set-save';
+import { WEIGHT_STEP, convertTyped, displayWeight, toKgForSave, type WeightUnit } from '@/domain/units';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/floating-xp';
@@ -120,6 +122,12 @@ export function ExerciseCard({
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   const stepperW = compact ? 26 : 32;
+  // KG ⇄ LB, PER EXERCISE (migration 020). The unit is a lens, not a fact:
+  // every stored number stays kg; SetRow converts at the input/display
+  // boundary only. The pref rides user_exercise_prefs like a favourite star.
+  const prefs = useExercisePrefs();
+  const setExerciseUnit = useSetExerciseUnit();
+  const unit: WeightUnit = unitFor(prefs.data, exercise);
   // What this athlete did LAST session on this exercise (IMPROVEMENT_PLAN #2).
   const last = lastPerformance(allRows, exercise, date);
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
@@ -186,7 +194,7 @@ export function ExerciseCard({
               className={`text-sm font-bold ${l.done ? 'text-text' : 'text-text-mute'}`}
               testID={`${exercise}-locked-${l.setNo}`}
             >
-              {l.done ? `${l.w} kg × ${l.reps}` : '—'}
+              {l.done ? `${displayWeight(l.w, unit)} ${unit} × ${l.reps}` : '—'}
             </Text>
           </View>
         ))}
@@ -240,9 +248,22 @@ export function ExerciseCard({
       <View className="mb-s1 flex-row items-center gap-s1 px-[2px]">
         <View style={{ width: compact ? 30 : 40 }} />
         <View className="flex-row items-center gap-s1">
-          <Text className="text-center text-2xs font-bold text-text-mute" style={{ width: fieldW, letterSpacing: 1 }} numberOfLines={1}>
-            {compact ? 'KG' : 'WEIGHT'}
-          </Text>
+          {/* The column header IS the unit toggle: tap flips this exercise
+              between KG and LB (persisted per exercise). The database never
+              learns pounds — SetRow converts to kg at save. */}
+          <Pressable
+            onPress={() => setExerciseUnit.mutate({ exercise, unit: unit === 'kg' ? 'lb' : 'kg' })}
+            accessibilityRole="button"
+            accessibilityLabel={`switch ${exercise} to ${unit === 'kg' ? 'pounds' : 'kilograms'}`}
+            testID={`${exercise}-unit`}
+            className="items-center justify-center"
+            style={{ width: fieldW, minHeight: 32 }}
+            hitSlop={{ top: 8, bottom: 8 }}
+          >
+            <Text className="text-center text-2xs font-bold" style={{ letterSpacing: 1, color: tint }} numberOfLines={1}>
+              {compact ? unit.toUpperCase() : `WEIGHT · ${unit.toUpperCase()} ⇄`}
+            </Text>
+          </Pressable>
           <View style={{ width: stepperW }} />
         </View>
         <View className="flex-row items-center gap-s1">
@@ -269,6 +290,7 @@ export function ExerciseCard({
             tint={tint}
             onLogged={onLogged}
             durable={durable}
+            unit={unit}
           />
         );
       })}
@@ -340,6 +362,7 @@ function SetRow({
   tint,
   onLogged,
   durable = false,
+  unit,
 }: {
   date: string;
   workout: string;
@@ -353,9 +376,28 @@ function SetRow({
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
   durable?: boolean;
+  /** The lens: what the athlete types/reads. Props and saves are ALWAYS kg. */
+  unit: WeightUnit;
 }) {
-  const [weight, setWeight] = useState(initialWeight !== '' ? initialWeight : prefill ? String(prefill.weight) : '');
+  // Seeds arrive as kg (log rows / last-session prefill) and are painted in
+  // the exercise's unit. Typed state lives in that unit until save.
+  const [weight, setWeight] = useState(
+    initialWeight !== ''
+      ? displayWeight(pyFloat(initialWeight) ?? 0, unit)
+      : prefill
+        ? displayWeight(prefill.weight, unit)
+        : ''
+  );
   const [reps, setReps] = useState(initialReps !== '' ? initialReps : prefill ? String(prefill.reps) : '');
+  // Flipping the toggle converts the string UNDER the athlete, in place —
+  // dirty flags untouched, half-typed garbage left alone (convertTyped).
+  // Render-time adjustment, not an effect: set-state-in-effect is a lint
+  // error in this repo, and this is the React-documented derived-state form.
+  const [prevUnit, setPrevUnit] = useState(unit);
+  if (prevUnit !== unit) {
+    setPrevUnit(unit);
+    setWeight(convertTyped(weight, prevUnit, unit));
+  }
   // Item 1.7: prefill renders DIM until the athlete touches it. Steppers,
   // keypad DONE and desktop typing all funnel through onChange -> dirty.
   const [weightDirty, setWeightDirty] = useState(initialWeight !== '');
@@ -379,7 +421,9 @@ function SetRow({
         workout,
         exercise,
         setNo,
-        weight: w,
+        // THE conversion boundary: pounds become kilograms here and nowhere
+        // else. kg mode passes through verbatim (no new rounding on metric).
+        weight: toKgForSave(w, unit),
         reps: Math.trunc(r),
         durable,
       },
@@ -416,10 +460,10 @@ function SetRow({
           setWeightDirty(true);
           setWeight(v);
         }}
-        step={2.5}
-        bigStep={20}
-        placeholder="kg"
-        label="WEIGHT · KG"
+        step={WEIGHT_STEP[unit].step}
+        bigStep={WEIGHT_STEP[unit].bigStep}
+        placeholder={unit}
+        label={`WEIGHT · ${unit.toUpperCase()}`}
         tint={tint}
         width={fieldW}
         narrow={compact}

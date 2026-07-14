@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { prefSets, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
+import { prefSets, unitFor, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
 import { useCreateUserExercise, useUserExercises } from '@/data/exercises';
 import { useWorkoutLog } from '@/data/hooks';
 import { digestHistory, lastPerformanceLabel } from '@/domain/exercise-history';
@@ -273,7 +273,7 @@ export function ExercisePicker({
         <ExerciseRow
           exercise={e}
           match={item.match}
-          last={lastPerformanceLabel(history, e.name)}
+          last={lastPerformanceLabel(history, e.name, unitFor(prefs.data, e.name))}
           favourite={favourites.has(key)}
           added={alreadyAdded.has(key)}
           selected={selected.includes(e.name)}

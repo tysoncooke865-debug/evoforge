@@ -6,6 +6,7 @@ import { userMuscleFor, type UserExercise } from '@/domain/exercise-search';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
+import { kgToLb } from '@/domain/units';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
 import { announceXp, useToastStore } from '@/state/toast-store';
@@ -154,10 +155,21 @@ export function useSaveSet() {
         announceXp(XP_PER_SET);
       }
       if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) {
+        // The e1RM values are kg (the stored truth); the TOAST paints them in
+        // the exercise's unit pref, read best-effort from the cache — a
+        // display courtesy, never a stored value.
+        const prefRows = queryClient.getQueryData<{ exercise: string; weight_unit?: string }[]>([
+          'user_exercise_prefs',
+          userId,
+        ]);
+        const inLb = (prefRows ?? []).some(
+          (p) => p.exercise === input.exercise && p.weight_unit === 'lb'
+        );
+        const fmt = (kg: number) => (inLb ? `${kgToLb(kg).toFixed(1)}lb` : `${kg.toFixed(1)}kg`);
         useToastStore.getState().push({
           kind: 'pr',
           title: 'NEW PR',
-          subtitle: `${input.exercise} — e1RM ${verdict.current1rm.toFixed(1)}kg (prev ${verdict.previousBest.toFixed(1)}kg)`,
+          subtitle: `${input.exercise} — e1RM ${fmt(verdict.current1rm)} (prev ${fmt(verdict.previousBest)})`,
         });
         // Coin claim (IMPROVEMENT_PLAN #12): fire-and-forget; the 013 guard
         // re-proves the PR server-side and the unique index absorbs repeats.

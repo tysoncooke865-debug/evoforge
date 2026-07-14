@@ -9,6 +9,7 @@
 
 import { pyFloat, pyInt } from './py';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
+import { displayWeight, type WeightUnit } from './units';
 
 export interface LastPerformance {
   weight: number;
@@ -75,10 +76,14 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
   return { performed, recent, last, counts };
 }
 
-/** "Last: 30 kg × 8" — or null when they have never done it. */
-export function lastPerformanceLabel(history: ExerciseHistory, exercise: string): string | null {
+/** "Last: 30 kg × 8" (or "Last: 66.1 lb × 8") — null when never done.
+ *  `p.weight` is kg from the log; `unit` is the athlete's per-exercise lens. */
+export function lastPerformanceLabel(
+  history: ExerciseHistory,
+  exercise: string,
+  unit: WeightUnit = 'kg'
+): string | null {
   const p = history.last.get(exercise.toLowerCase());
   if (!p) return null;
-  const w = Number.isInteger(p.weight) ? String(p.weight) : p.weight.toFixed(1);
-  return `Last: ${w} kg × ${p.reps}`;
+  return `Last: ${displayWeight(p.weight, unit)} ${unit} × ${p.reps}`;
 }
