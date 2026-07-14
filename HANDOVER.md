@@ -31,12 +31,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
 - `TRAIN_IMPROVEMENTS.md` (finish marker + week bars) — complete.
 - `TRAIN_PAGE_V2.md` (the workout as its own page) — complete.
 - The Add Exercise redesign (960-exercise library, ranking engine) — complete.
+- KG⇄LB per-exercise toggle (`domain/units.ts`; DB stays kg forever) — complete;
+  **migration `020_weight_unit_pref.sql` written, NOT yet applied** (the one gap).
+- The inline `ExerciseSearchBar` on every add surface (`data/exercise-corpus.ts`
+  is the shared recipe) — complete.
+- PLAN SCAN (photo/typed workout → `ai-plan-scan` → corpus-mapped draft →
+  builder → MY PLAN; `domain/workout-import.ts`) — complete;
+  **`ai-plan-scan` edge function NOT yet deployed** (no CLI token on the dev box).
+- Parallel `nutrition` branch (FUEL tab, unmerged): its `020_nutrition.sql` must
+  be **renumbered to 021** at merge — mainline claimed 020.
 
-**Migrations applied through `019`. Next free number: `020`.**
+**Migrations applied through `019`. `020_weight_unit_pref.sql` written/unapplied.
+Next free number: `021`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
-`019` user_exercise_prefs.
+`019` user_exercise_prefs · `020` weight_unit (pending).
 
-**427 tests. Four executable guards** (all in CI):
+**496 tests. Four executable guards** (all in CI):
 `verify-tokens` · `verify-battle-engine` (byte-pin ×3) · `verify-motion` ·
 `lighthouse` (budgets in `client/lighthouserc.json`).
 
