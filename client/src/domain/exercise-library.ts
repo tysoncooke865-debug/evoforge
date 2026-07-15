@@ -128,7 +128,9 @@ const CORE_EXERCISES: readonly LibraryExercise[] = [
   { name: 'Smith Machine Calf Raise', muscle: 'Calves', equipment: 'Smith Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   // --------------------------------------------------------- adductors
   { name: 'Hip Adduction Machine', muscle: 'Adductors', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
-  { name: 'Hip Abduction Machine', muscle: 'Adductors', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
+  // Retagged 2026-07-15 (Erectors/Abductors joined the taxonomy): an
+  // abduction machine trains abductors, not adductors.
+  { name: 'Hip Abduction Machine', muscle: 'Abductors', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   // -------------------------------------------------------------- abs
   { name: 'Machine Ab Crunch', muscle: 'Abs', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Cable Crunch', muscle: 'Abs', equipment: 'Cable', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
@@ -176,10 +178,10 @@ export function libraryMuscleFor(exercise: string): string | null {
 /** Gym-familiar UI sections → the fine-grained tags they collapse. */
 export const LIBRARY_SECTIONS: readonly { label: string; muscles: readonly string[] }[] = [
   { label: 'Chest', muscles: ['Chest', 'Upper Chest'] },
-  { label: 'Back', muscles: ['Back Width', 'Back Thickness', 'Traps'] },
+  { label: 'Back', muscles: ['Back Width', 'Back Thickness', 'Traps', 'Erectors'] },
   { label: 'Shoulders', muscles: ['Side Delts', 'Rear Delts', 'Front Delts'] },
   { label: 'Arms', muscles: ['Biceps', 'Triceps', 'Forearms'] },
-  { label: 'Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors'] },
+  { label: 'Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors'] },
   { label: 'Abs', muscles: ['Abs'] },
 ];
 

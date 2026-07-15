@@ -28,10 +28,10 @@ const MAX_TEXT = 4000;
 // create path (which asks) in charge.
 const MUSCLE_TAGS = [
   'Chest', 'Upper Chest',
-  'Back Width', 'Back Thickness', 'Traps',
+  'Back Width', 'Back Thickness', 'Traps', 'Erectors',
   'Side Delts', 'Rear Delts', 'Front Delts',
   'Biceps', 'Triceps', 'Forearms',
-  'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors',
+  'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors',
   'Abs',
 ] as const;
 

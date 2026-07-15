@@ -110,9 +110,12 @@ const TABLE: Readonly<Record<string, MuscleId>> = {
   'glutes': 'glutes',
   'calves': 'calves',
   // Real regions since Tyson drew their masks (2026-07-15) — adductors used
-  // to borrow the quad mass.
+  // to borrow the quad mass. 'Erectors' is the exercise tag for the map's
+  // lowerBack region.
   'adductors': 'adductors',
   'abductors': 'abductors',
+  // 'Erectors' (the exercise tag) already maps to the lowerBack region in
+  // the synonyms block below.
   'abs': 'abs',
 
   // ---- common synonyms (imported datasets, AI labels, human typing) ----

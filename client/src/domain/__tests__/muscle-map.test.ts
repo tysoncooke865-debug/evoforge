@@ -8,11 +8,16 @@ import { frontMusclePaths } from '../../ui/muscle-map/front-muscle-paths';
 describe('normaliseMuscleGroup', () => {
   it("claims EVERY tag of the app's own taxonomy — the ladder's whole vocabulary lights up", () => {
     const appTags = [
-      'Chest', 'Upper Chest', 'Back Width', 'Back Thickness', 'Traps',
+      'Chest', 'Upper Chest', 'Back Width', 'Back Thickness', 'Traps', 'Erectors',
       'Side Delts', 'Rear Delts', 'Front Delts', 'Biceps', 'Triceps',
-      'Forearms', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abs',
+      'Forearms', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors', 'Abs',
     ];
     for (const tag of appTags) expect(normaliseMuscleGroup(tag), tag).not.toBeNull();
+  });
+
+  it('the two 2026-07-15 tags land on their drawn regions', () => {
+    expect(normaliseMuscleGroup('Erectors')).toBe('lowerBack');
+    expect(normaliseMuscleGroup('Abductors')).toBe('abductors');
   });
 
   it('maps the spec examples', () => {

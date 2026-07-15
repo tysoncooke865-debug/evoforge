@@ -6,9 +6,12 @@
  * category, difficulty — plus the aliases and abbreviations people actually
  * type ("rdl", "db incline", "skullcrusher").
  *
- * THE 17 MUSCLE TAGS ARE UNCHANGED AND NON-NEGOTIABLE. They are what every
- * logged row carries, what the heat map reads, and what the substitution engine
- * matches on. This file GROUPS them for the UI; it does not redefine them.
+ * THE MUSCLE TAGS (19 since 2026-07-15: Tyson added Erectors and Abductors —
+ * the muscle map has hand-drawn regions for both) are what every logged row
+ * carries and what the substitution engine matches on. The avatar heat map is
+ * UNAFFECTED by tag changes: it recomputes via the parity-pinned
+ * inferMuscleGroup(name), never the stored tag. This file GROUPS the tags for
+ * the UI; it does not redefine them.
  */
 
 export type Equipment =
@@ -44,12 +47,11 @@ export interface LibraryExercise {
  * SUBGROUPS shown only once it is selected — the spec's rule: do not show every
  * subgroup until its group is chosen.
  *
- * NOTE ON HONESTY: the app's 17 tags do not include Obliques, Rotator Cuff,
- * Lower Abs or Spinal Erectors as separate things — no exercise carries those
- * tags, so offering them as filters would hand the athlete a chip that always
- * returns nothing. Subgroups here are exactly the tags that EXIST. Adding new
- * tags means re-tagging 960 exercises and migrating every logged row; that is a
- * data change, not a UI one, and it is not this feature's job.
+ * NOTE ON HONESTY: subgroups here are exactly the tags that EXIST — a chip
+ * that always returns nothing teaches the athlete to ignore chips. Erectors
+ * and Abductors joined 2026-07-15 WITH retagged exercises in the same commit;
+ * Obliques / Rotator Cuff / Lower Abs still have no tagged exercises and so
+ * still earn no chip.
  */
 export interface MuscleGroup {
   key: string;
@@ -75,13 +77,14 @@ export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
   {
     key: 'back',
     label: 'Back',
-    muscles: ['Back Width', 'Back Thickness', 'Traps', 'Rear Delts'],
+    muscles: ['Back Width', 'Back Thickness', 'Traps', 'Rear Delts', 'Erectors'],
     subgroups: [
-      { key: 'back-all', label: 'All Back', muscles: ['Back Width', 'Back Thickness', 'Traps', 'Rear Delts'] },
+      { key: 'back-all', label: 'All Back', muscles: ['Back Width', 'Back Thickness', 'Traps', 'Rear Delts', 'Erectors'] },
       { key: 'back-lats', label: 'Lats', muscles: ['Back Width'] },
       { key: 'back-upper', label: 'Upper Back', muscles: ['Back Thickness'] },
       { key: 'back-traps', label: 'Traps', muscles: ['Traps'] },
       { key: 'back-rear', label: 'Rear Delts', muscles: ['Rear Delts'] },
+      { key: 'back-erectors', label: 'Erectors', muscles: ['Erectors'] },
     ],
   },
   {
@@ -109,14 +112,15 @@ export const MUSCLE_GROUPS: readonly MuscleGroup[] = [
   {
     key: 'legs',
     label: 'Legs',
-    muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors'],
+    muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors'],
     subgroups: [
-      { key: 'legs-all', label: 'All Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors'] },
+      { key: 'legs-all', label: 'All Legs', muscles: ['Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors'] },
       { key: 'legs-quads', label: 'Quads', muscles: ['Quads'] },
       { key: 'legs-ham', label: 'Hamstrings', muscles: ['Hamstrings'] },
       { key: 'legs-glutes', label: 'Glutes', muscles: ['Glutes'] },
       { key: 'legs-calves', label: 'Calves', muscles: ['Calves'] },
       { key: 'legs-add', label: 'Adductors', muscles: ['Adductors'] },
+      { key: 'legs-abd', label: 'Abductors', muscles: ['Abductors'] },
     ],
   },
   {
