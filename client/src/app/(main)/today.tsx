@@ -1,6 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useBodyweightLog, useProfile, useWorkoutLog } from '@/data/hooks';
 import { useUserExercises } from '@/data/exercises';
@@ -68,7 +68,6 @@ export default function TodayScreen() {
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
   const { sources, resolveDay } = useDayPlan();
-  const { width } = useWindowDimensions();
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
@@ -182,9 +181,6 @@ export default function TodayScreen() {
   const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
   const heroKcal = estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg);
   const heroDone = heroWorkout ? setsFor(todayIso, heroWorkout).done : 0;
-  // Compact screens (320px class): the muscle map stacks beneath the stats
-  // instead of squeezing the text column.
-  const stackMap = width < 360;
 
   /** The ONE entry path into a workout — and the SOURCE goes with it. Without
    *  that, the workout page had to guess whose plan you meant, and guessed the
@@ -309,8 +305,11 @@ export default function TodayScreen() {
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
                 {heroKicker}
               </Text>
-              <View className={stackMap ? '' : 'flex-row'} style={{ gap: 14 }}>
-                <View className="items-start" style={stackMap ? {} : { flex: 2, minWidth: 0 }}>
+              {/* The figure rides the RIGHT 40% of the card at full column
+                  width, vertically centred against the title/chips/stats
+                  block (Tyson, 2026-07-15). */}
+              <View className="flex-row items-center" style={{ gap: 12 }}>
+                <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
                   <Text className="text-2xl font-bold text-text" numberOfLines={2}>
                     {heroName.title.toUpperCase()}
                   </Text>
@@ -353,14 +352,13 @@ export default function TodayScreen() {
                     ))}
                   </View>
                 </View>
-                <View className="items-center justify-center" style={stackMap ? { marginTop: 10 } : { flex: 1 }}>
+                <View className="items-center justify-center" style={{ width: '40%' }}>
                   {/* Zoom follows the work: all-upper day → torso close-up,
-                      all-lower → legs, mixed → the whole figure. */}
-                  {/* Non-stacked: no fixed width — the figure fills its third. */}
+                      all-lower → legs, mixed → the whole figure. The map
+                      fills its whole column. */}
                   <MuscleMap
                     selectedMuscles={heroMuscles}
                     view={mapView}
-                    width={stackMap ? 132 : undefined}
                     pulse
                     focus={focusFor(heroMuscles)}
                   />
