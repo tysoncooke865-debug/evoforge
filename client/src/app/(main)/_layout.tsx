@@ -12,6 +12,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/level-up-overlay';
+import { PixelDumbbell } from '@/ui/pixel-icons';
 import { TutorialOverlay } from '@/ui/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/scroll-registry';
 import tokens from '@/theme/tokens';
@@ -134,7 +135,12 @@ export default function MainLayout() {
       {/* TRANSFORM P1: five majors. Everything else lives in the profile
           menu (tap your companion, top-right of any screen). */}
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: makeIcon('⌂') }} />
-      <Tabs.Screen name="today" options={{ title: 'Train', tabBarIcon: makeIcon('◎') }} />
+      {/* TRAIN_OVERHAUL: Train wears the pixel dumbbell; the injected tint
+          keeps active/inactive colouring working exactly like the glyphs. */}
+      <Tabs.Screen
+        name="today"
+        options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
+      />
       <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />

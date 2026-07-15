@@ -24,6 +24,7 @@ export function NeonButton({
   busy = false,
   icon,
   testID,
+  size = 'base',
 }: {
   title: string;
   onPress: () => void;
@@ -32,7 +33,11 @@ export function NeonButton({
   busy?: boolean;
   icon?: ReactNode;
   testID?: string;
+  /** TRAIN_OVERHAUL `hero`: the page's ONE dominant action — taller, bigger
+   *  label, stronger glow. Everything else keeps `base`. */
+  size?: 'base' | 'hero';
 }) {
+  const hero = size === 'hero';
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -60,7 +65,7 @@ export function NeonButton({
           borderWidth: 1,
           borderColor: disabled ? tokens.colors.border : `${tokens.colors.accent}8c`,
           borderRadius: 12,
-          paddingVertical: 14,
+          paddingVertical: hero ? 20 : 14,
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'center',
@@ -69,7 +74,14 @@ export function NeonButton({
         }}
       >
         {icon}
-        <Text style={{ fontWeight: '800', letterSpacing: 1, color: disabled ? tokens.colors['text-mute'] : palette.text }}>
+        <Text
+          style={{
+            fontWeight: '800',
+            letterSpacing: 1,
+            fontSize: hero ? 18 : undefined,
+            color: disabled ? tokens.colors['text-mute'] : palette.text,
+          }}
+        >
           {title}
         </Text>
       </View>
@@ -86,7 +98,7 @@ export function NeonButton({
         end={{ x: 1, y: 1 }}
         style={{
           borderRadius: 12,
-          paddingVertical: 14,
+          paddingVertical: hero ? 20 : 14,
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'center',
@@ -95,7 +107,14 @@ export function NeonButton({
       >
         {busy ? <ActivityIndicator color={palette.text} /> : icon}
         {!busy ? (
-          <Text style={{ fontWeight: '800', letterSpacing: 1, color: disabled ? tokens.colors['text-mute'] : palette.text }}>
+          <Text
+            style={{
+              fontWeight: '800',
+              letterSpacing: 1,
+              fontSize: hero ? 18 : undefined,
+              color: disabled ? tokens.colors['text-mute'] : palette.text,
+            }}
+          >
             {title}
           </Text>
         ) : null}
@@ -105,7 +124,12 @@ export function NeonButton({
   return (
     <Animated.View
       style={[
-        { shadowColor: palette.shadow, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+        {
+          shadowColor: palette.shadow,
+          shadowRadius: hero ? 26 : 16,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: hero ? 10 : 8,
+        },
         animatedStyle,
       ]}
     >

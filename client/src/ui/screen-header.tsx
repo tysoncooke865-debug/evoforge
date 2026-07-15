@@ -14,6 +14,7 @@ export function ScreenHeader({
   right,
   titleLines = 1,
   autoSize = false,
+  hero = false,
   onBack,
 }: {
   kicker: string;
@@ -28,6 +29,10 @@ export function ScreenHeader({
    *  supported on react-native-web, so the step is a pure length rule —
    *  the battle catalogs are closed and a vitest pins that every title fits. */
   autoSize?: boolean;
+  /** TRAIN_OVERHAUL: the hub's masthead outgrows the type scale — an inline
+   *  size bump + stronger bloom (deliberately NOT a token: the scale caps at
+   *  3xl and verify-tokens pins the token file against styles.css). */
+  hero?: boolean;
 }) {
   const big = !autoSize || title.length <= 14;
   return (
@@ -55,9 +60,10 @@ export function ScreenHeader({
           <Text
             className={`${big ? 'text-3xl' : 'text-2xl'} font-bold text-text`}
             style={{
-              letterSpacing: 0.5,
-              textShadowColor: 'rgba(34, 211, 238, 0.5)',
-              textShadowRadius: 18,
+              letterSpacing: hero ? 1 : 0.5,
+              textShadowColor: hero ? 'rgba(34, 211, 238, 0.65)' : 'rgba(34, 211, 238, 0.5)',
+              textShadowRadius: hero ? 26 : 18,
+              ...(hero ? { fontSize: 44, lineHeight: 50 } : null),
             }}
             numberOfLines={titleLines}
           >

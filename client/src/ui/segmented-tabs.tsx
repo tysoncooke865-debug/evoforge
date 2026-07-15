@@ -1,24 +1,30 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are
    mutated inside press/layout handlers by design, same as neon-button. */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import tokens from '@/theme/tokens';
 
-/** The segmented capsule: two tabs, a sprung slider, cyan-lit active side. */
+/** The segmented capsule: two tabs, a sprung slider, cyan-lit active side.
+ *  TRAIN_OVERHAUL: optional icons before each label (Train's pixel dumbbell /
+ *  heart) — arena call sites pass none and render exactly as before. */
 export function SegmentedTabs({
   left,
   right,
   active,
   onChange,
   testIDPrefix = 'arena-tab',
+  leftIcon,
+  rightIcon,
 }: {
   left: string;
   right: string;
   active: 0 | 1;
   onChange: (index: 0 | 1) => void;
   testIDPrefix?: string;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }) {
   const [width, setWidth] = useState(0);
   const x = useSharedValue(0);
@@ -63,22 +69,26 @@ export function SegmentedTabs({
           slider,
         ]}
       />
-      {[left, right].map((label, i) => (
-        <Pressable
-          key={label}
-          onPress={() => select(i as 0 | 1)}
-          accessibilityRole="button"
-          className="min-h-[44px] flex-1 items-center justify-center rounded-pill"
-          testID={`${testIDPrefix}-${i}`}
-        >
-          <Text
-            className="text-xs font-bold"
-            style={{ letterSpacing: 1.5, color: active === i ? tokens.colors.accent : tokens.colors['text-dim'] }}
+      {[left, right].map((label, i) => {
+        const icon = i === 0 ? leftIcon : rightIcon;
+        return (
+          <Pressable
+            key={label}
+            onPress={() => select(i as 0 | 1)}
+            accessibilityRole="button"
+            className="min-h-[44px] flex-1 flex-row items-center justify-center gap-s2 rounded-pill"
+            testID={`${testIDPrefix}-${i}`}
           >
-            {label}
-          </Text>
-        </Pressable>
-      ))}
+            {icon}
+            <Text
+              className="text-xs font-bold"
+              style={{ letterSpacing: 1.5, color: active === i ? tokens.colors.accent : tokens.colors['text-dim'] }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
