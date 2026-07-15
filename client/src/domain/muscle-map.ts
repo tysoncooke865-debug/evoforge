@@ -129,6 +129,40 @@ export function normaliseMuscleGroup(label: string): MuscleId | null {
   return TABLE[label.trim().toLowerCase()] ?? null;
 }
 
+/** Which half of the body a muscle lives on — drives the map's zoom. */
+export type MuscleZone = 'upper' | 'lower';
+export type MapFocus = 'upper' | 'lower' | 'full';
+
+export const MUSCLE_ZONE: Readonly<Record<MuscleId, MuscleZone>> = {
+  chest: 'upper',
+  shoulders: 'upper',
+  biceps: 'upper',
+  triceps: 'upper',
+  forearms: 'upper',
+  abs: 'upper',
+  obliques: 'upper',
+  traps: 'upper',
+  upperBack: 'upper',
+  lats: 'upper',
+  lowerBack: 'upper',
+  glutes: 'lower',
+  quads: 'lower',
+  hamstrings: 'lower',
+  calves: 'lower',
+};
+
+/**
+ * All-upper day → zoom the torso; all-lower → zoom the legs; a mixed (or
+ * empty) day shows the whole figure. An empty day zooming anywhere would be
+ * a close-up of nothing in particular.
+ */
+export function focusFor(muscles: readonly MuscleId[]): MapFocus {
+  if (muscles.length === 0) return 'full';
+  const zones = new Set(muscles.map((m) => MUSCLE_ZONE[m]));
+  if (zones.size > 1) return 'full';
+  return zones.has('lower') ? 'lower' : 'upper';
+}
+
 /** Many labels → the deduped MuscleId set, order of first appearance. */
 export function muscleIdsFor(labels: readonly string[]): MuscleId[] {
   const out: MuscleId[] = [];

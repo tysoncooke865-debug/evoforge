@@ -12,7 +12,7 @@ import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
-import { muscleIdsFor, type MuscleView } from '@/domain/muscle-map';
+import { focusFor, muscleIdsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, defaultSource, type SourceIndex } from '@/domain/plan-sources';
 import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
@@ -340,7 +340,15 @@ export default function TodayScreen() {
                   </View>
                 </View>
                 <View className="items-center justify-center" style={stackMap ? { marginTop: 10 } : { flex: 1 }}>
-                  <MuscleMap selectedMuscles={heroMuscles} view={mapView} width={stackMap ? 104 : 96} pulse />
+                  {/* Zoom follows the work: all-upper day → torso close-up,
+                      all-lower → legs, mixed → the whole figure. */}
+                  <MuscleMap
+                    selectedMuscles={heroMuscles}
+                    view={mapView}
+                    width={stackMap ? 116 : 104}
+                    pulse
+                    focus={focusFor(heroMuscles)}
+                  />
                   {/* FRONT | BACK — quick fade, no 3D theatrics. */}
                   <View className="mt-s2 flex-row" style={{ gap: 6 }}>
                     {(['front', 'back'] as MuscleView[]).map((v) => (

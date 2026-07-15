@@ -66,11 +66,12 @@ export function MuscleOverlay({
       {paths.map((d, i) => (
         <G key={i}>
           {/* 1 · outer glow — the haze around the muscle */}
-          <Path d={d} fill={NEON.glow} fillOpacity={0.15} stroke={NEON.glow} strokeWidth={12} strokeOpacity={0.15} />
+          <Path d={d} fill={NEON.glow} fillOpacity={0.1} stroke={NEON.glow} strokeWidth={12} strokeOpacity={0.1} />
           {/* 2 · middle glow */}
-          <Path d={d} fill={NEON.core} fillOpacity={0.35} stroke={NEON.core} strokeWidth={6} strokeOpacity={0.35} />
-          {/* 3 · the lit muscle — black shading shows through the 0.82 */}
-          <Path d={d} fill={NEON.core} fillOpacity={0.82} stroke={NEON.highlight} strokeWidth={2} />
+          <Path d={d} fill={NEON.core} fillOpacity={0.2} stroke={NEON.core} strokeWidth={6} strokeOpacity={0.2} />
+          {/* 3 · the lit muscle — translucent enough that the art's own
+              muscle shading stays legible under the cyan */}
+          <Path d={d} fill={NEON.core} fillOpacity={0.45} stroke={NEON.highlight} strokeWidth={2} strokeOpacity={0.9} />
           {interactive ? (
             // The enlarged invisible hit target: same path, fat transparent
             // stroke. fillOpacity 0.01 keeps it hit-testable on web.

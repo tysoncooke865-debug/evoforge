@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Image } from 'react-native';
+import { Image, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 
 import { backMusclePaths } from './back-muscle-paths';
 import { frontMusclePaths } from './front-muscle-paths';
 import { MuscleOverlay } from './muscle-overlay';
-import { MAP_VIEW_H, MAP_VIEW_W, MUSCLE_LABEL, type MuscleId, type MuscleView } from './types';
+import { MAP_VIEW_H, MAP_VIEW_W, MUSCLE_LABEL, type MapFocus, type MuscleId, type MuscleView } from './types';
 
 /**
  * MUSCLE MAP — the black 16-bit base character with neon-cyan overlays over
@@ -31,6 +31,17 @@ export function bestViewFor(muscles: readonly MuscleId[]): MuscleView {
   return back > front ? 'back' : 'front';
 }
 
+/**
+ * The zoom windows, in image coords. An all-upper-body day fills the frame
+ * with the torso; an all-lower day with the legs; a mixed day shows the whole
+ * figure. Both halves share one height so the card never jumps between them.
+ */
+const CROP: Readonly<Record<MapFocus, { y: number; h: number }>> = {
+  full: { y: 0, h: MAP_VIEW_H },
+  upper: { y: 60, h: 920 }, // head → hands/waist
+  lower: { y: 720, h: 920 }, // glutes → feet
+};
+
 export function MuscleMap({
   selectedMuscles,
   view = 'front',
@@ -38,6 +49,7 @@ export function MuscleMap({
   onMusclePress,
   width,
   pulse = false,
+  focus = 'full',
   testID = 'muscle-map',
 }: {
   selectedMuscles: readonly MuscleId[];
@@ -47,6 +59,8 @@ export function MuscleMap({
   /** Fixed width; omit to fill the parent. Height follows the aspect ratio. */
   width?: number;
   pulse?: boolean;
+  /** Zoom window — derive from the selection with domain focusFor(). */
+  focus?: MapFocus;
   testID?: string;
 }) {
   const reducedMotion = useReducedMotion();
@@ -75,37 +89,61 @@ export function MuscleMap({
       ? 'Muscle map. No muscles selected.'
       : `Muscle map. ${lit.map((m) => MUSCLE_LABEL[m]).join(', ')} selected.`;
 
+  // The zoom is a crop window over ONE shared Image+Svg stack: the outer box
+  // clips, the inner box is the full figure scaled to the box's width and
+  // shifted so the window shows. Both layers ride the same box, so the
+  // overlay cannot drift from the art at any size or focus.
+  const crop = CROP[focus];
+  const [boxW, setBoxW] = useState(0);
+  const scale = boxW / MAP_VIEW_W;
+
   return (
     <Animated.View
-      style={[{ width: width ?? '100%', aspectRatio: MAP_VIEW_W / MAP_VIEW_H, alignSelf: 'center' }, fadeStyle]}
+      onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
+      style={[
+        { width: width ?? '100%', aspectRatio: MAP_VIEW_W / crop.h, alignSelf: 'center', overflow: 'hidden' },
+        fadeStyle,
+      ]}
       accessibilityLabel={label}
       testID={testID}
     >
-      <Image
-        source={shownView === 'front' ? FRONT_BASE : BACK_BASE}
-        resizeMode="contain"
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
-        accessibilityIgnoresInvertColors
-      />
-      <Svg
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${MAP_VIEW_W} ${MAP_VIEW_H}`}
-        pointerEvents={interactive ? 'auto' : 'none'}
-        testID={`${testID}-svg-${shownView}`}
-      >
-        {lit.map((m) => (
-          <MuscleOverlay
-            key={`${shownView}:${m}`}
-            muscle={m}
-            sides={table[m]!}
-            pulse={pulse}
-            interactive={interactive}
-            onPress={onMusclePress}
+      {boxW > 0 ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: -crop.y * scale,
+            width: boxW,
+            height: MAP_VIEW_H * scale,
+          }}
+        >
+          <Image
+            source={shownView === 'front' ? FRONT_BASE : BACK_BASE}
+            resizeMode="contain"
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+            accessibilityIgnoresInvertColors
           />
-        ))}
-      </Svg>
+          <Svg
+            style={{ position: 'absolute', top: 0, left: 0 }}
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${MAP_VIEW_W} ${MAP_VIEW_H}`}
+            pointerEvents={interactive ? 'auto' : 'none'}
+            testID={`${testID}-svg-${shownView}`}
+          >
+            {lit.map((m) => (
+              <MuscleOverlay
+                key={`${shownView}:${m}`}
+                muscle={m}
+                sides={table[m]!}
+                pulse={pulse}
+                interactive={interactive}
+                onPress={onMusclePress}
+              />
+            ))}
+          </Svg>
+        </View>
+      ) : null}
     </Animated.View>
   );
 }

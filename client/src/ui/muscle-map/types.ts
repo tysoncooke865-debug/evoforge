@@ -8,7 +8,9 @@ export {
   MAP_VIEW_W,
   MUSCLE_IDS,
   MUSCLE_LABEL,
+  MUSCLE_ZONE,
+  focusFor,
   muscleIdsFor,
   normaliseMuscleGroup,
 } from '@/domain/muscle-map';
-export type { MuscleId, MusclePathSides, MusclePathTable, MuscleView } from '@/domain/muscle-map';
+export type { MapFocus, MuscleId, MusclePathSides, MusclePathTable, MuscleView, MuscleZone } from '@/domain/muscle-map';

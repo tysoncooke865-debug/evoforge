@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MUSCLE_IDS, muscleIdsFor, normaliseMuscleGroup, type MusclePathTable } from '../muscle-map';
+import { MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, type MusclePathTable } from '../muscle-map';
 
 import { backMusclePaths } from '../../ui/muscle-map/back-muscle-paths';
 import { frontMusclePaths } from '../../ui/muscle-map/front-muscle-paths';
@@ -37,6 +37,30 @@ describe('normaliseMuscleGroup', () => {
       'chest', 'shoulders', 'triceps',
     ]);
     expect(muscleIdsFor([])).toEqual([]);
+  });
+});
+
+describe('focusFor — the zoom follows the work', () => {
+  it('every MuscleId carries a zone (positive control)', () => {
+    for (const id of MUSCLE_IDS) expect(MUSCLE_ZONE[id], id).toMatch(/^(upper|lower)$/);
+  });
+
+  it('an all-upper day zooms the torso', () => {
+    expect(focusFor(['chest', 'shoulders', 'triceps'])).toBe('upper'); // Push
+    expect(focusFor(['lats', 'upperBack', 'traps', 'biceps'])).toBe('upper'); // Pull
+  });
+
+  it('an all-lower day zooms the legs', () => {
+    expect(focusFor(['quads', 'hamstrings', 'glutes', 'calves'])).toBe('lower'); // Legs
+  });
+
+  it('a mixed day shows the whole figure', () => {
+    expect(focusFor(['chest', 'quads'])).toBe('full'); // Full Body
+    expect(focusFor(['lowerBack', 'glutes'])).toBe('full'); // deadlift day straddles
+  });
+
+  it('an empty day shows the whole figure — a close-up of nothing helps nobody', () => {
+    expect(focusFor([])).toBe('full');
   });
 });
 
