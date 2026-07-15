@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { Goal, TargetInputs } from '@/domain/nutrition';
@@ -42,6 +43,57 @@ function useUserId(): string | null {
   return session?.user?.id ?? null;
 }
 
+/**
+ * PREVIEW MODE (this branch only, pre-migration): while the nutrition tables
+ * do not exist in Supabase, writes divert to ON-DEVICE storage so the page is
+ * fully interactive with ZERO database effect — Tyson's "see it without
+ * touching prod" requirement. The gate is deliberately NARROW: only the
+ * table-does-not-exist error diverts; every other failure still surfaces, so
+ * after the migration lands a real outage can never silently hoard entries
+ * on the phone. Cleared on sign-out (the every-cache-layer rule).
+ */
+const PREVIEW_LOG_KEY = 'evoforge-fuel-preview-log-v1';
+const PREVIEW_TARGETS_KEY = 'evoforge-fuel-preview-targets-v1';
+
+const tableMissing = (e: { code?: string; message?: string } | null | undefined): boolean =>
+  !!e && /42P01|PGRST205|does not exist|schema cache/i.test(`${e.code ?? ''} ${e.message ?? ''}`);
+
+async function readLocal<T>(key: string): Promise<T[]> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeLocal<T>(key: string, rows: T[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(rows));
+  } catch {
+    // best effort — preview data is disposable by definition
+  }
+}
+
+export async function clearFuelPreview(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([PREVIEW_LOG_KEY, PREVIEW_TARGETS_KEY]);
+  } catch {
+    // ignore
+  }
+}
+
+let previewAnnounced = false;
+function announcePreview(): void {
+  if (previewAnnounced) return;
+  previewAnnounced = true;
+  useToastStore.getState().push({
+    kind: 'info',
+    title: 'PREVIEW MODE',
+    subtitle: 'Fuel data saves on this device only — nothing touches your account yet.',
+  });
+}
+
 export function useNutritionLog(date: string) {
   const userId = useUserId();
   return useQuery({
@@ -54,7 +106,12 @@ export function useNutritionLog(date: string) {
           .select('id,date,kcal,label,source,"timestamp"')
           .eq('date', date)
           .order('timestamp', { ascending: true });
-        if (error) return []; // pre-020: no table is an empty day, not an outage
+        if (error) {
+          // Pre-migration: the day lives on the device (PREVIEW MODE).
+          if (tableMissing(error))
+            return (await readLocal<NutritionEntry>(PREVIEW_LOG_KEY)).filter((e) => e.date === date);
+          return [];
+        }
         return (data ?? []) as NutritionEntry[];
       } catch {
         return [];
@@ -72,7 +129,24 @@ export function useLogCalories() {
       const { error } = await supabase
         .from('nutrition_log')
         .insert({ date: input.date, kcal: input.kcal, label: input.label, source: 'manual' });
-      if (error) throw error;
+      if (error) {
+        // PREVIEW MODE: no table yet → the entry lives on the device.
+        if (tableMissing(error)) {
+          const rows = await readLocal<NutritionEntry>(PREVIEW_LOG_KEY);
+          rows.push({
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            date: input.date,
+            kcal: input.kcal,
+            label: input.label,
+            source: 'manual',
+            timestamp: new Date().toISOString(),
+          });
+          await writeLocal(PREVIEW_LOG_KEY, rows);
+          announcePreview();
+          return;
+        }
+        throw error;
+      }
     },
     onMutate: async (input) => {
       const key = ['nutrition_log', userId, input.date];
@@ -106,6 +180,15 @@ export function useDeleteEntry() {
     mutationFn: async (entry: { id: string; date: string }) => {
       // A temp row has no server twin yet; the refetch below reconciles it.
       if (entry.id.startsWith('temp-')) return;
+      // PREVIEW MODE rows live on the device — delete them there.
+      if (entry.id.startsWith('local-')) {
+        const rows = await readLocal<NutritionEntry>(PREVIEW_LOG_KEY);
+        await writeLocal(
+          PREVIEW_LOG_KEY,
+          rows.filter((r) => r.id !== entry.id)
+        );
+        return;
+      }
       const { error } = await supabase.from('nutrition_log').delete().eq('id', entry.id);
       if (error) throw error;
     },
@@ -130,7 +213,13 @@ export function useNutritionTargets() {
           .from('nutrition_targets')
           .select('id,effective_from,daily_kcal,goal,inputs')
           .order('effective_from', { ascending: true });
-        if (error) return [];
+        if (error) {
+          if (tableMissing(error)) {
+            const rows = await readLocal<NutritionTargetRow>(PREVIEW_TARGETS_KEY);
+            return rows.sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+          }
+          return [];
+        }
         return (data ?? []) as NutritionTargetRow[];
       } catch {
         return [];
@@ -176,7 +265,24 @@ export function useSaveTarget() {
         },
         { onConflict: 'user_id,effective_from' }
       );
-      if (error) throw error;
+      if (error) {
+        // PREVIEW MODE: the target lives on the device, same upsert semantics.
+        if (tableMissing(error)) {
+          const rows = await readLocal<NutritionTargetRow>(PREVIEW_TARGETS_KEY);
+          const next = rows.filter((r) => r.effective_from !== input.effectiveFrom);
+          next.push({
+            id: `local-${Date.now()}`,
+            effective_from: input.effectiveFrom,
+            daily_kcal: input.dailyKcal,
+            goal: input.goal,
+            inputs: input.inputs,
+          });
+          await writeLocal(PREVIEW_TARGETS_KEY, next);
+          announcePreview();
+          return;
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['nutrition_targets', userId] });

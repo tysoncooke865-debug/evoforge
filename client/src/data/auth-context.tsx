@@ -50,6 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('./finish-queue').then(({ clearFinishQueue }) =>
       clearFinishQueue().catch(() => undefined)
     );
+    // FUEL preview-mode entries (pre-migration, device-local) die with the
+    // session too — same rule, same reason.
+    void import('./nutrition').then(({ clearFuelPreview }) =>
+      clearFuelPreview().catch(() => undefined)
+    );
     // TRANSFORM P1: the PERSISTED query cache must die with the session —
     // same invariant as the in-memory clear (never hand the last athlete's
     // character to the next visitor on a shared device).

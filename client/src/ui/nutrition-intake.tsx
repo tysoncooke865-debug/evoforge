@@ -85,9 +85,18 @@ async function askServer(
     });
     if (error) {
       const ctx = (error as { context?: Response }).context;
-      if (ctx) {
-        const payload = await ctx.json().catch(() => null);
+      // The mainline invoke() fix, mirrored: a FunctionsFetchError's context
+      // is a plain TypeError, NOT a Response — an undeployed function must
+      // show the honest message, not "e.json is not a function".
+      if (ctx && typeof (ctx as Response).json === 'function') {
+        const payload = await (ctx as Response).json().catch(() => null);
         return { result: null, error: payload?.error ?? error.message };
+      }
+      if (
+        (error as { name?: string }).name === 'FunctionsFetchError' ||
+        /Failed to fetch|Load failed/i.test(String(error.message))
+      ) {
+        return { result: null, error: 'The intake assistant is not deployed yet — set the target manually.' };
       }
       return { result: null, error: error.message };
     }
