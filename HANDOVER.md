@@ -46,6 +46,10 @@ Owner: Tyson. He works through other Claude sessions too — **always
 - Parallel `nutrition` branch (FUEL tab, unmerged): its `020_nutrition.sql` must
   be **renumbered to 022** at merge — mainline claimed 020 and 021.
 
+**QUEUED NEXT: `TRAIN_OVERHAUL.md`** — the Train-hub UI overhaul (hero card,
+pixel icons, muscle map, PARTIAL status). Planned + owner-approved, NOT started.
+It is self-contained; execute it as written.
+
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
 `019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.
