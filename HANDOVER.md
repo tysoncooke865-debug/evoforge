@@ -74,11 +74,10 @@ Owner: Tyson. He works through other Claude sessions too — **always
   pixel-identical to the file's own mergedimage.png). Exact masks +
   pre-tinted `-lit` variants (white fill → #18D9FF, black linework kept —
   RN tintColor would recolour the lines) in `client/assets/muscle-masks/`.
-  Front regions without artwork yet (obliques/quads/calves) + the whole back
-  view keep the SVG paths until their .kra lands (then: add its layer map to
-  the tool and run with `back`). Dev workbench: `/muscle-lab` (renders
-  nothing in production; enable locally via __DEV__ or
-  EXPO_PUBLIC_MUSCLE_LAB=1 at export).
+  The whole back view keeps the SVG paths until its .kra lands (then: add
+  its layer map to the tool and run with `back`). Dev workbench:
+  `/muscle-lab` (renders nothing in production; enable locally via __DEV__
+  or EXPO_PUBLIC_MUSCLE_LAB=1 at export).
 
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
