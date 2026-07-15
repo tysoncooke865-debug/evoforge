@@ -19,7 +19,7 @@ import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
-import { buildWeekBars, extraBarsForToday, scheduledDayFor } from '@/domain/week-status';
+import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
@@ -119,8 +119,20 @@ export default function TodayScreen() {
     return { done, target, trained: dayRows.length > 0 };
   };
 
-  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso);
-  const scheduledToday = scheduledDayFor(todayIso, schedule.data ?? []);
+  /** The workout NAME a date carries, in the CHOSEN source: switching
+   *  MY PLAN / AI PLAN / BUILT-IN renames today and the upcoming week onto
+   *  that plan's days (past days are history and keep theirs). */
+  const dayInSource = (date: string): string | null =>
+    sourceDayFor(
+      date,
+      schedule.data ?? [],
+      planDays,
+      (day) => resolveDay(day, source).from === source,
+      todayIso
+    );
+
+  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
+  const scheduledToday = dayInSource(todayIso);
   // Ad-hoc and off-schedule workouts get their own bar — otherwise finishing one
   // leaves it with no home on Train: green nowhere, reachable nowhere.
   const extraBars = extraBarsForToday(
@@ -143,7 +155,7 @@ export default function TodayScreen() {
   }
   if (!heroWorkout) {
     for (let i = 1; i <= 7 && !heroWorkout; i++) {
-      const next = scheduledDayFor(addDaysIso(todayIso, i), schedule.data ?? []);
+      const next = dayInSource(addDaysIso(todayIso, i));
       if (next) {
         heroWorkout = next;
         heroKicker = 'REST DAY · NEXT UP';

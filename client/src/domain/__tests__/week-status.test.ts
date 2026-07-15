@@ -5,6 +5,7 @@ import {
   buildWeekBars,
   extraBarsForToday,
   scheduledDayFor,
+  sourceDayFor,
   todayBar,
   type SessionMarker,
 } from '../week-status';
@@ -180,6 +181,46 @@ describe('buildWeekBars', () => {
     const bars = buildWeekBars([WEEK, reschedule], [], noSets, TODAY)!;
     expect(bars.find((b) => b.date === MONDAY)!.workout).toBe('Push');
     expect(todayBar(bars, TODAY)!.workout).toBe('Arms');
+  });
+});
+
+describe('sourceDayFor — switching plan source renames today and the FUTURE, never the past', () => {
+  // WEEK schedules Push/Pull/Legs/Upper/Lower Mon-Fri. The chosen source is a
+  // 3-day plan with its own names, none of which the schedule uses.
+  const DAYS = ['Alpha', 'Beta', 'Gamma'];
+  const hasNone = () => false;
+  const hasAll = () => true;
+
+  it('a rest day stays a rest day — slots are the schedule, names follow the source', () => {
+    expect(sourceDayFor('2026-07-19', [WEEK], DAYS, hasNone, TODAY)).toBeNull(); // Sunday
+  });
+
+  it('HISTORY IS HISTORY: a past date keeps its scheduled name', () => {
+    expect(sourceDayFor(MONDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Push');
+    expect(sourceDayFor(TUESDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Pull');
+  });
+
+  it('a name the source OWNS stays put', () => {
+    expect(sourceDayFor(TODAY, [WEEK], DAYS, hasAll, TODAY)).toBe('Legs');
+  });
+
+  it('today and upcoming remap positionally onto the source days', () => {
+    // Mon Tue Wed Thu Fri are training slots 0..4 → Alpha Beta Gamma Alpha Beta
+    expect(sourceDayFor(TODAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Gamma'); // Wed = slot 2
+    expect(sourceDayFor(THURSDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Alpha'); // slot 3 cycles
+    expect(sourceDayFor('2026-07-17', [WEEK], DAYS, hasNone, TODAY)).toBe('Beta'); // Fri = slot 4
+  });
+
+  it('an empty source (nothing saved yet) changes nothing', () => {
+    expect(sourceDayFor(TODAY, [WEEK], [], hasNone, TODAY)).toBe('Legs');
+  });
+
+  it('threads through buildWeekBars as the dayFor override', () => {
+    const dayFor = (date: string) => sourceDayFor(date, [WEEK], DAYS, hasNone, TODAY);
+    const bars = buildWeekBars([WEEK], [], noSets, TODAY, dayFor)!;
+    expect(todayBar(bars, TODAY)!.workout).toBe('Gamma'); // remapped
+    expect(bars.find((b) => b.date === MONDAY)!.workout).toBe('Push'); // history
+    expect(bars.find((b) => b.date === THURSDAY)!.workout).toBe('Alpha'); // upcoming
   });
 });
 

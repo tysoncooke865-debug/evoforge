@@ -87,17 +87,61 @@ export function scheduledDayFor(date: string, rows: readonly ScheduleRow[]): str
 }
 
 /**
+ * The scheduled day for `date`, renamed into the CHOSEN plan source
+ * (Tyson, 2026-07-15: "changing the workout type only changed completed/
+ * partial rows — current and upcoming didn't"). Three rules:
+ *
+ *   HISTORY IS HISTORY: a past date keeps the name that was actually
+ *   scheduled — a source switch must not rewrite what happened.
+ *
+ *   A NAME THE SOURCE OWNS STAYS: if the chosen plan has this day, it is
+ *   already the right answer.
+ *
+ *   OTHERWISE REMAP POSITIONALLY: the week's nth training slot takes the
+ *   source's nth day (cycling when the source has fewer days) — switching
+ *   to a 3-day plan on a 6-slot week repeats it, never blanks it.
+ *
+ * Rest days stay rest days: the SLOTS are the athlete's schedule; only the
+ * NAMES follow the source.
+ */
+export function sourceDayFor(
+  date: string,
+  scheduleRows: readonly ScheduleRow[],
+  sourceDays: readonly string[],
+  sourceHas: (day: string) => boolean,
+  todayIso: string
+): string | null {
+  const scheduled = scheduledDayFor(date, scheduleRows);
+  if (!scheduled) return null;
+  if (date < todayIso) return scheduled; // history is history
+  if (sourceDays.length === 0 || sourceHas(scheduled)) return scheduled;
+  // The nth training slot of this date's Monday-start week.
+  const monday = addDays(date, -((dowOf(date) + 6) % 7));
+  let n = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(monday, i);
+    if (d === date) break;
+    if (scheduledDayFor(d, scheduleRows)) n++;
+  }
+  return sourceDays[n % sourceDays.length];
+}
+
+/**
  * The Monday-start week containing todayIso, as seven bars.
  *
  * Returns NULL when no schedule is in force — the caller falls back to the day
  * chips. A week of bars with nothing scheduled in them would be seven rest days
  * and a lie about what the athlete is meant to be doing.
+ *
+ * `dayFor` overrides which workout NAME a date carries (the source remap);
+ * omitted, the stored schedule speaks.
  */
 export function buildWeekBars(
   scheduleRows: readonly ScheduleRow[],
   sessions: readonly SessionMarker[],
   progressFor: (date: string, workout: string) => DayProgress,
-  todayIso: string
+  todayIso: string,
+  dayFor?: (date: string) => string | null
 ): WeekBar[] | null {
   if (scheduleRows.length === 0) return null;
 
@@ -108,7 +152,7 @@ export function buildWeekBars(
   const bars: WeekBar[] = [];
   for (let i = 0; i < 7; i++) {
     const date = addDays(monday, i);
-    const workout = scheduledDayFor(date, scheduleRows);
+    const workout = dayFor ? dayFor(date) : scheduledDayFor(date, scheduleRows);
 
     if (workout === null) {
       bars.push({ date, dow: dowOf(date), workout: null, status: 'rest', sessionId: null, locked: false, done: 0, target: 0 });
