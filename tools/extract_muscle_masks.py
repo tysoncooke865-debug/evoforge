@@ -20,9 +20,14 @@ Outputs, per completed muscle layer:
     that preserves it, with zero runtime dependencies.
 
 Usage:
-  python tools/extract_muscle_masks.py "<path to .kra>" front
+  python tools/extract_muscle_masks.py "<path to .kra>" <front|back> [--base-proof <layer-name> <reference.png>]
 
-When the back-view .kra lands, add its layer map below and run with `back`.
+Proof ladder (the tool refuses to export unproven):
+  1. mergedimage.png present -> full recomposite must be pixel-identical.
+  2. else, previously-proven exports on disk -> those layers must decode
+     pixel-identically from this file.
+  3. else, --base-proof -> the named layer (the imported base art) must
+     decode pixel-identical to the reference PNG it came from.
 """
 import io
 import sys
@@ -55,6 +60,11 @@ LAYER_MAP = {
         "abductors": ["front-abductors"],
         "adductors": ["front-adductors"],
         "calves": ["front-calves"],
+    },
+    "back": {
+        "shoulders": ["back-reardelts", "back-shoulders", "rear-delts"],
+        "triceps": ["rear-triceps", "back-triceps"],
+        "traps": ["rear-traps", "back-traps"],
     },
 }
 
@@ -152,12 +162,14 @@ def main() -> None:
 
     nodes = {}  # normalised layer name -> (filename, raw name)
     stack = []  # bottom-to-top filenames, for the merged-image proof
+    opacities = {}  # filename -> layer opacity 0..255 (Tyson dims the base while tracing)
     for lay in image.iter("{http://www.calligra.org/DTD/krita}layer"):
         if lay.get("nodetype") != "paintlayer":
             continue
         norm = lay.get("name").strip().lower().replace("_", "-").replace(" ", "-")
         nodes[norm] = (lay.get("filename"), lay.get("name"))
         stack.insert(0, lay.get("filename"))  # maindoc lists top-first
+        opacities[lay.get("filename")] = int(lay.get("opacity", "255"))
 
     decoded = {fn: decode_layer(z.read(f"Unnamed/layers/{fn}"), w, h) for fn, _ in nodes.values()}
     dest = REPO / "client" / "assets" / "muscle-masks" / view
@@ -172,7 +184,11 @@ def main() -> None:
         merged = np.array(Image.open(io.BytesIO(z.read("mergedimage.png"))).convert("RGBA"))
         acc = np.zeros((h, w, 4), dtype=np.uint8)
         for fn in stack:
-            acc = alpha_over(acc, decoded[fn])
+            src = decoded[fn]
+            if opacities.get(fn, 255) != 255:  # layer opacity scales its alpha
+                src = src.copy()
+                src[..., 3] = (src[..., 3].astype(np.uint16) * opacities[fn] // 255).astype(np.uint8)
+            acc = alpha_over(acc, src)
         diff = np.abs(acc.astype(np.int16) - merged.astype(np.int16))
         visible = np.maximum(acc[..., 3], merged[..., 3]) > 0
         max_diff = int(diff[..., 3].max()), int(diff[..., :3].max(axis=2)[visible].max())
@@ -190,9 +206,22 @@ def main() -> None:
             if not np.array_equal(prior, decoded[nodes[norm][0]]):
                 raise SystemExit(f"'{muscle}' decodes DIFFERENTLY from the proven export — refusing")
             proven += 1
-        if proven < 3:
-            raise SystemExit(f"no mergedimage.png and only {proven} previously-proven layers to check — refusing")
-        print(f"decode proven by equivalence: {proven} previously-proven layers pixel-identical")
+        if proven >= 3:
+            print(f"decode proven by equivalence: {proven} previously-proven layers pixel-identical")
+        elif "--base-proof" in sys.argv:
+            i = sys.argv.index("--base-proof")
+            base_layer, ref_path = sys.argv[i + 1], sys.argv[i + 2]
+            norm = base_layer.strip().lower().replace("_", "-").replace(" ", "-")
+            if norm not in nodes:
+                raise SystemExit(f"base-proof layer '{base_layer}' not found; available: {sorted(nodes)}")
+            ref = np.array(Image.open(ref_path).convert("RGBA"))
+            if not np.array_equal(ref, decoded[nodes[norm][0]]):
+                raise SystemExit(f"'{base_layer}' does NOT decode identical to {ref_path} — refusing")
+            print(f"decode proven: layer '{base_layer}' pixel-identical to its source PNG")
+        else:
+            raise SystemExit(
+                f"no mergedimage.png, only {proven} previously-proven layers, no --base-proof — refusing"
+            )
     (dest / "lit").mkdir(parents=True, exist_ok=True)
     for muscle, candidates in layer_map.items():
         norm = next((c for c in candidates if c in nodes), None)

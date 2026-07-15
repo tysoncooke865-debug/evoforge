@@ -3,6 +3,7 @@ import { Image, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 
+import { backMaskFor } from './back-masks';
 import { backMusclePaths } from './back-muscle-paths';
 import { frontMaskFor } from './front-masks';
 import { frontMusclePaths } from './front-muscle-paths';
@@ -90,7 +91,8 @@ export function MuscleMap({
 
   const table = shownView === 'front' ? frontMusclePaths : backMusclePaths;
   // Dedupe, then keep only what this view can draw (a path or a Krita mask).
-  const maskSourceFor = (m: MuscleId) => (useMasks && shownView === 'front' ? frontMaskFor(m) : null);
+  const maskSourceFor = (m: MuscleId) =>
+    useMasks ? (shownView === 'front' ? frontMaskFor(m) : backMaskFor(m)) : null;
   const lit = [...new Set(selectedMuscles)].filter((m) => table[m] || maskSourceFor(m));
   // Tyson's hand-drawn Krita masks are the source of truth where they exist;
   // regions without artwork yet keep the generated SVG paths.

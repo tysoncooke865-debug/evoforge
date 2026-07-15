@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { focusFor, type MuscleId } from '@/domain/muscle-map';
+import { focusFor, type MuscleId, type MuscleView } from '@/domain/muscle-map';
 import tokens from '@/theme/tokens';
-import { FRONT_MUSCLE_MASKS, type FrontMuscleId } from '@/ui/muscle-map/front-masks';
+import { BACK_MUSCLE_MASKS } from '@/ui/muscle-map/back-masks';
+import { FRONT_MUSCLE_MASKS } from '@/ui/muscle-map/front-masks';
 import { MuscleMap } from '@/ui/muscle-map/muscle-map';
 import { ScreenHeader } from '@/ui/screen-header';
 import { ScreenShell } from '@/ui/shell';
@@ -17,19 +18,24 @@ import { ScreenShell } from '@/ui/shell';
  * EXPO_PUBLIC_MUSCLE_LAB=1 was set at export time. The production deploy
  * (CI) sets no such variable, so the route exists but shows nothing.
  */
-const FRONT_IDS = Object.keys(FRONT_MUSCLE_MASKS) as FrontMuscleId[];
+const VIEW_IDS: Record<MuscleView, MuscleId[]> = {
+  front: Object.keys(FRONT_MUSCLE_MASKS) as MuscleId[],
+  back: Object.keys(BACK_MUSCLE_MASKS) as MuscleId[],
+};
 const OPACITIES = [0.4, 0.6, 0.8, 1.0] as const;
 const ENABLED = __DEV__ || process.env.EXPO_PUBLIC_MUSCLE_LAB === '1';
 
 export default function MuscleLabScreen() {
-  const [active, setActive] = useState<FrontMuscleId[]>(['chest', 'shoulders', 'triceps']);
+  const [view, setView] = useState<MuscleView>('front');
+  const [active, setActive] = useState<MuscleId[]>(['chest', 'shoulders', 'triceps']);
   const [opacity, setOpacity] = useState<number>(0.8);
   const [enlarged, setEnlarged] = useState(false);
   const [useMasks, setUseMasks] = useState(true);
 
   if (!ENABLED) return null;
 
-  const toggle = (m: FrontMuscleId) =>
+  const ids = VIEW_IDS[view];
+  const toggle = (m: MuscleId) =>
     setActive((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
 
   const chip = (label: string, on: boolean, onPress: () => void, testID: string) => (
@@ -57,9 +63,15 @@ export default function MuscleLabScreen() {
     <ScreenShell>
       <ScreenHeader kicker="DEV ONLY" title="MUSCLE LAB" />
       <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }}>
+        <View className="flex-row gap-s2">
+          {(['front', 'back'] as MuscleView[]).map((v) =>
+            chip(v.toUpperCase(), view === v, () => setView(v), `lab-view-${v}`)
+          )}
+        </View>
+
         <View className="flex-row flex-wrap gap-s2">
-          {FRONT_IDS.map((m) => chip(m.toUpperCase(), active.includes(m), () => toggle(m), `lab-${m}`))}
-          {chip('ALL', active.length === FRONT_IDS.length, () => setActive([...FRONT_IDS]), 'lab-all')}
+          {ids.map((m) => chip(m.toUpperCase(), active.includes(m), () => toggle(m), `lab-${m}`))}
+          {chip('ALL', active.length === ids.length, () => setActive([...ids]), 'lab-all')}
           {chip('NONE', active.length === 0, () => setActive([]), 'lab-none')}
         </View>
 
@@ -75,11 +87,11 @@ export default function MuscleLabScreen() {
         {/* The map at the ACTUAL Train-card size (120) or enlarged (320). */}
         <View className="items-center rounded-xl border p-s3" style={{ borderColor: tokens.colors.border }}>
           <MuscleMap
-            selectedMuscles={active as readonly MuscleId[]}
-            view="front"
+            selectedMuscles={active}
+            view={view}
             width={enlarged ? 320 : 120}
             pulse
-            focus={focusFor(active as readonly MuscleId[])}
+            focus={focusFor(active)}
             maskOpacity={opacity}
             useMasks={useMasks}
             testID="lab-map"

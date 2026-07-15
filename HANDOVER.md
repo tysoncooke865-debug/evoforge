@@ -74,8 +74,11 @@ Owner: Tyson. He works through other Claude sessions too — **always
   pixel-identical to the file's own mergedimage.png). Exact masks +
   pre-tinted `-lit` variants (white fill → #18D9FF, black linework kept —
   RN tintColor would recolour the lines) in `client/assets/muscle-masks/`.
-  The whole back view keeps the SVG paths until its .kra lands (then: add
-  its layer map to the tool and run with `back`). Dev workbench:
+  BACK view: rear delts + rear triceps + rear traps are Krita masks too
+  (`silhouette - back.kra`); the remaining back regions keep SVG paths until
+  drawn. The tool's proof ladder: mergedimage recomposite (opacity-aware —
+  Tyson dims the base while tracing) → prior-export equivalence →
+  --base-proof vs the source PNG. Dev workbench:
   `/muscle-lab` (renders nothing in production; enable locally via __DEV__
   or EXPO_PUBLIC_MUSCLE_LAB=1 at export).
 

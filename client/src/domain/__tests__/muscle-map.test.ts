@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { FRONT_MASKED_IDS, MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, pillLabelsFor, type MuscleId, type MusclePathTable } from '../muscle-map';
+import { BACK_MASKED_IDS, FRONT_MASKED_IDS, MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, pillLabelsFor, type MuscleId, type MusclePathTable } from '../muscle-map';
 
 import { backMusclePaths } from '../../ui/muscle-map/back-muscle-paths';
 import { frontMusclePaths } from '../../ui/muscle-map/front-muscle-paths';
@@ -102,8 +102,9 @@ describe('muscle path tables — the SVG data the overlays draw', () => {
     }
   });
 
-  it('the masked-id list stays inside MuscleId (the asset table types against it)', () => {
+  it('the masked-id lists stay inside MuscleId (the asset tables type against them)', () => {
     for (const id of FRONT_MASKED_IDS) expect(MUSCLE_IDS).toContain(id);
+    for (const id of BACK_MASKED_IDS) expect(MUSCLE_IDS).toContain(id);
   });
 
   it.each(views)('%s view carries its spec-required regions', (_name, table, required) => {
