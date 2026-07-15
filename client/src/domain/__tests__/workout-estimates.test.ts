@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PlanEntry } from '../session-plan';
-import { estimateKcal, estimateMinutes, musclePillsFor, splitWorkoutName } from '../workout-estimates';
+import { estimateKcal, estimateMinutes, splitWorkoutName } from '../workout-estimates';
 
 describe('estimateMinutes — sets × (45s work + 120s rest), to the nearest 5', () => {
   it('20 sets ≈ 55 min (the spec anchor: 20 × 165s = 3300s exactly)', () => {
@@ -65,35 +64,5 @@ describe('splitWorkoutName — the FIRST " - " splits title from sub', () => {
   });
 });
 
-describe('musclePillsFor — section labels via the muscle ladder, ordered, deduped', () => {
-  const entry = (exercise: string): PlanEntry => [exercise, 3, '8-12'];
-
-  it('a push day collapses to its sections in first-appearance order', () => {
-    const pills = musclePillsFor([
-      entry('Barbell Bench Press'), // Chest
-      entry('Overhead Barbell Press'), // Front Delts → Shoulders
-      entry('Incline Dumbbell Bench Press'), // Upper Chest → Chest (dedupe)
-      entry('Cable Triceps Pushdown'), // Triceps → Arms
-    ]);
-    expect(pills).toEqual(['Chest', 'Shoulders', 'Arms']);
-  });
-
-  it('a leg day is one pill, however many lifts', () => {
-    expect(
-      musclePillsFor([entry('Barbell Back Squat'), entry('Romanian Deadlift'), entry('Seated Calf Raise')])
-    ).toEqual(['Legs']);
-  });
-
-  it("the ATHLETE'S own tag outranks the library and the heuristic", () => {
-    const pills = musclePillsFor([entry('Jefferson Curl')], [{ name: 'Jefferson Curl', muscle: 'Hamstrings' }]);
-    expect(pills).toEqual(['Legs']); // their word — not the Biceps the name-heuristic would guess
-  });
-
-  it('an unclaimable name earns NO pill — honest beats wrong', () => {
-    expect(musclePillsFor([entry('Mystery Machine Move')])).toEqual([]);
-  });
-
-  it('empty entries → no pills (and no crash)', () => {
-    expect(musclePillsFor([])).toEqual([]);
-  });
-});
+// musclePillsFor moved to domain/muscle-map.ts as pillLabelsFor — pills and
+// the body map share one fine-grained vocabulary; tests live there.

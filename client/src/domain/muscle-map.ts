@@ -172,3 +172,16 @@ export function muscleIdsFor(labels: readonly string[]): MuscleId[] {
   }
   return out;
 }
+
+/**
+ * The hero card's chips, title-cased from the map's own vocabulary — a Push
+ * day reads Chest · Shoulders · Triceps, never a vague "Arms".
+ */
+export function pillLabelsFor(muscles: readonly MuscleId[]): string[] {
+  return muscles.map((m) =>
+    MUSCLE_LABEL[m]
+      .split(' ')
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(' ')
+  );
+}

@@ -6,11 +6,6 @@
  * touches the network or the clock.
  */
 
-import { LIBRARY_SECTIONS, libraryMuscleFor } from './exercise-library';
-import { userMuscleFor, type UserExercise } from './exercise-search';
-import type { PlanEntry } from './session-plan';
-import { inferMuscleGroup } from './workouts';
-
 /** Seconds a set costs: ~45s of work + the default rest between sets.
  *  The rest half mirrors ui/rest-timer.tsx::DEFAULT_REST_SECONDS (120) — a UI
  *  module the pure domain must not import; change one, change the other. */
@@ -54,28 +49,6 @@ export function splitWorkoutName(name: string): { title: string; sub: string | n
   return { title, sub };
 }
 
-/**
- * The hero card's muscle pills: the day's exercises collapsed into the six
- * gym-familiar section labels (Chest/Back/Shoulders/Arms/Legs/Abs), ordered by
- * first appearance, deduped.
- *
- * The muscle ladder is the app's one precedence rule (see useSaveSet): what
- * the ATHLETE said an exercise trains > what the LIBRARY says > what the name
- * heuristic can infer. A tag no section claims ('Other') earns no pill —
- * a wrong pill pollutes the briefing; a missing one is honest.
- */
-export function musclePillsFor(
-  entries: readonly PlanEntry[],
-  userExercises: readonly UserExercise[] = []
-): string[] {
-  const pills: string[] = [];
-  for (const [exercise] of entries) {
-    const muscle =
-      userMuscleFor(exercise, userExercises) ??
-      libraryMuscleFor(exercise) ??
-      inferMuscleGroup(exercise);
-    const section = LIBRARY_SECTIONS.find((s) => s.muscles.includes(muscle));
-    if (section && !pills.includes(section.label)) pills.push(section.label);
-  }
-  return pills;
-}
+// The muscle pills moved to domain/muscle-map.ts (pillLabelsFor): the chips
+// and the body map now share one fine-grained vocabulary — a Push day reads
+// Chest · Shoulders · Triceps, never a vague "Arms".

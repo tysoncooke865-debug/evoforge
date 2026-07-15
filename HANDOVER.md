@@ -53,14 +53,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
   THIS WEEK status circles + PARTIAL (marker && done<target; derivation never
   invents it; still locked). Toured against production incl. seeded
   RESUME/PARTIAL; seeds deleted.
-- **Neon MuscleMap (Tyson's spec, same day)** replaced the first-pass pixel
-  body: two permanent black 16-bit base characters
-  (`client/assets/muscle-map/`) under 3-layer cyan SVG overlays
-  (`ui/muscle-map/`, stepped 8px staircase paths in the images' 887×1774
-  grid), FRONT|BACK toggle w/ smart default, pulse gated on reduced motion,
-  `domain/muscle-map.ts` = the pure 15-MuscleId contract + label normaliser.
-  Regenerate paths: scratchpad `gen_muscle_paths.py` (coarse polygons →
-  stepped paths + composited previews).
+- **Neon MuscleMap (Tyson's spec, same day; refined ×2 on his feedback)**
+  replaced the first-pass pixel body: two permanent black 16-bit base
+  characters (`client/assets/muscle-map/`) under translucent 3-layer cyan
+  SVG overlays (`ui/muscle-map/`, stepped 6px staircase paths in the images'
+  887×1774 grid), FRONT|BACK toggle w/ smart default, zone zoom (all-upper →
+  torso, all-lower → legs, mixed → full; `focusFor`), pulse gated on reduced
+  motion, `domain/muscle-map.ts` = the pure 15-MuscleId contract + label
+  normaliser + `pillLabelsFor` (the hero chips speak the same fine
+  vocabulary — Triceps, never "Arms"). Regenerate paths: scratchpad
+  `gen_muscle_paths.py` — pec plates are cv2-contour-EXTRACTED from the art
+  itself (bright regions only; the shadowed delt/arm regions fragment under
+  thresholding and stay hand-authored over gridded 2× crops).
 
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·

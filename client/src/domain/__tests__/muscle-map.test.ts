@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, type MusclePathTable } from '../muscle-map';
+import { MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, pillLabelsFor, type MusclePathTable } from '../muscle-map';
 
 import { backMusclePaths } from '../../ui/muscle-map/back-muscle-paths';
 import { frontMusclePaths } from '../../ui/muscle-map/front-muscle-paths';
@@ -37,6 +37,20 @@ describe('normaliseMuscleGroup', () => {
       'chest', 'shoulders', 'triceps',
     ]);
     expect(muscleIdsFor([])).toEqual([]);
+  });
+});
+
+describe('pillLabelsFor — the chips speak the fine vocabulary', () => {
+  it('a Push day reads Triceps, never "Arms"', () => {
+    expect(pillLabelsFor(['chest', 'shoulders', 'triceps'])).toEqual(['Chest', 'Shoulders', 'Triceps']);
+  });
+
+  it('multi-word labels title-case', () => {
+    expect(pillLabelsFor(['upperBack', 'lowerBack', 'quads'])).toEqual(['Upper Back', 'Lower Back', 'Quadriceps']);
+  });
+
+  it('empty selection → no pills', () => {
+    expect(pillLabelsFor([])).toEqual([]);
   });
 });
 

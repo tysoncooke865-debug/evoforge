@@ -12,14 +12,14 @@ import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
-import { focusFor, muscleIdsFor, type MuscleView } from '@/domain/muscle-map';
+import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, defaultSource, type SourceIndex } from '@/domain/plan-sources';
 import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, scheduledDayFor } from '@/domain/week-status';
-import { estimateKcal, estimateMinutes, musclePillsFor, splitWorkoutName } from '@/domain/workout-estimates';
+import { estimateKcal, estimateMinutes, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
@@ -148,10 +148,9 @@ export default function TodayScreen() {
 
   const heroEntries = heroWorkout ? resolveDay(heroWorkout, source).entries : [];
   const heroName = splitWorkoutName(heroWorkout ?? '');
-  const heroPills = musclePillsFor(heroEntries, userExercises.data ?? []);
-  // The map lights FINER regions than the pills: each exercise's tag through
-  // the muscle ladder, normalised into the 15 MuscleIds — a Push day lights
-  // chest+shoulders+triceps, not all of "Arms".
+  // Pills and map share ONE vocabulary: each exercise's tag through the
+  // muscle ladder, normalised into the 15 MuscleIds — a Push day reads (and
+  // lights) Chest · Shoulders · Triceps, never a vague "Arms".
   const heroMuscles = muscleIdsFor(
     heroEntries.map(
       ([exercise]) =>
@@ -160,6 +159,7 @@ export default function TodayScreen() {
         inferMuscleGroup(exercise)
     )
   );
+  const heroPills = pillLabelsFor(heroMuscles);
   const [mapViewChoice, setMapViewChoice] = useState<MuscleView | null>(null);
   const mapView = mapViewChoice ?? bestViewFor(heroMuscles);
   const heroSets = heroEntries.reduce((n, [, sets]) => n + sets, 0);
@@ -345,7 +345,7 @@ export default function TodayScreen() {
                   <MuscleMap
                     selectedMuscles={heroMuscles}
                     view={mapView}
-                    width={stackMap ? 116 : 104}
+                    width={stackMap ? 132 : 120}
                     pulse
                     focus={focusFor(heroMuscles)}
                   />
