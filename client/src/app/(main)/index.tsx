@@ -32,8 +32,8 @@ import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } f
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/avatar-art';
-import { EvolutionTeaser } from '@/ui/evolution-teaser';
+import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
@@ -42,11 +42,11 @@ import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { StatusGrid } from '@/ui/home/status-grid';
 import { TrainingOverview } from '@/ui/home/training-overview';
 import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
-import { DividerGlow, EdgeLabel } from '@/ui/hud';
-import { LeaderboardTeaser } from '@/ui/leaderboard-teaser';
-import { ScreenShell } from '@/ui/shell';
-import { StatBar } from '@/ui/stat-bar';
-import { StatRadar } from '@/ui/stat-radar';
+import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
+import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
+import { ScreenShell } from '@/ui/core/shell';
+import { StatBar } from '@/ui/character/stat-bar';
+import { StatRadar } from '@/ui/character/stat-radar';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN). Hierarchy: identity →

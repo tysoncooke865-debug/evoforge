@@ -1,8 +1,8 @@
 import { Link } from 'expo-router';
 import { Text, View } from 'react-native';
-import { CoinIcon } from '@/ui/coin-icon';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { CoinIcon } from '@/ui/core/coin-icon';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /** The overflow: everything that doesn't earn a bottom-bar slot. */
 const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [

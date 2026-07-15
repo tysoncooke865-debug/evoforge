@@ -2,10 +2,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import tokens from '@/theme/tokens';
-import { clearActiveScroller, setActiveScroller } from '@/ui/scroll-registry';
+import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registry';
 
 /**
  * The screen shell: near-black stage lighting instead of a flat background.
@@ -22,13 +29,29 @@ export function ScreenShell({ children }: { children: ReactNode }) {
   // P2 C4: the FOCUSED shell owns the scroll-to-top registration; blur
   // clears it (focus-scoped — never keyed by pathname, see scroll-registry).
   const scrollRef = useRef<ScrollView>(null);
+  // OPTIMISE_PLAN M1 — the screen entrance: every focus fades + rises the
+  // content once (220ms, one-shot; never re-fires on scroll). Reduced
+  // motion pins it fully visible.
+  const reducedMotion = useReducedMotion();
+  const enter = useSharedValue(reducedMotion ? 1 : 0);
   useFocusEffect(
     useCallback(() => {
       const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
       setActiveScroller(toTop);
+      if (!reducedMotion) {
+        enter.value = 0;
+        enter.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+      }
       return () => clearActiveScroller(toTop);
-    }, [])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reducedMotion])
   );
+  // ANIMATED NODES CARRY INLINE STYLES ONLY (the xp-bar lesson): className
+  // interop drops composed styles on Animated.View on web.
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 10 }],
+  }));
   return (
     <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
       {/* Quiet ambient light — recessive enough that the header owns the top. */}
@@ -44,7 +67,9 @@ export function ScreenShell({ children }: { children: ReactNode }) {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="w-full max-w-[560px] gap-s3">{children}</View>
+        <Animated.View style={[{ width: '100%', alignItems: 'center' }, enterStyle]}>
+          <View className="w-full max-w-[560px] gap-s3">{children}</View>
+        </Animated.View>
       </ScrollView>
     </View>
   );

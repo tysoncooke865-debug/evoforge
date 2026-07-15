@@ -27,16 +27,16 @@ import Animated, {
  * carried by the face, not by the motion, so nothing is lost but the flourish.
  */
 
-const STRIP = require('../assets/battle/coin_flip_strip.png');
+const STRIP = require('../../assets/battle/coin_flip_strip.png');
 const FACES: Record<string, number> = {
-  heads: require('../assets/battle/coin_heads.png'),
-  tails: require('../assets/battle/coin_tails.png'),
+  heads: require('../../assets/battle/coin_heads.png'),
+  tails: require('../../assets/battle/coin_tails.png'),
 };
 const FRAMES = [
-  require('../assets/battle/coin_heads.png'),
-  require('../assets/battle/coin_edge.png'),
-  require('../assets/battle/coin_tails.png'),
-  require('../assets/battle/coin_edge.png'),
+  require('../../assets/battle/coin_heads.png'),
+  require('../../assets/battle/coin_edge.png'),
+  require('../../assets/battle/coin_tails.png'),
+  require('../../assets/battle/coin_edge.png'),
 ];
 const N = 4;
 const SPIN_SECONDS = 0.4;

@@ -2,8 +2,8 @@ import { Text, View } from 'react-native';
 
 import { useAchievements } from '@/data/hooks';
 import { ACHIEVEMENTS } from '@/domain/catalogs';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /** All 64 achievements, earned ones lit. The catalog is the generated one the
  *  parity suite pins, so this grid cannot drift from what the sweep grants. */

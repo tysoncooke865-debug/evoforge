@@ -9,8 +9,8 @@ import { useLeaderboardTop, usePublicIdentity } from '@/data/hooks';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import { durations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
-import { EdgeLabel } from '@/ui/hud';
-import { LeaderboardRowView } from '@/ui/leaderboard-row';
+import { EdgeLabel } from '@/ui/core/hud';
+import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 
 /**
  * The Home leaderboard teaser (P2 C5): a collapsible strip under the

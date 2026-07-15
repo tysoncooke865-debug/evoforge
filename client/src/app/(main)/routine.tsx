@@ -21,13 +21,13 @@ import { type MappedDay, type MatchConfidence } from '@/domain/workout-import';
 import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
-import { ExercisePicker } from '@/ui/exercise-picker';
-import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
-import { PlanImportSheet } from '@/ui/plan-import';
-import { EdgeLabel } from '@/ui/hud';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScreenHeader } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+import { ExercisePicker } from '@/ui/train/exercise-picker';
+import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
+import { PlanImportSheet } from '@/ui/train/plan-import';
+import { EdgeLabel } from '@/ui/core/hud';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * THE ROUTINE BUILDER (Tyson, 2026-07-13): pick a split, tap exercises

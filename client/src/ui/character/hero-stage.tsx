@@ -99,7 +99,7 @@ export function HeroStage({
           as a glitch; the disc's own neon does the grounding now). */}
       <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' }}>
         <Image
-          source={require('../assets/podium.png')}
+          source={require('../../assets/podium.png')}
           style={{ width: podiumW, height: podiumH }}
           contentFit="contain"
         />

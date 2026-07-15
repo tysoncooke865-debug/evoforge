@@ -7,7 +7,7 @@ import { evolutionReadiness } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
 import tokens from '@/theme/tokens';
 
-import { EdgeLabel } from './hud';
+import { EdgeLabel } from '@/ui/core/hud';
 import { Silhouette } from './silhouette';
 
 /**

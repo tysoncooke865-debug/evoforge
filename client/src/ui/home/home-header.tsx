@@ -4,7 +4,7 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { progressPercent } from '@/domain/xp';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { CompanionMenuButton } from '@/ui/companion-menu';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
 
 /**
  * HOME_REDESIGN §1 — the safe-area masthead. Left: the game's name and

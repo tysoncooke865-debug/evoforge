@@ -14,7 +14,7 @@ import Animated, {
 import { durations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
 
-import { NeonButton } from './neon-button';
+import { NeonButton } from '@/ui/core/neon-button';
 
 /**
  * The level-up ceremony: world dims, the number counts old → new, the aura

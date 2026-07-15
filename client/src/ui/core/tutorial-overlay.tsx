@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import tokens from '@/theme/tokens';
-import { NeonButton } from '@/ui/neon-button';
+import { NeonButton } from '@/ui/core/neon-button';
 
 /**
  * THE FIRST-RUN TOUR (Tyson, 2026-07-13): four cards that show a new

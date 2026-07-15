@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { STATUS_LABEL, type WeekBar, type WorkoutStatus } from '@/domain/week-status';
 import tokens from '@/theme/tokens';
-import { PixelCross, PixelTick } from '@/ui/pixel-icons';
+import { PixelCross, PixelTick } from '@/ui/core/pixel-icons';
 
 /**
  * TRAIN_PAGE_V2 — a bar is a DOOR, not a drawer.

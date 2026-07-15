@@ -4,12 +4,12 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { useLogBodyweight, useLogMeasurements } from '@/data/mutations';
 import { pyFloat } from '@/domain/py';
 import tokens from '@/theme/tokens';
-import { Field } from '@/ui/field';
-import { EdgeLabel } from '@/ui/hud';
-import { NeonButton } from '@/ui/neon-button';
-import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
-import { CompanionMenuButton } from '@/ui/companion-menu';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+import { Field } from '@/ui/core/field';
+import { EdgeLabel } from '@/ui/core/hud';
+import { NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * STATS (P2 C3, owner-decided): bodyweight + tape measurements only.

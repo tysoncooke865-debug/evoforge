@@ -6,8 +6,8 @@ import tokens from '@/theme/tokens';
 import { BACK_MUSCLE_MASKS } from '@/ui/muscle-map/back-masks';
 import { FRONT_MUSCLE_MASKS } from '@/ui/muscle-map/front-masks';
 import { MuscleMap } from '@/ui/muscle-map/muscle-map';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /**
  * MUSCLE LAB — the development-only mask workbench (Tyson's spec):

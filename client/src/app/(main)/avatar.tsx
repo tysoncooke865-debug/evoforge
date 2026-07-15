@@ -3,20 +3,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
-import { SegmentedTabs } from '@/ui/segmented-tabs';
-import { SkillTreeView } from '@/ui/skill-tree';
+import { SegmentedTabs } from '@/ui/core/segmented-tabs';
+import { SkillTreeView } from '@/ui/character/skill-tree';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/avatar-art';
-import { Silhouette } from '@/ui/silhouette';
-import { HeroStage } from '@/ui/hero-stage';
-import { DividerGlow, EdgeLabel } from '@/ui/hud';
-import { RarityBadge } from '@/ui/rarity-badge';
-import { RequirementRow } from '@/ui/requirement-row';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { Silhouette } from '@/ui/character/silhouette';
+import { HeroStage } from '@/ui/character/hero-stage';
+import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
+import { RarityBadge } from '@/ui/character/rarity-badge';
+import { RequirementRow } from '@/ui/character/requirement-row';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /**
  * THE FORGE (TRANSFORM P6 — the tab is Forge; this screen now says so):

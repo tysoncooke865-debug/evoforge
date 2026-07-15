@@ -17,9 +17,9 @@ import {
 import { weeklyContract } from '@/domain/scheduled-streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import tokens from '@/theme/tokens';
-import { LineChart, type ChartPoint } from '@/ui/line-chart';
-import { ScreenHeader } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+import { LineChart, type ChartPoint } from '@/ui/core/line-chart';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { todayIso as calendarToday } from '@/domain/today';
 
 /**

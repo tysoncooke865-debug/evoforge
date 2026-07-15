@@ -5,9 +5,9 @@ import type { Mission } from '@/domain/home-mission';
 import type { NextSession } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { NeonButton } from '@/ui/neon-button';
-import { PixelBars, PixelClock, PixelFlame } from '@/ui/pixel-icons';
-import { GlowCard } from '@/ui/shell';
+import { NeonButton } from '@/ui/core/neon-button';
+import { PixelBars, PixelClock, PixelFlame } from '@/ui/core/pixel-icons';
+import { GlowCard } from '@/ui/core/shell';
 
 import type { HomeFeatures } from './home-features';
 

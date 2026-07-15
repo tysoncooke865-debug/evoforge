@@ -2,9 +2,9 @@ import { Text, View } from 'react-native';
 
 import { COIN_LABELS, useCoinHistory, useCoinTotal } from '@/data/coins';
 import tokens from '@/theme/tokens';
-import { CoinIcon } from '@/ui/coin-icon';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { CoinIcon } from '@/ui/core/coin-icon';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /** IMPROVEMENT_PLAN #12: the transaction history. The balance renders "—"
  *  on any read failure — a failure shown as 0 reads as a wiped wallet. */

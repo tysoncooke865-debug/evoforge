@@ -18,8 +18,8 @@ import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { pyFloat } from '@/domain/py';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/avatar-art';
-import { Silhouette } from '@/ui/silhouette';
+import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { Silhouette } from '@/ui/character/silhouette';
 
 /**
  * The PATHS subview (was "skill tree"; P6 renamed the label, not the

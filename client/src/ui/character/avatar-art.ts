@@ -23,10 +23,10 @@ export interface AvatarArt {
 /** The female Cyber Athlete line (2026-07-12): FRONT poses cropped from
  *  Tyson's female LV.1-4 sheets, exactly like the male aesthetic art. */
 const FEMALE_AESTHETIC: Record<number, ImageSourcePropType> = {
-  1: require('../assets/avatars/aesthetic_front_female_stage_1.png'),
-  2: require('../assets/avatars/aesthetic_front_female_stage_2.png'),
-  3: require('../assets/avatars/aesthetic_front_female_stage_3.png'),
-  4: require('../assets/avatars/aesthetic_front_female_stage_4.png'),
+  1: require('../../assets/avatars/aesthetic_front_female_stage_1.png'),
+  2: require('../../assets/avatars/aesthetic_front_female_stage_2.png'),
+  3: require('../../assets/avatars/aesthetic_front_female_stage_3.png'),
+  4: require('../../assets/avatars/aesthetic_front_female_stage_4.png'),
 };
 
 function femaleAestheticImage(stage: number): ImageSourcePropType {
@@ -82,8 +82,8 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
 export function battleBackArtV2(branch: BranchV2, sex: Sex, side: 'left' | 'right'): ImageSourcePropType | null {
   if (sex === 'male' && (branch === 'aesthetic' || branch === 'shredder')) {
     return side === 'left'
-      ? require('../assets/avatars/battle_back_aesthetic_male.png')
-      : require('../assets/avatars/battle_back_right_aesthetic_male.png');
+      ? require('../../assets/avatars/battle_back_aesthetic_male.png')
+      : require('../../assets/avatars/battle_back_right_aesthetic_male.png');
   }
   return null;
 }

@@ -7,11 +7,11 @@ import { useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { computeScheduledStreak, crossedMilestones } from '@/domain/scheduled-streak';
 import tokens from '@/theme/tokens';
-import { HUDChip } from '@/ui/hud';
-import { NeonButton } from '@/ui/neon-button';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
-import { StreakCalendar } from '@/ui/streak-calendar';
+import { HUDChip } from '@/ui/core/hud';
+import { NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
+import { StreakCalendar } from '@/ui/train/streak-calendar';
 import { todayIso as calendarToday } from '@/domain/today';
 
 /**

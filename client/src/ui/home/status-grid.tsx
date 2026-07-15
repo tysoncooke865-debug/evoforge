@@ -4,7 +4,7 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { CoinIcon } from '@/ui/coin-icon';
+import { CoinIcon } from '@/ui/core/coin-icon';
 
 import type { HomeFeatures } from './home-features';
 

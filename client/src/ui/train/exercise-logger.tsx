@@ -10,11 +10,11 @@ import type { SetVerdict } from '@/domain/set-save';
 import { WEIGHT_STEP, convertTyped, displayWeight, toKgForSave, type WeightUnit } from '@/domain/units';
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
-import { FloatingXP } from '@/ui/floating-xp';
-import { NumberField } from '@/ui/number-field';
-import { startRest } from '@/ui/rest-timer';
-import { schemeSentence } from '@/ui/scheme-sentence';
-import { GlowCard } from '@/ui/shell';
+import { FloatingXP } from '@/ui/character/floating-xp';
+import { NumberField } from '@/ui/core/number-field';
+import { startRest } from '@/ui/train/rest-timer';
+import { schemeSentence } from '@/ui/train/scheme-sentence';
+import { GlowCard } from '@/ui/core/shell';
 
 /** Item 10: both value boxes share one fixed 4-char width (tabular-nums).
  *  Sub-360px screens (iPhone SE1/5s) drop to the compact metrics — the only

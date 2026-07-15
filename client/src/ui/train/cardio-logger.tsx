@@ -6,10 +6,10 @@ import { useLogCardio } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
 import tokens from '@/theme/tokens';
-import { Field } from '@/ui/field';
-import { EdgeLabel } from '@/ui/hud';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { GlowCard } from '@/ui/shell';
+import { Field } from '@/ui/core/field';
+import { EdgeLabel } from '@/ui/core/hud';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { GlowCard } from '@/ui/core/shell';
 
 /**
  * The cardio session logger — moved VERBATIM from log.tsx to Today

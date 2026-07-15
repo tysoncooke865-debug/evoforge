@@ -4,9 +4,9 @@ import { Text, View } from 'react-native';
 import { useWorkoutSchedule, useSaveSchedule } from '@/data/schedule';
 import { PPPPLA_DAYS } from '@/domain/custom-plan';
 import tokens from '@/theme/tokens';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScreenHeader } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * IMPROVEMENT_PLAN #11: map weekdays → training days (or Rest),

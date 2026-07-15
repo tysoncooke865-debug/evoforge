@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ROUTINE } from '../../domain/catalogs';
+import { ROUTINE } from '../../../domain/catalogs';
 import { schemeSentence } from '../scheme-sentence';
 
 describe('schemeSentence', () => {

@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { PixelCalendar } from '@/ui/pixel-icons';
+import { PixelCalendar } from '@/ui/core/pixel-icons';
 
 /**
  * HOME_REDESIGN §9 — the weekly schedule door. One compact card into the

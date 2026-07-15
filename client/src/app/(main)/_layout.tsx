@@ -11,10 +11,10 @@ import { useProfile } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
-import { LevelUpOverlay } from '@/ui/level-up-overlay';
-import { PixelDumbbell } from '@/ui/pixel-icons';
-import { TutorialOverlay } from '@/ui/tutorial-overlay';
-import { scrollActiveToTop } from '@/ui/scroll-registry';
+import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
+import { PixelDumbbell } from '@/ui/core/pixel-icons';
+import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
+import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 

@@ -21,8 +21,8 @@ import {
   type NutritionPhase,
 } from '@/domain/starting-level-v2';
 import tokens from '@/theme/tokens';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScanFrame, type ScanState } from '@/ui/scan-frame';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
 import { todayIso } from '@/domain/today';
 
 /**

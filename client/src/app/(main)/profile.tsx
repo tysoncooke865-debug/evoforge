@@ -10,9 +10,9 @@ import { rankLadder } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
 import { useSettingsStore } from '@/state/settings-store';
 import tokens from '@/theme/tokens';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 const PHASES = ['cutting', 'maintaining', 'bulking'] as const;
 

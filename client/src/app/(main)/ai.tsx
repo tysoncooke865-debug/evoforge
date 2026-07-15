@@ -13,12 +13,12 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
-import { EdgeLabel } from '@/ui/hud';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScanFrame, type ScanState } from '@/ui/scan-frame';
-import { ScreenHeader, SectionLabel } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
-import { CompanionMenuButton } from '@/ui/companion-menu';
+import { EdgeLabel } from '@/ui/core/hud';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
+import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
 
 /**
  * The unified AI page: physique rating and body-fat estimate together (they

@@ -6,8 +6,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/data/auth-context';
 import { supabase } from '@/data/supabase';
 import { useToastStore } from '@/state/toast-store';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 import { todayIso } from '@/domain/today';
 
 /**

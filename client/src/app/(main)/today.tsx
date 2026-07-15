@@ -27,16 +27,16 @@ import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
-import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
-import { CompanionMenuButton } from '@/ui/companion-menu';
-import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/daily-workout-carousel';
-import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
+import { CardioCard, cardioAnim } from '@/ui/train/cardio-logger';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
+import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/train/daily-workout-carousel';
+import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
-import { SegmentedTabs } from '@/ui/segmented-tabs';
-import { GlowCard, ScreenShell } from '@/ui/shell';
-import { WeekBarRow } from '@/ui/week-bar';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/core/pixel-icons';
+import { SegmentedTabs } from '@/ui/core/segmented-tabs';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { WeekBarRow } from '@/ui/train/week-bar';
 
 /**
  * TRAIN — THE HUB, AS A MISSION BRIEFING (TRAIN_OVERHAUL).

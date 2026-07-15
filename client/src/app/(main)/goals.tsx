@@ -6,9 +6,9 @@ import { useSaveTarget } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { pyFloat } from '@/domain/py';
 import { journeyPercent } from '@/domain/targets';
-import { XpBar } from '@/ui/xp-bar';
-import { ScreenHeader } from '@/ui/screen-header';
-import { ScreenShell } from '@/ui/shell';
+import { XpBar } from '@/ui/character/xp-bar';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenShell } from '@/ui/core/shell';
 
 /**
  * Goals: body-fat %, bodyweight and bench-1RM targets, each with a JOURNEY

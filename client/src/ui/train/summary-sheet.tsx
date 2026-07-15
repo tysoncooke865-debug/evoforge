@@ -7,8 +7,8 @@ import type { NextEvolution } from '@/domain/next-evolution';
 import type { NextSession } from '@/domain/scheduled-streak';
 import tokens from '@/theme/tokens';
 
-import { NeonButton } from './neon-button';
-import { XpBar } from './xp-bar';
+import { NeonButton } from '@/ui/core/neon-button';
+import { XpBar } from '@/ui/character/xp-bar';
 
 export interface WorkoutSummaryData {
   day: string;

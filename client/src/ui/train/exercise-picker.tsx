@@ -32,7 +32,7 @@ import {
 
 import tokens from '@/theme/tokens';
 
-import { NeonButton } from './neon-button';
+import { NeonButton } from '@/ui/core/neon-button';
 
 /**
  * ADD EXERCISE (redesigned 2026-07-14, Tyson's spec).

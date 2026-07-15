@@ -28,9 +28,9 @@ import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
 import { useLogCardio, useSaveSet } from '@/data/mutations';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { normaliseWorkoutLog } from '@/domain/summary';
-import { CoinFlip } from '@/ui/coin-flip';
-import { ExerciseCard } from '@/ui/exercise-logger';
-import { NumberField } from '@/ui/number-field';
+import { CoinFlip } from '@/ui/arena/coin-flip';
+import { ExerciseCard } from '@/ui/train/exercise-logger';
+import { NumberField } from '@/ui/core/number-field';
 import {
   cardioChallengeByKey,
   objectByKey,
@@ -44,12 +44,12 @@ import {
 } from '@/domain/battle/engine';
 import { pyFloat, pyInt } from '@/domain/py';
 import { useToastStore } from '@/state/toast-store';
-import { BLITZ_RULES, CodeCard, RulesStrip } from '@/ui/battle-arena';
-import { BattleRulesPanel, FaceOffScene, ReadyCTA } from '@/ui/face-off';
-import { EdgeLabel } from '@/ui/hud';
-import { Chip, NeonButton } from '@/ui/neon-button';
-import { ScreenHeader } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+import { BLITZ_RULES, CodeCard, RulesStrip } from '@/ui/arena/battle-arena';
+import { BattleRulesPanel, FaceOffScene, ReadyCTA } from '@/ui/arena/face-off';
+import { EdgeLabel } from '@/ui/core/hud';
+import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import tokens from '@/theme/tokens';
 import { todayIso as calendarToday } from '@/domain/today';
 

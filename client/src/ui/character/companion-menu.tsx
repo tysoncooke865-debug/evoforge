@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
-import { SpriteCompanion } from '@/ui/sprite-avatar';
+import { SpriteCompanion } from '@/ui/character/sprite-avatar';
 
 /**
  * TRANSFORM P1: your companion IS your profile menu. The animated sprite

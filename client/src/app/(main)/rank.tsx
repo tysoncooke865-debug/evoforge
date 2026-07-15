@@ -6,8 +6,8 @@ import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import tokens from '@/theme/tokens';
-import { LeaderboardRowView } from '@/ui/leaderboard-row';
-import { ScreenShell } from '@/ui/shell';
+import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
+import { ScreenShell } from '@/ui/core/shell';
 
 /**
  * The leaderboard. Three gates before any ranking renders, same as the

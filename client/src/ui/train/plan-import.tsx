@@ -12,10 +12,10 @@ import {
   type MappedDay,
 } from '@/domain/workout-import';
 import tokens from '@/theme/tokens';
-import { NeonButton } from '@/ui/neon-button';
-import { ScanFrame, type ScanState } from '@/ui/scan-frame';
-import { SectionLabel } from '@/ui/screen-header';
-import { SegmentedTabs } from '@/ui/segmented-tabs';
+import { NeonButton } from '@/ui/core/neon-button';
+import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
+import { SectionLabel } from '@/ui/core/screen-header';
+import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 
 /**
  * PLAN SCAN — photograph a written workout (or paste its text) and the AI

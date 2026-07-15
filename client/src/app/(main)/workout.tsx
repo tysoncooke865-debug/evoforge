@@ -32,14 +32,14 @@ import { XP_PER_SET } from '@/domain/xp';
 import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
-import { ExerciseCard } from '@/ui/exercise-logger';
-import { ExercisePicker } from '@/ui/exercise-picker';
-import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
-import { NeonButton } from '@/ui/neon-button';
-import { RestTimerBar } from '@/ui/rest-timer';
-import { ScreenHeader } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
-import { SummarySheet, type WorkoutSummaryData } from '@/ui/summary-sheet';
+import { ExerciseCard } from '@/ui/train/exercise-logger';
+import { ExercisePicker } from '@/ui/train/exercise-picker';
+import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
+import { NeonButton } from '@/ui/core/neon-button';
+import { RestTimerBar } from '@/ui/train/rest-timer';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet';
 
 /**
  * THE WORKOUT PAGE (TRAIN_PAGE_V2).

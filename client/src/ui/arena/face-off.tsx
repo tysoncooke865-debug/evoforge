@@ -19,9 +19,9 @@ import Animated, {
 import type { BattleParticipant } from '@/data/battle/hooks';
 import { type BranchV2 } from '@/domain/branches-v2';
 import tokens from '@/theme/tokens';
-import { avatarArtV2, battleBackArtV2 } from '@/ui/avatar-art';
-import { ParticleLayer } from '@/ui/particle-layer';
-import { Silhouette } from '@/ui/silhouette';
+import { avatarArtV2, battleBackArtV2 } from '@/ui/character/avatar-art';
+import { ParticleLayer } from '@/ui/character/particle-layer';
+import { Silhouette } from '@/ui/character/silhouette';
 
 /**
  * The FACE OFF scene: one integrated cyberpunk arena, not stacked cards.

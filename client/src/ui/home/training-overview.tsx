@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import type { WeeklyContract } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { PixelBars, PixelClock, PixelDumbbell, PixelHeart } from '@/ui/pixel-icons';
+import { PixelBars, PixelClock, PixelDumbbell, PixelHeart } from '@/ui/core/pixel-icons';
 
 /**
  * HOME_REDESIGN §7 — TRAINING OVERVIEW, this week (Monday-start, the

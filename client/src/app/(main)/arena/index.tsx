@@ -14,12 +14,12 @@ import {
   IconBadge,
   PressCard,
   RulesStrip,
-} from '@/ui/battle-arena';
-import { SegmentedTabs } from '@/ui/segmented-tabs';
-import { CompanionMenuButton } from '@/ui/companion-menu';
-import { NeonButton } from '@/ui/neon-button';
-import { SectionLabel } from '@/ui/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/shell';
+} from '@/ui/arena/battle-arena';
+import { SegmentedTabs } from '@/ui/core/segmented-tabs';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
+import { NeonButton } from '@/ui/core/neon-button';
+import { SectionLabel } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * The Arena hub, in the Home screen's language. TRANSFORM P7: A BATTLE IN

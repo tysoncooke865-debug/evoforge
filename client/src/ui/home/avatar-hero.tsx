@@ -11,8 +11,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import type { Branch } from '@/domain/avatar-stats';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import { HeroStage } from '@/ui/hero-stage';
-import { PixelHelmet, PixelShirt } from '@/ui/pixel-icons';
+import { HeroStage } from '@/ui/character/hero-stage';
+import { PixelHelmet, PixelShirt } from '@/ui/core/pixel-icons';
 
 import type { HomeFeatures } from './home-features';
 

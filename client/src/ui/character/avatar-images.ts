@@ -13,20 +13,20 @@ import type { Branch } from '@/domain/avatar-stats';
  */
 const AVATAR_ASSETS: Record<Branch, Record<number, ImageSourcePropType>> = {
   aesthetic: {
-    1: require('../assets/avatars/aesthetic_front_stage_1.png'),
-    2: require('../assets/avatars/aesthetic_front_stage_2.png'),
-    3: require('../assets/avatars/aesthetic_front_stage_3.png'),
-    4: require('../assets/avatars/aesthetic_front_stage_4.png'),
+    1: require('../../assets/avatars/aesthetic_front_stage_1.png'),
+    2: require('../../assets/avatars/aesthetic_front_stage_2.png'),
+    3: require('../../assets/avatars/aesthetic_front_stage_3.png'),
+    4: require('../../assets/avatars/aesthetic_front_stage_4.png'),
   },
   mass: {
-    1: require('../assets/avatars/mass_stage_1.png'),
-    2: require('../assets/avatars/mass_stage_2.png'),
-    3: require('../assets/avatars/mass_stage_3.png'),
+    1: require('../../assets/avatars/mass_stage_1.png'),
+    2: require('../../assets/avatars/mass_stage_2.png'),
+    3: require('../../assets/avatars/mass_stage_3.png'),
   },
   hybrid: {
-    1: require('../assets/avatars/hybrid_stage_1.png'),
-    2: require('../assets/avatars/hybrid_stage_2.png'),
-    3: require('../assets/avatars/hybrid_stage_3.png'),
+    1: require('../../assets/avatars/hybrid_stage_1.png'),
+    2: require('../../assets/avatars/hybrid_stage_2.png'),
+    3: require('../../assets/avatars/hybrid_stage_3.png'),
   },
 };
 
@@ -41,10 +41,10 @@ export function avatarImage(branch: Branch, stage: number): ImageSourcePropType 
  * exports would unlock full staging effects -- see PARITY.md.
  */
 const SHREDDER_ASSETS: Record<number, ImageSourcePropType> = {
-  1: require('../assets/avatars/shredder_stage_1.png'),
-  2: require('../assets/avatars/shredder_stage_2.png'),
-  3: require('../assets/avatars/shredder_stage_3.png'),
-  4: require('../assets/avatars/shredder_stage_4.png'),
+  1: require('../../assets/avatars/shredder_stage_1.png'),
+  2: require('../../assets/avatars/shredder_stage_2.png'),
+  3: require('../../assets/avatars/shredder_stage_3.png'),
+  4: require('../../assets/avatars/shredder_stage_4.png'),
 };
 
 export function shredderImage(stage: number): ImageSourcePropType {
