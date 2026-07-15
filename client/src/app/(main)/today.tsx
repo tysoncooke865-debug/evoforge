@@ -29,7 +29,7 @@ import { CompanionMenuButton } from '@/ui/companion-menu';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
 import { Chip, NeonButton } from '@/ui/neon-button';
-import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
+import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelRotate, PixelSwap } from '@/ui/pixel-icons';
 import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/shell';
@@ -331,22 +331,24 @@ export default function TodayScreen() {
                     </View>
                   ) : null}
                   {/* ≈ marks estimates — honest numbers only. */}
-                  <View className="mt-s3 flex-row" style={{ gap: 18 }}>
+                  <View className="mt-s3 flex-row" style={{ gap: 16 }}>
                     {(
                       [
-                        [<PixelBars key="sets" size={14} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
-                        [<PixelClock key="min" size={14} color={tokens.colors['text-dim']} />, `≈${heroMinutes}`, 'MIN'],
-                        [<PixelFlame key="kcal" size={14} color={tokens.colors['text-dim']} />, `≈${heroKcal}`, 'KCAL'],
+                        [<PixelBars key="sets" size={22} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
+                        [<PixelClock key="min" size={22} color={tokens.colors['text-dim']} />, `≈${heroMinutes}`, 'MIN'],
+                        [<PixelFlame key="kcal" size={22} color={tokens.colors['text-dim']} />, `≈${heroKcal}`, 'KCAL'],
                       ] as const
                     ).map(([icon, value, label]) => (
-                      <View key={label} className="items-start">
-                        <View className="flex-row items-center" style={{ gap: 5 }}>
-                          {icon}
+                      // Icon left; number over label right — the label shares the
+                      // NUMBER's left edge, never the icon's.
+                      <View key={label} className="flex-row items-center" style={{ gap: 7 }}>
+                        {icon}
+                        <View className="items-start">
                           <Text className="text-lg font-bold text-text">{value}</Text>
+                          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+                            {label}
+                          </Text>
                         </View>
-                        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
-                          {label}
-                        </Text>
                       </View>
                     ))}
                   </View>
@@ -362,32 +364,19 @@ export default function TodayScreen() {
                     pulse
                     focus={focusFor(heroMuscles)}
                   />
-                  {/* FRONT | BACK — quick fade, no 3D theatrics. */}
-                  <View className="mt-s2 flex-row" style={{ gap: 6 }}>
-                    {(['front', 'back'] as MuscleView[]).map((v) => (
-                      <Pressable
-                        key={v}
-                        onPress={() => setMapViewChoice(v)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: mapView === v }}
-                        testID={`map-view-${v}`}
-                        className="rounded-pill border px-s2"
-                        style={{
-                          minHeight: 26,
-                          justifyContent: 'center',
-                          borderColor: mapView === v ? `${tokens.colors.accent}8c` : tokens.colors.border,
-                          backgroundColor: mapView === v ? 'rgba(34,211,238,0.10)' : 'transparent',
-                        }}
-                      >
-                        <Text
-                          className="text-2xs font-bold"
-                          style={{ letterSpacing: 1, color: mapView === v ? tokens.colors.accent : tokens.colors['text-mute'] }}
-                        >
-                          {v.toUpperCase()}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  {/* One rotate tap flips the view — quick fade, no 3D theatrics.
+                      Flips from the CURRENT mapView (which may be bestViewFor's
+                      pick), so the first tap always visibly rotates. */}
+                  <Pressable
+                    onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
+                    testID="map-rotate"
+                    className="mt-s2 items-center justify-center"
+                    style={{ minHeight: 32, minWidth: 44 }}
+                  >
+                    <PixelRotate size={18} color={tokens.colors['text-mute']} />
+                  </Pressable>
                 </View>
               </View>
               {/* THE most visually prominent element on the page. */}

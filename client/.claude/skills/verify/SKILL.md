@@ -40,7 +40,7 @@ Flow that reaches the Train page:
    The workout page is pushed OVER the tabs (no tab bar there) — use
    `page.goBack()` to return.
 5. RN-web maps `testID` → `data-testid`. Useful ones on Train: `hero-card`,
-   `hero-start`, `map-view-front/back`, `start-empty`, `change-workout`,
+   `hero-start`, `map-rotate` (flips front/back), `start-empty`, `change-workout`,
    `edit-week`, `adhoc-name`, `adhoc-search-input`,
    `adhoc-search-hit-<name>`, `adhoc-start`.
 

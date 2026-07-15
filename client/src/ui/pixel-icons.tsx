@@ -108,14 +108,24 @@ const CURVED_ARROW = [
 ] as const;
 
 const BARS = [
-  '####.....',
-  '####.....',
-  '.........',
-  '#######..',
-  '#######..',
-  '.........',
-  '#########',
-  '#########',
+  '......##',
+  '......##',
+  '...##.##',
+  '...##.##',
+  '##.##.##',
+  '##.##.##',
+] as const;
+
+const ROTATE = [
+  '....##.#..',
+  '..##...##.',
+  '.#.....###',
+  '#.........',
+  '#.........',
+  '#.........',
+  '.#.......#',
+  '..##....#.',
+  '....####..',
 ] as const;
 
 const CLOCK = [
@@ -188,6 +198,10 @@ export const PixelClock = ({ size = 14, color, testID }: IconProps) => (
 );
 export const PixelFlame = ({ size = 14, color, testID }: IconProps) => (
   <PixelGlyph rows={FLAME} size={size} color={color} testID={testID ?? 'pixel-flame'} />
+);
+/** The muscle map's view flipper. */
+export const PixelRotate = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={ROTATE} size={size} color={color} testID={testID ?? 'pixel-rotate'} />
 );
 /** The week bars' verdict marks — same kit, tiny sizes. */
 export const PixelTick = ({ size = 10, color, testID }: IconProps) => (
