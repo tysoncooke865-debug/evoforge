@@ -58,7 +58,7 @@ const CORE_EXERCISES: readonly LibraryExercise[] = [
   { name: 'Single-Arm Dumbbell Row', muscle: 'Back Thickness', equipment: 'Dumbbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Machine High Row', muscle: 'Back Thickness', equipment: 'Machine', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Pendlay Row', muscle: 'Back Thickness', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
-  { name: 'Rack Pull', muscle: 'Back Thickness', equipment: 'Barbell', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
+  { name: 'Rack Pull', muscle: 'Back Thickness', equipment: 'Barbell', category: 'Isolation', difficulty: 'Intermediate', secondary: ['Erectors', 'Traps', 'Forearms'], popularity: 100 },
   // -------------------------------------------------------- side delts
   { name: 'Cable Lateral Raise', muscle: 'Side Delts', equipment: 'Cable', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Dumbbell Lateral Raise', muscle: 'Side Delts', equipment: 'Dumbbell', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
@@ -107,14 +107,17 @@ const CORE_EXERCISES: readonly LibraryExercise[] = [
   { name: 'Goblet Squat', muscle: 'Quads', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Pendulum Squat', muscle: 'Quads', equipment: 'Machine', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
   // -------------------------------------------------------- hamstrings
-  { name: 'Romanian Deadlift', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
-  { name: 'Barbell Deadlift', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
+  { name: 'Romanian Deadlift', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', secondary: ['Glutes', 'Erectors'], popularity: 100 },
+  // Erectors joined the taxonomy 2026-07-15: a conventional deadlift is
+  // erector-primary (avatar strength scoring reads this row by NAME, so the
+  // tag change cannot touch it).
+  { name: 'Barbell Deadlift', muscle: 'Erectors', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', secondary: ['Hamstrings', 'Glutes', 'Traps', 'Forearms'], popularity: 100 },
   { name: 'Seated/Lying Leg Curl', muscle: 'Hamstrings', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Seated Leg Curl', muscle: 'Hamstrings', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Lying Leg Curl', muscle: 'Hamstrings', equipment: 'Machine', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
-  { name: 'Stiff-Leg Deadlift', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
+  { name: 'Stiff-Leg Deadlift', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', secondary: ['Glutes', 'Erectors'], popularity: 100 },
   { name: 'Nordic Ham Curl', muscle: 'Hamstrings', equipment: 'Bodyweight', category: 'Isolation', difficulty: 'Intermediate', popularity: 100 },
-  { name: 'Good Morning', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
+  { name: 'Good Morning', muscle: 'Hamstrings', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', secondary: ['Erectors', 'Glutes'], popularity: 100 },
   // ------------------------------------------------------------ glutes
   { name: 'Barbell Hip Thrust', muscle: 'Glutes', equipment: 'Barbell', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
   { name: 'Machine Hip Thrust', muscle: 'Glutes', equipment: 'Machine', category: 'Compound', difficulty: 'Intermediate', popularity: 100 },
