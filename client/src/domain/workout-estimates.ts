@@ -17,7 +17,7 @@ import type { WorkoutRow } from './summary';
  */
 
 /** Seconds a set costs: ~45s of work + the default rest between sets.
- *  The rest half mirrors ui/rest-timer.tsx::DEFAULT_REST_SECONDS (120) — a UI
+ *  The rest half mirrors ui/train/rest-timer.tsx::DEFAULT_REST_SECONDS (120) — a UI
  *  module the pure domain must not import; change one, change the other. */
 const WORK_SECONDS = 45;
 const REST_SECONDS = 120;

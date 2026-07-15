@@ -87,7 +87,7 @@ Owner: Tyson. He works through other Claude sessions too — **always
 - **2026-07-15 LATE SESSION (one Claude, ~15 commits) — the Train hub in its
   current form.** Read this block before touching `(main)/today.tsx`:
   - **Daily carousel**: the hero card swipes one calendar day at a time
-    (`ui/daily-workout-carousel.tsx` — paged FlatList, today ±7 via
+    (`ui/train/daily-workout-carousel.tsx` — paged FlatList, today ±7 via
     `datesAround`, `CAROUSEL_REACH` to widen). Every card derives from ITS
     date (`cardDataFor(date)` in today.tsx): progress via `setsFor(date,…)`
     (isolation is structural), states START / CONTINUE (sets, no marker) /
@@ -264,7 +264,7 @@ Every one of these was a live bug. Do not relearn them.
   a server unique index; both cleared on sign-out; both have a **generation
   counter** so an in-flight flush cannot resurrect a cleared queue).
 
-**Add Exercise** (`ui/exercise-picker.tsx`, ~960 exercises): personalised sections
+**Add Exercise** (`ui/train/exercise-picker.tsx`, ~960 exercises): personalised sections
 before any keystroke → `domain/exercise-sections.ts`; search + ranking →
 `domain/exercise-rank.ts`; taxonomy/aliases → `domain/exercise-taxonomy.ts`;
 favourites → `data/exercise-prefs.ts`.
