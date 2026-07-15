@@ -24,6 +24,7 @@ import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-st
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
+import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
@@ -71,6 +72,15 @@ const cardDate = (iso: string, todayIso: string): string => {
   const day = iso === todayIso ? 'TODAY' : WEEKDAYS_SHORT[d.getUTCDay()];
   return `${day} · ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCDate()}`;
 };
+
+/** EQUAL CARDS (Tyson, 2026-07-15): every carousel card — and the carousel
+ *  itself — is exactly CARD_HEIGHT tall. Content NEVER sizes a card: the
+ *  figure lives in a fixed box, the chips in a fixed two-row area, the
+ *  footer rides marginTop:auto. */
+const CARD_HEIGHT = 396;
+const MAP_AREA_HEIGHT = 196;
+const CHIP_AREA_HEIGHT = 56;
+const MAX_CHIPS = 3;
 
 /** today ±N as ISO dates — cached per today so the array is referentially
  *  stable across renders (the FlatList must never see a fresh array). */
@@ -247,8 +257,10 @@ export default function TodayScreen() {
     const isToday = date === todayIso;
     const dateTag = (
       <Text
-        className="text-2xs font-bold"
-        style={{ letterSpacing: 1, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'] }}
+        className="text-2xs"
+        numberOfLines={1}
+        allowFontScaling={false}
+        style={{ letterSpacing: 0, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'], ...pixelFont() }}
         testID={`card-date-${date}`}
       >
         {cardDate(date, todayIso)}
@@ -263,7 +275,7 @@ export default function TodayScreen() {
         className="flex-row items-center rounded-md border px-s2"
         style={{ minHeight: 28, gap: 5, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
       >
-        <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+        <Text className="text-2xs text-accent" numberOfLines={1} allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
           {SOURCE_LABEL[source]}
         </Text>
         <Text className="text-2xs font-bold text-accent">⌄</Text>
@@ -274,30 +286,36 @@ export default function TodayScreen() {
       // Rest day / nothing planned: same shell, honest content, no fake stats.
       const hasSchedule = (schedule.data ?? []).length > 0;
       return (
-        <GlowCard glow={tokens.colors.accent} padding={14}>
-          <View testID={`hero-card-${date}`} style={{ minHeight: 240 }}>
-            <View className="flex-row items-center justify-between">
-              {dropdown}
-              {dateTag}
+        <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
+          <GlowCard glow={tokens.colors.accent} padding={14} fill>
+            <View testID={`hero-card-${date}`} style={{ flex: 1 }}>
+              <View className="flex-row items-center justify-between">
+                {dropdown}
+                {dateTag}
+              </View>
+              <View className="flex-1 items-center justify-center" style={{ gap: 6 }}>
+                <Text className="text-xl text-text" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
+                  {hasSchedule ? 'REST DAY' : 'NO WORKOUT PLANNED'}
+                </Text>
+                <Text className="text-center text-sm text-text-dim">
+                  {hasSchedule
+                    ? 'Recovery is where the muscle is built. See you tomorrow.'
+                    : 'Pick a plan or start from scratch.'}
+                </Text>
+              </View>
+              {/* Footer pinned — same vertical position on every card. */}
+              <View style={{ marginTop: 'auto' }}>
+                <NeonButton
+                  title="ADD WORKOUT"
+                  variant="ghost"
+                  pixel
+                  onPress={() => setEmptyOpen(true)}
+                  testID={`add-workout-${date}`}
+                />
+              </View>
             </View>
-            <View className="flex-1 items-center justify-center" style={{ gap: 6 }}>
-              <Text className="text-2xl font-bold text-text" style={{ letterSpacing: 1 }}>
-                {hasSchedule ? 'REST DAY' : 'NO WORKOUT PLANNED'}
-              </Text>
-              <Text className="text-center text-sm text-text-dim">
-                {hasSchedule
-                  ? 'Recovery is where the muscle is built. See you tomorrow.'
-                  : 'Pick a plan or start from scratch.'}
-              </Text>
-            </View>
-            <NeonButton
-              title="ADD WORKOUT"
-              variant="ghost"
-              onPress={() => setEmptyOpen(true)}
-              testID={`add-workout-${date}`}
-            />
-          </View>
-        </GlowCard>
+          </GlowCard>
+        </View>
       );
     }
 
@@ -308,34 +326,50 @@ export default function TodayScreen() {
         ? 'CONTINUE WORKOUT'
         : 'START WORKOUT';
     return (
-      <GlowCard glow={tokens.colors.accent} padding={14}>
-        <View testID={isToday ? 'hero-card' : `hero-card-${date}`}>
+      <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
+      <GlowCard glow={tokens.colors.accent} padding={14} fill>
+        <View testID={isToday ? 'hero-card' : `hero-card-${date}`} style={{ flex: 1 }}>
+          {/* HEADER - fixed. */}
           <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
             {dropdown}
             {dateTag}
           </View>
-          <View className="flex-row items-center" style={{ gap: 10 }}>
+          {/* CONTENT - flexible middle; nothing inside may grow the card. */}
+          <View className="flex-row items-center" style={{ gap: 10, flex: 1 }}>
             <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
-              {/* NEVER ellipsized — the workout's name is the headline. */}
-              <Text className="mt-s2 text-2xl font-bold text-text" style={{ lineHeight: 32 }}>
+              <Text
+                className="mt-s2 text-text"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                allowFontScaling={false}
+                style={{ fontSize: 21, lineHeight: 28, letterSpacing: 0, ...pixelFont() }}
+              >
                 {data.title.toUpperCase()}
               </Text>
-              <Text className="text-sm text-text-dim" numberOfLines={1} testID="hero-sub">
+              <Text className="text-sm text-text-dim" numberOfLines={1} ellipsizeMode="tail" testID="hero-sub">
                 {data.sub}
               </Text>
-              {data.pills.length > 0 ? (
-                <View className="mt-s2 flex-row flex-wrap gap-s1">
-                  {data.pills.map((p) => (
-                    <View
-                      key={p}
-                      className="rounded-pill border bg-surface-2 px-s2 py-s1"
-                      style={{ borderColor: tokens.colors.border }}
-                    >
-                      <Text className="text-center text-2xs font-bold text-text-dim">{p}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+              {/* Fixed two-row chip area: 3 chips + a compact +N — a chip
+                  count must never resize the card. */}
+              <View
+                className="mt-s2 flex-row flex-wrap gap-s1 self-stretch"
+                style={{ height: CHIP_AREA_HEIGHT, alignContent: 'flex-start', overflow: 'hidden' }}
+              >
+                {[
+                  ...data.pills.slice(0, MAX_CHIPS),
+                  ...(data.pills.length > MAX_CHIPS ? [`+${data.pills.length - MAX_CHIPS}`] : []),
+                ].map((p) => (
+                  <View
+                    key={p}
+                    className="rounded-pill border bg-surface-2 px-s2 py-s1"
+                    style={{ borderColor: tokens.colors.border }}
+                  >
+                    <Text className="text-center text-2xs font-bold text-text-dim" numberOfLines={1}>
+                      {p}
+                    </Text>
+                  </View>
+                ))}
+              </View>
               {/* ~ marks estimates — honest numbers only. */}
               <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 14 }}>
                 {(
@@ -348,8 +382,15 @@ export default function TodayScreen() {
                   <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
                     {icon}
                     <View className="items-start">
-                      <Text className="text-base font-bold text-text">{value}</Text>
-                      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+                      <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+                        {value}
+                      </Text>
+                      <Text
+                        className="text-text-mute"
+                        numberOfLines={1}
+                        allowFontScaling={false}
+                        style={{ fontSize: 8, letterSpacing: 0, ...pixelFont(false) }}
+                      >
                         {label}
                       </Text>
                     </View>
@@ -365,16 +406,27 @@ export default function TodayScreen() {
               accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
               testID="map-rotate"
               className="items-center justify-center"
-              style={{ width: '40%' }}
+              // FIXED figure box: same spot, same size, every card — the
+              // focus crop scales the figure INSIDE it, never the card.
+              style={{ width: '40%', height: MAP_AREA_HEIGHT, overflow: 'hidden' }}
             >
-              <MuscleMap selectedMuscles={data.muscles} view={mapView} pulse focus={focusFor(data.muscles)} />
+              <MuscleMap
+                selectedMuscles={data.muscles}
+                view={mapView}
+                width={focusFor(data.muscles) === 'full' ? MAP_AREA_HEIGHT / 2 : 126}
+                pulse
+                focus={focusFor(data.muscles)}
+              />
             </Pressable>
           </View>
-          {/* Progress: THIS date's completed sets against the plan. */}
-          <View className="mt-s3">
+          {/* FOOTER — pinned: progress bar and button sit at the same
+              height on every card. */}
+          <View style={{ marginTop: 'auto' }}>
             <Text
-              className="text-2xs font-bold text-text-dim"
-              style={{ letterSpacing: 1 }}
+              className="text-2xs text-text-dim"
+              numberOfLines={1}
+              allowFontScaling={false}
+              style={{ letterSpacing: 0, ...pixelFont(false) }}
               testID={isToday ? 'hero-progress' : `hero-progress-${date}`}
             >
               {data.done} / {data.sets} SETS COMPLETED
@@ -396,6 +448,7 @@ export default function TodayScreen() {
           <View className="mt-s3">
             <NeonButton
               title={buttonTitle}
+              pixel
               onPress={() => open(date, data.workout)}
               rightIcon={<Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
               testID={isToday ? 'hero-start' : `hero-start-${date}`}
@@ -403,6 +456,7 @@ export default function TodayScreen() {
           </View>
         </View>
       </GlowCard>
+      </View>
     );
   };
 
@@ -486,8 +540,9 @@ export default function TodayScreen() {
     >
       {icon}
       <Text
-        className="text-2xs font-bold text-text-dim"
-        style={{ letterSpacing: 0.5, flexShrink: 1 }}
+        className="text-text-dim"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 0, flexShrink: 1, ...pixelFont(false) }}
         numberOfLines={2}
       >
         {label.replace(' ', '\n')}
@@ -503,19 +558,21 @@ export default function TodayScreen() {
       <View className="w-full flex-row items-start justify-between">
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
-            className="font-bold text-text"
+            className="text-text"
+            allowFontScaling={false}
             style={{
-              fontSize: 34,
-              lineHeight: 38,
-              letterSpacing: 1,
+              fontSize: 30,
+              lineHeight: 36,
+              letterSpacing: 0,
               textShadowColor: 'rgba(34, 211, 238, 0.55)',
               textShadowRadius: 18,
+              ...pixelFont(),
             }}
           >
             {mode === 1 ? 'CARDIO' : 'TRAIN'}
           </Text>
           <View className="mt-s1 flex-row items-center" style={{ gap: 6 }}>
-            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 2 }}>
+            <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0.5, ...pixelFont() }}>
               TODAY
             </Text>
             <Text className="text-2xs text-text-mute">•</Text>
@@ -539,7 +596,7 @@ export default function TodayScreen() {
             className="mt-s1 items-center justify-center"
             style={{ minHeight: 24, minWidth: 44 }}
           >
-            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+            <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
               LV. {summary.level} ›
             </Text>
           </Pressable>
@@ -552,6 +609,7 @@ export default function TodayScreen() {
         active={mode}
         onChange={setMode}
         testIDPrefix="today-mode"
+        pixelLabels
         leftIcon={<PixelDumbbell size={14} color={mode === 0 ? tokens.colors.accent : tokens.colors['text-dim']} />}
         rightIcon={<PixelHeart size={14} color={mode === 1 ? tokens.colors.accent : tokens.colors['text-dim']} />}
       />
@@ -565,6 +623,7 @@ export default function TodayScreen() {
           ref={carouselRef}
           dates={dates}
           initialIndex={CAROUSEL_REACH}
+          cardHeight={CARD_HEIGHT}
           renderDay={renderDayCard}
         />
 

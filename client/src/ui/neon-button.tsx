@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
+import { PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 type Variant = 'primary' | 'ghost' | 'danger';
@@ -24,6 +25,7 @@ export function NeonButton({
   busy = false,
   icon,
   rightIcon,
+  pixel = false,
   testID,
   size = 'base',
 }: {
@@ -35,6 +37,9 @@ export function NeonButton({
   icon?: ReactNode;
   /** Trailing affordance — the Train hero's chevron. */
   rightIcon?: ReactNode;
+  /** Train's 16-bit display labels (Silkscreen). Real bold face — never a
+   *  synthesized bold, it smears pixel glyphs. */
+  pixel?: boolean;
   testID?: string;
   /** TRAIN_OVERHAUL `hero`: the page's ONE dominant action — taller, bigger
    *  label, stronger glow. Everything else keeps `base`. */
@@ -78,10 +83,12 @@ export function NeonButton({
       >
         {icon}
         <Text
+          allowFontScaling={!pixel}
           style={{
-            fontWeight: '800',
-            letterSpacing: 1,
-            fontSize: hero ? 18 : undefined,
+            fontWeight: pixel ? 'normal' : '800',
+            fontFamily: pixel ? PIXEL_BOLD : undefined,
+            letterSpacing: pixel ? 0.5 : 1,
+            fontSize: pixel ? (hero ? 16 : 13) : hero ? 18 : undefined,
             color: disabled ? tokens.colors['text-mute'] : palette.text,
           }}
         >
@@ -112,10 +119,12 @@ export function NeonButton({
         {busy ? <ActivityIndicator color={palette.text} /> : icon}
         {!busy ? (
           <Text
+            allowFontScaling={!pixel}
             style={{
-              fontWeight: '800',
-              letterSpacing: 1,
-              fontSize: hero ? 18 : undefined,
+              fontWeight: pixel ? 'normal' : '800',
+              fontFamily: pixel ? PIXEL_BOLD : undefined,
+              letterSpacing: pixel ? 0.5 : 1,
+              fontSize: pixel ? (hero ? 16 : 13) : hero ? 18 : undefined,
               color: disabled ? tokens.colors['text-mute'] : palette.text,
             }}
           >

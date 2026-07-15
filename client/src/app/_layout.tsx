@@ -2,10 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
 import { AuthProvider } from '@/data/auth-context';
+import { PIXEL_FONTS } from '@/theme/fonts';
 import { ToastHost } from '@/ui/toast-host';
 
 import '@/global.css';
@@ -34,6 +36,9 @@ export default function RootLayout() {
         },
       })
   );
+  // The 16-bit display face (Silkscreen). No splash gate: the system font
+  // paints first and swaps in — a font must never block the app.
+  useFonts(PIXEL_FONTS);
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
   );

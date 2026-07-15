@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
+import { PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 /** The segmented capsule: two tabs, a sprung slider, cyan-lit active side.
@@ -17,6 +18,7 @@ export function SegmentedTabs({
   testIDPrefix = 'arena-tab',
   leftIcon,
   rightIcon,
+  pixelLabels = false,
 }: {
   left: string;
   right: string;
@@ -25,6 +27,8 @@ export function SegmentedTabs({
   testIDPrefix?: string;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
+  /** Train's 16-bit labels. */
+  pixelLabels?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const x = useSharedValue(0);
@@ -82,7 +86,13 @@ export function SegmentedTabs({
             {icon}
             <Text
               className="text-xs font-bold"
-              style={{ letterSpacing: 1.5, color: active === i ? tokens.colors.accent : tokens.colors['text-dim'] }}
+              allowFontScaling={!pixelLabels}
+              style={{
+                letterSpacing: pixelLabels ? 0.5 : 1.5,
+                fontFamily: pixelLabels ? PIXEL_BOLD : undefined,
+                fontWeight: pixelLabels ? 'normal' : undefined,
+                color: active === i ? tokens.colors.accent : tokens.colors['text-dim'],
+              }}
             >
               {label}
             </Text>

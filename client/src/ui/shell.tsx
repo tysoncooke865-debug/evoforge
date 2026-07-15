@@ -60,18 +60,22 @@ export function GlowCard({
   glow,
   className = '',
   padding = 20,
+  fill = false,
 }: {
   children: ReactNode;
   glow?: string;
   className?: string;
   /** Compact cards (the Train hero) trade breath for screen economy. */
   padding?: number;
+  /** Stretch to the parent's fixed height (the carousel's equal cards). */
+  fill?: boolean;
 }) {
   const edge = glow ? `${glow}59` : tokens.colors.border;
   return (
     <View
       className={`overflow-hidden rounded-xl ${className}`}
       style={{
+        flex: fill ? 1 : undefined,
         borderWidth: 1,
         borderColor: edge,
         shadowColor: glow ?? '#000000',
@@ -85,7 +89,7 @@ export function GlowCard({
         colors={[tokens.colors['surface-2'], tokens.colors.surface, tokens.colors['bg-deep']]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
-        style={{ padding }}
+        style={{ padding, flex: fill ? 1 : undefined }}
       >
         {children}
       </LinearGradient>

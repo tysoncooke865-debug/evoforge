@@ -24,9 +24,12 @@ export const DailyWorkoutCarousel = forwardRef<
     dates: readonly string[];
     initialIndex: number;
     renderDay: (date: string) => ReactNode;
+    /** EVERY card and the viewport share this exact height — content never
+     *  sizes the carousel. */
+    cardHeight: number;
     onIndexChange?: (index: number, date: string) => void;
   }
->(function DailyWorkoutCarousel({ dates, initialIndex, renderDay, onIndexChange }, ref) {
+>(function DailyWorkoutCarousel({ dates, initialIndex, renderDay, cardHeight, onIndexChange }, ref) {
   const [width, setWidth] = useState(0);
   const listRef = useRef<FlatList<string>>(null);
   const indexRef = useRef(initialIndex);
@@ -50,7 +53,7 @@ export const DailyWorkoutCarousel = forwardRef<
   };
 
   return (
-    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} testID="daily-carousel">
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height: cardHeight }} testID="daily-carousel">
       {width > 0 ? (
         <FlatList
           ref={listRef}
@@ -72,7 +75,8 @@ export const DailyWorkoutCarousel = forwardRef<
           initialNumToRender={3}
           windowSize={5}
           maxToRenderPerBatch={3}
-          renderItem={({ item }) => <View style={{ width }}>{renderDay(item)}</View>}
+          style={{ height: cardHeight }}
+          renderItem={({ item }) => <View style={{ width, height: cardHeight }}>{renderDay(item)}</View>}
         />
       ) : null}
     </View>

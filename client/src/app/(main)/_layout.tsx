@@ -15,6 +15,7 @@ import { LevelUpOverlay } from '@/ui/level-up-overlay';
 import { PixelDumbbell } from '@/ui/pixel-icons';
 import { TutorialOverlay } from '@/ui/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/scroll-registry';
+import { PIXEL } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 /**
@@ -130,7 +131,7 @@ export default function MainLayout() {
         },
         tabBarActiveTintColor: tokens.colors.accent,
         tabBarInactiveTintColor: tokens.colors['text-mute'],
-        tabBarLabelStyle: { fontWeight: '700', fontSize: 10 },
+        tabBarLabelStyle: { fontFamily: PIXEL, fontWeight: 'normal', fontSize: 9, letterSpacing: 0 },
       }}
     >
       {/* TRANSFORM P1: five majors. Everything else lives in the profile
