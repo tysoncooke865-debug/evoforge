@@ -84,6 +84,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
   `/muscle-lab` (renders nothing in production; enable locally via __DEV__
   or EXPO_PUBLIC_MUSCLE_LAB=1 at export).
 
+- **2026-07-15 LATE SESSION (one Claude, ~15 commits) — the Train hub in its
+  current form.** Read this block before touching `(main)/today.tsx`:
+  - **Daily carousel**: the hero card swipes one calendar day at a time
+    (`ui/daily-workout-carousel.tsx` — paged FlatList, today ±7 via
+    `datesAround`, `CAROUSEL_REACH` to widen). Every card derives from ITS
+    date (`cardDataFor(date)` in today.tsx): progress via `setsFor(date,…)`
+    (isolation is structural), states START / CONTINUE (sets, no marker) /
+    VIEW WORKOUT (marker) / REST DAY / NO WORKOUT PLANNED. This Week rows
+    FOCUS the carousel (`carouselRef.scrollToDate`); the card button is the
+    door. The figure is tap-to-flip (horizontal swipes = day).
+  - **EQUAL CARDS**: `CARD_HEIGHT` 396 on wrapper+list+items; GlowCard
+    `fill`; footer `marginTop:'auto'`; figure in a fixed 40%×196 box; chips
+    in a fixed 56px area capped 3+`+N`; everything numberOfLines-clamped.
+    Content must NEVER size a card.
+  - **16-bit type**: Silkscreen Reg+Bold (`assets/fonts/`, `theme/fonts.ts`,
+    loaded in root `_layout`, no splash gate). `pixelFont(bold)` helper;
+    NeonButton `pixel`, SegmentedTabs `pixelLabels`. DISPLAY text only —
+    subtitles/helper copy stay sans. Real Bold face, never fontWeight.
+  - **Source switching**: `sourceDayFor` (week-status.ts) renames today +
+    future onto the chosen plan — keep-rule is per-WEEK ownership (per-day
+    froze on name collisions: all of Tyson's plans have a "Legs"); past
+    dates never rewrite. The card sub-line names WHOSE version renders
+    (plan_name / 'Built-in Routine').
+  - **Copy (2026-07-16)**: CHOOSE WORKOUT / QUICK WORKOUT / EDIT SCHEDULE
+    (+subtitles); sheet options MY PLAN / AI PLAN / EVOFORGE PLAN
+    (`SOURCE_LABEL[2]` renamed); SCAN WORKOUT, EDIT/CREATE PLAN, CREATE AI
+    PLAN, CANCEL; schedule page heading EDIT SCHEDULE. testIDs unchanged.
+  - **Taxonomy is 19 tags**: Erectors + Abductors (retagged exercises ride
+    the same commits; conventional deadlifts are erector-primary; RDL/GM/
+    Rack Pull carry Erectors as secondary). Avatar heat map untouched by
+    design — it recomputes via parity-pinned inferMuscleGroup(name).
+  - **Pending / loose threads**: back-view forearm+biceps masks (draw →
+    `tools/extract_muscle_masks.py <kra> back` → add ids to BACK_MASKED_IDS
+    + requires in back-masks.ts); verify the CI deploy of `0cd1769` went
+    green; old TASKS.md `[human]` items. Tour screenshots for Tyson land in
+    `Downloads/evoforge-screenshots/` (he cannot see Claude-context images).
+
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
 `019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.
