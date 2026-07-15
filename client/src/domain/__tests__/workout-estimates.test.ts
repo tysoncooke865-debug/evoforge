@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { estimateKcal, estimateMinutes, splitWorkoutName } from '../workout-estimates';
+import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '../workout-estimates';
 
 describe('estimateMinutes — sets × (45s work + 120s rest), to the nearest 5', () => {
   it('20 sets ≈ 55 min (the spec anchor: 20 × 165s = 3300s exactly)', () => {
@@ -22,23 +22,71 @@ describe('estimateMinutes — sets × (45s work + 120s rest), to the nearest 5',
   });
 });
 
-describe('estimateKcal — MET 5.0 over the UNROUNDED minutes, to the nearest 10', () => {
-  it('18 sets at 77 kg: 6.7375 kcal/min × 49.5 min = 333.5 → 330', () => {
-    expect(estimateKcal(18, 77)).toBe(330);
+describe('estimateNetKcal — the SURPLUS over resting: (MET−1) work + (MET−1) rest', () => {
+  it('20 sets at 77 kg, no rep history: (5×15 + 0.5×40) × 1.3475 = 128.0 → 130', () => {
+    expect(estimateNetKcal(20, null, 77)).toBe(130);
   });
 
-  it('20 sets at 77 kg: 6.7375 × 55 = 370.6 → 370', () => {
-    expect(estimateKcal(20, 77)).toBe(370);
+  it('20 sets at 77 kg, 10 reps/set: work shrinks to 13.33 min → 116.8 → 120', () => {
+    expect(estimateNetKcal(20, 10, 77)).toBe(120);
+  });
+
+  it('net is well below the old gross number (370 for the same day)', () => {
+    expect(estimateNetKcal(20, null, 77)).toBeLessThan(370);
   });
 
   it('heavier athlete burns more (positive control on the kg term)', () => {
-    expect(estimateKcal(20, 100)).toBeGreaterThan(estimateKcal(20, 62));
+    expect(estimateNetKcal(20, 10, 100)).toBeGreaterThan(estimateNetKcal(20, 10, 62));
+  });
+
+  it('more reps per set costs more (positive control on the reps term)', () => {
+    expect(estimateNetKcal(20, 20, 77)).toBeGreaterThan(estimateNetKcal(20, 8, 77));
+  });
+
+  it('reps-per-set clamps to [3, 30] — outliers behave as the bounds', () => {
+    expect(estimateNetKcal(20, 2, 77)).toBe(estimateNetKcal(20, 3, 77));
+    expect(estimateNetKcal(20, 40, 77)).toBe(estimateNetKcal(20, 30, 77));
   });
 
   it('no sets or no bodyweight → 0, never NaN', () => {
-    expect(estimateKcal(0, 77)).toBe(0);
-    expect(estimateKcal(10, 0)).toBe(0);
-    expect(estimateKcal(10, Number.NaN)).toBe(0);
+    expect(estimateNetKcal(0, 10, 77)).toBe(0);
+    expect(estimateNetKcal(10, null, 0)).toBe(0);
+    expect(estimateNetKcal(10, 10, Number.NaN)).toBe(0);
+  });
+});
+
+describe('lastSessionWork — the latest COMPLETED session strictly before today', () => {
+  const PUSH = 'Push 1 - Strength';
+  const rows = [
+    { date: '2026-07-13', workout: PUSH, exercise: 'Bench', weight: 60, reps: 8 },
+    { date: '2026-07-13', workout: PUSH, exercise: 'Bench', weight: '60', reps: '7' }, // wire strings coerce
+    { date: '2026-07-13', workout: PUSH, exercise: 'OHP', weight: 40, reps: 10 },
+    { date: '2026-07-06', workout: PUSH, exercise: 'Bench', weight: 55, reps: 12 }, // older session loses
+    { date: '2026-07-13', workout: PUSH, exercise: 'Fly', weight: 0, reps: 12 }, // invalid: no weight
+    { date: '2026-07-13', workout: 'Pull 1 - Strength', exercise: 'Row', weight: 50, reps: 10 },
+    { date: '2026-07-15', workout: PUSH, exercise: 'Bench', weight: 62, reps: 8 }, // today: in progress
+  ];
+
+  it('the fixture is non-empty (a guard that cannot fail is not a guard)', () => {
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it('picks 2026-07-13: 3 valid sets, 25 total reps — not today, not the older one', () => {
+    expect(lastSessionWork(rows, PUSH, '2026-07-15')).toEqual({ sets: 3, totalReps: 25 });
+  });
+
+  it('with the 13th excluded (beforeDate earlier), the older session surfaces', () => {
+    expect(lastSessionWork(rows, PUSH, '2026-07-13')).toEqual({ sets: 1, totalReps: 12 });
+  });
+
+  it('a workout with no history → null, never a zero-set session', () => {
+    expect(lastSessionWork(rows, 'Legs - Volume', '2026-07-15')).toBeNull();
+    expect(lastSessionWork([], PUSH, '2026-07-15')).toBeNull();
+  });
+
+  it('history that is ONLY today → null (an in-progress session is not "last workout")', () => {
+    const todayOnly = [{ date: '2026-07-15', workout: PUSH, exercise: 'Bench', weight: 60, reps: 8 }];
+    expect(lastSessionWork(todayOnly, PUSH, '2026-07-15')).toBeNull();
   });
 });
 

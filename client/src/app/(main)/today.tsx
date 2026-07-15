@@ -19,7 +19,7 @@ import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, scheduledDayFor } from '@/domain/week-status';
-import { estimateKcal, estimateMinutes, splitWorkoutName } from '@/domain/workout-estimates';
+import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
@@ -173,7 +173,14 @@ export default function TodayScreen() {
       : positiveBw.length > 0
         ? positiveBw[positiveBw.length - 1]
         : (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
-  const heroKcal = estimateKcal(heroSets, bodyweightKg);
+  // KCAL is NET — the surplus over resting — sized by the athlete's own last
+  // session of this workout where one exists. Plan sets define the workout
+  // (a partial last session must not crater the estimate); history supplies
+  // reps-per-set. A plan-less day (ad-hoc repeat) leans on history for both.
+  const lastWork = heroWorkout ? lastSessionWork(allRows, heroWorkout, todayIso) : null;
+  const kcalSets = heroSets > 0 ? heroSets : (lastWork?.sets ?? 0);
+  const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
+  const heroKcal = estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg);
   const heroDone = heroWorkout ? setsFor(todayIso, heroWorkout).done : 0;
   // Compact screens (320px class): the muscle map stacks beneath the stats
   // instead of squeezing the text column.
