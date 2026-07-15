@@ -16,7 +16,24 @@
 
 import type { ScheduleRow } from './scheduled-streak';
 
-export type WorkoutStatus = 'completed' | 'missed' | 'in_progress' | 'upcoming' | 'rest';
+export type WorkoutStatus = 'completed' | 'partial' | 'missed' | 'in_progress' | 'upcoming' | 'rest';
+
+/**
+ * TRAIN_OVERHAUL — how much of a day happened, not just whether it did.
+ *
+ * `done`/`target` are the plan-matched fraction the bar displays (sets logged
+ * against what the plan asks, capped per exercise). `trained` is the OLD
+ * boolean — ANY valid set for (date, workout) — and it stays separate on
+ * purpose: an athlete who swapped every exercise has done=0 against the plan
+ * but absolutely trained, and deriving "trained" from done>0 would flip a day
+ * of real history from COMPLETED to MISSED. done>0 implies trained; never the
+ * reverse.
+ */
+export interface DayProgress {
+  done: number;
+  target: number;
+  trained: boolean;
+}
 
 export interface WeekBar {
   date: string; // YYYY-MM-DD
@@ -28,7 +45,20 @@ export interface WeekBar {
   sessionId: string | null;
   /** LOCKED = explicitly finished. Never true from derivation alone. */
   locked: boolean;
+  /** Plan-matched sets logged / asked for — the bar's fraction. */
+  done: number;
+  target: number;
 }
+
+/**
+ * PARTIAL = the athlete SAID they were done (the marker) while the plan says
+ * there was more (done < target). Derivation alone never yields it: a past
+ * unmarked day is completed-or-missed exactly as before, because inventing
+ * "you stopped early" for history nobody finished-early is a lie about the
+ * past. A partial day is still LOCKED — it was explicitly finished.
+ */
+const statusForMarked = (p: DayProgress): WorkoutStatus =>
+  p.target > 0 && p.done < p.target ? 'partial' : 'completed';
 
 export interface SessionMarker {
   id: string;
@@ -66,7 +96,7 @@ export function scheduledDayFor(date: string, rows: readonly ScheduleRow[]): str
 export function buildWeekBars(
   scheduleRows: readonly ScheduleRow[],
   sessions: readonly SessionMarker[],
-  hasValidSets: (date: string, workout: string) => boolean,
+  progressFor: (date: string, workout: string) => DayProgress,
   todayIso: string
 ): WeekBar[] | null {
   if (scheduleRows.length === 0) return null;
@@ -81,18 +111,18 @@ export function buildWeekBars(
     const workout = scheduledDayFor(date, scheduleRows);
 
     if (workout === null) {
-      bars.push({ date, dow: dowOf(date), workout: null, status: 'rest', sessionId: null, locked: false });
+      bars.push({ date, dow: dowOf(date), workout: null, status: 'rest', sessionId: null, locked: false, done: 0, target: 0 });
       continue;
     }
 
     const marker = markers.get(`${date}|${workout}`) ?? null;
-    const trained = hasValidSets(date, workout);
+    const progress = progressFor(date, workout);
 
     let status: WorkoutStatus;
-    if (marker) status = 'completed';
+    if (marker) status = statusForMarked(progress);
     else if (date > todayIso) status = 'upcoming';
     else if (date === todayIso) status = 'in_progress';
-    else if (trained) status = 'completed'; // pre-marker history stays green
+    else if (progress.trained) status = 'completed'; // pre-marker history stays green
     else status = 'missed';
 
     bars.push({
@@ -101,8 +131,11 @@ export function buildWeekBars(
       workout,
       status,
       sessionId: marker?.id ?? null,
-      // LOCKING KEYS ONLY ON THE MARKER — see the header.
+      // LOCKING KEYS ONLY ON THE MARKER — see the header. PARTIAL is locked
+      // too: it was explicitly finished.
       locked: marker !== null,
+      done: progress.done,
+      target: progress.target,
     });
   }
   return bars;
@@ -115,6 +148,7 @@ export function todayBar(bars: WeekBar[] | null, todayIso: string): WeekBar | nu
 
 export const STATUS_LABEL: Readonly<Record<WorkoutStatus, string>> = {
   completed: 'COMPLETED',
+  partial: 'PARTIAL',
   missed: 'MISSED',
   in_progress: 'IN PROGRESS',
   upcoming: '—',
@@ -136,7 +170,8 @@ export function extraBarsForToday(
   sessions: readonly SessionMarker[],
   adhocName: string | null,
   scheduledToday: string | null,
-  todayIso: string
+  todayIso: string,
+  progressFor: (date: string, workout: string) => DayProgress = () => ({ done: 0, target: 0, trained: false })
 ): WeekBar[] {
   const names = new Set<string>();
 
@@ -161,13 +196,18 @@ export function extraBarsForToday(
   const dow = new Date(`${todayIso}T00:00:00Z`).getUTCDay();
   return [...names].map((workout) => {
     const marker = sessions.find((m) => m.date === todayIso && m.workout === workout) ?? null;
+    const progress = progressFor(todayIso, workout);
     return {
       date: todayIso,
       dow,
       workout,
-      status: marker ? ('completed' as const) : ('in_progress' as const),
+      // Same rule as the week: a finish with less than the plan asked is
+      // PARTIAL; in-progress days stay in progress.
+      status: marker ? statusForMarked(progress) : ('in_progress' as const),
       sessionId: marker?.id ?? null,
       locked: marker !== null,
+      done: progress.done,
+      target: progress.target,
     };
   });
 }

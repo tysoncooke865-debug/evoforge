@@ -19,8 +19,15 @@ const MONDAY = '2026-07-13';
 const TUESDAY = '2026-07-14';
 const THURSDAY = '2026-07-16';
 
-const noSets = () => false;
-const setsOn = (...dates: string[]) => (date: string) => dates.includes(date);
+// Progress callbacks (TRAIN_OVERHAUL): {done, target, trained}. `noSets` /
+// `setsOn` mirror the old boolean world — trained days read as fully done.
+const noSets = () => ({ done: 0, target: 0, trained: false });
+const setsOn =
+  (...dates: string[]) =>
+  (date: string) =>
+    dates.includes(date) ? { done: 5, target: 5, trained: true } : { done: 0, target: 5, trained: false };
+/** A fixed fraction everywhere — for pinning the partial threshold. */
+const progressOf = (done: number, target: number, trained = done > 0) => () => ({ done, target, trained });
 
 describe('scheduledDayFor', () => {
   it('reads the plan in force on that date', () => {
@@ -88,6 +95,49 @@ describe('buildWeekBars', () => {
     });
   });
 
+  describe('THE PARTIAL MATRIX (TRAIN_OVERHAUL) — marker present, plan not met', () => {
+    const marker: SessionMarker = { id: 'p1', date: MONDAY, workout: 'Push' };
+    const monOf = (bars: ReturnType<typeof buildWeekBars>) => bars!.find((b) => b.date === MONDAY)!;
+
+    it('marker && done < target → PARTIAL, and it is still LOCKED (it was explicitly finished)', () => {
+      const mon = monOf(buildWeekBars([WEEK], [marker], progressOf(3, 20), TODAY));
+      expect(mon.status).toBe('partial');
+      expect(mon.locked).toBe(true);
+      expect(mon.sessionId).toBe('p1');
+    });
+
+    it('marker && done === target → COMPLETED (the boundary is strict)', () => {
+      expect(monOf(buildWeekBars([WEEK], [marker], progressOf(20, 20), TODAY)).status).toBe('completed');
+    });
+
+    it('marker && done > target (extra credit) → COMPLETED', () => {
+      expect(monOf(buildWeekBars([WEEK], [marker], progressOf(25, 20), TODAY)).status).toBe('completed');
+    });
+
+    it('marker && target 0 (the plan knows no sets to ask for) → COMPLETED, never partial-of-nothing', () => {
+      expect(monOf(buildWeekBars([WEEK], [marker], progressOf(0, 0, false), TODAY)).status).toBe('completed');
+    });
+
+    it('NO marker: derivation NEVER yields partial — an unmarked past day with some sets stays COMPLETED', () => {
+      // Inventing "you stopped early" for history nobody finished-early would
+      // lie about the past; the pre-marker rule is untouched.
+      const mon = monOf(buildWeekBars([WEEK], [], progressOf(3, 20, true), TODAY));
+      expect(mon.status).toBe('completed');
+      expect(mon.locked).toBe(false);
+    });
+
+    it('a swapped-everything day (done 0 vs plan, but trained) stays COMPLETED — trained is its own signal', () => {
+      const mon = monOf(buildWeekBars([WEEK], [], progressOf(0, 20, true), TODAY));
+      expect(mon.status).toBe('completed');
+    });
+
+    it('the bars carry done/target for the UI fraction', () => {
+      const mon = monOf(buildWeekBars([WEEK], [marker], progressOf(3, 20), TODAY));
+      expect(mon.done).toBe(3);
+      expect(mon.target).toBe(20);
+    });
+  });
+
   describe('LOCKING KEYS ONLY ON THE MARKER', () => {
     it('a pre-feature completed workout is NOT locked — history stays editable', () => {
       const bars = buildWeekBars([WEEK], [], setsOn(MONDAY), TODAY)!;
@@ -106,13 +156,14 @@ describe('buildWeekBars', () => {
       expect(t.sessionId).toBe('sess-1');
     });
 
-    it('THE BUG: finishing EARLY sticks — today stays completed with 1 set of 20', () => {
+    it('THE BUG: finishing EARLY sticks — 1 set of 20 stays decided (PARTIAL now), never in-progress', () => {
       // Before the marker, `complete` was derived (done >= target), so a
       // workout finished early snapped back to in-progress the moment the
-      // summary closed. The marker is what makes the decision survive.
+      // summary closed. The marker is what makes the decision survive —
+      // TRAIN_OVERHAUL names that early finish honestly: PARTIAL.
       const marker: SessionMarker = { id: 'sess-2', date: TODAY, workout: 'Legs' };
-      const bars = buildWeekBars([WEEK], [marker], setsOn(TODAY), TODAY)!;
-      expect(todayBar(bars, TODAY)!.status).toBe('completed');
+      const bars = buildWeekBars([WEEK], [marker], progressOf(1, 20), TODAY)!;
+      expect(todayBar(bars, TODAY)!.status).toBe('partial');
       expect(todayBar(bars, TODAY)!.locked).toBe(true);
     });
 
@@ -157,6 +208,12 @@ describe('extraBarsForToday — an off-schedule workout must have a HOME', () =>
     const marker: SessionMarker = { id: 'm1', date: TODAY, workout: 'Beach Day' };
     const bars = extraBarsForToday([], [marker], null, 'Legs', TODAY);
     expect(bars[0]).toMatchObject({ workout: 'Beach Day', status: 'completed', locked: true, sessionId: 'm1' });
+  });
+
+  it('a FINISHED extra that fell short of its plan is PARTIAL, same rule as the week', () => {
+    const marker: SessionMarker = { id: 'm2', date: TODAY, workout: 'Beach Day' };
+    const bars = extraBarsForToday([], [marker], null, 'Legs', TODAY, progressOf(2, 9));
+    expect(bars[0]).toMatchObject({ workout: 'Beach Day', status: 'partial', locked: true, done: 2, target: 9 });
   });
 
   it('the ad-hoc workout IN PROGRESS gets a bar before its first set lands', () => {

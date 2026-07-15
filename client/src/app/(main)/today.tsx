@@ -63,16 +63,31 @@ export default function TodayScreen() {
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
-  const hasValidSets = (date: string, workout: string): boolean =>
-    allRows.some(
+
+  /** How much of a day is done: sets logged vs sets the plan asks for. The plan
+   *  is read from the SAME source the door will open, so the hub and the page
+   *  can never disagree about what the day contains. `trained` is the separate
+   *  any-valid-set signal week-status derives history from — an athlete who
+   *  swapped every exercise has done=0 against the plan but still trained. */
+  const setsFor = (date: string, workout: string | null): { done: number; target: number; trained: boolean } => {
+    if (!workout) return { done: 0, target: 0, trained: false };
+    const dayRows = allRows.filter(
       (r) =>
         String(r.date) === date &&
         String(r.workout) === workout &&
         (pyFloat(r.weight) ?? 0) > 0 &&
         (pyFloat(r.reps) ?? 0) > 0
     );
+    const entries = resolveDay(workout, source).entries;
+    const target = entries.reduce((n, [, sets]) => n + sets, 0);
+    const done = entries.reduce((n, [exercise, sets]) => {
+      const logged = dayRows.filter((r) => String(r.exercise) === exercise).length;
+      return n + Math.min(logged, sets);
+    }, 0);
+    return { done, target, trained: dayRows.length > 0 };
+  };
 
-  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], hasValidSets, todayIso);
+  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso);
   const scheduledToday = scheduledDayFor(todayIso, schedule.data ?? []);
   // Ad-hoc and off-schedule workouts get their own bar — otherwise finishing one
   // leaves it with no home on Train: green nowhere, reachable nowhere.
@@ -81,29 +96,9 @@ export default function TodayScreen() {
     sessions.data ?? [],
     adhoc?.name ?? null,
     scheduledToday,
-    todayIso
+    todayIso,
+    setsFor
   );
-
-  /** How much of a day is done: sets logged vs sets the plan asks for. The plan
-   *  is read from the SAME source the door will open, so the hub and the page
-   *  can never disagree about what the day contains. */
-  const setsFor = (date: string, workout: string | null): { done: number; target: number } => {
-    if (!workout) return { done: 0, target: 0 };
-    const entries = resolveDay(workout, source).entries;
-    const target = entries.reduce((n, [, sets]) => n + sets, 0);
-    const done = entries.reduce((n, [exercise, sets]) => {
-      const logged = allRows.filter(
-        (r) =>
-          String(r.date) === date &&
-          String(r.workout) === workout &&
-          String(r.exercise) === exercise &&
-          (pyFloat(r.weight) ?? 0) > 0 &&
-          (pyFloat(r.reps) ?? 0) > 0
-      ).length;
-      return n + Math.min(logged, sets);
-    }, 0);
-    return { done, target };
-  };
 
   /** The ONE entry path into a workout — and the SOURCE goes with it. Without
    *  that, the workout page had to guess whose plan you meant, and guessed the
