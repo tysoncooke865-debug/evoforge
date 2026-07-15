@@ -5,19 +5,19 @@
 >
 > `HANDOFF.md` is the layered history (long, chronological, still accurate). This
 > file is the CURRENT state, the rules that cost real bugs, and how to work here.
-> Last updated 2026-07-14 (commit `964f928`).
+> Last updated 2026-07-16 (the Home redesign + optimisation session).
 
 ---
 
 ## 1. What this is
 
 A fitness RPG: real training data (Supabase) drives a levelling, evolving
-character, plus 1v1 battles. **Two apps, one production database:**
+character, plus 1v1 battles. **One app now:**
 
 | | |
 |---|---|
-| **Streamlit** (`app.py`, Python) | LIVE at https://evoforge.streamlit.app from `main`. Two real users. **Do not break it.** Its `domain/` is the pinned contract (goldens via `tools/gen_fixtures.py`). |
-| **Expo client** (`client/`) | The real product. Branch **`expo-rewrite`**, auto-deploys to https://expo-rewrite.evoforge.pages.dev (~5 min per push). Everything below is about this. |
+| **Expo client** (`client/`) | THE product. Branch **`expo-rewrite`**, auto-deploys to https://expo-rewrite.evoforge.pages.dev (~5 min per push). Everything below is about this. |
+| **Streamlit** (`app.py`, Python) | **RETIRED (Tyson, 2026-07-16)** — no support, no optimising around it. The code stays on `main` as reference; its `domain/` goldens remain the pinned correctness contract for `client/src/domain/`. The pre-push hook now skips the Python suite for client/docs-only pushes. |
 
 Owner: Tyson. He works through other Claude sessions too — **always
 `git pull --rebase` before pushing**, and expect new plan docs to appear.
@@ -139,6 +139,27 @@ Owner: Tyson. He works through other Claude sessions too — **always
   Sans's bold 5 reads as S (side-by-side proof in the session log). Single
   weights: `pixelFont()` still maps bold→Jersey25/regular→Jersey10; never
   synthesize bold. `~` estimate prefixes became explicit `EST. MIN` labels.
+
+- **`OPTIMISE_PLAN.md` — EXECUTED 2026-07-16 (same session as the Home
+  redesign):**
+  - **Route-level code splitting IS possible on this pipeline** — expo-router
+    `asyncRoutes: {web: true}` (app.json). The 3.5MB single entry became a
+    1.1MB entry + 1.8MB shared chunk + ~25 per-route chunks (Home 55KB,
+    Train 38KB…). §7's old "no splitting" claim is dead.
+  - Platform twins keep native-only weight off web: `data/url-polyfill.*`
+    (whatwg-url/punycode) and `data/session-storage.*` (aes-js/buffer —
+    supabase falls back to localStorage on web, which is safe here).
+  - **`src/ui` is grouped by feature now**: `core/` (shell, hud, buttons,
+    icons, fields) · `character/` (avatar, stage, sprites, XP, evolution) ·
+    `train/` (logger, picker, carousel, cardio) · `arena/` (battle,
+    leaderboard) · `home/` · `muscle-map/`. No barrels (they fight
+    splitting). Dead components deleted (quest-card, stat-meter,
+    avatar-card — unreachable after the Home redesign).
+  - **Motion**: root boot cross-fade (M3) + ScreenShell one-shot focus
+    fade/rise (M1), both reduced-motion gated; verify-motion still green.
+  - Moving a ui file one level deeper breaks its `../assets/` imports —
+    the codemod missed them once; tsc alone does NOT catch broken asset
+    requires (only `expo export` does). Export before trusting a move.
 
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
@@ -306,11 +327,11 @@ curl -s -X POST "https://api.supabase.com/v1/projects/rysbpwpvnqbngqncrfaa/datab
 
 ## 7. Known weaknesses / what's next
 
-- **LCP ~6s** is THE remaining perf problem: one ~2.5MB JS bundle, because Expo web
-  has no route-level code splitting on this pipeline. The fix is **native builds or
-  splitting** — not another web micro-optimisation. Lighthouse budgets are
-  **ratchets** under the measured build: raise them when the build clears them,
-  **never lower one to make a red run green**.
+- **LCP**: async routes (2026-07-16) cut the entry 3.5MB → 1.1MB (+1.8MB
+  shared chunk); re-measure LCP in CI's Lighthouse before touching budgets.
+  Budgets are **ratchets** under the measured build: raise them when the
+  build clears them, **never lower one to make a red run green**. The next
+  big step remains native builds.
 - **Deferred deliberately:** Sentry/PostHog (they earn their weight on native, and
   the bundle is already the problem), push notifications (need a native build).
 - **Asked for, not built:** a strength percentile vs population ("top x% of

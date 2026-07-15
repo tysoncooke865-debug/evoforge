@@ -1,9 +1,16 @@
 # EvoForge — project memory
 
+> ⚠️ **THE STREAMLIT APP IS RETIRED (Tyson, 2026-07-16).** Everything below
+> this banner describes the Python/Streamlit app, which no longer ships and
+> needs no support. **The real product is the Expo client on branch
+> `expo-rewrite` — read `HANDOVER.md` at the repo root and work there.**
+> This file remains as reference for the retired code and the database
+> contracts that outlived it (RLS, the XP ledger, the migrations).
+
 > This file is auto-loaded into every session. It is the token budget.
 > Keep it under 200 lines. Detail belongs in the linked docs, read on demand.
 
-**Start command:** `Read CLAUDE.md and continue development.`
+**Start command:** `Read HANDOVER.md and continue development.`
 
 ## What it is
 A fitness tracker with an RPG layer: your character's stats, level, rarity and

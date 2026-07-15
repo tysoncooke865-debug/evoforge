@@ -28,6 +28,18 @@ cd "$REPO_ROOT"
 
 PYTHON="${PYTHON:-python}"
 
+# STREAMLIT RETIRED (Tyson, 2026-07-16): the Python suite guards the
+# Streamlit app, which no longer ships. Skip it when the outgoing commits
+# touch nothing outside client/ and docs — the client has its own loop
+# (HANDOVER §5) and CI. Any Python-side change still runs the full suite.
+OUTGOING="$(git diff --name-only @{push}..HEAD 2>/dev/null || git diff --name-only origin/$(git rev-parse --abbrev-ref HEAD)..HEAD 2>/dev/null || true)"
+if [ -n "$OUTGOING" ] && ! printf '%s\n' "$OUTGOING" | grep -qvE '^(client/|[^/]+\.md$)'; then
+    echo ""
+    echo "pre-push: client/docs-only push — the Streamlit suite is retired for these paths. Pushing."
+    echo ""
+    exit 0
+fi
+
 # The suite that needs neither a database nor a browser. verify_rls.py wants a
 # live project; shot.py wants a real browser and a running app. Run those by hand.
 CHECKS=(
