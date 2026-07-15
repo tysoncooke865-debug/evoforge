@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
-import 'react-native-url-polyfill/auto';
-
-import { LargeSecureStore } from './large-secure-store';
+// Platform twins (OPTIMISE_PLAN P2): native imports the URL polyfill and
+// builds the LargeSecureStore; the web twins are empty/undefined, so
+// neither the polyfill nor aes-js ever enters the web bundle.
+import './url-polyfill';
+import { makeSessionStorage } from './session-storage';
 
 // These values transit dashboards, .env files and CI secret forms, and every
 // paste variant has now been seen in the wild: wrapping quotes from TOML, and
@@ -50,9 +52,11 @@ if (!supabaseUrl || !supabaseKey) {
  * Module-scope side effects (AppState listener) are guarded to native, so
  * importing this file during static web export (Node, no window) stays inert.
  */
+const sessionStorage = makeSessionStorage();
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    ...(Platform.OS !== 'web' ? { storage: new LargeSecureStore() } : {}),
+    ...(sessionStorage ? { storage: sessionStorage } : {}),
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
