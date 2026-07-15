@@ -188,35 +188,44 @@ describe('sourceDayFor — switching plan source renames today and the FUTURE, n
   // WEEK schedules Push/Pull/Legs/Upper/Lower Mon-Fri. The chosen source is a
   // 3-day plan with its own names, none of which the schedule uses.
   const DAYS = ['Alpha', 'Beta', 'Gamma'];
-  const hasNone = () => false;
-  const hasAll = () => true;
 
   it('a rest day stays a rest day — slots are the schedule, names follow the source', () => {
-    expect(sourceDayFor('2026-07-19', [WEEK], DAYS, hasNone, TODAY)).toBeNull(); // Sunday
+    expect(sourceDayFor('2026-07-19', [WEEK], DAYS, TODAY)).toBeNull(); // Sunday
   });
 
   it('HISTORY IS HISTORY: a past date keeps its scheduled name', () => {
-    expect(sourceDayFor(MONDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Push');
-    expect(sourceDayFor(TUESDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Pull');
+    expect(sourceDayFor(MONDAY, [WEEK], DAYS, TODAY)).toBe('Push');
+    expect(sourceDayFor(TUESDAY, [WEEK], DAYS, TODAY)).toBe('Pull');
   });
 
-  it('a name the source OWNS stays put', () => {
-    expect(sourceDayFor(TODAY, [WEEK], DAYS, hasAll, TODAY)).toBe('Legs');
+  it('a week the source OWNS WHOLESALE stays put — it is that plan\'s own arrangement', () => {
+    const owner = ['Push', 'Pull', 'Legs', 'Upper', 'Lower'];
+    expect(sourceDayFor(TODAY, [WEEK], owner, TODAY)).toBe('Legs');
+    expect(sourceDayFor(THURSDAY, [WEEK], owner, TODAY)).toBe('Upper');
+  });
+
+  it("THE GLITCH (Tyson, 2026-07-15): a day-name COLLISION must not freeze the title", () => {
+    // His three plans all own a day called 'Legs' — scheduled today. A source
+    // that has 'Legs' but NOT the rest of the week is a different plan and
+    // must remap; the old per-day keep-rule locked 'Legs' on screen while the
+    // exercises switched underneath.
+    const collides = ['Alpha', 'Legs', 'Gamma']; // owns today's name, not the week
+    expect(sourceDayFor(TODAY, [WEEK], collides, TODAY)).toBe('Gamma'); // Wed = slot 2
   });
 
   it('today and upcoming remap positionally onto the source days', () => {
     // Mon Tue Wed Thu Fri are training slots 0..4 → Alpha Beta Gamma Alpha Beta
-    expect(sourceDayFor(TODAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Gamma'); // Wed = slot 2
-    expect(sourceDayFor(THURSDAY, [WEEK], DAYS, hasNone, TODAY)).toBe('Alpha'); // slot 3 cycles
-    expect(sourceDayFor('2026-07-17', [WEEK], DAYS, hasNone, TODAY)).toBe('Beta'); // Fri = slot 4
+    expect(sourceDayFor(TODAY, [WEEK], DAYS, TODAY)).toBe('Gamma'); // Wed = slot 2
+    expect(sourceDayFor(THURSDAY, [WEEK], DAYS, TODAY)).toBe('Alpha'); // slot 3 cycles
+    expect(sourceDayFor('2026-07-17', [WEEK], DAYS, TODAY)).toBe('Beta'); // Fri = slot 4
   });
 
   it('an empty source (nothing saved yet) changes nothing', () => {
-    expect(sourceDayFor(TODAY, [WEEK], [], hasNone, TODAY)).toBe('Legs');
+    expect(sourceDayFor(TODAY, [WEEK], [], TODAY)).toBe('Legs');
   });
 
   it('threads through buildWeekBars as the dayFor override', () => {
-    const dayFor = (date: string) => sourceDayFor(date, [WEEK], DAYS, hasNone, TODAY);
+    const dayFor = (date: string) => sourceDayFor(date, [WEEK], DAYS, TODAY);
     const bars = buildWeekBars([WEEK], [], noSets, TODAY, dayFor)!;
     expect(todayBar(bars, TODAY)!.workout).toBe('Gamma'); // remapped
     expect(bars.find((b) => b.date === MONDAY)!.workout).toBe('Push'); // history

@@ -9,6 +9,7 @@ import { useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
+import { useUserPlans } from '@/data/user-plans';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { libraryMuscleFor } from '@/domain/exercise-library';
@@ -123,13 +124,7 @@ export default function TodayScreen() {
    *  MY PLAN / AI PLAN / BUILT-IN renames today and the upcoming week onto
    *  that plan's days (past days are history and keep theirs). */
   const dayInSource = (date: string): string | null =>
-    sourceDayFor(
-      date,
-      schedule.data ?? [],
-      planDays,
-      (day) => resolveDay(day, source).from === source,
-      todayIso
-    );
+    sourceDayFor(date, schedule.data ?? [], planDays, todayIso);
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
@@ -167,8 +162,22 @@ export default function TodayScreen() {
     heroKicker = 'FROM YOUR PLAN';
   }
 
-  const heroEntries = heroWorkout ? resolveDay(heroWorkout, source).entries : [];
+  const heroResolved = heroWorkout ? resolveDay(heroWorkout, source) : null;
+  const heroEntries = heroResolved?.entries ?? [];
   const heroName = splitWorkoutName(heroWorkout ?? '');
+  // WHOSE version of this day is on screen. Plans share day names ("Legs"
+  // exists in all three of Tyson's plans), so when the day has no subtitle
+  // of its own the sub line names the PLAN — otherwise a source switch that
+  // lands on the same day name looks like it did nothing (the 2026-07-15
+  // glitch report).
+  const userPlans = useUserPlans();
+  const heroPlanName =
+    heroResolved?.from === 0
+      ? (userPlans.data?.custom?.plan_name ?? 'My Plan')
+      : heroResolved?.from === 1
+        ? (userPlans.data?.ai?.plan_name ?? 'AI Plan')
+        : 'Built-in Routine';
+  const heroSub = heroName.sub ?? heroPlanName;
   // Pills and map share ONE vocabulary: each exercise's tag through the
   // muscle ladder, normalised into the 15 MuscleIds — a Push day reads (and
   // lights) Chest · Shoulders · Triceps, never a vague "Arms".
@@ -405,7 +414,9 @@ export default function TodayScreen() {
                   <Text className="mt-s2 text-2xl font-bold text-text" style={{ lineHeight: 32 }}>
                     {heroName.title.toUpperCase()}
                   </Text>
-                  {heroName.sub ? <Text className="text-sm text-text-dim">{heroName.sub}</Text> : null}
+                  <Text className="text-sm text-text-dim" numberOfLines={1} testID="hero-sub">
+                    {heroSub}
+                  </Text>
                   {heroPills.length > 0 ? (
                     <View className="mt-s2 flex-row flex-wrap gap-s1">
                       {heroPills.map((p) => (

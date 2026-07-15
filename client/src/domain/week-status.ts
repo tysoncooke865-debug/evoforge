@@ -94,8 +94,12 @@ export function scheduledDayFor(date: string, rows: readonly ScheduleRow[]): str
  *   HISTORY IS HISTORY: a past date keeps the name that was actually
  *   scheduled — a source switch must not rewrite what happened.
  *
- *   A NAME THE SOURCE OWNS STAYS: if the chosen plan has this day, it is
- *   already the right answer.
+ *   A WEEK THE SOURCE OWNS STAYS: if EVERY training day this week is one of
+ *   the chosen plan's days, the stored schedule is that plan's own
+ *   arrangement — keep it. Deliberately per-WEEK, not per-day: plans share
+ *   day names ("Legs" exists in all three of Tyson's plans), and the per-day
+ *   rule froze the title on a collision while the exercises switched
+ *   underneath — the glitch this comment exists to prevent again.
  *
  *   OTHERWISE REMAP POSITIONALLY: the week's nth training slot takes the
  *   source's nth day (cycling when the source has fewer days) — switching
@@ -108,22 +112,24 @@ export function sourceDayFor(
   date: string,
   scheduleRows: readonly ScheduleRow[],
   sourceDays: readonly string[],
-  sourceHas: (day: string) => boolean,
   todayIso: string
 ): string | null {
   const scheduled = scheduledDayFor(date, scheduleRows);
   if (!scheduled) return null;
   if (date < todayIso) return scheduled; // history is history
-  if (sourceDays.length === 0 || sourceHas(scheduled)) return scheduled;
-  // The nth training slot of this date's Monday-start week.
+  if (sourceDays.length === 0) return scheduled;
+  // This date's Monday-start week: which slot is `date`, and does the source
+  // own the WHOLE week's names?
   const monday = addDays(date, -((dowOf(date) + 6) % 7));
-  let n = 0;
+  let slot = 0;
+  let ownsWeek = true;
   for (let i = 0; i < 7; i++) {
     const d = addDays(monday, i);
-    if (d === date) break;
-    if (scheduledDayFor(d, scheduleRows)) n++;
+    const name = scheduledDayFor(d, scheduleRows);
+    if (d < date && name) slot++;
+    if (name && !sourceDays.includes(name)) ownsWeek = false;
   }
-  return sourceDays[n % sourceDays.length];
+  return ownsWeek ? scheduled : sourceDays[slot % sourceDays.length];
 }
 
 /**
