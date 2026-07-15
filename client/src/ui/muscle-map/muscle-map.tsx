@@ -23,6 +23,14 @@ import { MAP_VIEW_H, MAP_VIEW_W, MUSCLE_LABEL, type MuscleId, type MuscleView } 
 const FRONT_BASE = require('../../../assets/muscle-map/muscle-front-base.png');
 const BACK_BASE = require('../../../assets/muscle-map/muscle-back-base.png');
 
+/** The view that lights MORE of these muscles — a Pull day should not open
+ *  onto a front view showing two lit biceps and a dark everything-else. */
+export function bestViewFor(muscles: readonly MuscleId[]): MuscleView {
+  const front = muscles.filter((m) => frontMusclePaths[m]).length;
+  const back = muscles.filter((m) => backMusclePaths[m]).length;
+  return back > front ? 'back' : 'front';
+}
+
 export function MuscleMap({
   selectedMuscles,
   view = 'front',

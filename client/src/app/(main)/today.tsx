@@ -10,6 +10,9 @@ import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { BUILT_IN_DAYS, useDayPlan } from '@/data/use-day-plan';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
+import { libraryMuscleFor } from '@/domain/exercise-library';
+import { userMuscleFor } from '@/domain/exercise-search';
+import { muscleIdsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, defaultSource, type SourceIndex } from '@/domain/plan-sources';
 import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
@@ -17,13 +20,14 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, scheduledDayFor } from '@/domain/week-status';
 import { estimateKcal, estimateMinutes, musclePillsFor, splitWorkoutName } from '@/domain/workout-estimates';
+import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { CompanionMenuButton } from '@/ui/companion-menu';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
-import { MusclePixelMap } from '@/ui/muscle-pixel-map';
+import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
 import { Chip, NeonButton } from '@/ui/neon-button';
 import { PixelCurvedArrow, PixelDumbbell, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -145,6 +149,19 @@ export default function TodayScreen() {
   const heroEntries = heroWorkout ? resolveDay(heroWorkout, source).entries : [];
   const heroName = splitWorkoutName(heroWorkout ?? '');
   const heroPills = musclePillsFor(heroEntries, userExercises.data ?? []);
+  // The map lights FINER regions than the pills: each exercise's tag through
+  // the muscle ladder, normalised into the 15 MuscleIds — a Push day lights
+  // chest+shoulders+triceps, not all of "Arms".
+  const heroMuscles = muscleIdsFor(
+    heroEntries.map(
+      ([exercise]) =>
+        userMuscleFor(exercise, userExercises.data ?? []) ??
+        libraryMuscleFor(exercise) ??
+        inferMuscleGroup(exercise)
+    )
+  );
+  const [mapViewChoice, setMapViewChoice] = useState<MuscleView | null>(null);
+  const mapView = mapViewChoice ?? bestViewFor(heroMuscles);
   const heroSets = heroEntries.reduce((n, [, sets]) => n + sets, 0);
   const heroMinutes = estimateMinutes(heroSets);
   // Bodyweight for the kcal estimate: profile snapshot → latest logged reading
@@ -323,7 +340,33 @@ export default function TodayScreen() {
                   </View>
                 </View>
                 <View className="items-center justify-center" style={stackMap ? { marginTop: 10 } : { flex: 1 }}>
-                  <MusclePixelMap targeted={new Set(heroPills)} height={stackMap ? 132 : 156} />
+                  <MuscleMap selectedMuscles={heroMuscles} view={mapView} width={stackMap ? 104 : 96} pulse />
+                  {/* FRONT | BACK — quick fade, no 3D theatrics. */}
+                  <View className="mt-s2 flex-row" style={{ gap: 6 }}>
+                    {(['front', 'back'] as MuscleView[]).map((v) => (
+                      <Pressable
+                        key={v}
+                        onPress={() => setMapViewChoice(v)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: mapView === v }}
+                        testID={`map-view-${v}`}
+                        className="rounded-pill border px-s2"
+                        style={{
+                          minHeight: 26,
+                          justifyContent: 'center',
+                          borderColor: mapView === v ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                          backgroundColor: mapView === v ? 'rgba(34,211,238,0.10)' : 'transparent',
+                        }}
+                      >
+                        <Text
+                          className="text-2xs font-bold"
+                          style={{ letterSpacing: 1, color: mapView === v ? tokens.colors.accent : tokens.colors['text-mute'] }}
+                        >
+                          {v.toUpperCase()}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               </View>
               {/* THE most visually prominent element on the page. */}

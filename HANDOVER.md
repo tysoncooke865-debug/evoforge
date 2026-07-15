@@ -46,9 +46,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
 - Parallel `nutrition` branch (FUEL tab, unmerged): its `020_nutrition.sql` must
   be **renumbered to 022** at merge — mainline claimed 020 and 021.
 
-**QUEUED NEXT: `TRAIN_OVERHAUL.md`** — the Train-hub UI overhaul (hero card,
-pixel icons, muscle map, PARTIAL status). Planned + owner-approved, NOT started.
-It is self-contained; execute it as written.
+- **`TRAIN_OVERHAUL.md` — EXECUTED IN FULL 2026-07-15** (4 commits): hero
+  briefing card (title/sub split, muscle pills, ≈SETS/MIN/KCAL, hero
+  START/RESUME), pixel icon kit + tab dumbbell, three grey utilities +
+  CHANGE WORKOUT sheet (the one source switcher; scan rows in both sheets),
+  THIS WEEK status circles + PARTIAL (marker && done<target; derivation never
+  invents it; still locked). Toured against production incl. seeded
+  RESUME/PARTIAL; seeds deleted.
+- **Neon MuscleMap (Tyson's spec, same day)** replaced the first-pass pixel
+  body: two permanent black 16-bit base characters
+  (`client/assets/muscle-map/`) under 3-layer cyan SVG overlays
+  (`ui/muscle-map/`, stepped 8px staircase paths in the images' 887×1774
+  grid), FRONT|BACK toggle w/ smart default, pulse gated on reduced motion,
+  `domain/muscle-map.ts` = the pure 15-MuscleId contract + label normaliser.
+  Regenerate paths: scratchpad `gen_muscle_paths.py` (coarse polygons →
+  stepped paths + composited previews).
 
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
