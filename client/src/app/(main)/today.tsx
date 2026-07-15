@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useBodyweightLog, useProfile, useWorkoutLog } from '@/data/hooks';
@@ -28,6 +28,7 @@ import { useToastStore } from '@/state/toast-store';
 import tokens from '@/theme/tokens';
 import { CardioCard, cardioAnim } from '@/ui/cardio-logger';
 import { CompanionMenuButton } from '@/ui/companion-menu';
+import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/daily-workout-carousel';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
 import { Chip, NeonButton } from '@/ui/neon-button';
@@ -57,11 +58,31 @@ const addDaysIso = (iso: string, n: number): string => {
 };
 
 const WEEKDAYS_LONG = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const WEEKDAYS_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 /** '2026-07-15' → 'WEDNESDAY, JUL 15' — the header's date line. */
 const headerDate = (iso: string): string => {
   const d = new Date(`${iso}T00:00:00Z`);
   return `${WEEKDAYS_LONG[d.getUTCDay()]}, ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCDate()}`;
+};
+/** The carousel card's compact date: 'TODAY · JUL 15' / 'TUE · JUL 14'. */
+const cardDate = (iso: string, todayIso: string): string => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const day = iso === todayIso ? 'TODAY' : WEEKDAYS_SHORT[d.getUTCDay()];
+  return `${day} · ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCDate()}`;
+};
+
+/** today ±N as ISO dates — cached per today so the array is referentially
+ *  stable across renders (the FlatList must never see a fresh array). */
+const CAROUSEL_REACH = 7;
+let datesCache: { key: string; dates: string[] } | null = null;
+const datesAround = (todayIso: string): string[] => {
+  if (datesCache?.key !== todayIso) {
+    const out: string[] = [];
+    for (let i = -CAROUSEL_REACH; i <= CAROUSEL_REACH; i++) out.push(addDaysIso(todayIso, i));
+    datesCache = { key: todayIso, dates: out };
+  }
+  return datesCache.dates;
 };
 
 export default function TodayScreen() {
@@ -139,61 +160,12 @@ export default function TodayScreen() {
     setsFor
   );
 
-  /** THE HERO DAY: today's scheduled workout, else the active ad-hoc, else the
-   *  next scheduled session (labelled REST DAY · NEXT UP), else the first day
-   *  of the current source — the briefing always briefs SOMETHING. */
-  let heroWorkout: string | null = scheduledToday;
-  let heroKicker = 'TODAY';
-  if (!heroWorkout && adhoc?.name) {
-    heroWorkout = adhoc.name;
-    heroKicker = 'IN PROGRESS';
-  }
-  if (!heroWorkout) {
-    for (let i = 1; i <= 7 && !heroWorkout; i++) {
-      const next = dayInSource(addDaysIso(todayIso, i));
-      if (next) {
-        heroWorkout = next;
-        heroKicker = 'REST DAY · NEXT UP';
-      }
-    }
-  }
-  if (!heroWorkout) {
-    heroWorkout = planDays[0] ?? null;
-    heroKicker = 'FROM YOUR PLAN';
-  }
+  // THE CAROUSEL'S DATE WINDOW: today ±7, stable keys, today centred.
+  // Widen the ± constant to load more history later.
+  const dates = datesAround(todayIso);
 
-  const heroResolved = heroWorkout ? resolveDay(heroWorkout, source) : null;
-  const heroEntries = heroResolved?.entries ?? [];
-  const heroName = splitWorkoutName(heroWorkout ?? '');
-  // WHOSE version of this day is on screen. Plans share day names ("Legs"
-  // exists in all three of Tyson's plans), so when the day has no subtitle
-  // of its own the sub line names the PLAN — otherwise a source switch that
-  // lands on the same day name looks like it did nothing (the 2026-07-15
-  // glitch report).
   const userPlans = useUserPlans();
-  const heroPlanName =
-    heroResolved?.from === 0
-      ? (userPlans.data?.custom?.plan_name ?? 'My Plan')
-      : heroResolved?.from === 1
-        ? (userPlans.data?.ai?.plan_name ?? 'AI Plan')
-        : 'Built-in Routine';
-  const heroSub = heroName.sub ?? heroPlanName;
-  // Pills and map share ONE vocabulary: each exercise's tag through the
-  // muscle ladder, normalised into the 15 MuscleIds — a Push day reads (and
-  // lights) Chest · Shoulders · Triceps, never a vague "Arms".
-  const heroMuscles = muscleIdsFor(
-    heroEntries.map(
-      ([exercise]) =>
-        userMuscleFor(exercise, userExercises.data ?? []) ??
-        libraryMuscleFor(exercise) ??
-        inferMuscleGroup(exercise)
-    )
-  );
-  const heroPills = pillLabelsFor(heroMuscles);
   const [mapViewChoice, setMapViewChoice] = useState<MuscleView | null>(null);
-  const mapView = mapViewChoice ?? bestViewFor(heroMuscles);
-  const heroSets = heroEntries.reduce((n, [, sets]) => n + sets, 0);
-  const heroMinutes = estimateMinutes(heroSets);
   // Bodyweight for the kcal estimate: profile snapshot → latest logged reading
   // → the sex-calibrated default (the avatar-stats fallback pattern).
   const positiveBw = (bodyweights.data ?? []).map((r) => pyFloat(r.bodyweight) ?? 0).filter((v) => v > 0);
@@ -203,15 +175,61 @@ export default function TodayScreen() {
       : positiveBw.length > 0
         ? positiveBw[positiveBw.length - 1]
         : (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
-  // KCAL is NET — the surplus over resting — sized by the athlete's own last
-  // session of this workout where one exists. Plan sets define the workout
-  // (a partial last session must not crater the estimate); history supplies
-  // reps-per-set. A plan-less day (ad-hoc repeat) leans on history for both.
-  const lastWork = heroWorkout ? lastSessionWork(allRows, heroWorkout, todayIso) : null;
-  const kcalSets = heroSets > 0 ? heroSets : (lastWork?.sets ?? 0);
-  const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
-  const heroKcal = estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg);
-  const heroDone = heroWorkout ? setsFor(todayIso, heroWorkout).done : 0;
+
+  /** EVERYTHING one day's card needs, computed from ITS date — progress is
+   *  keyed (date, workout), so a set completed on one day can never appear on
+   *  another. Null = nothing assigned (rest, or no schedule at all). */
+  const cardDataFor = (date: string) => {
+    let workout = dayInSource(date);
+    // Today's active ad-hoc fills an otherwise-empty today.
+    if (!workout && date === todayIso && adhoc?.name) workout = adhoc.name;
+    if (!workout) return null;
+    const resolved = resolveDay(workout, source);
+    const entries = resolved.entries;
+    const name = splitWorkoutName(workout);
+    // WHOSE version of this day is on screen. Plans share day names ("Legs"
+    // exists in all three of Tyson's plans), so when the day has no subtitle
+    // of its own the sub line names the PLAN.
+    const planName =
+      resolved.from === 0
+        ? (userPlans.data?.custom?.plan_name ?? 'My Plan')
+        : resolved.from === 1
+          ? (userPlans.data?.ai?.plan_name ?? 'AI Plan')
+          : 'Built-in Routine';
+    // Pills and map share ONE vocabulary: each exercise's tag through the
+    // muscle ladder, normalised into MuscleIds.
+    const muscles = muscleIdsFor(
+      entries.map(
+        ([exercise]) =>
+          userMuscleFor(exercise, userExercises.data ?? []) ??
+          libraryMuscleFor(exercise) ??
+          inferMuscleGroup(exercise)
+      )
+    );
+    const sets = entries.reduce((n, [, s]) => n + s, 0);
+    // KCAL is NET — the surplus over resting — sized by the athlete's own
+    // last session of this workout before this date.
+    const lastWork = lastSessionWork(allRows, workout, date);
+    const kcalSets = sets > 0 ? sets : (lastWork?.sets ?? 0);
+    const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
+    const progress = setsFor(date, workout);
+    const marker = (sessions.data ?? []).some((m) => m.date === date && m.workout === workout);
+    return {
+      workout,
+      title: name.title,
+      sub: name.sub ?? planName,
+      pills: pillLabelsFor(muscles),
+      muscles,
+      sets,
+      minutes: estimateMinutes(sets),
+      kcal: estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg),
+      done: progress.done,
+      target: progress.target,
+      finished: marker,
+    };
+  };
+
+  const carouselRef = useRef<DailyCarouselHandle>(null);
 
   /** The ONE entry path into a workout — and the SOURCE goes with it. Without
    *  that, the workout page had to guess whose plan you meant, and guessed the
@@ -222,6 +240,171 @@ export default function TodayScreen() {
         workout
       )}&source=${source}` as never
     );
+
+  /** ONE day of the carousel — always the same card shell, five states. */
+  const renderDayCard = (date: string) => {
+    const data = cardDataFor(date);
+    const isToday = date === todayIso;
+    const dateTag = (
+      <Text
+        className="text-2xs font-bold"
+        style={{ letterSpacing: 1, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'] }}
+        testID={`card-date-${date}`}
+      >
+        {cardDate(date, todayIso)}
+      </Text>
+    );
+    const dropdown = (
+      <Pressable
+        onPress={() => setChangeOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="change plan source"
+        testID="plan-dropdown"
+        className="flex-row items-center rounded-md border px-s2"
+        style={{ minHeight: 28, gap: 5, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
+      >
+        <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+          {SOURCE_LABEL[source]}
+        </Text>
+        <Text className="text-2xs font-bold text-accent">⌄</Text>
+      </Pressable>
+    );
+
+    if (!data) {
+      // Rest day / nothing planned: same shell, honest content, no fake stats.
+      const hasSchedule = (schedule.data ?? []).length > 0;
+      return (
+        <GlowCard glow={tokens.colors.accent} padding={14}>
+          <View testID={`hero-card-${date}`} style={{ minHeight: 240 }}>
+            <View className="flex-row items-center justify-between">
+              {dropdown}
+              {dateTag}
+            </View>
+            <View className="flex-1 items-center justify-center" style={{ gap: 6 }}>
+              <Text className="text-2xl font-bold text-text" style={{ letterSpacing: 1 }}>
+                {hasSchedule ? 'REST DAY' : 'NO WORKOUT PLANNED'}
+              </Text>
+              <Text className="text-center text-sm text-text-dim">
+                {hasSchedule
+                  ? 'Recovery is where the muscle is built. See you tomorrow.'
+                  : 'Pick a plan or start from scratch.'}
+              </Text>
+            </View>
+            <NeonButton
+              title="ADD WORKOUT"
+              variant="ghost"
+              onPress={() => setEmptyOpen(true)}
+              testID={`add-workout-${date}`}
+            />
+          </View>
+        </GlowCard>
+      );
+    }
+
+    const mapView = mapViewChoice ?? bestViewFor(data.muscles);
+    const buttonTitle = data.finished
+      ? 'VIEW WORKOUT'
+      : data.done > 0
+        ? 'CONTINUE WORKOUT'
+        : 'START WORKOUT';
+    return (
+      <GlowCard glow={tokens.colors.accent} padding={14}>
+        <View testID={isToday ? 'hero-card' : `hero-card-${date}`}>
+          <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+            {dropdown}
+            {dateTag}
+          </View>
+          <View className="flex-row items-center" style={{ gap: 10 }}>
+            <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
+              {/* NEVER ellipsized — the workout's name is the headline. */}
+              <Text className="mt-s2 text-2xl font-bold text-text" style={{ lineHeight: 32 }}>
+                {data.title.toUpperCase()}
+              </Text>
+              <Text className="text-sm text-text-dim" numberOfLines={1} testID="hero-sub">
+                {data.sub}
+              </Text>
+              {data.pills.length > 0 ? (
+                <View className="mt-s2 flex-row flex-wrap gap-s1">
+                  {data.pills.map((p) => (
+                    <View
+                      key={p}
+                      className="rounded-pill border bg-surface-2 px-s2 py-s1"
+                      style={{ borderColor: tokens.colors.border }}
+                    >
+                      <Text className="text-center text-2xs font-bold text-text-dim">{p}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {/* ~ marks estimates — honest numbers only. */}
+              <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 14 }}>
+                {(
+                  [
+                    [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(data.sets), 'SETS'],
+                    [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, `~${data.minutes}`, 'MIN'],
+                    [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(data.kcal), 'EST. CAL'],
+                  ] as const
+                ).map(([icon, value, label]) => (
+                  <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
+                    {icon}
+                    <View className="items-start">
+                      <Text className="text-base font-bold text-text">{value}</Text>
+                      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+                        {label}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+            {/* The character owns the right 40%. TAP flips front/back —
+                horizontal swipes belong to the day carousel. */}
+            <Pressable
+              onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
+              accessibilityRole="button"
+              accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
+              testID="map-rotate"
+              className="items-center justify-center"
+              style={{ width: '40%' }}
+            >
+              <MuscleMap selectedMuscles={data.muscles} view={mapView} pulse focus={focusFor(data.muscles)} />
+            </Pressable>
+          </View>
+          {/* Progress: THIS date's completed sets against the plan. */}
+          <View className="mt-s3">
+            <Text
+              className="text-2xs font-bold text-text-dim"
+              style={{ letterSpacing: 1 }}
+              testID={isToday ? 'hero-progress' : `hero-progress-${date}`}
+            >
+              {data.done} / {data.sets} SETS COMPLETED
+            </Text>
+            <View
+              className="mt-s1 self-stretch overflow-hidden rounded-pill"
+              style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}
+            >
+              <View
+                style={{
+                  width: `${data.sets > 0 ? Math.min(100, (data.done / data.sets) * 100) : 0}%`,
+                  height: '100%',
+                  borderRadius: 999,
+                  backgroundColor: tokens.colors.accent,
+                }}
+              />
+            </View>
+          </View>
+          <View className="mt-s3">
+            <NeonButton
+              title={buttonTitle}
+              onPress={() => open(date, data.workout)}
+              rightIcon={<Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+              testID={isToday ? 'hero-start' : `hero-start-${date}`}
+            />
+          </View>
+        </View>
+      </GlowCard>
+    );
+  };
 
   /** EDIT on a locked bar: unlock AND go in. One tap from bar to editing is what
    *  a soft lock has to mean, or it is just a wall. */
@@ -374,128 +557,18 @@ export default function TodayScreen() {
       />
 
       <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 12 }}>
-        {/* THE HERO — today's briefing, horizontal (Tyson's target layout):
-            plan dropdown → title → sub → chips → stats on the left; the
-            character owning the right 40%; progress + START across the
-            bottom. Compact paddings — THIS WEEK must be visible below. */}
-        {heroWorkout ? (
-          <GlowCard glow={tokens.colors.accent} padding={14}>
-            <View testID="hero-card">
-              <View className="flex-row items-center" style={{ gap: 10 }}>
-                <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
-                  <View className="flex-row items-center" style={{ gap: 8 }}>
-                    {/* The plan dropdown — the same switcher the CHANGE
-                        WORKOUT sheet drives, one tap closer. */}
-                    <Pressable
-                      onPress={() => setChangeOpen(true)}
-                      accessibilityRole="button"
-                      accessibilityLabel="change plan source"
-                      testID="plan-dropdown"
-                      className="flex-row items-center rounded-md border px-s2"
-                      style={{
-                        minHeight: 28,
-                        gap: 5,
-                        borderColor: `${tokens.colors.accent}59`,
-                        backgroundColor: 'rgba(34,211,238,0.08)',
-                      }}
-                    >
-                      <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
-                        {SOURCE_LABEL[source]}
-                      </Text>
-                      <Text className="text-2xs font-bold text-accent">⌄</Text>
-                    </Pressable>
-                    {heroKicker !== 'TODAY' ? (
-                      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }} numberOfLines={1}>
-                        {heroKicker}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {/* NEVER ellipsized — the workout's name is the headline. */}
-                  <Text className="mt-s2 text-2xl font-bold text-text" style={{ lineHeight: 32 }}>
-                    {heroName.title.toUpperCase()}
-                  </Text>
-                  <Text className="text-sm text-text-dim" numberOfLines={1} testID="hero-sub">
-                    {heroSub}
-                  </Text>
-                  {heroPills.length > 0 ? (
-                    <View className="mt-s2 flex-row flex-wrap gap-s1">
-                      {heroPills.map((p) => (
-                        <View
-                          key={p}
-                          className="rounded-pill border bg-surface-2 px-s2 py-s1"
-                          style={{ borderColor: tokens.colors.border }}
-                        >
-                          <Text className="text-center text-2xs font-bold text-text-dim">{p}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                  {/* ~ marks estimates — honest numbers only. */}
-                  <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 14 }}>
-                    {(
-                      [
-                        [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
-                        [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, `~${heroMinutes}`, 'MIN'],
-                        [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(heroKcal), 'EST. CAL'],
-                      ] as const
-                    ).map(([icon, value, label]) => (
-                      <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
-                        {icon}
-                        <View className="items-start">
-                          <Text className="text-base font-bold text-text">{value}</Text>
-                          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
-                            {label}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-                {/* The character owns the right 40%. Tapping it flips
-                    front/back — the same view logic as ever. */}
-                <Pressable
-                  onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
-                  testID="map-rotate"
-                  className="items-center justify-center"
-                  style={{ width: '40%' }}
-                >
-                  <MuscleMap selectedMuscles={heroMuscles} view={mapView} pulse focus={focusFor(heroMuscles)} />
-                </Pressable>
-              </View>
-              {/* Progress: real completed sets against the plan. */}
-              <View className="mt-s3">
-                <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1 }} testID="hero-progress">
-                  {heroDone} / {heroSets} SETS COMPLETED
-                </Text>
-                <View
-                  className="mt-s1 self-stretch overflow-hidden rounded-pill"
-                  style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}
-                >
-                  <View
-                    style={{
-                      width: `${heroSets > 0 ? Math.min(100, (heroDone / heroSets) * 100) : 0}%`,
-                      height: '100%',
-                      borderRadius: 999,
-                      backgroundColor: tokens.colors.accent,
-                    }}
-                  />
-                </View>
-              </View>
-              <View className="mt-s3">
-                <NeonButton
-                  title={heroDone > 0 ? 'RESUME WORKOUT' : 'START WORKOUT'}
-                  onPress={() => heroWorkout && open(todayIso, heroWorkout)}
-                  rightIcon={
-                    <Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>
-                  }
-                  testID="hero-start"
-                />
-              </View>
-            </View>
-          </GlowCard>
-        ) : null}
+        {/* THE HERO — now a daily carousel (Tyson's spec): the SAME card,
+            swipeable one calendar day at a time. Every value inside a card
+            comes from ITS date, so progress can never bleed across days and
+            START always starts the visible date. */}
+        <DailyWorkoutCarousel
+          ref={carouselRef}
+          dates={dates}
+          initialIndex={CAROUSEL_REACH}
+          renderDay={renderDayCard}
+        />
+
+        {/* The three grey utilities — everything the old pill-row and links did. */}
 
         {/* The three grey utilities — everything the old pill-row and links did. */}
         <View>
@@ -550,7 +623,9 @@ export default function TodayScreen() {
               <WeekBarRow
                 key={bar.date}
                 bar={bar}
-                onOpen={() => bar.workout && open(bar.date, bar.workout)}
+                // A week row FOCUSES the carousel on its date (Tyson's
+                // carousel spec) — the card's own button is the door in.
+                onOpen={() => carouselRef.current?.scrollToDate(bar.date)}
                 // Only TODAY's workout can be edited — the cards log to today.
                 // EDIT on a past bar used to delete the marker and land the
                 // athlete on a read-only page: nothing edited, the lock gone,
