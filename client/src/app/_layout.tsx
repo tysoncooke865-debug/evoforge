@@ -36,7 +36,7 @@ export default function RootLayout() {
         },
       })
   );
-  // The 16-bit display face (Silkscreen). No splash gate: the system font
+  // The pixel display face (Pixelify Sans). No splash gate: the system font
   // paints first and swaps in — a font must never block the app.
   useFonts(PIXEL_FONTS);
   const [persister] = useState(() =>

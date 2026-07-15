@@ -381,7 +381,7 @@ export default function TodayScreen() {
                 {(
                   [
                     [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(data.sets), 'SETS'],
-                    [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, `~${data.minutes}`, 'MIN'],
+                    [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, String(data.minutes), 'EST. MIN'],
                     [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(data.kcal), 'EST. CAL'],
                   ] as const
                 ).map(([icon, value, label]) => (

@@ -37,7 +37,7 @@ export function NeonButton({
   icon?: ReactNode;
   /** Trailing affordance — the Train hero's chevron. */
   rightIcon?: ReactNode;
-  /** Train's 16-bit display labels (Silkscreen). Real bold face — never a
+  /** Train's pixel display labels (Pixelify Sans). Real bold face — never a
    *  synthesized bold, it smears pixel glyphs. */
   pixel?: boolean;
   testID?: string;
