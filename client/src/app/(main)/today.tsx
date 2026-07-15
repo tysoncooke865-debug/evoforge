@@ -29,7 +29,7 @@ import { CompanionMenuButton } from '@/ui/companion-menu';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
 import { Chip, NeonButton } from '@/ui/neon-button';
-import { PixelCurvedArrow, PixelDumbbell, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
+import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
 import { ScreenHeader } from '@/ui/screen-header';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/shell';
@@ -303,15 +303,15 @@ export default function TodayScreen() {
                 {heroKicker}
               </Text>
               <View className={stackMap ? '' : 'flex-row'} style={{ gap: 14 }}>
-                <View className="items-center" style={stackMap ? {} : { flex: 2, minWidth: 0 }}>
-                  <Text className="text-center text-2xl font-bold text-text" numberOfLines={2}>
-                    {heroName.title}
+                <View className="items-start" style={stackMap ? {} : { flex: 2, minWidth: 0 }}>
+                  <Text className="text-2xl font-bold text-text" numberOfLines={2}>
+                    {heroName.title.toUpperCase()}
                   </Text>
                   {heroName.sub ? (
-                    <Text className="mt-s1 text-center text-sm text-text-dim">{heroName.sub}</Text>
+                    <Text className="mt-s1 text-sm text-text-dim">{heroName.sub}</Text>
                   ) : null}
                   {heroPills.length > 0 ? (
-                    <View className="mt-s3 flex-row flex-wrap justify-center gap-s2">
+                    <View className="mt-s3 flex-row flex-wrap gap-s2">
                       {heroPills.map((p) => (
                         <View
                           key={p}
@@ -324,14 +324,19 @@ export default function TodayScreen() {
                     </View>
                   ) : null}
                   {/* ≈ marks estimates — honest numbers only. */}
-                  <View className="mt-s3 flex-row justify-center" style={{ gap: 18 }}>
-                    {[
-                      [String(heroSets), 'SETS'],
-                      [`≈${heroMinutes}`, 'MIN'],
-                      [`≈${heroKcal}`, 'KCAL'],
-                    ].map(([value, label]) => (
-                      <View key={label} className="items-center">
-                        <Text className="text-lg font-bold text-text">{value}</Text>
+                  <View className="mt-s3 flex-row" style={{ gap: 18 }}>
+                    {(
+                      [
+                        [<PixelBars key="sets" size={14} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
+                        [<PixelClock key="min" size={14} color={tokens.colors['text-dim']} />, `≈${heroMinutes}`, 'MIN'],
+                        [<PixelFlame key="kcal" size={14} color={tokens.colors['text-dim']} />, `≈${heroKcal}`, 'KCAL'],
+                      ] as const
+                    ).map(([icon, value, label]) => (
+                      <View key={label} className="items-start">
+                        <View className="flex-row items-center" style={{ gap: 5 }}>
+                          {icon}
+                          <Text className="text-lg font-bold text-text">{value}</Text>
+                        </View>
                         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
                           {label}
                         </Text>
@@ -342,10 +347,11 @@ export default function TodayScreen() {
                 <View className="items-center justify-center" style={stackMap ? { marginTop: 10 } : { flex: 1 }}>
                   {/* Zoom follows the work: all-upper day → torso close-up,
                       all-lower → legs, mixed → the whole figure. */}
+                  {/* Non-stacked: no fixed width — the figure fills its third. */}
                   <MuscleMap
                     selectedMuscles={heroMuscles}
                     view={mapView}
-                    width={stackMap ? 132 : 120}
+                    width={stackMap ? 132 : undefined}
                     pulse
                     focus={focusFor(heroMuscles)}
                   />

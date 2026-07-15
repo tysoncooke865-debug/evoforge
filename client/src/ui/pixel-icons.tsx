@@ -107,6 +107,42 @@ const CURVED_ARROW = [
   '......##.',
 ] as const;
 
+const BARS = [
+  '####.....',
+  '####.....',
+  '.........',
+  '#######..',
+  '#######..',
+  '.........',
+  '#########',
+  '#########',
+] as const;
+
+const CLOCK = [
+  '..#####..',
+  '.#.....#.',
+  '#...#...#',
+  '#...#...#',
+  '#...##..#',
+  '#.......#',
+  '#.......#',
+  '.#.....#.',
+  '..#####..',
+] as const;
+
+const FLAME = [
+  '....#...',
+  '...##..#',
+  '...##..#',
+  '..####.#',
+  '..######',
+  '.###.###',
+  '###...##',
+  '###...##',
+  '.##...#.',
+  '..####..',
+] as const;
+
 const TICK = [
   '.....#',
   '....##',
@@ -142,6 +178,16 @@ export const PixelSwap = ({ size = 18, color, testID }: IconProps) => (
 );
 export const PixelCurvedArrow = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={CURVED_ARROW} size={size} color={color} testID={testID ?? 'pixel-curved-arrow'} />
+);
+/** The hero card's stat-row marks: sets · minutes · kcal. */
+export const PixelBars = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={BARS} size={size} color={color} testID={testID ?? 'pixel-bars'} />
+);
+export const PixelClock = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={CLOCK} size={size} color={color} testID={testID ?? 'pixel-clock'} />
+);
+export const PixelFlame = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={FLAME} size={size} color={color} testID={testID ?? 'pixel-flame'} />
 );
 /** The week bars' verdict marks — same kit, tiny sizes. */
 export const PixelTick = ({ size = 10, color, testID }: IconProps) => (
