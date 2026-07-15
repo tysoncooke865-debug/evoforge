@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
@@ -34,6 +34,10 @@ export function StatusGrid({
   tierColour: string;
   features: HomeFeatures;
 }) {
+  // The brief's responsive rule: four across on wide screens, 2×2 on
+  // standard phones. flexBasis drives the wrap; nothing shrinks unreadable.
+  const { width } = useWindowDimensions();
+  const basis = width >= 500 ? ('21%' as const) : ('45%' as const);
   return (
     <View className="flex-row flex-wrap" style={{ gap: 8 }}>
       <StatusCard
@@ -44,6 +48,7 @@ export function StatusGrid({
         tint={streakCurrent > 0 ? tokens.colors.legendary : tokens.colors['text-mute']}
         onPress={() => router.push('/streak' as never)}
         testID="status-streak"
+        basis={basis}
       />
       {features.showCoins ? (
         <StatusCard
@@ -54,6 +59,7 @@ export function StatusGrid({
           tint={tokens.colors.legendary}
           onPress={() => router.push('/coins' as never)}
           testID="status-coins"
+          basis={basis}
         />
       ) : null}
       <StatusCard
@@ -64,6 +70,7 @@ export function StatusGrid({
         tint={tokens.colors.accent}
         onPress={() => router.push('/profile' as never)}
         testID="status-xp"
+        basis={basis}
       />
       <StatusCard
         icon={<Text style={{ fontSize: 13, color: tierColour }}>◆</Text>}
@@ -73,6 +80,7 @@ export function StatusGrid({
         tint={tierColour}
         onPress={() => router.push('/rank' as never)}
         testID="status-tier"
+        basis={basis}
       />
     </View>
   );
@@ -86,6 +94,7 @@ function StatusCard({
   tint,
   onPress,
   testID,
+  basis = '45%',
 }: {
   icon: ReactNode;
   label: string;
@@ -94,6 +103,7 @@ function StatusCard({
   tint: string;
   onPress: () => void;
   testID: string;
+  basis?: '21%' | '45%';
 }) {
   return (
     <Pressable
@@ -104,7 +114,7 @@ function StatusCard({
       className="rounded-md border p-s3"
       style={{
         flexGrow: 1,
-        flexBasis: '45%',
+        flexBasis: basis,
         minHeight: 76,
         borderColor: tokens.colors.border,
         backgroundColor: tokens.colors['surface-2'],

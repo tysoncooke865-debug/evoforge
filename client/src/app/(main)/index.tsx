@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
@@ -78,7 +78,6 @@ export default function HomeScreen() {
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
   const [showRadar, setShowRadar] = useState(false);
-  const { width } = useWindowDimensions();
 
   // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
   // athlete claims it once; the unique index makes reloads a no-op.
@@ -212,7 +211,6 @@ export default function HomeScreen() {
 
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
-  const wide = width >= 500;
 
   return (
     <ScreenShell>
@@ -270,20 +268,11 @@ export default function HomeScreen() {
         hasSchedule={hasSchedule}
       />
 
-      {/* 6. Recent PR + next evolution. */}
-      {wide ? (
-        <View className="flex-row" style={{ gap: 8 }}>
-          <RecentPrCard pr={pr} unit={prUnit} />
-          <View style={{ flex: 1 }}>
-            <EvolutionTeaser branch={stats.branch} evolution={evolution} />
-          </View>
-        </View>
-      ) : (
-        <>
-          <RecentPrCard pr={pr} unit={prUnit} />
-          <EvolutionTeaser branch={stats.branch} evolution={evolution} />
-        </>
-      )}
+      {/* 6. Recent PR + next evolution. Always stacked: EvolutionTeaser's
+          silhouette + readiness columns need the full width — at half width
+          "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
+      <RecentPrCard pr={pr} unit={prUnit} />
+      <EvolutionTeaser branch={stats.branch} evolution={evolution} />
 
       {/* 7. The schedule door. */}
       <WeeklyScheduleCard />
