@@ -250,7 +250,9 @@ export default function TodayScreen() {
       style={{ minHeight: 56, gap: 5, borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}
     >
       {icon}
-      <Text className="text-center text-2xs font-bold text-text-dim" style={{ letterSpacing: 0.5 }} numberOfLines={1}>
+      {/* Two-word labels wrap to two centred lines — one line truncated on
+          every phone narrower than a tablet. */}
+      <Text className="text-center text-2xs font-bold text-text-dim" style={{ letterSpacing: 0.5 }} numberOfLines={2}>
         {label}
       </Text>
     </Pressable>
