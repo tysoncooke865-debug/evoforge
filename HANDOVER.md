@@ -74,9 +74,11 @@ Owner: Tyson. He works through other Claude sessions too — **always
   pixel-identical to the file's own mergedimage.png). Exact masks +
   pre-tinted `-lit` variants (white fill → #18D9FF, black linework kept —
   RN tintColor would recolour the lines) in `client/assets/muscle-masks/`.
-  BACK view: rear delts + rear triceps + rear traps are Krita masks too
-  (`silhouette - back.kra`); the remaining back regions keep SVG paths until
-  drawn. The tool's proof ladder: mergedimage recomposite (opacity-aware —
+  BACK view: 9 Krita-masked regions (`silhouette - back.kra` — rear delts,
+  triceps, traps, calves, hamstrings, glutes, erectors→lowerBack, lats,
+  upperback); only back forearms/biceps still ride SVG paths. Lit fills bake
+  ~51% alpha (FILL_ALPHA in the tool) so the base model's definition shows
+  through; linework stays full-strength. The tool's proof ladder: mergedimage recomposite (opacity-aware —
   Tyson dims the base while tracing) → prior-export equivalence →
   --base-proof vs the source PNG. Dev workbench:
   `/muscle-lab` (renders nothing in production; enable locally via __DEV__

@@ -16,6 +16,12 @@ export const BACK_MUSCLE_MASKS: Readonly<Record<BackMuscleId, ImageSourcePropTyp
   shoulders: require('../../../assets/muscle-masks/back/lit/back-shoulders-lit.png'),
   triceps: require('../../../assets/muscle-masks/back/lit/back-triceps-lit.png'),
   traps: require('../../../assets/muscle-masks/back/lit/back-traps-lit.png'),
+  calves: require('../../../assets/muscle-masks/back/lit/back-calves-lit.png'),
+  hamstrings: require('../../../assets/muscle-masks/back/lit/back-hamstrings-lit.png'),
+  glutes: require('../../../assets/muscle-masks/back/lit/back-glutes-lit.png'),
+  lowerBack: require('../../../assets/muscle-masks/back/lit/back-lowerBack-lit.png'),
+  lats: require('../../../assets/muscle-masks/back/lit/back-lats-lit.png'),
+  upperBack: require('../../../assets/muscle-masks/back/lit/back-upperBack-lit.png'),
 };
 
 export function backMaskFor(muscle: MuscleId): ImageSourcePropType | null {

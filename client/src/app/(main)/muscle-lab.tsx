@@ -28,7 +28,7 @@ const ENABLED = __DEV__ || process.env.EXPO_PUBLIC_MUSCLE_LAB === '1';
 export default function MuscleLabScreen() {
   const [view, setView] = useState<MuscleView>('front');
   const [active, setActive] = useState<MuscleId[]>(['chest', 'shoulders', 'triceps']);
-  const [opacity, setOpacity] = useState<number>(0.8);
+  const [opacity, setOpacity] = useState<number>(1);
   const [enlarged, setEnlarged] = useState(false);
   const [useMasks, setUseMasks] = useState(true);
 

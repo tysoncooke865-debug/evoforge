@@ -52,7 +52,9 @@ export function MuscleMap({
   width,
   pulse = false,
   focus = 'full',
-  maskOpacity = 0.8,
+  // The lit assets bake a ~51% fill alpha (linework stays full) so the base
+  // model's definition shows through — the layer itself renders at 1.
+  maskOpacity = 1,
   useMasks = true,
   testID = 'muscle-map',
 }: {

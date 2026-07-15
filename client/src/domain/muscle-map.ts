@@ -45,7 +45,10 @@ export const FRONT_MASKED_IDS = [
 ] as const;
 export type FrontMuscleId = (typeof FRONT_MASKED_IDS)[number];
 
-export const BACK_MASKED_IDS = ['shoulders', 'triceps', 'traps'] as const;
+export const BACK_MASKED_IDS = [
+  'shoulders', 'triceps', 'traps', 'calves', 'hamstrings', 'glutes',
+  'lowerBack', 'lats', 'upperBack',
+] as const;
 export type BackMuscleId = (typeof BACK_MASKED_IDS)[number];
 
 /** Bilateral muscles carry left+right; the midline ones a single path. */

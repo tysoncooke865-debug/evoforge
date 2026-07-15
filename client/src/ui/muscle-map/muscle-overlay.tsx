@@ -46,7 +46,7 @@ export function MaskOverlay({
   muscle,
   source,
   pulse = false,
-  maskOpacity = 0.8,
+  maskOpacity = 1,
 }: {
   muscle: MuscleId;
   source: ImageSourcePropType;

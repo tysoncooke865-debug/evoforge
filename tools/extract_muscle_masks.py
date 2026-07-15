@@ -65,6 +65,12 @@ LAYER_MAP = {
         "shoulders": ["back-reardelts", "back-shoulders", "rear-delts"],
         "triceps": ["rear-triceps", "back-triceps"],
         "traps": ["rear-traps", "back-traps"],
+        "calves": ["rear-calves", "back-calves"],
+        "hamstrings": ["rear-hamstrings", "back-hamstrings"],
+        "glutes": ["rear-glutes", "back-glutes"],
+        "lowerBack": ["rear-erectors", "rear-lowerback", "back-lowerback"],
+        "lats": ["rear-lats", "back-lats"],
+        "upperBack": ["rear-upperback", "back-upperback"],
     },
 }
 
@@ -136,8 +142,14 @@ def alpha_over(dst: np.ndarray, src: np.ndarray) -> np.ndarray:
     return out
 
 
+# The fill's baked alpha (~51%): the base model's own muscle shading stays
+# visible through the cyan (Tyson, 2026-07-15). The black linework keeps its
+# full alpha so the boundary stays crisp.
+FILL_ALPHA = 130
+
+
 def lit_variant(arr: np.ndarray) -> np.ndarray:
-    """White fill -> neon cyan; the dark linework keeps its own colour."""
+    """White fill -> translucent neon cyan; dark linework stays as drawn."""
     out = arr.copy()
     vis = arr[..., 3] > 0
     lum = (
@@ -145,6 +157,7 @@ def lit_variant(arr: np.ndarray) -> np.ndarray:
     ) // 1000
     fill = vis & (lum >= 128)
     out[fill, 0], out[fill, 1], out[fill, 2] = CYAN
+    out[fill, 3] = np.minimum(out[fill, 3], FILL_ALPHA)
     return out
 
 
