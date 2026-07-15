@@ -66,7 +66,9 @@ Owner: Tyson. He works through other Claude sessions too — **always
   itself (bright regions only; the shadowed delt/arm regions fragment under
   thresholding and stay hand-authored over gridded 2× crops).
 - **Krita hand-drawn masks (Tyson, 2026-07-15) now drive the FRONT overlays**
-  for chest/shoulders/biceps/triceps/forearms/traps/abs — the .kra is the
+  for ALL 12 front regions (chest/shoulders/biceps/triceps/forearms/traps/
+  abs/obliques/quads/abductors/adductors/calves — the last five landed the
+  same evening; abductors+adductors became their own MuscleIds) — the .kra is the
   source of truth, extracted by `tools/extract_muscle_masks.py` (decodes
   Krita's LZF-planar tiles; refuses to export unless its recomposite is
   pixel-identical to the file's own mergedimage.png). Exact masks +

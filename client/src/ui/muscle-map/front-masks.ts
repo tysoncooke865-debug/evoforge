@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import type { MuscleId } from './types';
+import type { FrontMuscleId, MuscleId } from '@/domain/muscle-map';
 
 /**
  * MUSCLE MASKS (Tyson's Krita artwork, 2026-07-15) — the hand-drawn front
@@ -14,10 +14,11 @@ import type { MuscleId } from './types';
  * recolour the linework too). The exact-as-drawn masks live next to them in
  * assets/muscle-masks/front/ for re-tinting.
  *
- * Strictly the muscles Tyson has DRAWN — the type grows with the artwork,
- * never ahead of it.
+ * Strictly the muscles Tyson has DRAWN — the id list lives in the domain
+ * (FRONT_MASKED_IDS) so the pure tests can pin it without loading assets;
+ * the Record below is typed against it, so the two cannot drift.
  */
-export type FrontMuscleId = 'chest' | 'shoulders' | 'biceps' | 'triceps' | 'forearms' | 'traps' | 'abs';
+export type { FrontMuscleId } from '@/domain/muscle-map';
 
 export const FRONT_MUSCLE_MASKS: Readonly<Record<FrontMuscleId, ImageSourcePropType>> = {
   chest: require('../../../assets/muscle-masks/front/lit/front-chest-lit.png'),
@@ -27,6 +28,11 @@ export const FRONT_MUSCLE_MASKS: Readonly<Record<FrontMuscleId, ImageSourcePropT
   forearms: require('../../../assets/muscle-masks/front/lit/front-forearms-lit.png'),
   traps: require('../../../assets/muscle-masks/front/lit/front-traps-lit.png'),
   abs: require('../../../assets/muscle-masks/front/lit/front-abs-lit.png'),
+  obliques: require('../../../assets/muscle-masks/front/lit/front-obliques-lit.png'),
+  quads: require('../../../assets/muscle-masks/front/lit/front-quads-lit.png'),
+  abductors: require('../../../assets/muscle-masks/front/lit/front-abductors-lit.png'),
+  adductors: require('../../../assets/muscle-masks/front/lit/front-adductors-lit.png'),
+  calves: require('../../../assets/muscle-masks/front/lit/front-calves-lit.png'),
 };
 
 export function frontMaskFor(muscle: MuscleId): ImageSourcePropType | null {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, pillLabelsFor, type MusclePathTable } from '../muscle-map';
+import { FRONT_MASKED_IDS, MUSCLE_IDS, MUSCLE_ZONE, focusFor, muscleIdsFor, normaliseMuscleGroup, pillLabelsFor, type MuscleId, type MusclePathTable } from '../muscle-map';
 
 import { backMusclePaths } from '../../ui/muscle-map/back-muscle-paths';
 import { frontMusclePaths } from '../../ui/muscle-map/front-muscle-paths';
@@ -30,6 +30,13 @@ describe('normaliseMuscleGroup', () => {
     expect(normaliseMuscleGroup('  BACK WIDTH ')).toBe('lats');
     expect(normaliseMuscleGroup('mystery muscle')).toBeNull();
     expect(normaliseMuscleGroup('')).toBeNull();
+  });
+
+  it('adductors/abductors are their own regions now (Krita masks, 2026-07-15)', () => {
+    expect(normaliseMuscleGroup('Adductors')).toBe('adductors'); // used to borrow quads
+    expect(normaliseMuscleGroup('hip abductors')).toBe('abductors');
+    expect(normaliseMuscleGroup('inner thigh')).toBe('adductors');
+    expect(normaliseMuscleGroup('outer thigh')).toBe('abductors');
   });
 
   it('muscleIdsFor dedupes, keeps order, drops the unclaimable', () => {
@@ -84,12 +91,19 @@ describe('muscle path tables — the SVG data the overlays draw', () => {
     ['back', backMusclePaths, ['traps', 'shoulders', 'triceps', 'forearms', 'upperBack', 'lats', 'lowerBack', 'glutes', 'hamstrings', 'calves']],
   ];
 
-  it('every MuscleId is drawable in at least one view (positive control: the tables are non-empty)', () => {
+  it('every MuscleId is drawable in at least one view — a path or a Krita mask (positive control: non-empty)', () => {
     expect(Object.keys(frontMusclePaths).length).toBeGreaterThan(0);
     expect(Object.keys(backMusclePaths).length).toBeGreaterThan(0);
     for (const id of MUSCLE_IDS) {
-      expect(frontMusclePaths[id] ?? backMusclePaths[id], id).toBeTruthy();
+      expect(
+        frontMusclePaths[id] ?? backMusclePaths[id] ?? (FRONT_MASKED_IDS as readonly MuscleId[]).includes(id),
+        id
+      ).toBeTruthy();
     }
+  });
+
+  it('the masked-id list stays inside MuscleId (the asset table types against it)', () => {
+    for (const id of FRONT_MASKED_IDS) expect(MUSCLE_IDS).toContain(id);
   });
 
   it.each(views)('%s view carries its spec-required regions', (_name, table, required) => {

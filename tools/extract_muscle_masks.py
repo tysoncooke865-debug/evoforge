@@ -37,18 +37,24 @@ REPO = Path(__file__).resolve().parent.parent
 CANVAS = (887, 1774)  # must match the base silhouettes exactly
 CYAN = (0x18, 0xD9, 0xFF)
 
-# Krita layer name (lowercased, separators normalised) -> muscle id.
-# Inspect maindoc.xml before assuming: the drawn names vary in case and
-# separator (front-triceps, front_chest, Front_abs, ...).
+# muscle id -> acceptable Krita layer names (lowercased, separators
+# normalised), first match wins. Inspect maindoc.xml before assuming: the
+# drawn names vary in case and separator (front-triceps, front_chest,
+# Front_abs, ...) and the quads currently live on an unrenamed layer.
 LAYER_MAP = {
     "front": {
-        "front-triceps": "triceps",
-        "front-shoulders": "shoulders",
-        "front-chest": "chest",
-        "front-abs": "abs",
-        "front-traps": "traps",
-        "front-forearms": "forearms",
-        "front-biceps": "biceps",
+        "triceps": ["front-triceps"],
+        "shoulders": ["front-shoulders"],
+        "chest": ["front-chest"],
+        "abs": ["front-abs"],
+        "traps": ["front-traps"],
+        "forearms": ["front-forearms"],
+        "biceps": ["front-biceps"],
+        "obliques": ["front-obliques"],
+        "quads": ["front-quads"],
+        "abductors": ["front-abductors"],
+        "adductors": ["front-adductors"],
+        "calves": ["front-calves"],
     },
 }
 
@@ -154,25 +160,47 @@ def main() -> None:
         stack.insert(0, lay.get("filename"))  # maindoc lists top-first
 
     decoded = {fn: decode_layer(z.read(f"Unnamed/layers/{fn}"), w, h) for fn, _ in nodes.values()}
+    dest = REPO / "client" / "assets" / "muscle-masks" / view
 
     # THE PROOF: our decode, recomposited, must equal Krita's own flatten.
-    merged = np.array(Image.open(io.BytesIO(z.read("mergedimage.png"))).convert("RGBA"))
-    acc = np.zeros((h, w, 4), dtype=np.uint8)
-    for fn in stack:
-        acc = alpha_over(acc, decoded[fn])
-    diff = np.abs(acc.astype(np.int16) - merged.astype(np.int16))
-    visible = np.maximum(acc[..., 3], merged[..., 3]) > 0
-    max_diff = int(diff[..., 3].max()), int(diff[..., :3].max(axis=2)[visible].max())
-    if max(max_diff) > 0:
-        raise SystemExit(f"decode does NOT reproduce mergedimage.png (max diffs {max_diff}) — refusing to export")
-    print(f"decode proven: recomposite == mergedimage.png exactly ({len(stack)} layers)")
-
-    dest = REPO / "client" / "assets" / "muscle-masks" / view
+    # Autosave files (.kra-autosave.kra) carry NO mergedimage.png — for those
+    # the fallback proof is equivalence: every layer whose exact export
+    # already exists on disk (proven from the main file) must decode
+    # pixel-identically from this file too. Same decoder, same layers,
+    # re-proven — only then are NEW layers trusted.
+    if "mergedimage.png" in z.namelist():
+        merged = np.array(Image.open(io.BytesIO(z.read("mergedimage.png"))).convert("RGBA"))
+        acc = np.zeros((h, w, 4), dtype=np.uint8)
+        for fn in stack:
+            acc = alpha_over(acc, decoded[fn])
+        diff = np.abs(acc.astype(np.int16) - merged.astype(np.int16))
+        visible = np.maximum(acc[..., 3], merged[..., 3]) > 0
+        max_diff = int(diff[..., 3].max()), int(diff[..., :3].max(axis=2)[visible].max())
+        if max(max_diff) > 0:
+            raise SystemExit(f"decode does NOT reproduce mergedimage.png (max diffs {max_diff}) — refusing to export")
+        print(f"decode proven: recomposite == mergedimage.png exactly ({len(stack)} layers)")
+    else:
+        proven = 0
+        for muscle, candidates in layer_map.items():
+            existing = dest / f"{view}-{muscle}.png"
+            norm = next((c for c in candidates if c in nodes), None)
+            if norm is None or not existing.exists():
+                continue
+            prior = np.array(Image.open(existing).convert("RGBA"))
+            if not np.array_equal(prior, decoded[nodes[norm][0]]):
+                raise SystemExit(f"'{muscle}' decodes DIFFERENTLY from the proven export — refusing")
+            proven += 1
+        if proven < 3:
+            raise SystemExit(f"no mergedimage.png and only {proven} previously-proven layers to check — refusing")
+        print(f"decode proven by equivalence: {proven} previously-proven layers pixel-identical")
     (dest / "lit").mkdir(parents=True, exist_ok=True)
-    for norm, muscle in layer_map.items():
-        if norm not in nodes:
-            raise SystemExit(f"layer '{norm}' not found; available: {sorted(nodes)}")
+    for muscle, candidates in layer_map.items():
+        norm = next((c for c in candidates if c in nodes), None)
+        if norm is None:
+            raise SystemExit(f"no layer for '{muscle}' (tried {candidates}); available: {sorted(nodes)}")
         arr = decoded[nodes[norm][0]]
+        if not (arr[..., 3] > 0).any():
+            raise SystemExit(f"layer '{nodes[norm][1]}' for '{muscle}' is EMPTY — refusing to export")
         Image.fromarray(arr).save(dest / f"{view}-{muscle}.png")
         Image.fromarray(lit_variant(arr)).save(dest / "lit" / f"{view}-{muscle}-lit.png")
         print(f"exported {view}-{muscle}.png (+lit) from layer '{nodes[norm][1]}'")

@@ -24,12 +24,26 @@ export type MuscleId =
   | 'glutes'
   | 'quads'
   | 'hamstrings'
-  | 'calves';
+  | 'calves'
+  | 'abductors'
+  | 'adductors';
 
 export const MUSCLE_IDS: readonly MuscleId[] = [
   'chest', 'shoulders', 'biceps', 'triceps', 'forearms', 'abs', 'obliques',
   'traps', 'upperBack', 'lats', 'lowerBack', 'glutes', 'quads', 'hamstrings', 'calves',
+  'abductors', 'adductors',
 ];
+
+/**
+ * The muscles Tyson has DRAWN as Krita masks per view — the ids only (the
+ * asset requires live in ui/muscle-map/front-masks.ts, typed against this
+ * list). Grows with the artwork, never ahead of it.
+ */
+export const FRONT_MASKED_IDS = [
+  'chest', 'shoulders', 'biceps', 'triceps', 'forearms', 'traps', 'abs',
+  'obliques', 'quads', 'abductors', 'adductors', 'calves',
+] as const;
+export type FrontMuscleId = (typeof FRONT_MASKED_IDS)[number];
 
 /** Bilateral muscles carry left+right; the midline ones a single path. */
 export interface MusclePathSides {
@@ -63,6 +77,8 @@ export const MUSCLE_LABEL: Readonly<Record<MuscleId, string>> = {
   quads: 'quadriceps',
   hamstrings: 'hamstrings',
   calves: 'calves',
+  abductors: 'abductors',
+  adductors: 'adductors',
 };
 
 /**
@@ -87,9 +103,10 @@ const TABLE: Readonly<Record<string, MuscleId>> = {
   'hamstrings': 'hamstrings',
   'glutes': 'glutes',
   'calves': 'calves',
-  // Adductors have no region of their own on the map; the inner thigh reads
-  // as the quad mass on a front view.
-  'adductors': 'quads',
+  // Real regions since Tyson drew their masks (2026-07-15) — adductors used
+  // to borrow the quad mass.
+  'adductors': 'adductors',
+  'abductors': 'abductors',
   'abs': 'abs',
 
   // ---- common synonyms (imported datasets, AI labels, human typing) ----
@@ -117,6 +134,12 @@ const TABLE: Readonly<Record<string, MuscleId>> = {
   'hams': 'hamstrings',
   'gluteus': 'glutes',
   'gluteus maximus': 'glutes',
+  'hip abductors': 'abductors',
+  'abduction': 'abductors',
+  'hip adductors': 'adductors',
+  'adduction': 'adductors',
+  'inner thigh': 'adductors',
+  'outer thigh': 'abductors',
   'calf': 'calves',
   'bicep': 'biceps',
   'tricep': 'triceps',
@@ -149,6 +172,8 @@ export const MUSCLE_ZONE: Readonly<Record<MuscleId, MuscleZone>> = {
   quads: 'lower',
   hamstrings: 'lower',
   calves: 'lower',
+  abductors: 'lower',
+  adductors: 'lower',
 };
 
 /**
