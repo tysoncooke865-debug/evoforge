@@ -27,6 +27,7 @@ on:
   push:
     paths:
       - "client/**"
+      - "supabase/**"
       - "contracts/**"
       - "tools/gen_fixtures.py"
       - "domain/**"
@@ -36,6 +37,7 @@ on:
   pull_request:
     paths:
       - "client/**"
+      - "supabase/**"
       - "contracts/**"
       - "tools/gen_fixtures.py"
       - "domain/**"

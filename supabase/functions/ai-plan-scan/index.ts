@@ -17,7 +17,7 @@
  * sha lands in ai_scan_cache (kind 'plan-scan') for the cache + hourly limit.
  */
 
-import { CORS_HEADERS, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
+import { CORS_HEADERS, FAST_MODEL, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
 
 const MAX_IMAGES = 3;
 const MAX_TEXT = 4000;
@@ -147,7 +147,9 @@ Return ONLY valid JSON:
 }
 `;
 
-  const { data, error } = await callOpenAiJson(userText, images, ['days']);
+  // Transcription, not judgment — mini + low effort reads a written page
+  // fine, ~5× cheaper and faster; validateScan() gates quality.
+  const { data, error } = await callOpenAiJson(userText, images, ['days'], FAST_MODEL, 'low');
   if (error || !data) return json({ error: error ?? 'The scan failed.' }, 502);
 
   const v = validateScan(data);

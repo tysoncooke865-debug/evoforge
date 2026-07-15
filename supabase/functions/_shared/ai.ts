@@ -21,6 +21,16 @@ export const CORS_HEADERS = {
 
 export const HOURLY_LIMIT = 10;
 const DEFAULT_MODEL = 'gpt-5.1';
+/**
+ * COST/LATENCY ROUTING (2026-07-16): generation and transcription
+ * (ai-plan, ai-plan-scan) ride the mini model with low reasoning effort —
+ * ~5× cheaper per token and faster, and their outputs are the LARGE ones
+ * (a whole week of JSON), so they dominate per-call cost. The JUDGES
+ * (bodyfat, physique, battle-physique) stay on DEFAULT_MODEL untouched:
+ * verdict consistency across an athlete's history and battle fairness
+ * outrank pennies.
+ */
+export const FAST_MODEL = 'gpt-5-mini';
 
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -88,7 +98,11 @@ export async function callOpenAiJson(
   userText: string,
   imageDataUrls: string[],
   requiredKeys: string[],
-  model = DEFAULT_MODEL
+  model = DEFAULT_MODEL,
+  /** 'low' for extraction/transcription — reasoning tokens bill as OUTPUT
+   *  tokens, so an unbounded think on a transcription job is pure waste.
+   *  Omit for the judges: their behaviour must not change. */
+  reasoningEffort?: 'low' | 'medium'
 ): Promise<{ data: Record<string, unknown> | null; error: string | null }> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
@@ -103,7 +117,14 @@ export async function callOpenAiJson(
   const resp = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, input: [{ role: 'user', content }] }),
+    body: JSON.stringify({
+      model,
+      input: [{ role: 'user', content }],
+      // JSON mode: a malformed response is a WASTED PAID CALL (the caller
+      // errors and the athlete retries). Every prompt already demands JSON.
+      text: { format: { type: 'json_object' } },
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+    }),
   });
   if (!resp.ok) {
     const detail = await resp.text();

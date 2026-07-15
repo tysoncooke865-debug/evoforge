@@ -7,7 +7,7 @@
  * logging map 1:1, sets clamp to 1–8, strings are bounded.
  */
 
-import { CORS_HEADERS, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
+import { CORS_HEADERS, FAST_MODEL, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
 
 // The six live training days — client/src/domain/catalogs.ts ROUTINE_ORDER
 // minus Rest. If the catalog ever changes these change with it (goldens pin
@@ -117,7 +117,10 @@ Return ONLY valid JSON:
 }
 `;
 
-  const { data, error } = await callOpenAiJson(userText, [], ['plan_name', 'days']);
+  // Plan generation is templated extraction, not judgment — the mini model
+  // with low effort is ~5× cheaper and faster, and validatePlan() is the
+  // real quality gate either way.
+  const { data, error } = await callOpenAiJson(userText, [], ['plan_name', 'days'], FAST_MODEL, 'low');
   if (error || !data) return json({ error: error ?? 'Plan generation failed.' }, 502);
 
   const v = validatePlan(data);
