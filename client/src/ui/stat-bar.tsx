@@ -35,11 +35,17 @@ export function StatBar({
 
   return (
     <View className="mb-s3 flex-row items-center gap-s3">
-      <View style={{ width: 44 }}>
-        <Text className="text-sm font-bold text-text" style={{ letterSpacing: 1 }}>
+      {/* Wide enough for the longest name (Aesthetic) — the label column
+          must never wrap a word ("Aestheti/c" is a banned fragment). */}
+      <View style={{ width: 64 }}>
+        <Text className="text-sm font-bold text-text" numberOfLines={1} style={{ letterSpacing: 1 }}>
           {abbr}
         </Text>
-        {name ? <Text className="text-2xs text-text-mute">{name}</Text> : null}
+        {name ? (
+          <Text className="text-2xs text-text-mute" numberOfLines={1}>
+            {name}
+          </Text>
+        ) : null}
       </View>
       <Text className="w-s8 text-right text-base font-bold" style={{ color: colour }}>
         {clamped}

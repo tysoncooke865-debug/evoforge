@@ -121,6 +121,25 @@ Owner: Tyson. He works through other Claude sessions too — **always
     green; old TASKS.md `[human]` items. Tour screenshots for Tyson land in
     `Downloads/evoforge-screenshots/` (he cannot see Claude-context images).
 
+- **`HOME_REDESIGN_PLAN.md` — EXECUTED IN FULL 2026-07-16**: Home is the
+  RPG character hub (Tyson's mock): HomeHeader (wordmark + LV/XP module →
+  /profile), AvatarHero (HeroStage with tier/form/evolution badges +
+  CUSTOMISE overlaid ≥380px, row below under that), TODAY'S MISSION (all
+  states via `domain/home-mission.ts`; reward = activityXp over the plan's
+  sets, coins never implied), status grid (streak/coins/XP/tier doors),
+  TRAINING OVERVIEW (contract + periodTotals, no fabricated goals), RECENT
+  PR (`domain/recent-pr.ts` — set-save's e1RM rule replayed for display),
+  EvolutionTeaser, schedule door, the build bars (kept). Flags in
+  `ui/home/home-features.ts` — LOADOUT hidden (no cosmetic backend), and
+  that is the rule: A SYSTEM WITHOUT A BACKEND IS HIDDEN, NEVER MOCKED.
+  Home computes the mission EXACTLY like the Train hub (same sourceDayFor /
+  resolveDay / setsFor / estimates) so the two screens cannot disagree.
+- **The pixel face is now Jersey 25 (display) + Jersey 10 (small labels),
+  2026-07-16** — Silkscreen's W and ~ were unreadable (Tyson), Pixelify
+  Sans's bold 5 reads as S (side-by-side proof in the session log). Single
+  weights: `pixelFont()` still maps bold→Jersey25/regular→Jersey10; never
+  synthesize bold. `~` estimate prefixes became explicit `EST. MIN` labels.
+
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
 `019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.

@@ -169,6 +169,42 @@ const CROSS = [
   '#...#',
 ] as const;
 
+// HOME_REDESIGN — the avatar hero's wardrobe doors + the schedule card.
+const SHIRT = [
+  '###.....###',
+  '####...####',
+  '###########',
+  '##.#####.##',
+  '..#######..',
+  '..#######..',
+  '..#######..',
+  '..#######..',
+  '..#######..',
+] as const;
+
+const HELMET = [
+  '..######..',
+  '.########.',
+  '##########',
+  '##########',
+  '##.####.##',
+  '##########',
+  '.##....##.',
+] as const;
+
+const CALENDAR = [
+  '..#.....#..',
+  '###########',
+  '#.........#',
+  '###########',
+  '#.........#',
+  '#.##.#.##.#',
+  '#.........#',
+  '#.##.#.##.#',
+  '#.........#',
+  '###########',
+] as const;
+
 type IconProps = { size?: number; color?: string; testID?: string };
 
 export const PixelDumbbell = ({ size = 18, color, testID }: IconProps) => (
@@ -209,4 +245,14 @@ export const PixelTick = ({ size = 10, color, testID }: IconProps) => (
 );
 export const PixelCross = ({ size = 10, color, testID }: IconProps) => (
   <PixelGlyph rows={CROSS} size={size} color={color} testID={testID ?? 'pixel-cross'} />
+);
+/** The avatar hero's wardrobe doors. */
+export const PixelShirt = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={SHIRT} size={size} color={color} testID={testID ?? 'pixel-shirt'} />
+);
+export const PixelHelmet = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={HELMET} size={size} color={color} testID={testID ?? 'pixel-helmet'} />
+);
+export const PixelCalendar = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={CALENDAR} size={size} color={color} testID={testID ?? 'pixel-calendar'} />
 );

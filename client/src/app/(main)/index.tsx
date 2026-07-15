@@ -1,38 +1,63 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
-import { useServerGrantedXp, useWorkoutLog } from '@/data/hooks';
+import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
+import { useUserExercises } from '@/data/exercises';
+import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutLog, useCardioLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { BUILT_IN_DAYS, useDayPlan } from '@/data/use-day-plan';
 import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
+import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
+import { evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
+import { evolutionReadiness } from '@/domain/evolution-readiness';
+import { deriveMission } from '@/domain/home-mission';
+import { libraryMuscleFor } from '@/domain/exercise-library';
+import { userMuscleFor } from '@/domain/exercise-search';
+import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
+import { daysForSource, defaultSource } from '@/domain/plan-sources';
+import { weekStart, periodTotals } from '@/domain/progress-aggregates';
+import { pyFloat } from '@/domain/py';
+import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
+import { normaliseWorkoutLog } from '@/domain/summary';
+import { todayIso as calendarToday } from '@/domain/today';
+import { sourceDayFor } from '@/domain/week-status';
+import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
+import { inferMuscleGroup } from '@/domain/workouts';
+import { adhocOf, useSessionStore } from '@/state/session-store';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/avatar-art';
-import { CoinIcon } from '@/ui/coin-icon';
 import { EvolutionTeaser } from '@/ui/evolution-teaser';
+import { AvatarHero } from '@/ui/home/avatar-hero';
+import { homeFeatures } from '@/ui/home/home-features';
+import { HomeHeader } from '@/ui/home/home-header';
+import { MissionCard } from '@/ui/home/mission-card';
+import { RecentPrCard } from '@/ui/home/recent-pr-card';
+import { StatusGrid } from '@/ui/home/status-grid';
+import { TrainingOverview } from '@/ui/home/training-overview';
+import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
+import { DividerGlow, EdgeLabel } from '@/ui/hud';
 import { LeaderboardTeaser } from '@/ui/leaderboard-teaser';
-import { CompanionMenuButton } from '@/ui/companion-menu';
-import { HeroStage } from '@/ui/hero-stage';
-import { DividerGlow, EdgeLabel, HUDChip } from '@/ui/hud';
-import { QuestCard } from '@/ui/quest-card';
-import { RarityBadge } from '@/ui/rarity-badge';
 import { ScreenShell } from '@/ui/shell';
 import { StatBar } from '@/ui/stat-bar';
 import { StatRadar } from '@/ui/stat-radar';
-import { XpBar } from '@/ui/xp-bar';
-import { todayIso as calendarToday } from '@/domain/today';
 
 /**
- * Home: the character screen. Layered HUD over a stage — not a stack of
- * cards. Identity → living character → progress → fast stats → build →
- * next-evolution teaser, in that hierarchy. All real state via
- * useAvatarData; the streak derives from workout dates client-side.
+ * HOME — the RPG character hub (HOME_REDESIGN_PLAN). Hierarchy: identity →
+ * THE CHARACTER (hero, badges, actions) → today's mission → player status →
+ * training overview → PR + next evolution → schedule door → the build →
+ * leaderboard. Every value is real state; systems without backends are
+ * hidden by home-features, never mocked.
+ *
+ * The mission card computes its ingredients EXACTLY the way the Train hub
+ * does (same source resolution, same setsFor predicate, same estimates), so
+ * Home and Train can never brief a different day.
  */
 /** Drift is only alarming when it ISN'T explained by server-granted XP
  *  (battles, adjustments) — those are legitimate ledger-over-derived
@@ -51,7 +76,9 @@ function DriftWarning({ drift, source }: { drift: number; source: string }) {
 export default function HomeScreen() {
   const { summary, stats, bfMid, branchV2, sex, ready } = useAvatarData();
   const workouts = useWorkoutLog();
+  const cardio = useCardioLog();
   const [showRadar, setShowRadar] = useState(false);
+  const { width } = useWindowDimensions();
 
   // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
   // athlete claims it once; the unique index makes reloads a no-op.
@@ -66,31 +93,109 @@ export default function HomeScreen() {
   }, [ready]);
 
   const todayIso = calendarToday();
-  // P5: the return loop. With a schedule the streak is SCHEDULE-AWARE
-  // (rest days bridge instead of reading as gaps) and Home leads with
-  // Today's Quest + the weekly contract; without one, the old daily
-  // streak stands and the quest card invites forging a week.
   const schedule = useWorkoutSchedule();
   const sessions = useWorkoutSessions();
-  const finishedToday = (sessions.data ?? []).some((m) => m.date === todayIso);
-  const scheduleRows = useMemo(() => schedule.data ?? [], [schedule.data]);
-  const hasSchedule = scheduleRows.length > 0;
-  const streak = useMemo(
-    () =>
-      hasSchedule
-        ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
-        : computeStreak(workouts.data ?? [], todayIso),
-    [hasSchedule, scheduleRows, workouts.data, todayIso]
-  );
-  const contract = useMemo(
-    () => weeklyContract(scheduleRows, workouts.data ?? [], todayIso),
-    [scheduleRows, workouts.data, todayIso]
-  );
-  const nextSession = useMemo(
-    () => nextScheduledSession(scheduleRows, todayIso),
-    [scheduleRows, todayIso]
-  );
+  const profile = useProfile();
+  const bodyweights = useBodyweightLog();
+  const userExercises = useUserExercises();
+  const prefs = useExercisePrefs();
+  const { sources, resolveDay, loading: plansLoading } = useDayPlan();
+  const adhoc = useSessionStore(adhocOf);
 
+  const scheduleRows = schedule.data ?? [];
+  const hasSchedule = scheduleRows.length > 0;
+  const streak = hasSchedule
+    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
+    : computeStreak(workouts.data ?? [], todayIso);
+  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso);
+  const nextSession = nextScheduledSession(scheduleRows, todayIso);
+
+  // ---- Today's mission — the Train hub's own resolution, replayed here. ----
+  const source = defaultSource(sources);
+  const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
+  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
+  const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
+
+  // The day's plan entries: the chosen source first (the resolveDayIn rule);
+  // an ad-hoc day's plan is the ad-hoc's own picks.
+  const entries: [string, number][] =
+    missionWorkout === null
+      ? []
+      : scheduledToday !== null
+        ? resolveDay(missionWorkout, source).entries.map(([e, s]) => [e, s] as [string, number])
+        : (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]);
+
+  const dayRows = allRows.filter(
+    (r) =>
+      String(r.date) === todayIso &&
+      String(r.workout) === missionWorkout &&
+      (pyFloat(r.weight) ?? 0) > 0 &&
+      (pyFloat(r.reps) ?? 0) > 0
+  );
+  const targetSets = entries.reduce((n, [, s]) => n + s, 0);
+  const doneSets = entries.reduce((n, [exercise, s]) => {
+    const logged = dayRows.filter((r) => String(r.exercise) === exercise).length;
+    return n + Math.min(logged, s);
+  }, 0);
+  const finished =
+    missionWorkout !== null &&
+    (sessions.data ?? []).some((m) => m.date === todayIso && m.workout === missionWorkout);
+
+  const mission = deriveMission({
+    hasSchedule,
+    assignedWorkout: scheduledToday,
+    adhocWorkout: adhoc?.name ?? null,
+    finished,
+    doneSets,
+    targetSets,
+    loggedSets: dayRows.length,
+  });
+
+  // Estimates — the Train hero's own math (bodyweight fallback included).
+  const positiveBw = (bodyweights.data ?? []).map((r) => pyFloat(r.bodyweight) ?? 0).filter((v) => v > 0);
+  const bodyweightKg =
+    (pyFloat(profile.data?.bodyweight_kg) ?? 0) > 0
+      ? (pyFloat(profile.data?.bodyweight_kg) as number)
+      : positiveBw.length > 0
+        ? positiveBw[positiveBw.length - 1]
+        : (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
+  const lastWork = missionWorkout ? lastSessionWork(allRows, missionWorkout, todayIso) : null;
+  const kcalSets = targetSets > 0 ? targetSets : (lastWork?.sets ?? 0);
+  const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
+  const pills =
+    entries.length > 0
+      ? pillLabelsFor(
+          muscleIdsFor(
+            entries.map(
+              ([exercise]) =>
+                userMuscleFor(exercise, userExercises.data ?? []) ??
+                libraryMuscleFor(exercise) ??
+                inferMuscleGroup(exercise)
+            )
+          )
+        )
+      : [];
+  const missionName = splitWorkoutName(missionWorkout ?? '');
+
+  const missionLoading = schedule.isPending || sessions.isPending || workouts.isPending || plansLoading;
+  const missionError = schedule.isError || sessions.isError || workouts.isError;
+  const retryMission = () => {
+    void schedule.refetch();
+    void sessions.refetch();
+    void workouts.refetch();
+  };
+  const openMission = () => {
+    if (!mission.workout) return;
+    router.push(
+      `/workout?date=${encodeURIComponent(todayIso)}&workout=${encodeURIComponent(mission.workout)}&source=${source}` as never
+    );
+  };
+
+  // ---- This week (Monday-start, the contract's window). ----
+  const weekTotals = periodTotals(workouts.data ?? [], cardio.data ?? [], weekStart(todayIso), todayIso);
+
+  // ---- Character identity. ----
   const evolution = nextEvolutionV2(branchV2, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
@@ -98,110 +203,94 @@ export default function HomeScreen() {
     totalSets: summary.totalSets,
     cardioMinutes: summary.cardioMinutes,
   });
-
+  const readiness = evolutionReadiness(evolution.requirements);
   const stage = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
   const art = avatarArtV2(branchV2, stage, sex);
   const slug = raritySlug(summary.level);
   const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const formName = branchV2 === 'shredder' ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level);
+
+  const pr = recentPr(workouts.data);
+  const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
+  const wide = width >= 500;
 
   return (
     <ScreenShell>
-      {/* A. Identity — floating, no card. */}
-      <View className="flex-row items-end justify-between">
-        <View>
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
-            EVOFORGE
-          </Text>
-          <Text
-            className="text-3xl font-bold text-text"
-            style={{ textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 18 }}
-          >
-            {branchV2 === 'shredder' ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level)}
-          </Text>
-          <Text className="text-xs text-text-dim">
-            {branchDisplayNameV2(branchV2)} · {summary.rank}
-          </Text>
-        </View>
-        <View className="items-center">
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-            LEVEL
-          </Text>
-          <Text
-            className="text-3xl font-bold"
-            style={{ color: tokens.colors.accent, textShadowColor: 'rgba(34,211,238,0.6)', textShadowRadius: 16 }}
-          >
-            {summary.level}
-          </Text>
-        </View>
-      </View>
+      {/* 1. Identity + the level module. */}
+      <HomeHeader level={summary.level} xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
 
-      {/* A2. Today's Quest — the loop starts HERE (TRANSFORM P5). */}
-      <QuestCard
-        hasSchedule={hasSchedule}
-        contract={contract}
-        next={nextSession}
-        todayIso={todayIso}
-        finishedToday={finishedToday}
-      />
-
-      {/* B. The stage — the character owns the viewport. */}
-      <HeroStage
+      {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
+      <AvatarHero
         branch={stats.branch}
         stage={stage}
         auraColour={auraColour}
         source={art.source}
         silhouette={!art.hasArt}
+        tierName={slug.toUpperCase()}
+        tierColour={auraColour}
+        formName={formName}
+        evolutionPercent={readiness.percent}
+        features={homeFeatures}
       />
-      {!art.hasArt ? (
-        <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
-          FORM NOT YET FORGED — ART INCOMING
-        </Text>
-      ) : null}
-      <View className="-mt-s4 items-center gap-s2">
-        <RarityBadge level={summary.level} />
-      </View>
+      {/* 3. Today's mission — the one dominant CTA on the page. */}
+      <MissionCard
+        mission={mission}
+        title={missionName.title}
+        sub={missionName.sub}
+        pills={pills}
+        minutes={estimateMinutes(targetSets)}
+        kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
+        next={nextSession}
+        loading={missionLoading}
+        error={missionError && !missionLoading}
+        onRetry={retryMission}
+        onOpen={openMission}
+        features={homeFeatures}
+      />
 
-      {/* C. Progress — edge-labelled, no card. */}
-      <View>
-        <EdgeLabel right={<Text className="text-2xs text-text-mute">{summary.xpNeeded - summary.xpIntoLevel} XP to level {Math.min(summary.level + 1, 100)}</Text>}>
-          LEVEL PROGRESS
-        </EdgeLabel>
-        <View className="mt-s2">
-          <XpBar xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
-        </View>
-      </View>
-
-      {/* D. Fast stats — floating HUD chips. */}
-      <View className="flex-row flex-wrap gap-s2">
-        <HUDChip label="SETS" value={summary.totalSets} />
-        <HUDChip label="XP" value={summary.xp} />
-        <HUDChip label="CARDIO MIN" value={Math.trunc(summary.cardioMinutes)} tint={tokens.colors.rare} />
-        <Link href={'/streak' as never} asChild>
-          <Pressable accessibilityRole="button" testID="streak-chip">
-            <HUDChip
-              label={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
-              value={`${streak.current}🔥`}
-              tint={streak.current > 0 ? tokens.colors.legendary : tokens.colors.common}
-            />
-          </Pressable>
-        </Link>
-        <Link href={'/coins' as never} asChild>
-          <Pressable accessibilityRole="button" testID="coin-chip">
-            <HUDChip
-              label="COINS"
-              value={coins.data === null || coins.data === undefined ? '—' : coins.data}
-              tint={tokens.colors.legendary}
-              icon={<CoinIcon size={18} />}
-            />
-          </Pressable>
-        </Link>
-        <CompanionMenuButton anim="idle" height={52} />
-      </View>
+      {/* 4. Player status — streak, coins, XP, tier. */}
+      <StatusGrid
+        streakCurrent={streak.current}
+        streakBest={streak.best}
+        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
+        coins={coins.data}
+        totalXp={summary.xp}
+        tierName={slug.toUpperCase()}
+        tierColour={auraColour}
+        features={homeFeatures}
+      />
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
+
+      {/* 5. This week. */}
+      <TrainingOverview
+        contract={contract}
+        weekSets={weekTotals.sets}
+        weekCardioMinutes={weekTotals.cardioMinutes}
+        weekXp={weekTotals.xp}
+        hasSchedule={hasSchedule}
+      />
+
+      {/* 6. Recent PR + next evolution. */}
+      {wide ? (
+        <View className="flex-row" style={{ gap: 8 }}>
+          <RecentPrCard pr={pr} unit={prUnit} />
+          <View style={{ flex: 1 }}>
+            <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+          </View>
+        </View>
+      ) : (
+        <>
+          <RecentPrCard pr={pr} unit={prUnit} />
+          <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+        </>
+      )}
+
+      {/* 7. The schedule door. */}
+      <WeeklyScheduleCard />
 
       <DividerGlow />
 
-      {/* E. Character build — RPG stat rows; radar on demand. */}
+      {/* 8. Character build — RPG stat rows; radar on demand. */}
       <View>
         <EdgeLabel
           right={
@@ -239,9 +328,6 @@ export default function HomeScreen() {
           Weak point focus: <Text className="text-text-dim">{stats.weakPointFocus}</Text>
         </Text>
       </View>
-
-      {/* F. Next evolution — always in sight. */}
-      <EvolutionTeaser branch={stats.branch} evolution={evolution} />
 
       {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
       <LeaderboardTeaser />
