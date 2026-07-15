@@ -69,5 +69,5 @@ export function useDayPlan(): DayPlan {
 export const SOURCE_LABEL: Readonly<Record<SourceIndex, string>> = {
   0: 'MY PLAN',
   1: 'AI PLAN',
-  2: 'BUILT-IN',
+  2: 'EVOFORGE PLAN',
 };

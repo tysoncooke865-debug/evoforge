@@ -260,7 +260,7 @@ export default function TodayScreen() {
         className="text-2xs"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ letterSpacing: 0, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'], ...pixelFont() }}
+        style={{ letterSpacing: 0, flexShrink: 0, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'], ...pixelFont() }}
         testID={`card-date-${date}`}
       >
         {cardDate(date, todayIso)}
@@ -273,9 +273,15 @@ export default function TodayScreen() {
         accessibilityLabel="change plan source"
         testID="plan-dropdown"
         className="flex-row items-center rounded-md border px-s2"
-        style={{ minHeight: 28, gap: 5, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
+        style={{ minHeight: 28, gap: 5, flexShrink: 1, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
       >
-        <Text className="text-2xs text-accent" numberOfLines={1} allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
+        <Text
+          className="text-2xs text-accent"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          allowFontScaling={false}
+          style={{ letterSpacing: 0, flexShrink: 1, ...pixelFont() }}
+        >
           {SOURCE_LABEL[source]}
         </Text>
         <Text className="text-2xs font-bold text-accent">⌄</Text>
@@ -371,7 +377,7 @@ export default function TodayScreen() {
                 ))}
               </View>
               {/* ~ marks estimates — honest numbers only. */}
-              <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 14 }}>
+              <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 10, rowGap: 4, flexWrap: 'wrap' }}>
                 {(
                   [
                     [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(data.sets), 'SETS'],
@@ -518,9 +524,12 @@ export default function TodayScreen() {
       style={{ minHeight: 48, gap: 8, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
     >
       <Text className="text-base">📷</Text>
-      <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
-        SCAN A WRITTEN WORKOUT
-      </Text>
+      <View className="items-start">
+        <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+          SCAN WORKOUT
+        </Text>
+        <Text className="text-2xs text-text-mute">Import from a photo or screenshot</Text>
+      </View>
     </Pressable>
   );
 
@@ -528,6 +537,7 @@ export default function TodayScreen() {
   const utilityButton = (
     icon: React.ReactNode,
     label: string,
+    subtitle: string,
     onPress: () => void,
     testID: string
   ) => (
@@ -539,14 +549,19 @@ export default function TodayScreen() {
       style={{ minHeight: 46, gap: 7, borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}
     >
       {icon}
-      <Text
-        className="text-text-dim"
-        allowFontScaling={false}
-        style={{ fontSize: 9, letterSpacing: 0, flexShrink: 1, ...pixelFont(false) }}
-        numberOfLines={2}
-      >
-        {label.replace(' ', '\n')}
-      </Text>
+      <View style={{ flexShrink: 1 }}>
+        <Text
+          className="text-text-dim"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 0, ...pixelFont(false) }}
+          numberOfLines={2}
+        >
+          {label.replace(' ', '\n')}
+        </Text>
+        <Text className="text-text-mute" style={{ fontSize: 8 }} numberOfLines={2}>
+          {subtitle}
+        </Text>
+      </View>
     </Pressable>
   );
 
@@ -634,19 +649,22 @@ export default function TodayScreen() {
           <View className="flex-row gap-s2">
             {utilityButton(
               <PixelSwap size={17} color={tokens.colors['text-dim']} />,
-              'CHANGE WORKOUT',
+              'CHOOSE WORKOUT',
+              'Switch today\u2019s session',
               () => setChangeOpen(true),
               'change-workout'
             )}
             {utilityButton(
               <PixelPlusSquare size={16} color={tokens.colors['text-dim']} />,
-              'EMPTY WORKOUT',
+              'QUICK WORKOUT',
+              'Train without a plan',
               () => setEmptyOpen(true),
               'start-empty'
             )}
             {utilityButton(
               <PixelPencil size={16} color={tokens.colors['text-dim']} />,
-              'EDIT MY WEEK',
+              'EDIT SCHEDULE',
+              'Set your training week',
               () => router.push('/schedule' as never),
               'edit-week'
             )}
@@ -654,7 +672,7 @@ export default function TodayScreen() {
           <View className="mt-s2 flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
             <PixelCurvedArrow size={16} color={tokens.colors.accent} />
             <Text className="text-2xs text-accent" style={{ flexShrink: 1 }}>
-              Switch between My Plan, AI Plan or Built-in
+              Switch between My Plan, AI Plan or the EvoForge Plan
             </Text>
           </View>
         </View>
@@ -751,22 +769,22 @@ export default function TodayScreen() {
               style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 560 }}
             >
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                CHANGE WORKOUT
+                CHOOSE WORKOUT
               </Text>
               {([0, 1, 2] as SourceIndex[]).map((i) => {
-                const label = i === 0 ? 'MY PLAN' : i === 1 ? 'AI PLAN' : 'BUILT-IN';
+                const label = SOURCE_LABEL[i];
                 const empty = (i === 0 && !sources.has.myPlan) || (i === 1 && !sources.has.aiPlan);
                 const active = i === source;
                 const hint =
                   i === 0
                     ? sources.has.myPlan
-                      ? 'Your own days'
+                      ? 'Your scheduled workouts'
                       : 'Nothing saved yet — create one below'
                     : i === 1
                       ? sources.has.aiPlan
-                        ? 'The plan the AI forged for you'
-                        : 'Not forged yet — the door is below'
-                      : 'The six-day EvoForge routine';
+                        ? 'Personalised by EvoForge'
+                        : 'Not forged yet — create one below'
+                      : 'Ready-made training program';
                 return (
                   <Pressable
                     key={label}
@@ -810,9 +828,12 @@ export default function TodayScreen() {
                   className="items-center"
                   style={{ minHeight: 44, justifyContent: 'center' }}
                 >
-                  <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
-                    ⚒ {sources.has.myPlan ? 'EDIT MY PLAN' : 'CREATE MY PLAN'} →
-                  </Text>
+                  <View className="items-center">
+                    <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+                      ⚒ {sources.has.myPlan ? 'EDIT PLAN' : 'CREATE PLAN'} →
+                    </Text>
+                    <Text className="text-2xs text-text-mute">Manage your scheduled workouts</Text>
+                  </View>
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
@@ -824,14 +845,17 @@ export default function TodayScreen() {
                   className="items-center"
                   style={{ minHeight: 44, justifyContent: 'center' }}
                 >
-                  <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
-                    ✦ FORGE AN AI PLAN →
-                  </Text>
+                  <View className="items-center">
+                    <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
+                      ✦ CREATE AI PLAN →
+                    </Text>
+                    <Text className="text-2xs text-text-mute">Forge a program around your goals</Text>
+                  </View>
                 </Pressable>
               </View>
 
               <View className="mt-s2">
-                <NeonButton title="CLOSE" variant="ghost" onPress={() => setChangeOpen(false)} testID="change-close" />
+                <NeonButton title="CANCEL" variant="ghost" onPress={() => setChangeOpen(false)} testID="change-close" />
               </View>
             </Pressable>
           </Pressable>
@@ -848,12 +872,12 @@ export default function TodayScreen() {
               style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 560 }}
             >
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                START A WORKOUT
+                QUICK WORKOUT
               </Text>
               <TextInput
                 className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
                 style={{ borderColor: tokens.colors.border }}
-                placeholder="Name it — e.g. Beach Day"
+                placeholder="Workout name (optional)"
                 placeholderTextColor="#64758f"
                 value={adhocName}
                 onChangeText={setAdhocName}
@@ -872,7 +896,7 @@ export default function TodayScreen() {
                     )
                   }
                   excludeNames={adhocPicks.map((p) => p.exercise)}
-                  placeholder="Add exercises now (optional)…"
+                  placeholder="Choose exercises (optional)"
                   testIDPrefix="adhoc-search"
                 />
               </View>
@@ -902,7 +926,8 @@ export default function TodayScreen() {
                   page IS an empty workout waiting to be read. */}
               <View className="mt-s3">{scanRow('empty-scan')}</View>
               <View className="mt-s3">
-                <NeonButton title="START EMPTY WORKOUT" onPress={startEmpty} testID="adhoc-start" />
+                <NeonButton title="START WORKOUT" pixel onPress={startEmpty} testID="adhoc-start" />
+                <Text className="mt-s1 text-center text-2xs text-text-mute">Add exercises as you train</Text>
               </View>
 
               {(routines.data ?? []).length > 0 ? (
@@ -942,7 +967,7 @@ export default function TodayScreen() {
               ) : null}
 
               <View className="mt-s3">
-                <NeonButton title="CLOSE" variant="ghost" onPress={() => setEmptyOpen(false)} testID="adhoc-close" />
+                <NeonButton title="CANCEL" variant="ghost" onPress={() => setEmptyOpen(false)} testID="adhoc-close" />
               </View>
             </Pressable>
           </Pressable>

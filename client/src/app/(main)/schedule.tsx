@@ -42,7 +42,7 @@ export default function ScheduleScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="TRAIN ON SCHEDULE" title="WEEKLY SCHEDULE" />
+      <ScreenHeader kicker="TRAIN ON SCHEDULE" title="EDIT SCHEDULE" titleLines={1} />
       <Text className="text-2xs text-text-mute">
         The streak judges each day against the schedule in force THEN — changes apply from today
         onward, never backwards. Rest days bridge a streak; missed training days reset it.
