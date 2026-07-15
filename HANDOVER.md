@@ -161,6 +161,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
     the codemod missed them once; tsc alone does NOT catch broken asset
     requires (only `expo export` does). Export before trusting a move.
 
+- **AI cost/latency routing (2026-07-16, falsified live):** `ai-plan` and
+  `ai-plan-scan` ride `FAST_MODEL` (gpt-5-mini) with `reasoning: low` —
+  generation/transcription with large outputs, ~5× cheaper and faster;
+  validatePlan/validateScan stay the quality gate. **The three judges
+  (bodyfat, physique, battle-physique) stay on gpt-5.1 ON PURPOSE** —
+  verdict consistency across an athlete's history and battle fairness
+  outrank pennies; don't downgrade them for cost. All calls request
+  `json_object` (a malformed response was a wasted paid call). Real-money
+  facts: every paid action is one `callOpenAiJson` round trip; per-user cap
+  is `HOURLY_LIMIT` 10/hr across kinds; the content-hash cache makes
+  repeats free; Supabase is the FREE plan (14MB / 500MB used).
+  **`supabase/**` is now in client.yml's trigger paths** — before this, a
+  functions-only push triggered NO workflow and deployed nothing (the
+  committed-but-undeployed trap, structural edition).
+
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
 `019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.
