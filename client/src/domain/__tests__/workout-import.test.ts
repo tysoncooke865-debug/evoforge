@@ -68,6 +68,33 @@ describe('mapImportedPlan — only corpus names survive', () => {
     expect(mapped.map((d) => d.day)).toEqual(['Push']);
   });
 
+  describe('THE MUSCLE GUESS — attribution for exercises the corpus cannot claim', () => {
+    it('an unmatched exercise carries the AI muscle guess through', () => {
+      const [d] = mapImportedPlan(
+        day([{ ...ex('qwertyzxcv machine'), muscle: 'Forearms' }]),
+        EXERCISE_LIBRARY
+      );
+      expect(d.exercises[0]).toMatchObject({ confidence: 'unmatched', muscleGuess: 'Forearms' });
+    });
+
+    it('a MATCHED exercise ignores the AI guess — the corpus muscle wins', () => {
+      const [d] = mapImportedPlan(
+        day([{ ...ex('Barbell Bench Press'), muscle: 'Quads' }]), // AI is wrong; corpus knows
+        EXERCISE_LIBRARY
+      );
+      expect(d.exercises[0].confidence).toBe('exact');
+      expect(d.exercises[0].muscleGuess).toBeUndefined();
+    });
+
+    it('an invented tag is dropped, not stored', () => {
+      const [d] = mapImportedPlan(
+        day([{ ...ex('qwertyzxcv machine'), muscle: 'Left Bicep Peak' }]),
+        EXERCISE_LIBRARY
+      );
+      expect(d.exercises[0].muscleGuess).toBeUndefined();
+    });
+  });
+
   it('positive control: the corpus is real and the mapper actually ran', () => {
     expect(EXERCISE_LIBRARY.length).toBeGreaterThan(900);
     expect(mapImportedPlan(day([ex('bench', 'Bench Press')]), EXERCISE_LIBRARY)[0].exercises[0].confidence).not.toBe('unmatched');

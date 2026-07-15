@@ -1,8 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
+import { useAuth } from '@/data/auth-context';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
+import { supabase } from '@/data/supabase';
 import { useSaveUserPlan } from '@/data/user-plans';
 import type { CustomPlan, PlanExercise } from '@/domain/custom-plan';
 import {
@@ -10,8 +13,10 @@ import {
   LIBRARY_SECTIONS,
   presetFor,
   REP_SCHEMES,
+  scheduleForDays,
   SPLITS,
 } from '@/domain/exercise-library';
+import { todayIso } from '@/domain/today';
 import { type MappedDay, type MatchConfidence } from '@/domain/workout-import';
 import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
@@ -35,6 +40,9 @@ import { GlowCard, ScreenShell } from '@/ui/shell';
 
 export default function RoutineBuilderScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
   const savePlan = useSaveUserPlan();
   const [splitKey, setSplitKey] = useState<string | null>(null);
   const [dayIx, setDayIx] = useState(0);
@@ -55,20 +63,23 @@ export default function RoutineBuilderScreen() {
   const [importOpen, setImportOpen] = useState(params.import === '1');
   // The scanned program's own title — the save uses it over the split's name.
   const [importedName, setImportedName] = useState<string | null>(null);
-  // day:exercise → what the page actually said, for the confidence badges.
+  // day:exercise → what the page actually said, for the confidence badges —
+  // and, for unmatched entries, the AI's muscle guess so SAVE can enrol them
+  // in user_exercises (heat map / skill tree attribution).
   const [importMeta, setImportMeta] = useState<
-    Record<string, { raw: string; confidence: MatchConfidence }>
+    Record<string, { raw: string; confidence: MatchConfidence; muscleGuess?: string }>
   >({});
 
   /** The scanned draft becomes a CUSTOM split seeded into the normal editor —
    *  review/edit/confirm is the builder itself; nothing new to learn. */
   const seedFromImport = (draft: { planName: string; days: MappedDay[] }) => {
     const rec: Record<string, PlanExercise[]> = {};
-    const meta: Record<string, { raw: string; confidence: MatchConfidence }> = {};
+    const meta: Record<string, { raw: string; confidence: MatchConfidence; muscleGuess?: string }> = {};
     for (const d of draft.days) {
       rec[d.day] = d.exercises.map(({ raw: _raw, confidence: _c, ...pe }) => pe);
       for (const e of d.exercises) {
-        if (e.confidence !== 'exact') meta[`${d.day}:${e.exercise}`] = { raw: e.raw, confidence: e.confidence };
+        if (e.confidence !== 'exact')
+          meta[`${d.day}:${e.exercise}`] = { raw: e.raw, confidence: e.confidence, muscleGuess: e.muscleGuess };
       }
     }
     setSplitKey('custom');
@@ -161,8 +172,45 @@ export default function RoutineBuilderScreen() {
   const canSave =
     split !== null && split.days.length > 0 && emptyDays.length === 0 && !savePlan.isPending;
 
+  /** PLAN SCAN: enrol unmatched imported exercises in user_exercises with the
+   *  AI's muscle guess. This is what makes their logged sets attribute to the
+   *  heat map, skill tree and branch stats like any library movement — XP and
+   *  PRs were already name-agnostic. Best-effort, one-by-one (the unique index
+   *  makes re-imports duplicate-safe), never blocks the plan save. */
+  const enrolUnmatched = (days: readonly string[]) => {
+    const creates: { name: string; muscle: string }[] = [];
+    const seen = new Set<string>();
+    for (const d of days) {
+      for (const e of plan[d] ?? []) {
+        const m = importMeta[`${d}:${e.exercise}`];
+        const key = e.exercise.toLowerCase();
+        if (m?.confidence === 'unmatched' && m.muscleGuess && !seen.has(key)) {
+          seen.add(key);
+          creates.push({ name: e.exercise, muscle: m.muscleGuess });
+        }
+      }
+    }
+    if (creates.length === 0) return;
+    void (async () => {
+      let made = 0;
+      for (const c of creates) {
+        const { error } = await supabase.from('user_exercises').insert({ name: c.name, muscle: c.muscle });
+        if (!error) made += 1; // duplicates and outages alike: quiet, re-runnable
+      }
+      if (made > 0) {
+        void queryClient.invalidateQueries({ queryKey: ['user_exercises', userId] });
+        useToastStore.getState().push({
+          kind: 'info',
+          title: `${made} CUSTOM EXERCISE${made === 1 ? '' : 'S'} ADDED`,
+          subtitle: 'From your scan — findable in search, counted in your stats.',
+        });
+      }
+    })();
+  };
+
   const save = () => {
     if (!split) return;
+    enrolUnmatched(split.days);
     const built: CustomPlan = {
       plan_name: importedName ?? split.name,
       rationale: importedName ? 'Imported from a written workout (PLAN SCAN)' : 'Built by hand in the Routine Builder',
@@ -175,10 +223,23 @@ export default function RoutineBuilderScreen() {
       { kind: 'custom', plan: built },
       {
         onSuccess: () => {
+          // PLAN SCAN fix: map the plan's days onto the week, so the week
+          // bars / MISSED / scheduled streak know this program exists.
+          // Effective-dated (today onward) — history is untouched. Best
+          // effort: a failed upsert must not un-save the plan.
+          const week = scheduleForDays(split.days);
+          if (week) {
+            void supabase
+              .from('workout_schedule')
+              .upsert({ effective_from: todayIso(), plan: week }, { onConflict: 'user_id,effective_from' })
+              .then(({ error }) => {
+                if (!error) void queryClient.invalidateQueries({ queryKey: ['workout_schedule', userId] });
+              });
+          }
           useToastStore.getState().push({
             kind: 'info',
             title: 'MY PLAN SAVED',
-            subtitle: 'Find it on Train under MY PLAN',
+            subtitle: 'Week mapped — EDIT MY WEEK on Train to adjust',
           });
           router.replace('/today');
         },

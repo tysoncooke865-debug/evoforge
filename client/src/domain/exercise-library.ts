@@ -376,6 +376,36 @@ export function seedPlanForSplit(
   return { plan_name: split.name, days };
 }
 
+/** Gym-sensible weekday spreads for N training days (getUTCDay indices):
+ *  rest days sit BETWEEN sessions, not stacked at the weekend. */
+const DAY_SPREAD: Readonly<Record<number, readonly number[]>> = {
+  1: [1],
+  2: [1, 4],
+  3: [1, 3, 5],
+  4: [1, 2, 4, 5],
+  5: [1, 2, 3, 4, 5],
+  6: [1, 2, 3, 4, 5, 6],
+  7: [0, 1, 2, 3, 4, 5, 6],
+};
+
+/**
+ * The weekly schedule ANY day list implies (PLAN SCAN fix, 2026-07-15) —
+ * imported and hand-built plans map onto the week like preset splits do, so
+ * the week bars, MISSED states and the scheduled streak know the program
+ * exists. Same jsonb shape as defaultScheduleFor: keys '0'..'6' = getUTCDay,
+ * values a day name or 'Rest'.
+ */
+export function scheduleForDays(days: readonly string[]): Record<string, string> | null {
+  const list = days.filter((d) => d.trim() !== '').slice(0, 7);
+  if (list.length === 0) return null;
+  const spread = DAY_SPREAD[list.length];
+  const plan: Record<string, string> = { '0': 'Rest', '1': 'Rest', '2': 'Rest', '3': 'Rest', '4': 'Rest', '5': 'Rest', '6': 'Rest' };
+  spread.forEach((dow, i) => {
+    plan[String(dow)] = list[i];
+  });
+  return plan;
+}
+
 /**
  * The weekly schedule a split implies: workout_schedule's jsonb shape
  * (keys '0'..'6' = getUTCDay, values a day name or 'Rest'). Days beyond the

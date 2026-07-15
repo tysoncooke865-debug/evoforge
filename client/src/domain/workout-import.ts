@@ -1,6 +1,6 @@
 import type { PlanExercise } from './custom-plan';
 import { rankExercises } from './exercise-rank';
-import type { LibraryExercise } from './exercise-taxonomy';
+import { MUSCLE_GROUPS, type LibraryExercise } from './exercise-taxonomy';
 
 /**
  * PLAN SCAN — the deterministic half of "best guess" (2026-07-15).
@@ -22,7 +22,16 @@ export interface ImportedExercise {
   exercise: string;
   sets: number;
   reps: string;
+  /** The AI's primary-muscle best guess (server-whitelisted). Used ONLY when
+   *  the corpus cannot claim the exercise — the deterministic layer wins. */
+  muscle?: string;
 }
+
+/** Every canonical tag, flattened from the taxonomy — the client-side mirror
+ *  of the edge function's whitelist. */
+const VALID_TAGS: ReadonlySet<string> = new Set(
+  MUSCLE_GROUPS.flatMap((g) => [...g.muscles])
+);
 
 export interface ImportedDay {
   day: string;
@@ -35,6 +44,10 @@ export interface MappedExercise extends PlanExercise {
   /** What the page said, verbatim. */
   raw: string;
   confidence: MatchConfidence;
+  /** For UNMATCHED entries only: the AI's validated muscle guess, so the
+   *  exercise can be auto-created in user_exercises and attribute its sets
+   *  to the heat map / skill tree like any library movement. */
+  muscleGuess?: string;
 }
 
 export interface MappedDay {
@@ -85,6 +98,8 @@ export function mapImportedPlan(
       const key = norm(m.exercise);
       if (seen.has(key)) continue;
       seen.add(key);
+      const muscleGuess =
+        m.confidence === 'unmatched' && e.muscle && VALID_TAGS.has(e.muscle) ? e.muscle : undefined;
       exercises.push({
         exercise: m.exercise,
         sets: Math.max(1, Math.min(8, Math.trunc(e.sets) || 3)),
@@ -92,6 +107,7 @@ export function mapImportedPlan(
         reason: m.confidence === 'exact' ? '' : `Read as “${e.raw}”`,
         raw: e.raw,
         confidence: m.confidence,
+        ...(muscleGuess ? { muscleGuess } : {}),
       });
     }
     if (exercises.length > 0) out.push({ day: d.day, exercises });

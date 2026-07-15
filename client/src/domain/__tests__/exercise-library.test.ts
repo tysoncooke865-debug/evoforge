@@ -8,12 +8,46 @@ import {
   LIBRARY_SECTIONS,
   presetFor,
   REP_SCHEMES,
+  scheduleForDays,
   seedPlanForSplit,
   SPLITS,
 } from '../exercise-library';
 import { IMPORTED_EXERCISES } from '../exercise-library-imported';
 
 const LIBRARY_NAMES = new Set(EXERCISE_LIBRARY.map((e) => e.name));
+
+describe('scheduleForDays — any plan maps onto the week (PLAN SCAN fix)', () => {
+  const DOW = ['0', '1', '2', '3', '4', '5', '6'];
+  const daysOf = (plan: Record<string, string>) => DOW.map((d) => plan[d]);
+
+  it('spreads 3 days Mon/Wed/Fri with rest between', () => {
+    expect(daysOf(scheduleForDays(['A', 'B', 'C'])!)).toEqual([
+      'Rest', 'A', 'Rest', 'B', 'Rest', 'C', 'Rest',
+    ]);
+  });
+
+  it.each([[1], [2], [3], [4], [5], [6], [7]] as const)(
+    '%d-day plans place every day exactly once and fill the rest with Rest',
+    (n) => {
+      const days = Array.from({ length: n }, (_, i) => `Day ${i + 1}`);
+      const plan = scheduleForDays(days)!;
+      const values = daysOf(plan);
+      expect(values).toHaveLength(7); // a positive control over the whole week
+      for (const d of days) expect(values.filter((v) => v === d)).toHaveLength(1);
+      expect(values.filter((v) => v === 'Rest')).toHaveLength(7 - n);
+    }
+  );
+
+  it('caps at 7 — an 8-day "week" keeps the first seven', () => {
+    const plan = scheduleForDays(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])!;
+    expect(daysOf(plan)).not.toContain('h');
+  });
+
+  it('blank names are ignored; an all-blank list schedules nothing', () => {
+    expect(scheduleForDays(['', '  '])).toBeNull();
+    expect(scheduleForDays([])).toBeNull();
+  });
+});
 /** Every tag the six UI sections can render. A tag outside this set belongs
  *  to no section, so the exercise carrying it is unpickable. */
 const LEGAL_TAGS = new Set(LIBRARY_SECTIONS.flatMap((s) => s.muscles));

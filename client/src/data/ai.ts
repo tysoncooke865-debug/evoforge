@@ -89,11 +89,22 @@ async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<{ r
   try {
     const { data, error } = await supabase.functions.invoke(fn, { body });
     if (error) {
-      // A FunctionsHttpError carries the response; surface the server's message.
+      // A FunctionsHttpError carries the RESPONSE; surface the server's message.
+      // A FunctionsFetchError carries the underlying fetch TypeError — NOT a
+      // Response. The platform's function-not-found 404 has no CORS headers, so
+      // the browser rejects the fetch and this is the path an UNDEPLOYED
+      // function takes. Calling .json() on that context crashed with
+      // "e.json is not a function" and buried the one message that mattered.
       const ctx = (error as { context?: Response }).context;
-      if (ctx) {
-        const payload = await ctx.json().catch(() => null);
+      if (ctx && typeof (ctx as Response).json === 'function') {
+        const payload = await (ctx as Response).json().catch(() => null);
         return { result: null, error: payload?.error ?? error.message };
+      }
+      if (
+        (error as { name?: string }).name === 'FunctionsFetchError' ||
+        /Failed to fetch|Load failed|FunctionsFetchError/i.test(String(error.message))
+      ) {
+        return { result: null, error: 'AI functions are not deployed yet — see the setup checklist.' };
       }
       return { result: null, error: error.message };
     }

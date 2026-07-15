@@ -22,11 +22,27 @@ import { CORS_HEADERS, callOpenAiJson, callerClient, cachedResult, json, rateLim
 const MAX_IMAGES = 3;
 const MAX_TEXT = 4000;
 
+// The canonical muscle tags — mirrors client exercise-taxonomy MUSCLE_GROUPS.
+// A guess outside this list is dropped, never coerced: a wrong tag pollutes
+// the athlete's heat map and skill tree; a missing one just leaves the manual
+// create path (which asks) in charge.
+const MUSCLE_TAGS = [
+  'Chest', 'Upper Chest',
+  'Back Width', 'Back Thickness', 'Traps',
+  'Side Delts', 'Rear Delts', 'Front Delts',
+  'Biceps', 'Triceps', 'Forearms',
+  'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Adductors',
+  'Abs',
+] as const;
+
 interface ScannedExercise {
   raw: string;
   exercise: string;
   sets: number;
   reps: string;
+  /** AI best-guess primary muscle, one of MUSCLE_TAGS — used only when the
+   *  client's corpus cannot claim the exercise. */
+  muscle?: string;
 }
 interface ScannedDay {
   day: string;
@@ -59,7 +75,14 @@ function validateScan(data: Record<string, unknown>): { plan?: ScannedPlan; erro
       if (!raw || !exercise) continue; // an unreadable line is skipped, not fatal
       const sets = Math.max(1, Math.min(8, Math.trunc(Number(e.sets) || 3)));
       const reps = String(e.reps ?? '8-12').trim().slice(0, 20) || '8-12';
-      clean.push({ raw, exercise, sets, reps });
+      const muscle = String(e.muscle ?? '').trim();
+      clean.push({
+        raw,
+        exercise,
+        sets,
+        reps,
+        ...((MUSCLE_TAGS as readonly string[]).includes(muscle) ? { muscle } : {}),
+      });
     }
     if (clean.length === 0) continue; // an empty day is dropped, not fatal
     days.push({ day, exercises: clean });
@@ -107,6 +130,9 @@ RULES — transcription, not authorship:
   "inc db prss" -> "Incline Dumbbell Press", "rdl" -> "Romanian Deadlift".
 - Parse sets/reps where written ("5x5" -> sets 5, reps "5"; "3x8-12" -> sets 3,
   reps "8-12"). Where absent, use sets 3, reps "8-12".
+- For each exercise include "muscle": your best guess at the PRIMARY muscle it
+  trains, chosen from EXACTLY this list (verbatim):
+  ${MUSCLE_TAGS.join(' | ')}
 - Group into days exactly as the page groups them (headings, columns, day labels).
   If the page is one undivided list, return ONE day named from the page's title,
   else "Workout".
@@ -116,7 +142,7 @@ Return ONLY valid JSON:
 {
   "plan_name": "string",
   "days": [
-    { "day": "string", "exercises": [ { "raw": "as written", "exercise": "normalized", "sets": 3, "reps": "8-12" } ] }
+    { "day": "string", "exercises": [ { "raw": "as written", "exercise": "normalized", "sets": 3, "reps": "8-12", "muscle": "Chest" } ] }
   ]
 }
 `;
