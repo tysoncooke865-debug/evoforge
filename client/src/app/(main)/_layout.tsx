@@ -123,13 +123,14 @@ export default function MainLayout() {
           borderTopColor: tokens.colors.border,
           // Safe-area aware: never let the home indicator / Safari chrome
           // swallow the bar. Height grows with the inset, not over content.
-          height: 56 + Math.max(insets.bottom, 6),
-          paddingBottom: Math.max(insets.bottom, 6),
-          paddingTop: 6,
+          // Compact (Tyson's target layout): the bar must not eat the week.
+          height: 54 + Math.max(insets.bottom, 4),
+          paddingBottom: Math.max(insets.bottom, 4),
+          paddingTop: 4,
         },
         tabBarActiveTintColor: tokens.colors.accent,
         tabBarInactiveTintColor: tokens.colors['text-mute'],
-        tabBarLabelStyle: { fontWeight: '700' },
+        tabBarLabelStyle: { fontWeight: '700', fontSize: 10 },
       }}
     >
       {/* TRANSFORM P1: five majors. Everything else lives in the profile

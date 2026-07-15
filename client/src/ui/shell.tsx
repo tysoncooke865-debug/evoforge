@@ -31,19 +31,20 @@ export function ScreenShell({ children }: { children: ReactNode }) {
   );
   return (
     <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
-      <View pointerEvents="none" style={{ position: 'absolute', top: -180, left: -160, width: 480, height: 480, borderRadius: 240, backgroundColor: 'rgba(34, 211, 238, 0.09)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -140, right: -180, width: 420, height: 420, borderRadius: 210, backgroundColor: 'rgba(168, 85, 247, 0.08)' }} />
+      {/* Quiet ambient light — recessive enough that the header owns the top. */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
       <ScrollView
         ref={scrollRef}
         className="flex-1"
         contentContainerClassName="items-center px-s4"
         contentContainerStyle={{
-          paddingTop: Math.max(insets.top, 24),
-          paddingBottom: Math.max(insets.bottom, 16) + 96, // clear the tab bar, always
+          paddingTop: Math.max(insets.top, 14),
+          paddingBottom: Math.max(insets.bottom, 12) + 72, // clear the tab bar, always
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="w-full max-w-[560px] gap-s4">{children}</View>
+        <View className="w-full max-w-[560px] gap-s3">{children}</View>
       </ScrollView>
     </View>
   );
@@ -58,10 +59,13 @@ export function GlowCard({
   children,
   glow,
   className = '',
+  padding = 20,
 }: {
   children: ReactNode;
   glow?: string;
   className?: string;
+  /** Compact cards (the Train hero) trade breath for screen economy. */
+  padding?: number;
 }) {
   const edge = glow ? `${glow}59` : tokens.colors.border;
   return (
@@ -81,7 +85,7 @@ export function GlowCard({
         colors={[tokens.colors['surface-2'], tokens.colors.surface, tokens.colors['bg-deep']]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
-        style={{ padding: 20 }}
+        style={{ padding }}
       >
         {children}
       </LinearGradient>

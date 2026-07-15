@@ -7,7 +7,8 @@ import { useUserExercises } from '@/data/exercises';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
-import { BUILT_IN_DAYS, useDayPlan } from '@/data/use-day-plan';
+import { useAvatarData } from '@/data/use-avatar-data';
+import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { libraryMuscleFor } from '@/domain/exercise-library';
@@ -29,8 +30,7 @@ import { CompanionMenuButton } from '@/ui/companion-menu';
 import { ExerciseSearchBar } from '@/ui/exercise-search-bar';
 import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
 import { Chip, NeonButton } from '@/ui/neon-button';
-import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelRotate, PixelSwap } from '@/ui/pixel-icons';
-import { ScreenHeader } from '@/ui/screen-header';
+import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/pixel-icons';
 import { SegmentedTabs } from '@/ui/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/shell';
 import { WeekBarRow } from '@/ui/week-bar';
@@ -55,6 +55,14 @@ const addDaysIso = (iso: string, n: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
+const WEEKDAYS_LONG = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const MONTHS_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+/** '2026-07-15' → 'WEDNESDAY, JUL 15' — the header's date line. */
+const headerDate = (iso: string): string => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${WEEKDAYS_LONG[d.getUTCDay()]}, ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCDate()}`;
+};
+
 export default function TodayScreen() {
   const todayIso = calendarToday();
 
@@ -68,6 +76,8 @@ export default function TodayScreen() {
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
   const { sources, resolveDay } = useDayPlan();
+  // The header's LV. badge — same confirmed summary the whole app levels on.
+  const { summary } = useAvatarData();
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
@@ -256,6 +266,7 @@ export default function TodayScreen() {
     </Pressable>
   );
 
+  // Compact icon-left / two-line-text-right quick action (target layout).
   const utilityButton = (
     icon: React.ReactNode,
     label: string,
@@ -266,26 +277,70 @@ export default function TodayScreen() {
       accessibilityRole="button"
       testID={testID}
       onPress={onPress}
-      className="flex-1 items-center justify-center rounded-xl border px-s2 py-s2"
-      style={{ minHeight: 56, gap: 5, borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}
+      className="flex-1 flex-row items-center rounded-md border px-s2"
+      style={{ minHeight: 46, gap: 7, borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}
     >
       {icon}
-      {/* Two-word labels wrap to two centred lines — one line truncated on
-          every phone narrower than a tablet. */}
-      <Text className="text-center text-2xs font-bold text-text-dim" style={{ letterSpacing: 0.5 }} numberOfLines={2}>
-        {label}
+      <Text
+        className="text-2xs font-bold text-text-dim"
+        style={{ letterSpacing: 0.5, flexShrink: 1 }}
+        numberOfLines={2}
+      >
+        {label.replace(' ', '\n')}
       </Text>
     </Pressable>
   );
 
   return (
     <ScreenShell>
-      <ScreenHeader
-        kicker={`TODAY · ${todayIso}`}
-        title={mode === 1 ? 'CARDIO' : 'TRAIN'}
-        hero
-        right={<CompanionMenuButton anim={mode === 1 ? cardioAnim(cardioType) : 'idle'} height={56} />}
-      />
+      {/* COMPACT HEADER (Tyson's target layout, 2026-07-15): the title rides
+          the top safe area, the date sits UNDER it, and the companion lives
+          in a small outlined profile container with the level beneath. */}
+      <View className="w-full flex-row items-start justify-between">
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            className="font-bold text-text"
+            style={{
+              fontSize: 34,
+              lineHeight: 38,
+              letterSpacing: 1,
+              textShadowColor: 'rgba(34, 211, 238, 0.55)',
+              textShadowRadius: 18,
+            }}
+          >
+            {mode === 1 ? 'CARDIO' : 'TRAIN'}
+          </Text>
+          <View className="mt-s1 flex-row items-center" style={{ gap: 6 }}>
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 2 }}>
+              TODAY
+            </Text>
+            <Text className="text-2xs text-text-mute">•</Text>
+            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+              {headerDate(todayIso)}
+            </Text>
+          </View>
+        </View>
+        <View className="items-center">
+          <View
+            className="rounded-lg border p-s1"
+            style={{ borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+          >
+            <CompanionMenuButton anim={mode === 1 ? cardioAnim(cardioType) : 'idle'} height={44} />
+          </View>
+          <Pressable
+            onPress={() => router.push('/profile' as never)}
+            accessibilityRole="button"
+            accessibilityLabel="open profile"
+            testID="header-level"
+            className="mt-s1 items-center justify-center"
+            style={{ minHeight: 24, minWidth: 44 }}
+          >
+            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+              LV. {summary.level} ›
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       <SegmentedTabs
         left="LIFT"
@@ -297,32 +352,54 @@ export default function TodayScreen() {
         rightIcon={<PixelHeart size={14} color={mode === 1 ? tokens.colors.accent : tokens.colors['text-dim']} />}
       />
 
-      <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 16 }}>
-        {/* THE HERO — today's briefing. */}
+      <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 12 }}>
+        {/* THE HERO — today's briefing, horizontal (Tyson's target layout):
+            plan dropdown → title → sub → chips → stats on the left; the
+            character owning the right 40%; progress + START across the
+            bottom. Compact paddings — THIS WEEK must be visible below. */}
         {heroWorkout ? (
-          <GlowCard glow={tokens.colors.accent}>
+          <GlowCard glow={tokens.colors.accent} padding={14}>
             <View testID="hero-card">
-              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                {heroKicker}
-              </Text>
-              {/* The figure rides the RIGHT 40% of the card at full column
-                  width, vertically centred against the title/chips/stats
-                  block (Tyson, 2026-07-15). Spacing carries the hierarchy:
-                  the day (tight) → the work (roomy) → the numbers (hairline). */}
-              <View className="flex-row items-center" style={{ gap: 12 }}>
+              <View className="flex-row items-center" style={{ gap: 10 }}>
                 <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
-                  <Text className="text-2xl font-bold text-text" style={{ lineHeight: 33 }} numberOfLines={2}>
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    {/* The plan dropdown — the same switcher the CHANGE
+                        WORKOUT sheet drives, one tap closer. */}
+                    <Pressable
+                      onPress={() => setChangeOpen(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="change plan source"
+                      testID="plan-dropdown"
+                      className="flex-row items-center rounded-md border px-s2"
+                      style={{
+                        minHeight: 28,
+                        gap: 5,
+                        borderColor: `${tokens.colors.accent}59`,
+                        backgroundColor: 'rgba(34,211,238,0.08)',
+                      }}
+                    >
+                      <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+                        {SOURCE_LABEL[source]}
+                      </Text>
+                      <Text className="text-2xs font-bold text-accent">⌄</Text>
+                    </Pressable>
+                    {heroKicker !== 'TODAY' ? (
+                      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }} numberOfLines={1}>
+                        {heroKicker}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {/* NEVER ellipsized — the workout's name is the headline. */}
+                  <Text className="mt-s2 text-2xl font-bold text-text" style={{ lineHeight: 32 }}>
                     {heroName.title.toUpperCase()}
                   </Text>
-                  {heroName.sub ? (
-                    <Text className="mt-s1 text-sm text-text-dim">{heroName.sub}</Text>
-                  ) : null}
+                  {heroName.sub ? <Text className="text-sm text-text-dim">{heroName.sub}</Text> : null}
                   {heroPills.length > 0 ? (
-                    <View className="mt-s4 flex-row flex-wrap gap-s2">
+                    <View className="mt-s2 flex-row flex-wrap gap-s1">
                       {heroPills.map((p) => (
                         <View
                           key={p}
-                          className="rounded-pill border bg-surface-2 px-s3 py-s1"
+                          className="rounded-pill border bg-surface-2 px-s2 py-s1"
                           style={{ borderColor: tokens.colors.border }}
                         >
                           <Text className="text-center text-2xs font-bold text-text-dim">{p}</Text>
@@ -330,25 +407,20 @@ export default function TodayScreen() {
                       ))}
                     </View>
                   ) : null}
-                  {/* ≈ marks estimates — honest numbers only. */}
-                  <View
-                    className="mt-s4 flex-row self-stretch"
-                    style={{ gap: 16, paddingTop: 12, borderTopWidth: 1, borderColor: tokens.colors['border-soft'] }}
-                  >
+                  {/* ~ marks estimates — honest numbers only. */}
+                  <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 14 }}>
                     {(
                       [
-                        [<PixelBars key="sets" size={22} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
-                        [<PixelClock key="min" size={22} color={tokens.colors['text-dim']} />, `≈${heroMinutes}`, 'MIN'],
-                        [<PixelFlame key="kcal" size={22} color={tokens.colors['text-dim']} />, `≈${heroKcal}`, 'KCAL'],
+                        [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
+                        [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, `~${heroMinutes}`, 'MIN'],
+                        [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(heroKcal), 'EST. CAL'],
                       ] as const
                     ).map(([icon, value, label]) => (
-                      // Icon left; number over label right — the label shares the
-                      // NUMBER's left edge, never the icon's.
-                      <View key={label} className="flex-row items-center" style={{ gap: 7 }}>
+                      <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
                         {icon}
                         <View className="items-start">
-                          <Text className="text-lg font-bold text-text">{value}</Text>
-                          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+                          <Text className="text-base font-bold text-text">{value}</Text>
+                          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
                             {label}
                           </Text>
                         </View>
@@ -356,37 +428,45 @@ export default function TodayScreen() {
                     ))}
                   </View>
                 </View>
-                <View className="items-center justify-center" style={{ width: '40%' }}>
-                  {/* Zoom follows the work: all-upper day → torso close-up,
-                      all-lower → legs, mixed → the whole figure. The map
-                      fills its whole column. */}
-                  <MuscleMap
-                    selectedMuscles={heroMuscles}
-                    view={mapView}
-                    pulse
-                    focus={focusFor(heroMuscles)}
+                {/* The character owns the right 40%. Tapping it flips
+                    front/back — the same view logic as ever. */}
+                <Pressable
+                  onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
+                  testID="map-rotate"
+                  className="items-center justify-center"
+                  style={{ width: '40%' }}
+                >
+                  <MuscleMap selectedMuscles={heroMuscles} view={mapView} pulse focus={focusFor(heroMuscles)} />
+                </Pressable>
+              </View>
+              {/* Progress: real completed sets against the plan. */}
+              <View className="mt-s3">
+                <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1 }} testID="hero-progress">
+                  {heroDone} / {heroSets} SETS COMPLETED
+                </Text>
+                <View
+                  className="mt-s1 self-stretch overflow-hidden rounded-pill"
+                  style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}
+                >
+                  <View
+                    style={{
+                      width: `${heroSets > 0 ? Math.min(100, (heroDone / heroSets) * 100) : 0}%`,
+                      height: '100%',
+                      borderRadius: 999,
+                      backgroundColor: tokens.colors.accent,
+                    }}
                   />
-                  {/* One rotate tap flips the view — quick fade, no 3D theatrics.
-                      Flips from the CURRENT mapView (which may be bestViewFor's
-                      pick), so the first tap always visibly rotates. */}
-                  <Pressable
-                    onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
-                    accessibilityRole="button"
-                    accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
-                    testID="map-rotate"
-                    className="mt-s1 items-center justify-center"
-                    style={{ minHeight: 32, minWidth: 44 }}
-                  >
-                    <PixelRotate size={18} color={tokens.colors['text-mute']} />
-                  </Pressable>
                 </View>
               </View>
-              {/* THE most visually prominent element on the page — it gets air. */}
-              <View className="mt-s6">
+              <View className="mt-s3">
                 <NeonButton
                   title={heroDone > 0 ? 'RESUME WORKOUT' : 'START WORKOUT'}
-                  size="hero"
                   onPress={() => heroWorkout && open(todayIso, heroWorkout)}
+                  rightIcon={
+                    <Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>
+                  }
                   testID="hero-start"
                 />
               </View>
@@ -427,9 +507,22 @@ export default function TodayScreen() {
         {/* THIS WEEK — the doors. */}
         {weekBars ? (
           <View>
-            <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-              THIS WEEK
-            </Text>
+            <View className="mb-s2 flex-row items-center justify-between">
+              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                THIS WEEK
+              </Text>
+              <Pressable
+                onPress={() => router.push('/schedule' as never)}
+                accessibilityRole="button"
+                testID="view-calendar"
+                className="items-center justify-center"
+                style={{ minHeight: 28 }}
+              >
+                <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+                  VIEW CALENDAR ›
+                </Text>
+              </Pressable>
+            </View>
             {weekBars.map((bar) => (
               <WeekBarRow
                 key={bar.date}

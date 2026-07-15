@@ -23,6 +23,7 @@ export function NeonButton({
   disabled = false,
   busy = false,
   icon,
+  rightIcon,
   testID,
   size = 'base',
 }: {
@@ -32,6 +33,8 @@ export function NeonButton({
   disabled?: boolean;
   busy?: boolean;
   icon?: ReactNode;
+  /** Trailing affordance — the Train hero's chevron. */
+  rightIcon?: ReactNode;
   testID?: string;
   /** TRAIN_OVERHAUL `hero`: the page's ONE dominant action — taller, bigger
    *  label, stronger glow. Everything else keeps `base`. */
@@ -84,6 +87,7 @@ export function NeonButton({
         >
           {title}
         </Text>
+        {rightIcon}
       </View>
     ) : (
       <LinearGradient
@@ -118,6 +122,7 @@ export function NeonButton({
             {title}
           </Text>
         ) : null}
+        {!busy ? rightIcon : null}
       </LinearGradient>
     );
 
