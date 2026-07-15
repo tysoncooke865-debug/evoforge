@@ -4,8 +4,9 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTimin
 import Svg from 'react-native-svg';
 
 import { backMusclePaths } from './back-muscle-paths';
+import { frontMaskFor } from './front-masks';
 import { frontMusclePaths } from './front-muscle-paths';
-import { MuscleOverlay } from './muscle-overlay';
+import { MaskOverlay, MuscleOverlay } from './muscle-overlay';
 import { MAP_VIEW_H, MAP_VIEW_W, MUSCLE_LABEL, type MapFocus, type MuscleId, type MuscleView } from './types';
 
 /**
@@ -50,6 +51,8 @@ export function MuscleMap({
   width,
   pulse = false,
   focus = 'full',
+  maskOpacity = 0.8,
+  useMasks = true,
   testID = 'muscle-map',
 }: {
   selectedMuscles: readonly MuscleId[];
@@ -61,6 +64,11 @@ export function MuscleMap({
   pulse?: boolean;
   /** Zoom window — derive from the selection with domain focusFor(). */
   focus?: MapFocus;
+  /** Krita mask layer opacity (the muscle-lab tunes this). */
+  maskOpacity?: number;
+  /** false = legacy SVG overlays even where a Krita mask exists (the
+   *  muscle-lab's comparison switch). */
+  useMasks?: boolean;
   testID?: string;
 }) {
   const reducedMotion = useReducedMotion();
@@ -81,8 +89,13 @@ export function MuscleMap({
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const table = shownView === 'front' ? frontMusclePaths : backMusclePaths;
-  // Dedupe, then keep only what this view can draw.
-  const lit = [...new Set(selectedMuscles)].filter((m) => table[m]);
+  // Dedupe, then keep only what this view can draw (a path or a Krita mask).
+  const maskSourceFor = (m: MuscleId) => (useMasks && shownView === 'front' ? frontMaskFor(m) : null);
+  const lit = [...new Set(selectedMuscles)].filter((m) => table[m] || maskSourceFor(m));
+  // Tyson's hand-drawn Krita masks are the source of truth where they exist;
+  // regions without artwork yet keep the generated SVG paths.
+  const masked = lit.filter((m) => maskSourceFor(m));
+  const pathDrawn = lit.filter((m) => !maskSourceFor(m) && table[m]);
 
   const label =
     lit.length === 0
@@ -123,6 +136,17 @@ export function MuscleMap({
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
             accessibilityIgnoresInvertColors
           />
+          {/* Krita mask layers: same box, same resizeMode, no per-muscle
+              offsets — alignment is the artwork's, never the code's. */}
+          {masked.map((m) => (
+            <MaskOverlay
+              key={`mask:${shownView}:${m}`}
+              muscle={m}
+              source={maskSourceFor(m)!}
+              pulse={pulse}
+              maskOpacity={maskOpacity}
+            />
+          ))}
           <Svg
             style={{ position: 'absolute', top: 0, left: 0 }}
             width="100%"
@@ -131,7 +155,7 @@ export function MuscleMap({
             pointerEvents={interactive ? 'auto' : 'none'}
             testID={`${testID}-svg-${shownView}`}
           >
-            {lit.map((m) => (
+            {pathDrawn.map((m) => (
               <MuscleOverlay
                 key={`${shownView}:${m}`}
                 muscle={m}
@@ -141,6 +165,21 @@ export function MuscleMap({
                 onPress={onMusclePress}
               />
             ))}
+            {/* Masked muscles still need per-muscle press geometry. */}
+            {interactive
+              ? masked
+                  .filter((m) => table[m])
+                  .map((m) => (
+                    <MuscleOverlay
+                      key={`hit:${shownView}:${m}`}
+                      muscle={m}
+                      sides={table[m]!}
+                      interactive
+                      onPress={onMusclePress}
+                      hitOnly
+                    />
+                  ))
+              : null}
           </Svg>
         </View>
       ) : null}

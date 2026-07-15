@@ -160,6 +160,8 @@ export default function MainLayout() {
       <Tabs.Screen name="schedule" options={{ href: null }} />
       <Tabs.Screen name="streak" options={{ href: null }} />
       <Tabs.Screen name="coins" options={{ href: null }} />
+      {/* Dev-only mask workbench — the screen renders nothing in production. */}
+      <Tabs.Screen name="muscle-lab" options={{ href: null }} />
     </Tabs>
     {levelUp ? (
       <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />

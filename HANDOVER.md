@@ -65,6 +65,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
   `gen_muscle_paths.py` — pec plates are cv2-contour-EXTRACTED from the art
   itself (bright regions only; the shadowed delt/arm regions fragment under
   thresholding and stay hand-authored over gridded 2× crops).
+- **Krita hand-drawn masks (Tyson, 2026-07-15) now drive the FRONT overlays**
+  for chest/shoulders/biceps/triceps/forearms/traps/abs — the .kra is the
+  source of truth, extracted by `tools/extract_muscle_masks.py` (decodes
+  Krita's LZF-planar tiles; refuses to export unless its recomposite is
+  pixel-identical to the file's own mergedimage.png). Exact masks +
+  pre-tinted `-lit` variants (white fill → #18D9FF, black linework kept —
+  RN tintColor would recolour the lines) in `client/assets/muscle-masks/`.
+  Front regions without artwork yet (obliques/quads/calves) + the whole back
+  view keep the SVG paths until their .kra lands (then: add its layer map to
+  the tool and run with `back`). Dev workbench: `/muscle-lab` (renders
+  nothing in production; enable locally via __DEV__ or
+  EXPO_PUBLIC_MUSCLE_LAB=1 at export).
 
 **Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
