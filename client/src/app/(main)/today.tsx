@@ -302,22 +302,23 @@ export default function TodayScreen() {
         {heroWorkout ? (
           <GlowCard glow={tokens.colors.accent}>
             <View testID="hero-card">
-              <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
                 {heroKicker}
               </Text>
               {/* The figure rides the RIGHT 40% of the card at full column
                   width, vertically centred against the title/chips/stats
-                  block (Tyson, 2026-07-15). */}
+                  block (Tyson, 2026-07-15). Spacing carries the hierarchy:
+                  the day (tight) → the work (roomy) → the numbers (hairline). */}
               <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
-                  <Text className="text-2xl font-bold text-text" numberOfLines={2}>
+                  <Text className="text-2xl font-bold text-text" style={{ lineHeight: 33 }} numberOfLines={2}>
                     {heroName.title.toUpperCase()}
                   </Text>
                   {heroName.sub ? (
                     <Text className="mt-s1 text-sm text-text-dim">{heroName.sub}</Text>
                   ) : null}
                   {heroPills.length > 0 ? (
-                    <View className="mt-s3 flex-row flex-wrap gap-s2">
+                    <View className="mt-s4 flex-row flex-wrap gap-s2">
                       {heroPills.map((p) => (
                         <View
                           key={p}
@@ -330,7 +331,10 @@ export default function TodayScreen() {
                     </View>
                   ) : null}
                   {/* ≈ marks estimates — honest numbers only. */}
-                  <View className="mt-s3 flex-row" style={{ gap: 16 }}>
+                  <View
+                    className="mt-s4 flex-row self-stretch"
+                    style={{ gap: 16, paddingTop: 12, borderTopWidth: 1, borderColor: tokens.colors['border-soft'] }}
+                  >
                     {(
                       [
                         [<PixelBars key="sets" size={22} color={tokens.colors['text-dim']} />, String(heroSets), 'SETS'],
@@ -370,15 +374,15 @@ export default function TodayScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
                     testID="map-rotate"
-                    className="mt-s2 items-center justify-center"
+                    className="mt-s1 items-center justify-center"
                     style={{ minHeight: 32, minWidth: 44 }}
                   >
                     <PixelRotate size={18} color={tokens.colors['text-mute']} />
                   </Pressable>
                 </View>
               </View>
-              {/* THE most visually prominent element on the page. */}
-              <View className="mt-s4">
+              {/* THE most visually prominent element on the page — it gets air. */}
+              <View className="mt-s6">
                 <NeonButton
                   title={heroDone > 0 ? 'RESUME WORKOUT' : 'START WORKOUT'}
                   size="hero"
