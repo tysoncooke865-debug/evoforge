@@ -32,19 +32,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
 - `TRAIN_PAGE_V2.md` (the workout as its own page) — complete.
 - The Add Exercise redesign (960-exercise library, ranking engine) — complete.
 - KG⇄LB per-exercise toggle (`domain/units.ts`; DB stays kg forever) — complete;
-  **migration `020_weight_unit_pref.sql` written, NOT yet applied** (the one gap).
+  migration `020` **applied 2026-07-15**, column read back (`weight_unit`, default kg).
 - The inline `ExerciseSearchBar` on every add surface (`data/exercise-corpus.ts`
   is the shared recipe) — complete.
 - PLAN SCAN (photo/typed workout → `ai-plan-scan` → corpus-mapped draft →
-  builder → MY PLAN; `domain/workout-import.ts`) — complete;
-  **`ai-plan-scan` edge function NOT yet deployed** (no CLI token on the dev box).
+  builder → MY PLAN; `domain/workout-import.ts`) — complete; `ai-plan-scan`
+  **deployed 2026-07-15** and falsified end-to-end (real OpenAI call, shorthand
+  normalized, repeat call cache-hit). En route found+fixed: 007's `kind` check
+  rejected `'plan-scan'`, so the cache AND the hourly rate limit were both dead
+  for scans (storeCache swallows errors) → migration `021` extends the check.
+- SUPABASE_SETUP.md steps all done; `SUPABASE_ACCESS_TOKEN` repo secret set and
+  the parked CI step wired into `client.yml` — edge functions now deploy on push.
 - Parallel `nutrition` branch (FUEL tab, unmerged): its `020_nutrition.sql` must
-  be **renumbered to 021** at merge — mainline claimed 020.
+  be **renumbered to 022** at merge — mainline claimed 020 and 021.
 
-**Migrations applied through `019`. `020_weight_unit_pref.sql` written/unapplied.
-Next free number: `021`.**
+**Migrations applied through `021`. Next free number: `022`.**
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
-`019` user_exercise_prefs · `020` weight_unit (pending).
+`019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.
 
 **496 tests. Four executable guards** (all in CI):
 `verify-tokens` · `verify-battle-engine` (byte-pin ×3) · `verify-motion` ·

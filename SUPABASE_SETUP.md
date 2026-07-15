@@ -1,5 +1,15 @@
 # Supabase setup — the pending changes, step by step
 
+> **✅ ALL THREE STEPS EXECUTED 2026-07-15** (Claude session, management token +
+> repo credential). Each check below was run for real: migration 020 read back;
+> `ai-plan-scan` OPTIONS 200 + a live OpenAI transcription round-trip;
+> `SUPABASE_ACCESS_TOKEN` secret set and the CI step merged into `client.yml`.
+> **Falsification found a bug**: 007's `ai_scan_cache.kind` check rejected
+> `'plan-scan'` — cache and hourly rate limit were silently dead for scans
+> (`storeCache` is best-effort). Fixed by **migration 021** (applied). The
+> `nutrition` branch's migration therefore renumbers to **022**, not 021.
+> Kept for the procedure/checks; nothing here is pending anymore.
+
 > For whoever holds dashboard/CLI access. Everything in the app code is already
 > merged and live; these are the server-side steps the code is waiting on.
 > Each step ends with a check so you know it worked. ~15 minutes total.
