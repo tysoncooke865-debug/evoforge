@@ -2,7 +2,7 @@ import type { ImageSourcePropType } from 'react-native';
 
 import type { BranchV2 } from '@/domain/branches-v2';
 
-import { avatarImage, shredderImage } from './avatar-images';
+import { avatarImage } from './avatar-images';
 
 /**
  * ART MAP V2 — five branches × two sexes. Real artwork exists today only for
@@ -86,6 +86,23 @@ const TITAN_STILLS: Record<number, ImageSourcePropType> = {
   4: require('../../assets/sprites/titan/still-stage4.png'),
 };
 
+/** THE SHREDDER line, stages 1-4 (Shredder_L4.zip, Tyson, 2026-07-16 —
+ *  108×108, the redemption arc: hooded start → dual-blade shredded;
+ *  pad 25-27%, within the constant's range). Stages ride BODY FAT as
+ *  ever — only the ART is new. */
+const SHREDDER_ROTATIONS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/shredder/rotations-stage1.gif'),
+  2: require('../../assets/sprites/shredder/rotations-stage2.gif'),
+  3: require('../../assets/sprites/shredder/rotations-stage3.gif'),
+  4: require('../../assets/sprites/shredder/rotations-stage4.gif'),
+};
+const SHREDDER_STILLS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/shredder/still-stage1.png'),
+  2: require('../../assets/sprites/shredder/still-stage2.png'),
+  3: require('../../assets/sprites/shredder/still-stage3.png'),
+  4: require('../../assets/sprites/shredder/still-stage4.png'),
+};
+
 /** THE CARDIO MACHINE line, stages 1-4 (Enduro_L4.zip, Tyson,
  *  2026-07-16 — 120×120, blue-flame runner; L4's frames were shifted up
  *  11px at build so its feet match the measured ~24% pad). Rotations
@@ -129,7 +146,8 @@ export function animatedAvatar(
   if (branch === 'titan') return TITAN_ROTATIONS[s];
   if (branch === 'mass') return MASS_ROTATIONS[s];
   if (branch === 'cardio') return CARDIO_ROTATIONS[s];
-  if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_ROTATIONS[s];
+  if (branch === 'shredder') return SHREDDER_ROTATIONS[s];
+  if (branch === 'aesthetic') return AESTHETIC_ROTATIONS[s];
   return undefined;
 }
 
@@ -161,7 +179,8 @@ export function stillAvatar(
   if (branch === 'titan') return TITAN_STILLS[s];
   if (branch === 'mass') return MASS_STILLS[s];
   if (branch === 'cardio') return CARDIO_STILLS[s];
-  if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_STILLS[s];
+  if (branch === 'shredder') return SHREDDER_STILLS[s];
+  if (branch === 'aesthetic') return AESTHETIC_STILLS[s];
   return undefined;
 }
 
@@ -178,7 +197,9 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
     return { source: avatarImage(donor, stage), hasArt: false };
   }
   if (branch === 'shredder') {
-    return { source: shredderImage(stage), hasArt: true };
+    // The Shredder pack's still replaces the old painted set (which has
+    // BAKED BACKGROUNDS and could never silhouette or stage cleanly).
+    return { source: SHREDDER_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))], hasArt: true };
   }
   if (branch === 'titan') {
     // Real art since the Titan pack: the still stands in as the "painted"

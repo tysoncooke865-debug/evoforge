@@ -42,19 +42,66 @@ export interface SkinItem {
   unlock: CosmeticUnlock;
 }
 
+/** The colours are BOUGHT with forge coins, per line (Tyson, 2026-07-16:
+ *  "locked by forge coins, price ascending, cheaper on aesthetics"). Prices
+ *  are the server's (migration 030 skin_price) — this is the display twin,
+ *  pinned equal by the customise vitest. 'standard' is free, 'adam' is the
+ *  level-100 reward; neither is for sale. */
 export const SKINS: SkinItem[] = [
   { id: 'standard', name: 'Standard Issue', swatch: null, unlock: { kind: 'free' } },
-  { id: 'red', name: 'Crimson Ops', swatch: '#d63939', unlock: { kind: 'free' } },
-  { id: 'green', name: 'Jade Protocol', swatch: '#2f9e44', unlock: { kind: 'free' } },
-  { id: 'yellow', name: 'Volt Squad', swatch: '#e6b117', unlock: { kind: 'free' } },
-  { id: 'orange', name: 'Ember Unit', swatch: '#e8590c', unlock: { kind: 'free' } },
-  { id: 'white', name: 'Ghost Frame', swatch: '#b8bcc8', unlock: { kind: 'free' } },
-  { id: 'black', name: 'Void Ops', swatch: '#2b2b33', unlock: { kind: 'free' } },
-  /** THE ASCENSION REWARD (Tyson, 2026-07-16): reaching level 100 — True
-   *  Adam — unlocks the unique violet-gold Adam skin. Mythic tier IS
-   *  level 100, so the existing tier gate carries it. */
+  { id: 'red', name: 'Crimson Ops', swatch: '#d63939', unlock: { kind: 'coins' } },
+  { id: 'green', name: 'Jade Protocol', swatch: '#2f9e44', unlock: { kind: 'coins' } },
+  { id: 'yellow', name: 'Volt Squad', swatch: '#e6b117', unlock: { kind: 'coins' } },
+  { id: 'orange', name: 'Ember Unit', swatch: '#e8590c', unlock: { kind: 'coins' } },
+  { id: 'white', name: 'Ghost Frame', swatch: '#b8bcc8', unlock: { kind: 'coins' } },
+  { id: 'black', name: 'Void Ops', swatch: '#2b2b33', unlock: { kind: 'coins' } },
   { id: 'adam', name: 'True Adam', swatch: '#f5cf6a', unlock: { kind: 'tier', slug: 'mythic' } },
 ];
+
+/** The lines with their own art — colours are owned PER LINE. */
+export type SkinLine = 'aesthetic' | 'mass' | 'titan' | 'cardio' | 'shredder';
+
+export function skinLineFor(branch: BranchV2): SkinLine {
+  if (branch === 'mass' || branch === 'titan' || branch === 'cardio' || branch === 'shredder') {
+    return branch;
+  }
+  return 'aesthetic'; // aesthetic (+ any donor-only branch) shares the aesthetic set
+}
+
+/** Server-mirrored prices. Aesthetic is the cheap line; every other line
+ *  costs double. Ascending within a line. Pinned against skin_price(). */
+const SKIN_PRICES: Record<'aesthetic' | 'other', Partial<Record<SkinId, number>>> = {
+  aesthetic: { red: 50, green: 75, yellow: 100, orange: 150, white: 200, black: 250 },
+  other: { red: 100, green: 150, yellow: 200, orange: 300, white: 400, black: 500 },
+};
+
+/** Coin price for a colour on a line, or null if it is not purchasable. */
+export function skinPrice(line: SkinLine, skin: SkinId): number | null {
+  const table = line === 'aesthetic' ? SKIN_PRICES.aesthetic : SKIN_PRICES.other;
+  return table[skin] ?? null;
+}
+
+export function skinKey(line: SkinLine, skin: SkinId): string {
+  return `${line}:${skin}`;
+}
+
+/**
+ * Is a skin unlocked for a line? Free always; tier via the rarity tier
+ * (Adam); coin skins iff the owned set carries this line's key. Ownership
+ * is SERVER truth (user_skin_unlocks) — the client only reflects it.
+ */
+export function skinUnlocked(
+  skin: SkinItem,
+  line: SkinLine,
+  ctx: { legacyLevel: number; ownedSkins: ReadonlySet<string> }
+): boolean {
+  if (skin.unlock.kind === 'free') return true;
+  if (skin.unlock.kind === 'tier') {
+    return TIER_ORDER.indexOf(raritySlug(ctx.legacyLevel) as (typeof TIER_ORDER)[number]) >= TIER_ORDER.indexOf(skin.unlock.slug);
+  }
+  if (skin.unlock.kind === 'coins') return ctx.ownedSkins.has(skinKey(line, skin.id));
+  return false;
+}
 
 // ---------------------------------------------------------------- auras
 
@@ -68,6 +115,10 @@ export type CosmeticUnlock =
    *  it unlocked" — an EPIC-tier athlete owns the epic aura; a tier-named
    *  cosmetic must gate on the tier, not an unrelated forge level. */
   | { kind: 'tier'; slug: 'rare' | 'epic' | 'legendary' | 'mythic' }
+  /** Bought with forge coins (per-line price; see skinPrice). The shop UI
+   *  owns the price + BUY affordance; cosmeticUnlocked treats it as locked
+   *  because ownership is server data, not a computed gate. */
+  | { kind: 'coins' }
   | { kind: 'incoming'; source: string };
 
 /** What unlock evaluation needs: the earned Forge Level AND the legacy
@@ -75,6 +126,8 @@ export type CosmeticUnlock =
 export interface UnlockContext {
   forgeLevel: number;
   legacyLevel: number;
+  /** Owned coin-skin keys ("line:skin"). Empty when unknown/loading. */
+  ownedSkins: ReadonlySet<string>;
 }
 
 const TIER_ORDER = ['common', 'rare', 'epic', 'legendary', 'mythic'] as const;
@@ -142,7 +195,7 @@ export function cosmeticUnlocked(unlock: CosmeticUnlock, ctx: UnlockContext): bo
     const reached = TIER_ORDER.indexOf(raritySlug(ctx.legacyLevel) as (typeof TIER_ORDER)[number]);
     return reached >= TIER_ORDER.indexOf(unlock.slug);
   }
-  return false;
+  return false; // 'coins' skins resolve via skinUnlocked, 'incoming' never
 }
 
 export function unlockLabel(unlock: CosmeticUnlock): string {
@@ -152,11 +205,12 @@ export function unlockLabel(unlock: CosmeticUnlock): string {
     // Mythic is level 100 exactly — say it the way the athlete reads it.
     return unlock.slug === 'mythic' ? 'REACH LEVEL 100 — TRUE ADAM' : `REACH ${unlock.slug.toUpperCase()} TIER`;
   }
+  if (unlock.kind === 'coins') return 'BUY WITH FORGE COINS';
   return unlock.source.toUpperCase();
 }
 
-export function unlockContext(derived: DerivedIdentity): UnlockContext {
-  return { forgeLevel: derived.forgeLevel, legacyLevel: derived.level };
+export function unlockContext(derived: DerivedIdentity, ownedSkins: ReadonlySet<string> = new Set()): UnlockContext {
+  return { forgeLevel: derived.forgeLevel, legacyLevel: derived.level, ownedSkins };
 }
 
 // ---------------------------------------------------------------- roster
@@ -349,7 +403,11 @@ export interface ResolvedDisplay {
  * that closed since equip (a branch lost, a level ladder re-based) must
  * never keep rendering.
  */
-export function resolveDisplay(derived: DerivedIdentity, loadout: Loadout): ResolvedDisplay {
+export function resolveDisplay(
+  derived: DerivedIdentity,
+  loadout: Loadout,
+  ownedSkins: ReadonlySet<string> = new Set()
+): ResolvedDisplay {
   const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
 
   let branch = derived.branch;
@@ -380,9 +438,9 @@ export function resolveDisplay(derived: DerivedIdentity, loadout: Loadout): Reso
     }
   }
 
-  const ctx = unlockContext(derived);
+  const ctx = unlockContext(derived, ownedSkins);
   const skinItem = SKINS.find((s) => s.id === loadout.skinId);
-  const skin = skinItem && cosmeticUnlocked(skinItem.unlock, ctx) ? skinItem : undefined;
+  const skin = skinItem && skinUnlocked(skinItem, skinLineFor(branch), ctx) ? skinItem : undefined;
   const aura = AURAS.find((a) => a.id === loadout.auraId);
   const auraUnlocked = aura !== undefined && cosmeticUnlocked(aura.unlock, ctx);
   const emote = EMOTES.find((e) => e.id === loadout.emoteId);
@@ -448,13 +506,18 @@ export type EquipState =
   | { kind: 'equipped' }
   | { kind: 'locked-character' }
   | { kind: 'locked-stage'; requirement: string }
-  | { kind: 'locked-cosmetic'; requirement: string };
+  | { kind: 'locked-cosmetic'; requirement: string }
+  /** The selected colour is an unbought coin skin — the primary button
+   *  becomes BUY (or NEED … when the wallet is short). line+skin+price
+   *  drive the purchase call. */
+  | { kind: 'buy-skin'; line: SkinLine; skin: SkinId; price: number };
 
 /** Which state the primary button is in for the current selection. */
 export function equipState(
   derived: DerivedIdentity,
   sel: Selection,
-  equipped: Loadout
+  equipped: Loadout,
+  ownedSkins: ReadonlySet<string> = new Set()
 ): EquipState {
   const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
   const entry = roster.find((e) => e.id === sel.branch);
@@ -469,9 +532,14 @@ export function equipState(
     }
   }
 
-  const ctx = unlockContext(derived);
+  const ctx = unlockContext(derived, ownedSkins);
   const skin = SKINS.find((s) => s.id === sel.skinId);
-  if (skin && !cosmeticUnlocked(skin.unlock, ctx)) {
+  const line = skinLineFor(sel.branch);
+  if (skin && !skinUnlocked(skin, line, ctx)) {
+    // A coin skin becomes a BUY action; a tier skin (Adam) stays a
+    // requirement the athlete earns, not buys.
+    const price = skin.unlock.kind === 'coins' ? skinPrice(line, skin.id) : null;
+    if (price !== null) return { kind: 'buy-skin', line, skin: skin.id, price };
     return { kind: 'locked-cosmetic', requirement: unlockLabel(skin.unlock) };
   }
   const aura = AURAS.find((a) => a.id === sel.auraId);

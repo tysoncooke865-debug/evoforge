@@ -1,9 +1,10 @@
 import type { ImageSourcePropType } from 'react-native';
 
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+import { useSkinUnlocks } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
 import type { DerivedIdentity, ResolvedDisplay } from '@/domain/customise';
-import { resolveDisplay } from '@/domain/customise';
+import { resolveDisplay, skinKey } from '@/domain/customise';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { animatedAvatar, avatarArtV2, stillAvatar, type Sex } from '@/ui/character/avatar-art';
 import { skinnedAnimated, skinnedFemalePainted, skinnedStill } from '@/ui/character/avatar-skins';
@@ -32,6 +33,8 @@ export function useDisplayIdentity(): DisplayIdentity {
   const { ready, branchV2, sex, summary, stats, bfMid, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
   const loadout = useLoadoutStore((s) => s.loadout);
+  const unlocks = useSkinUnlocks();
+  const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -47,7 +50,7 @@ export function useDisplayIdentity(): DisplayIdentity {
     ctx: { nutritionPhase, earliestBf },
     forgeLevel: forgeProgressFromRow(forge.data ?? null).level,
   };
-  const display = resolveDisplay(derived, loadout);
+  const display = resolveDisplay(derived, loadout, ownedSkins);
 
   const painted =
     skinnedFemalePainted(display.branch, display.stage, sex, display.skinId) ??

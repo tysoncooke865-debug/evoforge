@@ -12,6 +12,9 @@ import {
   buildRoster,
   cosmeticUnlocked,
   currentStageFor,
+  skinKey,
+  skinPrice,
+  skinUnlocked,
   displayDonor,
   equipState,
   filterRoster,
@@ -161,10 +164,14 @@ describe('resolveDisplay — the persisted loadout is re-validated on read', () 
     // evolutions) — the stage pick must still land.
     const d = derived({ level: 57 });
     const early = stageOptions('aesthetic', 57, null).filter((o) => o.unlocked)[0];
-    const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: null, stageKey: early.key, skinId: 'red' });
+    const owned = new Set([skinKey('aesthetic', 'red')]);
+    const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: null, stageKey: early.key, skinId: 'red' }, owned);
     expect(display.stage).toBe(early.stage);
     expect(display.formName).toBe(early.name);
     expect(display.skinId).toBe('red');
+    // Not owned → the skin falls back to standard, form still resolves.
+    const unowned = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: null, stageKey: early.key, skinId: 'red' });
+    expect(unowned.skinId).toBe('standard');
   });
 
   it('a locked aura/emote falls back; an unlocked one applies', () => {
@@ -205,9 +212,20 @@ describe('equip state machine', () => {
   it('changing anything reads EQUIP; equipping round-trips to EQUIPPED', () => {
     const d = derived();
     const s = sel({ skinId: 'red' });
-    expect(equipState(d, s, DEFAULT_LOADOUT).kind).toBe('equip');
+    const owned = new Set([skinKey('aesthetic', 'red')]);
+    expect(equipState(d, s, DEFAULT_LOADOUT, owned).kind).toBe('equip');
     const saved = loadoutFromSelection(d.branch, s);
-    expect(equipState(d, s, saved).kind).toBe('equipped');
+    expect(equipState(d, s, saved, owned).kind).toBe('equipped');
+    // Unowned red is a BUY action, priced for the aesthetic line (50).
+    const buy = equipState(d, s, DEFAULT_LOADOUT);
+    expect(buy).toEqual({ kind: 'buy-skin', line: 'aesthetic', skin: 'red', price: 50 });
+    // The SAME colour on a dearer line prices higher.
+    const buyMass = equipState(
+      derived({ scores: scores({ strength: 60, size: 70, aesthetic: 50 }) }),
+      sel({ branch: 'mass', skinId: 'red' }),
+      DEFAULT_LOADOUT
+    );
+    expect(buyMass).toEqual({ kind: 'buy-skin', line: 'mass', skin: 'red', price: 100 });
     expect(sameLoadout(saved, DEFAULT_LOADOUT)).toBe(false);
   });
 
@@ -247,7 +265,7 @@ describe('catalogs', () => {
   });
 
   it('free/forge/tier/incoming gates all bind correctly', () => {
-    const ctx = (forgeLevel: number, legacyLevel = 0) => ({ forgeLevel, legacyLevel });
+    const ctx = (forgeLevel: number, legacyLevel = 0) => ({ forgeLevel, legacyLevel, ownedSkins: new Set<string>() });
     expect(cosmeticUnlocked({ kind: 'free' }, ctx(0))).toBe(true);
     expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(4))).toBe(false);
     expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(5))).toBe(true);
@@ -255,6 +273,7 @@ describe('catalogs', () => {
     expect(cosmeticUnlocked({ kind: 'tier', slug: 'epic' }, ctx(0, 50))).toBe(true);
     expect(cosmeticUnlocked({ kind: 'tier', slug: 'epic' }, ctx(0, 100))).toBe(true);
     expect(cosmeticUnlocked({ kind: 'incoming', source: 'x' }, ctx(999, 100))).toBe(false);
+    expect(cosmeticUnlocked({ kind: 'coins' }, ctx(999, 100))).toBe(false); // skins resolve via skinUnlocked
     expect(unlockLabel({ kind: 'forge', level: 5 })).toBe('FORGE LEVEL 5');
     expect(unlockLabel({ kind: 'tier', slug: 'legendary' })).toBe('REACH LEGENDARY TIER');
   });
@@ -280,8 +299,9 @@ describe('catalogs', () => {
 
   it("TRUE ADAM: the level-100 skin unlocks at mythic, locked before", () => {
     const adam = SKINS.find((s) => s.id === 'adam')!;
-    expect(cosmeticUnlocked(adam.unlock, { forgeLevel: 999, legacyLevel: 99 })).toBe(false);
-    expect(cosmeticUnlocked(adam.unlock, { forgeLevel: 0, legacyLevel: 100 })).toBe(true);
+    const noSkins = { legacyLevel: 99, ownedSkins: new Set<string>() };
+    expect(skinUnlocked(adam, 'aesthetic', noSkins)).toBe(false);
+    expect(skinUnlocked(adam, 'aesthetic', { legacyLevel: 100, ownedSkins: new Set() })).toBe(true);
     expect(unlockLabel(adam.unlock)).toBe('REACH LEVEL 100 — TRUE ADAM');
     // resolveDisplay refuses a locked adam skin (falls back to standard)…
     const locked = resolveDisplay(derived({ level: 57 }), { ...DEFAULT_LOADOUT, skinId: 'adam' });
@@ -312,5 +332,34 @@ describe('catalogs', () => {
     expect(displayDonor('hybrid')).toBe('hybrid');
     expect(displayDonor('aesthetic')).toBe('aesthetic');
     expect(displayDonor('shredder')).toBe('aesthetic');
+  });
+});
+
+describe('skin shop prices (Tyson: coins, ascending, aesthetics cheaper)', () => {
+  const COLOURS = ['red', 'green', 'yellow', 'orange', 'white', 'black'] as const;
+
+  it('aesthetic prices ascend and every other line is dearer per colour', () => {
+    const aes = COLOURS.map((c) => skinPrice('aesthetic', c)!);
+    expect(aes).toEqual([50, 75, 100, 150, 200, 250]);
+    // Strictly ascending.
+    for (let i = 1; i < aes.length; i++) expect(aes[i]).toBeGreaterThan(aes[i - 1]);
+    for (const line of ['mass', 'titan', 'cardio', 'shredder'] as const) {
+      const other = COLOURS.map((c) => skinPrice(line, c)!);
+      for (let i = 1; i < other.length; i++) expect(other[i]).toBeGreaterThan(other[i - 1]);
+      // Cheaper on aesthetics, colour for colour.
+      COLOURS.forEach((c, i) => expect(other[i]).toBeGreaterThan(aes[i]));
+    }
+  });
+
+  it('standard and adam are not for sale', () => {
+    expect(skinPrice('aesthetic', 'standard')).toBeNull();
+    expect(skinPrice('aesthetic', 'adam')).toBeNull();
+  });
+
+  it('a coin skin unlocks only for the line it was bought on', () => {
+    const owned = new Set([skinKey('aesthetic', 'red')]);
+    const red = SKINS.find((s) => s.id === 'red')!;
+    expect(skinUnlocked(red, 'aesthetic', { legacyLevel: 0, ownedSkins: owned })).toBe(true);
+    expect(skinUnlocked(red, 'mass', { legacyLevel: 0, ownedSkins: owned })).toBe(false);
   });
 });

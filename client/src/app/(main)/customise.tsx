@@ -2,7 +2,9 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
+import { useCoinTotal } from '@/data/coins';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+import { useSkinUnlocks, usePurchaseSkin } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
 import {
   buildRoster,
@@ -11,6 +13,7 @@ import {
   loadoutFromSelection,
   resolveDisplay,
   selectionFromLoadout,
+  skinKey,
   stageOptions,
   unlockContext,
   type DerivedIdentity,
@@ -21,6 +24,7 @@ import { useLoadoutStore } from '@/state/loadout-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
+import { CoinIcon } from '@/ui/core/coin-icon';
 import { CosmeticTabs } from '@/ui/customise/cosmetic-tabs';
 import { EdgeLabel } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -48,6 +52,10 @@ export default function CustomiseScreen() {
   const equip = useLoadoutStore((s) => s.equip);
   const hydrated = useLoadoutStore((s) => s._hydrated);
   const pushToast = useToastStore((s) => s.push);
+  const coins = useCoinTotal();
+  const unlocks = useSkinUnlocks();
+  const purchase = usePurchaseSkin();
+  const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -99,9 +107,11 @@ export default function CustomiseScreen() {
   const rarityColour = (tokens.colors as Record<string, string>)[rarityColourKey] ?? tokens.colors.common;
 
   // The equipped loadout resolves to a branch for the roster's ◈ marker.
-  const equippedDisplay = resolveDisplay(derived, loadout);
+  const equippedDisplay = resolveDisplay(derived, loadout, ownedSkins);
 
-  const state = equipState(derived, selection, loadout);
+  const state = equipState(derived, selection, loadout, ownedSkins);
+  const balance = coins.data ?? 0;
+  const canAfford = state.kind === 'buy-skin' && balance >= state.price;
   const buttonTitle =
     state.kind === 'equip'
       ? 'EQUIP'
@@ -109,14 +119,27 @@ export default function CustomiseScreen() {
         ? 'EQUIPPED ✓'
         : state.kind === 'locked-character'
           ? 'LOCKED — GATES UNMET'
-          : `UNLOCK: ${state.requirement}`;
+          : state.kind === 'buy-skin'
+            ? canAfford
+              ? `BUY · ${state.price} COINS`
+              : `NEED ${state.price} COINS`
+            : `UNLOCK: ${state.requirement}`;
+  const buttonBusy = state.kind === 'buy-skin' && purchase.isPending;
+  const buttonEnabled = state.kind === 'equip' || (state.kind === 'buy-skin' && canAfford);
 
   const select = (next: Partial<Selection>) => setSelection({ ...selection, ...next });
 
-  const onEquip = () => {
-    if (state.kind !== 'equip') return;
-    equip(loadoutFromSelection(derived.branch, selection));
-    pushToast({ kind: 'info', title: 'LOADOUT EQUIPPED', subtitle: 'Your champion awaits on the home stage' });
+  const onPrimary = () => {
+    if (state.kind === 'equip') {
+      equip(loadoutFromSelection(derived.branch, selection));
+      pushToast({ kind: 'info', title: 'LOADOUT EQUIPPED', subtitle: 'Your champion awaits on the home stage' });
+      return;
+    }
+    if (state.kind === 'buy-skin' && canAfford && !purchase.isPending) {
+      // Buy, then the invalidated unlocks flip the button to EQUIP; the
+      // selection is untouched so the preview stays on the new colour.
+      purchase.mutate({ line: state.line, skin: state.skin });
+    }
   };
 
   return (
@@ -176,7 +199,7 @@ export default function CustomiseScreen() {
             branch={entry.id}
             stage={previewStage}
             sex={sex}
-            unlockCtx={unlockContext(derived)}
+            unlockCtx={unlockContext(derived, ownedSkins)}
             onChange={select}
           />
         </View>
@@ -184,8 +207,9 @@ export default function CustomiseScreen() {
 
       <NeonButton
         title={buttonTitle}
-        onPress={onEquip}
-        disabled={state.kind !== 'equip'}
+        onPress={onPrimary}
+        disabled={!buttonEnabled}
+        busy={buttonBusy}
         pixel
         size="hero"
         testID="equip-loadout"
@@ -194,14 +218,22 @@ export default function CustomiseScreen() {
   );
 }
 
-/** Compact header module: Forge Level + XP progress + the companion. */
+/** Compact header module: coin wallet + Forge Level + the companion. */
 function ForgeLevelModule() {
   const forge = useForgeProgression();
+  const coins = useCoinTotal();
   const progress = forgeProgressFromRow(forge.data ?? null);
   const pct = progress.xpForNextLevel > 0 ? Math.min(1, progress.xpIntoLevel / progress.xpForNextLevel) : 0;
   return (
     <View className="flex-row items-center" style={{ gap: 8 }}>
-      <View style={{ alignItems: 'flex-end' }}>
+      <View style={{ alignItems: 'flex-end', gap: 3 }}>
+        {/* The wallet — the shop's currency, read straight from coin_total. */}
+        <View className="flex-row items-center" style={{ gap: 3 }} testID="customise-coins">
+          <CoinIcon size={12} />
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: tokens.colors.legendary, ...pixelFont() }}>
+            {coins.data ?? '—'}
+          </Text>
+        </View>
         <Text allowFontScaling={false} style={{ fontSize: 12, color: tokens.colors.accent, ...pixelFont() }}>
           LV.{progress.level}
         </Text>

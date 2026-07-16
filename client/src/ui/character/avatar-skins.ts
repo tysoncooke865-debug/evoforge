@@ -265,6 +265,68 @@ const CARDIO_SKIN_STILLS: Record<string, ImageSourcePropType> = {
   'adam-4': require('../../assets/sprites/skins/cardio-adam-still-stage4.png'),
 };
 
+const SHREDDER_SKIN_GIFS: Record<string, ImageSourcePropType> = {
+  'red-1': require('../../assets/sprites/skins/shredder-red-stage1.gif'),
+  'red-2': require('../../assets/sprites/skins/shredder-red-stage2.gif'),
+  'red-3': require('../../assets/sprites/skins/shredder-red-stage3.gif'),
+  'red-4': require('../../assets/sprites/skins/shredder-red-stage4.gif'),
+  'green-1': require('../../assets/sprites/skins/shredder-green-stage1.gif'),
+  'green-2': require('../../assets/sprites/skins/shredder-green-stage2.gif'),
+  'green-3': require('../../assets/sprites/skins/shredder-green-stage3.gif'),
+  'green-4': require('../../assets/sprites/skins/shredder-green-stage4.gif'),
+  'yellow-1': require('../../assets/sprites/skins/shredder-yellow-stage1.gif'),
+  'yellow-2': require('../../assets/sprites/skins/shredder-yellow-stage2.gif'),
+  'yellow-3': require('../../assets/sprites/skins/shredder-yellow-stage3.gif'),
+  'yellow-4': require('../../assets/sprites/skins/shredder-yellow-stage4.gif'),
+  'orange-1': require('../../assets/sprites/skins/shredder-orange-stage1.gif'),
+  'orange-2': require('../../assets/sprites/skins/shredder-orange-stage2.gif'),
+  'orange-3': require('../../assets/sprites/skins/shredder-orange-stage3.gif'),
+  'orange-4': require('../../assets/sprites/skins/shredder-orange-stage4.gif'),
+  'white-1': require('../../assets/sprites/skins/shredder-white-stage1.gif'),
+  'white-2': require('../../assets/sprites/skins/shredder-white-stage2.gif'),
+  'white-3': require('../../assets/sprites/skins/shredder-white-stage3.gif'),
+  'white-4': require('../../assets/sprites/skins/shredder-white-stage4.gif'),
+  'black-1': require('../../assets/sprites/skins/shredder-black-stage1.gif'),
+  'black-2': require('../../assets/sprites/skins/shredder-black-stage2.gif'),
+  'black-3': require('../../assets/sprites/skins/shredder-black-stage3.gif'),
+  'black-4': require('../../assets/sprites/skins/shredder-black-stage4.gif'),
+  'adam-1': require('../../assets/sprites/skins/shredder-adam-stage1.gif'),
+  'adam-2': require('../../assets/sprites/skins/shredder-adam-stage2.gif'),
+  'adam-3': require('../../assets/sprites/skins/shredder-adam-stage3.gif'),
+  'adam-4': require('../../assets/sprites/skins/shredder-adam-stage4.gif'),
+};
+
+const SHREDDER_SKIN_STILLS: Record<string, ImageSourcePropType> = {
+  'red-1': require('../../assets/sprites/skins/shredder-red-still-stage1.png'),
+  'red-2': require('../../assets/sprites/skins/shredder-red-still-stage2.png'),
+  'red-3': require('../../assets/sprites/skins/shredder-red-still-stage3.png'),
+  'red-4': require('../../assets/sprites/skins/shredder-red-still-stage4.png'),
+  'green-1': require('../../assets/sprites/skins/shredder-green-still-stage1.png'),
+  'green-2': require('../../assets/sprites/skins/shredder-green-still-stage2.png'),
+  'green-3': require('../../assets/sprites/skins/shredder-green-still-stage3.png'),
+  'green-4': require('../../assets/sprites/skins/shredder-green-still-stage4.png'),
+  'yellow-1': require('../../assets/sprites/skins/shredder-yellow-still-stage1.png'),
+  'yellow-2': require('../../assets/sprites/skins/shredder-yellow-still-stage2.png'),
+  'yellow-3': require('../../assets/sprites/skins/shredder-yellow-still-stage3.png'),
+  'yellow-4': require('../../assets/sprites/skins/shredder-yellow-still-stage4.png'),
+  'orange-1': require('../../assets/sprites/skins/shredder-orange-still-stage1.png'),
+  'orange-2': require('../../assets/sprites/skins/shredder-orange-still-stage2.png'),
+  'orange-3': require('../../assets/sprites/skins/shredder-orange-still-stage3.png'),
+  'orange-4': require('../../assets/sprites/skins/shredder-orange-still-stage4.png'),
+  'white-1': require('../../assets/sprites/skins/shredder-white-still-stage1.png'),
+  'white-2': require('../../assets/sprites/skins/shredder-white-still-stage2.png'),
+  'white-3': require('../../assets/sprites/skins/shredder-white-still-stage3.png'),
+  'white-4': require('../../assets/sprites/skins/shredder-white-still-stage4.png'),
+  'black-1': require('../../assets/sprites/skins/shredder-black-still-stage1.png'),
+  'black-2': require('../../assets/sprites/skins/shredder-black-still-stage2.png'),
+  'black-3': require('../../assets/sprites/skins/shredder-black-still-stage3.png'),
+  'black-4': require('../../assets/sprites/skins/shredder-black-still-stage4.png'),
+  'adam-1': require('../../assets/sprites/skins/shredder-adam-still-stage1.png'),
+  'adam-2': require('../../assets/sprites/skins/shredder-adam-still-stage2.png'),
+  'adam-3': require('../../assets/sprites/skins/shredder-adam-still-stage3.png'),
+  'adam-4': require('../../assets/sprites/skins/shredder-adam-still-stage4.png'),
+};
+
 const FEMALE_AESTHETIC_SKINS: Record<string, ImageSourcePropType> = {
   'red-1': require('../../assets/avatars/skins/female-aesthetic-red-stage1.png'),
   'red-2': require('../../assets/avatars/skins/female-aesthetic-red-stage2.png'),
@@ -307,7 +369,8 @@ function skinTables(branch: BranchV2): { gifs: Record<string, ImageSourcePropTyp
   if (branch === 'titan') return { gifs: TITAN_SKIN_GIFS, stills: TITAN_SKIN_STILLS };
   if (branch === 'cardio') return { gifs: CARDIO_SKIN_GIFS, stills: CARDIO_SKIN_STILLS };
   if (branch === 'mass') return { gifs: MASS_SKIN_GIFS, stills: MASS_SKIN_STILLS };
-  if (branch === 'aesthetic' || branch === 'shredder') return { gifs: AESTHETIC_SKIN_GIFS, stills: AESTHETIC_SKIN_STILLS };
+  if (branch === 'shredder') return { gifs: SHREDDER_SKIN_GIFS, stills: SHREDDER_SKIN_STILLS };
+  if (branch === 'aesthetic') return { gifs: AESTHETIC_SKIN_GIFS, stills: AESTHETIC_SKIN_STILLS };
   return null;
 }
 

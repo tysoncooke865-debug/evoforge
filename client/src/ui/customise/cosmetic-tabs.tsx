@@ -10,6 +10,9 @@ import {
   EMOTES,
   SKINS,
   cosmeticUnlocked,
+  skinLineFor,
+  skinPrice,
+  skinUnlocked,
   unlockLabel,
   type CosmeticUnlock,
   type Selection,
@@ -70,6 +73,16 @@ export function CosmeticTabs({
           ? SKINS.map((skin) => {
               const art = formArt(branch, stage, sex, skin.id);
               const applies = skin.id === 'standard' || art.still !== undefined || art.painted !== formArt(branch, stage, sex, 'standard').painted;
+              const line = skinLineFor(branch);
+              const owned = skinUnlocked(skin, line, unlockCtx);
+              const price = skin.unlock.kind === 'coins' ? skinPrice(line, skin.id) : null;
+              // Locked coin skins show their price; Adam shows its tier
+              // requirement; owned skins fall through to OWNED/SELECTED.
+              const footer = owned
+                ? undefined
+                : price !== null
+                  ? `${price} COINS`
+                  : undefined;
               return (
                 <CosmeticCard
                   key={skin.id}
@@ -77,7 +90,11 @@ export function CosmeticTabs({
                   selected={selection.skinId === skin.id}
                   unlock={skin.unlock}
                   unlockCtx={unlockCtx}
+                  ownedOverride={owned}
+                  footerOverride={footer}
                   testID={`skin-${skin.id}`}
+                  // Every skin previews on tap (the buy/equip button gates
+                  // the actual apply) — locked ones included.
                   onPress={() => onChange({ skinId: skin.id })}
                   thumb={
                     applies ? (
@@ -167,6 +184,8 @@ function CosmeticCard({
   unlockCtx,
   onPress,
   testID,
+  ownedOverride,
+  footerOverride,
 }: {
   name: string;
   thumb: ReactNode;
@@ -175,9 +194,13 @@ function CosmeticCard({
   unlockCtx: UnlockContext;
   onPress?: () => void;
   testID: string;
+  /** Skins own their unlock check (per-line coin ownership). */
+  ownedOverride?: boolean;
+  /** Skins show a price instead of a generic requirement when locked. */
+  footerOverride?: string;
 }) {
-  const unlocked = cosmeticUnlocked(unlock, unlockCtx);
-  const label = unlockLabel(unlock);
+  const unlocked = ownedOverride ?? cosmeticUnlocked(unlock, unlockCtx);
+  const label = footerOverride ?? unlockLabel(unlock);
   return (
     <Pressable
       onPress={

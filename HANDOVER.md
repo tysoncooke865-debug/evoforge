@@ -513,7 +513,40 @@ Owner: Tyson. He works through other Claude sessions too — **always
   internal geometry, not a class). The v2 sweep test now pins the fold
   WITH a hybridsSeen>0 positive control.
 
-**Migrations applied through `024`. Next free number: `025`**
+- **SHREDDER LINE (Shredder_L4.zip, Tyson, 2026-07-16):** the redemption
+  arc gets its own body — hooded start → dual-blade blue-flame shredded
+  (108×108, pad 25-27%). Replaces the old baked-background painted set
+  (which could never silhouette); avatarArtV2 male shredder now returns
+  the pack still as real art. Stages still ride BODY FAT (shredderStage).
+  All 7 skin recolours; skinTables resolves shredder to its own set.
+- **THE SKIN SHOP (Tyson: "colours locked by forge coins, price
+  ascending, cheaper on aesthetics", migration 030):** colour skins
+  (red→black) are BOUGHT with forge coins, PER LINE. Server is the
+  authority: skin_price() holds prices, purchase_skin() (security
+  definer, advisory-locked, balance-checked) writes the spend +
+  user_skin_unlocks row in one txn. Prices — aesthetic 50/75/100/150/
+  200/250, every other line double (100/150/200/300/400/500); ascending,
+  aesthetic cheapest. 'standard' free, 'adam' stays the level-100 (mythic
+  tier) reward — neither is priced.
+  SECURITY LESSON (caught in falsification): my first 030 guard reused
+  the `current_user not in (authenticated,anon)` bypass from the xp
+  ledger — but inside a SECURITY DEFINER trigger current_user is ALWAYS
+  the owner, so a raw client `spend` insert returned 201. Fix: a
+  transaction-local GUC (evoforge.spend_authorized) that ONLY
+  purchase_skin sets; the guard admits a spend only when it matches the
+  row's source_id. A client POST is its own single-statement txn and can
+  never set it. Re-verified: raw spend + raw unlock BOTH rejected, buy
+  deducts exactly the price, duplicate/insufficient/unknown all rejected,
+  cross-user reads empty. NEVER use current_user to gate a definer
+  trigger — use a txn-local GUC or service_role.
+  Client: data/skins.ts (useSkinUnlocks + usePurchaseSkin, invalidates
+  wallet+unlocks), domain skinPrice/skinUnlocked/skinKey (display twins,
+  pinned), equipState gains a 'buy-skin' state (the primary button
+  becomes BUY · N COINS / NEED N COINS), the CUSTOMISE header shows the
+  wallet, resolveDisplay/useDisplayIdentity take ownedSkins so a bought
+  colour renders on Home/Forge and an unowned one falls back to standard.
+
+**Migrations applied through `030`. Next free number: `031`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
 
