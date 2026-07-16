@@ -49,6 +49,18 @@ const DUMBBELL = [
   '.##.....##.',
 ] as const;
 
+const FORK = [
+  '#.#.#',
+  '#.#.#',
+  '#.#.#',
+  '#####',
+  '.###.',
+  '..#..',
+  '..#..',
+  '..#..',
+  '..#..',
+] as const;
+
 const HEART = [
   '.##...##.',
   '####.####',
@@ -209,6 +221,9 @@ type IconProps = { size?: number; color?: string; testID?: string };
 
 export const PixelDumbbell = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={DUMBBELL} size={size} color={color} testID={testID ?? 'pixel-dumbbell'} />
+);
+export const PixelFork = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={FORK} size={size} color={color} testID={testID ?? 'pixel-fork'} />
 );
 export const PixelHeart = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={HEART} size={size} color={color} testID={testID ?? 'pixel-heart'} />

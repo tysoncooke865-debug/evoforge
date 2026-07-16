@@ -17,7 +17,7 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
-import { PixelDumbbell } from '@/ui/core/pixel-icons';
+import { PixelDumbbell, PixelFork } from '@/ui/core/pixel-icons';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
@@ -113,7 +113,7 @@ export default function MainLayout() {
 
   // OPTIMISE (2026-07-16): idle-time tab preload. With async routes, a
   // tab's FIRST visit pays its chunk fetch + first render; prefetch mounts
-  // the other four in the background once the app is idle, so every tab
+  // the other five in the background once the app is idle, so every tab
   // switch is a pure show. Safe by audit: none of the tab screens has
   // mount-time subscriptions (focus-scoped effects stay focus-scoped), and
   // their queries share the already-warm cache — /ai included: Oracle photos
@@ -124,7 +124,7 @@ export default function MainLayout() {
     if (prefetchedRef.current || !session || profile.data === undefined) return;
     prefetchedRef.current = true;
     const warm = () => {
-      for (const href of ['/today', '/ai', '/avatar', '/arena']) {
+      for (const href of ['/today', '/ai', '/avatar', '/arena', '/fuel']) {
         try {
           router.prefetch(href as never);
         } catch {
@@ -212,6 +212,11 @@ export default function MainLayout() {
       <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
+      {/* FUEL: the calorie tracker wears the pixel fork, like Train's dumbbell. */}
+      <Tabs.Screen
+        name="fuel"
+        options={{ title: 'Fuel', tabBarIcon: ({ color }) => <PixelFork size={19} color={color as string} /> }}
+      />
       {/* Routable, not in the bar — reached from the profile menu. */}
       {/* TRAIN_PAGE_V2: the workout is a PAGE, pushed over Train. Routable,
           hidden from the bar (the bar stays visible on it). */}
