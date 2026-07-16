@@ -6,9 +6,10 @@ import { useSaveTarget } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { pyFloat } from '@/domain/py';
 import { journeyPercent } from '@/domain/targets';
+import { pixelFont } from '@/theme/fonts';
 import { XpBar } from '@/ui/character/xp-bar';
 import { ScreenHeader } from '@/ui/core/screen-header';
-import { ScreenShell } from '@/ui/core/shell';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * Goals: body-fat %, bodyweight and bench-1RM targets, each with a JOURNEY
@@ -100,13 +101,19 @@ export default function GoalsScreen() {
           initial={benchTarget ? String(benchTarget.target_value) : '100'}
         />
 
-        <View className="rounded-lg border border-border bg-surface p-s4">
-          <Text className="mb-s2 text-xs text-text-mute">LEVEL JOURNEY</Text>
+        <GlowCard>
+          <Text
+            className="mb-s2 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
+            LEVEL JOURNEY
+          </Text>
           <XpBar xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
           <Text className="mt-s1 text-2xs text-text-mute">
             Level {summary.level} → {Math.min(summary.level + 1, 100)}
           </Text>
-        </View>
+        </GlowCard>
     </ScreenShell>
   );
 }
@@ -133,9 +140,15 @@ function GoalCard({
   const v = pyFloat(value) ?? 0;
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
+    <GlowCard>
       <View className="mb-s2 flex-row items-center justify-between">
-        <Text className="text-xs text-text-mute">{title}</Text>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
+          {title}
+        </Text>
         <Text className="text-xs text-text-dim">
           {current !== null ? `now ${current.toFixed(1)}${unit}` : 'no data yet'}
           {target !== null ? `  ·  target ${target.toFixed(1)}${unit}` : ''}
@@ -165,12 +178,16 @@ function GoalCard({
           {save.isPending ? (
             <ActivityIndicator color="#04121a" size="small" />
           ) : (
-            <Text className={`text-xs font-bold ${v > 0 ? 'text-accent-ink' : 'text-text-mute'}`}>
+            <Text
+              className={v > 0 ? 'text-accent-ink' : 'text-text-mute'}
+              allowFontScaling={false}
+              style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}
+            >
               SET TARGET
             </Text>
           )}
         </Pressable>
       </View>
-    </View>
+    </GlowCard>
   );
 }

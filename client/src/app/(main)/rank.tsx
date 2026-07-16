@@ -5,9 +5,11 @@ import { useLeaderboardTop, usePublicIdentity, useServerGrantedXp } from '@/data
 import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
-import { ScreenShell } from '@/ui/core/shell';
+import { ScreenHeader } from '@/ui/core/screen-header';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * The leaderboard. Three gates before any ranking renders, same as the
@@ -35,14 +37,20 @@ export default function RankScreen() {
   if (unexplainedDrift !== 0) {
     return (
       <Shell>
-        <View className="rounded-lg border border-border bg-surface p-s6">
-          <Text className="mb-s2 text-lg font-bold text-warn">RANKING UNAVAILABLE</Text>
+        <GlowCard glow={tokens.colors.warn}>
+          <Text
+            className="mb-s2 text-warn"
+            allowFontScaling={false}
+            style={{ fontSize: 18, ...pixelFont() }}
+          >
+            RANKING UNAVAILABLE
+          </Text>
           <Text className="text-sm text-text-dim">
             Your XP ledger and activity recount disagree (drift {unexplainedDrift} beyond
             server-granted XP). The board refuses unreconciled accounts — reconciliation
             restores it.
           </Text>
-        </View>
+        </GlowCard>
       </Shell>
     );
   }
@@ -67,8 +75,14 @@ export default function RankScreen() {
 
   return (
     <Shell>
-      <View className="rounded-lg border border-border bg-surface p-s6">
-        <Text className="mb-s4 text-xs text-text-mute">TOP ATHLETES · BY LEVEL</Text>
+      <GlowCard>
+        <Text
+          className="mb-s4 text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
+          TOP ATHLETES · BY LEVEL
+        </Text>
         {ranked.length === 0 ? (
           <Text className="text-sm text-text-dim">
             The leaderboard is warming up — no ranked athletes yet.
@@ -82,7 +96,7 @@ export default function RankScreen() {
             />
           ))
         )}
-      </View>
+      </GlowCard>
     </Shell>
   );
 }
@@ -93,13 +107,21 @@ function OptInCard({ current }: { current: string | null }) {
   const save = useSavePublicIdentity();
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s6">
-      <Text className="mb-s2 text-lg font-bold text-accent">JOIN THE BOARD</Text>
+    <GlowCard glow={tokens.colors.accent}>
+      <Text className="mb-s2 text-accent" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
+        JOIN THE BOARD
+      </Text>
       <Text className="mb-s4 text-sm text-text-dim">
         The leaderboard shows only a display name, level and XP — never body data. Opt in to see
         and be seen.
       </Text>
-      <Text className="mb-s1 text-xs text-text-mute">DISPLAY NAME (3–24 CHARS)</Text>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+      >
+        DISPLAY NAME (3–24 CHARS)
+      </Text>
       <TextInput
         className="mb-s3 rounded-md border border-border bg-surface-2 p-s3 text-text"
         value={name}
@@ -125,13 +147,20 @@ function OptInCard({ current }: { current: string | null }) {
         {save.isPending ? (
           <ActivityIndicator color="#04121a" />
         ) : (
-          <Text className="font-bold text-accent-ink">SAVE & JOIN</Text>
+          <Text className="text-accent-ink" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+            SAVE & JOIN
+          </Text>
         )}
       </Pressable>
-    </View>
+    </GlowCard>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <ScreenShell>{children}</ScreenShell>;
+  return (
+    <ScreenShell>
+      <ScreenHeader kicker="OPT IN TO COMPETE" title="RANK" />
+      {children}
+    </ScreenShell>
+  );
 }

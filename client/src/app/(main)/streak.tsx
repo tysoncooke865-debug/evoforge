@@ -6,6 +6,7 @@ import { useClaimCoin } from '@/data/coins';
 import { useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { computeScheduledStreak, crossedMilestones } from '@/domain/scheduled-streak';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { HUDChip } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -67,7 +68,11 @@ export default function StreakScreen() {
             <Pressable onPress={() => setMonthOffset((m) => m - 1)} accessibilityRole="button" className="min-h-[44px] justify-center px-s3">
               <Text className="text-lg text-accent">‹</Text>
             </Pressable>
-            <Text className="text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               SWIPE MONTHS
             </Text>
             <Pressable

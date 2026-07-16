@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 
 import { useLogBodyweight, useLogMeasurements } from '@/data/mutations';
 import { pyFloat } from '@/domain/py';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { Field } from '@/ui/core/field';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -51,7 +52,11 @@ function BodyweightCard() {
           {log.isPending ? (
             <ActivityIndicator color="#04121a" />
           ) : (
-            <Text className={`text-xs font-bold ${kg > 0 ? 'text-accent-ink' : 'text-text-mute'}`} style={{ letterSpacing: 1 }}>
+            <Text
+              className={kg > 0 ? 'text-accent-ink' : 'text-text-mute'}
+              allowFontScaling={false}
+              style={{ fontSize: 13, letterSpacing: 0.5, ...pixelFont() }}
+            >
               LOG
             </Text>
           )}
@@ -97,7 +102,11 @@ function MeasurementsCard() {
       <EdgeLabel
         right={
           entries.length > 0 ? (
-            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-accent"
+              allowFontScaling={false}
+              style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+            >
               {entries.length} READY
             </Text>
           ) : undefined
@@ -112,8 +121,9 @@ function MeasurementsCard() {
           return (
             <View key={key} className="w-[30%]">
               <Text
-                className={`mb-s1 text-2xs font-bold ${filled ? 'text-accent' : 'text-text-mute'}`}
-                style={{ letterSpacing: 1 }}
+                className={`mb-s1 ${filled ? 'text-accent' : 'text-text-mute'}`}
+                allowFontScaling={false}
+                style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
               >
                 {label}
               </Text>

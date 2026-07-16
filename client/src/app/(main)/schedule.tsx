@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import { useWorkoutSchedule, useSaveSchedule } from '@/data/schedule';
 import { PPPPLA_DAYS } from '@/domain/custom-plan';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -49,7 +50,11 @@ export default function ScheduleScreen() {
       </Text>
       {WEEKDAY_NAMES.map((name, dow) => (
         <GlowCard key={name}>
-          <Text className="mb-s2 text-xs font-bold text-text" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="mb-s2 text-text"
+            allowFontScaling={false}
+            style={{ fontSize: 14, letterSpacing: 0.5, ...pixelFont() }}
+          >
             {name.toUpperCase()}
           </Text>
           <View className="flex-row flex-wrap gap-s2">

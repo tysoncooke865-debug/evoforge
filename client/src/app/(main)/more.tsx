@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
 import { Text, View } from 'react-native';
+import { pixelFont } from '@/theme/fonts';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
@@ -31,7 +32,9 @@ export default function MoreScreen() {
                 <Text className="mr-s3 text-lg text-accent">{item.glyph}</Text>
               )}
               <View className="flex-1">
-                <Text className="font-bold text-text">{item.title}</Text>
+                <Text className="text-text" allowFontScaling={false} style={{ fontSize: 16, ...pixelFont() }}>
+                  {item.title}
+                </Text>
                 <Text className="text-xs text-text-mute">{item.sub}</Text>
               </View>
               <Text className="text-text-mute">›</Text>

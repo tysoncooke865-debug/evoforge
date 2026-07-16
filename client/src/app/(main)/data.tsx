@@ -6,8 +6,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/data/auth-context';
 import { supabase } from '@/data/supabase';
 import { useToastStore } from '@/state/toast-store';
+import { pixelFont } from '@/theme/fonts';
 import { ScreenHeader } from '@/ui/core/screen-header';
-import { ScreenShell } from '@/ui/core/shell';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { todayIso } from '@/domain/today';
 
 /**
@@ -92,16 +93,28 @@ function ExportCard() {
   };
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s2 text-xs text-text-mute">EXPORT EVERYTHING</Text>
+    <GlowCard>
+      <Text
+        className="mb-s2 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        EXPORT EVERYTHING
+      </Text>
       <Text className="mb-s3 text-xs text-text-dim">
         One ZIP of CSVs — every table, your rows only. Your data is yours.
       </Text>
       <Pressable className="items-center rounded-md bg-accent p-s3" onPress={exportAll} disabled={busy}>
-        {busy ? <ActivityIndicator color="#04121a" /> : <Text className="font-bold text-accent-ink">DOWNLOAD ZIP</Text>}
+        {busy ? (
+          <ActivityIndicator color="#04121a" />
+        ) : (
+          <Text className="text-accent-ink" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+            DOWNLOAD ZIP
+          </Text>
+        )}
       </Pressable>
       {status ? <Text className="mt-s2 text-2xs text-text-dim">{status}</Text> : null}
-    </View>
+    </GlowCard>
   );
 }
 
@@ -135,7 +148,13 @@ function DeleteCard() {
 
   return (
     <View className="rounded-lg border border-danger/40 bg-surface p-s4">
-      <Text className="mb-s2 text-xs font-bold text-danger">DANGER ZONE</Text>
+      <Text
+        className="mb-s2 text-danger"
+        allowFontScaling={false}
+        style={{ fontSize: 12, letterSpacing: 1, ...pixelFont() }}
+      >
+        DANGER ZONE
+      </Text>
       <Text className="mb-s3 text-xs text-text-dim">
         Wipe one table&apos;s rows (yours only — isolation is enforced by the database). The XP
         ledger is append-only and cannot be deleted; that is the anti-cheat, not an oversight.
@@ -171,7 +190,13 @@ function DeleteCard() {
             {busy ? (
               <ActivityIndicator size="small" color="#04121a" />
             ) : (
-              <Text className={`text-xs font-bold ${armed ? 'text-accent-ink' : 'text-text-mute'}`}>WIPE {table}</Text>
+              <Text
+                className={armed ? 'text-accent-ink' : 'text-text-mute'}
+                allowFontScaling={false}
+                style={{ fontSize: 12, ...pixelFont() }}
+              >
+                WIPE {table}
+              </Text>
             )}
           </Pressable>
         </View>

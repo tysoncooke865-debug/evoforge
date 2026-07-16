@@ -9,10 +9,11 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
 import { useSettingsStore } from '@/state/settings-store';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
-import { ScreenShell } from '@/ui/core/shell';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 const PHASES = ['cutting', 'maintaining', 'bulking'] as const;
 
@@ -29,8 +30,14 @@ export default function ProfileScreen() {
 
   return (
     <ScreenShell><ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
-        <View className="rounded-lg border border-border bg-surface p-s6">
-          <Text className="text-xs text-text-mute">SIGNED IN AS</Text>
+        <GlowCard>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
+            SIGNED IN AS
+          </Text>
           <Text className="mb-s2 text-sm text-text" testID="user-email">
             {session?.user.email}
           </Text>
@@ -44,10 +51,16 @@ export default function ProfileScreen() {
             Base level {profile.data?.base_level ?? 1} · Current level {summary.level} ·{' '}
             {summary.rank}
           </Text>
-        </View>
+        </GlowCard>
 
-        <View className="rounded-lg border border-border bg-surface p-s6">
-          <Text className="mb-s3 text-xs text-text-mute">THE RANK LADDER</Text>
+        <GlowCard>
+          <Text
+            className="mb-s3 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
+            THE RANK LADDER
+          </Text>
           {ladder.map(([low, high, name]) => {
             const current = summary.level >= low && summary.level <= high;
             return (
@@ -57,14 +70,20 @@ export default function ProfileScreen() {
                   current ? 'border-border-strong bg-surface-2' : 'border-border-soft'
                 }`}
               >
-                <Text className={current ? 'font-bold text-text' : 'text-text-dim'}>{name}</Text>
-                <Text className="text-xs text-text-mute">
+                <Text
+                  className={current ? 'text-text' : 'text-text-dim'}
+                  allowFontScaling={false}
+                  style={{ fontSize: 14, ...pixelFont() }}
+                >
+                  {name}
+                </Text>
+                <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>
                   {low === high ? `Lv ${low}` : `Lv ${low}–${high}`}
                 </Text>
               </View>
             );
           })}
-        </View>
+        </GlowCard>
 
         <PrivacyCard />
 
@@ -72,7 +91,7 @@ export default function ProfileScreen() {
 
         <TrainingNumbersCard />
 
-        <View className="rounded-lg border border-border bg-surface p-s4">
+        <GlowCard>
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-s3">
               <Text className="text-sm font-bold text-text">Performance mode</Text>
@@ -92,14 +111,16 @@ export default function ProfileScreen() {
             </View>
             <SoundSwitch />
           </View>
-        </View>
+        </GlowCard>
 
         <Pressable
           className="items-center rounded-md border border-border bg-surface-2 p-s3"
           onPress={signOut}
           testID="sign-out"
         >
-          <Text className="font-bold text-text">SIGN OUT</Text>
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+            SIGN OUT
+          </Text>
         </Pressable>
     </ScreenShell>
   );
@@ -125,14 +146,24 @@ function BodyStatsCard() {
   const fmt = (v: number | null, unit: string) => (v === null ? 'not tracked' : `${Math.round(v * 10) / 10} ${unit}`);
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s1 text-xs text-text-mute">BODY STATS</Text>
+    <GlowCard>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        BODY STATS
+      </Text>
       <Text className="mb-s3 text-2xs text-text-mute">
         One source of truth: weight entries append to your log; lifts derive from what you train.
       </Text>
       <View className="mb-s3 flex-row gap-s2">
         <View className="flex-1">
-          <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="mb-s1 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
             BODYWEIGHT · {fmt(current.bodyweightKg, 'kg')}
           </Text>
           <TextInput
@@ -146,7 +177,11 @@ function BodyStatsCard() {
           />
         </View>
         <View className="flex-1">
-          <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="mb-s1 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
             HEIGHT · {fmt(current.heightCm, 'cm')}
           </Text>
           <TextInput
@@ -167,7 +202,11 @@ function BodyStatsCard() {
           ['DEADLIFT', current.deadliftE1rm, current.sources.deadlift],
         ] as const).map(([label, value, src]) => (
           <View key={label} className="flex-row items-center justify-between py-s1">
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
               {label}
             </Text>
             <Text className="text-xs text-text-dim">
@@ -192,7 +231,7 @@ function BodyStatsCard() {
         busy={logBw.isPending || training.isPending}
         testID="body-save"
       />
-    </View>
+    </GlowCard>
   );
 }
 
@@ -237,15 +276,25 @@ function TrainingNumbersCard() {
   };
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s1 text-xs text-text-mute">TRAINING NUMBERS</Text>
+    <GlowCard>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        TRAINING NUMBERS
+      </Text>
       <Text className="mb-s3 text-2xs text-text-mute">
         The deadlift feeds your strength score (40/30/30 with bench and squat); the phase drives
         the Shredder gates. Starting level never changes.
       </Text>
       <View className="mb-s3 flex-row items-end gap-s2">
         <View className="flex-1">
-          <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="mb-s1 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
             DEADLIFT E1RM (KG)
           </Text>
           <TextInput
@@ -272,7 +321,7 @@ function TrainingNumbersCard() {
         busy={save.isPending}
         testID="profile-save-training"
       />
-    </View>
+    </GlowCard>
   );
 }
 
@@ -293,8 +342,14 @@ function PrivacyCard() {
   const isPublic = Boolean(identity.data?.isPublic);
 
   return (
-    <View className="rounded-lg border border-border bg-surface p-s4">
-      <Text className="mb-s1 text-xs text-text-mute">PROFILE PRIVACY</Text>
+    <GlowCard>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        PROFILE PRIVACY
+      </Text>
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-s3">
           <Text className="text-sm font-bold text-text">
@@ -321,7 +376,11 @@ function PrivacyCard() {
       {!hasName ? (
         <View className="mt-s3 flex-row items-end gap-s2">
           <View className="flex-1">
-            <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="mb-s1 text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+            >
               DISPLAY NAME (needed to go public or battle)
             </Text>
             <TextInput
@@ -340,11 +399,17 @@ function PrivacyCard() {
             accessibilityRole="button"
             testID="privacy-save-name"
           >
-            <Text className={`text-xs font-bold ${name.trim().length >= 3 ? 'text-accent-ink' : 'text-text-mute'}`}>SET</Text>
+            <Text
+              className={name.trim().length >= 3 ? 'text-accent-ink' : 'text-text-mute'}
+              allowFontScaling={false}
+              style={{ fontSize: 13, ...pixelFont() }}
+            >
+              SET
+            </Text>
           </Pressable>
         </View>
       ) : null}
-    </View>
+    </GlowCard>
   );
 }
 

@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { COIN_LABELS, useCoinHistory, useCoinTotal } from '@/data/coins';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -21,8 +22,15 @@ export default function CoinsScreen() {
           <View className="flex-row items-center gap-s2">
             <CoinIcon size={40} />
             <Text
-              className="text-3xl font-bold"
-              style={{ color: tokens.colors.legendary, textShadowColor: 'rgba(251,191,36,0.5)', textShadowRadius: 14 }}
+              allowFontScaling={false}
+              style={{
+                fontSize: 30,
+                lineHeight: 36,
+                color: tokens.colors.legendary,
+                textShadowColor: 'rgba(251,191,36,0.5)',
+                textShadowRadius: 14,
+                ...pixelFont(),
+              }}
               testID="coin-balance"
             >
               {total.data === null || total.data === undefined ? '—' : total.data}
@@ -44,7 +52,9 @@ export default function CoinsScreen() {
             style={{ backgroundColor: 'rgba(8,14,26,0.55)' }}
           >
             <View className="flex-1">
-              <Text className="text-xs font-bold text-text">{COIN_LABELS[e.kind] ?? e.kind}</Text>
+              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 13, ...pixelFont() }}>
+                {COIN_LABELS[e.kind] ?? e.kind}
+              </Text>
               <Text className="text-2xs text-text-mute">
                 {String(e.created_at).slice(0, 10)}
                 {e.source_id && e.kind === 'streak_milestone' ? ` · ${e.source_id.split(':')[0]}-day streak` : ''}
@@ -53,8 +63,8 @@ export default function CoinsScreen() {
             <View className="flex-row items-center gap-s1">
               <CoinIcon size={16} />
               <Text
-                className="text-sm font-bold"
-                style={{ color: e.amount > 0 ? tokens.colors.legendary : tokens.colors.danger }}
+                allowFontScaling={false}
+                style={{ fontSize: 14, color: e.amount > 0 ? tokens.colors.legendary : tokens.colors.danger, ...pixelFont() }}
               >
                 {e.amount > 0 ? `+${e.amount}` : e.amount}
               </Text>

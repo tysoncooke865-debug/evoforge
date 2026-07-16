@@ -2,8 +2,9 @@ import { Text, View } from 'react-native';
 
 import { useAchievements } from '@/data/hooks';
 import { ACHIEVEMENTS } from '@/domain/catalogs';
+import { pixelFont } from '@/theme/fonts';
 import { ScreenHeader } from '@/ui/core/screen-header';
-import { ScreenShell } from '@/ui/core/shell';
+import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /** All 64 achievements, earned ones lit. The catalog is the generated one the
  *  parity suite pins, so this grid cannot drift from what the sweep grants. */
@@ -17,12 +18,18 @@ export default function AwardsScreen() {
 
   return (
     <ScreenShell><ScreenHeader kicker="TROPHY HALL" title="ACHIEVEMENTS" />
-        <View className="mb-s4 rounded-lg border border-border bg-surface p-s4">
-          <Text className="text-xs text-text-mute">ACHIEVEMENTS</Text>
-          <Text className="text-2xl font-bold text-accent">
+        <GlowCard>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
+            ACHIEVEMENTS
+          </Text>
+          <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 24, ...pixelFont() }}>
             {earned} <Text className="text-lg text-text-mute">/ {entries.length}</Text>
           </Text>
-        </View>
+        </GlowCard>
 
         {entries.map(([id, [title, description]]) => {
           const unlockedOn = held.get(id);
@@ -35,13 +42,29 @@ export default function AwardsScreen() {
               }`}
             >
               <View className="flex-row items-center justify-between">
-                <Text className={`flex-1 font-bold ${unlocked ? 'text-text' : 'text-text-mute'}`}>
+                <Text
+                  className={`flex-1 ${unlocked ? 'text-text' : 'text-text-mute'}`}
+                  allowFontScaling={false}
+                  style={{ fontSize: 15, ...pixelFont() }}
+                >
                   {title}
                 </Text>
                 {unlocked ? (
-                  <Text className="text-2xs text-success">{unlockedOn ?? 'UNLOCKED'}</Text>
+                  <Text
+                    className="text-success"
+                    allowFontScaling={false}
+                    style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+                  >
+                    {unlockedOn ?? 'UNLOCKED'}
+                  </Text>
                 ) : (
-                  <Text className="text-2xs text-text-mute">LOCKED</Text>
+                  <Text
+                    className="text-text-mute"
+                    allowFontScaling={false}
+                    style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+                  >
+                    LOCKED
+                  </Text>
                 )}
               </View>
               <Text className={`text-xs ${unlocked ? 'text-text-dim' : 'text-text-mute'}`}>

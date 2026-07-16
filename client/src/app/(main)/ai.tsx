@@ -12,6 +12,7 @@ import { muscleHeatMap } from '@/domain/avatar-stats-calc';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useToastStore } from '@/state/toast-store';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -66,8 +67,9 @@ function PhotoSlot({ label, uri, onPick }: { label: string; uri: string | null; 
         </View>
       )}
       <Text
-        className={`mt-s1 text-2xs font-bold ${uri ? 'text-accent' : 'text-text-mute'}`}
-        style={{ letterSpacing: 1.5 }}
+        className={`mt-s1 ${uri ? 'text-accent' : 'text-text-mute'}`}
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
       >
         {uri ? `${label} ✓` : label}
       </Text>
@@ -81,10 +83,14 @@ function ScoreRow({ label, value, colour, max = 15 }: { label: string; value: nu
   return (
     <View className="mb-s2">
       <View className="mb-s1 flex-row items-center justify-between">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
           {label.toUpperCase()}
         </Text>
-        <Text className="text-sm font-bold" style={{ color: colour }}>
+        <Text allowFontScaling={false} style={{ fontSize: 14, color: colour, ...pixelFont() }}>
           {value}
           <Text className="text-2xs text-text-mute"> / {max}</Text>
         </Text>
@@ -140,7 +146,10 @@ function ConditionsConfirm({
       className="mt-s3 rounded-xl p-s3"
       style={{ borderWidth: 1, borderColor: `${tokens.colors.warn}45`, backgroundColor: 'rgba(6,12,24,0.5)' }}
     >
-      <Text className="text-2xs font-bold" style={{ color: tokens.colors.warn, letterSpacing: 2 }}>
+      <Text
+        allowFontScaling={false}
+        style={{ fontSize: 10, color: tokens.colors.warn, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
         THE ORACLE READ THE CONDITIONS AS…
       </Text>
       {estimate?.estimated === false ? (
@@ -284,8 +293,14 @@ function PhysiqueSection() {
             <EdgeLabel
               right={
                 <Text
-                  className="text-xl font-bold"
-                  style={{ color: tokens.colors.epic, textShadowColor: 'rgba(168,85,247,0.6)', textShadowRadius: 14 }}
+                  allowFontScaling={false}
+                  style={{
+                    fontSize: 20,
+                    color: tokens.colors.epic,
+                    textShadowColor: 'rgba(168,85,247,0.6)',
+                    textShadowRadius: 14,
+                    ...pixelFont(),
+                  }}
                 >
                   {result.physique_score}
                   <Text className="text-2xs text-text-mute"> / 15</Text>
@@ -413,16 +428,31 @@ function BodyfatSection() {
           className="mt-s4 items-center rounded-xl p-s4"
           style={{ borderWidth: 1, borderColor: `${tokens.colors.success}45`, backgroundColor: `${tokens.colors.success}0f` }}
         >
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             ESTIMATED BODY FAT
           </Text>
           <Text
-            className="text-3xl font-bold"
-            style={{ color: tokens.colors.success, textShadowColor: `${tokens.colors.success}99`, textShadowRadius: 16 }}
+            allowFontScaling={false}
+            style={{
+              fontSize: 30,
+              lineHeight: 36,
+              color: tokens.colors.success,
+              textShadowColor: `${tokens.colors.success}99`,
+              textShadowRadius: 16,
+              ...pixelFont(),
+            }}
           >
             {result.bf_mid.toFixed(1)}%
           </Text>
-          <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+          >
             RANGE {result.bf_low.toFixed(1)}–{result.bf_high.toFixed(1)}% · {String(result.confidence).toUpperCase()} CONFIDENCE
           </Text>
           <Text className="mt-s2 text-center text-xs text-text-dim">{result.notes}</Text>
@@ -487,7 +517,9 @@ function ForgeRoutineSection() {
         </>
       ) : (
         <>
-          <Text className="text-lg font-bold text-text">{preview.plan_name}</Text>
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
+            {preview.plan_name}
+          </Text>
           {preview.rationale ? <Text className="mb-s2 text-2xs text-text-mute">{preview.rationale}</Text> : null}
           {preview.days.map((day) => (
             <View
@@ -495,7 +527,11 @@ function ForgeRoutineSection() {
               className="mb-s2 rounded-md p-s3"
               style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(6,12,24,0.5)' }}
             >
-              <Text className="text-xs font-bold text-text" style={{ letterSpacing: 1 }}>
+              <Text
+                className="text-text"
+                allowFontScaling={false}
+                style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}
+              >
                 {day.day.toUpperCase()}
               </Text>
               {day.goal ? <Text className="mb-s1 text-2xs text-text-mute">{day.goal}</Text> : null}

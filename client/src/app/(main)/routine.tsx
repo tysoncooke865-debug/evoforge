@@ -20,6 +20,7 @@ import { todayIso } from '@/domain/today';
 import { type MappedDay, type MatchConfidence } from '@/domain/workout-import';
 import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
@@ -277,7 +278,9 @@ export default function RoutineBuilderScreen() {
                   className="flex-1 rounded-md border border-border px-s3 py-s2"
                   style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.6)' }}
                 >
-                  <Text className="text-sm font-bold text-text">{r.name}</Text>
+                  <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+                    {r.name}
+                  </Text>
                   <Text className="text-2xs text-text-mute">
                     {(r.payload?.exercises ?? []).length} exercises · START TODAY
                   </Text>
@@ -353,7 +356,11 @@ export default function RoutineBuilderScreen() {
                   className="rounded-md border px-s3"
                   style={{ minHeight: 44, justifyContent: 'center', borderColor: `${tokens.colors.accent}66` }}
                 >
-                  <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+                  <Text
+                    className="text-accent"
+                    allowFontScaling={false}
+                    style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+                  >
                     ＋ ADD DAY
                   </Text>
                 </Pressable>
@@ -363,7 +370,17 @@ export default function RoutineBuilderScreen() {
 
           <GlowCard glow={dayList.length > 0 ? tokens.colors.accent : undefined}>
             <View className="mb-s2">
-              <EdgeLabel right={<Text className="text-2xs font-bold text-accent">{dayList.length} PICKED</Text>}>
+              <EdgeLabel
+                right={
+                  <Text
+                    className="text-accent"
+                    allowFontScaling={false}
+                    style={{ fontSize: 10, letterSpacing: 0.5, ...pixelFont(false) }}
+                  >
+                    {dayList.length} PICKED
+                  </Text>
+                }
+              >
                 {`${(day ?? '').toUpperCase()} — TAP SETS / REPS TO ADJUST`}
               </EdgeLabel>
               {/* STAGE 1: one tap to fill the day with its staples. Only ADDS —
@@ -376,7 +393,11 @@ export default function RoutineBuilderScreen() {
                   className="mt-s2 items-center"
                   style={{ minHeight: 44, justifyContent: 'center' }}
                 >
-                  <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+                  <Text
+                    className="text-accent"
+                    allowFontScaling={false}
+                    style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+                  >
                     ⚡ PREFILL WITH STAPLES
                   </Text>
                 </Pressable>
@@ -427,7 +448,9 @@ export default function RoutineBuilderScreen() {
                     className="items-center justify-center rounded-pill border px-s2"
                     style={{ minHeight: 44, borderColor: `${tokens.colors.accent}59` }}
                   >
-                    <Text className="text-2xs font-bold text-accent">{e.sets} SETS</Text>
+                    <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 10, ...pixelFont() }}>
+                      {e.sets} SETS
+                    </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => cycleReps(e.exercise)}
@@ -435,7 +458,10 @@ export default function RoutineBuilderScreen() {
                     className="items-center justify-center rounded-pill border px-s2"
                     style={{ minHeight: 44, borderColor: `${tokens.colors.epic}59` }}
                   >
-                    <Text className="text-2xs font-bold" style={{ color: tokens.colors.epic }}>
+                    <Text
+                      allowFontScaling={false}
+                      style={{ fontSize: 10, color: tokens.colors.epic, ...pixelFont() }}
+                    >
                       {e.reps}
                     </Text>
                   </Pressable>

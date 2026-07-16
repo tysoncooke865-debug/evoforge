@@ -32,6 +32,7 @@ import { todayIso as calendarToday } from '@/domain/today';
 import { XP_PER_SET } from '@/domain/xp';
 import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
@@ -328,12 +329,15 @@ export default function WorkoutScreen() {
         </View>
         <View className="mt-s2 flex-row justify-between">
           <Text
-            className={`text-2xs font-bold ${complete ? 'text-success' : 'text-text-mute'}`}
-            style={{ letterSpacing: 1.5 }}
+            className={complete ? 'text-success' : 'text-text-mute'}
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
           >
             {complete ? '✓ ALL SETS COMPLETE' : `${totalDone} / ${totalTarget} SETS`}
           </Text>
-          <Text className="text-2xs font-bold text-accent">+{totalDone * XP_PER_SET} XP</Text>
+          <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>
+            +{totalDone * XP_PER_SET} XP
+          </Text>
         </View>
       </GlowCard>
 
@@ -348,7 +352,10 @@ export default function WorkoutScreen() {
           }}
         >
           <View className="flex-1">
-            <Text className="text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 2 }}>
+            <Text
+              allowFontScaling={false}
+              style={{ fontSize: 10, color: tokens.colors.success, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               ✓ WORKOUT COMPLETE
             </Text>
             <Text className="text-2xs text-text-mute">
@@ -362,7 +369,11 @@ export default function WorkoutScreen() {
             className="items-center justify-center px-s3"
             style={{ minHeight: 44 }}
           >
-            <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-accent"
+              allowFontScaling={false}
+              style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+            >
               REOPEN
             </Text>
           </Pressable>
@@ -475,7 +486,11 @@ export default function WorkoutScreen() {
           className="items-center"
           style={{ minHeight: 44, justifyContent: 'center' }}
         >
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+          >
             DISCARD THIS WORKOUT
           </Text>
         </Pressable>
@@ -521,10 +536,16 @@ export default function WorkoutScreen() {
                 maxHeight: 520,
               }}
             >
-              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+              >
                 SWAP · SAME MUSCLE GROUP
               </Text>
-              <Text className="mb-s3 text-sm font-bold text-text">{subFor}</Text>
+              <Text className="mb-s3 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+                {subFor}
+              </Text>
               {/* Search swaps to ANYTHING; the same-muscle chips below stay
                   the zero-typing default. */}
               <View className="mb-s3">
