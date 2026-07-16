@@ -1,12 +1,21 @@
 # Cloudflare Pages headers. Expo copies public/ into dist verbatim.
 #
-# The HTML must always revalidate: after every deploy the page references new
-# hashed bundles, and a browser-cached HTML shell pins users to the previous
-# build ("I can't see the changes"). The hashed assets themselves are
-# content-addressed and safely immutable.
+# The HTML + manifest must NEVER be cached: after every deploy the page
+# references new hashed bundles, and a cached shell pins users to the previous
+# build. `no-cache` (revalidate) was not enough — installed iOS PWAs kept
+# serving a stale shell across deploys and glitched until the cache was cleared
+# by hand (Tyson, recurring). `no-store` forbids caching the shell outright, so
+# every relaunch pulls the current index. The hashed assets stay immutable
+# (content-addressed) — the later, more specific rule wins for them.
 
 /*
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-store, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: no-store, must-revalidate
 
 /_expo/static/*
   Cache-Control: public, max-age=31536000, immutable
