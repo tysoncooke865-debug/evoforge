@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAmbient } from '@/ui/core/use-ambient';
-import { Image, View } from 'react-native';
+import { Image, Platform, View, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 
@@ -116,11 +116,28 @@ export function MuscleMap({
   const [boxW, setBoxW] = useState(0);
   const scale = boxW / MAP_VIEW_W;
 
+  // A ZOOM crops the figure at the waist (upper) or hips (lower); a hard
+  // overflow edge there looks amputated (Tyson 2026-07-17). Feather ONLY the
+  // cut edge to transparent with a CSS alpha mask (web) so the figure dissolves
+  // into the card instead of being sliced. 'full' shows head→feet — no cut, no
+  // mask. Native keeps the crisp crop until a native build brings a mask layer.
+  const cutGradient =
+    focus === 'upper'
+      ? 'linear-gradient(to bottom, #000 0%, #000 74%, transparent 100%)'
+      : focus === 'lower'
+        ? 'linear-gradient(to bottom, transparent 0%, #000 26%, #000 100%)'
+        : null;
+  const maskStyle =
+    cutGradient && Platform.OS === 'web'
+      ? ({ maskImage: cutGradient, WebkitMaskImage: cutGradient } as unknown as ViewStyle)
+      : null;
+
   return (
     <Animated.View
       onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
       style={[
         { width: width ?? '100%', aspectRatio: MAP_VIEW_W / crop.h, alignSelf: 'center', overflow: 'hidden' },
+        maskStyle,
         fadeStyle,
       ]}
       accessibilityLabel={label}
