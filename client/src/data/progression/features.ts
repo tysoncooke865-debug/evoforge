@@ -5,10 +5,11 @@
  * shipped. Flip a flag only when its phase's acceptance gates are green.
  */
 export const progressionFeatures = {
-  /** Master switch: the Evo/Forge/Rival UI reads new sources when true. */
-  newProgressionEnabled: false,
+  /** Master switch: the Evo/Forge/Rival UI reads new sources when true.
+   *  FLIPPED ON at P5 cutover (2026-07-16) after production tours. */
+  newProgressionEnabled: true,
   /** Weekly Evo Reviews (P3). */
-  evoReviewsEnabled: false,
+  evoReviewsEnabled: true,
   /** Monthly guided Evo Scans (P6). */
   monthlyScansEnabled: false,
   /** Rival Rank placements + rated matches (P7). */

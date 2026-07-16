@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { awardForFinish } from './progression/award-xp';
+import { progressionFeatures } from './progression/features';
+
 import { supabase } from './supabase';
 
 /**
@@ -127,7 +130,15 @@ export async function flushFinishQueue(): Promise<void> {
 
       // Inserted now, or inserted on an earlier attempt (the unique index).
       // A duplicate is SUCCESS: the workout is finished, which is all we wanted.
-      if (!error || /duplicate|unique|already exists/i.test(error.message)) continue;
+      if (!error || /duplicate|unique|already exists/i.test(error.message)) {
+        // PROGRESSION P5: a confirmed finish earns Forge XP — idempotent by
+        // event key (awardForFinish looks the marker id up itself),
+        // fire-and-forget, never blocks or fails the flush.
+        if (progressionFeatures.newProgressionEnabled) {
+          void awardForFinish(supabase, row.date, row.workout, null);
+        }
+        continue;
+      }
 
       if (isPermanent(error.message)) continue; // the server said no; retrying cannot help
       survivors.push({ ...row, attempts: row.attempts + 1 });

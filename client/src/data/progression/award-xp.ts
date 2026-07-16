@@ -40,6 +40,35 @@ async function insertAward(
 export const awardWorkoutCompleted = (sb: SupabaseClient, sessionId: string) =>
   insertAward(sb, xpEventKeys.workoutCompleted(sessionId), 'workout_completed', sessionId);
 
+/**
+ * Award for a finish that just flushed. The queue's insert may have been
+ * the winner or a duplicate of an earlier attempt — either way the marker
+ * row exists; when the id wasn't returned, look it up. NEVER throws: XP is
+ * a bonus on top of a finish, and a failed award must not fail the flush.
+ */
+export async function awardForFinish(
+  sb: SupabaseClient,
+  date: string,
+  workout: string,
+  knownId: string | null
+): Promise<void> {
+  try {
+    let id = knownId;
+    if (!id) {
+      const { data } = await sb
+        .from('workout_sessions')
+        .select('id')
+        .eq('date', date)
+        .eq('workout', workout)
+        .limit(1);
+      id = (data?.[0]?.id as string | undefined) ?? null;
+    }
+    if (id) await awardWorkoutCompleted(sb, id);
+  } catch {
+    // The weekly claim and any later finish re-award via the same key.
+  }
+}
+
 export const awardCardioTest = (sb: SupabaseClient, evidenceId: string) =>
   insertAward(sb, xpEventKeys.cardioTest(evidenceId), 'cardio_test_completed', evidenceId);
 

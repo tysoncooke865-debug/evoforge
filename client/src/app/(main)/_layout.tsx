@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Redirect, Tabs, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
@@ -8,6 +9,10 @@ import { useAuth } from '@/data/auth-context';
 import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
+import { migrateForgeHistory } from '@/data/progression/award-xp';
+import { runDueEvoReview } from '@/data/progression/evo-review-io';
+import { progressionFeatures } from '@/data/progression/features';
+import { supabase } from '@/data/supabase';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
@@ -73,6 +78,38 @@ export default function MainLayout() {
       );
     }
   }, [hydrated, active, activeSource, session, profile.data]);
+
+  // PROGRESSION P5: once signed in with the flag on, run the idempotent
+  // §43 history migration (event keys make reruns no-ops) and the weekly
+  // Evo review WHEN DUE (never forced from here). Fire-and-forget: a
+  // failure surfaces on the Evo page, never blocks the shell.
+  const progressionRef = useRef(false);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (progressionRef.current || !session || profile.data === undefined || profile.data === null) return;
+    if (!progressionFeatures.newProgressionEnabled) return;
+    progressionRef.current = true;
+    void (async () => {
+      try {
+        await migrateForgeHistory(supabase);
+      } catch {
+        /* rerun-safe next launch */
+      }
+      if (progressionFeatures.evoReviewsEnabled) {
+        try {
+          const result = await runDueEvoReview(supabase);
+          if (result.ran) {
+            // The reads may already be cached as null/stale — tell them.
+            void queryClient.invalidateQueries({ queryKey: ['evo_rating_current'] });
+            void queryClient.invalidateQueries({ queryKey: ['evo_rating_snapshots'] });
+          }
+        } catch {
+          /* the Evo page's manual run remains */
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ['user_progression'] });
+    })();
+  }, [session, profile.data, queryClient]);
 
   // OPTIMISE (2026-07-16): idle-time tab preload. With async routes, a
   // tab's FIRST visit pays its chunk fetch + first render; prefetch mounts
@@ -188,6 +225,9 @@ export default function MainLayout() {
       <Tabs.Screen name="schedule" options={{ href: null }} />
       <Tabs.Screen name="streak" options={{ href: null }} />
       <Tabs.Screen name="coins" options={{ href: null }} />
+      {/* PROGRESSION P5: the Evo Rating + Forge Level detail pages. */}
+      <Tabs.Screen name="evo" options={{ href: null }} />
+      <Tabs.Screen name="forge-level" options={{ href: null }} />
       {/* Dev-only mask workbench — the screen renders nothing in production. */}
       <Tabs.Screen name="muscle-lab" options={{ href: null }} />
     </Tabs>

@@ -35,6 +35,7 @@ import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/character/avatar-art';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { AvatarHero } from '@/ui/home/avatar-hero';
+import { EvoCore } from '@/ui/home/evo-core';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
@@ -230,6 +231,10 @@ export default function HomeScreen() {
         evolutionPercent={readiness.percent}
         features={homeFeatures}
       />
+      {/* 2.5 THE EVO CORE (spec §30) — renders only when the new
+          progression is enabled; self-hides otherwise. */}
+      <EvoCore />
+
       {/* 3. Today's mission — the one dominant CTA on the page. */}
       <MissionCard
         mission={mission}

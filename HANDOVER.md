@@ -220,6 +220,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
   clients cannot forge. Client: `award-xp.ts` (event-key builders, send 0
   and let the server decide) + `use-forge.ts` hooks. ALPHA's Forge rows
   are REAL migrated data and stay (permanent smoke fixture).
+- **P5 SHIPPED — THE FLAG IS ON (`newProgressionEnabled` +
+  `evoReviewsEnabled`).** Home carries the EVO CORE (spec §30 hierarchy:
+  rating/descriptor, four pillars w/ limiting highlighted, Evolution bar,
+  review countdown; no data → DISCOVER runs the first review). New routes
+  `/evo` (spec §31: current/starting/peak, pillars+confidence, forecast,
+  pending evidence, review history, manual review) and `/forge-level`
+  (spec §32: level, ledger, Momentum, weekly claim, the legacy record
+  line). The (main) layout runs the idempotent history migration + the
+  due review on launch (invalidates the reads after). finish-queue
+  awards workout_completed XP on every confirmed flush (fire-and-forget;
+  awardForFinish looks the marker id up itself — do NOT chain .select on
+  the queue's insert, the tests pin the plain shape). Toured against
+  production: ALPHA reads 46 TRAINED w/ real pillars; zero console noise.
+  REMAINING for the full terminology sweep: the header LV. module and
+  rarity badges still speak the LEGACY level — swap their source when
+  the old level retires (deliberate: two vocabularies never at once,
+  and the legacy level remains the app-wide `summary.level` consumer
+  contract until then).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
