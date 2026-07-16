@@ -61,6 +61,23 @@ export function usePendingEvoEvidence() {
   });
 }
 
+export function usePlayerStats() {
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  return useQuery({
+    queryKey: ['player_stats', userId],
+    enabled: userId !== null,
+    queryFn: async () => {
+      const [statsQ, traitsQ] = await Promise.all([
+        supabase.from('player_stats').select('power,vitality,stamina,balance,technique,evo_class').limit(1),
+        supabase.from('player_traits').select('trait_key,trait_tier,source_pillar').order('unlocked_at', { ascending: false }),
+      ]);
+      if (statsQ.error) throw statsQ.error;
+      return { stats: statsQ.data?.[0] ?? null, traits: traitsQ.data ?? [] };
+    },
+  });
+}
+
 /** Fire when due (the caller checks the flag). Invalidates the reads. */
 export function useRunEvoReview() {
   const queryClient = useQueryClient();

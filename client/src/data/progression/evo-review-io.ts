@@ -20,7 +20,11 @@ import type { AerobicTestType } from '@/domain/progression/cardio-score';
 import { runEvoReview, type ReviewInputs, type ReviewOutcome } from '@/domain/progression/evo-review';
 import type { EvoState } from '@/domain/progression/evo-state';
 import { EVO_RATING_MODEL_VERSION } from '@/domain/progression/model-versions';
+import { deriveEvoDisplay } from '@/domain/progression/evo-rating';
+import { applyConfirmedRating } from '@/domain/progression/evo-state';
+import { calculatePlayerStats, determineEvoClass } from '@/domain/progression/player-stats';
 import { calculateSizeScore } from '@/domain/progression/size-score';
+import { determineTraitEligibility } from '@/domain/progression/traits';
 import type { EvoPillars } from '@/domain/progression/types';
 import { pyFloat } from '@/domain/py';
 import { normaliseWorkoutLog, type WorkoutRow } from '@/domain/summary';
@@ -268,9 +272,29 @@ export async function runDueEvoReview(
 
   const outcome = runEvoReview(inputs);
   const p = outcome.pillars;
-  const r = outcome.rating;
-  const s = outcome.state;
+  let r = outcome.rating;
+  let s = outcome.state;
   const isFirst = current === null;
+
+  // P9 IMPOSSIBLE-JUMP GATE (spec §46): a body does not move more than
+  // ~8 rating points in one review period. Never secret: the clamp is
+  // named in the changes AND flagged in the audit.
+  const auditFlags: string[] = [];
+  const MAX_JUMP = 8;
+  if (!isFirst && prior.state && Math.abs(r.rawRating - prior.state.currentRaw) > MAX_JUMP) {
+    const clamped =
+      prior.state.currentRaw + Math.sign(r.rawRating - prior.state.currentRaw) * MAX_JUMP;
+    auditFlags.push(`impossible_jump:${r.rawRating.toFixed(2)}->clamped:${clamped.toFixed(2)}`);
+    const d = deriveEvoDisplay(clamped);
+    r = { ...r, rawRating: clamped, displayedRating: d.displayedRating, evolutionProgress: d.evolutionProgress };
+    s = applyConfirmedRating(prior.state, clamped);
+    outcome.changes.push({
+      pillar: r.limitingPillar,
+      before: prior.state.currentRaw,
+      after: clamped,
+      note: 'Change capped this review — large movements confirm over consecutive reviews',
+    });
+  }
 
   const { data: snap, error: snapErr } = await supabase
     .from('evo_rating_snapshots')
@@ -337,6 +361,78 @@ export async function runDueEvoReview(
     await maintainChapters(supabase, String(snap?.[0]?.id ?? ''), today);
   } catch {
     /* next review retries */
+  }
+
+  // P8: Player Stats, Class, Traits refresh with every review; P9: the
+  // audit row + analytics. All best-effort — never fail the review.
+  try {
+    const workoutRows = workoutsQ.data ?? [];
+    const exposure = new Map<string, number>();
+    const recentDays = new Set<string>();
+    const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+    let totalValidSets = 0;
+    for (const row of workoutRows) {
+      const w = pyFloat(row.weight) ?? 0;
+      const reps = pyFloat(row.reps) ?? 0;
+      if (!(w > 0 && reps > 0)) continue;
+      totalValidSets += 1;
+      const name = String(row.exercise ?? '');
+      exposure.set(name, (exposure.get(name) ?? 0) + 1);
+      const d = String(row.date ?? '').slice(0, 10);
+      if (d >= cutoff) recentDays.add(d);
+    }
+    const technique = {
+      totalValidSets,
+      familiarExercises: [...exposure.values()].filter((n) => n >= 3).length,
+      recentTrainingDays: recentDays.size,
+    };
+    const stats = calculatePlayerStats(p, technique);
+    const cls = determineEvoClass({ pillars: p, technique: stats.technique });
+    await supabase.from('player_stats').upsert(
+      { ...stats, evo_class: cls.evoClass, class_rule_version: cls.ruleVersion, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    await supabase
+      .from('evo_rating_current')
+      .update({ evo_class: cls.evoClass })
+      .not('user_id', 'is', null);
+
+    const { data: forgeRow } = await supabase
+      .from('user_progression')
+      .select('current_momentum_weeks')
+      .limit(1);
+    const eligible = determineTraitEligibility(p, stats, Number(forgeRow?.[0]?.current_momentum_weeks ?? 0));
+    for (const t of eligible) {
+      await supabase
+        .from('player_traits')
+        .upsert(
+          { trait_key: t.key, trait_tier: t.tier, source_pillar: t.sourcePillar, rule_version: t.ruleVersion },
+          { onConflict: 'user_id,trait_key', ignoreDuplicates: true }
+        );
+    }
+
+    await supabase.from('evo_rating_audit').insert({
+      old_rating: prior.state?.currentRaw ?? null,
+      new_rating: r.rawRating,
+      trigger_type: isFirst ? 'initial' : 'weekly_review',
+      snapshot_id: snap?.[0]?.id ?? null,
+      flags: auditFlags,
+    });
+    const events: { event_name: string; props: Record<string, unknown> }[] = [
+      { event_name: 'evo_review_completed', props: { rating: r.displayedRating, first: isFirst } },
+    ];
+    if (prior.state && r.displayedRating > prior.state.currentDisplayed) {
+      events.push({ event_name: 'evo_rating_increased', props: { to: r.displayedRating } });
+    }
+    if (prior.state && r.displayedRating < prior.state.currentDisplayed) {
+      events.push({ event_name: 'evo_rating_decreased', props: { to: r.displayedRating } });
+    }
+    if (s.peakRaw === r.rawRating && !isFirst) {
+      events.push({ event_name: 'peak_rating_reached', props: { peak: s.peakDisplayed } });
+    }
+    for (const e of events) await supabase.from('analytics_events').insert(e);
+  } catch {
+    /* stats/audit/analytics are best-effort riders */
   }
 
   return { ran: true, outcome, reason: opts.force ? 'forced' : isFirst ? 'first' : 'due' };

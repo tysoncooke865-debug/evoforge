@@ -13,6 +13,7 @@ import {
   useEvoRatingCurrent,
   useEvoSnapshots,
   usePendingEvoEvidence,
+  usePlayerStats,
   useRunEvoReview,
 } from '@/data/progression/use-evo-rating';
 import { pixelFont } from '@/theme/fonts';
@@ -21,6 +22,57 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { StatBar } from '@/ui/character/stat-bar';
+
+function PlayerStatsPanel() {
+  const ps = usePlayerStats();
+  const stats = ps.data?.stats ?? null;
+  if (!stats) return null;
+  const rows: readonly (readonly [string, number])[] = [
+    ['POWER', Number(stats.power)],
+    ['VITALITY', Number(stats.vitality)],
+    ['STAMINA', Number(stats.stamina)],
+    ['BALANCE', Number(stats.balance)],
+    ['TECHNIQUE', Number(stats.technique)],
+  ];
+  return (
+    <View className="rounded-xl border p-s4" style={{ borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}>
+      <View className="flex-row items-center justify-between">
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+          PLAYER STATS
+        </Text>
+        {stats.evo_class ? (
+          <Text allowFontScaling={false} style={{ fontSize: 11, letterSpacing: 0, color: tokens.colors.epic, ...pixelFont() }}>
+            {String(stats.evo_class).toUpperCase()}
+          </Text>
+        ) : null}
+      </View>
+      <View className="mt-s2 flex-row flex-wrap" style={{ gap: 12 }}>
+        {rows.map(([label, value]) => (
+          <View key={label} style={{ minWidth: 64 }}>
+            <Text className="text-lg text-text" allowFontScaling={false} style={{ ...pixelFont() }}>
+              {value}
+            </Text>
+            <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 0.5, ...pixelFont(false) }}>
+              {label}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {(ps.data?.traits ?? []).length > 0 ? (
+        <View className="mt-s2 flex-row flex-wrap" style={{ gap: 6 }}>
+          {ps.data!.traits.map((t) => (
+            <View key={String(t.trait_key)} className="rounded-pill border px-s2 py-s1" style={{ borderColor: `${tokens.colors.legendary}59`, backgroundColor: 'rgba(245,184,59,0.06)' }}>
+              <Text className="text-2xs" style={{ color: tokens.colors.legendary }}>
+                {String(t.trait_key).replace(/_/g, ' ').toUpperCase()}
+                {Number(t.trait_tier) > 1 ? ` ${'I'.repeat(Number(t.trait_tier))}` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 const PILLARS: readonly (readonly [scoreKey: string, confKey: string, abbr: string, name: string, colour: string])[] = [
   ['size_score', 'size_confidence', 'SIZE', 'Size', tokens.colors.epic],
@@ -124,6 +176,9 @@ export default function EvoRatingScreen() {
               </View>
             ))}
           </View>
+
+          {/* Player Stats + class + traits (P8). */}
+          <PlayerStatsPanel />
 
           {/* Forecast from the latest review. */}
           {recommendations.length > 0 ? (

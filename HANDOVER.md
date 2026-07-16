@@ -264,6 +264,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
   confidence; matchmaking constraints (never rank-only, never Evo-only,
   farming cap) in rank-tiers.ts. `/rank` remains the XP leaderboard —
   its drift gates are load-bearing; do not rename it into Rival Rank.
+- **P8+P9 SHIPPED — THE OVERHAUL IS COMPLETE.** player-stats.ts (the §25
+  mapping; Technique from history alone, log-plateaued), versioned Evo
+  Class rules (first match wins, Specialist fallback, always explained),
+  confidence-GATED traits (a 75 strength at confidence 20 earns nothing),
+  Equalised/Handicap ruleset transforms. Migration 029: player_stats,
+  player_traits, analytics_events (thin, no PII), evo_rating_audit
+  (immutable trail of every official movement). The review pipeline now
+  ALSO: clamps impossible jumps (±8/review, NAMED in changes + flagged in
+  audit), refreshes stats/class/traits, writes audit + analytics — all
+  best-effort riders that can never fail a review. Falsified live as
+  ALPHA end-to-end. PLAYER STATS panel on /evo.
+  DEFERRED HONESTLY: ghost-match UI (table + snapshots exist), seasonal
+  events, notifications (needs native push), Evo leaderboards (need the
+  server-recomputation gate first — the audit table is its foundation),
+  battle-engine stat integration (rulesets are pure transforms awaiting a
+  battle-format decision; the engine stays byte-pinned).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
