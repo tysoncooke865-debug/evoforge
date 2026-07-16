@@ -4,7 +4,6 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { progressionFeatures } from '@/data/progression/features';
 
-import { useAuth } from '@/data/auth-context';
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
 import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
 import { totalRoundsFor } from '@/domain/battle/engine';
@@ -23,6 +22,7 @@ import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { HistoryRow } from '@/ui/arena/history-row';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { GYMS } from '@/domain/battle-rpg/gyms';
 
@@ -450,70 +450,6 @@ function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string;
       >
         COMING SOON
       </Text>
-    </View>
-  );
-}
-
-function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
-  const router = useRouter();
-  const { session } = useAuth();
-  const userId = session?.user?.id ?? null;
-
-  const settled = match.status === 'settled';
-  const abandoned = match.status === 'abandoned';
-  const won = settled && match.winner_user_id !== null && match.winner_user_id === userId;
-  const draw = settled && match.winner_user_id === null;
-  const tint = abandoned
-    ? tokens.colors['text-mute']
-    : !settled
-      ? tokens.colors.accent
-      : won
-        ? tokens.colors.success
-        : draw
-          ? tokens.colors.rare
-          : tokens.colors.danger;
-  const label = abandoned ? 'CANCELLED' : !settled ? match.status.toUpperCase() : won ? 'VICTORY' : draw ? 'DRAW' : 'DEFEAT';
-
-  return (
-    <View className="mb-s2">
-      <PressCard onPress={() => router.push(`/arena/battle/${match.id}`)} tint={tint}>
-        <View
-          className="flex-row items-center gap-s3 rounded-xl p-s3"
-          style={{
-            borderWidth: 1,
-            borderColor: `${tint}40`,
-            backgroundColor: 'rgba(13,21,36,0.55)',
-            shadowColor: settled ? tint : '#000',
-            shadowOpacity: settled ? 0.22 : 0,
-            shadowRadius: 14,
-            elevation: settled ? 3 : 0,
-          }}
-        >
-          <IconBadge glyph={formatGlyph(match.format)} tint={tint} size={40} />
-          <View className="flex-1">
-            {/* Every row used to say "Friendly Blitz" — a duel lied about
-                what it was. The format decides its own name now. */}
-            <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
-              {formatLabel(match.format)}
-              {match.invite_code ? ` · ${match.invite_code}` : ''}
-            </Text>
-            <Text className="text-2xs text-text-mute">{String(match.created_at).slice(0, 10)}</Text>
-          </View>
-          <View className="items-end">
-            <Text
-              allowFontScaling={false}
-              style={{ fontSize: 12, color: tint, letterSpacing: 1, ...pixelFont() }}
-            >
-              {label}
-            </Text>
-            {settled && xp ? (
-              <Text className="text-text-dim" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>
-                +{xp} XP
-              </Text>
-            ) : null}
-          </View>
-        </View>
-      </PressCard>
     </View>
   );
 }

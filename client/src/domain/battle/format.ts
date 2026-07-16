@@ -51,6 +51,19 @@ export interface HubBattles<T extends MatchLike> {
   history: T[];
 }
 
+/** Newest-first copy — the hub and the GAME LOG page share one ordering. */
+export function newestFirst<T extends MatchLike>(matches: T[]): T[] {
+  return [...matches].sort((a, b) => (String(a.created_at) < String(b.created_at) ? 1 : -1));
+}
+
+/** Trim/uppercase a battle or challenge code; null unless exactly 6 chars.
+ *  No charset rule on purpose — the server only checks length, and a
+ *  stricter client gate would reject codes the server accepts. */
+export function normalizeCode(raw: string): string | null {
+  const clean = raw.trim().toUpperCase();
+  return clean.length === 6 ? clean : null;
+}
+
 /**
  * Split the athlete's matches into the three things the hub renders.
  * A match is in exactly one bucket; anything with an unknown status falls
@@ -58,12 +71,10 @@ export interface HubBattles<T extends MatchLike> {
  * battle the athlete can never reach again).
  */
 export function splitBattles<T extends MatchLike>(matches: T[]): HubBattles<T> {
-  const newestFirst = [...matches].sort((a, b) =>
-    String(a.created_at) < String(b.created_at) ? 1 : -1
-  );
+  const sorted = newestFirst(matches);
   return {
-    live: newestFirst.filter(isLive),
-    invites: newestFirst.filter(isOpenInvite),
-    history: newestFirst.filter((m) => !isLive(m) && !isOpenInvite(m)),
+    live: sorted.filter(isLive),
+    invites: sorted.filter(isOpenInvite),
+    history: sorted.filter((m) => !isLive(m) && !isOpenInvite(m)),
   };
 }

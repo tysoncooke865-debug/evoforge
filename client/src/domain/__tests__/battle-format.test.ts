@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatLabel, isFinished, isLive, splitBattles } from '../battle/format';
+import { formatLabel, isFinished, isLive, newestFirst, normalizeCode, splitBattles } from '../battle/format';
 
 const m = (id: string, status: string, created_at: string) => ({ id, status, created_at });
 
@@ -27,6 +27,28 @@ describe('isLive / isFinished', () => {
   it('settled and abandoned are finished', () => {
     expect(isFinished(m('x', 'settled', '2026-07-13'))).toBe(true);
     expect(isFinished(m('x', 'abandoned', '2026-07-13'))).toBe(true);
+  });
+});
+
+describe('normalizeCode — one gate for both code namespaces', () => {
+  it('trims and uppercases', () => {
+    expect(normalizeCode(' abc123 ')).toBe('ABC123');
+  });
+  it('anything but exactly six characters is null', () => {
+    expect(normalizeCode('abc')).toBeNull();
+    expect(normalizeCode('')).toBeNull();
+    expect(normalizeCode('ABCDEFG')).toBeNull();
+  });
+});
+
+describe('newestFirst — the hub and GAME LOG share one ordering', () => {
+  it('sorts descending by created_at and never mutates the input', () => {
+    const input = [m('old', 'settled', '2026-07-01'), m('new', 'settled', '2026-07-12'), m('mid', 'settled', '2026-07-05')];
+    const copy = [...input];
+    const sorted = newestFirst(input);
+    expect(sorted.map((x) => x.id)).toEqual(['new', 'mid', 'old']);
+    expect(input).toEqual(copy);
+    expect(sorted).not.toBe(input);
   });
 });
 
