@@ -41,6 +41,7 @@ export function AvatarStage({
   size = 220,
   source,
   animatedSource,
+  stillSource,
   silhouette = false,
 }: {
   branch: Branch;
@@ -50,15 +51,21 @@ export function AvatarStage({
   /** Override the art (v2 map); defaults to the branch/stage lookup. */
   source?: ImageSourcePropType;
   /** The rotating sprite GIF (Tyson, 2026-07-16). An animated GIF is an
-   *  ambient loop, so it obeys the SAME gate as every other loop: reduced
-   *  motion or perf mode fall back to the static art. */
+   *  ambient loop, so it obeys the SAME gate as every other loop. */
   animatedSource?: ImageSourcePropType;
+  /** The rotation's FROZEN south pose — shown whenever the sprite exists
+   *  but motion is gated (unfocused/reduced/perf). Same canvas as the gif
+   *  so nothing jumps; the OLD painted art never flashes. */
+  stillSource?: ImageSourcePropType;
   /** True = placeholder form: render as a rim-lit silhouette, never as art. */
   silhouette?: boolean;
 }) {
   // PERF: focus-aware — a preloaded hidden tab's stage runs NO loops and
   // serves the STATIC art instead of the gif (use-ambient.ts).
   const animate = useAmbient();
+  // The sprite, in whichever state motion allows: rotating when ambient,
+  // its frozen south pose otherwise. Painted art only when NO sprite set.
+  const spriteSource = silhouette ? undefined : animate ? animatedSource : stillSource;
 
   const floatY = useSharedValue(0);
   const breatheX = useSharedValue(1);
@@ -150,9 +157,7 @@ export function AvatarStage({
       />
       <Animated.View style={bodyStyle}>
         <Image
-          source={
-            animate && !silhouette && animatedSource ? animatedSource : (source ?? avatarImage(branch, stage))
-          }
+          source={spriteSource ?? source ?? avatarImage(branch, stage)}
           tintColor={silhouette ? '#070d1a' : undefined}
           style={{
             // Sprite frames render at 1.35× (Tyson: "scale it up") and are
@@ -160,8 +165,9 @@ export function AvatarStage({
             // set carries ~24% transparent rows under the feet (measured
             // with PIL, 2026-07-16: mass 25%, aesthetic 22.6–25%), so
             // without the translate the character floats above the podium.
-            // Crisp via pixelated (the sprite-avatar/coin-flip technique).
-            ...(animate && !silhouette && animatedSource
+            // The STILL pose shares the canvas and therefore the layout —
+            // gating motion never jumps or swaps bodies.
+            ...(spriteSource
               ? {
                   width: size * SPRITE_SCALE,
                   height: size * SPRITE_SCALE,

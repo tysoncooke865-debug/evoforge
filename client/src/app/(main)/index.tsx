@@ -33,7 +33,7 @@ import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } f
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import tokens from '@/theme/tokens';
-import { animatedAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
+import { animatedAvatar, avatarArtV2, stillAvatar } from '@/ui/character/avatar-art';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { EvoCore } from '@/ui/home/evo-core';
@@ -231,6 +231,7 @@ export default function HomeScreen() {
         auraColour={auraColour}
         source={art.source}
         animatedSource={animatedAvatar(branchV2, stage, sex)}
+        stillSource={stillAvatar(branchV2, stage, sex)}
         silhouette={!art.hasArt}
         tierName={slug.toUpperCase()}
         tierColour={auraColour}

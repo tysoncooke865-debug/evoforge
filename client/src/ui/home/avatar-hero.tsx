@@ -36,6 +36,7 @@ export function AvatarHero({
   auraColour,
   source,
   animatedSource,
+  stillSource,
   silhouette,
   tierName,
   tierColour,
@@ -48,6 +49,7 @@ export function AvatarHero({
   auraColour: string;
   source?: import('react-native').ImageSourcePropType;
   animatedSource?: import('react-native').ImageSourcePropType;
+  stillSource?: import('react-native').ImageSourcePropType;
   silhouette: boolean;
   tierName: string;
   tierColour: string;
@@ -117,7 +119,7 @@ export function AvatarHero({
           accessibilityLabel={`Your character: ${formName}, ${tierName} tier, ${evolutionPercent} percent to the next evolution. Opens the Forge.`}
           testID="hero-avatar"
         >
-          <HeroStage branch={branch} stage={stage} auraColour={auraColour} source={source} animatedSource={animatedSource} silhouette={silhouette} />
+          <HeroStage branch={branch} stage={stage} auraColour={auraColour} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
         </Pressable>
       </Animated.View>
       {silhouette ? (

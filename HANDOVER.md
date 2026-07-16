@@ -361,6 +361,15 @@ Owner: Tyson. He works through other Claude sessions too — **always
   140ms/6px for snappier tab feel. RULE: new ambient loops use
   useAmbient, and it must only be called INSIDE navigator screens
   (useIsFocused throws elsewhere — root overlays keep useReducedMotion).
+- **Sprite STILLS (Tyson: "the old PNG flashes on hero taps"):** gating
+  the gif on focus swapped to the FALLBACK — the old painted art — for
+  the transition frame. Every rotation set now has a frozen SOUTH pose
+  (`stillAvatar()`, same canvas as the gif so the layout math aligns and
+  nothing jumps): ambient → gif, gated → still, painted art ONLY where
+  no sprite set exists. Falsified: 60ms after a hero press the Home
+  stage serves still-stage3; the old PNG never appears. Stills for new
+  sets: aesthetic = rotations/south.png; mass = gif frame 0 (recipe in
+  the commit).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

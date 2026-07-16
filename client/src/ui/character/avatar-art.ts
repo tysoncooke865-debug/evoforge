@@ -90,6 +90,32 @@ export function animatedAvatar(
   return undefined;
 }
 
+/** The FROZEN pose of each rotation (the south frame, SAME canvas as the
+ *  gif so the layout math aligns). Rendered when the sprite exists but
+ *  motion is gated (unfocused tab, reduced motion, perf mode) — the OLD
+ *  painted art must never flash where a sprite set has replaced it
+ *  (Tyson, 2026-07-16: the PNG flashed for a second on hero taps). */
+const AESTHETIC_STILLS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/aesthetic/still-stage1.png'),
+  2: require('../../assets/sprites/aesthetic/still-stage2.png'),
+  3: require('../../assets/sprites/aesthetic/still-stage3.png'),
+  4: require('../../assets/sprites/aesthetic/still-stage4.png'),
+};
+const MASS_MONSTER_STILL: ImageSourcePropType = require('../../assets/sprites/mass-monster/still.png');
+
+export function stillAvatar(
+  branch: BranchV2,
+  stage: number,
+  sex: Sex
+): ImageSourcePropType | undefined {
+  if (sex !== 'male') return undefined;
+  if (branch === 'mass' || branch === 'titan') return MASS_MONSTER_STILL;
+  if (branch === 'aesthetic' || branch === 'shredder') {
+    return AESTHETIC_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))];
+  }
+  return undefined;
+}
+
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {
   if (sex === 'female') {
     // Real female art exists for the aesthetic line (LV.1-4). Other female
