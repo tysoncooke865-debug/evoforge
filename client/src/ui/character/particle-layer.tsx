@@ -1,16 +1,15 @@
 import { useEffect } from 'react';
+import { useAmbient } from '@/ui/core/use-ambient';
 import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 
-import { useSettingsStore } from '@/state/settings-store';
 
 /**
  * Six drifting energy motes. Pure ambience: gated by perf mode and reduced
@@ -27,9 +26,10 @@ const MOTES = [
 ] as const;
 
 export function ParticleLayer({ colour, height = 240 }: { colour: string; height?: number }) {
-  const reducedMotion = useReducedMotion();
-  const perfMode = useSettingsStore((s) => s.perfMode);
-  if (reducedMotion || perfMode) return null;
+  // PERF: useAmbient = focused AND motion allowed (it embeds
+  // useReducedMotion + perf mode) — a hidden tab's motes are pure waste.
+  const ambient = useAmbient();
+  if (!ambient) return null;
 
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height }}>

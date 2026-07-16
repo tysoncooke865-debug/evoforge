@@ -4,7 +4,6 @@ import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -16,7 +15,8 @@ import type { ImageSourcePropType } from 'react-native';
 import type { Branch } from '@/domain/avatar-stats';
 import { animations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
-import { useSettingsStore } from '@/state/settings-store';
+
+import { useAmbient } from '@/ui/core/use-ambient';
 
 import { avatarImage } from './avatar-images';
 
@@ -56,9 +56,9 @@ export function AvatarStage({
   /** True = placeholder form: render as a rim-lit silhouette, never as art. */
   silhouette?: boolean;
 }) {
-  const reducedMotion = useReducedMotion();
-  const perfMode = useSettingsStore((s) => s.perfMode);
-  const animate = !reducedMotion && !perfMode;
+  // PERF: focus-aware — a preloaded hidden tab's stage runs NO loops and
+  // serves the STATIC art instead of the gif (use-ambient.ts).
+  const animate = useAmbient();
 
   const floatY = useSharedValue(0);
   const breatheX = useSharedValue(1);

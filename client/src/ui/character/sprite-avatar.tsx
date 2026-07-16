@@ -1,11 +1,11 @@
 import { Asset } from 'expo-asset';
+import { useAmbient } from '@/ui/core/use-ambient';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -15,7 +15,6 @@ import Animated, {
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { shredderStage } from '@/domain/branches-v2';
-import { useSettingsStore } from '@/state/settings-store';
 
 /**
  * The animated pixel companion — Tyson's Cyber Athlete LV.1–LV.4 sheets,
@@ -506,9 +505,9 @@ function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stag
 // ---------------------------------------------------------------- api
 
 export function SpriteAvatar({ anim, stage = 1, sex = 'male', height = 72 }: { anim: Anim; stage?: Stage; sex?: Sex; height?: number }) {
-  const reducedMotion = useReducedMotion();
-  const perfMode = useSettingsStore((s) => s.perfMode);
-  const frozen = reducedMotion || perfMode;
+  // PERF: hidden preloaded tabs freeze their companions too (use-ambient) —
+  // five tabs of CSS sprite loops was part of the lag Tyson felt.
+  const frozen = !useAmbient();
   const width = Math.round(height * aspectFor(sex)[stage][anim]);
 
   return (

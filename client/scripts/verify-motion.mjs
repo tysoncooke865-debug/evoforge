@@ -44,7 +44,10 @@ const LOOP = /withRepeat\s*\(/;
 // let `const reducedMotion = false` pass — the first falsification run stayed
 // green with the gate deliberately removed, which is precisely the vacuous
 // guard the doctrine warns about. Only `useReducedMotion(` counts.
-const GATE = /useReducedMotion\s*\(/;
+// useAmbient() is a COMPLIANT gate: it embeds useReducedMotion (and adds
+// screen focus + perf mode) — see src/ui/core/use-ambient.ts. A file
+// consulting either honours the setting.
+const GATE = /(useReducedMotion|useAmbient)\s*\(/;
 
 const loopers = [];
 const gated = [];

@@ -346,6 +346,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
   HTMLAudioElement.play spy: exactly ['press'] on a NeonButton click,
   ['select'] on a tab switch. NOTE: the sign-in button is a plain
   Pressable, not a NeonButton — silent by design.
+- **THE AMBIENT GATE (Tyson: "everything lags", 2026-07-16):**
+  `ui/core/use-ambient.ts` — ambient = FOCUSED + motion allowed. The idle
+  tab preload keeps five screens mounted, and on web every Reanimated
+  loop runs on the MAIN JS THREAD whether visible or not: five screens
+  of auras/motes/floats/sprites ticking at once was the lag (presses
+  queue behind animation frames on phones). Now gated: AvatarStage's
+  four loops + the gif (static art when unfocused), ParticleLayer
+  (renders nothing), muscle-map pulse, SpriteCompanion (frozen).
+  Measured: ONE running animation app-wide at idle (was 5 tabs' worth),
+  60fps at 6x CPU throttle. verify-motion now accepts useAmbient as a
+  compliant gate (it embeds useReducedMotion) — extension FALSIFIED
+  (broke a gate, guard went red, restored). Screen entrance trimmed to
+  140ms/6px for snappier tab feel. RULE: new ambient loops use
+  useAmbient, and it must only be called INSIDE navigator screens
+  (useIsFocused throws elsewhere — root overlays keep useReducedMotion).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

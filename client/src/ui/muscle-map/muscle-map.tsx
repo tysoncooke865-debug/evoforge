@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAmbient } from '@/ui/core/use-ambient';
 import { Image, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
@@ -75,6 +76,7 @@ export function MuscleMap({
   testID?: string;
 }) {
   const reducedMotion = useReducedMotion();
+  const ambient = useAmbient(); // PERF: no pulsing on hidden tabs
   // Quick fade on view switch (no 3D theatrics): fade out, swap, fade in.
   // Reduced motion renders the new view directly — no state write, no fade.
   const [delayedView, setDelayedView] = useState<MuscleView>(view);
@@ -147,7 +149,7 @@ export function MuscleMap({
               key={`mask:${shownView}:${m}`}
               muscle={m}
               source={maskSourceFor(m)!}
-              pulse={pulse}
+              pulse={pulse && ambient}
               maskOpacity={maskOpacity}
             />
           ))}
@@ -164,7 +166,7 @@ export function MuscleMap({
                 key={`${shownView}:${m}`}
                 muscle={m}
                 sides={table[m]!}
-                pulse={pulse}
+                pulse={pulse && ambient}
                 interactive={interactive}
                 onPress={onMusclePress}
               />

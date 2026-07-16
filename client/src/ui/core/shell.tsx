@@ -40,7 +40,7 @@ export function ScreenShell({ children }: { children: ReactNode }) {
       setActiveScroller(toTop);
       if (!reducedMotion) {
         enter.value = 0;
-        enter.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+        enter.value = withTiming(1, { duration: 140, easing: Easing.out(Easing.cubic) });
       }
       return () => clearActiveScroller(toTop);
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,7 +50,7 @@ export function ScreenShell({ children }: { children: ReactNode }) {
   // interop drops composed styles on Animated.View on web.
   const enterStyle = useAnimatedStyle(() => ({
     opacity: enter.value,
-    transform: [{ translateY: (1 - enter.value) * 10 }],
+    transform: [{ translateY: (1 - enter.value) * 6 }],
   }));
   return (
     <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
