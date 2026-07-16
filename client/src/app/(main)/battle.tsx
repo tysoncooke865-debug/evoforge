@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -48,7 +48,19 @@ export default function BattleScreen() {
   const setSelectedChampion = useBattleRpgStore((s) => s.setSelectedChampion);
 
   const [picked, setPicked] = useState<ChampionId | null>(storedChampion);
-  const [started, setStarted] = useState(false);
+  // A single /battle route is REUSED across modes (expo-router keeps it
+  // mounted and only swaps params), so tying "started" to a boolean loaded
+  // you back into the last fight when you opened a different mode. Instead:
+  //  - `started` is derived from whether the STARTED params still match the
+  //    current params → switching mode/gym auto-returns to the preview;
+  //  - useFocusEffect resets on every fresh navigation → re-entering the
+  //    SAME mode also starts at the preview;
+  //  - `runNonce` keys the runner so each Start mounts a brand-new battle.
+  const paramKey = `${mode}:${gymId ?? ''}`;
+  const [startedKey, setStartedKey] = useState<string | null>(null);
+  const [runNonce, setRunNonce] = useState(0);
+  const started = startedKey === paramKey;
+  useFocusEffect(useCallback(() => { setStartedKey(null); }, []));
 
   const playerChampion: ChampionId = picked ?? championForBranch(branchV2);
 
@@ -97,12 +109,14 @@ export default function BattleScreen() {
         opponentPower={opponentPowerLabel(setup)}
         picked={playerChampion}
         onPick={(id) => { setPicked(id); setSelectedChampion(id); }}
-        onStart={() => setStarted(true)}
+        onStart={() => { setStartedKey(paramKey); setRunNonce((n) => n + 1); }}
       />
     );
   }
 
-  return <BattleRunner setup={setup} />;
+  // A fresh key per Start guarantees a brand-new BattleRunner (and useBattle
+  // state) every time — never a stale battle carried across navigations.
+  return <BattleRunner key={`${paramKey}:${runNonce}`} setup={setup} />;
 }
 
 function balancedOpponent(player: ChampionId): ChampionId {
