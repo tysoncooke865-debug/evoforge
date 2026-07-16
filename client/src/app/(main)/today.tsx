@@ -424,7 +424,10 @@ export default function TodayScreen() {
               <MuscleMap
                 selectedMuscles={data.muscles}
                 view={mapView}
-                width={focusFor(data.muscles) === 'full' ? MAP_AREA_HEIGHT / 2 : 126}
+                // Zoomed (upper/lower) renders ~25% larger than the full view —
+                // the crop already trims it, so use the height headroom to make
+                // the silhouette read bigger on the card (Tyson 2026-07-17).
+                width={focusFor(data.muscles) === 'full' ? MAP_AREA_HEIGHT / 2 : 158}
                 pulse
                 focus={focusFor(data.muscles)}
               />

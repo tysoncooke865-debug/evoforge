@@ -139,13 +139,6 @@ export function ExerciseCard({
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
   // WHOLE exercise card, not one set row. Battles follow their tint.
   const activeColor = tint === tokens.colors.accent ? tokens.colors.epic : tint;
-  // HERO-ROW LOGGING (Tyson 2026-07-16): only the active set is expanded;
-  // the rest are compact rows. `override` = a manually-tapped set to expand;
-  // `locallyLogged` advances the hero the instant a set banks (before the
-  // refetch); `justLoggedText` keeps a set's value visible until the row lands.
-  const [override, setOverride] = useState<number | null>(null);
-  const [locallyLogged, setLocallyLogged] = useState<Set<number>>(() => new Set());
-  const [justLoggedText, setJustLoggedText] = useState<Record<number, string>>({});
 
   // SKIPPED = "not today". The card collapses to a ghost row: the exercise is
   // still visible (you chose to skip it, you didn't imagine it), any sets you
@@ -215,37 +208,8 @@ export function ExerciseCard({
     );
   }
 
-  // Which sets are banked (a valid row, or an optimistic local log). The union
-  // lets the hero advance instantly, then self-corrects when the refetch lands.
-  const rowFor = (setNo: number) =>
-    loggedRows.find(
-      (r) => (pyInt(r.set) ?? 0) === setNo && (pyFloat(r.weight) ?? 0) > 0 && (pyInt(r.reps) ?? 0) > 0
-    );
-  const isLogged = (setNo: number) => locallyLogged.has(setNo) || rowFor(setNo) !== undefined;
-  const setNos = Array.from({ length: targetSets }, (_, i) => i + 1);
-  const firstUnlogged = setNos.find((n) => !isLogged(n)) ?? null;
-  const allDone = setNos.length > 0 && firstUnlogged === null;
-  // THE one expanded row: a manual pick (bounded), else the first unlogged set.
-  const heroSet = override !== null && override <= targetSets ? override : firstUnlogged;
-
-  const onSetSaved = (setNo: number, display: string) => {
-    setJustLoggedText((prev) => ({ ...prev, [setNo]: display }));
-    setLocallyLogged((prev) => {
-      const next = new Set(prev);
-      next.add(setNo);
-      return next;
-    });
-    setOverride(null); // snap the hero forward to the next unlogged set
-  };
-
-  const displayFor = (setNo: number): string | null => {
-    const r = rowFor(setNo);
-    if (r) return `${displayWeight(pyFloat(r.weight) ?? 0, unit)} ${unit} × ${pyInt(r.reps) ?? 0}`;
-    return justLoggedText[setNo] ?? null;
-  };
-
   return (
-    <GlowCard glow={allDone ? tokens.colors.success : isNext ? activeColor : undefined}>
+    <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
         <Text className="flex-1 text-base font-bold text-text" numberOfLines={1}>{exercise}</Text>
         {onSubstitute ? (
@@ -260,9 +224,9 @@ export function ExerciseCard({
             <Text className="text-base" style={{ color: tint }}>⇄</Text>
           </Pressable>
         ) : null}
-        {/* "EXERCISE 1 OF 4" replaces the confusing "▸ NEXT 0/4" — sets progress
-            lives in the pips + compact rows below, not jammed into the title. */}
-        {allDone ? (
+        {/* "EXERCISE 1 OF 4" replaces the confusing "▸ NEXT 0/4"; set progress
+            is the pips below. */}
+        {done ? (
           <Text className="text-xs font-bold text-success">✓ DONE</Text>
         ) : position && total ? (
           <Text
@@ -292,79 +256,49 @@ export function ExerciseCard({
         <SetPips done={doneCount} target={targetSets} tint={tint} />
       </View>
 
-      {/* Column header — only above the hero row. The weight header is the KG⇄LB
-          toggle and now spans the value+stepper so "WEIGHT · KG" no longer
-          truncates to "WEIGH…" (Tyson 2026-07-16). */}
-      {heroSet !== null ? (
-        <View className="mb-s1 flex-row items-center gap-s1 px-[2px]">
-          <View style={{ width: compact ? 30 : 40 }} />
-          <Pressable
-            onPress={() => setExerciseUnit.mutate({ exercise, unit: unit === 'kg' ? 'lb' : 'kg' })}
-            accessibilityRole="button"
-            accessibilityLabel={`switch ${exercise} to ${unit === 'kg' ? 'pounds' : 'kilograms'}`}
-            testID={`${exercise}-unit`}
-            style={{ width: fieldW + stepperW + 4, minHeight: 24, justifyContent: 'center' }}
-            hitSlop={{ top: 8, bottom: 8 }}
-          >
-            <Text className="text-2xs font-bold" style={{ letterSpacing: 0.5, color: tint }} numberOfLines={1}>
-              {compact ? `WEIGHT ${unit.toUpperCase()}` : `WEIGHT · ${unit.toUpperCase()} ⇄`}
-            </Text>
-          </Pressable>
-          <Text
-            className="text-2xs font-bold text-text-mute"
-            style={{ width: fieldW + stepperW + 4, letterSpacing: 0.5 }}
-          >
-            REPS
+      {/* Column header. The weight header is the KG⇄LB toggle and spans the
+          value+stepper so "WEIGHT · KG" no longer truncates to "WEIGH…". */}
+      <View className="mb-s1 flex-row items-center gap-s1 px-[2px]">
+        <View style={{ width: compact ? 30 : 40 }} />
+        <Pressable
+          onPress={() => setExerciseUnit.mutate({ exercise, unit: unit === 'kg' ? 'lb' : 'kg' })}
+          accessibilityRole="button"
+          accessibilityLabel={`switch ${exercise} to ${unit === 'kg' ? 'pounds' : 'kilograms'}`}
+          testID={`${exercise}-unit`}
+          style={{ width: fieldW + stepperW + 4, minHeight: 24, justifyContent: 'center' }}
+          hitSlop={{ top: 8, bottom: 8 }}
+        >
+          <Text className="text-2xs font-bold" style={{ letterSpacing: 0.5, color: tint }} numberOfLines={1}>
+            {compact ? `WEIGHT ${unit.toUpperCase()}` : `WEIGHT · ${unit.toUpperCase()} ⇄`}
           </Text>
-        </View>
-      ) : null}
+        </Pressable>
+        <Text
+          className="text-2xs font-bold text-text-mute"
+          style={{ width: fieldW + stepperW + 4, letterSpacing: 0.5 }}
+        >
+          REPS
+        </Text>
+      </View>
 
-      {/* Previous sets (compact, above) · the ONE active set (hero) · upcoming
-          sets (compact, below). Tap any compact row to expand and edit it. */}
-      {setNos.map((setNo) => {
-        if (setNo === heroSet) {
-          const existing = rowFor(setNo);
-          const prefill = existing ? null : prefillForSet(last, setNo);
-          return (
-            <View
-              key={setNo}
-              style={{
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: `${activeColor}3a`,
-                backgroundColor: `${activeColor}0d`,
-                paddingHorizontal: 4,
-                paddingTop: 4,
-                marginBottom: 8,
-              }}
-            >
-              <SetRow
-                date={date}
-                workout={workout}
-                exercise={exercise}
-                setNo={setNo}
-                initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
-                initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
-                prefill={prefill}
-                onPr={onPr}
-                tint={tint}
-                onLogged={onLogged}
-                onSaved={onSetSaved}
-                durable={durable}
-                unit={unit}
-              />
-            </View>
-          );
-        }
+      {/* Every set is a full, editable row (Tyson 2026-07-17: all sets visible). */}
+      {Array.from({ length: targetSets }, (_, i) => i + 1).map((setNo) => {
+        const existing = loggedRows.find((r) => (pyInt(r.set) ?? 0) === setNo);
+        const prefill = existing ? null : prefillForSet(last, setNo);
         return (
-          <CompactSetRow
+          <SetRow
             key={setNo}
+            date={date}
+            workout={workout}
+            exercise={exercise}
             setNo={setNo}
-            text={displayFor(setNo)}
-            logged={isLogged(setNo)}
-            compact={compact}
-            onPress={() => setOverride(setNo)}
-            testID={`${exercise}-compact-${setNo}`}
+            initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
+            initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
+            prefill={prefill}
+            onPr={onPr}
+            tint={tint}
+            onLogged={onLogged}
+            durable={durable}
+            unit={unit}
           />
         );
       })}
@@ -435,7 +369,6 @@ function SetRow({
   onPr,
   tint,
   onLogged,
-  onSaved,
   durable = false,
   unit,
 }: {
@@ -450,9 +383,6 @@ function SetRow({
   onPr: () => void;
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
-  /** After a confirmed save: the parent advances the hero to the next set.
-   *  `display` is the "60 kg × 8" string to show on the collapsed row. */
-  onSaved?: (setNo: number, display: string) => void;
   durable?: boolean;
   /** The lens: what the athlete types/reads. Props and saves are ALWAYS kg. */
   unit: WeightUnit;
@@ -481,9 +411,6 @@ function SetRow({
   const [weightDirty, setWeightDirty] = useState(initialWeight !== '');
   const [repsDirty, setRepsDirty] = useState(initialReps !== '');
   const [floatXp, setFloatXp] = useState(false);
-  // Brief "✓ LOGGED" confirmation + glow before the parent collapses this row
-  // and focuses the next set (Tyson 2026-07-16).
-  const [justSaved, setJustSaved] = useState(false);
   const save = useSaveSet();
   const logged = initialWeight !== '';
 
@@ -524,10 +451,6 @@ function SetRow({
           else if (verdict.action === 'insert') playCoin();
           else if (verdict.action === 'update') playSelect();
           onLogged?.(verdict);
-          // Show ✓ LOGGED + glow, then hand off so the parent advances the hero.
-          setJustSaved(true);
-          const display = `${w} ${unit} × ${Math.trunc(r)}`;
-          setTimeout(() => onSaved?.(setNo, display), 850);
         },
       }
     );
@@ -537,19 +460,7 @@ function SetRow({
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   return (
-    <View
-      className="flex-row items-center gap-s1 rounded-lg px-[2px] py-s1"
-      style={
-        justSaved
-          ? {
-              backgroundColor: 'rgba(52,211,153,0.10)',
-              shadowColor: tokens.colors.success,
-              shadowOpacity: 0.5,
-              shadowRadius: 12,
-            }
-          : undefined
-      }
-    >
+    <View className="mb-s2 flex-row items-center gap-s1 px-[2px] py-s1">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
       <View className="justify-center" style={{ width: compact ? 30 : 40 }}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: compact ? 0 : 1 }}>
@@ -591,93 +502,29 @@ function SetRow({
       />
       <Pressable
         onPress={onSave}
-        disabled={save.isPending || justSaved}
-        className={`ml-auto items-center justify-center rounded-md px-s3 py-s3 ${
-          justSaved ? '' : logged ? 'border border-border bg-surface-2' : standardTint ? 'bg-accent' : ''
-        }`}
+        disabled={save.isPending}
+        className={`ml-auto rounded-md px-s2 py-s2 ${logged ? 'border border-border bg-surface-2' : standardTint ? 'bg-accent' : ''}`}
         style={
-          justSaved
-            ? { backgroundColor: tokens.colors.success, minWidth: 62 }
-            : logged
-              ? { minWidth: 62 }
-              : {
-                  minWidth: 62,
-                  backgroundColor: standardTint ? undefined : tint,
-                  shadowColor: tint,
-                  shadowOpacity: 0.45,
-                  shadowRadius: 10,
-                  elevation: 5,
-                }
+          logged
+            ? undefined
+            : {
+                backgroundColor: standardTint ? undefined : tint,
+                shadowColor: tint,
+                shadowOpacity: 0.45,
+                shadowRadius: 10,
+                elevation: 5,
+              }
         }
         testID={`${exercise}-save-${setNo}`}
       >
         {save.isPending ? (
           <ActivityIndicator size="small" color={logged ? tint : '#04121a'} />
-        ) : justSaved ? (
-          <Text className="text-xs font-bold" style={{ color: '#04121a' }}>✓ LOGGED</Text>
         ) : (
-          <Text className={`text-sm font-bold ${logged ? 'text-text-dim' : 'text-accent-ink'}`}>
-            {logged ? (compact ? 'SAVE' : 'UPDATE') : 'LOG'}
+          <Text className={`text-xs font-bold ${logged ? 'text-text-dim' : 'text-accent-ink'}`}>
+            {logged ? (compact ? '✓' : 'UPDATE') : 'LOG'}
           </Text>
         )}
       </Pressable>
     </View>
-  );
-}
-
-/**
- * A collapsed set (Tyson 2026-07-16): one line for a previous or upcoming set,
- * so only the ACTIVE set carries full inputs. Tap to expand and edit. `text` is
- * the "60 kg × 8" recap; absent = not logged yet. `justLogged` glows briefly
- * after a save, right before the hero focuses the next set.
- */
-function CompactSetRow({
-  setNo,
-  text,
-  logged,
-  compact,
-  onPress,
-  testID,
-}: {
-  setNo: number;
-  text: string | null;
-  logged: boolean;
-  compact: boolean;
-  onPress: () => void;
-  testID?: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`set ${setNo}${text ? `, ${text}` : ''}, tap to edit`}
-      testID={testID}
-      className="mb-s1 flex-row items-center gap-s2 rounded-lg px-s3"
-      style={{
-        minHeight: 40,
-        borderWidth: 1,
-        borderColor: logged ? tokens.colors['border-soft'] : tokens.colors.border,
-        backgroundColor: logged ? 'rgba(52,211,153,0.06)' : 'rgba(13,21,36,0.3)',
-      }}
-    >
-      <Text
-        className="text-2xs font-bold text-text-mute"
-        style={{ width: compact ? 28 : 44, letterSpacing: compact ? 0 : 1 }}
-      >
-        {compact ? `S${setNo}` : `SET ${setNo}`}
-      </Text>
-      {logged && text ? (
-        <Text className="flex-1 text-sm font-bold text-text" numberOfLines={1}>
-          {text}
-        </Text>
-      ) : (
-        <Text className="flex-1 text-sm text-text-mute">Tap to log</Text>
-      )}
-      {logged ? (
-        <Text className="text-sm font-bold text-success">✓</Text>
-      ) : (
-        <Text className="text-base text-text-mute">›</Text>
-      )}
-    </Pressable>
   );
 }
