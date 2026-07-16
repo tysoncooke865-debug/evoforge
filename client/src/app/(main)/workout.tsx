@@ -313,8 +313,8 @@ export default function WorkoutScreen() {
         </Text>
       ) : null}
 
-      {/* Progress. */}
-      <GlowCard glow={complete ? tokens.colors.success : undefined}>
+      {/* Progress — kept compact (Tyson 2026-07-16: it wasted ~30% height). */}
+      <GlowCard glow={complete ? tokens.colors.success : undefined} padding={12}>
         <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
           <View
             style={{
@@ -329,7 +329,7 @@ export default function WorkoutScreen() {
             }}
           />
         </View>
-        <View className="mt-s2 flex-row justify-between">
+        <View className="mt-s1 flex-row justify-between">
           <Text
             className={complete ? 'text-success' : 'text-text-mute'}
             allowFontScaling={false}
@@ -396,7 +396,7 @@ export default function WorkoutScreen() {
         </Text>
       ) : null}
 
-      {plan.map((entry) => {
+      {plan.map((entry, i) => {
         const { exercise, sets, reps, skipped } = entry;
         const facts = loggedFacts(exercise);
         return (
@@ -405,6 +405,8 @@ export default function WorkoutScreen() {
             date={date}
             workout={workoutName}
             exercise={exercise}
+            position={i + 1}
+            total={plan.length}
             targetSets={sets}
             scheme={reps}
             loggedRows={dayRows.filter((r) => String(r.exercise) === exercise)}

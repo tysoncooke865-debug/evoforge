@@ -60,14 +60,15 @@ function StepButton({
       }}
       onPressOut={stop}
       // Chrome lives on the FUSED PILL wrapper (P2 C2 item 11); the halves
-      // stay bare so the pill reads as one control.
+      // stay bare so the pill reads as one control. Narrower + quieter than the
+      // value box (Tyson 2026-07-16: the steppers must not shout over the number).
       className="items-center justify-center"
-      style={{ width: narrow ? 26 : 32, height: 27 }}
+      style={{ width: narrow ? 22 : 26, height: 26 }}
       accessibilityRole="button"
       accessibilityLabel={glyph === '+' ? 'increase' : 'decrease'}
       testID={testID}
     >
-      <Text className="text-sm font-bold" style={{ color: tint, lineHeight: 16 }}>
+      <Text className="text-2xs font-bold" style={{ color: `${tint}cc`, lineHeight: 14 }}>
         {glyph}
       </Text>
     </Pressable>
@@ -279,6 +280,11 @@ export function NumberField({
           style={{
             width,
             minHeight: 58,
+            // The number is the HERO of the row (Tyson 2026-07-16): big and
+            // bold so it reads at a glance, louder than the steppers beside it.
+            // Sized to still fit "137.5" in the field width.
+            fontSize: narrow ? 17 : 20,
+            fontWeight: '800',
             color: dim ? tokens.colors['text-dim'] : tokens.colors.text,
             fontVariant: ['tabular-nums'],
           }}
@@ -307,10 +313,10 @@ export function NumberField({
       <View
         style={{
           borderWidth: 1,
-          borderColor: `${tint}45`,
-          borderRadius: 12,
+          borderColor: `${tint}26`,
+          borderRadius: 10,
           overflow: 'hidden',
-          backgroundColor: `${tint}12`,
+          backgroundColor: `${tint}08`,
         }}
       >
         <StepButton
@@ -321,7 +327,7 @@ export function NumberField({
           narrow={narrow}
           testID={testID ? `${testID}-inc` : undefined}
         />
-        <View style={{ height: 1, backgroundColor: `${tint}40` }} />
+        <View style={{ height: 1, backgroundColor: `${tint}22` }} />
         <StepButton
           glyph="−"
           onStep={() => bump(-1)}

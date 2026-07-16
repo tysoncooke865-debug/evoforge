@@ -63,7 +63,10 @@ export function ScreenShell({ children }: { children: ReactNode }) {
         contentContainerClassName="items-center px-s4"
         contentContainerStyle={{
           paddingTop: Math.max(insets.top, 14),
-          paddingBottom: Math.max(insets.bottom, 12) + 72, // clear the tab bar, always
+          // Clear the tab bar (54 + bottom inset) with real breathing room, so
+          // a card's footer controls (+ SET / − SET / SKIP) never hide behind
+          // the nav (Tyson 2026-07-16).
+          paddingBottom: Math.max(insets.bottom, 12) + 96,
         }}
         showsVerticalScrollIndicator={false}
       >
