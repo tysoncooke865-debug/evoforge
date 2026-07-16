@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { CHAMPIONS } from '@/domain/battle-rpg/champions';
@@ -32,6 +32,7 @@ export function ChallengeHub({
   requirementFor,
   onPick,
   onJoined,
+  initialCode,
 }: {
   champion: ChampionId;
   input: PlayerCombatInput;
@@ -40,12 +41,31 @@ export function ChallengeHub({
   requirementFor: (id: ChampionId) => string;
   onPick: (id: ChampionId) => void;
   onJoined: (snap: ChallengeSnapshot) => void;
+  /** A code handed over by the Arena's universal join box — lands on the
+   *  JOIN tab prefilled and joins without a second button press. */
+  initialCode?: string;
 }) {
-  const [tab, setTab] = useState<0 | 1>(0);
-  const [code, setCode] = useState('');
+  const [tab, setTab] = useState<0 | 1>(initialCode ? 1 : 0);
+  const [code, setCode] = useState(initialCode ?? '');
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const create = useCreateChallenge();
   const join = useJoinChallenge();
+
+  // Arrived via the universal code box — the arena already verified the
+  // challenge exists, so join it without a second press. Once only: if it
+  // fails (deleted between probe and join), the hub sits on the JOIN tab,
+  // code prefilled, with the existing inline error explaining why.
+  const autoRef = useRef(false);
+  useEffect(() => {
+    if (!initialCode || autoRef.current) return;
+    autoRef.current = true;
+    join.mutate(initialCode, {
+      onSuccess: (snap) => {
+        if (snap) onJoined(snap);
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode]);
 
   return (
     <ScreenShell>

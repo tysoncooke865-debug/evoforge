@@ -43,11 +43,13 @@ import {
  * ?mode=training|rival|gym[&gym=iron_foundry]. Pushed over the tabs.
  */
 export default function BattleScreen() {
-  const params = useLocalSearchParams<{ mode?: string; gym?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; gym?: string; code?: string }>();
   const mode = (['gym', 'rival', 'versus', 'challenge'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
   const isChallenge = mode === 'challenge';
   const gymId = params.gym;
   const versus = mode === 'versus';
+  // The Arena's universal code box hands a verified challenge code over.
+  const challengeCode = typeof params.code === 'string' && params.code.length === 6 ? params.code : undefined;
 
   const { ready, branchV2, stats, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
@@ -134,6 +136,9 @@ export default function BattleScreen() {
     if (!joined) {
       return (
         <ChallengeHub
+          // A second code must remount the hub — /battle stays mounted across
+          // param swaps, so useState initialisers only run on a fresh key.
+          key={challengeCode ?? 'hub'}
           champion={playerChampion}
           input={playerInput}
           ownerName={ownerName}
@@ -141,6 +146,7 @@ export default function BattleScreen() {
           requirementFor={requirementFor}
           onPick={(id) => { setPicked(id); setSelectedChampion(id); }}
           onJoined={setJoined}
+          initialCode={challengeCode}
         />
       );
     }

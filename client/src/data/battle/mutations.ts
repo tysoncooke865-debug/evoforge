@@ -32,6 +32,17 @@ export function useBattleSnapshot(): Record<string, unknown> {
   };
 }
 
+/** invokeBattle failures keep the HTTP status so callers can tell "code
+ *  unknown" (404) from conflicts (409/403) and network failures (no status). */
+export class BattleFnError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number
+  ) {
+    super(message);
+  }
+}
+
 async function invokeBattle(fn: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke(fn, { body });
   if (error) {
@@ -46,10 +57,11 @@ async function invokeBattle(fn: string, body: Record<string, unknown>): Promise<
         // keep the gateway message
       }
     }
-    throw new Error(message);
+    throw new BattleFnError(message, ctx?.status);
   }
   if (data && typeof data === 'object' && 'error' in data && data.error) {
-    throw new Error(String(data.error));
+    // A 2xx body-level error carries no status — never mistaken for not-found.
+    throw new BattleFnError(String(data.error));
   }
   return (data ?? {}) as Record<string, unknown>;
 }
@@ -70,18 +82,55 @@ export function useCreateInvite() {
   });
 }
 
-export function useJoinBattle() {
+export type UniversalJoinResult =
+  | { kind: 'battle'; matchId: string }
+  | { kind: 'challenge'; code: string };
+
+/**
+ * ONE code box, TWO code namespaces. battle-join is tried first (a hit JOINS
+ * the match — the same side effect the old button had); ONLY its 404 falls
+ * through to the read-only RPG challenge lookup (get_rpg_challenge never
+ * increments plays). A 409/403 means the code exists HERE and must surface;
+ * a network error has no status and surfaces too — falling through would
+ * just fail again and mask the real cause.
+ */
+export function useUniversalJoin() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: ({ code, snapshot }: { code: string; snapshot: Record<string, unknown> }) =>
-      invokeBattle('battle-join', { code, snapshot }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+    mutationFn: async ({
+      code,
+      snapshot,
+    }: {
+      code: string;
+      snapshot: Record<string, unknown>;
+    }): Promise<UniversalJoinResult> => {
+      try {
+        const data = await invokeBattle('battle-join', { code, snapshot });
+        return { kind: 'battle', matchId: String(data.match_id) };
+      } catch (e) {
+        if (!(e instanceof BattleFnError) || e.status !== 404) throw e;
+      }
+      const { data, error } = await supabase.rpc('get_rpg_challenge', { p_code: code });
+      if (error) throw new Error('Could not check that code. Try again.');
+      if (!(data as { found?: boolean } | null)?.found) {
+        throw new BattleFnError('No battle or challenge with that code.', 404);
+      }
+      return { kind: 'challenge', code };
+    },
+    onSuccess: (r) => {
+      if (r.kind === 'battle') {
+        void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
+      }
     },
     onError: (e: Error) => {
-      useToastStore.getState().push({ kind: 'error', title: 'COULD NOT JOIN', subtitle: e.message });
+      const notFound = e instanceof BattleFnError && e.status === 404;
+      useToastStore.getState().push({
+        kind: 'error',
+        title: notFound ? 'CODE NOT FOUND' : 'COULD NOT JOIN',
+        subtitle: e.message,
+      });
     },
   });
 }

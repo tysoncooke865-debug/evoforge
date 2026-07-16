@@ -5,9 +5,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { progressionFeatures } from '@/data/progression/features';
 
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
-import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
+import { useBattleSnapshot, useCreateInvite, useUniversalJoin } from '@/data/battle/mutations';
 import { totalRoundsFor } from '@/domain/battle/engine';
-import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
+import { formatGlyph, formatLabel, normalizeCode, splitBattles } from '@/domain/battle/format';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { CodeCard, IconBadge, PressCard } from '@/ui/arena/battle-arena';
@@ -32,7 +32,7 @@ export default function ArenaScreen() {
   const router = useRouter();
   const snapshot = useBattleSnapshot();
   const invite = useCreateInvite();
-  const join = useJoinBattle();
+  const join = useUniversalJoin();
   const battles = useMyBattles();
   const results = useMyBattleScores();
   const [tab, setTab] = useState<0 | 1>(0);
@@ -55,15 +55,18 @@ export default function ArenaScreen() {
     );
   };
 
+  // ONE box, every game: a real-time battle code joins and opens the match;
+  // an RPG challenge code routes to the versus hub, which auto-joins it.
   const joinBattle = () => {
-    const clean = code.trim().toUpperCase();
-    if (clean.length !== 6) return;
+    const clean = normalizeCode(code);
+    if (!clean) return;
     join.mutate(
       { code: clean, snapshot },
       {
-        onSuccess: (data) => {
+        onSuccess: (r) => {
           setCode('');
-          router.push(`/arena/battle/${String(data.match_id)}`);
+          if (r.kind === 'battle') router.push(`/arena/battle/${r.matchId}`);
+          else router.push(`/battle?mode=challenge&code=${r.code}` as never);
         },
       }
     );
@@ -176,15 +179,7 @@ export default function ArenaScreen() {
         </GlowCard>
       ) : (
         <GlowCard glow={tokens.colors.epic}>
-          <View className="mb-s3 flex-row items-center gap-s3">
-            <IconBadge glyph="🔍" tint={tokens.colors.epic} />
-            <View className="flex-1">
-              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
-                ENTER BATTLE CODE
-              </Text>
-              <Text className="mt-s1 text-2xs text-text-mute">Six characters, read aloud across the gym.</Text>
-            </View>
-          </View>
+          {/* JUST the box — any game's code works here, so no per-game copy. */}
           <TextInput
             className="min-h-[52px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
             style={{
@@ -201,7 +196,7 @@ export default function ArenaScreen() {
           />
           <View className="mt-s3">
             <NeonButton
-              title="JOIN BATTLE · ENTER ARENA"
+              title="JOIN WITH CODE"
               onPress={joinBattle}
               disabled={code.trim().length !== 6}
               busy={join.isPending}
