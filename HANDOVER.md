@@ -316,6 +316,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
   Stale lvN_run_9/punch_4-6 removed. The old male companion character no
   longer exists anywhere. Regeneration recipe: the unpack + build script
   in the session scratchpad (frames land in assets/avatars/sprites).
+- **Victory = the FRONT DOUBLE BICEP (Tyson, 2026-07-16):** 9-frame flex
+  for stages 2-4 (stage 1 keeps the rotation sway until its art lands) —
+  frame counts now DERIVE from the FRAMES arrays (the COUNT tables are
+  gone; per-stage counts made a flat table a lie). Plays in the MISSION
+  COMPLETE ceremony and the Home header companion (anim="victory").
+- **THE LEVEL CUTOVER (Tyson, same day): the game level is the FORGE
+  LEVEL — earned XP only, from zero.** Header LV. module (Home + Train),
+  the level-up detector and the ceremony's LEVEL PATH read
+  user_progression via forgeProgressFromRow. A one-shot service-role
+  conversion granted migration:v1 events for ALL 8 users with history
+  (idempotent keys), froze each legacy xp_events total into
+  user_progression.legacy_xp, and set every evo_rating_current
+  next_review_at = now() so EVERY current user re-reviews with the
+  current formula at next open (users without ratings get their initial
+  then — the launch effect covers both). STILL LEGACY-KEYED ON PURPOSE:
+  avatar stages/evolution gates + the /rank leaderboard ride
+  summary.level so no character regresses; rekeying evolution to
+  Evo-gates is the next seam. summary.level no longer displays anywhere.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
