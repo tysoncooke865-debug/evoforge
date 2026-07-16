@@ -51,7 +51,10 @@ export function HomeHeader({
   const { width } = useWindowDimensions();
   const brandSize = width >= 460 ? 34 : width >= 390 ? 30 : 24;
   return (
-    <View className="w-full flex-row items-start justify-between" style={{ gap: 10 }}>
+    // zIndex: the AvatarHero's oversized pressable (its 450px stage rig)
+    // reaches up under this masthead; without the lift, the rank line's
+    // taps land on the character instead.
+    <View className="w-full flex-row items-start justify-between" style={{ gap: 10, zIndex: 10 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           className="text-text"
