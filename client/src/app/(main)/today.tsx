@@ -357,7 +357,14 @@ export default function TodayScreen() {
               >
                 {data.title.toUpperCase()}
               </Text>
-              <Text className="text-sm text-text-dim" numberOfLines={1} ellipsizeMode="tail" testID="hero-sub">
+              <Text
+                className="text-text-dim"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                allowFontScaling={false}
+                style={{ fontSize: 13, letterSpacing: 0, ...pixelFont(false) }}
+                testID="hero-sub"
+              >
                 {data.sub}
               </Text>
               {/* Fixed two-row chip area: 3 chips + a compact +N — a chip
@@ -375,7 +382,12 @@ export default function TodayScreen() {
                     className="rounded-pill border bg-surface-2 px-s2 py-s1"
                     style={{ borderColor: tokens.colors.border }}
                   >
-                    <Text className="text-center text-2xs font-bold text-text-dim" numberOfLines={1}>
+                    <Text
+                      className="text-center text-text-dim"
+                      numberOfLines={1}
+                      allowFontScaling={false}
+                      style={{ fontSize: 10, letterSpacing: 0.5, ...pixelFont(false) }}
+                    >
                       {p}
                     </Text>
                   </View>

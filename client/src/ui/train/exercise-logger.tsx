@@ -150,8 +150,8 @@ export function ExerciseCard({
         className="flex-row items-center justify-between rounded-xl px-s4 py-s3"
         style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}
       >
-        <View className="flex-1">
-          <Text className="text-sm font-bold text-text-mute" numberOfLines={1}>
+        <View className="flex-1 pr-s2">
+          <Text className="text-sm font-bold text-text-mute">
             {exercise}
           </Text>
           <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
@@ -211,7 +211,8 @@ export function ExerciseCard({
   return (
     <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
-        <Text className="flex-1 text-base font-bold text-text" numberOfLines={1}>{exercise}</Text>
+        {/* Full name, wraps — never truncated (Tyson 2026-07-17). */}
+        <Text className="flex-1 pr-s2 text-base font-bold text-text">{exercise}</Text>
         {onSubstitute ? (
           <Pressable
             onPress={onSubstitute}
