@@ -239,10 +239,10 @@ export default function ArenaScreen() {
           <BattleModeCard
             glyph="👥"
             tint={tokens.colors.epic}
-            title="VERSUS · PASS & PLAY"
-            note="Two players, one device — take turns choosing moves."
-            tag="LOCAL 1V1"
-            onPress={() => router.push('/battle?mode=versus' as never)}
+            title="VERSUS · BY CODE"
+            note="Challenge a friend by code — or pass-and-play on one device."
+            tag="ONLINE 1V1"
+            onPress={() => router.push('/battle?mode=challenge' as never)}
             testID="mode-versus"
           />
           <BattleModeCard

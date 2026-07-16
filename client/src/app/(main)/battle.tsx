@@ -23,6 +23,9 @@ import { CombatantHud } from '@/ui/battle/battle-bits';
 import { MoveGrid } from '@/ui/battle/move-grid';
 import { ChampionPicker, championSprite } from '@/ui/battle/champion-picker';
 import { VsIntro } from '@/ui/battle/vs-intro';
+import { ChallengeHub } from '@/ui/battle/challenge-hub';
+import { recordChallengeResult, type ChallengeSnapshot } from '@/data/battle-rpg-challenge';
+import { useAuth } from '@/data/auth-context';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
@@ -41,7 +44,8 @@ import {
  */
 export default function BattleScreen() {
   const params = useLocalSearchParams<{ mode?: string; gym?: string }>();
-  const mode = (['gym', 'rival', 'versus'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
+  const mode = (['gym', 'rival', 'versus', 'challenge'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
+  const isChallenge = mode === 'challenge';
   const gymId = params.gym;
   const versus = mode === 'versus';
 
@@ -53,6 +57,9 @@ export default function BattleScreen() {
 
   const [picked, setPicked] = useState<ChampionId | null>(storedChampion);
   const [p2Picked, setP2Picked] = useState<ChampionId>('titan');
+  const [joined, setJoined] = useState<ChallengeSnapshot | null>(null);
+  const { session } = useAuth();
+  const ownerName = (session?.user?.email ?? 'Challenger').split('@')[0];
 
   // Which champions the athlete has UNLOCKED (mirrors the CUSTOMISE roster
   // gates) — you can only battle with those.
@@ -79,7 +86,7 @@ export default function BattleScreen() {
   const [startedKey, setStartedKey] = useState<string | null>(null);
   const [runNonce, setRunNonce] = useState(0);
   const started = startedKey === paramKey;
-  useFocusEffect(useCallback(() => { setStartedKey(null); }, []));
+  useFocusEffect(useCallback(() => { setStartedKey(null); setJoined(null); }, []));
 
   // A picked-but-now-locked champion falls back to your (always-unlocked)
   // derived class.
@@ -120,6 +127,36 @@ export default function BattleScreen() {
         </View>
       </ScreenShell>
     );
+  }
+
+  if (isChallenge) {
+    const playerInput = { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore };
+    if (!joined) {
+      return (
+        <ChallengeHub
+          champion={playerChampion}
+          input={playerInput}
+          ownerName={ownerName}
+          unlocked={unlockedSet}
+          requirementFor={requirementFor}
+          onPick={(id) => { setPicked(id); setSelectedChampion(id); }}
+          onJoined={setJoined}
+        />
+      );
+    }
+    const challengeSetup: BattleSetup = {
+      mode: 'challenge',
+      playerChampion,
+      opponentChampion: joined.champion,
+      opponentName: joined.ownerName,
+      ai: 'balanced',
+      difficulty: 1,
+      player: playerInput,
+      opponentInput: joined.playerInput,
+      challengeCode: joined.code,
+      playerSprite: { branch: CHAMPIONS[playerChampion].spriteBranch, stage: 4 },
+    };
+    return <BattleRunner key={`challenge:${joined.code}`} setup={challengeSetup} />;
   }
 
   if (!started) {
@@ -269,7 +306,8 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
     const { resultKey } = settleBattle(setup, won, s.turnNumber, setup.opponentChampion, setup.opponentName);
     // Real, server-authoritative reward (idempotent + daily-capped). Casual
     // versus duels bank nothing — bragging rights only.
-    if (!setup.versus) grantReward.mutate({ resultKey, mode: setup.mode, won });
+    if (!setup.versus && setup.mode !== 'challenge') grantReward.mutate({ resultKey, mode: setup.mode, won });
+    if (setup.mode === 'challenge' && setup.challengeCode) void recordChallengeResult(setup.challengeCode, won);
     if (won) playVictory(); else playDefeat();
     setResultOpen(true);
   });

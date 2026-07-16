@@ -36,7 +36,7 @@ export function rewardsFor(
   won: boolean,
   ctx: { gymId?: string; gymAlreadyCleared?: boolean }
 ): BattleRewards {
-  if (mode === 'versus') return { coins: 0, forgeXp: 0 }; // casual friend duels — bragging rights only
+  if (mode === 'versus' || mode === 'challenge') return { coins: 0, forgeXp: 0 }; // casual friend duels — bragging rights only
   if (mode === 'training') return trainingReward();
   if (mode === 'rival') return rivalReward(won);
   const gym = GYMS.find((g) => g.id === ctx.gymId);

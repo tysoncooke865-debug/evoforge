@@ -683,7 +683,28 @@ Owner: Tyson. He works through other Claude sessions too — **always
   VS preview (P1 vs P2 pickers), the pass-device gate, and a resolved
   versus turn — zero page errors.
 
-**Migrations applied through `033`. Next free number: `034`**
+- **VERSUS BY CODE — async friend battles (Tyson: "it was meant to be VS
+  join by code", migration 034, 2026-07-16):** create a challenge from your
+  champion → get a 6-char code → a friend JOINS by code from their OWN
+  device and battles YOUR champion (AI-driven from your real saved stats).
+  Wins/losses post back (record_rpg_challenge_result) so you see how your
+  champion fares. rpg_challenges (owner-RLS) + 3 definer RPCs
+  (create/get/record — cross-user join goes through get_rpg_challenge, not
+  the table). Code gen = md5 hex (pgcrypto gen_random_bytes is NOT enabled
+  — use md5(random()||clock_timestamp())). FALSIFIED across two accounts:
+  create → cross-user join → RAW table read blocked by RLS → record →
+  owner sees plays/defeats → unknown code safe → owner self-play not
+  counted. Client: data/battle-rpg-challenge.ts, ui/battle/challenge-hub
+  (CREATE/JOIN tabs + a code display + a same-device pass-and-play link).
+  Battle: mode 'challenge' builds the opponent from the CHALLENGER's real
+  input (capStats clamps power ≤1.35× the joiner so it's tough not
+  impossible); no reward (bragging rights); result posts back. The Arena
+  "VERSUS · BY CODE" card opens the hub (pass-and-play kept as a
+  same-device option). Verified in-browser 2-account: ALPHA created a
+  code, BRAVO joined + fought ALPHA's champion to a result. LIVE
+  move-by-move PvP remains the documented next step.
+
+**Migrations applied through `034`. Next free number: `035`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
 

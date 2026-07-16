@@ -38,20 +38,42 @@ export interface BattleSetup {
   /** VERSUS (pass-and-play): the opponent is a second HUMAN on this device,
    *  not the AI. Each turn collects P1's move then P2's move, then resolves. */
   versus?: boolean;
+  /** CHALLENGE (join-by-code): build the opponent from the CHALLENGER's real
+   *  stats (their champion as they made it), not normalised to the joiner. */
+  opponentInput?: PlayerCombatInput;
+  /** The challenge code, for posting the result back. */
+  challengeCode?: string;
 }
 
 const EVENT_MS = 780;
 
 /** Versus uses balanced (training) scaling — both are human. */
-const scalingFor = (m: BattleMode): ScalingContext => (m === 'versus' ? 'training' : m);
+const scalingFor = (m: BattleMode): ScalingContext => (m === 'versus' || m === 'challenge' ? 'training' : m);
+
+/** Clamp a stat block so its combat power does not exceed `ceil` — keeps a
+ *  challenger's champion tough but never impossible. */
+function capStats(s: import('@/domain/battle-rpg/types').BattleStats, ceil: number) {
+  const power = combatPower(s);
+  if (power <= ceil) return s;
+  const k = ceil / power;
+  return {
+    ...s,
+    maxHealth: Math.round(s.maxHealth * k), currentHealth: Math.round(s.maxHealth * k),
+    power: Math.round(s.power * k * 10) / 10, defence: Math.round(s.defence * k * 10) / 10,
+  };
+}
 
 export function makeBattle(setup: BattleSetup): BattleState {
   const playerStats = createBattleStats(setup.playerChampion, setup.player, scalingFor(setup.mode));
   const targetPower = combatPower(playerStats);
-  const oppStats = createBattleStats(setup.opponentChampion, null, scalingFor(setup.mode), {
-    targetPower,
-    difficulty: setup.difficulty,
-  });
+  const oppStats = setup.opponentInput
+    ? // The challenger's REAL champion (their build), lightly capped so it is
+      // never an impossible wall (opponent power clamped near 1.35× the joiner).
+      capStats(createBattleStats(setup.opponentChampion, setup.opponentInput, 'training'), targetPower * 1.35)
+    : createBattleStats(setup.opponentChampion, null, scalingFor(setup.mode), {
+        targetPower,
+        difficulty: setup.difficulty,
+      });
   const player = buildCombatant({
     championId: setup.playerChampion,
     name: CHAMPIONS[setup.playerChampion].name,
