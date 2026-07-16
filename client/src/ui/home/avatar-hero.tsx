@@ -97,8 +97,8 @@ export function AvatarHero({
           icon={<PixelShirt size={18} color={tokens.colors.accent} />}
           label="CUSTOMISE"
           testID="hero-customise"
-          onPress={openCharacter}
-          accessibilityHint="Opens the Forge, your character screen"
+          onPress={() => router.push('/customise' as never)}
+          accessibilityHint="Opens the champion select and customiser"
         />
       ) : null}
     </>

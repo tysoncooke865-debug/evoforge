@@ -1,10 +1,20 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
+import { EMOTES, cosmeticUnlocked, type EmoteId } from '@/domain/customise';
 import { progressPercent } from '@/domain/xp';
+import { useLoadoutStore } from '@/state/loadout-store';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
+
+/** The equipped emote, validated against the live Forge Level. Reads the
+ *  store with a selector so only emote changes re-render the header. */
+function useEquippedEmote(forgeLevel: number): EmoteId {
+  const emoteId = useLoadoutStore((s) => s.loadout.emoteId);
+  const emote = EMOTES.find((e) => e.id === emoteId);
+  return emote && cosmeticUnlocked(emote.unlock, forgeLevel) ? emote.id : 'victory';
+}
 
 /**
  * HOME_REDESIGN §1 — the safe-area masthead. Left: the game's name and
@@ -25,6 +35,7 @@ export function HomeHeader({
   xpIntoLevel: number;
   xpNeeded: number;
 }) {
+  const emote = useEquippedEmote(level);
   const pct = progressPercent(xpIntoLevel, xpNeeded);
   const toNext = Math.max(0, xpNeeded - xpIntoLevel);
   const nextLevel = Math.min(level + 1, 100);
@@ -68,9 +79,10 @@ export function HomeHeader({
         className="flex-row items-center rounded-lg border p-s1"
         style={{ gap: 8, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
       >
-        {/* The header companion FLEXES (Tyson, 2026-07-16): the victory
-            anim is the front double bicep on aesthetic stages 2-4. */}
-        <CompanionMenuButton anim="victory" height={40} />
+        {/* The header companion plays the EQUIPPED EMOTE (CUSTOMISE,
+            2026-07-16) — default remains the victory flex; a locked emote
+            (gates re-checked against the live Forge Level) falls back. */}
+        <CompanionMenuButton anim={emote} height={40} />
         <Pressable
           onPress={() => router.push('/profile' as never)}
           accessibilityRole="button"

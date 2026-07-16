@@ -393,6 +393,38 @@ Owner: Tyson. He works through other Claude sessions too — **always
   GIF's FIRST frame per spec — a drawImage frame-diff is ALWAYS static;
   diff SCREENSHOTS instead.
 
+- **CUSTOMISE — the champion select (Tyson, 2026-07-16):** Home's
+  CUSTOMISE button now opens `/customise` (hidden Tabs.Screen pushed over
+  Home — tab bar stays, Home keeps its scroll). Structure: roster grid
+  (real classes; locks are the LIVE branch gates via branchPathsV2 +
+  honest ??? COMING SOON slots) → HeroStage preview with live gates for
+  locked champions → evolution-stage carousel (real ladders; locked
+  stages previewable) → OUTFIT/AURA/EFFECTS/EMOTES tabs → EQUIP.
+  PREVIEW ≠ EQUIPPED: the screen edits a local Selection; EQUIP writes
+  the persisted loadout-store (AsyncStorage `evoforge-loadout`, cleared
+  on sign-out in auth-context WITH its persisted copy — the every-cache
+  doctrine). `domain/customise.ts` is the pure model (26 vitest pins):
+  buildRoster/stageOptions/equipState/resolveDisplay — resolveDisplay
+  re-validates the loadout against live state ON EVERY READ, so a gate
+  that closes after equip silently falls back to the derived identity.
+  Home renders through `data/use-display-identity.ts`; the header
+  companion plays the equipped EMOTE (the real companion anims, forge-
+  level gated). NOTHING here invents progression: roster locks = branch
+  gates, stage locks = ladders, cosmetic gates = real Forge Level.
+- **SKINS (Tyson: "red, green, yellow, orange, white, black recolours of
+  all skins", 2026-07-16):** 120 generated palette swaps (luminance
+  duotone, scratchpad gen_skins.py — regenerate in place when base art
+  changes): both male lines' rotations+stills × 4 stages × 6 colours
+  (assets/sprites/skins/) + female aesthetic painted × 6
+  (assets/avatars/skins/). `ui/character/avatar-skins.ts` is a GENERATED
+  require map; `skinned*` resolvers return undefined for 'standard'/
+  missing sets and every caller falls back to base art — a skin can
+  recolour a body, never substitute one. Applied on Home hero, customise
+  preview, roster/stage/outfit cards. Companion strips are NOT skinned
+  (v1 scope). Falsified in-browser: select red → equip → Home hero
+  serves aesthetic-red-stage3.gif → SURVIVES A FULL RELOAD → standard
+  re-equipped (cleanup).
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).

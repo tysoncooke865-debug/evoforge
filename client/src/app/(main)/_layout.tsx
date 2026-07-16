@@ -215,6 +215,8 @@ export default function MainLayout() {
       {/* TRAIN_PAGE_V2: the workout is a PAGE, pushed over Train. Routable,
           hidden from the bar (the bar stays visible on it). */}
       <Tabs.Screen name="workout" options={{ href: null }} />
+      {/* CUSTOMISE: the champion-select page, pushed over Home. */}
+      <Tabs.Screen name="customise" options={{ href: null }} />
       <Tabs.Screen name="log" options={{ href: null }} />
       <Tabs.Screen name="ai" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />

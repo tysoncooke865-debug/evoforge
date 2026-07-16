@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { useSessionStore } from '@/state/session-store';
+import { useLoadoutStore } from '@/state/loadout-store';
 import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
 
@@ -65,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useSessionStore.getState().reset();
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-session-v1').catch(() => undefined)
+    );
+    // The equipped loadout (skin/aura/emote/stage) is PERSISTED too — the
+    // next athlete on this device must not wear the last one's costume.
+    useLoadoutStore.getState().reset();
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      AsyncStorage.removeItem('evoforge-loadout').catch(() => undefined)
     );
   };
 

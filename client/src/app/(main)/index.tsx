@@ -11,10 +11,11 @@ import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutLog, useCar
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { useDisplayIdentity } from '@/data/use-display-identity';
 import { BUILT_IN_DAYS, useDayPlan } from '@/data/use-day-plan';
-import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
+import { raritySlug } from '@/domain/avatar-stats';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
-import { evolutionNameV2, nextEvolutionV2, shredderName, shredderStage } from '@/domain/branches-v2';
+import { nextEvolutionV2 } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { deriveMission } from '@/domain/home-mission';
 import { libraryMuscleFor } from '@/domain/exercise-library';
@@ -33,7 +34,6 @@ import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } f
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import tokens from '@/theme/tokens';
-import { animatedAvatar, avatarArtV2, stillAvatar } from '@/ui/character/avatar-art';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { EvoCore } from '@/ui/home/evo-core';
@@ -76,7 +76,7 @@ function DriftWarning({ drift, source }: { drift: number; source: string }) {
 }
 
 export default function HomeScreen() {
-  const { summary, stats, bfMid, branchV2, sex, ready } = useAvatarData();
+  const { summary, stats, bfMid, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
   const [showRadar, setShowRadar] = useState(false);
@@ -196,8 +196,12 @@ export default function HomeScreen() {
   // ---- This week (Monday-start, the contract's window). ----
   const weekTotals = periodTotals(workouts.data ?? [], cardio.data ?? [], weekStart(todayIso), todayIso);
 
-  // ---- Character identity. ----
-  const evolution = nextEvolutionV2(branchV2, {
+  // ---- Character identity — the DISPLAY identity (CUSTOMISE, 2026-07-16):
+  // the derived truth with the equipped loadout applied, re-validated
+  // against live gates on every read (a closed gate falls back silently).
+  const identity = useDisplayIdentity();
+  const displayBranch = identity.display.branch;
+  const evolution = nextEvolutionV2(displayBranch, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
     bfMid,
@@ -205,11 +209,11 @@ export default function HomeScreen() {
     cardioMinutes: summary.cardioMinutes,
   });
   const readiness = evolutionReadiness(evolution.requirements);
-  const stage = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
-  const art = avatarArtV2(branchV2, stage, sex);
+  const stage = identity.display.stage;
   const slug = raritySlug(summary.level);
-  const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
-  const formName = branchV2 === 'shredder' ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level);
+  const rarityColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const auraColour = identity.display.auraColour ?? rarityColour;
+  const formName = identity.display.formName;
 
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
@@ -226,13 +230,13 @@ export default function HomeScreen() {
 
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero
-        branch={stats.branch}
+        branch={identity.display.donor}
         stage={stage}
         auraColour={auraColour}
-        source={art.source}
-        animatedSource={animatedAvatar(branchV2, stage, sex)}
-        stillSource={stillAvatar(branchV2, stage, sex)}
-        silhouette={!art.hasArt}
+        source={identity.paintedSource}
+        animatedSource={identity.animatedSource}
+        stillSource={identity.stillSource}
+        silhouette={!identity.hasArt}
         tierName={slug.toUpperCase()}
         tierColour={auraColour}
         formName={formName}
