@@ -11,16 +11,22 @@ import {
 } from '@/data/nutrition';
 import {
   GOAL_LABEL,
+  canAddMeal,
+  canRemoveMeal,
+  effectiveMealCount,
   intakeProgress,
   kjToKcal,
+  mealTotals,
   meterState,
   type Goal,
 } from '@/domain/nutrition';
 import { pyFloat } from '@/domain/py';
 import { todayIso as calendarToday } from '@/domain/today';
+import { mealCountOf, useFuelStore } from '@/state/fuel-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
+import { Field } from '@/ui/core/field';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
@@ -70,6 +76,15 @@ export default function FuelScreen() {
   const [amount, setAmount] = useState('');
   const [label, setLabel] = useState('');
 
+  // MEALS: the day's slots. Stored count is date-guarded; entries force it up.
+  const storedMealCount = useFuelStore(mealCountOf);
+  const setMealCount = useFuelStore((s) => s.setMealCount);
+  const entries = log.data ?? [];
+  const mealCount = effectiveMealCount(storedMealCount, entries);
+  const slotTotals = mealTotals(entries, mealCount);
+  const [openMeal, setOpenMeal] = useState<number | null>(null);
+  const [mealAmount, setMealAmount] = useState('');
+
   // Converter state — self-contained, persists nothing.
   const [convKj, setConvKj] = useState('');
   const [convKcal, setConvKcal] = useState('');
@@ -106,6 +121,22 @@ export default function FuelScreen() {
   const timeOf = (ts: string): string => {
     const d = new Date(ts);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Log into a meal slot — same validation and toast as the quick log.
+  const logMeal = (slot: number) => {
+    const v = pyFloat(mealAmount);
+    const kcal = v === null || v <= 0 ? null : Math.round(v);
+    if (kcal === null || kcal > 6000) {
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'NOT A MEAL',
+        subtitle: kcal === null ? 'Enter an amount above zero.' : 'Entries cap at 6,000 kcal.',
+      });
+      return;
+    }
+    logCalories.mutate({ date: todayIso, kcal, label: null, mealNo: slot });
+    setMealAmount('');
   };
 
   const kcalPreview = unit === 1 ? enteredKcal() : null;
@@ -193,6 +224,134 @@ export default function FuelScreen() {
             </View>
           </View>
         )}
+      </GlowCard>
+
+      {/* MEALS — the day's structure. Slots hold entries; the footer bumps
+          the count exactly like Train's ＋/− SET. */}
+      <GlowCard>
+        <SectionLabel>MEALS</SectionLabel>
+        {Array.from({ length: mealCount }, (_, i) => i + 1).map((slot) => {
+          const slotEntries = entries.filter((e) => e.meal_no === slot);
+          const total = slotTotals[slot - 1] ?? 0;
+          const open = openMeal === slot;
+          return (
+            <View key={slot} className={slot < mealCount ? 'border-b border-border-soft' : undefined}>
+              <Pressable
+                onPress={() => {
+                  setOpenMeal(open ? null : slot);
+                  setMealAmount('');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Meal ${slot}: ${total} kilocalories. ${open ? 'Collapse' : 'Expand'}.`}
+                testID={`fuel-meal-${slot}`}
+                className="flex-row items-center justify-between"
+                style={{ minHeight: 44 }}
+              >
+                <Text
+                  className="text-text-mute"
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+                >
+                  {open ? '▾ ' : '▸ '}MEAL {slot}
+                </Text>
+                <Text
+                  className={total > 0 ? 'text-text' : 'text-text-mute'}
+                  allowFontScaling={false}
+                  style={{ fontSize: 16, ...pixelFont() }}
+                >
+                  {total > 0 ? `${total.toLocaleString()} KCAL` : '—'}
+                </Text>
+              </Pressable>
+              {open ? (
+                <View className="pb-s2">
+                  {slotEntries.map((e) => (
+                    <View key={e.id} className="flex-row items-center">
+                      <View className="flex-1">
+                        <Text className="text-2xs text-text-mute">{timeOf(e.timestamp)}</Text>
+                      </View>
+                      <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+                        {Math.round(Number(e.kcal)).toLocaleString()} kcal
+                      </Text>
+                      <Pressable
+                        onPress={() => deleteEntry.mutate({ id: e.id, date: e.date })}
+                        disabled={e.id.startsWith('temp-')}
+                        accessibilityRole="button"
+                        accessibilityLabel="delete meal entry"
+                        className="ml-s2 items-center justify-center"
+                        style={{ minWidth: 44, minHeight: 44, opacity: e.id.startsWith('temp-') ? 0.3 : 1 }}
+                        testID={`fuel-meal-delete-${e.id}`}
+                      >
+                        <Text className="text-sm text-text-mute">✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                  <View className="flex-row items-end gap-s2">
+                    <View className="flex-1">
+                      <Field
+                        label="KCAL"
+                        value={mealAmount}
+                        onChange={setMealAmount}
+                        integer
+                        testID={`fuel-meal-${slot}-kcal`}
+                      />
+                    </View>
+                    <Pressable
+                      onPress={() => logMeal(slot)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`log to meal ${slot}`}
+                      className="items-center justify-center rounded-md border px-s3"
+                      style={{ minHeight: 44, borderColor: `${tokens.colors.accent}59` }}
+                      testID={`fuel-meal-${slot}-log`}
+                    >
+                      <Text
+                        className="text-accent"
+                        allowFontScaling={false}
+                        style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+                      >
+                        LOG
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+        {/* One VISIBLE tap per action — the exercise-logger footer, verbatim
+            rules: − MEAL is absent, not disabled, at the floor. */}
+        <View className="mt-s2 flex-row items-center border-t border-border-soft pt-s1">
+          {canAddMeal(mealCount) ? (
+            <Pressable
+              onPress={() => setMealCount(mealCount + 1)}
+              accessibilityRole="button"
+              accessibilityLabel="add a meal"
+              className="items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+              testID="fuel-meal-add"
+            >
+              <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+                ＋ MEAL
+              </Text>
+            </Pressable>
+          ) : null}
+          {canRemoveMeal(mealCount, entries) ? (
+            <Pressable
+              onPress={() => {
+                setMealCount(mealCount - 1);
+                if (openMeal === mealCount) setOpenMeal(null);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="remove a meal"
+              className="items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+              testID="fuel-meal-remove"
+            >
+              <Text className="text-2xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+                − MEAL
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </GlowCard>
 
       {/* QUICK LOG — either unit, one tap. */}
@@ -286,11 +445,12 @@ export default function FuelScreen() {
         </View>
       </GlowCard>
 
-      {/* TODAY — what moved the meter. */}
-      {(log.data ?? []).length > 0 ? (
+      {/* TODAY — the quick-adds. Meal entries live (and delete) inside their
+          slots above; listing them twice would be noise. The meter sums all. */}
+      {entries.filter((e) => e.meal_no === null).length > 0 ? (
         <GlowCard>
-          <SectionLabel>TODAY</SectionLabel>
-          {(log.data ?? []).map((e) => (
+          <SectionLabel>TODAY · QUICK ADDS</SectionLabel>
+          {entries.filter((e) => e.meal_no === null).map((e) => (
             <View key={e.id} className="mb-s2 flex-row items-center">
               <View className="flex-1">
                 <Text className="text-sm font-bold text-text" numberOfLines={1}>
