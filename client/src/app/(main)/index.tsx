@@ -66,14 +66,24 @@ import { StatRadar } from '@/ui/character/stat-radar';
  */
 /** Drift is only alarming when it ISN'T explained by server-granted XP
  *  (battles, adjustments) — those are legitimate ledger-over-derived
- *  surplus, mirroring migration 014's leaderboard rule. */
+ *  surplus. SUBTRACT the explained part (migration 014's rule, exactly as
+ *  rank.tsx applies it): the old equality check meant ANY residue made the
+ *  whole battle amount read as drift ("ledger drift 840" for 750 of honest
+ *  battle XP plus 90 of residue). While the breakdown is still loading,
+ *  say nothing — a warning that flashes and retracts teaches athletes to
+ *  ignore it. */
 function DriftWarning({ drift, source }: { drift: number; source: string }) {
   const serverGranted = useServerGrantedXp();
   if (drift === 0) return null;
-  if (serverGranted.data !== null && serverGranted.data !== undefined && drift === serverGranted.data) return null;
+  if (serverGranted.isPending) return null;
+  const unexplained =
+    serverGranted.data === null || serverGranted.data === undefined
+      ? drift // breakdown unavailable: fall back to the strict rule
+      : drift - serverGranted.data;
+  if (unexplained === 0) return null;
   return (
     <Text className="text-2xs text-warn">
-      ledger drift {drift} · source: {source}
+      ledger drift {unexplained} · source: {source}
     </Text>
   );
 }
