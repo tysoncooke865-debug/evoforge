@@ -74,6 +74,32 @@ export default function MainLayout() {
     }
   }, [hydrated, active, activeSource, session, profile.data]);
 
+  // OPTIMISE (2026-07-16): idle-time tab preload. With async routes, a
+  // tab's FIRST visit pays its chunk fetch + first render; prefetch mounts
+  // the other four in the background once the app is idle, so every tab
+  // switch is a pure show. Safe by audit: none of the tab screens has
+  // mount-time subscriptions (focus-scoped effects stay focus-scoped), and
+  // their queries share the already-warm cache. The workout page is NOT
+  // preloaded — it is params-dependent.
+  const prefetchedRef = useRef(false);
+  useEffect(() => {
+    if (prefetchedRef.current || !session || profile.data === undefined) return;
+    prefetchedRef.current = true;
+    const warm = () => {
+      for (const href of ['/today', '/progress', '/avatar', '/arena']) {
+        try {
+          router.prefetch(href as never);
+        } catch {
+          // Preload is an optimisation, never a failure mode.
+        }
+      }
+    };
+    type IdleWindow = { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    const w = globalThis as IdleWindow;
+    if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(warm, { timeout: 4000 });
+    else setTimeout(warm, 2500);
+  }, [session, profile.data]);
+
   // Level-up detector: compares CONFIRMED summary.level across refetches.
   // First observation only arms it (no ceremony for merely opening the app);
   // multi-level jumps celebrate once, from the old level to the new.

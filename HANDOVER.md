@@ -157,6 +157,13 @@ Owner: Tyson. He works through other Claude sessions too — **always
     avatar-card — unreachable after the Home redesign).
   - **Motion**: root boot cross-fade (M3) + ScreenShell one-shot focus
     fade/rise (M1), both reduced-motion gated; verify-motion still green.
+  - **Idle tab preload** ((main)/_layout): once signed in + idle,
+    `router.prefetch` background-mounts the four sibling tabs, so every
+    tab switch is 60–80ms with ZERO network (falsified with a
+    request-counting tour). Safe by audit: no tab screen has mount-time
+    subscriptions; focus-scoped effects stay focus-scoped. The workout
+    page is NOT preloaded (params-dependent). If a future tab screen
+    gains a mount effect, re-audit this list.
   - Moving a ui file one level deeper breaks its `../assets/` imports —
     the codemod missed them once; tsc alone does NOT catch broken asset
     requires (only `expo export` does). Export before trusting a move.
