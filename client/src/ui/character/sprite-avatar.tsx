@@ -14,7 +14,7 @@ import Animated, {
 
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage } from '@/domain/avatar-stats';
-import { shredderStage } from '@/domain/branches-v2';
+import { companionLine, shredderStage } from '@/domain/branches-v2';
 
 /**
  * The animated pixel companion — Tyson's Cyber Athlete LV.1–LV.4 sheets,
@@ -390,10 +390,208 @@ const ASPECT_F: Record<Stage, Record<Anim, number>> = {
   4: { idle: 112 / 206, run: 152 / 172, punch: 217 / 171, victory: 129 / 219 },
 };
 
+/** THE MASS LINE (Tyson's redesign, 2026-07-16): mass/titan athletes get
+ *  their own companion - idle rotation, run, jab, most-muscular/double
+ *  bicep victory per stage. Line selection lives in SpriteCompanion. */
+const STRIPS_M: Record<Stage, Record<Anim, number>> = {
+  1: {
+    idle: require('../../assets/avatars/sprites/lv1m_idle_strip.png'),
+    run: require('../../assets/avatars/sprites/lv1m_run_strip.png'),
+    punch: require('../../assets/avatars/sprites/lv1m_punch_strip.png'),
+    victory: require('../../assets/avatars/sprites/lv1m_victory_strip.png'),
+  },
+  2: {
+    idle: require('../../assets/avatars/sprites/lv2m_idle_strip.png'),
+    run: require('../../assets/avatars/sprites/lv2m_run_strip.png'),
+    punch: require('../../assets/avatars/sprites/lv2m_punch_strip.png'),
+    victory: require('../../assets/avatars/sprites/lv2m_victory_strip.png'),
+  },
+  3: {
+    idle: require('../../assets/avatars/sprites/lv3m_idle_strip.png'),
+    run: require('../../assets/avatars/sprites/lv3m_run_strip.png'),
+    punch: require('../../assets/avatars/sprites/lv3m_punch_strip.png'),
+    victory: require('../../assets/avatars/sprites/lv3m_victory_strip.png'),
+  },
+  4: {
+    idle: require('../../assets/avatars/sprites/lv4m_idle_strip.png'),
+    run: require('../../assets/avatars/sprites/lv4m_run_strip.png'),
+    punch: require('../../assets/avatars/sprites/lv4m_punch_strip.png'),
+    victory: require('../../assets/avatars/sprites/lv4m_victory_strip.png'),
+  },
+};
+
+const FRAMES_M: Record<Stage, Record<Anim, number[]>> = {
+  1: {
+    idle: [
+      require('../../assets/avatars/sprites/lv1m_idle_1.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_2.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_3.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_4.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_5.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_6.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_7.png'),
+      require('../../assets/avatars/sprites/lv1m_idle_8.png'),
+    ],
+    run: [
+      require('../../assets/avatars/sprites/lv1m_run_1.png'),
+      require('../../assets/avatars/sprites/lv1m_run_2.png'),
+      require('../../assets/avatars/sprites/lv1m_run_3.png'),
+      require('../../assets/avatars/sprites/lv1m_run_4.png'),
+      require('../../assets/avatars/sprites/lv1m_run_5.png'),
+      require('../../assets/avatars/sprites/lv1m_run_6.png'),
+      require('../../assets/avatars/sprites/lv1m_run_7.png'),
+      require('../../assets/avatars/sprites/lv1m_run_8.png'),
+    ],
+    punch: [
+      require('../../assets/avatars/sprites/lv1m_punch_1.png'),
+      require('../../assets/avatars/sprites/lv1m_punch_2.png'),
+      require('../../assets/avatars/sprites/lv1m_punch_3.png'),
+    ],
+    victory: [
+      require('../../assets/avatars/sprites/lv1m_victory_1.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_2.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_3.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_4.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_5.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_6.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_7.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_8.png'),
+      require('../../assets/avatars/sprites/lv1m_victory_9.png'),
+    ],
+  },
+  2: {
+    idle: [
+      require('../../assets/avatars/sprites/lv2m_idle_1.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_2.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_3.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_4.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_5.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_6.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_7.png'),
+      require('../../assets/avatars/sprites/lv2m_idle_8.png'),
+    ],
+    run: [
+      require('../../assets/avatars/sprites/lv2m_run_1.png'),
+      require('../../assets/avatars/sprites/lv2m_run_2.png'),
+      require('../../assets/avatars/sprites/lv2m_run_3.png'),
+      require('../../assets/avatars/sprites/lv2m_run_4.png'),
+      require('../../assets/avatars/sprites/lv2m_run_5.png'),
+      require('../../assets/avatars/sprites/lv2m_run_6.png'),
+      require('../../assets/avatars/sprites/lv2m_run_7.png'),
+      require('../../assets/avatars/sprites/lv2m_run_8.png'),
+    ],
+    punch: [
+      require('../../assets/avatars/sprites/lv2m_punch_1.png'),
+      require('../../assets/avatars/sprites/lv2m_punch_2.png'),
+      require('../../assets/avatars/sprites/lv2m_punch_3.png'),
+    ],
+    victory: [
+      require('../../assets/avatars/sprites/lv2m_victory_1.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_2.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_3.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_4.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_5.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_6.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_7.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_8.png'),
+      require('../../assets/avatars/sprites/lv2m_victory_9.png'),
+    ],
+  },
+  3: {
+    idle: [
+      require('../../assets/avatars/sprites/lv3m_idle_1.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_2.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_3.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_4.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_5.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_6.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_7.png'),
+      require('../../assets/avatars/sprites/lv3m_idle_8.png'),
+    ],
+    run: [
+      require('../../assets/avatars/sprites/lv3m_run_1.png'),
+      require('../../assets/avatars/sprites/lv3m_run_2.png'),
+      require('../../assets/avatars/sprites/lv3m_run_3.png'),
+      require('../../assets/avatars/sprites/lv3m_run_4.png'),
+      require('../../assets/avatars/sprites/lv3m_run_5.png'),
+      require('../../assets/avatars/sprites/lv3m_run_6.png'),
+      require('../../assets/avatars/sprites/lv3m_run_7.png'),
+      require('../../assets/avatars/sprites/lv3m_run_8.png'),
+    ],
+    punch: [
+      require('../../assets/avatars/sprites/lv3m_punch_1.png'),
+      require('../../assets/avatars/sprites/lv3m_punch_2.png'),
+      require('../../assets/avatars/sprites/lv3m_punch_3.png'),
+    ],
+    victory: [
+      require('../../assets/avatars/sprites/lv3m_victory_1.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_2.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_3.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_4.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_5.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_6.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_7.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_8.png'),
+      require('../../assets/avatars/sprites/lv3m_victory_9.png'),
+    ],
+  },
+  4: {
+    idle: [
+      require('../../assets/avatars/sprites/lv4m_idle_1.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_2.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_3.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_4.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_5.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_6.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_7.png'),
+      require('../../assets/avatars/sprites/lv4m_idle_8.png'),
+    ],
+    run: [
+      require('../../assets/avatars/sprites/lv4m_run_1.png'),
+      require('../../assets/avatars/sprites/lv4m_run_2.png'),
+      require('../../assets/avatars/sprites/lv4m_run_3.png'),
+      require('../../assets/avatars/sprites/lv4m_run_4.png'),
+      require('../../assets/avatars/sprites/lv4m_run_5.png'),
+      require('../../assets/avatars/sprites/lv4m_run_6.png'),
+      require('../../assets/avatars/sprites/lv4m_run_7.png'),
+      require('../../assets/avatars/sprites/lv4m_run_8.png'),
+    ],
+    punch: [
+      require('../../assets/avatars/sprites/lv4m_punch_1.png'),
+      require('../../assets/avatars/sprites/lv4m_punch_2.png'),
+      require('../../assets/avatars/sprites/lv4m_punch_3.png'),
+    ],
+    victory: [
+      require('../../assets/avatars/sprites/lv4m_victory_1.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_2.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_3.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_4.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_5.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_6.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_7.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_8.png'),
+      require('../../assets/avatars/sprites/lv4m_victory_9.png'),
+    ],
+  },
+};
+
+const ASPECT_M: Record<Stage, Record<Anim, number>> = {
+  // Measured union-bbox crops from the Mass Monster pack (PIL).
+  1: { idle: 54 / 75, run: 48 / 71, punch: 59 / 71, victory: 91 / 72 },
+  2: { idle: 56 / 77, run: 50 / 71, punch: 61 / 73, victory: 90 / 84 },
+  3: { idle: 56 / 77, run: 49 / 74, punch: 58 / 70, victory: 92 / 74 },
+  4: { idle: 66 / 85, run: 48 / 80, punch: 65 / 83, victory: 86 / 82 },
+};
+
+type Line = 'aesthetic' | 'mass';
+
 type Sex = 'male' | 'female';
-const stripsFor = (sex: Sex) => (sex === 'female' ? STRIPS_F : STRIPS);
-const framesFor = (sex: Sex) => (sex === 'female' ? FRAMES_F : FRAMES);
-const aspectFor = (sex: Sex) => (sex === 'female' ? ASPECT_F : ASPECT);
+// Female art predates the line split and stays sex-keyed; the male sets
+// split by LINE (no body substitution - a Mass Monster is not a Cyber
+// Athlete).
+const stripsFor = (sex: Sex, line: Line) => (sex === 'female' ? STRIPS_F : line === 'mass' ? STRIPS_M : STRIPS);
+const framesFor = (sex: Sex, line: Line) => (sex === 'female' ? FRAMES_F : line === 'mass' ? FRAMES_M : FRAMES);
+const aspectFor = (sex: Sex, line: Line) => (sex === 'female' ? ASPECT_F : line === 'mass' ? ASPECT_M : ASPECT);
 
 const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 10, victory: 5 };
 
@@ -403,11 +601,11 @@ const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: false
 // ---------------------------------------------------------------- web
 
 /** Browser-native sprite playback: background-position through steps(). */
-function CssSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
-  const n = framesFor(sex)[stage][anim].length;
+function CssSprite({ stage, anim, sex, line, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; line: Line; width: number; height: number; frozen: boolean }) {
+  const n = framesFor(sex, line)[stage][anim].length;
   // resolveAssetSource does not exist on react-native-web; expo-asset
   // resolves Metro module ids to served URLs on every platform.
-  const uri = Asset.fromModule(stripsFor(sex)[stage][anim]).uri;
+  const uri = Asset.fromModule(stripsFor(sex, line)[stage][anim]).uri;
   // Keyframes injected once, keyed by DOM id (no module-scope reassignment —
   // the react compiler lint forbids it inside a component).
   if (typeof document !== 'undefined' && !document.getElementById('evoforge-sprite-kf')) {
@@ -472,9 +670,9 @@ function SpriteFrame({
   );
 }
 
-function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
+function NativeSprite({ stage, anim, sex, line, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; line: Line; width: number; height: number; frozen: boolean }) {
   const clock = useSharedValue(0);
-  const n = framesFor(sex)[stage][anim].length;
+  const n = framesFor(sex, line)[stage][anim].length;
   useEffect(() => {
     if (frozen) {
       clock.value = 0;
@@ -486,7 +684,7 @@ function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stag
   }, [anim, frozen]);
   return (
     <>
-      {framesFor(sex)[stage][anim].map((source, i) => (
+      {framesFor(sex, line)[stage][anim].map((source, i) => (
         <SpriteFrame
           key={`${sex}-${stage}-${anim}-${i}`}
           source={source}
@@ -504,18 +702,18 @@ function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stag
 
 // ---------------------------------------------------------------- api
 
-export function SpriteAvatar({ anim, stage = 1, sex = 'male', height = 72 }: { anim: Anim; stage?: Stage; sex?: Sex; height?: number }) {
+export function SpriteAvatar({ anim, stage = 1, sex = 'male', line = 'aesthetic', height = 72 }: { anim: Anim; stage?: Stage; sex?: Sex; line?: Line; height?: number }) {
   // PERF: hidden preloaded tabs freeze their companions too (use-ambient) —
   // five tabs of CSS sprite loops was part of the lag Tyson felt.
   const frozen = !useAmbient();
-  const width = Math.round(height * aspectFor(sex)[stage][anim]);
+  const width = Math.round(height * aspectFor(sex, line)[stage][anim]);
 
   return (
     <View style={{ width, height }} pointerEvents="none">
       {Platform.OS === 'web' ? (
-        <CssSprite stage={stage} anim={anim} sex={sex} width={width} height={height} frozen={frozen} />
+        <CssSprite stage={stage} anim={anim} sex={sex} line={line} width={width} height={height} frozen={frozen} />
       ) : (
-        <NativeSprite stage={stage} anim={anim} sex={sex} width={width} height={height} frozen={frozen} />
+        <NativeSprite stage={stage} anim={anim} sex={sex} line={line} width={width} height={height} frozen={frozen} />
       )}
     </View>
   );
@@ -532,5 +730,5 @@ export function SpriteCompanion(props: { anim: Anim; height?: number }) {
   if (!SPRITE_COMPANION_ENABLED) return null;
   const raw = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
   const stage = Math.min(4, Math.max(1, raw)) as Stage;
-  return <SpriteAvatar {...props} stage={stage} sex={sex} />;
+  return <SpriteAvatar {...props} stage={stage} sex={sex} line={companionLine(branchV2)} />;
 }

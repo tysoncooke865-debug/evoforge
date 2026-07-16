@@ -59,7 +59,15 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
  * else changes. The full move set (walk/run/jab/cross) sits beside it in
  * assets/sprites/mass-monster for the battle layer.
  */
-const MASS_MONSTER_ROTATION: ImageSourcePropType = require('../../assets/sprites/mass-monster/rotations-8dir.gif');
+/** Mass Monster stages 1-4 (Tyson's redesign pack, 2026-07-16, 148x148):
+ *  per-stage rotations like the aesthetic line; the old single-stage gif
+ *  is retired. */
+const MASS_ROTATIONS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/mass-monster/rotations-stage1.gif'),
+  2: require('../../assets/sprites/mass-monster/rotations-stage2.gif'),
+  3: require('../../assets/sprites/mass-monster/rotations-stage3.gif'),
+  4: require('../../assets/sprites/mass-monster/rotations-stage4.gif'),
+};
 
 /** The Cyber Athlete line, stages 1–4 (Tyson, 2026-07-16 — 124×124,
  *  8 frames @ 200ms): the aesthetic HOME avatar rotates per stage. */
@@ -83,7 +91,9 @@ export function animatedAvatar(
   sex: Sex
 ): ImageSourcePropType | undefined {
   if (sex !== 'male') return undefined;
-  if (branch === 'mass' || branch === 'titan') return MASS_MONSTER_ROTATION;
+  if (branch === 'mass' || branch === 'titan') {
+    return MASS_ROTATIONS[Math.max(1, Math.min(4, Math.trunc(stage)))];
+  }
   if (branch === 'aesthetic' || branch === 'shredder') {
     return AESTHETIC_ROTATIONS[Math.max(1, Math.min(4, Math.trunc(stage)))];
   }
@@ -101,7 +111,12 @@ const AESTHETIC_STILLS: Record<number, ImageSourcePropType> = {
   3: require('../../assets/sprites/aesthetic/still-stage3.png'),
   4: require('../../assets/sprites/aesthetic/still-stage4.png'),
 };
-const MASS_MONSTER_STILL: ImageSourcePropType = require('../../assets/sprites/mass-monster/still.png');
+const MASS_STILLS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/mass-monster/still-stage1.png'),
+  2: require('../../assets/sprites/mass-monster/still-stage2.png'),
+  3: require('../../assets/sprites/mass-monster/still-stage3.png'),
+  4: require('../../assets/sprites/mass-monster/still-stage4.png'),
+};
 
 export function stillAvatar(
   branch: BranchV2,
@@ -109,7 +124,9 @@ export function stillAvatar(
   sex: Sex
 ): ImageSourcePropType | undefined {
   if (sex !== 'male') return undefined;
-  if (branch === 'mass' || branch === 'titan') return MASS_MONSTER_STILL;
+  if (branch === 'mass' || branch === 'titan') {
+    return MASS_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))];
+  }
   if (branch === 'aesthetic' || branch === 'shredder') {
     return AESTHETIC_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))];
   }

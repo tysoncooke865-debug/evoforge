@@ -7,6 +7,7 @@ import {
   evolutionNameV2,
   isShredder,
   nextEvolutionV2,
+  companionLine,
   resolveBranchV2,
   shredderName,
   shredderNextEvolution,
@@ -256,5 +257,17 @@ describe('The Shredder — the redemption arc', () => {
     expect(shred.note).toMatch(/cutting/i);
     // Already a shredder: not offered.
     expect(branchPathsV2('shredder', s, ctx('cutting', 30)).map((p) => p.branch)).not.toContain('shredder');
+  });
+});
+
+describe('companionLine - the Mass Monster never wears another body', () => {
+  it('mass and titan carry the mass companion', () => {
+    expect(companionLine('mass')).toBe('mass');
+    expect(companionLine('titan')).toBe('mass');
+  });
+  it('every other branch keeps the Cyber Athlete', () => {
+    for (const b of ['aesthetic', 'shredder', 'cardio', 'hybrid'] as const) {
+      expect(companionLine(b)).toBe('aesthetic');
+    }
   });
 });

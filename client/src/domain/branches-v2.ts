@@ -131,6 +131,16 @@ export interface ScoresV2 {
   aesthetic: number;
 }
 
+/**
+ * Which companion-sprite LINE an athlete carries (Tyson, 2026-07-16):
+ * mass and titan get the Mass Monster; every other branch keeps the
+ * Cyber Athlete. Art policy, kept pure here so tests can pin it —
+ * a Mass Monster must never wear another line's body.
+ */
+export function companionLine(branch: BranchV2): 'aesthetic' | 'mass' {
+  return branch === 'mass' || branch === 'titan' ? 'mass' : 'aesthetic';
+}
+
 export function resolveBranchV2(s: ScoresV2, ctx?: BranchContext): BranchV2 {
   if (isShredder(ctx)) {
     return 'shredder';

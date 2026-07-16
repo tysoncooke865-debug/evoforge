@@ -281,9 +281,9 @@ Owner: Tyson. He works through other Claude sessions too — **always
   battle-engine stat integration (rulesets are pure transforms awaiting a
   battle-format decision; the engine stays byte-pinned).
 
-- **Mass Monster sprite set (Tyson, 2026-07-16):** five GIFs in
+- **Mass Monster sprite set (Tyson, 2026-07-16):** WAS five GIFs in
   `client/src/assets/sprites/mass-monster/` (rotations-8dir · walk · run ·
-  jab · cross, 92×92 @200ms). The ROTATION is the main avatar now:
+  jab · cross, 92×92 @200ms) — ALL RETIRED by the redesign pack below. The ROTATION is the main avatar now:
   `animatedAvatar(branch)` in avatar-art.ts (one shared idle until
   per-class gifs land — extend ANIMATED_AVATARS), rendered by AvatarStage
   behind the SAME reduced-motion/perf gate as every ambient loop (static
@@ -370,6 +370,28 @@ Owner: Tyson. He works through other Claude sessions too — **always
   stage serves still-stage3; the old PNG never appears. Stills for new
   sets: aesthetic = rotations/south.png; mass = gif frame 0 (recipe in
   the commit).
+
+- **MASS MONSTER REDESIGN, stages 1–4 (Have_his_face_be_ful.zip, Tyson,
+  2026-07-16):** the whole mass line re-drawn at 148×148 with per-stage
+  sets, replacing the single 92×92 gif. Hero: `mass-monster/
+  rotations-stage{1..4}.gif` + `still-stage{1..4}.png` — animatedAvatar/
+  stillAvatar mass/titan branches are now STAGE-keyed like aesthetic
+  (bottom padding measured 23.6–24.3%, the existing 0.24 constant holds —
+  no layout change). Companion: the male sets now split by LINE —
+  `companionLine(branchV2)` in domain/branches-v2.ts (PURE, unit-pinned:
+  mass/titan → 'mass', all else → 'aesthetic'; a Mass Monster never wears
+  another line's body) selects STRIPS_M/FRAMES_M/ASPECT_M (lvNm_* strips
+  + singles, idle 8 = rotation · run 8 · jab 3 · victory 9 = most-
+  muscular flex at L1, double bicep L2-3, flame-aura double bicep L4);
+  female sets stay sex-keyed and untouched. Old walk/run/cross-punch/
+  lead-jab east gifs deleted (referenced nowhere). Falsified in-browser:
+  PATHS' mass+titan cards serve the dist asset whose MD5 equals
+  mass-monster/rotations-stage2.gif (hash-matched — both packs name
+  files rotations-stageN, so match by CONTENT hash, not filename) and
+  two clipped screenshots 500ms apart DIFFER; Home hero still serves
+  aesthetic stage 3. TOUR LESSON: canvas drawImage() samples only a
+  GIF's FIRST frame per spec — a drawImage frame-diff is ALWAYS static;
+  diff SCREENSHOTS instead.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
