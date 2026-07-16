@@ -488,6 +488,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
      + red equips, Home serves aesthetic-red-stage1 at base size (no
      growth at stage 1), form badge CYBER RECRUIT.
 
+- **CARDIO MACHINE LINE (Enduro_L4.zip, Tyson, 2026-07-16):** the last
+  silhouette falls — cardio has its own 4-stage blue-flame runner
+  (120×120) in assets/sprites/cardio/ + all 7 skin recolours. BUILD
+  NOTE: L4's frames carried only 15% bottom padding (vs the ~24% every
+  other set measures); the build shifted its content UP 11px in-canvas
+  (23px top clearance absorbed it) so the global SPRITE_BOTTOM_PAD
+  constant holds — NORMALISE PADDING AT BUILD TIME when a pack deviates,
+  never fork the layout constant. Cardio joins the 4-stage body spread
+  (stageFor = massArtStage for both new classes; currentStageFor +
+  PATHS special-case it — its shape DONOR stays 'hybrid' for
+  silhouettes only). avatarArtV2: every male branch returns real art
+  now. Companion remains the Cyber Athlete move set.
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).

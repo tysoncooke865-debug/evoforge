@@ -86,6 +86,23 @@ const TITAN_STILLS: Record<number, ImageSourcePropType> = {
   4: require('../../assets/sprites/titan/still-stage4.png'),
 };
 
+/** THE CARDIO MACHINE line, stages 1-4 (Enduro_L4.zip, Tyson,
+ *  2026-07-16 — 120×120, blue-flame runner; L4's frames were shifted up
+ *  11px at build so its feet match the measured ~24% pad). Rotations
+ *  only — the companion keeps the Cyber Athlete move set. */
+const CARDIO_ROTATIONS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/cardio/rotations-stage1.gif'),
+  2: require('../../assets/sprites/cardio/rotations-stage2.gif'),
+  3: require('../../assets/sprites/cardio/rotations-stage3.gif'),
+  4: require('../../assets/sprites/cardio/rotations-stage4.gif'),
+};
+const CARDIO_STILLS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/cardio/still-stage1.png'),
+  2: require('../../assets/sprites/cardio/still-stage2.png'),
+  3: require('../../assets/sprites/cardio/still-stage3.png'),
+  4: require('../../assets/sprites/cardio/still-stage4.png'),
+};
+
 /** The Cyber Athlete line, stages 1–4 (Tyson, 2026-07-16 — 124×124,
  *  8 frames @ 200ms): the aesthetic HOME avatar rotates per stage. */
 const AESTHETIC_ROTATIONS: Record<number, ImageSourcePropType> = {
@@ -111,6 +128,7 @@ export function animatedAvatar(
   const s = Math.max(1, Math.min(4, Math.trunc(stage)));
   if (branch === 'titan') return TITAN_ROTATIONS[s];
   if (branch === 'mass') return MASS_ROTATIONS[s];
+  if (branch === 'cardio') return CARDIO_ROTATIONS[s];
   if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_ROTATIONS[s];
   return undefined;
 }
@@ -142,6 +160,7 @@ export function stillAvatar(
   const s = Math.max(1, Math.min(4, Math.trunc(stage)));
   if (branch === 'titan') return TITAN_STILLS[s];
   if (branch === 'mass') return MASS_STILLS[s];
+  if (branch === 'cardio') return CARDIO_STILLS[s];
   if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_STILLS[s];
   return undefined;
 }
@@ -166,12 +185,11 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
     // source so nothing silhouettes a form that exists.
     return { source: TITAN_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))], hasArt: true };
   }
-  const coreBranch = branch === 'cardio' ? null : branch;
-  if (coreBranch) {
-    return { source: avatarImage(coreBranch, stage), hasArt: true };
+  if (branch === 'cardio') {
+    // Same for the Enduro pack — every male line has real art now.
+    return { source: CARDIO_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))], hasArt: true };
   }
-  // The two new classes: silhouette of the shape donor.
-  return { source: avatarImage(shapeDonor(branch), stage), hasArt: false };
+  return { source: avatarImage(branch, stage), hasArt: true };
 }
 
 /**

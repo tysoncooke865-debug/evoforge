@@ -316,9 +316,10 @@ export function displayDonor(branch: BranchV2): Branch {
 export function currentStageFor(branch: BranchV2, level: number, bfMid: number | null): number {
   if (branch === 'shredder') return shredderStage(bfMid);
   const donor = displayDonor(branch);
-  // The mass line has FOUR sprite stages; the pinned core mapping stops
-  // at the three painted ones (see massArtStage).
-  return donor === 'mass' ? massArtStage(level) : getBranchStage(donor, level);
+  // Mass-donor lines AND cardio carry FOUR sprite stages; the pinned core
+  // mapping stops at the three painted ones (see massArtStage).
+  if (donor === 'mass' || branch === 'cardio') return massArtStage(level);
+  return getBranchStage(donor, level);
 }
 
 export interface DerivedIdentity {

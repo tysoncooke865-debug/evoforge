@@ -263,10 +263,9 @@ export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[]
     const ladder = V2_LADDERS[branch];
     const unlockedLevels = ladder.filter(([u]) => level >= u).map(([u]) => u);
     const highest = unlockedLevels.length ? Math.max(...unlockedLevels) : null;
-    // Titan wears the 4-stage Mass Monster set; cardio keeps the 3-stage
-    // hybrid painted scheme until its own art lands.
-    const stageFor = (unlock: number) =>
-      branch === 'titan' ? massArtStage(unlock) : unlock >= 75 ? 3 : unlock >= 50 ? 2 : 1;
+    // Both new classes have 4-stage sprite sets now (Titan + Enduro
+    // packs) — the standard 25/50/75 body spread.
+    const stageFor = massArtStage;
     return uniqueStages(
       ladder.map(([unlock, name]) => ({
         level: unlock,

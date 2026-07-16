@@ -117,8 +117,8 @@ describe('v2 ladders and evolutions', () => {
     const rows = avatarStageRowsV2('cardio', 60);
     expect(rows.filter((r) => r.current)).toHaveLength(1);
     expect(rows.find((r) => r.current)?.name).toBe('Enduro');
-    // ONE ROW PER BODY (Tyson, 2026-07-16): duplicate-art rows fold away.
-    expect(rows.map((r) => r.stage)).toEqual([1, 2, 3]);
+    // ONE ROW PER BODY; cardio spreads FOUR since the Enduro pack.
+    expect(rows.map((r) => r.stage)).toEqual([1, 2, 3, 4]);
   });
 
   it('nextEvolutionV2: titan gates, cardio gates, core delegation', () => {

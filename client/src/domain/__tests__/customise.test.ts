@@ -268,8 +268,9 @@ describe('catalogs', () => {
     expect(avatarStageRowsV2('aesthetic', 100).map((r) => r.stage)).toEqual([1, 2, 3, 4]);
     expect(currentStageFor('mass', 80, null)).toBe(4);
     expect(currentStageFor('titan', 55, null)).toBe(3);
-    // Cardio keeps the 3-stage hybrid painted scheme — three rows.
-    expect(avatarStageRowsV2('cardio', 100).map((r) => r.stage)).toEqual([1, 2, 3]);
+    // Cardio spreads four too since the Enduro pack.
+    expect(avatarStageRowsV2('cardio', 100).map((r) => r.stage)).toEqual([1, 2, 3, 4]);
+    expect(currentStageFor('cardio', 80, null)).toBe(4);
     // The fold recomputes CURRENT onto the kept ladder (level 100's row
     // folded into the stage-4 card).
     const rows = avatarStageRowsV2('mass', 100);

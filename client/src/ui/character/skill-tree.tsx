@@ -542,7 +542,7 @@ function PathDestination({
   onViewEvolution: () => void;
 }) {
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
-  const stage = donor === 'mass' ? massArtStage(level) : getBranchStage(donor, level);
+  const stage = donor === 'mass' || branch === 'cardio' ? massArtStage(level) : getBranchStage(donor, level);
   const art = avatarArtV2(branch, stage, sex);
   const active = state.kind === 'active';
   const badge =
