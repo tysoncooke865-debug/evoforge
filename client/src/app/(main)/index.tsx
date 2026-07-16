@@ -224,7 +224,7 @@ export default function HomeScreen() {
         stage={stage}
         auraColour={auraColour}
         source={art.source}
-        animatedSource={animatedAvatar(branchV2)}
+        animatedSource={animatedAvatar(branchV2, stage, sex)}
         silhouette={!art.hasArt}
         tierName={slug.toUpperCase()}
         tierColour={auraColour}

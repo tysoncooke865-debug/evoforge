@@ -563,13 +563,13 @@ function PathDestination({
       }}
     >
       <View style={{ alignItems: 'center', width: 62 }}>
-        {donor === 'mass' ? (
-          // The Mass Monster line ALWAYS previews its ROTATING sprite
-          // (Tyson, 2026-07-16) — full strength when active/eligible,
-          // dimmed while the gates are still closing. Other lines follow
-          // as their sprite sets land.
+        {animatedAvatar(branch, stage, sex) ? (
+          // Any line with a delivered rotation set previews its ROTATING
+          // sprite (Tyson, 2026-07-16: mass line, then aesthetic stages
+          // 1–4) — full strength when active/eligible, dimmed while the
+          // gates are still closing. Sex-aware: no body substitution.
           <Image
-            source={animatedAvatar(branch) ?? art.source}
+            source={animatedAvatar(branch, stage, sex)}
             style={{
               width: 56,
               height: 62,

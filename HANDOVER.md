@@ -299,6 +299,14 @@ Owner: Tyson. He works through other Claude sessions too — **always
   (dimmed 0.55 while gates are closing). TOUR GOTCHA: tabs stay mounted —
   a querySelectorAll('img') "found it on PATHS" can be HOME's copy;
   assert on the right page's own state.
+  **Aesthetic rotations, stages 1–4 (Tyson, same day):** `assets/sprites/
+  aesthetic/rotations-stage{1..4}.gif` (124×124). `animatedAvatar(branch,
+  stage, sex)` is now STAGE- and SEX-aware — male only until female sets
+  land (no body substitution, ever). Sprites draw at 1.35× and translate
+  DOWN by their MEASURED ~24% bottom padding (PIL-measured, constants in
+  avatar-stage.tsx) or the character floats above the podium — re-measure
+  when new sets land. PATHS previews any line with a rotation, dimmed
+  until eligible.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

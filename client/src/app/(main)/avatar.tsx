@@ -96,7 +96,7 @@ function EvolutionView() {
         auraColour={auraColour}
         size={230}
         source={art.source}
-        animatedSource={animatedAvatar(branchV2)}
+        animatedSource={animatedAvatar(branchV2, stage, sex)}
         silhouette={!art.hasArt}
       />
       {!art.hasArt ? (

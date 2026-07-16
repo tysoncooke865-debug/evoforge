@@ -20,6 +20,12 @@ import { useSettingsStore } from '@/state/settings-store';
 
 import { avatarImage } from './avatar-images';
 
+/** Rotation sprites draw larger than the painted art (their frames are
+ *  padded) and sit ~24% above their frame bottoms — both constants are
+ *  MEASURED, not tuned by eye. Re-measure when new sets land. */
+const SPRITE_SCALE = 1.35;
+const SPRITE_BOTTOM_PAD = 0.24;
+
 /**
  * The living avatar: the CSS §10 layered stage, in Reanimated. Four ambient
  * loops from animations.ts run on the UI thread -- idleFloat (the hover),
@@ -149,13 +155,19 @@ export function AvatarStage({
           }
           tintColor={silhouette ? '#070d1a' : undefined}
           style={{
-            // The 92px sprite frames carry more transparent padding than
-            // the painted art, so the sprite renders at 1.35× the box
-            // (Tyson: "scale it up") — feet stay planted, justify-end
-            // anchors the bottom. Crisp via pixelated (the sprite-avatar/
-            // coin-flip technique).
+            // Sprite frames render at 1.35× (Tyson: "scale it up") and are
+            // PUSHED DOWN by their measured bottom padding — every rotation
+            // set carries ~24% transparent rows under the feet (measured
+            // with PIL, 2026-07-16: mass 25%, aesthetic 22.6–25%), so
+            // without the translate the character floats above the podium.
+            // Crisp via pixelated (the sprite-avatar/coin-flip technique).
             ...(animate && !silhouette && animatedSource
-              ? { width: size * 1.35, height: size * 1.35, ...({ imageRendering: 'pixelated' } as object) }
+              ? {
+                  width: size * SPRITE_SCALE,
+                  height: size * SPRITE_SCALE,
+                  transform: [{ translateY: size * SPRITE_SCALE * SPRITE_BOTTOM_PAD }],
+                  ...({ imageRendering: 'pixelated' } as object),
+                }
               : { width: size, height: size }),
           }}
           contentFit="contain"

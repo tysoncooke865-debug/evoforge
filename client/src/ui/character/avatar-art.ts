@@ -61,13 +61,33 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
  */
 const MASS_MONSTER_ROTATION: ImageSourcePropType = require('../../assets/sprites/mass-monster/rotations-8dir.gif');
 
-const ANIMATED_AVATARS: Partial<Record<BranchV2, ImageSourcePropType>> = {
-  mass: MASS_MONSTER_ROTATION,
-  titan: MASS_MONSTER_ROTATION,
+/** The Cyber Athlete line, stages 1–4 (Tyson, 2026-07-16 — 124×124,
+ *  8 frames @ 200ms): the aesthetic HOME avatar rotates per stage. */
+const AESTHETIC_ROTATIONS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/aesthetic/rotations-stage1.gif'),
+  2: require('../../assets/sprites/aesthetic/rotations-stage2.gif'),
+  3: require('../../assets/sprites/aesthetic/rotations-stage3.gif'),
+  4: require('../../assets/sprites/aesthetic/rotations-stage4.gif'),
 };
 
-export function animatedAvatar(branch: BranchV2): ImageSourcePropType | undefined {
-  return ANIMATED_AVATARS[branch];
+/**
+ * The animated rotation for a form, or undefined when none exists.
+ * MALE ONLY for now — every delivered sprite is the male body, and the
+ * standing rule (Tyson's correction, 2026-07-16) is NEVER substitute one
+ * body's art for another's: female athletes keep their own static art
+ * (or silhouettes) until female sprite sets land.
+ */
+export function animatedAvatar(
+  branch: BranchV2,
+  stage: number,
+  sex: Sex
+): ImageSourcePropType | undefined {
+  if (sex !== 'male') return undefined;
+  if (branch === 'mass' || branch === 'titan') return MASS_MONSTER_ROTATION;
+  if (branch === 'aesthetic' || branch === 'shredder') {
+    return AESTHETIC_ROTATIONS[Math.max(1, Math.min(4, Math.trunc(stage)))];
+  }
+  return undefined;
 }
 
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {
