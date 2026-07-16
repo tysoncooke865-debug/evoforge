@@ -1,8 +1,8 @@
 # PROGRESSION_OVERHAUL_PLAN — Evo Rating · Forge Level · Rival Rank
 
 > Tyson's progression-system brief (2026-07-16, the ~55-section spec). This
-> plan maps that spec onto what ACTUALLY exists. Status: **PLANNED — awaiting
-> GO.** When executing: read HANDOVER.md first; every phase ships behind the
+> plan maps that spec onto what ACTUALLY exists. Status: **EXECUTED 2026-07-16
+> (P1–P9 in one session; honest deferrals in HANDOVER §2).** When executing: read HANDOVER.md first; every phase ships behind the
 > `new_progression_enabled` flag family and runs the full verification loop.
 >
 > The spec's own prime rule, kept verbatim:
