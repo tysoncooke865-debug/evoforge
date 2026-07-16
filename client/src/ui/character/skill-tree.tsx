@@ -13,7 +13,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { useCardioLog, useLatestMeasurements, usePhysiqueRatings } from '@/data/hooks';
 import { useAvatarData } from '@/data/use-avatar-data';
-import { branchDisplayNameV2, branchPathsV2, type BranchV2 } from '@/domain/branches-v2';
+import { branchDisplayNameV2, branchPathsV2, type BranchV2, massArtStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { pyFloat } from '@/domain/py';
@@ -542,7 +542,7 @@ function PathDestination({
   onViewEvolution: () => void;
 }) {
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
-  const stage = getBranchStage(donor, level);
+  const stage = donor === 'mass' ? massArtStage(level) : getBranchStage(donor, level);
   const art = avatarArtV2(branch, stage, sex);
   const active = state.kind === 'active';
   const badge =

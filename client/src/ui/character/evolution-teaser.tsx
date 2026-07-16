@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { Branch } from '@/domain/avatar-stats';
 import { getBranchStage } from '@/domain/avatar-stats';
+import { massArtStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
 import tokens from '@/theme/tokens';
@@ -23,7 +24,7 @@ export function EvolutionTeaser({
   evolution: NextEvolution;
 }) {
   const readiness = evolutionReadiness(evolution.requirements);
-  const nextStage = getBranchStage(branch, evolution.targetLevel);
+  const nextStage = branch === 'mass' ? massArtStage(evolution.targetLevel) : getBranchStage(branch, evolution.targetLevel);
 
   return (
     <Link href="/avatar" asChild>

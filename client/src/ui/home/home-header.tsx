@@ -13,7 +13,9 @@ import { CompanionMenuButton } from '@/ui/character/companion-menu';
 function useEquippedEmote(forgeLevel: number): EmoteId {
   const emoteId = useLoadoutStore((s) => s.loadout.emoteId);
   const emote = EMOTES.find((e) => e.id === emoteId);
-  return emote && cosmeticUnlocked(emote.unlock, forgeLevel) ? emote.id : 'victory';
+  // Emote gates are free/forge only (pinned by the catalogs vitest), so
+  // legacyLevel 0 here can never wrongly lock one.
+  return emote && cosmeticUnlocked(emote.unlock, { forgeLevel, legacyLevel: 0 }) ? emote.id : 'victory';
 }
 
 /**

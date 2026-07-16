@@ -1,5 +1,5 @@
 import type { Branch } from './avatar-stats';
-import { getBranchStage } from './avatar-stats';
+import { getBranchStage, raritySlug } from './avatar-stats';
 import type { BranchContext, BranchV2, ScoresV2 } from './branches-v2';
 import {
   avatarStageRowsV2,
@@ -7,6 +7,7 @@ import {
   branchPathsV2,
   evolutionNameV2,
   isShredder,
+  massArtStage,
   shredderName,
   shredderRows,
   shredderStage,
@@ -57,7 +58,21 @@ export type AuraId = 'rarity' | 'cyan' | 'epic' | 'gold' | 'crimson' | 'emerald'
 export type CosmeticUnlock =
   | { kind: 'free' }
   | { kind: 'forge'; level: number }
+  /** Unlocked by REACHING a rarity tier (the display tier the whole app
+   *  shows). Tyson, 2026-07-16: "epic bloom is blocked despite me having
+   *  it unlocked" — an EPIC-tier athlete owns the epic aura; a tier-named
+   *  cosmetic must gate on the tier, not an unrelated forge level. */
+  | { kind: 'tier'; slug: 'rare' | 'epic' | 'legendary' | 'mythic' }
   | { kind: 'incoming'; source: string };
+
+/** What unlock evaluation needs: the earned Forge Level AND the legacy
+ *  display level (rarity tiers still key off it, like avatar stages). */
+export interface UnlockContext {
+  forgeLevel: number;
+  legacyLevel: number;
+}
+
+const TIER_ORDER = ['common', 'rare', 'epic', 'legendary', 'mythic'] as const;
 
 export interface AuraItem {
   id: AuraId;
@@ -72,10 +87,10 @@ export interface AuraItem {
 export const AURAS: AuraItem[] = [
   { id: 'rarity', name: 'Rarity Sync', colour: null, unlock: { kind: 'free' } },
   { id: 'cyan', name: 'Neon Surge', colour: '#22d3ee', unlock: { kind: 'free' } },
-  { id: 'epic', name: 'Epic Bloom', colour: '#a855f7', unlock: { kind: 'forge', level: 5 } },
-  { id: 'gold', name: 'Gilded Field', colour: '#fbbf24', unlock: { kind: 'forge', level: 10 } },
-  { id: 'crimson', name: 'Blood Halo', colour: '#ef4444', unlock: { kind: 'forge', level: 15 } },
-  { id: 'emerald', name: 'Verdant Pulse', colour: '#34d399', unlock: { kind: 'forge', level: 20 } },
+  { id: 'epic', name: 'Epic Bloom', colour: '#a855f7', unlock: { kind: 'tier', slug: 'epic' } },
+  { id: 'gold', name: 'Gilded Field', colour: '#fbbf24', unlock: { kind: 'tier', slug: 'legendary' } },
+  { id: 'crimson', name: 'Blood Halo', colour: '#ef4444', unlock: { kind: 'forge', level: 5 } },
+  { id: 'emerald', name: 'Verdant Pulse', colour: '#34d399', unlock: { kind: 'forge', level: 10 } },
 ];
 
 // ---------------------------------------------------------------- emotes
@@ -115,16 +130,25 @@ export const EFFECTS: EffectItem[] = [
   { id: 'ember-vent', name: 'Ember Vent', unlock: { kind: 'incoming', source: 'Seasonal event' } },
 ];
 
-export function cosmeticUnlocked(unlock: CosmeticUnlock, forgeLevel: number): boolean {
+export function cosmeticUnlocked(unlock: CosmeticUnlock, ctx: UnlockContext): boolean {
   if (unlock.kind === 'free') return true;
-  if (unlock.kind === 'forge') return forgeLevel >= unlock.level;
+  if (unlock.kind === 'forge') return ctx.forgeLevel >= unlock.level;
+  if (unlock.kind === 'tier') {
+    const reached = TIER_ORDER.indexOf(raritySlug(ctx.legacyLevel) as (typeof TIER_ORDER)[number]);
+    return reached >= TIER_ORDER.indexOf(unlock.slug);
+  }
   return false;
 }
 
 export function unlockLabel(unlock: CosmeticUnlock): string {
   if (unlock.kind === 'free') return '';
   if (unlock.kind === 'forge') return `FORGE LEVEL ${unlock.level}`;
+  if (unlock.kind === 'tier') return `REACH ${unlock.slug.toUpperCase()} TIER`;
   return unlock.source.toUpperCase();
+}
+
+export function unlockContext(derived: DerivedIdentity): UnlockContext {
+  return { forgeLevel: derived.forgeLevel, legacyLevel: derived.level };
 }
 
 // ---------------------------------------------------------------- roster
@@ -262,7 +286,11 @@ export function displayDonor(branch: BranchV2): Branch {
 }
 
 export function currentStageFor(branch: BranchV2, level: number, bfMid: number | null): number {
-  return branch === 'shredder' ? shredderStage(bfMid) : getBranchStage(displayDonor(branch), level);
+  if (branch === 'shredder') return shredderStage(bfMid);
+  const donor = displayDonor(branch);
+  // The mass line has FOUR sprite stages; the pinned core mapping stops
+  // at the three painted ones (see massArtStage).
+  return donor === 'mass' ? massArtStage(level) : getBranchStage(donor, level);
 }
 
 export interface DerivedIdentity {
@@ -315,11 +343,12 @@ export function resolveDisplay(derived: DerivedIdentity, loadout: Loadout): Reso
     }
   }
 
+  const ctx = unlockContext(derived);
   const skin = SKINS.find((s) => s.id === loadout.skinId);
   const aura = AURAS.find((a) => a.id === loadout.auraId);
-  const auraUnlocked = aura !== undefined && cosmeticUnlocked(aura.unlock, derived.forgeLevel);
+  const auraUnlocked = aura !== undefined && cosmeticUnlocked(aura.unlock, ctx);
   const emote = EMOTES.find((e) => e.id === loadout.emoteId);
-  const emoteUnlocked = emote !== undefined && cosmeticUnlocked(emote.unlock, derived.forgeLevel);
+  const emoteUnlocked = emote !== undefined && cosmeticUnlocked(emote.unlock, ctx);
 
   return {
     branch,
@@ -402,12 +431,13 @@ export function equipState(
     }
   }
 
+  const ctx = unlockContext(derived);
   const aura = AURAS.find((a) => a.id === sel.auraId);
-  if (aura && !cosmeticUnlocked(aura.unlock, derived.forgeLevel)) {
+  if (aura && !cosmeticUnlocked(aura.unlock, ctx)) {
     return { kind: 'locked-cosmetic', requirement: unlockLabel(aura.unlock) };
   }
   const emote = EMOTES.find((e) => e.id === sel.emoteId);
-  if (emote && !cosmeticUnlocked(emote.unlock, derived.forgeLevel)) {
+  if (emote && !cosmeticUnlocked(emote.unlock, ctx)) {
     return { kind: 'locked-cosmetic', requirement: unlockLabel(emote.unlock) };
   }
 

@@ -12,6 +12,7 @@ import {
   resolveDisplay,
   selectionFromLoadout,
   stageOptions,
+  unlockContext,
   type DerivedIdentity,
   type Selection,
 } from '@/domain/customise';
@@ -175,7 +176,7 @@ export default function CustomiseScreen() {
             branch={entry.id}
             stage={previewStage}
             sex={sex}
-            forgeLevel={derived.forgeLevel}
+            unlockCtx={unlockContext(derived)}
             onChange={select}
           />
         </View>

@@ -132,6 +132,22 @@ export interface ScoresV2 {
 }
 
 /**
+ * The mass line's ART stage (Tyson, 2026-07-16: "mass monster is missing
+ * its stage 4, and stages 1 and 2 are the same"). The pinned core ladder
+ * predates the redesign pack and spreads five rows over THREE painted
+ * stages (1,1,2,3,3); the delivered sprite set has FOUR. This V2 mapping
+ * mirrors the aesthetic spread (25/50/75) so every early evolution changes
+ * the body and the final form actually renders. Core goldens untouched.
+ */
+export function massArtStage(level: number): number {
+  const lv = Math.trunc(level);
+  if (lv >= 75) return 4;
+  if (lv >= 50) return 3;
+  if (lv >= 25) return 2;
+  return 1;
+}
+
+/**
  * Which companion-sprite LINE an athlete carries (Tyson, 2026-07-16):
  * mass and titan get the Mass Monster; every other branch keeps the
  * Cyber Athlete. Art policy, kept pure here so tests can pin it —
@@ -234,8 +250,10 @@ export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[]
     const ladder = V2_LADDERS[branch];
     const unlockedLevels = ladder.filter(([u]) => level >= u).map(([u]) => u);
     const highest = unlockedLevels.length ? Math.max(...unlockedLevels) : null;
-    // Stage art mapping mirrors the 3-stage non-aesthetic scheme.
-    const stageFor = (unlock: number) => (unlock >= 75 ? 3 : unlock >= 50 ? 2 : 1);
+    // Titan wears the 4-stage Mass Monster set; cardio keeps the 3-stage
+    // hybrid painted scheme until its own art lands.
+    const stageFor = (unlock: number) =>
+      branch === 'titan' ? massArtStage(unlock) : unlock >= 75 ? 3 : unlock >= 50 ? 2 : 1;
     return ladder.map(([unlock, name]) => ({
       level: unlock,
       name,
@@ -244,8 +262,13 @@ export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[]
       current: level >= unlock && unlock === highest,
     }));
   }
-  // Core branches use the pinned rows.
-  return CORE_ROWS(branch, level);
+  // Core branches use the pinned rows — except the mass line's ART stage,
+  // remapped to the four delivered sprite stages (names + levels pinned).
+  const rows = CORE_ROWS(branch, level);
+  if (branch === 'mass') {
+    return rows.map((row) => ({ ...row, stage: massArtStage(row.level) }));
+  }
+  return rows;
 }
 
 /**

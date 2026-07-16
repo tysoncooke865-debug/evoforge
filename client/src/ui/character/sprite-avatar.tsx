@@ -14,7 +14,7 @@ import Animated, {
 
 import { useAvatarData } from '@/data/use-avatar-data';
 import { getBranchStage } from '@/domain/avatar-stats';
-import { companionLine, shredderStage } from '@/domain/branches-v2';
+import { companionLine, massArtStage, shredderStage } from '@/domain/branches-v2';
 
 /**
  * The animated pixel companion — Tyson's Cyber Athlete LV.1–LV.4 sheets,
@@ -728,7 +728,15 @@ export function SpriteAvatar({ anim, stage = 1, sex = 'male', line = 'aesthetic'
 export function SpriteCompanion(props: { anim: Anim; height?: number }) {
   const { stats, summary, branchV2, bfMid, sex } = useAvatarData();
   if (!SPRITE_COMPANION_ENABLED) return null;
-  const raw = branchV2 === 'shredder' ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
+  // The mass companion matures on the 4-stage sprite map, not the 3-stage
+  // painted one (Tyson: stage 4 was missing, stages 1 and 2 identical).
+  const line = companionLine(branchV2);
+  const raw =
+    branchV2 === 'shredder'
+      ? shredderStage(bfMid)
+      : line === 'mass'
+        ? massArtStage(summary.level)
+        : getBranchStage(stats.branch, summary.level);
   const stage = Math.min(4, Math.max(1, raw)) as Stage;
-  return <SpriteAvatar {...props} stage={stage} sex={sex} line={companionLine(branchV2)} />;
+  return <SpriteAvatar {...props} stage={stage} sex={sex} line={line} />;
 }

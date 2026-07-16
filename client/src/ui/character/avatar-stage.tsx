@@ -134,6 +134,9 @@ export function AvatarStage({
   }));
 
   const auraSize = size * 1.12;
+  // Tyson (2026-07-16): each stage GROWS the avatar by 5% — evolution is
+  // visible in stature, not just art. Stage 1 = base, stage 4 = +15%.
+  const growth = 1 + 0.05 * (Math.max(1, Math.min(4, Math.trunc(stage))) - 1);
 
   return (
     <View style={{ width: auraSize, height: auraSize + 18 }} className="items-center justify-end">
@@ -169,12 +172,12 @@ export function AvatarStage({
             // gating motion never jumps or swaps bodies.
             ...(spriteSource
               ? {
-                  width: size * SPRITE_SCALE,
-                  height: size * SPRITE_SCALE,
-                  transform: [{ translateY: size * SPRITE_SCALE * SPRITE_BOTTOM_PAD }],
+                  width: size * SPRITE_SCALE * growth,
+                  height: size * SPRITE_SCALE * growth,
+                  transform: [{ translateY: size * SPRITE_SCALE * growth * SPRITE_BOTTOM_PAD }],
                   ...({ imageRendering: 'pixelated' } as object),
                 }
-              : { width: size, height: size }),
+              : { width: size * growth, height: size * growth }),
           }}
           contentFit="contain"
           accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}

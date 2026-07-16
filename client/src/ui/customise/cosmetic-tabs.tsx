@@ -4,8 +4,17 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { BranchV2 } from '@/domain/branches-v2';
 import { companionLine } from '@/domain/branches-v2';
-import type { CosmeticUnlock, Selection } from '@/domain/customise';
-import { AURAS, EFFECTS, EMOTES, SKINS, cosmeticUnlocked, unlockLabel } from '@/domain/customise';
+import {
+  AURAS,
+  EFFECTS,
+  EMOTES,
+  SKINS,
+  cosmeticUnlocked,
+  unlockLabel,
+  type CosmeticUnlock,
+  type Selection,
+  type UnlockContext,
+} from '@/domain/customise';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import type { Sex } from '@/ui/character/avatar-art';
@@ -31,14 +40,14 @@ export function CosmeticTabs({
   branch,
   stage,
   sex,
-  forgeLevel,
+  unlockCtx,
   onChange,
 }: {
   selection: Selection;
   branch: BranchV2;
   stage: number;
   sex: Sex;
-  forgeLevel: number;
+  unlockCtx: UnlockContext;
   onChange: (next: Partial<Selection>) => void;
 }) {
   const [tab, setTab] = useState<Tab>('outfit');
@@ -67,7 +76,7 @@ export function CosmeticTabs({
                   name={skin.name}
                   selected={selection.skinId === skin.id}
                   unlock={{ kind: 'free' }}
-                  forgeLevel={forgeLevel}
+                  unlockCtx={unlockCtx}
                   testID={`skin-${skin.id}`}
                   onPress={() => onChange({ skinId: skin.id })}
                   thumb={
@@ -93,7 +102,7 @@ export function CosmeticTabs({
                 name={aura.name}
                 selected={selection.auraId === aura.id}
                 unlock={aura.unlock}
-                forgeLevel={forgeLevel}
+                unlockCtx={unlockCtx}
                 testID={`aura-${aura.id}`}
                 onPress={() => onChange({ auraId: aura.id })}
                 thumb={<Swatch colour={aura.colour ?? tokens.colors.accent} rainbow={aura.colour === null} />}
@@ -108,7 +117,7 @@ export function CosmeticTabs({
                 name={effect.name}
                 selected={selection.effectId === effect.id}
                 unlock={effect.unlock}
-                forgeLevel={forgeLevel}
+                unlockCtx={unlockCtx}
                 testID={`effect-${effect.id}`}
                 // Incoming effects have no art to preview — selection stays.
                 onPress={effect.unlock.kind === 'incoming' ? undefined : () => onChange({ effectId: effect.id })}
@@ -130,7 +139,7 @@ export function CosmeticTabs({
                 name={emote.name}
                 selected={selection.emoteId === emote.id}
                 unlock={emote.unlock}
-                forgeLevel={forgeLevel}
+                unlockCtx={unlockCtx}
                 testID={`emote-${emote.id}`}
                 onPress={() => onChange({ emoteId: emote.id })}
                 thumb={
@@ -155,7 +164,7 @@ function CosmeticCard({
   thumb,
   selected,
   unlock,
-  forgeLevel,
+  unlockCtx,
   onPress,
   testID,
 }: {
@@ -163,11 +172,11 @@ function CosmeticCard({
   thumb: ReactNode;
   selected: boolean;
   unlock: CosmeticUnlock;
-  forgeLevel: number;
+  unlockCtx: UnlockContext;
   onPress?: () => void;
   testID: string;
 }) {
-  const unlocked = cosmeticUnlocked(unlock, forgeLevel);
+  const unlocked = cosmeticUnlocked(unlock, unlockCtx);
   const label = unlockLabel(unlock);
   return (
     <Pressable

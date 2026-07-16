@@ -31,7 +31,12 @@ const AVATAR_ASSETS: Record<Branch, Record<number, ImageSourcePropType>> = {
 };
 
 export function avatarImage(branch: Branch, stage: number): ImageSourcePropType {
-  return AVATAR_ASSETS[branch]?.[stage] ?? AVATAR_ASSETS.aesthetic[1];
+  const line = AVATAR_ASSETS[branch] ?? AVATAR_ASSETS.aesthetic;
+  // Clamp to the line's own top stage: the mass line's V2 ladder reaches
+  // art stage 4 (sprites) while the painted set stops at 3 — the old
+  // fallback dressed a stage-4 Mass Monster in aesthetic stage 1.
+  const top = Math.max(...Object.keys(line).map(Number));
+  return line[Math.max(1, Math.min(top, Math.trunc(stage)))] ?? AVATAR_ASSETS.aesthetic[1];
 }
 
 /**

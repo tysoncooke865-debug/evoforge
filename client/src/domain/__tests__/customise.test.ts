@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getBranchStage } from '../avatar-stats';
 import type { ScoresV2 } from '../branches-v2';
+import { avatarStageRowsV2, massArtStage } from '../branches-v2';
 import {
   AURAS,
   DEFAULT_LOADOUT,
@@ -146,12 +147,22 @@ describe('resolveDisplay — the persisted loadout is re-validated on read', () 
   });
 
   it('a locked aura/emote falls back; an unlocked one applies', () => {
-    const low = resolveDisplay(derived({ forgeLevel: 0 }), { ...DEFAULT_LOADOUT, auraId: 'gold', emoteId: 'punch' });
+    const low = resolveDisplay(derived({ forgeLevel: 0 }), { ...DEFAULT_LOADOUT, auraId: 'crimson', emoteId: 'punch' });
     expect(low.auraColour).toBeNull();
     expect(low.emoteId).toBe('victory');
-    const high = resolveDisplay(derived({ forgeLevel: 20 }), { ...DEFAULT_LOADOUT, auraId: 'gold', emoteId: 'punch' });
-    expect(high.auraColour).toBe('#fbbf24');
+    const high = resolveDisplay(derived({ forgeLevel: 20 }), { ...DEFAULT_LOADOUT, auraId: 'crimson', emoteId: 'punch' });
+    expect(high.auraColour).toBe('#ef4444');
     expect(high.emoteId).toBe('punch');
+  });
+
+  it("TYSON'S CASE: Epic Bloom unlocks at EPIC TIER, whatever the forge level", () => {
+    // Forge Level 3, legacy level 57 (epic tier) — the exact live report.
+    const d = derived({ forgeLevel: 3, level: 57 });
+    const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, auraId: 'epic' });
+    expect(display.auraColour).toBe('#a855f7');
+    // Below the tier it stays locked no matter the forge level.
+    const low = resolveDisplay(derived({ forgeLevel: 99, level: 30 }), { ...DEFAULT_LOADOUT, auraId: 'epic' });
+    expect(low.auraColour).toBeNull();
   });
 });
 
@@ -191,8 +202,11 @@ describe('equip state machine', () => {
   });
 
   it('a locked cosmetic surfaces its unlock label', () => {
-    const state = equipState(derived({ forgeLevel: 0 }), sel({ auraId: 'gold' }), DEFAULT_LOADOUT);
-    expect(state).toEqual({ kind: 'locked-cosmetic', requirement: 'FORGE LEVEL 10' });
+    const forge = equipState(derived({ forgeLevel: 0 }), sel({ auraId: 'crimson' }), DEFAULT_LOADOUT);
+    expect(forge).toEqual({ kind: 'locked-cosmetic', requirement: 'FORGE LEVEL 5' });
+    // Tier-gated: gold needs LEGENDARY (level 40 = rare tier).
+    const tier = equipState(derived({ forgeLevel: 99 }), sel({ auraId: 'gold' }), DEFAULT_LOADOUT);
+    expect(tier).toEqual({ kind: 'locked-cosmetic', requirement: 'REACH LEGENDARY TIER' });
   });
 
   it('selecting the derived branch stores null (follows future evolutions)', () => {
@@ -211,12 +225,31 @@ describe('catalogs', () => {
     );
   });
 
-  it('free cosmetics unlock at level 0; forge gates bind; incoming never unlocks', () => {
-    expect(cosmeticUnlocked({ kind: 'free' }, 0)).toBe(true);
-    expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, 4)).toBe(false);
-    expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, 5)).toBe(true);
-    expect(cosmeticUnlocked({ kind: 'incoming', source: 'x' }, 999)).toBe(false);
+  it('free/forge/tier/incoming gates all bind correctly', () => {
+    const ctx = (forgeLevel: number, legacyLevel = 0) => ({ forgeLevel, legacyLevel });
+    expect(cosmeticUnlocked({ kind: 'free' }, ctx(0))).toBe(true);
+    expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(4))).toBe(false);
+    expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(5))).toBe(true);
+    expect(cosmeticUnlocked({ kind: 'tier', slug: 'epic' }, ctx(0, 49))).toBe(false);
+    expect(cosmeticUnlocked({ kind: 'tier', slug: 'epic' }, ctx(0, 50))).toBe(true);
+    expect(cosmeticUnlocked({ kind: 'tier', slug: 'epic' }, ctx(0, 100))).toBe(true);
+    expect(cosmeticUnlocked({ kind: 'incoming', source: 'x' }, ctx(999, 100))).toBe(false);
     expect(unlockLabel({ kind: 'forge', level: 5 })).toBe('FORGE LEVEL 5');
+    expect(unlockLabel({ kind: 'tier', slug: 'legendary' })).toBe('REACH LEGENDARY TIER');
+  });
+
+  it('the mass line spreads FOUR art stages (stage 4 exists, none repeat early)', () => {
+    // Tyson: "mass monster is missing its stage 4, and stages 1 and 2 are
+    // the same" — the ladder must hit a NEW body at 25/50/75.
+    expect([1, 24, 25, 50, 75, 100].map((l) => massArtStage(l))).toEqual([1, 1, 2, 3, 4, 4]);
+    const rowStages = avatarStageRowsV2('mass', 100).map((r) => r.stage);
+    expect(rowStages).toEqual([1, 2, 3, 4, 4]);
+    const titanStages = avatarStageRowsV2('titan', 100).map((r) => r.stage);
+    expect(titanStages).toEqual([1, 2, 3, 4, 4]);
+    expect(currentStageFor('mass', 80, null)).toBe(4);
+    expect(currentStageFor('titan', 55, null)).toBe(3);
+    // Cardio keeps the 3-stage hybrid painted scheme.
+    expect(Math.max(...avatarStageRowsV2('cardio', 100).map((r) => r.stage))).toBe(3);
   });
 
   it('emote ids ARE companion anims (the header depends on it)', () => {

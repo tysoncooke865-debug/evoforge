@@ -3,13 +3,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
+import { useDisplayIdentity } from '@/data/use-display-identity';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { SkillTreeView } from '@/ui/character/skill-tree';
-import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
-import { avatarStageRowsV2, branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage } from '@/domain/branches-v2';
+import { raritySlug } from '@/domain/avatar-stats';
+import { avatarStageRowsV2, branchDisplayNameV2, nextEvolutionV2, shredderRows } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
-import { animatedAvatar, avatarArtV2, stillAvatar } from '@/ui/character/avatar-art';
+import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { formArt } from '@/ui/customise/art';
 import { Silhouette } from '@/ui/character/silhouette';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
@@ -54,12 +56,19 @@ export default function AvatarScreen() {
  * requirement rows with readiness, the quick win and the wall called out.
  */
 function EvolutionView() {
-  const { summary, stats, bfMid, branchV2, sex } = useAvatarData();
-  const isShred = branchV2 === 'shredder';
+  const { summary, stats, bfMid, sex } = useAvatarData();
+  // CUSTOMISE (Tyson, 2026-07-16: "customising doesn't change the forge
+  // avatar screen"): the Forge shows the DISPLAY identity — the equipped
+  // character/stage/skin/aura, gate-validated on every read — exactly
+  // like Home. The evolution line follows the displayed champion.
+  const identity = useDisplayIdentity();
+  const displayBranch = identity.display.branch;
+  const skinId = identity.display.skinId;
+  const isShred = displayBranch === 'shredder';
 
-  const rows = avatarStageRowsV2(branchV2, summary.level);
+  const rows = avatarStageRowsV2(displayBranch, summary.level);
   const shredRows = isShred ? shredderRows(bfMid) : [];
-  const evo = nextEvolutionV2(branchV2, {
+  const evo = nextEvolutionV2(displayBranch, {
     level: summary.level,
     benchE1rm: stats.benchE1rm,
     bfMid,
@@ -68,10 +77,10 @@ function EvolutionView() {
   });
   const readiness = evolutionReadiness(evo.requirements);
 
-  const stage = isShred ? shredderStage(bfMid) : getBranchStage(stats.branch, summary.level);
-  const art = avatarArtV2(branchV2, stage, sex);
+  const stage = identity.display.stage;
   const slug = raritySlug(summary.level);
-  const auraColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const rarityColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const auraColour = identity.display.auraColour ?? rarityColour;
 
   // Only the NEXT stage shows its name; deeper futures stay "???".
   const nextUnlockLevel = rows.find((r) => !r.unlocked)?.level ?? null;
@@ -80,27 +89,27 @@ function EvolutionView() {
     <>
       <View className="items-center">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
-          {branchDisplayNameV2(branchV2).toUpperCase()}
+          {branchDisplayNameV2(displayBranch).toUpperCase()}
         </Text>
         <Text
           className="text-3xl font-bold text-text"
           style={{ textShadowColor: `${auraColour}80`, textShadowRadius: 18 }}
         >
-          {isShred ? shredderName(bfMid) : evolutionNameV2(branchV2, summary.level)}
+          {identity.display.formName}
         </Text>
       </View>
 
       <HeroStage
-        branch={stats.branch}
+        branch={identity.display.donor}
         stage={stage}
         auraColour={auraColour}
         size={230}
-        source={art.source}
-        animatedSource={animatedAvatar(branchV2, stage, sex)}
-        stillSource={stillAvatar(branchV2, stage, sex)}
-        silhouette={!art.hasArt}
+        source={identity.paintedSource}
+        animatedSource={identity.animatedSource}
+        stillSource={identity.stillSource}
+        silhouette={!identity.hasArt}
       />
-      {!art.hasArt ? (
+      {!identity.hasArt ? (
         <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
           FORM NOT YET FORGED — ART INCOMING
         </Text>
@@ -164,14 +173,14 @@ function EvolutionView() {
                     backgroundColor: row.current ? `${auraColour}12` : 'rgba(13,21,36,0.5)',
                   }}
                 >
-                  {row.unlocked && (animatedAvatar('shredder', row.stage, sex) || avatarArtV2('shredder', row.stage, sex).hasArt) ? (
+                  {row.unlocked && (formArt('shredder', row.stage, sex, skinId).animated || avatarArtV2('shredder', row.stage, sex).hasArt) ? (
                     <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
                       <Image
-                        source={animatedAvatar('shredder', row.stage, sex) ?? avatarArtV2('shredder', row.stage, sex).source}
+                        source={formArt('shredder', row.stage, sex, skinId).animated ?? formArt('shredder', row.stage, sex, skinId).painted}
                         style={{
                           width: 48,
                           height: 52,
-                          ...(animatedAvatar('shredder', row.stage, sex) ? ({ imageRendering: 'pixelated' } as object) : {}),
+                          ...(formArt('shredder', row.stage, sex, skinId).animated ? ({ imageRendering: 'pixelated' } as object) : {}),
                         }}
                         contentFit="contain"
                       />
@@ -221,23 +230,24 @@ function EvolutionView() {
                   shadowRadius: 14,
                 }}
               >
-                {row.unlocked && (animatedAvatar(branchV2, row.stage, sex) || avatarArtV2(branchV2, row.stage, sex).hasArt) ? (
+                {row.unlocked && (formArt(displayBranch, row.stage, sex, skinId).animated || avatarArtV2(displayBranch, row.stage, sex).hasArt) ? (
                   <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
                     {/* Unlocked stages show their ROTATING sprite where one
                         exists (Tyson, 2026-07-16) — the same per-stage set
-                        the hero uses; painted art is the fallback. */}
+                        the hero uses, in the EQUIPPED SKIN; painted art is
+                        the fallback. */}
                     <Image
-                      source={animatedAvatar(branchV2, row.stage, sex) ?? avatarArtV2(branchV2, row.stage, sex).source}
+                      source={formArt(displayBranch, row.stage, sex, skinId).animated ?? formArt(displayBranch, row.stage, sex, skinId).painted}
                       style={{
                         width: 48,
                         height: 52,
-                        ...(animatedAvatar(branchV2, row.stage, sex) ? ({ imageRendering: 'pixelated' } as object) : {}),
+                        ...(formArt(displayBranch, row.stage, sex, skinId).animated ? ({ imageRendering: 'pixelated' } as object) : {}),
                       }}
                       contentFit="contain"
                     />
                   </View>
                 ) : (
-                  <Silhouette branch={stats.branch} stage={row.stage} />
+                  <Silhouette branch={identity.display.donor} stage={row.stage} />
                 )}
                 <View className="ml-s3 flex-1">
                   <Text className={`text-base font-bold ${row.unlocked ? 'text-text' : 'text-text-mute'}`}>

@@ -425,6 +425,40 @@ Owner: Tyson. He works through other Claude sessions too — **always
   serves aesthetic-red-stage3.gif → SURVIVES A FULL RELOAD → standard
   re-equipped (cleanup).
 
+- **FIX BATCH (Tyson's live reports, 2026-07-16 evening):**
+  1. *"Mass Monster is missing stage 4; stages 1 and 2 are the same"* —
+     the pinned core ladder spreads five rows over the THREE painted
+     stages (1,1,2,3,3). `massArtStage()` in branches-v2 remaps the mass
+     LINE to the aesthetic spread (25/50/75 → stages 1,2,3,4,4); wired in
+     avatarStageRowsV2 (mass rows + the titan stageFor), customise
+     currentStageFor, SpriteCompanion, PATHS destinations, the evolution
+     teaser. Core goldens untouched. ALSO fixed: avatarImage() fell back
+     to AESTHETIC STAGE 1 for any out-of-range stage (a stage-4 Mass
+     Monster in the wrong body) — it now clamps to the line's own top.
+  2. *"Epic Bloom is blocked despite me having it unlocked"* — his Forge
+     Level is 3 (checked in prod), but his TIER is EPIC: tier-NAMED
+     cosmetics now carry a `tier` unlock kind evaluated against the
+     legacy display level's rarity (epic→Epic Bloom, legendary→Gilded
+     Field); forge gates remain for the colour auras (crimson 5,
+     emerald 10). cosmeticUnlocked takes an UnlockContext{forgeLevel,
+     legacyLevel} now.
+  3. *"Customising doesn't change the Forge avatar screen"* — avatar.tsx
+     EvolutionView renders the DISPLAY identity (useDisplayIdentity):
+     equipped branch/stage/skin/aura on the hero, the evolution line
+     follows the displayed champion in the equipped skin.
+  4. *"Each avatar grows 5% per stage"* — AvatarStage scales the body
+     (sprite AND painted) by 1 + 0.05·(stage−1); the bottom-pad translate
+     rides the grown size so feet stay on the podium. Measured in-tour:
+     stage 3 = 360px vs 324 base.
+  5. *"Music stops when EvoForge plays sound"* — HTMLAudioElement claims
+     the platform MEDIA SESSION (iOS pauses Spotify for a 90ms blip).
+     sound.ts now synthesizes the same square-wave chirps with WEB AUDIO
+     oscillators (no media element, mixes with background audio); the
+     WAV assets are deleted. Falsified: a Chip press constructs ZERO
+     Audio elements and exactly one AudioContext. RULE: SFX must never
+     create an HTMLMediaElement; a future native build must use the
+     ambient/mixWithOthers audio category.
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
