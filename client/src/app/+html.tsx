@@ -24,7 +24,14 @@ export default function Root({ children }: PropsWithChildren) {
             safe-area insets (the iPhone home-indicator strip) with the BODY
             background — default white showed as a white gap under the app.
             min-height keeps the paint through rubber-band overscroll. */}
-        <style>{'html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#04070e;min-height:100%}#root{background:#04070e;min-height:100%}'}</style>
+        {/* FULL HEIGHT (Tyson, 2026-07-16: installed iOS PWA rendered only the
+            top half, rest the blue bg). A percentage min-height resolves ONLY
+            against a parent with a DEFINITE height; with min-height alone the
+            whole chain collapsed to content height and the app filled just the
+            top of the taller standalone viewport. Every level needs an explicit
+            height:100% (100dvh on modern iOS for the dynamic viewport), and
+            #root is a flex column so the app view stretches to fill it. */}
+        <style>{'html,body,#root{height:100%;min-height:100%;background:#04070e}html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}#root{display:flex;flex-direction:column}@supports(height:100dvh){html,body,#root{height:100dvh}}'}</style>
         {/* Boot cross-fade (OPTIMISE_PLAN M3), PURE CSS so it can NEVER strand
             the app invisible. A Reanimated opacity gate once left an installed
             iOS PWA stuck on the blank boot colour when its animation frame did
@@ -42,6 +49,14 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="EvoForge" />
         <title>EvoForge — The Fitness RPG</title>
         <meta name="description" content="Your character is forged from real training. Lift, level, evolve — and battle in the Arena." />
+        {/* BOOT-FAILURE SAFETY NET (Tyson, 2026-07-16). Runs independently of
+            the app bundle: if the React root is still empty after a timeout, or
+            a script error fires before anything renders, it surfaces the actual
+            error on screen (so a phone can report it) with Reload / Reset-&-
+            reload buttons — a silent blank screen becomes recoverable. It only
+            appears when #root is genuinely empty, so a rendered app never sees
+            it. */}
+        <script>{'(function(){var errs=[],shown=false;function empty(){var r=document.getElementById("root");return !r||r.childElementCount===0;}function reveal(reason){if(shown)return;if(!document.body){document.addEventListener("DOMContentLoaded",function(){reveal(reason);});return;}shown=true;if(reason)errs.unshift(reason);var w=document.createElement("div");w.setAttribute("style","position:fixed;inset:0;z-index:2147483647;background:#04070e;color:#e5edf7;font:600 15px -apple-system,system-ui,sans-serif;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch");w.innerHTML=\'<div style="max-width:520px;margin:9vh auto 0"><div style="font-size:20px;font-weight:800;letter-spacing:1px;color:#22d3ee">EVOFORGE</div><div style="margin-top:16px;font-size:16px">Could not start</div><div style="margin-top:8px;font-size:13px;font-weight:400;color:#8aa0b8;line-height:1.5">The app did not load. Tap Reload. If it keeps happening, tap Reset &amp; reload.</div><pre id="__bfl" style="margin-top:14px;font:400 11px ui-monospace,monospace;color:#fb7185;white-space:pre-wrap;word-break:break-word;max-height:34vh;overflow:auto"></pre><div style="margin-top:16px;display:flex;gap:10px"><button id="__bfr" style="flex:1;min-height:50px;border-radius:12px;border:0;background:#22d3ee;color:#04070e;font-weight:800;font-size:15px">Reload</button><button id="__bfx" style="flex:1;min-height:50px;border-radius:12px;border:1px solid #2b3a4f;background:transparent;color:#e5edf7;font-weight:700;font-size:15px">Reset &amp; reload</button></div></div>\';document.body.appendChild(w);document.getElementById("__bfl").textContent=errs.slice(0,8).join("\\n\\n")||"(no error captured; the app simply never rendered)";document.getElementById("__bfr").onclick=function(){location.reload();};document.getElementById("__bfx").onclick=function(){try{localStorage.clear();}catch(e){}try{sessionStorage.clear();}catch(e){}try{if(window.caches&&caches.keys)caches.keys().then(function(k){k.forEach(function(n){caches.delete(n);});});}catch(e){}try{if(window.indexedDB&&indexedDB.databases)indexedDB.databases().then(function(d){d.forEach(function(x){try{indexedDB.deleteDatabase(x.name);}catch(e){}});});}catch(e){}setTimeout(function(){location.reload();},350);};}window.addEventListener("error",function(e){var m=(e&&(e.message||(e.error&&e.error.message)))||"script error";var f=e&&e.filename?(" @ "+String(e.filename).split("/").pop()+":"+e.lineno):"";errs.push("Error: "+m+f);if(empty())reveal();},true);window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;errs.push("Rejection: "+((r&&(r.message||(""+r)))||"promise rejection"));if(empty())reveal();});setTimeout(function(){if(empty())reveal("Timed out: nothing rendered within 12 seconds.");},12000);})();'}</script>
       </head>
       <body>{children}</body>
     </html>
