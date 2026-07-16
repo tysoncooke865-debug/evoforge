@@ -20,8 +20,10 @@ import {
   startingLevelV2,
   type NutritionPhase,
 } from '@/domain/starting-level-v2';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { GlowCard } from '@/ui/core/shell';
 import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
 import { todayIso } from '@/domain/today';
 
@@ -227,14 +229,30 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }} contentContainerClassName="items-center p-s6">
+    <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
+      {/* The shell's ambient light rig — creation sits on the same stage. */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+    <ScrollView className="flex-1" contentContainerClassName="items-center p-s6">
       <View className="w-full max-w-[480px]">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
           CHARACTER CREATION
         </Text>
         <Text
-          className="mb-s5 text-3xl font-bold text-accent"
-          style={{ textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 16 }}
+          className="mb-s5 text-accent"
+          allowFontScaling={false}
+          style={{
+            fontSize: 30,
+            lineHeight: 36,
+            letterSpacing: 0,
+            textShadowColor: 'rgba(34,211,238,0.55)',
+            textShadowRadius: 18,
+            ...pixelFont(),
+          }}
         >
           FORGE YOUR CHARACTER
         </Text>
@@ -351,7 +369,9 @@ export default function OnboardingScreen() {
                 }}
               >
                 <Text
-                  className={`text-2xs font-bold ${splitKey === s.key ? 'text-accent' : 'text-text-dim'}`}
+                  className={splitKey === s.key ? 'text-accent' : 'text-text-dim'}
+                  allowFontScaling={false}
+                  style={{ fontSize: 11, ...pixelFont() }}
                 >
                   {s.name}
                 </Text>
@@ -369,7 +389,11 @@ export default function OnboardingScreen() {
                 backgroundColor: splitKey === 'builder' ? 'rgba(168,85,247,0.08)' : 'rgba(13,21,36,0.6)',
               }}
             >
-              <Text className={`text-2xs font-bold ${splitKey === 'builder' ? 'text-epic' : 'text-text-dim'}`}>
+              <Text
+                className={splitKey === 'builder' ? 'text-epic' : 'text-text-dim'}
+                allowFontScaling={false}
+                style={{ fontSize: 11, ...pixelFont() }}
+              >
                 ⚒ BUILD MY OWN
               </Text>
             </Pressable>
@@ -387,7 +411,11 @@ export default function OnboardingScreen() {
                 backgroundColor: splitKey === 'scan' ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
               }}
             >
-              <Text className={`text-2xs font-bold ${splitKey === 'scan' ? 'text-accent' : 'text-text-dim'}`}>
+              <Text
+                className={splitKey === 'scan' ? 'text-accent' : 'text-text-dim'}
+                allowFontScaling={false}
+                style={{ fontSize: 11, ...pixelFont() }}
+              >
                 📷 SCAN MY PLAN
               </Text>
             </Pressable>
@@ -421,8 +449,9 @@ export default function OnboardingScreen() {
                 }}
               >
                 <Text
-                  className={`text-2xs font-bold ${goPublic === isPublic ? 'text-accent' : 'text-text-dim'}`}
-                  style={{ letterSpacing: 1 }}
+                  className={goPublic === isPublic ? 'text-accent' : 'text-text-dim'}
+                  allowFontScaling={false}
+                  style={{ fontSize: 11, letterSpacing: 0.5, ...pixelFont() }}
                 >
                   {goPublic === isPublic ? '✓ ' : ''}
                   {isPublic ? '🌐 PUBLIC' : '🔒 PRIVATE'}
@@ -440,7 +469,13 @@ export default function OnboardingScreen() {
                 The leaderboard shows a display name, level and XP — NEVER body data. You can
                 leave or rejoin any time from Rank.
               </Text>
-              <Text className="mb-s1 text-xs text-text-mute">DISPLAY NAME (3–24 CHARS)</Text>
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+              >
+                DISPLAY NAME (3–24 CHARS)
+              </Text>
               <TextInput
                 className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
                 value={publicName}
@@ -470,14 +505,25 @@ export default function OnboardingScreen() {
             style={{ borderWidth: 1, borderColor: 'rgba(34,211,238,0.34)', backgroundColor: 'rgba(34,211,238,0.06)' }}
           >
             <View>
-              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+              <Text
+                className="text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+              >
                 YOU START AT
               </Text>
               <Text className="text-sm text-text-dim">{rankName(previewLevel)}</Text>
             </View>
             <Text
-              className="text-3xl font-bold"
-              style={{ color: tokens.colors.accent, textShadowColor: 'rgba(34,211,238,0.6)', textShadowRadius: 14 }}
+              allowFontScaling={false}
+              style={{
+                fontSize: 30,
+                lineHeight: 36,
+                color: tokens.colors.accent,
+                textShadowColor: 'rgba(34,211,238,0.6)',
+                textShadowRadius: 14,
+                ...pixelFont(),
+              }}
             >
               LV {previewLevel}
             </Text>
@@ -491,16 +537,21 @@ export default function OnboardingScreen() {
         <NeonButton title="FORGE CHARACTER" onPress={forge} busy={busy} disabled={!valid} testID="forge" />
       </View>
     </ScrollView>
+    </View>
   );
 }
 
 function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-s5">
-      <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+    <View className="mb-s4">
+      <Text
+        className="mb-s2 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
         {n} · {title}
       </Text>
-      {children}
+      <GlowCard padding={14}>{children}</GlowCard>
     </View>
   );
 }
@@ -518,7 +569,13 @@ function Num({
 }) {
   return (
     <View className="flex-1">
-      <Text className="mb-s1 text-2xs text-text-mute">{label}</Text>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+      >
+        {label}
+      </Text>
       <TextInput
         className="rounded-md border border-border bg-surface-2 p-s3 text-text"
         inputMode="decimal"
