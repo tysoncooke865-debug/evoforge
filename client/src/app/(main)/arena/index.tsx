@@ -9,7 +9,7 @@ import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle
 import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
 import { totalRoundsFor } from '@/domain/battle/engine';
 import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
-import { pixelFont } from '@/theme/fonts';
+import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import {
   BLITZ_RULES,
@@ -24,7 +24,6 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
-import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import { GYMS } from '@/domain/battle-rpg/gyms';
 
 /**
