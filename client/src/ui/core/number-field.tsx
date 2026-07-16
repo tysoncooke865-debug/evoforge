@@ -99,7 +99,7 @@ function QuickChip({ label, onPress, tint, testID }: { label: string; onPress: (
   );
 }
 
-function KeyPad({
+export function KeyPad({
   label,
   initial,
   integer,
