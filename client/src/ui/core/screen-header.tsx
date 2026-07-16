@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, Text, View } from 'react-native';
 
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 /**
@@ -52,18 +53,25 @@ export function ScreenHeader({
         ) : null}
         <View className="flex-1" style={{ minWidth: 0 }}>
           <Text
-            className="text-2xs font-bold text-text-mute"
-            style={{ letterSpacing: 3, textTransform: 'uppercase' }}
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', ...pixelFont(false) }}
           >
             {kicker}
           </Text>
           <Text
-            className={`${big ? 'text-3xl' : 'text-2xl'} font-bold text-text`}
+            className="text-text"
+            allowFontScaling={false}
             style={{
-              letterSpacing: hero ? 1 : 0.5,
-              textShadowColor: hero ? 'rgba(34, 211, 238, 0.65)' : 'rgba(34, 211, 238, 0.5)',
+              letterSpacing: 0,
+              textShadowColor: hero ? 'rgba(34, 211, 238, 0.65)' : 'rgba(34, 211, 238, 0.55)',
               textShadowRadius: hero ? 26 : 18,
-              ...(hero ? { fontSize: 44, lineHeight: 50 } : null),
+              ...(hero
+                ? { fontSize: 44, lineHeight: 50 }
+                : big
+                  ? { fontSize: 30, lineHeight: 36 }
+                  : { fontSize: 24, lineHeight: 30 }),
+              ...pixelFont(),
             }}
             numberOfLines={titleLines}
           >
@@ -85,7 +93,11 @@ export function ScreenHeader({
 /** A section label inside a card: small, spaced, quiet. */
 export function SectionLabel({ children }: { children: string }) {
   return (
-    <Text className="mb-s3 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+    <Text
+      className="mb-s3 text-text-mute"
+      allowFontScaling={false}
+      style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+    >
       {children}
     </Text>
   );
