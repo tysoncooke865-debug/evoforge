@@ -109,9 +109,16 @@ function MoveButton({
           <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.success, fontFamily: PIXEL }}>FREE</Text>
         )}
       </View>
-      <Text allowFontScaling={false} numberOfLines={1} style={{ marginTop: 2, fontSize: 7.5, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
-        {cooling ? `COOLDOWN ${player.cooldowns[move.id]}` : recover ? 'RESTORE STAMINA · ALWAYS READY' : move.category.toUpperCase()}
-      </Text>
+      <View className="flex-row items-center justify-between" style={{ marginTop: 2 }}>
+        <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 7.5, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5, flexShrink: 1 }}>
+          {cooling ? `COOLDOWN ${player.cooldowns[move.id]}` : recover ? 'RESTORE STAMINA' : move.category.toUpperCase()}
+        </Text>
+        {!recover && !cooling && move.basePower > 0 ? (
+          <Text allowFontScaling={false} style={{ fontSize: 8, color: usable ? tint : tokens.colors['text-mute'], fontFamily: PIXEL_BOLD }}>
+            {'⚔'} {move.basePower}
+          </Text>
+        ) : null}
+      </View>
     </Pressable>
   );
 }
