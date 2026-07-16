@@ -46,14 +46,14 @@ export interface SizeEvidence {
 
 /** FFMI anchors → score, piecewise linear. Sex-calibrated: equal RELATIVE
  *  development earns equal points (the FEMALE_CALIBRATION philosophy). */
-const FFMI_ANCHORS: Record<'male' | 'female', ReadonlyArray<readonly [ffmi: number, score: number]>> = {
+const FFMI_ANCHORS: Record<'male' | 'female', readonly (readonly [ffmi: number, score: number])[]> = {
   male: [[14, 5], [16, 20], [18, 42], [20, 62], [22, 80], [24, 92], [25, 96], [26, 99]],
   female: [[11, 5], [13, 20], [15, 42], [17, 62], [19, 80], [21, 92], [22, 96], [23, 99]],
 };
 
 export function scoreFromAnchors(
   value: number,
-  anchors: ReadonlyArray<readonly [number, number]>
+  anchors: readonly (readonly [number, number])[]
 ): number {
   if (!Number.isFinite(value)) return 1;
   if (value <= anchors[0][0]) return anchors[0][1];

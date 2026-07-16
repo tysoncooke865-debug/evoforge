@@ -84,7 +84,7 @@ export const EVO_TIER_REQUIREMENTS = [
   { rating: 100, minSize: 99.5, minAesthetics: 99.5, minStrength: 95, minCardio: 85 },
 ] as const;
 
-const GATE_PILLARS: ReadonlyArray<readonly [PillarKey, 'minSize' | 'minAesthetics' | 'minStrength' | 'minCardio']> = [
+const GATE_PILLARS: readonly (readonly [PillarKey, 'minSize' | 'minAesthetics' | 'minStrength' | 'minCardio'])[] = [
   ['size', 'minSize'],
   ['aesthetics', 'minAesthetics'],
   ['strength', 'minStrength'],

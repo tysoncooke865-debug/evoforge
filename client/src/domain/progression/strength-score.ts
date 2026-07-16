@@ -35,7 +35,7 @@ export const MOVEMENT_WEIGHTS: Record<MovementCategory, number> = {
 
 /** Substring rules, first hit wins — ORDER MATTERS (RDL before "deadlift"
  *  would misfile; hinge patterns are listed before generic presses). */
-const CATEGORY_RULES: ReadonlyArray<readonly [MovementCategory, ReadonlyArray<string>]> = [
+const CATEGORY_RULES: readonly (readonly [MovementCategory, readonly string[]])[] = [
   ['hip_hinge', ['deadlift', 'rdl', 'romanian', 'good morning', 'hip thrust', 'rack pull', 'hinge']],
   ['knee_dominant', ['squat', 'leg press', 'hack', 'lunge', 'split squat', 'step-up', 'step up']],
   ['vertical_press', ['overhead press', 'ohp', 'shoulder press', 'military', 'push press', 'dip', 'landmine press']],
@@ -91,7 +91,7 @@ export interface StrengthObservation {
  * per category per sex. Manually configured until the internal dataset
  * exists; versioned via STRENGTH_REFERENCE_CURVE_VERSION.
  */
-const RELATIVE_ANCHORS: Record<'male' | 'female', Record<MovementCategory, ReadonlyArray<readonly [number, number]>>> = {
+const RELATIVE_ANCHORS: Record<'male' | 'female', Record<MovementCategory, readonly (readonly [number, number])[]>> = {
   male: {
     horizontal_press: [[0.4, 10], [0.75, 30], [1.0, 50], [1.25, 70], [1.5, 85], [1.8, 95], [2.1, 99]],
     knee_dominant: [[0.6, 10], [1.0, 30], [1.4, 50], [1.8, 70], [2.2, 85], [2.6, 95], [3.0, 99]],
@@ -109,7 +109,7 @@ const RELATIVE_ANCHORS: Record<'male' | 'female', Record<MovementCategory, Reado
 };
 
 /** Absolute anchors (kg e1RM → score), sex-specific. The 20% leg. */
-const ABSOLUTE_ANCHORS: Record<'male' | 'female', Record<MovementCategory, ReadonlyArray<readonly [number, number]>>> = {
+const ABSOLUTE_ANCHORS: Record<'male' | 'female', Record<MovementCategory, readonly (readonly [number, number])[]>> = {
   male: {
     horizontal_press: [[40, 10], [70, 30], [95, 50], [120, 70], [145, 85], [170, 95], [200, 99]],
     knee_dominant: [[60, 10], [100, 30], [140, 50], [180, 70], [220, 85], [260, 95], [300, 99]],

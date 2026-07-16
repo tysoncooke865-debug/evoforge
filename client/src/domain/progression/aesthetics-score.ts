@@ -36,7 +36,7 @@ export interface AestheticsEvidence {
 /** Definition vs body-fat%: rises into the athletic band, DIMINISHES near
  *  stage-lean, and PLATEAUS below the healthy floor — leaner-than-floor
  *  earns exactly the floor's score, never more. */
-const DEFINITION_ANCHORS: Record<'male' | 'female', ReadonlyArray<readonly [bf: number, score: number]>> = {
+const DEFINITION_ANCHORS: Record<'male' | 'female', readonly (readonly [bf: number, score: number])[]> = {
   male: [[5, 95], [7, 95], [10, 88], [12, 78], [15, 62], [18, 48], [22, 34], [28, 20], [35, 10]],
   female: [[12, 95], [15, 95], [18, 86], [21, 74], [24, 60], [28, 44], [33, 28], [40, 12]],
 };

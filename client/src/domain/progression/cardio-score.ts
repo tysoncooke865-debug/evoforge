@@ -31,7 +31,7 @@ export interface AerobicTestResult {
 
 /** Test value → score anchors (male; female offsets applied below).
  *  Timed tests: LOWER is better, so anchors descend. */
-const AEROBIC_ANCHORS: Record<AerobicTestType, { anchors: ReadonlyArray<readonly [number, number]>; lowerBetter: boolean; femaleShift: number }> = {
+const AEROBIC_ANCHORS: Record<AerobicTestType, { anchors: readonly (readonly [number, number])[]; lowerBetter: boolean; femaleShift: number }> = {
   // 1.5km run seconds: 330s (5:30) elite → 900s (15:00) untrained.
   run_1_5km: { anchors: [[330, 99], [390, 92], [450, 82], [540, 65], [630, 48], [720, 32], [900, 12]], lowerBetter: true, femaleShift: 0.12 },
   run_2_4km: { anchors: [[560, 99], [660, 92], [780, 80], [900, 65], [1080, 45], [1260, 28], [1500, 12]], lowerBetter: true, femaleShift: 0.12 },

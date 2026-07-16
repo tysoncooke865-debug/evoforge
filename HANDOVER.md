@@ -209,6 +209,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
   server recomputation first (the xp_drift-refusal doctrine).** Falsified
   against production with ALPHA's real data (rating 46 Trained, honest
   provisional confidence, due-gating idempotent); smoke rows deleted.
+- **P4 SHIPPED (same session): Forge Level + Weekly Momentum.**
+  `momentum.ts` (weeks vs target; misses DECAY by 2, protective modes and
+  recovery weeks BRIDGE, the current week is never judged early);
+  migration 026 APPLIED: weekly_momentum + `forge_claim_weekly` (server
+  re-proves the week: 100%→250 XP, 80%→150) + `forge_migrate_history`
+  (the §43 one-shot: ALPHA's real history → 5 sessions → Forge Level 2,
+  legacy 1020 XP frozen; rerun = 0 new). The 023 guard now recognises
+  SECURITY DEFINER grants by current_user — a distinction PostgREST
+  clients cannot forge. Client: `award-xp.ts` (event-key builders, send 0
+  and let the server decide) + `use-forge.ts` hooks. ALPHA's Forge rows
+  are REAL migrated data and stay (permanent smoke fixture).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

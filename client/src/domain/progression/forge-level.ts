@@ -50,7 +50,7 @@ export function forgeProgressFor(lifetimeXp: number): ForgeProgress {
  * on. forge-level.test.ts asserts the TS side; the falsification run for
  * migration 023 checked the SQL side against these same numbers.
  */
-export const FORGE_CURVE_FIXTURE: ReadonlyArray<readonly [xp: number, level: number]> = [
+export const FORGE_CURVE_FIXTURE: readonly (readonly [xp: number, level: number])[] = [
   // Verified against BOTH implementations on 2026-07-16 (SQL via the
   // management API, TS via node) — do not hand-edit, re-verify.
   [0, 1],
