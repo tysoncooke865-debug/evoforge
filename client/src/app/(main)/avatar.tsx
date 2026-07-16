@@ -9,7 +9,7 @@ import { getBranchStage, raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, evolutionNameV2, nextEvolutionV2, shredderName, shredderRows, shredderStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { animatedAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Silhouette } from '@/ui/character/silhouette';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
@@ -96,6 +96,7 @@ function EvolutionView() {
         auraColour={auraColour}
         size={230}
         source={art.source}
+        animatedSource={animatedAvatar(branchV2)}
         silhouette={!art.hasArt}
       />
       {!art.hasArt ? (

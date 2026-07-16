@@ -18,7 +18,7 @@ import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { pyFloat } from '@/domain/py';
 import tokens from '@/theme/tokens';
-import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { animatedAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Silhouette } from '@/ui/character/silhouette';
 
 /**
@@ -563,7 +563,16 @@ function PathDestination({
       }}
     >
       <View style={{ alignItems: 'center', width: 62 }}>
-        {art.hasArt && (active || state.kind === 'eligible') ? (
+        {donor === 'mass' && (active || state.kind === 'eligible') ? (
+          // The Mass Monster line previews its ROTATING sprite (Tyson,
+          // 2026-07-16) — the first animated path preview; other lines
+          // follow as their sets land. Locked stays a silhouette.
+          <Image
+            source={animatedAvatar(branch)}
+            style={{ width: 56, height: 62, ...({ imageRendering: 'pixelated' } as object) }}
+            contentFit="contain"
+          />
+        ) : art.hasArt && (active || state.kind === 'eligible') ? (
           <Image source={art.source} style={{ width: 56, height: 62 }} contentFit="contain" />
         ) : (
           <Silhouette branch={donor as 'aesthetic' | 'mass' | 'hybrid'} stage={Math.min(stage, 4)} rim={tint} />

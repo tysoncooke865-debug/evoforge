@@ -34,6 +34,7 @@ export function HeroStage({
   auraColour,
   size = 240,
   source,
+  animatedSource,
   silhouette = false,
 }: {
   branch: Branch;
@@ -41,6 +42,8 @@ export function HeroStage({
   auraColour: string;
   size?: number;
   source?: import('react-native').ImageSourcePropType;
+  /** The rotating sprite GIF — AvatarStage gates it on reduced motion. */
+  animatedSource?: import('react-native').ImageSourcePropType;
   silhouette?: boolean;
 }) {
   const bloom = useSharedValue(0);
@@ -123,7 +126,7 @@ export function HeroStage({
 
       {/* The living character, feet on the deck (float/breathe/aura inside). */}
       <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.58) }}>
-        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} silhouette={silhouette} />
+        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} animatedSource={animatedSource} silhouette={silhouette} />
       </View>
 
       {/* Fog rising from the floor. */}

@@ -49,6 +49,22 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
   }
 }
 
+/**
+ * THE FIRST ANIMATED AVATAR (Tyson, 2026-07-16): the Mass Monster
+ * 8-direction rotation GIF (92×92, 8 frames @ 200ms). ONE shared rotating
+ * idle stands in for every branch's main-avatar animation until per-class
+ * sets land — drop a per-branch gif into the map to replace it; nothing
+ * else changes. The full Mass Monster move set (walk/run/jab/cross) sits
+ * beside it in assets/sprites/mass-monster for the battle layer.
+ */
+const MASS_MONSTER_ROTATION: ImageSourcePropType = require('../../assets/sprites/mass-monster/rotations-8dir.gif');
+
+const ANIMATED_AVATARS: Partial<Record<BranchV2, ImageSourcePropType>> = {};
+
+export function animatedAvatar(branch: BranchV2): ImageSourcePropType {
+  return ANIMATED_AVATARS[branch] ?? MASS_MONSTER_ROTATION;
+}
+
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {
   if (sex === 'female') {
     // Real female art exists for the aesthetic line (LV.1-4). Other female

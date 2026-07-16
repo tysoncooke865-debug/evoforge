@@ -34,6 +34,7 @@ export function AvatarStage({
   auraColour,
   size = 220,
   source,
+  animatedSource,
   silhouette = false,
 }: {
   branch: Branch;
@@ -42,6 +43,10 @@ export function AvatarStage({
   size?: number;
   /** Override the art (v2 map); defaults to the branch/stage lookup. */
   source?: ImageSourcePropType;
+  /** The rotating sprite GIF (Tyson, 2026-07-16). An animated GIF is an
+   *  ambient loop, so it obeys the SAME gate as every other loop: reduced
+   *  motion or perf mode fall back to the static art. */
+  animatedSource?: ImageSourcePropType;
   /** True = placeholder form: render as a rim-lit silhouette, never as art. */
   silhouette?: boolean;
 }) {
@@ -139,9 +144,19 @@ export function AvatarStage({
       />
       <Animated.View style={bodyStyle}>
         <Image
-          source={source ?? avatarImage(branch, stage)}
+          source={
+            animate && !silhouette && animatedSource ? animatedSource : (source ?? avatarImage(branch, stage))
+          }
           tintColor={silhouette ? '#070d1a' : undefined}
-          style={{ width: size, height: size }}
+          style={{
+            width: size,
+            height: size,
+            // 92px sprite frames scale up crisp, never smeared (the
+            // sprite-avatar/coin-flip technique).
+            ...(animate && !silhouette && animatedSource
+              ? ({ imageRendering: 'pixelated' } as object)
+              : {}),
+          }}
           contentFit="contain"
           accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}
         />

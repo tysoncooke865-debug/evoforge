@@ -281,6 +281,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
   battle-engine stat integration (rulesets are pure transforms awaiting a
   battle-format decision; the engine stays byte-pinned).
 
+- **Mass Monster sprite set (Tyson, 2026-07-16):** five GIFs in
+  `client/src/assets/sprites/mass-monster/` (rotations-8dir · walk · run ·
+  jab · cross, 92×92 @200ms). The ROTATION is the main avatar now:
+  `animatedAvatar(branch)` in avatar-art.ts (one shared idle until
+  per-class gifs land — extend ANIMATED_AVATARS), rendered by AvatarStage
+  behind the SAME reduced-motion/perf gate as every ambient loop (static
+  art fallback), `imageRendering: pixelated` for crispness. The PATHS
+  page previews it on active/eligible mass-line destination cards.
+  Falsified: gif in DOM + two captures 700ms apart DIFFER (it really
+  rotates). The walk/run/punch gifs await the battle layer.
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
