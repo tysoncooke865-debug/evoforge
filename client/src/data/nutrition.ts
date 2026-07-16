@@ -27,6 +27,8 @@ export interface NutritionEntry {
   kcal: number;
   label: string | null;
   source: 'manual' | 'photo';
+  /** null = an absolute quick-add; 1..N = the meal slot it belongs to. */
+  meal_no: number | null;
   timestamp: string;
 }
 
@@ -103,7 +105,7 @@ export function useNutritionLog(date: string) {
       try {
         const { data, error } = await supabase
           .from('nutrition_log')
-          .select('id,date,kcal,label,source,"timestamp"')
+          .select('id,date,kcal,label,source,meal_no,"timestamp"')
           .eq('date', date)
           .order('timestamp', { ascending: true });
         if (error) {
@@ -125,10 +127,16 @@ export function useLogCalories() {
   const userId = useUserId();
 
   return useMutation({
-    mutationFn: async (input: { date: string; kcal: number; label: string | null }) => {
+    mutationFn: async (input: { date: string; kcal: number; label: string | null; mealNo?: number | null }) => {
       const { error } = await supabase
         .from('nutrition_log')
-        .insert({ date: input.date, kcal: input.kcal, label: input.label, source: 'manual' });
+        .insert({
+          date: input.date,
+          kcal: input.kcal,
+          label: input.label,
+          source: 'manual',
+          meal_no: input.mealNo ?? null,
+        });
       if (error) {
         // PREVIEW MODE: no table yet → the entry lives on the device.
         if (tableMissing(error)) {
@@ -139,6 +147,7 @@ export function useLogCalories() {
             kcal: input.kcal,
             label: input.label,
             source: 'manual',
+            meal_no: input.mealNo ?? null,
             timestamp: new Date().toISOString(),
           });
           await writeLocal(PREVIEW_LOG_KEY, rows);
@@ -158,6 +167,7 @@ export function useLogCalories() {
         kcal: input.kcal,
         label: input.label,
         source: 'manual',
+        meal_no: input.mealNo ?? null,
         timestamp: new Date().toISOString(),
       };
       queryClient.setQueryData<NutritionEntry[]>(key, [...(before ?? []), temp]);

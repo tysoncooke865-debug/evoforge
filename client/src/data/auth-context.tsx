@@ -53,9 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearFinishQueue().catch(() => undefined)
     );
     // FUEL preview-mode entries (pre-migration, device-local) die with the
-    // session too — same rule, same reason.
+    // session too — same rule, same reason. So does the meal-count day store.
     void import('./nutrition').then(({ clearFuelPreview }) =>
       clearFuelPreview().catch(() => undefined)
+    );
+    void import('@/state/fuel-store').then(({ useFuelStore }) => useFuelStore.getState().reset());
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      AsyncStorage.removeItem('evoforge-fuel-day-v1').catch(() => undefined)
     );
     // TRANSFORM P1: the PERSISTED query cache must die with the session —
     // same invariant as the in-memory clear (never hand the last athlete's

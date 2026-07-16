@@ -4,11 +4,16 @@ import {
   ACTIVITY_FACTORS,
   FLOOR_KCAL,
   KJ_PER_KCAL,
+  canAddMeal,
+  canRemoveMeal,
   dailyTarget,
+  effectiveMealCount,
+  highestMealNo,
   intakeError,
   intakeProgress,
   kcalToKj,
   kjToKcal,
+  mealTotals,
   meterState,
   mifflinStJeor,
   type TargetInputs,
@@ -156,6 +161,58 @@ describe('intakeProgress', () => {
 
   it('no target yet → the bar has nowhere to go', () => {
     expect(intakeProgress(entries, 0).barPct).toBe(0);
+  });
+});
+
+describe('meals — the day structured like Train structures sets', () => {
+  const meal = (n: number | null, kcal: number) => ({ meal_no: n, kcal });
+
+  it('highestMealNo: 0 on an empty day and on quick-add-only days', () => {
+    expect(highestMealNo([])).toBe(0);
+    expect(highestMealNo([meal(null, 500), meal(null, 300)])).toBe(0);
+  });
+
+  it('effectiveMealCount: never touched → the default three', () => {
+    expect(effectiveMealCount(null, [])).toBe(3);
+  });
+
+  it('effectiveMealCount: the athlete can shrink to one, and entries force it back UP', () => {
+    expect(effectiveMealCount(1, [])).toBe(1);
+    expect(effectiveMealCount(2, [meal(5, 400)])).toBe(5);
+  });
+
+  it('effectiveMealCount clamps at the ceiling', () => {
+    expect(effectiveMealCount(99, [])).toBe(8);
+    expect(effectiveMealCount(3, [meal(12, 200)])).toBe(8);
+  });
+
+  it('mealTotals groups by slot and ignores quick-adds, strays and garbage', () => {
+    const entries = [
+      meal(1, 300),
+      meal(1, 200),
+      meal(3, 650),
+      meal(null, 999), // quick-add — no slot
+      meal(9, 100), // beyond the rendered count — ignored
+      { meal_no: 2, kcal: 'soup' }, // garbage kcal
+    ];
+    expect(mealTotals(entries, 3)).toEqual([500, 0, 650]);
+  });
+
+  it('canAddMeal stops at the ceiling', () => {
+    expect(canAddMeal(7)).toBe(true);
+    expect(canAddMeal(8)).toBe(false);
+  });
+
+  it('canRemoveMeal: free down to one on an empty day', () => {
+    expect(canRemoveMeal(3, [])).toBe(true);
+    expect(canRemoveMeal(1, [])).toBe(false);
+  });
+
+  it('canRemoveMeal: a logged slot can never be removed out from under its entries', () => {
+    // Falsified once at authoring: dropped the highestMealNo floor, watched
+    // this go red (canRemoveMeal(2, [meal(2)]) returned true), restored.
+    expect(canRemoveMeal(2, [meal(2, 400)])).toBe(false);
+    expect(canRemoveMeal(3, [meal(2, 400)])).toBe(true);
   });
 });
 

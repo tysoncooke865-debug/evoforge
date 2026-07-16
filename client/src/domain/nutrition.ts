@@ -167,3 +167,63 @@ export function meterState(consumed: number, targetKcal: number, goal: Goal): Me
   if (goal === 'lose') return consumed > targetKcal ? 'over_cut' : 'under';
   return consumed >= targetKcal ? 'reached' : 'under';
 }
+
+/**
+ * MEALS (owner ask at port time): the day is structured into meal slots.
+ * An entry with meal_no 1..N belongs to that slot; meal_no null is an
+ * absolute quick-add and belongs to no slot. Same shape as Train's sets:
+ * a count you bump up and down, floored so a logged slot can never be
+ * removed out from under its entries.
+ */
+export const MIN_MEALS = 1;
+export const MAX_MEALS = 8;
+export const DEFAULT_MEALS = 3;
+
+export interface MealEntryLike {
+  kcal?: unknown;
+  meal_no?: number | null;
+}
+
+/** Highest meal slot holding a logged entry; 0 when none (quick-adds don't count). */
+export function highestMealNo(entries: readonly MealEntryLike[]): number {
+  let highest = 0;
+  for (const e of entries) {
+    const n = e.meal_no;
+    if (typeof n === 'number' && Number.isFinite(n) && n > highest) highest = Math.floor(n);
+  }
+  return highest;
+}
+
+/**
+ * The count the page renders: the athlete's stored choice (null = never
+ * touched → DEFAULT_MEALS), forced UP by any higher logged slot, clamped.
+ * Entries can grow the day, never shrink it — the clampSets shape.
+ */
+export function effectiveMealCount(stored: number | null, entries: readonly MealEntryLike[]): number {
+  const base = stored === null ? DEFAULT_MEALS : stored;
+  return Math.max(MIN_MEALS, Math.min(MAX_MEALS, Math.max(base, highestMealNo(entries))));
+}
+
+/** kcal sum per slot (index 0 = MEAL 1). Ignores quick-adds, out-of-range
+ *  slots and garbage kcal — the intakeProgress tolerance. */
+export function mealTotals(entries: readonly MealEntryLike[], count: number): number[] {
+  const totals = Array.from({ length: Math.max(0, count) }, () => 0);
+  for (const e of entries) {
+    const n = e.meal_no;
+    if (typeof n !== 'number' || !Number.isFinite(n)) continue;
+    const slot = Math.floor(n);
+    if (slot < 1 || slot > totals.length) continue;
+    const k = Number(e.kcal ?? 0);
+    if (Number.isFinite(k) && k > 0) totals[slot - 1] += k;
+  }
+  return totals.map((t) => Math.round(t));
+}
+
+export function canAddMeal(count: number): boolean {
+  return count < MAX_MEALS;
+}
+
+/** Never remove a slot that already holds a logged entry — the sets rule. */
+export function canRemoveMeal(count: number, entries: readonly MealEntryLike[]): boolean {
+  return count > Math.max(MIN_MEALS, highestMealNo(entries));
+}
