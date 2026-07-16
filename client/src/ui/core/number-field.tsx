@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import { pyFloat } from '@/domain/py';
 import tokens from '@/theme/tokens';
+import { USE_CUSTOM_PAD } from '@/ui/core/pad-env';
 
 /**
  * The weight/reps entry control (Tyson, 2026-07-12, iterated live):
@@ -21,12 +22,6 @@ import tokens from '@/theme/tokens';
 
 const REPEAT_MS = 140;
 const DOUBLE_MS = 350;
-
-const USE_CUSTOM_PAD =
-  Platform.OS !== 'web' ||
-  (typeof window !== 'undefined' &&
-    ((typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches) ||
-      (typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 0)));
 
 function formatValue(n: number, integer: boolean): string {
   if (integer) return String(Math.max(0, Math.trunc(n)));

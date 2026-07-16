@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useCardioLog } from '@/data/hooks';
 import { useLogCardio } from '@/data/mutations';
@@ -10,6 +10,7 @@ import { Field } from '@/ui/core/field';
 import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { GlowCard } from '@/ui/core/shell';
+import { TextField } from '@/ui/core/text-field';
 
 /**
  * The cardio session logger — moved VERBATIM from log.tsx to Today
@@ -174,12 +175,12 @@ export function CardioCard({ type, setType }: { type: string; setType: (t: strin
         <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
           NOTES
         </Text>
-        <TextInput
-          className="min-h-[44px] rounded-md border border-border bg-surface-2 p-s2 text-text"
+        <TextField
+          label="NOTES"
           placeholder={boxing ? 'Intensity, sparring vs bag…' : 'Example: 12% incline, 4.6km/h, post-pull'}
-          placeholderTextColor="#64758f"
           value={notes}
-          onChangeText={setNotes}
+          onChange={setNotes}
+          testID="cardio-notes"
         />
       </View>
 
