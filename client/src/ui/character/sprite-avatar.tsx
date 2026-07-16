@@ -70,6 +70,10 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv1_idle_2.png'),
       require('../../assets/avatars/sprites/lv1_idle_3.png'),
       require('../../assets/avatars/sprites/lv1_idle_4.png'),
+      require('../../assets/avatars/sprites/lv1_idle_5.png'),
+      require('../../assets/avatars/sprites/lv1_idle_6.png'),
+      require('../../assets/avatars/sprites/lv1_idle_7.png'),
+      require('../../assets/avatars/sprites/lv1_idle_8.png'),
     ],
     run: [
       require('../../assets/avatars/sprites/lv1_run_1.png'),
@@ -80,15 +84,11 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv1_run_6.png'),
       require('../../assets/avatars/sprites/lv1_run_7.png'),
       require('../../assets/avatars/sprites/lv1_run_8.png'),
-      require('../../assets/avatars/sprites/lv1_run_9.png'),
     ],
     punch: [
       require('../../assets/avatars/sprites/lv1_punch_1.png'),
       require('../../assets/avatars/sprites/lv1_punch_2.png'),
       require('../../assets/avatars/sprites/lv1_punch_3.png'),
-      require('../../assets/avatars/sprites/lv1_punch_4.png'),
-      require('../../assets/avatars/sprites/lv1_punch_5.png'),
-      require('../../assets/avatars/sprites/lv1_punch_6.png'),
     ],
     victory: [
       require('../../assets/avatars/sprites/lv1_victory_1.png'),
@@ -102,6 +102,10 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv2_idle_2.png'),
       require('../../assets/avatars/sprites/lv2_idle_3.png'),
       require('../../assets/avatars/sprites/lv2_idle_4.png'),
+      require('../../assets/avatars/sprites/lv2_idle_5.png'),
+      require('../../assets/avatars/sprites/lv2_idle_6.png'),
+      require('../../assets/avatars/sprites/lv2_idle_7.png'),
+      require('../../assets/avatars/sprites/lv2_idle_8.png'),
     ],
     run: [
       require('../../assets/avatars/sprites/lv2_run_1.png'),
@@ -112,15 +116,11 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv2_run_6.png'),
       require('../../assets/avatars/sprites/lv2_run_7.png'),
       require('../../assets/avatars/sprites/lv2_run_8.png'),
-      require('../../assets/avatars/sprites/lv2_run_9.png'),
     ],
     punch: [
       require('../../assets/avatars/sprites/lv2_punch_1.png'),
       require('../../assets/avatars/sprites/lv2_punch_2.png'),
       require('../../assets/avatars/sprites/lv2_punch_3.png'),
-      require('../../assets/avatars/sprites/lv2_punch_4.png'),
-      require('../../assets/avatars/sprites/lv2_punch_5.png'),
-      require('../../assets/avatars/sprites/lv2_punch_6.png'),
     ],
     victory: [
       require('../../assets/avatars/sprites/lv2_victory_1.png'),
@@ -134,6 +134,10 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv3_idle_2.png'),
       require('../../assets/avatars/sprites/lv3_idle_3.png'),
       require('../../assets/avatars/sprites/lv3_idle_4.png'),
+      require('../../assets/avatars/sprites/lv3_idle_5.png'),
+      require('../../assets/avatars/sprites/lv3_idle_6.png'),
+      require('../../assets/avatars/sprites/lv3_idle_7.png'),
+      require('../../assets/avatars/sprites/lv3_idle_8.png'),
     ],
     run: [
       require('../../assets/avatars/sprites/lv3_run_1.png'),
@@ -144,15 +148,11 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv3_run_6.png'),
       require('../../assets/avatars/sprites/lv3_run_7.png'),
       require('../../assets/avatars/sprites/lv3_run_8.png'),
-      require('../../assets/avatars/sprites/lv3_run_9.png'),
     ],
     punch: [
       require('../../assets/avatars/sprites/lv3_punch_1.png'),
       require('../../assets/avatars/sprites/lv3_punch_2.png'),
       require('../../assets/avatars/sprites/lv3_punch_3.png'),
-      require('../../assets/avatars/sprites/lv3_punch_4.png'),
-      require('../../assets/avatars/sprites/lv3_punch_5.png'),
-      require('../../assets/avatars/sprites/lv3_punch_6.png'),
     ],
     victory: [
       require('../../assets/avatars/sprites/lv3_victory_1.png'),
@@ -166,6 +166,10 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv4_idle_2.png'),
       require('../../assets/avatars/sprites/lv4_idle_3.png'),
       require('../../assets/avatars/sprites/lv4_idle_4.png'),
+      require('../../assets/avatars/sprites/lv4_idle_5.png'),
+      require('../../assets/avatars/sprites/lv4_idle_6.png'),
+      require('../../assets/avatars/sprites/lv4_idle_7.png'),
+      require('../../assets/avatars/sprites/lv4_idle_8.png'),
     ],
     run: [
       require('../../assets/avatars/sprites/lv4_run_1.png'),
@@ -176,15 +180,11 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv4_run_6.png'),
       require('../../assets/avatars/sprites/lv4_run_7.png'),
       require('../../assets/avatars/sprites/lv4_run_8.png'),
-      require('../../assets/avatars/sprites/lv4_run_9.png'),
     ],
     punch: [
       require('../../assets/avatars/sprites/lv4_punch_1.png'),
       require('../../assets/avatars/sprites/lv4_punch_2.png'),
       require('../../assets/avatars/sprites/lv4_punch_3.png'),
-      require('../../assets/avatars/sprites/lv4_punch_4.png'),
-      require('../../assets/avatars/sprites/lv4_punch_5.png'),
-      require('../../assets/avatars/sprites/lv4_punch_6.png'),
     ],
     victory: [
       require('../../assets/avatars/sprites/lv4_victory_1.png'),
@@ -353,14 +353,20 @@ const FRAMES_F: Record<Stage, Record<Anim, number[]>> = {
   },
 };
 
-const COUNT: Record<Anim, number> = { idle: 4, run: 9, punch: 6, victory: 3 };
+/** Frame counts are PER SEX now (the male sets became the Cyber Athlete
+ *  pack, 2026-07-16: rotation idle 8 · run 8 · jab 3 · victory 3); the
+ *  female sets keep their original counts until female art lands. */
+const COUNT: Record<Anim, number> = { idle: 8, run: 8, punch: 3, victory: 3 };
+const COUNT_F: Record<Anim, number> = { idle: 4, run: 9, punch: 6, victory: 3 };
+const countFor = (sex: Sex) => (sex === 'female' ? COUNT_F : COUNT);
 
 /** Canvas aspect (w/h) per stage+animation. */
 const ASPECT: Record<Stage, Record<Anim, number>> = {
-  1: { idle: 95 / 186, run: 143 / 172, punch: 185 / 172, victory: 113 / 187 },
-  2: { idle: 99 / 198, run: 154 / 170, punch: 224 / 168, victory: 120 / 206 },
-  3: { idle: 153 / 239, run: 161 / 171, punch: 182 / 160, victory: 154 / 215 },
-  4: { idle: 124 / 218, run: 147 / 172, punch: 181 / 166, victory: 139 / 214 },
+  // Measured from the Cyber Athlete pack's union bounding boxes (PIL).
+  1: { idle: 43 / 64, run: 39 / 63, punch: 46 / 62, victory: 43 / 63 },
+  2: { idle: 45 / 65, run: 39 / 61, punch: 44 / 62, victory: 45 / 65 },
+  3: { idle: 53 / 65, run: 38 / 61, punch: 44 / 62, victory: 53 / 65 },
+  4: { idle: 78 / 71, run: 54 / 63, punch: 59 / 62, victory: 78 / 70 },
 };
 
 const ASPECT_F: Record<Stage, Record<Anim, number>> = {
@@ -384,7 +390,7 @@ const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: false
 
 /** Browser-native sprite playback: background-position through steps(). */
 function CssSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
-  const n = COUNT[anim];
+  const n = countFor(sex)[anim];
   // resolveAssetSource does not exist on react-native-web; expo-asset
   // resolves Metro module ids to served URLs on every platform.
   const uri = Asset.fromModule(stripsFor(sex)[stage][anim]).uri;
@@ -454,7 +460,7 @@ function SpriteFrame({
 
 function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
   const clock = useSharedValue(0);
-  const n = COUNT[anim];
+  const n = countFor(sex)[anim];
   useEffect(() => {
     if (frozen) {
       clock.value = 0;

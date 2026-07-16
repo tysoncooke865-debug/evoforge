@@ -307,6 +307,15 @@ Owner: Tyson. He works through other Claude sessions too — **always
   avatar-stage.tsx) or the character floats above the podium — re-measure
   when new sets land. PATHS previews any line with a rotation, dimmed
   until eligible.
+  **Companion replaced with the Cyber Athlete pack (l4_aesthetic.zip,
+  Tyson, 2026-07-16):** all four MALE stage sprite sets (idle = the
+  8-frame rotation · run 8 · punch 3 · victory 3 from rotation poses)
+  rebuilt from the pack's frame folders — strips + singles regenerated
+  with PIL union-bbox trims, ASPECT re-measured, COUNT is now PER SEX
+  (countFor — female sets keep their original counts/art untouched).
+  Stale lvN_run_9/punch_4-6 removed. The old male companion character no
+  longer exists anywhere. Regeneration recipe: the unpack + build script
+  in the session scratchpad (frames land in assets/avatars/sprites).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
