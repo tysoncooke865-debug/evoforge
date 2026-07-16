@@ -4,8 +4,9 @@ import { chooseAiMove, isMoveUsable } from '../ai';
 import { computeDamage } from '../damage';
 import { buildCombatant, createBattle, decideOrder, moveById, resolveTurn } from '../engine';
 import { ALL_MOVES, RECOVER_MOVE, movesForChampion } from '../moves';
-import { gymReward } from '../rewards';
+import { gymReward, rewardsFor } from '../rewards';
 import { GYMS } from '../gyms';
+import { CHAMPIONS } from '../champions';
 import { createBattleStats } from '../stat-scaler';
 import { applyStatus, tickStatuses } from '../status';
 import type { BattleStats, ChampionId, Combatant } from '../types';
@@ -201,5 +202,16 @@ describe('catalog integrity', () => {
       expect(movesForChampion(id)).toHaveLength(4);
       for (const m of movesForChampion(id)) expect(ALL_MOVES[m.id]).toBe(m);
     }
+  });
+});
+
+describe('versus + champion mapping (Tyson beta)', () => {
+  it('versus battles pay nothing (bragging rights only)', () => {
+    expect(rewardsFor('versus', true, {})).toEqual({ coins: 0, forgeXp: 0 });
+    expect(rewardsFor('versus', false, {})).toEqual({ coins: 0, forgeXp: 0 });
+  });
+  it('each battle champion maps to a real sprite branch', () => {
+    const branches = (['aesthetic', 'titan', 'apex', 'shredded'] as const).map((id) => CHAMPIONS[id].spriteBranch);
+    expect(branches).toEqual(['aesthetic', 'titan', 'cardio', 'shredder']);
   });
 });

@@ -23,22 +23,30 @@ export function CombatBar({
 }) {
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const w = useSharedValue(pct);
+  const ghost = useSharedValue(pct); // trailing bar — catches up slowly on loss
   useEffect(() => {
-    w.value = withTiming(pct, { duration: 400, easing: Easing.out(Easing.quad) });
-  }, [pct, w]);
+    w.value = withTiming(pct, { duration: 260, easing: Easing.out(Easing.quad) });
+    // On a loss the ghost lingers (the classic RPG "damage trail"); on a gain
+    // it snaps ahead so the green fill leads.
+    ghost.value = withTiming(pct, { duration: 620, easing: Easing.out(Easing.cubic) });
+  }, [pct, w, ghost]);
   const fill = useAnimatedStyle(() => ({ width: `${w.value}%` }));
+  const ghostStyle = useAnimatedStyle(() => ({ width: `${Math.max(w.value, ghost.value)}%` }));
+  const low = pct <= 25;
   return (
     <View>
       <View className="flex-row items-center justify-between" style={{ marginBottom: 2 }}>
         <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {label}
         </Text>
-        <Text allowFontScaling={false} style={{ fontSize: 9, color: colour, fontFamily: PIXEL_BOLD }}>
+        <Text allowFontScaling={false} style={{ fontSize: 9, color: low ? tokens.colors.danger : colour, fontFamily: PIXEL_BOLD }}>
           {Math.round(value)}/{Math.round(max)}
         </Text>
       </View>
       <View style={{ height, borderRadius: height, backgroundColor: 'rgba(120,170,220,0.12)', overflow: 'hidden' }}>
-        <Animated.View style={[{ height, borderRadius: height, backgroundColor: colour, shadowColor: colour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
+        {/* Ghost trail (whitened) sits behind the real fill. */}
+        <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: height, backgroundColor: 'rgba(255,255,255,0.5)' }, ghostStyle]} />
+        <Animated.View style={[{ height, borderRadius: height, backgroundColor: low ? tokens.colors.danger : colour, shadowColor: colour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
       </View>
     </View>
   );

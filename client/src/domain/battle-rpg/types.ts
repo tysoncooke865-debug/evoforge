@@ -128,7 +128,7 @@ export interface Combatant {
   guard: { mult: number; counter: number } | null;
 }
 
-export type BattleMode = 'training' | 'rival' | 'gym';
+export type BattleMode = 'training' | 'rival' | 'gym' | 'versus';
 export type ScalingContext = 'training' | 'rival' | 'gym' | 'futureRanked';
 
 export type BattlePhase =

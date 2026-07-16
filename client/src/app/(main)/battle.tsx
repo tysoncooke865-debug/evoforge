@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
-import { CHAMPIONS, CHAMPION_LIST, championForBranch } from '@/domain/battle-rpg/champions';
+import { CHAMPIONS, championForBranch } from '@/domain/battle-rpg/champions';
+import { championRequirement, unlockedChampionSet } from '@/domain/battle-rpg/unlock';
 import { gymById } from '@/domain/battle-rpg/gyms';
 import { rivalFor } from '@/domain/battle-rpg/rivals';
 import type { AiPersonality, ChampionId } from '@/domain/battle-rpg/types';
@@ -20,6 +21,8 @@ import { BattleResultModal } from '@/ui/battle/result-modal';
 import { BattleArena } from '@/ui/battle/battle-arena';
 import { CombatantHud } from '@/ui/battle/battle-bits';
 import { MoveGrid } from '@/ui/battle/move-grid';
+import { ChampionPicker, championSprite } from '@/ui/battle/champion-picker';
+import { VsIntro } from '@/ui/battle/vs-intro';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
@@ -38,16 +41,32 @@ import {
  */
 export default function BattleScreen() {
   const params = useLocalSearchParams<{ mode?: string; gym?: string }>();
-  const mode = (params.mode === 'gym' || params.mode === 'rival' ? params.mode : 'training') as BattleSetup['mode'];
+  const mode = (['gym', 'rival', 'versus'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
   const gymId = params.gym;
+  const versus = mode === 'versus';
 
-  const { ready, branchV2, stats } = useAvatarData();
+  const { ready, branchV2, stats, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
   const forgeLevel = forgeProgressFromRow(forge.data ?? null).level;
   const storedChampion = useBattleRpgStore((s) => s.selectedChampion);
   const setSelectedChampion = useBattleRpgStore((s) => s.setSelectedChampion);
 
   const [picked, setPicked] = useState<ChampionId | null>(storedChampion);
+  const [p2Picked, setP2Picked] = useState<ChampionId>('titan');
+
+  // Which champions the athlete has UNLOCKED (mirrors the CUSTOMISE roster
+  // gates) — you can only battle with those.
+  const scores = {
+    strength: stats.strengthScore, size: stats.sizeScore, leanness: stats.leannessScore,
+    conditioning: stats.conditioningScore, aesthetic: stats.aestheticScore,
+  };
+  const ctx = { nutritionPhase, earliestBf };
+  const unlockedSet = useMemo(
+    () => unlockedChampionSet(branchV2, scores, ctx),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [branchV2, stats.strengthScore, stats.sizeScore, stats.leannessScore, stats.conditioningScore, stats.aestheticScore, nutritionPhase, earliestBf]
+  );
+  const requirementFor = (id: ChampionId) => championRequirement(id, branchV2, scores, ctx);
   // A single /battle route is REUSED across modes (expo-router keeps it
   // mounted and only swaps params), so tying "started" to a boolean loaded
   // you back into the last fight when you opened a different mode. Instead:
@@ -62,15 +81,19 @@ export default function BattleScreen() {
   const started = startedKey === paramKey;
   useFocusEffect(useCallback(() => { setStartedKey(null); }, []));
 
-  const playerChampion: ChampionId = picked ?? championForBranch(branchV2);
+  // A picked-but-now-locked champion falls back to your (always-unlocked)
+  // derived class.
+  const playerChampion: ChampionId = picked && unlockedSet.has(picked) ? picked : championForBranch(branchV2);
 
   // Opponent + AI by mode.
   const gym = gymId ? gymById(gymId) : undefined;
   const rival = useMemo(() => rivalFor(forgeLevel), [forgeLevel]);
-  const opponentChampion: ChampionId = mode === 'gym' ? gym?.championId ?? 'titan' : mode === 'rival' ? rival.championId : balancedOpponent(playerChampion);
-  const opponentName = mode === 'gym' ? gym?.leaderName ?? 'Rival' : mode === 'rival' ? rival.name : 'Training Dummy';
+  const opponentChampion: ChampionId = versus
+    ? p2Picked
+    : mode === 'gym' ? gym?.championId ?? 'titan' : mode === 'rival' ? rival.championId : balancedOpponent(playerChampion);
+  const opponentName = versus ? 'Player 2' : mode === 'gym' ? gym?.leaderName ?? 'Rival' : mode === 'rival' ? rival.name : 'Training Dummy';
   const ai: AiPersonality = mode === 'gym' ? gym?.ai ?? 'defensive' : mode === 'rival' ? rival.ai : 'balanced';
-  const difficulty = mode === 'gym' ? 1.05 : mode === 'rival' ? 1.0 : 0.95;
+  const difficulty = versus ? 1.0 : mode === 'gym' ? 1.05 : mode === 'rival' ? 1.0 : 0.95;
 
   const setup: BattleSetup = useMemo(
     () => ({
@@ -83,8 +106,9 @@ export default function BattleScreen() {
       difficulty,
       player: { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore },
       playerSprite: { branch: CHAMPIONS[playerChampion].spriteBranch, stage: 4 },
+      versus,
     }),
-    [mode, playerChampion, opponentChampion, opponentName, ai, gymId, difficulty, stats.sizeScore, stats.aestheticScore, stats.strengthScore, stats.conditioningScore]
+    [mode, playerChampion, opponentChampion, opponentName, ai, gymId, difficulty, versus, stats.sizeScore, stats.aestheticScore, stats.strengthScore, stats.conditioningScore]
   );
 
   if (!ready) {
@@ -103,12 +127,17 @@ export default function BattleScreen() {
       <PreviewScreen
         mode={mode}
         setup={setup}
+        versus={versus}
         gymName={gym?.name}
         leaderTitle={gym?.leaderTitle}
         recommendedRating={gym?.recommendedRating}
         opponentPower={opponentPowerLabel(setup)}
         picked={playerChampion}
+        p2Picked={p2Picked}
+        unlocked={unlockedSet}
+        requirementFor={requirementFor}
         onPick={(id) => { setPicked(id); setSelectedChampion(id); }}
+        onP2Pick={setP2Picked}
         onStart={() => { setStartedKey(paramKey); setRunNonce((n) => n + 1); }}
       />
     );
@@ -130,77 +159,102 @@ function balancedOpponent(player: ChampionId): ChampionId {
 function PreviewScreen({
   mode,
   setup,
+  versus,
   gymName,
   leaderTitle,
   recommendedRating,
   opponentPower,
   picked,
+  p2Picked,
+  unlocked,
+  requirementFor,
   onPick,
+  onP2Pick,
   onStart,
 }: {
   mode: BattleSetup['mode'];
   setup: BattleSetup;
+  versus: boolean;
   gymName?: string;
   leaderTitle?: string;
   recommendedRating?: number;
   opponentPower: number;
   picked: ChampionId;
+  p2Picked: ChampionId;
+  unlocked: Set<ChampionId>;
+  requirementFor: (id: ChampionId) => string;
   onPick: (id: ChampionId) => void;
+  onP2Pick: (id: ChampionId) => void;
   onStart: () => void;
 }) {
-  const title = mode === 'gym' ? (gymName ?? 'GYM').toUpperCase() : mode === 'rival' ? 'RIVAL BATTLE' : 'TRAINING BATTLE';
+  const title = versus ? 'VERSUS' : mode === 'gym' ? (gymName ?? 'GYM').toUpperCase() : mode === 'rival' ? 'RIVAL BATTLE' : 'TRAINING BATTLE';
   const oppBranch = CHAMPIONS[setup.opponentChampion].spriteBranch;
   return (
     <ScreenShell>
       <ScreenHeader kicker="ARENA" title={title} onBack={() => router.back()} />
 
-      {/* Opponent preview. */}
-      <View className="rounded-xl border p-s4" style={{ borderColor: `${tokens.colors.danger}45`, backgroundColor: 'rgba(20,10,16,0.5)' }}>
-        <Text style={{ fontSize: 10, color: tokens.colors.danger, fontFamily: PIXEL, letterSpacing: 1 }}>OPPONENT</Text>
-        <View className="mt-s2 flex-row items-center" style={{ gap: 12 }}>
-          <Image source={stillAvatar(oppBranch, 4, 'male') ?? avatarArtV2(oppBranch, 4, 'male').source} style={{ width: 88, height: 88, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, color: tokens.colors.text, ...pixelFont() }}>{setup.opponentName.toUpperCase()}</Text>
-            {leaderTitle ? <Text style={{ fontSize: 10, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>{leaderTitle.toUpperCase()}</Text> : null}
-            <Text style={{ marginTop: 2, fontSize: 12, color: tokens.colors.accent }}>{CHAMPIONS[setup.opponentChampion].name}</Text>
-            <Text style={{ marginTop: 2, fontSize: 11, color: tokens.colors['text-mute'] }}>Combat Power ~{opponentPower}{recommendedRating ? ` · Rec. Evo ${recommendedRating}` : ''}</Text>
+      {versus ? (
+        <>
+          {/* VS matchup banner. */}
+          <View className="rounded-xl border p-s4 flex-row items-center justify-between" style={{ borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(10,16,30,0.55)' }}>
+            <MatchupSide label="PLAYER 1" id={picked} tint={tokens.colors.accent} />
+            <Text style={{ fontSize: 22, color: tokens.colors.legendary, ...pixelFont() }}>VS</Text>
+            <MatchupSide label="PLAYER 2" id={p2Picked} tint={tokens.colors.danger} right />
           </View>
-        </View>
-      </View>
+          <Text className="mt-s2 text-center text-2xs text-text-mute">Pass-and-play on one device — take turns choosing moves.</Text>
 
-      {/* Champion picker. */}
-      <View className="mt-s4">
-        <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>SELECT YOUR CHAMPION</Text>
-        <View className="mt-s2 flex-row flex-wrap" style={{ gap: 8 }}>
-          {CHAMPION_LIST.map((c) => {
-            const selected = c.id === picked;
-            return (
-              <Pressable
-                key={c.id}
-                onPress={() => onPick(c.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${c.name}, ${c.role}${selected ? ', selected' : ''}`}
-                testID={`champion-${c.id}`}
-                className="rounded-xl border p-s2"
-                style={{ width: '48%', borderColor: selected ? `${tokens.colors.accent}b3` : tokens.colors.border, backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)' }}
-              >
-                <View className="flex-row items-center" style={{ gap: 8 }}>
-                  <Image source={stillAvatar(c.spriteBranch, 4, 'male') ?? avatarArtV2(c.spriteBranch, 4, 'male').source} style={{ width: 46, height: 46, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 10, color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}>{c.name.toUpperCase()}</Text>
-                    <Text numberOfLines={2} allowFontScaling={false} style={{ fontSize: 7.5, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>{c.role.toUpperCase()}</Text>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+          <View className="mt-s4">
+            <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 1 — YOUR CHAMPION</Text>
+            <View className="mt-s2">
+              <ChampionPicker picked={picked} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
+            </View>
+          </View>
+          <View className="mt-s4">
+            <Text style={{ fontSize: 10, color: tokens.colors.danger, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 2 — FRIEND&apos;S CHAMPION</Text>
+            <View className="mt-s2">
+              <ChampionPicker picked={p2Picked} unlocked={null} testPrefix="p2" onPick={onP2Pick} />
+            </View>
+          </View>
+        </>
+      ) : (
+        <>
+          {/* Opponent preview. */}
+          <View className="rounded-xl border p-s4" style={{ borderColor: `${tokens.colors.danger}45`, backgroundColor: 'rgba(20,10,16,0.5)' }}>
+            <Text style={{ fontSize: 10, color: tokens.colors.danger, fontFamily: PIXEL, letterSpacing: 1 }}>OPPONENT</Text>
+            <View className="mt-s2 flex-row items-center" style={{ gap: 12 }}>
+              <Image source={stillAvatar(oppBranch, 4, 'male') ?? avatarArtV2(oppBranch, 4, 'male').source} style={{ width: 88, height: 88, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, color: tokens.colors.text, ...pixelFont() }}>{setup.opponentName.toUpperCase()}</Text>
+                {leaderTitle ? <Text style={{ fontSize: 10, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>{leaderTitle.toUpperCase()}</Text> : null}
+                <Text style={{ marginTop: 2, fontSize: 12, color: tokens.colors.accent }}>{CHAMPIONS[setup.opponentChampion].name}</Text>
+                <Text style={{ marginTop: 2, fontSize: 11, color: tokens.colors['text-mute'] }}>Combat Power ~{opponentPower}{recommendedRating ? ` · Rec. Evo ${recommendedRating}` : ''}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-s4">
+            <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>SELECT YOUR CHAMPION</Text>
+            <View className="mt-s2">
+              <ChampionPicker picked={picked} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
+            </View>
+          </View>
+        </>
+      )}
 
       <View className="mt-s5">
-        <NeonButton title="START BATTLE" onPress={onStart} pixel size="hero" testID="start-battle" />
+        <NeonButton title={versus ? 'START VERSUS' : 'START BATTLE'} onPress={onStart} pixel size="hero" testID="start-battle" />
       </View>
     </ScreenShell>
+  );
+}
+
+function MatchupSide({ label, id, tint, right = false }: { label: string; id: ChampionId; tint: string; right?: boolean }) {
+  return (
+    <View style={{ alignItems: 'center', flex: 1 }}>
+      <Text allowFontScaling={false} style={{ fontSize: 8, color: tint, fontFamily: PIXEL, letterSpacing: 1 }}>{label}</Text>
+      <Image source={championSprite(id)} style={{ width: 64, height: 64, marginVertical: 2, transform: [{ scaleX: right ? -1 : 1 }], ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
+      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.text, fontFamily: PIXEL_BOLD }}>{CHAMPIONS[id].name.toUpperCase()}</Text>
+    </View>
   );
 }
 
@@ -208,15 +262,22 @@ function PreviewScreen({
 
 function BattleRunner({ setup }: { setup: BattleSetup }) {
   const [resultOpen, setResultOpen] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
+  const [handedTurn, setHandedTurn] = useState(-1);
   const grantReward = useGrantBattleReward();
   const battle = useBattle(setup, (won, s) => {
     const { resultKey } = settleBattle(setup, won, s.turnNumber, setup.opponentChampion, setup.opponentName);
-    // Real, server-authoritative reward (idempotent + daily-capped).
-    grantReward.mutate({ resultKey, mode: setup.mode, won });
+    // Real, server-authoritative reward (idempotent + daily-capped). Casual
+    // versus duels bank nothing — bragging rights only.
+    if (!setup.versus) grantReward.mutate({ resultKey, mode: setup.mode, won });
     if (won) playVictory(); else playDefeat();
     setResultOpen(true);
   });
   const { state, activeEvent, message } = battle;
+
+  // VERSUS: the "pass the device" gate — derived from the turn it was
+  // acknowledged for, so it auto-resets each new turn (no setState-in-effect).
+  const needsHandover = !!(setup.versus && battle.awaitingSide === 'opponent' && handedTurn !== state.turnNumber && !battle.isBusy && !state.winner);
 
   // Floating number: fire once per damage/heal event (effect-driven so render
   // stays pure — a monotonic trigger re-runs the float animation) + SFX.
@@ -240,11 +301,17 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
 
   const rewards = state.winner ? useBattleRpgStore.getState().history[0]?.rewards ?? null : null;
   const orderHint =
-    !battle.isBusy && !state.winner
+    !battle.isBusy && !state.winner && !setup.versus
       ? state.player.stats.speed >= state.opponent.stats.speed
         ? 'You strike first'
         : `${setup.opponentName} is faster`
       : null;
+
+  // VERSUS: the move grid serves whichever player is choosing now.
+  const chooserLabel = setup.versus ? (battle.awaitingSide === 'opponent' ? 'PLAYER 2' : 'PLAYER 1') : null;
+  const gridMoves = setup.versus ? battle.activeMoves : battle.playerMoves;
+  const gridChooser = setup.versus ? battle.activeChooser : state.player;
+  const versusPrompt = setup.versus && !battle.isBusy && !state.winner ? `${chooserLabel} — choose your move` : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors['bg-deep'] }}>
@@ -275,25 +342,55 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
           accessibilityLabel="advance battle text"
           style={{ minHeight: 40, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${tokens.colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.8)', paddingHorizontal: 12, paddingVertical: 7, marginBottom: 8 }}
         >
-          <TypewriterText key={message || 'idle'} text={message || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
+          <TypewriterText key={message || versusPrompt || 'idle'} text={message || versusPrompt || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
         </Pressable>
 
-        {/* Player HUD. */}
-        <CombatantHud combatant={state.player} />
+        {/* Player HUD (the active chooser in versus). */}
+        <CombatantHud combatant={gridChooser} />
 
-        {/* Moves. */}
-        <View style={{ marginTop: 10 }}>
-          <MoveGrid moves={battle.playerMoves} player={state.player} disabled={battle.isBusy || state.winner !== null} onSelect={battle.selectMove} />
+        {/* Moves — served to whoever is choosing. */}
+        <View style={{ marginTop: 10, position: 'relative' }}>
+          {chooserLabel ? (
+            <Text allowFontScaling={false} style={{ marginBottom: 6, fontSize: 9, color: battle.awaitingSide === 'opponent' ? tokens.colors.danger : tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1 }}>
+              {chooserLabel} — SELECT MOVE
+            </Text>
+          ) : null}
+          <MoveGrid moves={gridMoves} player={gridChooser} disabled={battle.isBusy || state.winner !== null || needsHandover} onSelect={battle.selectMove} />
+
+          {/* Pass-the-device gate — keeps P1's pick hidden until P2 is ready. */}
+          {needsHandover ? (
+            <Pressable
+              onPress={() => setHandedTurn(state.turnNumber)}
+              accessibilityRole="button"
+              accessibilityLabel="pass the device to player 2"
+              testID="pass-device"
+              style={{ position: 'absolute', inset: -4, borderRadius: 14, backgroundColor: 'rgba(2,6,14,0.94)', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            >
+              <Text style={{ fontSize: 15, color: tokens.colors.danger, ...pixelFont() }}>PASS TO PLAYER 2</Text>
+              <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>PLAYER 1 LOCKED IN · TAP WHEN READY</Text>
+            </Pressable>
+          ) : null}
         </View>
       </ScreenShell>
+
+      {!introDone ? (
+        <VsIntro
+          playerId={setup.playerChampion}
+          opponentId={setup.opponentChampion}
+          playerName={setup.versus ? 'Player 1' : CHAMPIONS[setup.playerChampion].name}
+          opponentName={setup.opponentName}
+          onDone={() => setIntroDone(true)}
+        />
+      ) : null}
 
       <BattleResultModal
         visible={resultOpen}
         state={state}
         rewards={rewards}
         opponentName={setup.opponentName}
+        versus={setup.versus ?? false}
         tip={tacticalTip(state, setup.gymId)}
-        onRematch={() => { setResultOpen(false); battle.rematch(); }}
+        onRematch={() => { setResultOpen(false); setIntroDone(true); battle.rematch(); }}
         onArena={() => router.replace('/arena')}
         onTrain={() => router.replace('/today')}
       />

@@ -660,6 +660,29 @@ Owner: Tyson. He works through other Claude sessions too — **always
   front-facing vs your back-view champion on a tinted stage; grant is
   live + capped.
 
+- **BATTLE RPG — champion locking + VERSUS + UI polish (Tyson: "lock
+  unlocked champions, improve UI/animation, add vs friends", 2026-07-16):**
+  * LOCKING: domain/battle-rpg/unlock.ts (unlockedChampionSet /
+    championRequirement) reuses the CUSTOMISE roster's live branch gates —
+    a battle champion is playable iff its branch is unlocked. The picker
+    (ui/battle/champion-picker.tsx) dims locked champions, shows a padlock
+    + the nearest gate ("STRENGTH 55+"), and can't select them. A picked-
+    but-now-locked champion falls back to the derived class.
+  * VERSUS (pass-and-play, mode 'versus'): two humans on one device. The
+    hook (use-battle) collects P1's move then P2's before resolving (no AI,
+    reuses resolveTurn). A "PASS TO PLAYER 2" gate hides P1's pick until P2
+    taps (derived from turnNumber — no setState-in-effect). P2 may pick ANY
+    champion (guest); P1 is unlock-gated. Versus pays NOTHING (rewardsFor
+    'versus' → 0/0), no rival/gym markers, result modal says PLAYER 1/2
+    WINS. Scaling maps versus→training. Arena hub gains a VERSUS card.
+  * UI/animation: a VS intro splash (ui/battle/vs-intro.tsx — champions
+    slide in, VS flashes, reduced-motion gated); champion cards show HP/PWR/
+    SPD mini-bars; the HP bar gained a classic "ghost" damage trail + a red
+    low-HP state. verify-motion: 11 components.
+  Verified in-browser: Aesthetic unlocked, the other 3 locked with gates;
+  VS preview (P1 vs P2 pickers), the pass-device gate, and a resolved
+  versus turn — zero page errors.
+
 **Migrations applied through `033`. Next free number: `034`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).

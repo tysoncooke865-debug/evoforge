@@ -12,6 +12,7 @@ import type {
   BattleMove,
   BattleState,
   ChampionId,
+  ScalingContext,
 } from '@/domain/battle-rpg/types';
 import { rewardsFor } from '@/domain/battle-rpg/rewards';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
@@ -34,14 +35,20 @@ export interface BattleSetup {
   /** difficulty multiplier for the opponent (gym/rival). */
   difficulty?: number;
   playerSprite: { branch: BattleState['player']['spriteBranch']; stage: number };
+  /** VERSUS (pass-and-play): the opponent is a second HUMAN on this device,
+   *  not the AI. Each turn collects P1's move then P2's move, then resolves. */
+  versus?: boolean;
 }
 
 const EVENT_MS = 780;
 
+/** Versus uses balanced (training) scaling — both are human. */
+const scalingFor = (m: BattleMode): ScalingContext => (m === 'versus' ? 'training' : m);
+
 export function makeBattle(setup: BattleSetup): BattleState {
-  const playerStats = createBattleStats(setup.playerChampion, setup.player, setup.mode);
+  const playerStats = createBattleStats(setup.playerChampion, setup.player, scalingFor(setup.mode));
   const targetPower = combatPower(playerStats);
-  const oppStats = createBattleStats(setup.opponentChampion, null, setup.mode, {
+  const oppStats = createBattleStats(setup.opponentChampion, null, scalingFor(setup.mode), {
     targetPower,
     difficulty: setup.difficulty,
   });
@@ -72,6 +79,14 @@ export interface UseBattle {
   selectMove: (moveId: string) => void;
   advance: () => void;
   rematch: () => void;
+  /** VERSUS: whose input the move grid should collect right now. */
+  awaitingSide: 'player' | 'opponent';
+  /** VERSUS: the moves for the side currently choosing. */
+  activeMoves: BattleMove[];
+  /** VERSUS: the combatant whose turn it is to pick. */
+  activeChooser: BattleState['player'];
+  /** VERSUS: true once P1 has locked in and we're waiting on P2. */
+  pendingPlayerLocked: boolean;
   /** Debug hooks (dev only). */
   debug: {
     setHealth: (side: 'player' | 'opponent', hp: number) => void;
@@ -87,12 +102,15 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
   const [activeEvent, setActiveEvent] = useState<BattleEvent | null>(null);
   const [message, setMessage] = useState<string>('');
   const [forceCrit, setForceCrit] = useState(false);
+  const [pendingPlayer, setPendingPlayer] = useState<BattleMove | null>(null);
   const queueRef = useRef<BattleEvent[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepRef = useRef<(() => void) | null>(null);
   const endedRef = useRef(false);
 
   const playerMoves = useMemo(() => movesForChampion(setup.playerChampion), [setup.playerChampion]);
+  const opponentMoves = useMemo(() => movesForChampion(setup.opponentChampion), [setup.opponentChampion]);
+  const awaitingSide: 'player' | 'opponent' = setup.versus && pendingPlayer ? 'opponent' : 'player';
 
   const clearTimer = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -133,18 +151,9 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
     stepRef.current();
   }, []);
 
-  const selectMove = useCallback(
-    (moveId: string) => {
-      if (state.isResolvingTurn || state.winner) return;
-      const move = moveId === 'recover' ? RECOVER_MOVE : moveById(moveId);
-      // Guard: never resolve an unaffordable move (UI also disables it).
-      if (move.staminaCost > state.player.stats.currentStamina && move.id !== 'recover') {
-        setMessage('Not enough stamina.');
-        return;
-      }
-      const rng = Math.random;
-      const aiMove = chooseAiMove(state.opponent, state.player, setup.ai, rng);
-      const resolved = resolveTurn({ ...state, isResolvingTurn: true }, move, aiMove, rng, {
+  const resolveWith = useCallback(
+    (playerMove: BattleMove, opponentMove: BattleMove) => {
+      const resolved = resolveTurn({ ...state, isResolvingTurn: true }, playerMove, opponentMove, Math.random, {
         forcePlayerCrit: forceCrit,
       });
       setState(resolved);
@@ -152,7 +161,39 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
       clearTimer();
       drain(resolved);
     },
-    [state, setup.ai, forceCrit, drain]
+    [state, forceCrit, drain]
+  );
+
+  const selectMove = useCallback(
+    (moveId: string) => {
+      if (state.isResolvingTurn || state.winner) return;
+      const move = moveId === 'recover' ? RECOVER_MOVE : moveById(moveId);
+
+      // VERSUS (pass-and-play): collect P1's move, then P2's, then resolve.
+      if (setup.versus) {
+        const chooser = pendingPlayer ? state.opponent : state.player;
+        if (move.staminaCost > chooser.stats.currentStamina && move.id !== 'recover') {
+          setMessage('Not enough stamina.');
+          return;
+        }
+        if (!pendingPlayer) {
+          setPendingPlayer(move); // P1 locked in — wait for P2
+        } else {
+          resolveWith(pendingPlayer, move);
+          setPendingPlayer(null);
+        }
+        return;
+      }
+
+      // Single-player: resolve the player's move against the AI's.
+      if (move.staminaCost > state.player.stats.currentStamina && move.id !== 'recover') {
+        setMessage('Not enough stamina.');
+        return;
+      }
+      const aiMove = chooseAiMove(state.opponent, state.player, setup.ai, Math.random);
+      resolveWith(move, aiMove);
+    },
+    [state, setup.ai, setup.versus, pendingPlayer, resolveWith]
   );
 
   const rematch = useCallback(() => {
@@ -161,6 +202,7 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
     queueRef.current = [];
     setActiveEvent(null);
     setMessage('');
+    setPendingPlayer(null);
     setState(makeBattle(setup));
   }, [setup]);
 
@@ -192,7 +234,21 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
     [forceCrit, onEnd]
   );
 
-  return { state, activeEvent, message, isBusy: state.isResolvingTurn, playerMoves, selectMove, advance, rematch, debug };
+  return {
+    state,
+    activeEvent,
+    message,
+    isBusy: state.isResolvingTurn,
+    playerMoves,
+    selectMove,
+    advance,
+    rematch,
+    debug,
+    awaitingSide,
+    activeMoves: awaitingSide === 'opponent' ? opponentMoves : playerMoves,
+    activeChooser: awaitingSide === 'opponent' ? state.opponent : state.player,
+    pendingPlayerLocked: !!pendingPlayer,
+  };
 }
 
 /** Compute the reward + persist it. Called from the battle screen onEnd. */
@@ -240,6 +296,6 @@ export function tacticalTip(state: BattleState, gymId?: string): string {
 }
 
 export function opponentPowerLabel(setup: BattleSetup): number {
-  const oppStats = createBattleStats(setup.opponentChampion, null, setup.mode, { difficulty: setup.difficulty, targetPower: combatPower(createBattleStats(setup.playerChampion, setup.player, setup.mode)) });
+  const oppStats = createBattleStats(setup.opponentChampion, null, scalingFor(setup.mode), { difficulty: setup.difficulty, targetPower: combatPower(createBattleStats(setup.playerChampion, setup.player, scalingFor(setup.mode))) });
   return Math.round(combatPower(oppStats));
 }
