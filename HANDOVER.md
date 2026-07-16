@@ -195,6 +195,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
   023/024 APPLIED + falsified (guard clamps forged XP to server values;
   snapshots immutable; peak/starting trigger-enforced). Flags OFF in
   `data/progression/features.ts` — nothing user-visible yet.
+- **P3 SHIPPED (same session): the recurring Evo loop.** Pure:
+  `evidence.ts` (staleness windows; the DECLINE RULE — 2-of-last-3 below
+  noise, no protective marker, or nothing moves) + `evo-review.ts` (the
+  weekly review as ONE pure function: strength/cardio recompute,
+  Size/Aesthetics preserved between scans, forecast generated). IO:
+  `data/progression/evo-review-io.ts` + `use-evo-rating.ts` hooks.
+  Migration 025 (cardio_evidence; strength_evidence DEFERRED — derivation
+  from workout_log beats duplication until P9 anti-cheat needs the audit).
+  **TRUST BOUNDARY: the review computes client-side; DB triggers enforce
+  peak-ratchet/starting-write-once/immutability. Competitive surfaces and
+  any Evo leaderboard must NOT read evo_rating_current as authority —
+  server recomputation first (the xp_drift-refusal doctrine).** Falsified
+  against production with ALPHA's real data (rating 46 Trained, honest
+  provisional confidence, due-gating idempotent); smoke rows deleted.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
