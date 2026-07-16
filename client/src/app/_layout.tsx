@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { AuthProvider } from '@/data/auth-context';
@@ -43,6 +43,15 @@ export default function RootLayout() {
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
   );
+
+  // BOOT SIGNAL: tell the +html.tsx safety-net script that the React app
+  // successfully mounted. Expo statically pre-renders each route into #root, so
+  // "is the root empty" can never detect a failed boot — this flag can. If the
+  // JS bundle 404s or throws before mount, this never runs and the overlay
+  // shows the error; if it runs (even late), the overlay auto-dismisses.
+  useEffect(() => {
+    (globalThis as { __EVO_BOOTED?: boolean }).__EVO_BOOTED = true;
+  }, []);
 
   // The boot cross-fade (OPTIMISE_PLAN M3) is now PURE CSS on #root — see
   // +html.tsx. It used to be a Reanimated shared value that started the whole
