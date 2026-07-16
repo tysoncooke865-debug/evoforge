@@ -10,13 +10,7 @@ import { totalRoundsFor } from '@/domain/battle/engine';
 import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
-import {
-  BLITZ_RULES,
-  CodeCard,
-  IconBadge,
-  PressCard,
-  RulesStrip,
-} from '@/ui/arena/battle-arena';
+import { CodeCard, IconBadge, PressCard } from '@/ui/arena/battle-arena';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -217,9 +211,49 @@ export default function ArenaScreen() {
         </GlowCard>
       )}
 
-      <RulesStrip rules={BLITZ_RULES} />
+      {/* The queue modes — still coming-soon, promoted to the old rules
+          strip's slot (the strip is gone; the rules live on the battle page). */}
+      <View className="flex-row gap-s3">
+        <ComingCard glyph="⚡" tint={tokens.colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
+        <ComingCard glyph="🏆" tint={tokens.colors.epic} title="RANKED" note="Trophies on the line" />
+      </View>
 
-      {/* CHAMPION BATTLES (turn-based beta) — Gyms / Rival / Training. */}
+      {/* The turn-based trio — same tints, glyphs and doors as their old
+          full-width cards, compacted to one row. */}
+      <View className="flex-row gap-s2">
+        <BattleModeCard
+          compact
+          glyph="⚔"
+          tint={tokens.colors.danger}
+          title="RIVAL"
+          note="Fight a saved rival or simulated challenger."
+          tag={`VEX · ${rivalry.wins}W ${rivalry.losses}L`}
+          onPress={() => router.push('/battle?mode=rival' as never)}
+          testID="mode-rival"
+        />
+        <BattleModeCard
+          compact
+          glyph="👥"
+          tint={tokens.colors.epic}
+          title="VERSUS"
+          note="Challenge a friend by code — or pass-and-play on one device."
+          tag="ONLINE 1V1"
+          onPress={() => router.push('/battle?mode=challenge' as never)}
+          testID="mode-versus"
+        />
+        <BattleModeCard
+          compact
+          glyph="🎯"
+          tint={tokens.colors.accent}
+          title="TRAINING"
+          note="Test moves without affecting your record."
+          tag="NO STAKES"
+          onPress={() => router.push('/battle?mode=training' as never)}
+          testID="mode-training"
+        />
+      </View>
+
+      {/* CHAMPION BATTLES (turn-based beta) — the gyms. */}
       <View>
         <SectionLabel>CHAMPION BATTLES</SectionLabel>
         {badgeCount > 0 ? (
@@ -243,33 +277,6 @@ export default function ArenaScreen() {
               testID={`mode-gym-${g.id}`}
             />
           ))}
-          <BattleModeCard
-            glyph="⚔"
-            tint={tokens.colors.danger}
-            title="RIVAL BATTLE"
-            note="Fight a saved rival or simulated challenger."
-            tag={`VEX · ${rivalry.wins}W ${rivalry.losses}L`}
-            onPress={() => router.push('/battle?mode=rival' as never)}
-            testID="mode-rival"
-          />
-          <BattleModeCard
-            glyph="👥"
-            tint={tokens.colors.epic}
-            title="VERSUS · BY CODE"
-            note="Challenge a friend by code — or pass-and-play on one device."
-            tag="ONLINE 1V1"
-            onPress={() => router.push('/battle?mode=challenge' as never)}
-            testID="mode-versus"
-          />
-          <BattleModeCard
-            glyph="🎯"
-            tint={tokens.colors.accent}
-            title="TRAINING BATTLE"
-            note="Test moves without affecting your record."
-            tag="NO STAKES"
-            onPress={() => router.push('/battle?mode=training' as never)}
-            testID="mode-training"
-          />
         </View>
       </View>
 
@@ -331,12 +338,6 @@ export default function ArenaScreen() {
           </View>
         </View>
       ) : null}
-
-      {/* The queue modes — coming, honestly labelled, dressed like Home cards. */}
-      <View className="flex-row gap-s3">
-        <ComingCard glyph="⚡" tint={tokens.colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
-        <ComingCard glyph="🏆" tint={tokens.colors.epic} title="RANKED" note="Trophies on the line" />
-      </View>
 
       <View>
         <SectionLabel>BATTLE HISTORY</SectionLabel>
@@ -474,8 +475,40 @@ function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string;
   );
 }
 
-/** A turn-based battle mode card for the Arena hub. */
-function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID }: { glyph: string; tint: string; title: string; note: string; tag: string; onPress: () => void; testID: string }) {
+/** A turn-based battle mode card for the Arena hub. `compact` is the
+ *  3-across mini-tile: same tint/border/glow formula, glyph tile on top,
+ *  no note (it survives in the accessibility label) and no chevron. */
+function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID, compact = false }: { glyph: string; tint: string; title: string; note: string; tag: string; onPress: () => void; testID: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. ${note}`}
+        testID={testID}
+        className="flex-1 items-center rounded-xl border px-s1 py-s3"
+        style={{ borderColor: `${tint}59`, backgroundColor: 'rgba(13,21,36,0.6)', shadowColor: tint, shadowOpacity: 0.18, shadowRadius: 14 }}
+      >
+        <View style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: `${tint}66`, backgroundColor: `${tint}14`, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 18 }}>{glyph}</Text>
+        </View>
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{ marginTop: 6, fontSize: 12, color: tokens.colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5, textAlign: 'center' }}
+        >
+          {title}
+        </Text>
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{ marginTop: 3, fontSize: 8, color: tint, fontFamily: PIXEL, letterSpacing: 0.5, textAlign: 'center' }}
+        >
+          {tag}
+        </Text>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       onPress={onPress}
