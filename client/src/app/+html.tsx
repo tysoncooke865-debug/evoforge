@@ -25,6 +25,13 @@ export default function Root({ children }: PropsWithChildren) {
             background — default white showed as a white gap under the app.
             min-height keeps the paint through rubber-band overscroll. */}
         <style>{'html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;background:#04070e;min-height:100%}#root{background:#04070e;min-height:100%}'}</style>
+        {/* Boot cross-fade (OPTIMISE_PLAN M3), PURE CSS so it can NEVER strand
+            the app invisible. A Reanimated opacity gate once left an installed
+            iOS PWA stuck on the blank boot colour when its animation frame did
+            not tick (Tyson, 2026-07-16). `both` rests at opacity 1, and the
+            reduced-motion guard means a device with Reduce Motion simply paints
+            visible with no animation at all. */}
+        <style>{'@media (prefers-reduced-motion: no-preference){@keyframes evoBoot{from{opacity:0}to{opacity:1}}#root{animation:evoBoot .42s ease-out both}}'}</style>
         {/* PWA (2026-07-12): installable to the home screen as a standalone
             dark app — manifest + icons live in client/public/. */}
         <link rel="manifest" href="/manifest.webmanifest" />

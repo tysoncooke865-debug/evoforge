@@ -4,14 +4,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { useState } from 'react';
+import { View } from 'react-native';
 
 import { AuthProvider } from '@/data/auth-context';
 import { PIXEL_FONTS } from '@/theme/fonts';
@@ -50,31 +44,28 @@ export default function RootLayout() {
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
   );
 
-  // OPTIMISE_PLAN M3 — the boot moment: one cross-fade from the stage
-  // colour on first mount. One-shot, never blocks interaction, and reduced
-  // motion snaps straight to visible.
-  const reducedMotion = useReducedMotion();
-  const boot = useSharedValue(reducedMotion ? 1 : 0);
-  useEffect(() => {
-    boot.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const bootStyle = useAnimatedStyle(() => ({ opacity: boot.value }));
-
+  // The boot cross-fade (OPTIMISE_PLAN M3) is now PURE CSS on #root — see
+  // +html.tsx. It used to be a Reanimated shared value that started the whole
+  // app at opacity 0 and animated to 1 via requestAnimationFrame; in a cold
+  // iOS standalone PWA that frame could fail to tick, stranding the app
+  // INVISIBLE over the #070b14 boot colour (Tyson, 2026-07-16: "stuck on a
+  // blue/grey blank screen" — home-screen only, web was fine). Visibility must
+  // never depend on an animation firing; the CSS fade rests at opacity 1 and
+  // is skipped entirely under reduced motion.
   return (
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v1' }}
     >
       <AuthProvider>
-        <Animated.View style={[{ flex: 1, backgroundColor: '#070b14' }, bootStyle]}>
+        <View style={{ flex: 1, backgroundColor: '#070b14' }}>
           <Stack
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: '#070b14' }, // --bg, behind route transitions
             }}
           />
-        </Animated.View>
+        </View>
         <ToastHost />
       </AuthProvider>
     </PersistQueryClientProvider>
