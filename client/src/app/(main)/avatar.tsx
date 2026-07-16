@@ -163,9 +163,17 @@ function EvolutionView() {
                     backgroundColor: row.current ? `${auraColour}12` : 'rgba(13,21,36,0.5)',
                   }}
                 >
-                  {row.unlocked && avatarArtV2('shredder', row.stage, sex).hasArt ? (
+                  {row.unlocked && (animatedAvatar('shredder', row.stage, sex) || avatarArtV2('shredder', row.stage, sex).hasArt) ? (
                     <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-                      <Image source={avatarArtV2('shredder', row.stage, sex).source} style={{ width: 48, height: 52 }} contentFit="contain" />
+                      <Image
+                        source={animatedAvatar('shredder', row.stage, sex) ?? avatarArtV2('shredder', row.stage, sex).source}
+                        style={{
+                          width: 48,
+                          height: 52,
+                          ...(animatedAvatar('shredder', row.stage, sex) ? ({ imageRendering: 'pixelated' } as object) : {}),
+                        }}
+                        contentFit="contain"
+                      />
                     </View>
                   ) : (
                     <Silhouette branch="aesthetic" stage={Math.min(row.stage, 4)} rim={tokens.colors.success} />
@@ -212,9 +220,20 @@ function EvolutionView() {
                   shadowRadius: 14,
                 }}
               >
-                {row.unlocked && avatarArtV2(branchV2, row.stage, sex).hasArt ? (
+                {row.unlocked && (animatedAvatar(branchV2, row.stage, sex) || avatarArtV2(branchV2, row.stage, sex).hasArt) ? (
                   <View style={{ width: 52, height: 56, alignItems: 'center', justifyContent: 'center' }}>
-                    <Image source={avatarArtV2(branchV2, row.stage, sex).source} style={{ width: 48, height: 52 }} contentFit="contain" />
+                    {/* Unlocked stages show their ROTATING sprite where one
+                        exists (Tyson, 2026-07-16) — the same per-stage set
+                        the hero uses; painted art is the fallback. */}
+                    <Image
+                      source={animatedAvatar(branchV2, row.stage, sex) ?? avatarArtV2(branchV2, row.stage, sex).source}
+                      style={{
+                        width: 48,
+                        height: 52,
+                        ...(animatedAvatar(branchV2, row.stage, sex) ? ({ imageRendering: 'pixelated' } as object) : {}),
+                      }}
+                      contentFit="contain"
+                    />
                   </View>
                 ) : (
                   <Silhouette branch={stats.branch} stage={row.stage} />
