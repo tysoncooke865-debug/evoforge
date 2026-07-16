@@ -334,6 +334,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
   avatar stages/evolution gates + the /rank leaderboard ride
   summary.level so no character regresses; rekeying evolution to
   Evo-gates is the next seam. summary.level no longer displays anywhere.
+- **Retro SFX (Tyson, 2026-07-16):** synthesized square-wave blips
+  (`assets/sfx/press.wav` 700→1050Hz chirp · `select.wav` 1500Hz tick —
+  ORIGINAL, generated with python wave/struct; recipe in the commit).
+  `ui/core/sound.ts`: HTML5 Audio on WEB only (native silent until
+  expo-audio arrives with native builds), resolved via expo-asset like
+  the sprite strips, always gesture-triggered so autoplay never blocks,
+  gated on settings `soundEnabled` (default on; profile toggle beside
+  perf mode; reset on sign-out like every store). Wired: NeonButton →
+  press, Chip + SegmentedTabs → select. Falsified with an
+  HTMLAudioElement.play spy: exactly ['press'] on a NeonButton click,
+  ['select'] on a tab switch. NOTE: the sign-in button is a plain
+  Pressable, not a NeonButton — silent by design.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

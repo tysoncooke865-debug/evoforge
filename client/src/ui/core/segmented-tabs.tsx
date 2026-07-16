@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are
    mutated inside press/layout handlers by design, same as neon-button. */
 import { useState, type ReactNode } from 'react';
+import { playSelect } from '@/ui/core/sound';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
@@ -78,7 +79,10 @@ export function SegmentedTabs({
         return (
           <Pressable
             key={label}
-            onPress={() => select(i as 0 | 1)}
+            onPress={() => {
+              playSelect(); // the retro tick (web; settings-gated)
+              select(i as 0 | 1);
+            }}
             accessibilityRole="button"
             className="min-h-[44px] flex-1 flex-row items-center justify-center gap-s2 rounded-pill"
             testID={`${testIDPrefix}-${i}`}

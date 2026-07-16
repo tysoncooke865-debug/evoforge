@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
+import { playPress, playSelect } from '@/ui/core/sound';
 import { PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
@@ -57,6 +58,7 @@ export function NeonButton({
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    playPress(); // the retro confirm blip (web; settings-gated)
     onPress();
   };
 
@@ -185,6 +187,7 @@ export function Chip({
       <Pressable
         onPress={() => {
           if (Platform.OS !== 'web') void Haptics.selectionAsync();
+          playSelect(); // the retro tick (web; settings-gated)
           onPress();
         }}
         onPressIn={() => (scale.value = withSpring(0.95, { damping: 20, stiffness: 400 }))}

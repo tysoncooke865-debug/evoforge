@@ -83,6 +83,15 @@ export default function ProfileScreen() {
             </View>
             <PerfSwitch />
           </View>
+          <View className="mt-s3 flex-row items-center justify-between">
+            <View className="flex-1 pr-s3">
+              <Text className="text-sm font-bold text-text">Retro sounds</Text>
+              <Text className="text-2xs text-text-mute">
+                8-bit blips on button presses. Synthesized in-house, gym-headphone friendly.
+              </Text>
+            </View>
+            <SoundSwitch />
+          </View>
         </View>
 
         <Pressable
@@ -336,6 +345,20 @@ function PrivacyCard() {
         </View>
       ) : null}
     </View>
+  );
+}
+
+function SoundSwitch() {
+  const soundEnabled = useSettingsStore((s) => s.soundEnabled);
+  const setSoundEnabled = useSettingsStore((s) => s.setSoundEnabled);
+  return (
+    <Switch
+      value={soundEnabled}
+      onValueChange={setSoundEnabled}
+      trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
+      thumbColor={tokens.colors.accent}
+      testID="sound-toggle"
+    />
   );
 }
 
