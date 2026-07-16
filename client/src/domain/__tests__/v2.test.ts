@@ -36,8 +36,11 @@ describe('resolveBranchV2 — extremes first, pinned core untouched', () => {
     expect(resolveBranchV2(scores())).toBe('aesthetic');
   });
 
-  it('every non-extreme mix matches the pinned 3-branch core exactly', () => {
-    // Sweep the sub-extreme space: v2 must agree with the golden rule.
+  it('every non-extreme mix matches the pinned core, hybrid folding to aesthetic', () => {
+    // Sweep the sub-extreme space: v2 must agree with the golden rule —
+    // except hybrid, REMOVED FROM THE GAME (Tyson, 2026-07-16): those
+    // athletes fold into the aesthetic default line.
+    let hybridsSeen = 0;
     for (const st of [0, 44, 45, 54, 55, 79]) {
       for (const si of [0, 54, 55, 69]) {
         for (const co of [0, 54, 55, 69]) {
@@ -49,11 +52,15 @@ describe('resolveBranchV2 — extremes first, pinned core untouched', () => {
               conditioning_score: co,
               aesthetic_score: ae,
             });
-            expect(resolveBranchV2(s), JSON.stringify(s)).toBe(core);
+            if (core === 'hybrid') hybridsSeen++;
+            expect(resolveBranchV2(s), JSON.stringify(s)).toBe(core === 'hybrid' ? 'aesthetic' : core);
           }
         }
       }
     }
+    // The fold must actually be exercised — a sweep that never hits a
+    // hybrid mix proves nothing (a guard that cannot fail is not a guard).
+    expect(hybridsSeen).toBeGreaterThan(0);
   });
 
   it('titan requires the extreme gates and pre-empts mass', () => {
@@ -67,9 +74,9 @@ describe('resolveBranchV2 — extremes first, pinned core untouched', () => {
   it('cardio machine requires dominant conditioning and pre-empts hybrid', () => {
     const c = scores({ conditioning: 70, strength: 50, size: 40, aesthetic: 60, leanness: 65 });
     expect(resolveBranchV2(c)).toBe('cardio');
-    expect(resolveBranchV2({ ...c, conditioning: 69 })).toBe('hybrid'); // core takes it
+    expect(resolveBranchV2({ ...c, conditioning: 69 })).toBe('aesthetic'); // hybrid removed: folds to the default
     // Not dominant -> not the machine.
-    expect(resolveBranchV2({ ...c, aesthetic: 71 })).toBe('hybrid');
+    expect(resolveBranchV2({ ...c, aesthetic: 71 })).toBe('aesthetic');
   });
 
   it('titan outranks cardio when both somehow qualify', () => {
@@ -95,7 +102,7 @@ describe('branchPathsV2 — displayed gates really resolve there', () => {
 
   it('offers every other class (five-class era), never the current one', () => {
     expect(branchPathsV2('aesthetic', scores()).map((p) => p.branch).sort()).toEqual(
-      ['cardio', 'hybrid', 'mass', 'shredder', 'titan'].sort()
+      ['cardio', 'mass', 'shredder', 'titan'].sort()
     );
     expect(branchPathsV2('titan', scores()).map((p) => p.branch)).not.toContain('titan');
   });

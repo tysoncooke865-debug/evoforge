@@ -156,7 +156,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       eyebrow: 'ENDURANCE PATH',
       abbr: 'CND',
       tint: tokens.colors.rare,
-      destinations: ['cardio', 'hybrid'],
+      destinations: ['cardio'],
       nodes: [
         node('run', 'Run', round1(runKm) || (runKm > 0 ? runKm : null), 50, 'km total',
           'Every kilometre from logged Run sessions, toward a 50 km lifetime milestone.',
@@ -211,7 +211,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       eyebrow: 'PHYSIQUE PATH',
       abbr: 'AES',
       tint: tokens.colors.mythic,
-      destinations: ['aesthetic', 'hybrid'],
+      destinations: ['aesthetic'],
       nodes: [
         node('taper', 'V-Taper', taper !== null ? round2(taper) : null, 1.62, 'shoulder:waist',
           'Shoulder circumference over waist, toward the 1.618 golden ratio.',

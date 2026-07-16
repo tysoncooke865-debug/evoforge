@@ -178,7 +178,8 @@ export interface RosterEntry {
 /** Placeholder future slots — honest "coming soon", never unlockable. */
 export const COMING_SOON_SLOTS = 4;
 
-const ROSTER_ORDER: BranchV2[] = ['aesthetic', 'mass', 'hybrid', 'shredder', 'titan', 'cardio'];
+// Hybrid removed from the game (Tyson, 2026-07-16) — five classes.
+const ROSTER_ORDER: BranchV2[] = ['aesthetic', 'mass', 'shredder', 'titan', 'cardio'];
 
 function splitDisplayName(branch: BranchV2): { icon: string; name: string } {
   const display = branchDisplayNameV2(branch);

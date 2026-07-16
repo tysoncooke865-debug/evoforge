@@ -170,12 +170,17 @@ export function resolveBranchV2(s: ScoresV2, ctx?: BranchContext): BranchV2 {
   ) {
     return 'cardio';
   }
-  return determineAvatarBranch({
+  const core = determineAvatarBranch({
     strength_score: s.strength,
     size_score: s.size,
     conditioning_score: s.conditioning,
     aesthetic_score: s.aesthetic,
   });
+  // HYBRID REMOVED FROM THE GAME (Tyson, 2026-07-16). The pinned core
+  // resolver still knows it (golden-fixtured, untouchable); the V2 layer
+  // folds those athletes into the aesthetic default line. PARITY.md-class
+  // divergence, deliberate.
+  return core === 'hybrid' ? 'aesthetic' : core;
 }
 
 export function branchDisplayNameV2(branch: BranchV2): string {
@@ -407,13 +412,7 @@ export function branchPathsV2(current: BranchV2, s: ScoresV2, ctx?: BranchContex
       note: 'Titan takes precedence if its gates are also met.',
     });
   }
-  if (current !== 'hybrid') {
-    paths.push({
-      branch: 'hybrid',
-      requirements: [req('Conditioning', s.conditioning, 55), req('Strength', s.strength, 45)],
-      note: 'Cardio Machine, Titan and Mass all take precedence if their gates are met.',
-    });
-  }
+  // Hybrid is no longer a class (Tyson, 2026-07-16) — no path to it.
 
   return paths;
 }

@@ -501,6 +501,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
   silhouettes only). avatarArtV2: every male branch returns real art
   now. Companion remains the Cyber Athlete move set.
 
+- **HYBRID REMOVED FROM THE GAME (Tyson, 2026-07-16):** at the V2 layer
+  only — the pinned core resolver (golden-fixtured) still knows the
+  branch, but resolveBranchV2 folds core-hybrid athletes into the
+  AESTHETIC default line, branchPathsV2 offers no path to it, the
+  customise roster lists five classes, and the PATHS destinations no
+  longer feed it. Old persisted loadouts with branch:'hybrid' fall back
+  to derived automatically (resolveDisplay's roster validation). The
+  hybrid PAINTED ASSETS remain as the cardio/female SILHOUETTE shape
+  donor only (displayDonor/shapeDonor keep returning 'hybrid' — that is
+  internal geometry, not a class). The v2 sweep test now pins the fold
+  WITH a hybridsSeen>0 positive control.
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
