@@ -546,7 +546,41 @@ Owner: Tyson. He works through other Claude sessions too — **always
   wallet, resolveDisplay/useDisplayIdentity take ownedSkins so a bought
   colour renders on Home/Forge and an unowned one falls back to standard.
 
-**Migrations applied through `030`. Next free number: `031`**
+- **CAPTAIN GYMERICA — the first PREMIUM CHARACTER (Captain_Gymerica.zip,
+  Tyson, 2026-07-16):** a purchasable hero (10000 forge coins, one buy
+  unlocks both stages) equipped as an avatar OVERLAY — his art shows on
+  Home/Forge while the player's real training branch + stats stay
+  untouched underneath. Two stages (armoured → 20kg-plate shield) + two
+  looks: navy/cyan Forge Standard and the red/white/blue "United States
+  of Aesthetics" (assets/sprites/gymerica/, 168×168). Renders at the
+  STAGE-4 size everywhere (Tyson: "same size as a stage 4 character") —
+  use-display-identity forces display.stage=4 for the overlay and
+  GymericaPanel's HeroStage uses stage={4}; the ART still uses the real
+  1/2 stage via source props.
+  MODEL: additive overlay, NOT a BranchV2 — Loadout/Selection gain
+  character/characterStage/characterSkin (branch system fully intact).
+  domain/customise: SpecialCharacterId, GYMERICA/PREMIUM_CHARACTERS,
+  characterStageOptions, resolveDisplay sets a `character` overlay field
+  ONLY when owned (else falls back to the branch), equipState adds a
+  'buy-character' state. UI: RosterSection premium cards, a dedicated
+  GymericaPanel (preview + 2 stages + 2 looks), use-display-identity
+  overlay branch. NO colour-skin set for Gymerica (his 2 looks are the
+  whole wardrobe).
+- **MIGRATION 031 — the character shop:** user_character_unlocks
+  (select-only RLS) + character_price() + purchase_character() (security
+  definer, advisory-locked, atomic spend+unlock), same secure pattern as
+  030's skin shop incl. the evoforge.spend_authorized txn-GUC (source_id
+  'character:gymerica'). Applied to prod + FULLY FALSIFIED as the smoke
+  user: raw unlock insert + raw spend forge both rejected, insufficient/
+  unknown/duplicate rejected, a funded buy deducts exactly 10000 and
+  writes the unlock, cross-user reads empty. client: data/characters.ts
+  (useCharacterUnlocks + usePurchaseCharacter). TEST-FUNDING NOTE: the
+  coin guard runs even for direct management-API SQL (not service_role),
+  so fund a test wallet by DISABLING coin_events_guard_bi around an
+  adjustment insert, then re-enable; clean up the spend+unlock+topup
+  after (ALPHA restored to 225 each time).
+
+**Migrations applied through `031`. Next free number: `032`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
 

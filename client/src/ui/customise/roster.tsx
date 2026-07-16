@@ -21,8 +21,19 @@ import { formArt } from './art';
  * page scroll is the right tool — a virtualised list nested in a
  * ScrollView would fight it for the gesture.
  */
+/** A premium-character roster card's data (Captain Gymerica et al). */
+export interface PremiumRosterEntry {
+  id: string;
+  name: string;
+  icon: string;
+  owned: boolean;
+  price: number;
+  still: import('react-native').ImageSourcePropType;
+}
+
 export function RosterSection({
   entries,
+  premium = [],
   selectedId,
   equippedId,
   level,
@@ -30,8 +41,11 @@ export function RosterSection({
   sex,
   skin,
   onSelect,
+  onSelectPremium,
 }: {
   entries: RosterEntry[];
+  /** Premium overlay characters, rendered after the class cards. */
+  premium?: PremiumRosterEntry[];
   selectedId: string;
   /** The branch the persisted loadout resolves to (shows the ◈ marker). */
   equippedId: string;
@@ -40,6 +54,7 @@ export function RosterSection({
   sex: Sex;
   skin: SkinId;
   onSelect: (id: RosterEntry['id']) => void;
+  onSelectPremium?: (id: string) => void;
 }) {
   const { width } = useWindowDimensions();
   const [filter, setFilter] = useState<RosterFilter>('all');
@@ -106,6 +121,23 @@ export function RosterSection({
               onSelect={onSelect}
             />
           ))}
+          {premium
+            .filter((pc) => {
+              const q = search.trim().toLowerCase();
+              if (filter === 'owned' && !pc.owned) return false;
+              if (filter === 'locked' && pc.owned) return false;
+              return !q || pc.name.toLowerCase().includes(q);
+            })
+            .map((pc) => (
+              <PremiumCard
+                key={pc.id}
+                entry={pc}
+                width={cardWidth}
+                selected={pc.id === selectedId}
+                equipped={pc.id === equippedId}
+                onSelect={() => onSelectPremium?.(pc.id)}
+              />
+            ))}
           {filter === 'all' && !search
             ? Array.from({ length: COMING_SOON_SLOTS }, (_, i) => (
                 <ComingSoonCard key={`soon-${i}`} width={cardWidth} />
@@ -191,6 +223,67 @@ const RosterCard = memo(function RosterCard({
           {statusText}
         </Text>
         <Text style={{ fontSize: 8 }}>{entry.unlocked ? entry.icon : '🔒'}</Text>
+      </View>
+    </Pressable>
+  );
+});
+
+/** A premium overlay character card (Captain Gymerica): shows the price
+ *  when unowned, a gold ◆ when owned, ◈ when it's the equipped avatar. */
+const PremiumCard = memo(function PremiumCard({
+  entry,
+  width,
+  selected,
+  equipped,
+  onSelect,
+}: {
+  entry: PremiumRosterEntry;
+  width: number;
+  selected: boolean;
+  equipped: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        playSelect();
+        onSelect();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${entry.name}, ${entry.owned ? 'owned' : `locked, ${entry.price} coins`}${selected ? ', selected' : ''}`}
+      testID={`roster-card-${entry.id}`}
+      className="rounded-xl border p-s2"
+      style={{
+        width,
+        minHeight: 44,
+        borderColor: selected ? `${tokens.colors.accent}b3` : entry.owned ? `${tokens.colors.legendary}66` : 'rgba(120,170,220,0.10)',
+        backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
+        shadowColor: selected ? tokens.colors.accent : tokens.colors.legendary,
+        shadowOpacity: selected ? 0.4 : entry.owned ? 0.25 : 0,
+        shadowRadius: 12,
+        elevation: selected ? 4 : 0,
+      }}
+    >
+      <View className="items-center" style={{ height: width * 0.82, justifyContent: 'center' }}>
+        <Image
+          source={entry.still}
+          style={{ width: width * 0.72, height: width * 0.78, opacity: entry.owned ? 1 : 0.55, ...({ imageRendering: 'pixelated' } as object) }}
+          contentFit="contain"
+        />
+        {equipped ? (
+          <Text style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: tokens.colors.accent }} accessibilityLabel="equipped">
+            ◈
+          </Text>
+        ) : null}
+      </View>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, textAlign: 'center', color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}>
+        {entry.name.toUpperCase()}
+      </Text>
+      <View className="mt-s1 flex-row items-center justify-center" style={{ gap: 3 }}>
+        <Text allowFontScaling={false} style={{ fontSize: 7, color: entry.owned ? tokens.colors.legendary : tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
+          {entry.owned ? 'OWNED' : `${entry.price}`}
+        </Text>
+        <Text style={{ fontSize: 8 }}>{entry.owned ? '★' : '🔒'}</Text>
       </View>
     </Pressable>
   );

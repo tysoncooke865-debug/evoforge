@@ -2,11 +2,14 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
+import { useCharacterUnlocks, usePurchaseCharacter } from '@/data/characters';
 import { useCoinTotal } from '@/data/coins';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useSkinUnlocks, usePurchaseSkin } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
 import {
+  GYMERICA,
+  PREMIUM_CHARACTERS,
   buildRoster,
   currentStageFor,
   equipState,
@@ -28,6 +31,8 @@ import { CoinIcon } from '@/ui/core/coin-icon';
 import { CosmeticTabs } from '@/ui/customise/cosmetic-tabs';
 import { EdgeLabel } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
+import { gymericaStill } from '@/ui/character/gymerica-art';
+import { GymericaPanel } from '@/ui/customise/gymerica-panel';
 import { PreviewPanel } from '@/ui/customise/preview-panel';
 import { RosterSection } from '@/ui/customise/roster';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -55,7 +60,10 @@ export default function CustomiseScreen() {
   const coins = useCoinTotal();
   const unlocks = useSkinUnlocks();
   const purchase = usePurchaseSkin();
+  const charUnlocks = useCharacterUnlocks();
+  const purchaseCharacter = usePurchaseCharacter();
   const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
+  const ownedCharacters = new Set((charUnlocks.data ?? []).map((u) => u.character));
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -106,12 +114,20 @@ export default function CustomiseScreen() {
   const rarityColourKey = raritySlug(derived.level);
   const rarityColour = (tokens.colors as Record<string, string>)[rarityColourKey] ?? tokens.colors.common;
 
-  // The equipped loadout resolves to a branch for the roster's ◈ marker.
-  const equippedDisplay = resolveDisplay(derived, loadout, ownedSkins);
+  // GYMERICA MODE: a premium character is selected — his own panel replaces
+  // the branch preview/stage/outfit blocks.
+  const gymericaMode = selection.character !== null;
 
-  const state = equipState(derived, selection, loadout, ownedSkins);
+  // The equipped loadout resolves to a branch (or premium char) for the
+  // roster's ◈ marker.
+  const equippedDisplay = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
+  const equippedRosterId = equippedDisplay.character?.id ?? equippedDisplay.branch;
+
+  const state = equipState(derived, selection, loadout, ownedSkins, ownedCharacters);
   const balance = coins.data ?? 0;
-  const canAfford = state.kind === 'buy-skin' && balance >= state.price;
+  const isBuy = state.kind === 'buy-skin' || state.kind === 'buy-character';
+  const buyPrice = state.kind === 'buy-skin' || state.kind === 'buy-character' ? state.price : 0;
+  const canAfford = isBuy && balance >= buyPrice;
   const buttonTitle =
     state.kind === 'equip'
       ? 'EQUIP'
@@ -119,13 +135,14 @@ export default function CustomiseScreen() {
         ? 'EQUIPPED ✓'
         : state.kind === 'locked-character'
           ? 'LOCKED — GATES UNMET'
-          : state.kind === 'buy-skin'
+          : isBuy
             ? canAfford
-              ? `BUY · ${state.price} COINS`
-              : `NEED ${state.price} COINS`
+              ? `BUY · ${buyPrice} COINS`
+              : `NEED ${buyPrice} COINS`
             : `UNLOCK: ${state.requirement}`;
-  const buttonBusy = state.kind === 'buy-skin' && purchase.isPending;
-  const buttonEnabled = state.kind === 'equip' || (state.kind === 'buy-skin' && canAfford);
+  const buyPending = purchase.isPending || purchaseCharacter.isPending;
+  const buttonBusy = isBuy && buyPending;
+  const buttonEnabled = state.kind === 'equip' || (isBuy && canAfford);
 
   const select = (next: Partial<Selection>) => setSelection({ ...selection, ...next });
 
@@ -135,11 +152,11 @@ export default function CustomiseScreen() {
       pushToast({ kind: 'info', title: 'LOADOUT EQUIPPED', subtitle: 'Your champion awaits on the home stage' });
       return;
     }
-    if (state.kind === 'buy-skin' && canAfford && !purchase.isPending) {
-      // Buy, then the invalidated unlocks flip the button to EQUIP; the
-      // selection is untouched so the preview stays on the new colour.
-      purchase.mutate({ line: state.line, skin: state.skin });
-    }
+    if (buyPending || !canAfford) return;
+    // Buy, then the invalidated ownership flips the button to EQUIP; the
+    // selection is untouched so the preview stays on what was bought.
+    if (state.kind === 'buy-skin') purchase.mutate({ line: state.line, skin: state.skin });
+    else if (state.kind === 'buy-character') purchaseCharacter.mutate({ character: state.character });
   };
 
   return (
@@ -153,8 +170,16 @@ export default function CustomiseScreen() {
 
       <RosterSection
         entries={roster}
-        selectedId={selection.branch}
-        equippedId={equippedDisplay.branch}
+        premium={PREMIUM_CHARACTERS.map((c) => ({
+          id: c.id,
+          name: c.name,
+          icon: c.icon,
+          owned: ownedCharacters.has(c.id),
+          price: c.price,
+          still: gymericaStill(1, 'standard'),
+        }))}
+        selectedId={gymericaMode ? (selection.character as string) : selection.branch}
+        equippedId={equippedRosterId}
         level={derived.level}
         bfMid={derived.bfMid}
         sex={sex}
@@ -162,48 +187,62 @@ export default function CustomiseScreen() {
         onSelect={(id) =>
           select({
             branch: id,
+            character: null,
             // A different champion's ladder — any explicit stage pick made
             // for the old one no longer applies.
             stageKey: null,
           })
         }
+        onSelectPremium={(id) => select({ character: id as typeof selection.character })}
       />
 
-      <PreviewPanel
-        entry={entry}
-        selection={selection}
-        stageOption={selectedOption}
-        currentStage={currentStage}
-        stageCount={stageCount}
-        level={derived.level}
-        bfMid={derived.bfMid}
-        sex={sex}
-        scores={derived.scores}
-        rarityColour={rarityColour}
-      />
-
-      <StageCarousel
-        branch={entry.id}
-        options={options}
-        selectedKey={selection.stageKey}
-        sex={sex}
-        skin={selection.skinId}
-        onSelect={(key) => select({ stageKey: key })}
-      />
-
-      <View>
-        <EdgeLabel>CUSTOMISATION</EdgeLabel>
-        <View className="mt-s2">
-          <CosmeticTabs
+      {gymericaMode ? (
+        <GymericaPanel
+          character={GYMERICA}
+          selection={selection}
+          owned={ownedCharacters.has(GYMERICA.id)}
+          auraColour={rarityColour}
+          onChange={select}
+        />
+      ) : (
+        <>
+          <PreviewPanel
+            entry={entry}
             selection={selection}
-            branch={entry.id}
-            stage={previewStage}
+            stageOption={selectedOption}
+            currentStage={currentStage}
+            stageCount={stageCount}
+            level={derived.level}
+            bfMid={derived.bfMid}
             sex={sex}
-            unlockCtx={unlockContext(derived, ownedSkins)}
-            onChange={select}
+            scores={derived.scores}
+            rarityColour={rarityColour}
           />
-        </View>
-      </View>
+
+          <StageCarousel
+            branch={entry.id}
+            options={options}
+            selectedKey={selection.stageKey}
+            sex={sex}
+            skin={selection.skinId}
+            onSelect={(key) => select({ stageKey: key })}
+          />
+
+          <View>
+            <EdgeLabel>CUSTOMISATION</EdgeLabel>
+            <View className="mt-s2">
+              <CosmeticTabs
+                selection={selection}
+                branch={entry.id}
+                stage={previewStage}
+                sex={sex}
+                unlockCtx={unlockContext(derived, ownedSkins)}
+                onChange={select}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
       <NeonButton
         title={buttonTitle}

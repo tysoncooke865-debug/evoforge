@@ -11,6 +11,8 @@ import {
   SKINS,
   buildRoster,
   cosmeticUnlocked,
+  GYMERICA,
+  characterStageOptions,
   currentStageFor,
   skinKey,
   skinPrice,
@@ -202,6 +204,9 @@ describe('equip state machine', () => {
     auraId: 'rarity',
     emoteId: 'victory',
     effectId: 'podium',
+    character: null,
+    characterStage: 1,
+    characterSkin: 'standard',
     ...over,
   });
 
@@ -310,7 +315,7 @@ describe('catalogs', () => {
     const open = resolveDisplay(derived({ level: 100 }), { ...DEFAULT_LOADOUT, skinId: 'adam' });
     expect(open.skinId).toBe('adam');
     // The equip button surfaces the requirement.
-    const state = equipState(derived({ level: 57 }), { branch: 'aesthetic', stageKey: null, skinId: 'adam', auraId: 'rarity', emoteId: 'victory', effectId: 'podium' }, DEFAULT_LOADOUT);
+    const state = equipState(derived({ level: 57 }), { branch: 'aesthetic', stageKey: null, skinId: 'adam', auraId: 'rarity', emoteId: 'victory', effectId: 'podium', character: null, characterStage: 1, characterSkin: 'standard' }, DEFAULT_LOADOUT);
     expect(state).toEqual({ kind: 'locked-cosmetic', requirement: 'REACH LEVEL 100 — TRUE ADAM' });
   });
 
@@ -361,5 +366,45 @@ describe('skin shop prices (Tyson: coins, ascending, aesthetics cheaper)', () =>
     const red = SKINS.find((s) => s.id === 'red')!;
     expect(skinUnlocked(red, 'aesthetic', { legacyLevel: 0, ownedSkins: owned })).toBe(true);
     expect(skinUnlocked(red, 'mass', { legacyLevel: 0, ownedSkins: owned })).toBe(false);
+  });
+});
+
+describe('premium character: Captain Gymerica (Tyson, 2026-07-16)', () => {
+  const d = (over = {}) => ({
+    branch: 'aesthetic' as const, level: 40, bfMid: 15,
+    scores: { strength: 40, size: 40, leanness: 40, conditioning: 40, aesthetic: 60 },
+    ctx: { nutritionPhase: 'bulking', earliestBf: 18 }, forgeLevel: 8, ...over,
+  });
+  const gsel = (over = {}) => ({
+    branch: 'aesthetic' as const, stageKey: null, skinId: 'standard' as const,
+    auraId: 'rarity' as const, emoteId: 'victory' as const, effectId: 'podium',
+    character: 'gymerica' as const, characterStage: 1, characterSkin: 'standard' as const, ...over,
+  });
+
+  it('costs 10000 and has two stages + two looks', () => {
+    expect(GYMERICA.price).toBe(10000);
+    expect(GYMERICA.stageNames).toHaveLength(2);
+    expect(GYMERICA.looks.map((l) => l.id)).toEqual(['standard', 'usa']);
+  });
+
+  it('unowned -> BUY; owned -> equip/equipped; overlay resolves art', () => {
+    const owned = new Set(['gymerica']);
+    // Unowned: the button is a 10000-coin buy, whatever the class gates.
+    expect(equipState(d(), gsel(), DEFAULT_LOADOUT, new Set(), new Set()))
+      .toEqual({ kind: 'buy-character', character: 'gymerica', price: 10000 });
+    // Owned + different from equipped -> equip.
+    expect(equipState(d(), gsel(), DEFAULT_LOADOUT, new Set(), owned).kind).toBe('equip');
+    // resolveDisplay only shows the overlay when OWNED.
+    const eq = { ...DEFAULT_LOADOUT, character: 'gymerica' as const, characterStage: 2, characterSkin: 'usa' as const };
+    const shown = resolveDisplay(d(), eq, new Set(), owned);
+    expect(shown.character).toEqual({ id: 'gymerica', stage: 2, look: 'usa' });
+    expect(shown.formName).toBe('Gymerica, Shielded');
+    // Not owned -> overlay dropped, falls back to the branch identity.
+    expect(resolveDisplay(d(), eq, new Set(), new Set()).character).toBeNull();
+  });
+
+  it('stage options are both unlocked once owned, both locked otherwise', () => {
+    expect(characterStageOptions(GYMERICA, true).every((o) => o.unlocked)).toBe(true);
+    expect(characterStageOptions(GYMERICA, false).every((o) => !o.unlocked)).toBe(true);
   });
 });

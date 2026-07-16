@@ -1,5 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 
+import { useCharacterUnlocks } from '@/data/characters';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useSkinUnlocks } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -8,6 +9,7 @@ import { resolveDisplay, skinKey } from '@/domain/customise';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { animatedAvatar, avatarArtV2, stillAvatar, type Sex } from '@/ui/character/avatar-art';
 import { skinnedAnimated, skinnedFemalePainted, skinnedStill } from '@/ui/character/avatar-skins';
+import { gymericaAnimated, gymericaStill } from '@/ui/character/gymerica-art';
 
 /**
  * CUSTOMISE (Tyson, 2026-07-16): the athlete's DISPLAY identity — the
@@ -35,6 +37,8 @@ export function useDisplayIdentity(): DisplayIdentity {
   const loadout = useLoadoutStore((s) => s.loadout);
   const unlocks = useSkinUnlocks();
   const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
+  const charUnlocks = useCharacterUnlocks();
+  const ownedCharacters = new Set((charUnlocks.data ?? []).map((u) => u.character));
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -50,7 +54,28 @@ export function useDisplayIdentity(): DisplayIdentity {
     ctx: { nutritionPhase, earliestBf },
     forgeLevel: forgeProgressFromRow(forge.data ?? null).level,
   };
-  const display = resolveDisplay(derived, loadout, ownedSkins);
+  const display = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
+
+  // PREMIUM OVERLAY: an equipped, owned premium character takes over the
+  // rendered art everywhere Home/Forge read this hook — branch/stats below
+  // are untouched.
+  if (display.character) {
+    const { stage, look } = display.character;
+    return {
+      ready,
+      sex,
+      derived,
+      // Render at the STAGE-4 scale (Tyson, 2026-07-16: "make Gymerica the
+      // same size as a stage 4 character") — the growth math keys off
+      // display.stage, so a premium hero always shows at full size, never
+      // his 1/2 gameplay stage. His ART still comes from the real stage.
+      display: { ...display, stage: 4 },
+      animatedSource: gymericaAnimated(stage, look),
+      stillSource: gymericaStill(stage, look),
+      paintedSource: gymericaStill(stage, look),
+      hasArt: true,
+    };
+  }
 
   const painted =
     skinnedFemalePainted(display.branch, display.stage, sex, display.skinId) ??

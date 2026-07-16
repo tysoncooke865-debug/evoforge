@@ -28,6 +28,54 @@ import type { EvolutionRequirement } from './next-evolution';
  * form whose gates have since closed.
  */
 
+// -------------------------------------------------- premium characters
+
+/**
+ * A PREMIUM CHARACTER (Tyson, 2026-07-16) — bought once with forge coins
+ * and equipped as an avatar OVERLAY on top of any training class (the
+ * player's real branch/stats are untouched). One purchase unlocks all its
+ * stages and looks. Captain Gymerica is the first.
+ */
+export type SpecialCharacterId = 'gymerica';
+export type GymericaSkin = 'standard' | 'usa';
+
+export interface PremiumCharacter {
+  id: SpecialCharacterId;
+  name: string;
+  icon: string;
+  price: number;
+  /** Stage names, index 0 = stage 1. */
+  stageNames: string[];
+  /** Selectable looks (all unlocked with the character). */
+  looks: { id: GymericaSkin; name: string; swatch: string }[];
+}
+
+export const GYMERICA: PremiumCharacter = {
+  id: 'gymerica',
+  name: 'Captain Gymerica',
+  icon: '🛡️', // shield
+  price: 10000,
+  stageNames: ['Captain Gymerica', 'Gymerica, Shielded'],
+  looks: [
+    { id: 'standard', name: 'Forge Standard', swatch: '#22d3ee' },
+    { id: 'usa', name: 'United States of Aesthetics', swatch: '#c8102e' },
+  ],
+};
+
+export const PREMIUM_CHARACTERS: PremiumCharacter[] = [GYMERICA];
+
+/** Stage rows for a premium character — all unlocked once owned. */
+export function characterStageOptions(char: PremiumCharacter, owned: boolean): StageOption[] {
+  return char.stageNames.map((name, i) => ({
+    key: `C${i + 1}`,
+    stage: i + 1,
+    name,
+    unlocked: owned,
+    current: owned && i === 0,
+    requirement: owned ? '' : 'UNLOCK THIS CHARACTER FIRST',
+  }));
+}
+
 // ---------------------------------------------------------------- skins
 
 /** Palette-swap skins (classic alternate costumes): luminance duotones of
@@ -349,6 +397,13 @@ export interface Loadout {
   auraId: AuraId;
   emoteId: EmoteId;
   effectId: string;
+  /** A premium character equipped as an OVERLAY (null = the branch
+   *  champion). When set + owned it takes precedence over branch art. */
+  character: SpecialCharacterId | null;
+  /** Which stage of the premium character (1-based). */
+  characterStage: number;
+  /** Which look of the premium character. */
+  characterSkin: GymericaSkin;
 }
 
 export const DEFAULT_LOADOUT: Loadout = {
@@ -358,6 +413,9 @@ export const DEFAULT_LOADOUT: Loadout = {
   auraId: 'rarity',
   emoteId: 'victory',
   effectId: 'podium',
+  character: null,
+  characterStage: 1,
+  characterSkin: 'standard',
 };
 
 /** The shape donor for stage math + silhouettes (mirrors avatar-art's
@@ -395,6 +453,8 @@ export interface ResolvedDisplay {
   /** null = keep the rarity colour (the pre-customiser behaviour). */
   auraColour: string | null;
   emoteId: EmoteId;
+  /** When set, an equipped premium character overrides the branch art. */
+  character: { id: SpecialCharacterId; stage: number; look: GymericaSkin } | null;
 }
 
 /**
@@ -406,7 +466,8 @@ export interface ResolvedDisplay {
 export function resolveDisplay(
   derived: DerivedIdentity,
   loadout: Loadout,
-  ownedSkins: ReadonlySet<string> = new Set()
+  ownedSkins: ReadonlySet<string> = new Set(),
+  ownedCharacters: ReadonlySet<string> = new Set()
 ): ResolvedDisplay {
   const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
 
@@ -446,14 +507,29 @@ export function resolveDisplay(
   const emote = EMOTES.find((e) => e.id === loadout.emoteId);
   const emoteUnlocked = emote !== undefined && cosmeticUnlocked(emote.unlock, ctx);
 
+  // Premium character OVERLAY: if one is equipped AND owned, it takes over
+  // the rendered avatar (name + art) while the branch identity underneath
+  // is untouched. Aura/emote still apply.
+  let character: ResolvedDisplay['character'] = null;
+  let overlayName = formName;
+  if (loadout.character !== null && ownedCharacters.has(loadout.character)) {
+    const c = PREMIUM_CHARACTERS.find((x) => x.id === loadout.character);
+    if (c) {
+      const cStage = Math.max(1, Math.min(c.stageNames.length, Math.trunc(loadout.characterStage)));
+      character = { id: c.id, stage: cStage, look: loadout.characterSkin };
+      overlayName = c.stageNames[cStage - 1];
+    }
+  }
+
   return {
     branch,
     donor: displayDonor(branch),
     stage,
-    formName,
+    formName: overlayName,
     skinId: skin ? skin.id : 'standard',
     auraColour: auraUnlocked ? (aura?.colour ?? null) : null,
     emoteId: emoteUnlocked && emote ? emote.id : 'victory',
+    character,
   };
 }
 
@@ -465,6 +541,10 @@ export interface Selection {
   auraId: AuraId;
   emoteId: EmoteId;
   effectId: string;
+  /** A premium character overlay in the live selection (null = branch). */
+  character: SpecialCharacterId | null;
+  characterStage: number;
+  characterSkin: GymericaSkin;
 }
 
 export function selectionFromLoadout(derivedBranch: BranchV2, loadout: Loadout): Selection {
@@ -475,6 +555,9 @@ export function selectionFromLoadout(derivedBranch: BranchV2, loadout: Loadout):
     auraId: loadout.auraId,
     emoteId: loadout.emoteId,
     effectId: loadout.effectId,
+    character: loadout.character,
+    characterStage: loadout.characterStage,
+    characterSkin: loadout.characterSkin,
   };
 }
 
@@ -487,6 +570,9 @@ export function loadoutFromSelection(derivedBranch: BranchV2, sel: Selection): L
     auraId: sel.auraId,
     emoteId: sel.emoteId,
     effectId: sel.effectId,
+    character: sel.character,
+    characterStage: sel.characterStage,
+    characterSkin: sel.characterSkin,
   };
 }
 
@@ -497,7 +583,10 @@ export function sameLoadout(a: Loadout, b: Loadout): boolean {
     a.skinId === b.skinId &&
     a.auraId === b.auraId &&
     a.emoteId === b.emoteId &&
-    a.effectId === b.effectId
+    a.effectId === b.effectId &&
+    a.character === b.character &&
+    a.characterStage === b.characterStage &&
+    a.characterSkin === b.characterSkin
   );
 }
 
@@ -510,15 +599,30 @@ export type EquipState =
   /** The selected colour is an unbought coin skin — the primary button
    *  becomes BUY (or NEED … when the wallet is short). line+skin+price
    *  drive the purchase call. */
-  | { kind: 'buy-skin'; line: SkinLine; skin: SkinId; price: number };
+  | { kind: 'buy-skin'; line: SkinLine; skin: SkinId; price: number }
+  /** The selected premium character is not owned — BUY it (10000). */
+  | { kind: 'buy-character'; character: SpecialCharacterId; price: number };
 
 /** Which state the primary button is in for the current selection. */
 export function equipState(
   derived: DerivedIdentity,
   sel: Selection,
   equipped: Loadout,
-  ownedSkins: ReadonlySet<string> = new Set()
+  ownedSkins: ReadonlySet<string> = new Set(),
+  ownedCharacters: ReadonlySet<string> = new Set()
 ): EquipState {
+  // A premium character overlay is its own decision path — it does not
+  // depend on the branch gates (it sits ON TOP of any class).
+  if (sel.character !== null) {
+    const c = PREMIUM_CHARACTERS.find((x) => x.id === sel.character);
+    if (c && !ownedCharacters.has(c.id)) {
+      return { kind: 'buy-character', character: c.id, price: c.price };
+    }
+    return sameLoadout(loadoutFromSelection(derived.branch, sel), equipped)
+      ? { kind: 'equipped' }
+      : { kind: 'equip' };
+  }
+
   const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
   const entry = roster.find((e) => e.id === sel.branch);
   if (!entry?.unlocked) return { kind: 'locked-character' };
