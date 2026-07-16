@@ -10,10 +10,12 @@ import type { HomeFeatures } from './home-features';
 
 /**
  * HOME_REDESIGN §6 — the player status row: FORGE STREAK · COINS · TOTAL XP
- * · TIER, each a door into its own system (/streak, /coins, /profile,
- * /rank). A two-by-two grid (the brief's standard-phone rule); hiding coins
+ * · ARENA RANK, each a door into its own system (/streak, /coins, /profile,
+ * /rival). A two-by-two grid (the brief's standard-phone rule); hiding coins
  * reflows the grid naturally. Every value is the real one — coins render
- * `—` on null (unreadable ≠ empty wallet, the useLedgerXp lesson).
+ * `—` on null (unreadable ≠ empty wallet, the useLedgerXp lesson), and an
+ * unplaced athlete reads UNRANKED with their real placement count.
+ * `rank: null` (Rival Rank flag off) falls back to the level-tier card.
  */
 export function StatusGrid({
   streakCurrent,
@@ -23,6 +25,7 @@ export function StatusGrid({
   totalXp,
   tierName,
   tierColour,
+  rank,
   features,
 }: {
   streakCurrent: number;
@@ -32,6 +35,8 @@ export function StatusGrid({
   totalXp: number;
   tierName: string;
   tierColour: string;
+  /** The Rival Rank standing — label like "OBSIDIAN I", or provisional. */
+  rank: { label: string; provisional: boolean; placements: string } | null;
   features: HomeFeatures;
 }) {
   // The brief's responsive rule: four across on wide screens, 2×2 on
@@ -72,16 +77,35 @@ export function StatusGrid({
         testID="status-xp"
         basis={basis}
       />
-      <StatusCard
-        icon={<Text style={{ fontSize: 13, color: tierColour }}>◆</Text>}
-        label="TIER"
-        value={tierName}
-        sub="Rank standing ›"
-        tint={tierColour}
-        onPress={() => router.push('/rank' as never)}
-        testID="status-tier"
-        basis={basis}
-      />
+      {rank ? (
+        <StatusCard
+          icon={
+            <Text
+              style={{ fontSize: 13, color: rank.provisional ? tokens.colors['text-mute'] : tokens.colors.accent }}
+            >
+              ⚔
+            </Text>
+          }
+          label="ARENA RANK"
+          value={rank.provisional ? 'UNRANKED' : rank.label}
+          sub={rank.provisional ? `${rank.placements} placements ›` : 'Rival standing ›'}
+          tint={rank.provisional ? tokens.colors['text-mute'] : tokens.colors.accent}
+          onPress={() => router.push('/rival' as never)}
+          testID="status-rank"
+          basis={basis}
+        />
+      ) : (
+        <StatusCard
+          icon={<Text style={{ fontSize: 13, color: tierColour }}>◆</Text>}
+          label="TIER"
+          value={tierName}
+          sub="Rank standing ›"
+          tint={tierColour}
+          onPress={() => router.push('/rank' as never)}
+          testID="status-tier"
+          basis={basis}
+        />
+      )}
     </View>
   );
 }

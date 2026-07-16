@@ -4,7 +4,9 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
+import { progressionFeatures } from '@/data/progression/features';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+import { useRivalRating } from '@/data/progression/use-rival-rank';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
 import { useUserExercises } from '@/data/exercises';
 import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutLog, useCardioLog } from '@/data/hooks';
@@ -22,6 +24,7 @@ import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
 import { daysForSource } from '@/domain/plan-sources';
+import { rankStandingFor } from '@/domain/progression/rank-tiers';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { pyFloat } from '@/domain/py';
 import { recentPr } from '@/domain/recent-pr';
@@ -215,6 +218,16 @@ export default function HomeScreen() {
   const auraColour = identity.display.auraColour ?? rarityColour;
   const formName = identity.display.formName;
 
+  // ARENA RANK — the Rival standing (Glicko → tier · division), sharing
+  // /rival's query and its exact no-row defaults. Read-only here: the
+  // reconcile mutation stays a /rival-visit concern, never a Home mount.
+  const rival = useRivalRating();
+  const standing = rankStandingFor({
+    rating: rival.data?.rating ?? 1500,
+    rd: rival.data?.rating_deviation ?? 350,
+    placementsCompleted: rival.data?.placement_matches_completed ?? 0,
+  });
+
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
   const forge = useForgeProgression();
@@ -263,7 +276,7 @@ export default function HomeScreen() {
         features={homeFeatures}
       />
 
-      {/* 4. Player status — streak, coins, XP, tier. */}
+      {/* 4. Player status — streak, coins, XP, arena rank. */}
       <StatusGrid
         streakCurrent={streak.current}
         streakBest={streak.best}
@@ -272,6 +285,15 @@ export default function HomeScreen() {
         totalXp={summary.xp}
         tierName={slug.toUpperCase()}
         tierColour={auraColour}
+        rank={
+          progressionFeatures.rivalRankEnabled
+            ? {
+                label: standing.label,
+                provisional: standing.provisional,
+                placements: `${standing.placementsCompleted}/${standing.placementsRequired}`,
+              }
+            : null
+        }
         features={homeFeatures}
       />
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
