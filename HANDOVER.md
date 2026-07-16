@@ -183,7 +183,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
   functions-only push triggered NO workflow and deployed nothing (the
   committed-but-undeployed trap, structural edition).
 
-**Migrations applied through `021`. Next free number: `022`.**
+- **PROGRESSION_OVERHAUL (2026-07-16, executing): P1+P2 SHIPPED.**
+  `domain/progression/` carries the Evo Rating core: 30/25/30/15 geometric
+  mean, tier gates with SMOOTH soft caps (raw 92 failing a 90-gate reads
+  89.x, explained), L100 manual-only, four pillar calculators (size FFMI/
+  frame/regional · aesthetics w/ definition PLATEAU below healthy bf ·
+  strength best-2-of-last-4 w/ the ONE movement mapping + versioned
+  reference curves · cardio provisional-never-zero), confidence-before-
+  score staleness, evo-state peak-ratchet reducer. 49 new tests. Forge
+  curve TS+SQL twins pinned by machine-verified fixture. Migrations
+  023/024 APPLIED + falsified (guard clamps forged XP to server values;
+  snapshots immutable; peak/starting trigger-enforced). Flags OFF in
+  `data/progression/features.ts` — nothing user-visible yet.
+
+**Migrations applied through `024`. Next free number: `025`**
+(022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
+if 025 is taken by then; check `ls migrations/` first).
+
+<!-- superseded: **Migrations applied through `021`. Next free number: `022`.** -->
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
 `019` user_exercise_prefs · `020` weight_unit · `021` ai_scan_cache +plan-scan.
 
