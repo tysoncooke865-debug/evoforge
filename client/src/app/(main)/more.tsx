@@ -12,6 +12,7 @@ const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
   { href: '/goals', title: 'Goals', sub: 'Targets with honest journey bars', glyph: '◎' },
   { href: '/awards', title: 'Awards', sub: 'All 64 achievements', glyph: '★' },
   { href: '/rank', title: 'Rank', sub: 'The leaderboard — opt in to compete', glyph: '♛' },
+  { href: '/game-log', title: 'Game Log', sub: 'Every arena match on record', glyph: '≣' },
   { href: '/streak', title: 'Streak', sub: 'The consistency calendar', glyph: '▦' },
   { href: '/schedule', title: 'Schedule', sub: 'Map your training week', glyph: '◫' },
   { href: '/routine', title: 'My Routine', sub: 'Build your own split and exercises', glyph: '⚒' },

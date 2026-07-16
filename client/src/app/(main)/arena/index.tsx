@@ -347,7 +347,27 @@ export default function ArenaScreen() {
               : 'No battles yet. Mint a code and call someone out.'}
           </Text>
         ) : (
-          history.map((m) => <HistoryRow key={m.id} match={m} xp={results.data?.[m.id]?.xp ?? null} />)
+          <>
+            {/* The hub shows the LAST FIVE; the GAME LOG holds the record. */}
+            {history.slice(0, 5).map((m) => (
+              <HistoryRow key={m.id} match={m} xp={results.data?.[m.id]?.xp ?? null} />
+            ))}
+            <Pressable
+              onPress={() => router.push('/game-log' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="See full battle history"
+              testID="arena-full-history"
+              className="mt-s1 flex-row items-center justify-center rounded-lg border px-s3 py-s2"
+              style={{ gap: 6, minHeight: 44, borderColor: `${tokens.colors.accent}40` }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 9, color: tokens.colors.accent, letterSpacing: 1, ...pixelFont(false) }}
+              >
+                SEE FULL HISTORY ›
+              </Text>
+            </Pressable>
+          </>
         )}
       </View>
     </ScreenShell>
