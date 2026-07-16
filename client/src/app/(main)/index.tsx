@@ -249,7 +249,16 @@ export default function HomeScreen() {
           the game level starts from zero and holds ONLY earned XP; the old
           onboarding-seeded level is retired from display, avatar stages
           keep their own track so no character regresses). */}
-      <HomeHeader level={forgeProgress.level} xpIntoLevel={forgeProgress.xpIntoLevel} xpNeeded={forgeProgress.xpForNextLevel} />
+      <HomeHeader
+        level={forgeProgress.level}
+        xpIntoLevel={forgeProgress.xpIntoLevel}
+        xpNeeded={forgeProgress.xpForNextLevel}
+        rank={
+          progressionFeatures.rivalRankEnabled
+            ? { label: standing.label, provisional: standing.provisional }
+            : null
+        }
+      />
 
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero
