@@ -238,6 +238,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   the old level retires (deliberate: two vocabularies never at once,
   and the legacy level remains the app-wide `summary.level` consumer
   contract until then).
+- **P6 SHIPPED: guided Evo Scans + Evolution Chapters.** Migration 027
+  (physique_assessments + evolution_chapters + the ai_scan_cache kind
+  extension — the 021 lesson, applied BEFORE it bit). `evo-scan` edge fn:
+  2-3 photos + bodyweight/waist → sub-scores + 14 regional scores on the
+  gpt-5.1 judge; 28-day eligibility; >6-point swings come back
+  pending_confirmation (7-day confirmation window). **Solo photos are
+  STILL never persisted — hashes only; the house privacy rule outranks
+  the spec's bucket design** (battle round-3 stays the lone exception).
+  /evo-scan guided screen; a confirmed scan postdating the last review
+  feeds Size/Aesthetics THROUGH the pillar calculators at the next
+  review. Chapters: first review opens chapter 1; reviews roll chapters
+  every 84 days with before/after summaries (maintainChapters in
+  evo-review-io).
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

@@ -10,8 +10,8 @@ export const progressionFeatures = {
   newProgressionEnabled: true,
   /** Weekly Evo Reviews (P3). */
   evoReviewsEnabled: true,
-  /** Monthly guided Evo Scans (P6). */
-  monthlyScansEnabled: false,
+  /** Monthly guided Evo Scans (P6) — ON at P6 ship. */
+  monthlyScansEnabled: true,
   /** Rival Rank placements + rated matches (P7). */
   rivalRankEnabled: false,
   /** Ghost matches (P7). */

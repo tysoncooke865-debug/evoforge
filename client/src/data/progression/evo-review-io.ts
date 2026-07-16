@@ -45,6 +45,18 @@ export interface ReviewSourceRows {
   hasCardioTrainingHistory: boolean;
   priorState: EvoState | null;
   priorPillars: EvoPillars | null;
+  /** The newest CONFIRMED guided scan SINCE the last review, if any —
+   *  the only thing allowed to move Size/Aesthetics (spec §15B/§15C). */
+  freshAssessment: {
+    size_score?: unknown;
+    aesthetics_score?: unknown;
+    regional_scores?: unknown;
+    proportions_score?: unknown;
+    distribution_score?: unknown;
+    symmetry_score?: unknown;
+    confidence?: unknown;
+    assessment_date?: unknown;
+  } | null;
 }
 
 const AEROBIC_TYPES: ReadonlySet<string> = new Set([
@@ -122,10 +134,32 @@ export function assembleReviewInputs(rows: ReviewSourceRows, todayIso: string): 
       hasCardioTrainingHistory: rows.hasCardioTrainingHistory,
       todayIso,
     },
-    // A guided scan (P6) supplies these; until then Size/Aesthetics ride
-    // the provisional path on first review and are preserved afterwards.
-    scanSize: null,
-    scanAesthetics: null,
+    // A fresh guided scan re-derives Size/Aesthetics THROUGH the pillar
+    // calculators (regional + FFMI evidence together); without one they
+    // ride provisional-then-preserved.
+    scanSize: rows.freshAssessment
+      ? calculateSizeScore({
+          sex,
+          heightCm: pyFloat(rows.profile?.height_cm) ?? null,
+          bodyweightKg: bodyweight,
+          bfLow,
+          bfHigh,
+          regionalScores: (rows.freshAssessment.regional_scores ?? null) as Record<string, number> | null,
+          scanCount: 1,
+        })
+      : null,
+    scanAesthetics: rows.freshAssessment
+      ? calculateAestheticsScore({
+          sex,
+          bfLow,
+          bfHigh,
+          proportionsScore: pyFloat(rows.freshAssessment.proportions_score),
+          distributionScore: pyFloat(rows.freshAssessment.distribution_score),
+          symmetryScore: pyFloat(rows.freshAssessment.symmetry_score),
+          scanConsistent: true,
+          scanCount: 1,
+        })
+      : null,
     provisionalSize,
     provisionalAesthetics,
     lastStrengthEvidenceIso: lastStrengthIso,
@@ -189,7 +223,7 @@ export async function runDueEvoReview(
     Date.parse(current.next_review_at as string) <= Date.now();
   if (!due && !opts.force) return { ran: false, outcome: null, reason: 'not_due' };
 
-  const [profileQ, workoutsQ, bodyweightQ, bodyfatQ, physiqueQ, cardioTestsQ, cardioLogQ] =
+  const [profileQ, workoutsQ, bodyweightQ, bodyfatQ, physiqueQ, cardioTestsQ, cardioLogQ, assessQ] =
     await Promise.all([
       supabase.from('profile').select('sex,height_cm,bodyweight_kg').limit(1),
       supabase.from('workout_log').select('date,workout,exercise,set,weight,reps,timestamp'),
@@ -198,7 +232,22 @@ export async function runDueEvoReview(
       supabase.from('physique_ratings').select('physique_score,leanness_score,symmetry_score,muscularity_score').order('date', { ascending: false }).limit(1),
       supabase.from('cardio_evidence').select('test_type,value,occurred_at,verified'),
       supabase.from('cardio_log').select('date').limit(1),
+      supabase
+        .from('physique_assessments')
+        .select('size_score,aesthetics_score,regional_scores,proportions_score,distribution_score,symmetry_score,confidence,assessment_date')
+        .eq('status', 'confirmed')
+        .order('assessment_date', { ascending: false })
+        .limit(1),
     ]);
+
+  // A scan only counts as FRESH when it postdates the last review.
+  const lastReviewIso = current?.last_review_at ? String(current.last_review_at).slice(0, 10) : null;
+  const newestAssessment = assessQ.data?.[0] ?? null;
+  const freshAssessment =
+    newestAssessment &&
+    (!lastReviewIso || String(newestAssessment.assessment_date) >= lastReviewIso)
+      ? newestAssessment
+      : null;
 
   const prior = priorFromCurrentRow(current);
   const inputs = assembleReviewInputs(
@@ -212,6 +261,7 @@ export async function runDueEvoReview(
       hasCardioTrainingHistory: (cardioLogQ.data ?? []).length > 0,
       priorState: prior.state,
       priorPillars: prior.pillars,
+      freshAssessment,
     },
     today
   );
@@ -281,5 +331,71 @@ export async function runDueEvoReview(
     .update({ status: 'confirmed', reviewed_at: new Date().toISOString(), reason: `review ${snap?.[0]?.id ?? ''}` })
     .eq('status', 'pending');
 
+  // Evolution Chapters (spec §15D): open the first on the first review;
+  // close + roll over every 84 days. Failures never fail the review.
+  try {
+    await maintainChapters(supabase, String(snap?.[0]?.id ?? ''), today);
+  } catch {
+    /* next review retries */
+  }
+
   return { ran: true, outcome, reason: opts.force ? 'forced' : isFirst ? 'first' : 'due' };
+}
+
+const CHAPTER_DAYS = 84;
+
+async function maintainChapters(supabase: SupabaseClient, snapshotId: string, todayIso: string): Promise<void> {
+  if (!snapshotId) return;
+  const { data } = await supabase
+    .from('evolution_chapters')
+    .select('id,chapter_number,started_at,ended_at,starting_snapshot_id')
+    .order('chapter_number', { ascending: false })
+    .limit(1);
+  const newest = data?.[0] ?? null;
+
+  if (!newest) {
+    await supabase.from('evolution_chapters').insert({
+      chapter_number: 1,
+      started_at: todayIso,
+      starting_snapshot_id: snapshotId,
+    });
+    return;
+  }
+  if (newest.ended_at) return; // already rolled; the open chapter is elsewhere
+
+  const ageDays = Math.floor(
+    (Date.parse(`${todayIso}T00:00:00Z`) - Date.parse(`${String(newest.started_at).slice(0, 10)}T00:00:00Z`)) / 86_400_000
+  );
+  if (ageDays < CHAPTER_DAYS) return;
+
+  // Close with an honest before/after summary from the two snapshots.
+  const { data: snaps } = await supabase
+    .from('evo_rating_snapshots')
+    .select('id,displayed_rating,size_score,aesthetics_score,strength_score,cardio_score')
+    .in('id', [String(newest.starting_snapshot_id), snapshotId]);
+  const start = snaps?.find((s) => s.id === newest.starting_snapshot_id);
+  const end = snaps?.find((s) => s.id === snapshotId);
+  const summary =
+    start && end
+      ? {
+          startingRating: start.displayed_rating,
+          endingRating: end.displayed_rating,
+          change: Number(end.displayed_rating) - Number(start.displayed_rating),
+          pillars: {
+            size: [start.size_score, end.size_score],
+            aesthetics: [start.aesthetics_score, end.aesthetics_score],
+            strength: [start.strength_score, end.strength_score],
+            cardio: [start.cardio_score, end.cardio_score],
+          },
+        }
+      : {};
+  await supabase
+    .from('evolution_chapters')
+    .update({ ended_at: todayIso, ending_snapshot_id: snapshotId, summary })
+    .eq('id', newest.id);
+  await supabase.from('evolution_chapters').insert({
+    chapter_number: Number(newest.chapter_number) + 1,
+    started_at: todayIso,
+    starting_snapshot_id: snapshotId,
+  });
 }

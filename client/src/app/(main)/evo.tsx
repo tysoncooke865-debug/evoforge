@@ -170,6 +170,14 @@ export default function EvoRatingScreen() {
             ))}
           </View>
 
+          {progressionFeatures.monthlyScansEnabled ? (
+            <NeonButton
+              title="GUIDED EVO SCAN"
+              pixel
+              onPress={() => router.push('/evo-scan' as never)}
+              testID="evo-open-scan"
+            />
+          ) : null}
           <NeonButton
             title="RUN EVO REVIEW NOW"
             variant="ghost"
