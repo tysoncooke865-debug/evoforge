@@ -70,8 +70,6 @@ export default function WorkoutScreen() {
   const workoutName = params.workout ?? '';
   // Which plan the athlete was looking at when they opened this door.
   const parsedSource = Number(params.source);
-  const preferredSource: SourceIndex =
-    parsedSource === 0 || parsedSource === 1 || parsedSource === 2 ? parsedSource : 2;
 
   /**
    * BACK GOES TO TRAIN — explicitly.
@@ -93,7 +91,11 @@ export default function WorkoutScreen() {
   const saveRoutine = useSaveRoutine();
   const { summary, stats, bfMid } = useAvatarData();
   const forge = useForgeProgression();
-  const { resolveDay } = useDayPlan();
+  const { resolveDay, preferredSource: savedSource } = useDayPlan();
+  // A deep link without ?source= follows the SAVED choice (035), so a
+  // reload-restored or externally opened workout page agrees with Train.
+  const preferredSource: SourceIndex =
+    parsedSource === 0 || parsedSource === 1 || parsedSource === 2 ? parsedSource : savedSource;
 
   const adhoc = useSessionStore(adhocOf);
   const overrides = useSessionStore((s) => overridesFor(s, workoutName));

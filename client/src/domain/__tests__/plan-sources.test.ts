@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CustomPlan } from '../custom-plan';
-import { daysForSource, defaultSource, looksLikeAiPlan, resolvePlanSources } from '../plan-sources';
+import {
+  daysForSource,
+  defaultSource,
+  looksLikeAiPlan,
+  resolveActiveSource,
+  resolvePlanSources,
+} from '../plan-sources';
 
 const BUILT_IN = ['Push 1 - Strength', 'Pull 1 - Back Thickness', 'Legs'];
 
@@ -93,5 +99,34 @@ describe('defaultSource — open on what the athlete meant to train', () => {
   });
   it('else built-in', () => {
     expect(defaultSource(resolvePlanSources(EMPTY))).toBe(2);
+  });
+});
+
+describe('resolveActiveSource — the saved choice survives reloads (035)', () => {
+  const BOTH = resolvePlanSources({ ...EMPTY, customPlan: BUILDER_SHAPED, aiPlan: AI_SHAPED });
+
+  it('never chosen (null) → exactly defaultSource, existing users unchanged', () => {
+    expect(resolveActiveSource(null, BOTH)).toBe(0);
+    expect(resolveActiveSource(null, resolvePlanSources({ ...EMPTY, aiPlan: AI_SHAPED }))).toBe(1);
+    expect(resolveActiveSource(null, resolvePlanSources(EMPTY))).toBe(2);
+  });
+
+  it('THE FIX: a saved BUILT-IN sticks even when a custom plan exists', () => {
+    // Pre-035 this snapped back to MY PLAN on every reload.
+    expect(resolveActiveSource(2, BOTH)).toBe(2);
+  });
+
+  it('a saved plan choice sticks while its plan exists', () => {
+    expect(resolveActiveSource(0, BOTH)).toBe(0);
+    expect(resolveActiveSource(1, BOTH)).toBe(1);
+  });
+
+  it('a saved AI PLAN whose plan was deleted falls back for display', () => {
+    const onlyCustom = resolvePlanSources({ ...EMPTY, customPlan: BUILDER_SHAPED });
+    expect(resolveActiveSource(1, onlyCustom)).toBe(0);
+  });
+
+  it('a saved MY PLAN with no plans anywhere lands on built-in', () => {
+    expect(resolveActiveSource(0, resolvePlanSources(EMPTY))).toBe(2);
   });
 });

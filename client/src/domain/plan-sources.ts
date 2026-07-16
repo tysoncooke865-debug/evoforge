@@ -88,6 +88,24 @@ export function defaultSource(sources: PlanSources): SourceIndex {
   return 2;
 }
 
+/**
+ * The source Train OPENS on: the athlete's SAVED choice (migration 035,
+ * profile.active_plan_source) when its plan still exists, else defaultSource.
+ * BUILT-IN (2) always exists, so a saved 2 always sticks — killing the
+ * reload snap-back to MY PLAN. A stored source whose plan was later deleted
+ * falls back FOR DISPLAY ONLY — the caller must never write the fallback
+ * back, so a re-forged AI plan revives the saved choice.
+ */
+export function resolveActiveSource(
+  stored: SourceIndex | null,
+  sources: PlanSources
+): SourceIndex {
+  if (stored === 2) return 2;
+  if (stored === 0 && sources.has.myPlan) return 0;
+  if (stored === 1 && sources.has.aiPlan) return 1;
+  return defaultSource(sources);
+}
+
 export interface ResolvedDay {
   entries: PlanEntry[];
   /** Which source these exercises actually came from — null when nobody has it. */

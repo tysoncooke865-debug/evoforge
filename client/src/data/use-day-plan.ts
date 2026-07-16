@@ -1,8 +1,10 @@
 import { useCustomPlan } from './hooks';
+import { usePlanSourcePref } from './plan-source-pref';
 import { useUserPlans } from './user-plans';
 
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import {
+  resolveActiveSource,
   resolveDayIn,
   resolvePlanSources,
   type PlanSources,
@@ -35,6 +37,10 @@ export interface DayPlan {
   sources: PlanSources;
   /** The exercises a day holds IN A GIVEN SOURCE, with a reporting fallback. */
   resolveDay: (workout: string, preferred: SourceIndex) => ResolvedDay;
+  /** The source the app OPENS on: the athlete's SAVED choice (migration 035)
+   *  when its plan still exists, else defaultSource. Every surface that asks
+   *  "which plan am I following" starts from this. */
+  preferredSource: SourceIndex;
   /** True while the plans load — [] would otherwise read as "empty day". */
   loading: boolean;
 }
@@ -47,6 +53,7 @@ const builtInEntries = (workout: string): PlanEntry[] | null => {
 export function useDayPlan(): DayPlan {
   const legacyPlan = useCustomPlan(); // custom_workout_plan — the pre-018 slot
   const userPlans = useUserPlans();
+  const pref = usePlanSourcePref(); // the saved choice (035); null = never chosen
 
   const sources = resolvePlanSources({
     customPlan: userPlans.data?.custom ?? null,
@@ -62,7 +69,8 @@ export function useDayPlan(): DayPlan {
   return {
     sources,
     resolveDay,
-    loading: userPlans.isPending || legacyPlan.isPending,
+    preferredSource: resolveActiveSource(pref.data ?? null, sources),
+    loading: userPlans.isPending || legacyPlan.isPending || pref.isPending,
   };
 }
 

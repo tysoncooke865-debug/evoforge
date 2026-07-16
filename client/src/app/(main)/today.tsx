@@ -9,13 +9,14 @@ import { useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
+import { useSavePlanSourcePref } from '@/data/plan-source-pref';
 import { useUserPlans } from '@/data/user-plans';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
-import { daysForSource, defaultSource, type SourceIndex } from '@/domain/plan-sources';
+import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { normaliseWorkoutLog } from '@/domain/summary';
@@ -107,7 +108,8 @@ export default function TodayScreen() {
   const profile = useProfile();
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
-  const { sources, resolveDay } = useDayPlan();
+  const { sources, resolveDay, preferredSource } = useDayPlan();
+  const savePref = useSavePlanSourcePref();
   // The header's LV. badge — FORGE LEVEL (earned XP only; Tyson 2026-07-16).
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
@@ -124,7 +126,9 @@ export default function TodayScreen() {
   // Exercises picked in the sheet BEFORE starting — they seed the ad-hoc.
   const [adhocPicks, setAdhocPicks] = useState<SessionExercise[]>([]);
 
-  const source: SourceIndex = sourceChoice ?? defaultSource(sources);
+  // The SAVED choice (migration 035) is the resting state; sourceChoice is
+  // only the in-flight override so the modal responds instantly.
+  const source: SourceIndex = sourceChoice ?? preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
@@ -791,6 +795,7 @@ export default function TodayScreen() {
                     key={label}
                     onPress={() => {
                       setSource(i);
+                      savePref.mutate(i); // fire-and-forget; error toast covers a failed sync
                       setChangeOpen(false);
                     }}
                     accessibilityRole="button"

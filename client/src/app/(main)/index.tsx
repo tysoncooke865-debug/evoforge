@@ -21,7 +21,7 @@ import { deriveMission } from '@/domain/home-mission';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
-import { daysForSource, defaultSource } from '@/domain/plan-sources';
+import { daysForSource } from '@/domain/plan-sources';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { pyFloat } from '@/domain/py';
 import { recentPr } from '@/domain/recent-pr';
@@ -100,7 +100,7 @@ export default function HomeScreen() {
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
   const prefs = useExercisePrefs();
-  const { sources, resolveDay, loading: plansLoading } = useDayPlan();
+  const { sources, resolveDay, preferredSource, loading: plansLoading } = useDayPlan();
   const adhoc = useSessionStore(adhocOf);
 
   const scheduleRows = schedule.data ?? [];
@@ -112,7 +112,7 @@ export default function HomeScreen() {
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
-  const source = defaultSource(sources);
+  const source = preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
   const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
