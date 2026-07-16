@@ -19,8 +19,8 @@ import { GlowCard } from '@/ui/core/shell';
 /** Item 10: both value boxes share one fixed 4-char width (tabular-nums).
  *  Sub-360px screens (iPhone SE1/5s) drop to the compact metrics — the only
  *  width where the row otherwise clips its LOG button (P2 size sweep). */
-const FIELD_WIDTH = 72;
-const FIELD_WIDTH_COMPACT = 52;
+const FIELD_WIDTH = 66;
+const FIELD_WIDTH_COMPACT = 50;
 const useCompact = () => useWindowDimensions().width < 360;
 
 /**

@@ -279,24 +279,29 @@ export function NumberField({
           // 8888 from wobbling the fixed-width column (item 10).
           style={{
             width,
-            minHeight: 58,
-            // The number is the HERO of the row (Tyson 2026-07-16): big and
-            // bold so it reads at a glance, louder than the steppers beside it.
-            // Sized to still fit "137.5" in the field width.
-            fontSize: narrow ? 17 : 20,
-            fontWeight: '800',
+            minHeight: 54,
+            // A clear, confident number — larger than the steppers beside it,
+            // but NOT oversized (Tyson 2026-07-16: 800/20px read as amateur).
+            fontSize: narrow ? 16 : 18,
+            fontWeight: '700',
             color: dim ? tokens.colors['text-dim'] : tokens.colors.text,
             fontVariant: ['tabular-nums'],
           }}
           inputMode={USE_CUSTOM_PAD ? 'none' : integer ? 'numeric' : 'decimal'}
-          placeholder={placeholder}
-          placeholderTextColor="#64758f"
+          // The native placeholder inherits the big value font and reads like a
+          // value; render a small, quiet hint of our own instead (below).
+          placeholder=""
           value={value}
           onChangeText={onChange}
           showSoftInputOnFocus={!USE_CUSTOM_PAD}
           pointerEvents={USE_CUSTOM_PAD ? 'none' : 'auto'}
           testID={testID}
         />
+        {value === '' ? (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 11, letterSpacing: 0.5, color: '#5c6b82' }}>{placeholder}</Text>
+          </View>
+        ) : null}
         {USE_CUSTOM_PAD ? (
           // On touch screens the input NEVER takes focus — this overlay owns
           // the tap and opens the pad. Focus bounce (the unclosable-pad live
