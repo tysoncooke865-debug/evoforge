@@ -291,6 +291,14 @@ Owner: Tyson. He works through other Claude sessions too — **always
   page previews it on active/eligible mass-line destination cards.
   Falsified: gif in DOM + two captures 700ms apart DIFFER (it really
   rotates). The walk/run/punch gifs await the battle layer.
+  **Correction (Tyson, same day): the rotation is MASS-LINE ONLY** — a
+  shared default had replaced his Aesthetic stage-3 art with the wrong
+  body. Never substitute one class's art for another's. The sprite
+  renders 1.35× on the stage (92px frames carry more padding than the
+  painted art), and the PATHS mass-line cards preview it in EVERY state
+  (dimmed 0.55 while gates are closing). TOUR GOTCHA: tabs stay mounted —
+  a querySelectorAll('img') "found it on PATHS" can be HOME's copy;
+  assert on the right page's own state.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

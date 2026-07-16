@@ -149,13 +149,14 @@ export function AvatarStage({
           }
           tintColor={silhouette ? '#070d1a' : undefined}
           style={{
-            width: size,
-            height: size,
-            // 92px sprite frames scale up crisp, never smeared (the
-            // sprite-avatar/coin-flip technique).
+            // The 92px sprite frames carry more transparent padding than
+            // the painted art, so the sprite renders at 1.35× the box
+            // (Tyson: "scale it up") — feet stay planted, justify-end
+            // anchors the bottom. Crisp via pixelated (the sprite-avatar/
+            // coin-flip technique).
             ...(animate && !silhouette && animatedSource
-              ? ({ imageRendering: 'pixelated' } as object)
-              : {}),
+              ? { width: size * 1.35, height: size * 1.35, ...({ imageRendering: 'pixelated' } as object) }
+              : { width: size, height: size }),
           }}
           contentFit="contain"
           accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}

@@ -51,18 +51,23 @@ function shapeDonor(branch: BranchV2): 'aesthetic' | 'mass' | 'hybrid' {
 
 /**
  * THE FIRST ANIMATED AVATAR (Tyson, 2026-07-16): the Mass Monster
- * 8-direction rotation GIF (92×92, 8 frames @ 200ms). ONE shared rotating
- * idle stands in for every branch's main-avatar animation until per-class
- * sets land — drop a per-branch gif into the map to replace it; nothing
- * else changes. The full Mass Monster move set (walk/run/jab/cross) sits
- * beside it in assets/sprites/mass-monster for the battle layer.
+ * 8-direction rotation GIF (92×92, 8 frames @ 200ms) — for the MASS LINE
+ * ONLY. Every other branch keeps its static art until its own sprite set
+ * lands (Tyson's correction, same day: a shared default replaced his
+ * Aesthetic stage-3 character with the wrong body — never substitute one
+ * class's art for another's). Add per-branch gifs to the map; nothing
+ * else changes. The full move set (walk/run/jab/cross) sits beside it in
+ * assets/sprites/mass-monster for the battle layer.
  */
 const MASS_MONSTER_ROTATION: ImageSourcePropType = require('../../assets/sprites/mass-monster/rotations-8dir.gif');
 
-const ANIMATED_AVATARS: Partial<Record<BranchV2, ImageSourcePropType>> = {};
+const ANIMATED_AVATARS: Partial<Record<BranchV2, ImageSourcePropType>> = {
+  mass: MASS_MONSTER_ROTATION,
+  titan: MASS_MONSTER_ROTATION,
+};
 
-export function animatedAvatar(branch: BranchV2): ImageSourcePropType {
-  return ANIMATED_AVATARS[branch] ?? MASS_MONSTER_ROTATION;
+export function animatedAvatar(branch: BranchV2): ImageSourcePropType | undefined {
+  return ANIMATED_AVATARS[branch];
 }
 
 export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarArt {

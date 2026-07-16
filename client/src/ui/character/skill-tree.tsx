@@ -563,13 +563,19 @@ function PathDestination({
       }}
     >
       <View style={{ alignItems: 'center', width: 62 }}>
-        {donor === 'mass' && (active || state.kind === 'eligible') ? (
-          // The Mass Monster line previews its ROTATING sprite (Tyson,
-          // 2026-07-16) — the first animated path preview; other lines
-          // follow as their sets land. Locked stays a silhouette.
+        {donor === 'mass' ? (
+          // The Mass Monster line ALWAYS previews its ROTATING sprite
+          // (Tyson, 2026-07-16) — full strength when active/eligible,
+          // dimmed while the gates are still closing. Other lines follow
+          // as their sprite sets land.
           <Image
-            source={animatedAvatar(branch)}
-            style={{ width: 56, height: 62, ...({ imageRendering: 'pixelated' } as object) }}
+            source={animatedAvatar(branch) ?? art.source}
+            style={{
+              width: 56,
+              height: 62,
+              opacity: active || state.kind === 'eligible' ? 1 : 0.55,
+              ...({ imageRendering: 'pixelated' } as object),
+            }}
             contentFit="contain"
           />
         ) : art.hasArt && (active || state.kind === 'eligible') ? (
