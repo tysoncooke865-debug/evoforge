@@ -38,7 +38,6 @@ import { RosterSection } from '@/ui/customise/roster';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
 import { SpriteCompanion } from '@/ui/character/sprite-avatar';
-import { StageCarousel } from '@/ui/customise/stage-carousel';
 
 /**
  * CUSTOMISE (Tyson, 2026-07-16) — the full-screen champion select, pushed
@@ -210,6 +209,8 @@ export default function CustomiseScreen() {
             entry={entry}
             selection={selection}
             stageOption={selectedOption}
+            stageOptions={options}
+            onSelectStage={(key) => select({ stageKey: key })}
             currentStage={currentStage}
             stageCount={stageCount}
             level={derived.level}
@@ -217,15 +218,6 @@ export default function CustomiseScreen() {
             sex={sex}
             scores={derived.scores}
             rarityColour={rarityColour}
-          />
-
-          <StageCarousel
-            branch={entry.id}
-            options={options}
-            selectedKey={selection.stageKey}
-            sex={sex}
-            skin={selection.skinId}
-            onSelect={(key) => select({ stageKey: key })}
           />
 
           <View>

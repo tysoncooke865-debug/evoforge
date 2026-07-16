@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { BranchV2 } from '@/domain/branches-v2';
 import { companionLine } from '@/domain/branches-v2';
@@ -22,10 +22,12 @@ import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import type { Sex } from '@/ui/character/avatar-art';
 import { SpriteAvatar } from '@/ui/character/sprite-avatar';
+import { CoinIcon } from '@/ui/core/coin-icon';
 import { Chip } from '@/ui/core/neon-button';
 import { playSelect } from '@/ui/core/sound';
 
 import { formArt } from './art';
+import { StepperWheel } from './wheel';
 
 type Tab = 'outfit' | 'aura' | 'effects' | 'emotes';
 
@@ -63,12 +65,8 @@ export function CosmeticTabs({
         ))}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mt-s3"
-        contentContainerStyle={{ gap: 8, paddingRight: 8 }}
-      >
+      <View className="mt-s3">
+        <StepperWheel itemWidth={92} testID={`cosmetic-wheel-${tab}`}>
         {tab === 'outfit'
           ? SKINS.map((skin) => {
               const art = formArt(branch, stage, sex, skin.id);
@@ -92,6 +90,7 @@ export function CosmeticTabs({
                   unlockCtx={unlockCtx}
                   ownedOverride={owned}
                   footerOverride={footer}
+                  purchasable={!owned && price !== null}
                   testID={`skin-${skin.id}`}
                   // Every skin previews on tap (the buy/equip button gates
                   // the actual apply) — locked ones included.
@@ -171,7 +170,8 @@ export function CosmeticTabs({
               />
             ))
           : null}
-      </ScrollView>
+        </StepperWheel>
+      </View>
     </View>
   );
 }
@@ -186,6 +186,7 @@ function CosmeticCard({
   testID,
   ownedOverride,
   footerOverride,
+  purchasable = false,
 }: {
   name: string;
   thumb: ReactNode;
@@ -198,6 +199,9 @@ function CosmeticCard({
   ownedOverride?: boolean;
   /** Skins show a price instead of a generic requirement when locked. */
   footerOverride?: string;
+  /** Coin-priced and unowned → the forge coin replaces the lock (owner
+   *  ask). Earned gates (tier/forge) keep the 🔒. */
+  purchasable?: boolean;
 }) {
   const unlocked = ownedOverride ?? cosmeticUnlocked(unlock, unlockCtx);
   const label = footerOverride ?? unlockLabel(unlock);
@@ -231,7 +235,15 @@ function CosmeticCard({
     >
       <View className="items-center justify-center" style={{ height: 52, opacity: unlocked ? 1 : 0.45 }}>
         {thumb}
-        {!unlocked ? <Text style={{ position: 'absolute', bottom: -2, right: -6, fontSize: 10 }}>🔒</Text> : null}
+        {!unlocked ? (
+          purchasable ? (
+            <View style={{ position: 'absolute', bottom: -2, right: -6 }}>
+              <CoinIcon size={12} />
+            </View>
+          ) : (
+            <Text style={{ position: 'absolute', bottom: -2, right: -6, fontSize: 10 }}>🔒</Text>
+          )
+        ) : null}
       </View>
       <Text
         numberOfLines={1}

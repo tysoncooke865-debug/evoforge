@@ -15,6 +15,7 @@ import { StatBar } from '@/ui/character/stat-bar';
 import { EdgeLabel } from '@/ui/core/hud';
 
 import { formArt } from './art';
+import { StageRail } from './stage-rail';
 
 /**
  * CUSTOMISE §preview — the selected champion on the same podium stage the
@@ -27,6 +28,8 @@ export function PreviewPanel({
   entry,
   selection,
   stageOption,
+  stageOptions,
+  onSelectStage,
   currentStage,
   stageCount,
   level,
@@ -39,6 +42,9 @@ export function PreviewPanel({
   selection: Selection;
   /** The selected stage option (null = current form). */
   stageOption: StageOption | null;
+  /** The full ladder — rendered as the right-edge stage rail (≤1 hides it). */
+  stageOptions: StageOption[];
+  onSelectStage: (key: string | null) => void;
   currentStage: number;
   stageCount: number;
   level: number;
@@ -86,17 +92,44 @@ export function PreviewPanel({
         </Pressable>
       </View>
 
-      <View style={{ opacity: entry.unlocked && !previewingLocked ? 1 : 0.6 }}>
-        <HeroStage
-          branch={displayDonor(entry.id)}
-          stage={stage}
-          auraColour={auraColour}
-          size={190}
-          source={art.painted}
-          animatedSource={art.animated}
-          stillSource={art.still}
-          silhouette={!art.hasArt}
-        />
+      {/* The podium takes the width; the evolution stages ride a slim rail
+          hugging the box's right edge (inside the padding — no bleed).
+          resolveDisplay-style rule: ≤1 stage renders no rail at all. */}
+      <View className="flex-row items-center">
+        <View className="flex-1" style={{ opacity: entry.unlocked && !previewingLocked ? 1 : 0.6 }}>
+          <HeroStage
+            branch={displayDonor(entry.id)}
+            stage={stage}
+            auraColour={auraColour}
+            size={190}
+            source={art.painted}
+            animatedSource={art.animated}
+            stillSource={art.still}
+            silhouette={!art.hasArt}
+          />
+        </View>
+        <View style={{ marginLeft: 8 }}>
+          <StageRail
+            maxHeight={300}
+            items={stageOptions.map((option, i) => {
+              const optionArt = formArt(entry.id, option.stage, sex, selection.skinId);
+              const selected = selection.stageKey === option.key || (selection.stageKey === null && option.current);
+              return {
+                key: option.key,
+                stageNo: i + 1,
+                sprite: optionArt.still ?? optionArt.painted,
+                pixelated: optionArt.still !== undefined,
+                selected,
+                locked: !option.unlocked,
+                accessibilityLabel: `stage ${i + 1}, ${option.name}, ${option.unlocked ? 'owned' : `locked, ${option.requirement.toLowerCase()}`}${selected ? ', selected' : ''}`,
+                testID: `stage-card-${option.key}`,
+                // Re-selecting the current form clears the explicit pick so
+                // the loadout keeps following future evolutions.
+                onPress: () => onSelectStage(option.current ? null : option.key),
+              };
+            })}
+          />
+        </View>
       </View>
       {!entry.unlocked ? (
         <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>

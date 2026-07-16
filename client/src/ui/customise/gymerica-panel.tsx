@@ -2,13 +2,15 @@ import { Image } from 'expo-image';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { GymericaSkin, PremiumCharacter, Selection } from '@/domain/customise';
-import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
+import { PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { gymericaAnimated, gymericaStill } from '@/ui/character/gymerica-art';
 import { EdgeLabel } from '@/ui/core/hud';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { playSelect } from '@/ui/core/sound';
+
+import { StageRail } from './stage-rail';
 
 /**
  * CUSTOMISE §premium — Captain Gymerica's own panel (he is an equipped
@@ -61,19 +63,42 @@ export function GymericaPanel({
           ) : null}
         </View>
 
-        <View style={{ opacity: owned ? 1 : 0.85 }}>
-          {/* stage={4} drives the growth math to full stage-4 size (Tyson);
-              the ART uses the real 1/2 stage via the source props. */}
-          <HeroStage
-            branch="aesthetic"
-            stage={4}
-            auraColour={auraColour}
-            size={190}
-            source={gymericaStill(stage, look)}
-            animatedSource={gymericaAnimated(stage, look)}
-            stillSource={gymericaStill(stage, look)}
-            silhouette={false}
-          />
+        {/* Podium left, the stage rail on the box's right edge — the same
+            rig as PreviewPanel. A one-stage premium hero renders no rail. */}
+        <View className="flex-row items-center">
+          <View className="flex-1" style={{ opacity: owned ? 1 : 0.85 }}>
+            {/* stage={4} drives the growth math to full stage-4 size (Tyson);
+                the ART uses the real 1/2 stage via the source props. */}
+            <HeroStage
+              branch="aesthetic"
+              stage={4}
+              auraColour={auraColour}
+              size={190}
+              source={gymericaStill(stage, look)}
+              animatedSource={gymericaAnimated(stage, look)}
+              stillSource={gymericaStill(stage, look)}
+              silhouette={false}
+            />
+          </View>
+          <View style={{ marginLeft: 8 }}>
+            <StageRail
+              maxHeight={300}
+              items={character.stageNames.map((name, i) => {
+                const s = i + 1;
+                return {
+                  key: name,
+                  stageNo: s,
+                  sprite: gymericaStill(s, look),
+                  pixelated: true,
+                  selected: stage === s,
+                  locked: false, // both stages come with the single purchase
+                  accessibilityLabel: `stage ${s}, ${name}${stage === s ? ', selected' : ''}`,
+                  testID: `gymerica-stage-${s}`,
+                  onPress: () => onChange({ characterStage: s }),
+                };
+              })}
+            />
+          </View>
         </View>
         {!owned ? (
           <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
@@ -83,46 +108,6 @@ export function GymericaPanel({
         <Text className="mt-s2 text-center text-2xs text-text-mute">
           An equipped hero overlay — your training class and stats stay yours underneath.
         </Text>
-      </View>
-
-      {/* Stage selector — both unlocked with the single purchase. */}
-      <View className="mt-s4">
-        <EdgeLabel>STAGES</EdgeLabel>
-        <View className="mt-s2 flex-row" style={{ gap: 8 }}>
-          {character.stageNames.map((name, i) => {
-            const s = i + 1;
-            const selected = stage === s;
-            return (
-              <Pressable
-                key={name}
-                onPress={() => {
-                  playSelect();
-                  onChange({ characterStage: s });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`stage ${s}, ${name}${selected ? ', selected' : ''}`}
-                testID={`gymerica-stage-${s}`}
-                className="flex-1 items-center rounded-xl border p-s2"
-                style={{
-                  borderColor: selected ? `${tokens.colors.accent}b3` : tokens.colors.border,
-                  backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
-                }}
-              >
-                <Image
-                  source={gymericaStill(s, look)}
-                  style={{ width: 56, height: 62, ...({ imageRendering: 'pixelated' } as object) }}
-                  contentFit="contain"
-                />
-                <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.text, fontFamily: PIXEL_BOLD }}>
-                  {name.toUpperCase()}
-                </Text>
-                <Text allowFontScaling={false} style={{ fontSize: 7, color: selected ? tokens.colors.accent : tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
-                  {selected ? 'SELECTED' : owned ? 'OWNED' : 'LOCKED'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
       </View>
 
       {/* Looks — the standard and the United States of Aesthetics. */}

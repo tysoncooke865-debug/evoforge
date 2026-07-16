@@ -7,19 +7,20 @@ import { COMING_SOON_SLOTS, currentStageFor, filterRoster } from '@/domain/custo
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import type { Sex } from '@/ui/character/avatar-art';
+import { CoinIcon } from '@/ui/core/coin-icon';
 import { Chip } from '@/ui/core/neon-button';
 import { EdgeLabel } from '@/ui/core/hud';
 import { playSelect } from '@/ui/core/sound';
 
 import { formArt } from './art';
+import { StepperWheel } from './wheel';
 
 /**
- * CUSTOMISE §roster — the character-select grid. 4 portrait cards per row
- * (3 under 360pt), built from the REAL class roster (branch gates), plus
- * honest COMING SOON slots so the layout is proven at scale. The catalog
- * is bounded (six classes + slots), so a plain wrapped grid inside the
- * page scroll is the right tool — a virtualised list nested in a
- * ScrollView would fight it for the gesture.
+ * CUSTOMISE §roster — the character-select WHEEL (owner ask: each filter
+ * pill opens a scroll wheel like the OUTFIT rail, not a laid-out grid).
+ * Cards keep their grid-era width so ~3–4 ride the viewport; the ‹ ›
+ * steppers move one champion at a time. Built from the REAL class roster
+ * (branch gates), plus honest COMING SOON slots.
  */
 /** A premium-character roster card's data (Captain Gymerica et al). */
 export interface PremiumRosterEntry {
@@ -107,42 +108,44 @@ export function RosterSection({
           <Text className="text-sm text-text-mute">No champions match.</Text>
         </View>
       ) : (
-        <View className="mt-s3 flex-row flex-wrap" style={{ gap: 8 }}>
-          {visible.map((entry) => (
-            <RosterCard
-              key={entry.id}
-              entry={entry}
-              width={cardWidth}
-              selected={entry.id === selectedId}
-              equipped={entry.id === equippedId}
-              stage={currentStageFor(entry.id, level, bfMid)}
-              sex={sex}
-              skin={skin}
-              onSelect={onSelect}
-            />
-          ))}
-          {premium
-            .filter((pc) => {
-              const q = search.trim().toLowerCase();
-              if (filter === 'owned' && !pc.owned) return false;
-              if (filter === 'locked' && pc.owned) return false;
-              return !q || pc.name.toLowerCase().includes(q);
-            })
-            .map((pc) => (
-              <PremiumCard
-                key={pc.id}
-                entry={pc}
+        <View className="mt-s3">
+          <StepperWheel itemWidth={cardWidth} testID={`roster-wheel-${filter}`}>
+            {visible.map((entry) => (
+              <RosterCard
+                key={entry.id}
+                entry={entry}
                 width={cardWidth}
-                selected={pc.id === selectedId}
-                equipped={pc.id === equippedId}
-                onSelect={() => onSelectPremium?.(pc.id)}
+                selected={entry.id === selectedId}
+                equipped={entry.id === equippedId}
+                stage={currentStageFor(entry.id, level, bfMid)}
+                sex={sex}
+                skin={skin}
+                onSelect={onSelect}
               />
             ))}
-          {filter === 'all' && !search
-            ? Array.from({ length: COMING_SOON_SLOTS }, (_, i) => (
-                <ComingSoonCard key={`soon-${i}`} width={cardWidth} />
-              ))
-            : null}
+            {premium
+              .filter((pc) => {
+                const q = search.trim().toLowerCase();
+                if (filter === 'owned' && !pc.owned) return false;
+                if (filter === 'locked' && pc.owned) return false;
+                return !q || pc.name.toLowerCase().includes(q);
+              })
+              .map((pc) => (
+                <PremiumCard
+                  key={pc.id}
+                  entry={pc}
+                  width={cardWidth}
+                  selected={pc.id === selectedId}
+                  equipped={pc.id === equippedId}
+                  onSelect={() => onSelectPremium?.(pc.id)}
+                />
+              ))}
+            {filter === 'all' && !search
+              ? Array.from({ length: COMING_SOON_SLOTS }, (_, i) => (
+                  <ComingSoonCard key={`soon-${i}`} width={cardWidth} />
+                ))
+              : null}
+          </StepperWheel>
         </View>
       )}
     </View>
@@ -283,7 +286,8 @@ const PremiumCard = memo(function PremiumCard({
         <Text allowFontScaling={false} style={{ fontSize: 7, color: entry.owned ? tokens.colors.legendary : tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {entry.owned ? 'OWNED' : `${entry.price}`}
         </Text>
-        <Text style={{ fontSize: 8 }}>{entry.owned ? '★' : '🔒'}</Text>
+        {/* Purchasable → the forge coin, not a lock (owner ask). */}
+        {entry.owned ? <Text style={{ fontSize: 8 }}>★</Text> : <CoinIcon size={10} />}
       </View>
     </Pressable>
   );
