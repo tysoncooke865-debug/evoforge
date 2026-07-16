@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { avatarRarity } from '@/domain/avatar-stats';
+import { pixelFont } from '@/theme/fonts';
 
 /**
  * The rarity badge, coloured by domain/avatar-stats' avatarRarity -- the
@@ -15,7 +16,7 @@ export function RarityBadge({ level }: { level: number }) {
       className="self-start rounded-pill border px-s3 py-s1"
       style={{ borderColor: `${colour}73`, backgroundColor: `${colour}1f` }}
     >
-      <Text className="text-xs font-bold" style={{ color: colour }}>
+      <Text allowFontScaling={false} style={{ fontSize: 12, letterSpacing: 0.5, color: colour, ...pixelFont() }}>
         {icon} {name} FORM
       </Text>
     </View>

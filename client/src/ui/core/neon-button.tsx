@@ -26,7 +26,7 @@ export function NeonButton({
   busy = false,
   icon,
   rightIcon,
-  pixel = false,
+  pixel = true,
   testID,
   size = 'base',
 }: {
@@ -38,8 +38,9 @@ export function NeonButton({
   icon?: ReactNode;
   /** Trailing affordance — the Train hero's chevron. */
   rightIcon?: ReactNode;
-  /** Train's pixel display labels (Pixelify Sans). Real bold face — never a
-   *  synthesized bold, it smears pixel glyphs. */
+  /** Pixel display labels (Jersey 25) — the DEFAULT since the app-wide
+   *  design pass; pass false to opt a label back onto the system face.
+   *  Real bold face — never a synthesized bold, it smears pixel glyphs. */
   pixel?: boolean;
   testID?: string;
   /** TRAIN_OVERHAUL `hero`: the page's ONE dominant action — taller, bigger

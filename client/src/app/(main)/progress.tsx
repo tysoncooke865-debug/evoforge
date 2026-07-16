@@ -16,6 +16,7 @@ import {
 } from '@/domain/progress-aggregates';
 import { weeklyContract } from '@/domain/scheduled-streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { LineChart, type ChartPoint } from '@/ui/core/line-chart';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -102,23 +103,34 @@ export default function ProgressScreen() {
       {/* A. THIS WEEK — aggregates, not a chart. */}
       <GlowCard>
         <View className="mb-s3 flex-row items-center justify-between">
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             THIS WEEK
           </Text>
           {hasSchedule ? (
             <Text
-              className="text-2xs font-bold"
+              allowFontScaling={false}
               style={{
+                fontSize: 12,
+                letterSpacing: 0.5,
                 color:
                   contract.target > 0 && contract.done >= contract.target
                     ? tokens.colors.success
                     : tokens.colors.accent,
+                ...pixelFont(),
               }}
             >
               {contract.done} / {contract.target} SESSIONS
             </Text>
           ) : (
-            <Text className="text-2xs font-bold text-text-dim">
+            <Text
+              className="text-text-dim"
+              allowFontScaling={false}
+              style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}
+            >
               {week.sessions} {week.sessions === 1 ? 'SESSION' : 'SESSIONS'}
             </Text>
           )}
@@ -132,9 +144,13 @@ export default function ProgressScreen() {
       </GlowCard>
 
       {/* B. The lift chart — metric × timeframe × exercise. */}
-      <View className="rounded-lg border border-border bg-surface p-s4">
+      <GlowCard>
         <View className="mb-s3 flex-row items-center justify-between">
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             LIFT · {metric === 'E1RM' ? 'BEST e1RM PER DAY' : metric === 'VOLUME' ? 'VOLUME PER DAY' : 'SETS PER DAY'}
           </Text>
         </View>
@@ -191,15 +207,19 @@ export default function ProgressScreen() {
             )}
           </>
         )}
-      </View>
+      </GlowCard>
 
       {/* C. Bodyweight — its own scale. */}
-      <View className="rounded-lg border border-border bg-surface p-s4">
-        <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+      <GlowCard>
+        <Text
+          className="mb-s2 text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
           BODYWEIGHT (KG)
         </Text>
         <LineChart points={bwPoints} formatY={(y) => y.toFixed(1)} />
-      </View>
+      </GlowCard>
     </ScreenShell>
   );
 }
@@ -207,10 +227,14 @@ export default function ProgressScreen() {
 function Stat({ value, label, tint = tokens.colors.text }: { value: string; label: string; tint?: string }) {
   return (
     <View style={{ width: '25%' }}>
-      <Text className="text-lg font-bold" style={{ color: tint }} numberOfLines={1}>
+      <Text allowFontScaling={false} style={{ fontSize: 18, color: tint, ...pixelFont() }} numberOfLines={1}>
         {value}
       </Text>
-      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 8, letterSpacing: 1, ...pixelFont(false) }}
+      >
         {label}
       </Text>
     </View>

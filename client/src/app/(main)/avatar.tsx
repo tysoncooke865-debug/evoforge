@@ -9,6 +9,7 @@ import { SkillTreeView } from '@/ui/character/skill-tree';
 import { raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, nextEvolutionV2, shredderRows } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { avatarArtV2 } from '@/ui/character/avatar-art';
 import { formArt } from '@/ui/customise/art';
@@ -44,6 +45,7 @@ export default function AvatarScreen() {
         active={view}
         onChange={setView}
         testIDPrefix="avatar-tab"
+        pixelLabels
       />
       {view === 0 ? <EvolutionView /> : <SkillTreeView onViewEvolution={() => setView(0)} />}
     </ScreenShell>
@@ -88,12 +90,23 @@ function EvolutionView() {
   return (
     <>
       <View className="items-center">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
           {branchDisplayNameV2(displayBranch).toUpperCase()}
         </Text>
         <Text
-          className="text-3xl font-bold text-text"
-          style={{ textShadowColor: `${auraColour}80`, textShadowRadius: 18 }}
+          className="text-text"
+          allowFontScaling={false}
+          style={{
+            fontSize: 30,
+            lineHeight: 36,
+            textShadowColor: `${auraColour}80`,
+            textShadowRadius: 18,
+            ...pixelFont(),
+          }}
         >
           {identity.display.formName}
         </Text>
@@ -110,7 +123,11 @@ function EvolutionView() {
         silhouette={!identity.hasArt}
       />
       {!identity.hasArt ? (
-        <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+        <Text
+          className="-mt-s2 text-center text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
           FORM NOT YET FORGED — ART INCOMING
         </Text>
       ) : null}
@@ -128,16 +145,29 @@ function EvolutionView() {
         <View className="mb-s4 flex-row items-center justify-between">
           <View>
             <EdgeLabel>NEXT EVOLUTION</EdgeLabel>
-            <Text className="text-xl font-bold text-text">{evo.targetName}</Text>
+            <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
+              {evo.targetName}
+            </Text>
           </View>
           <View className="items-center">
             <Text
-              className="text-3xl font-bold"
-              style={{ color: tokens.colors.epic, textShadowColor: 'rgba(168,85,247,0.6)', textShadowRadius: 14 }}
+              allowFontScaling={false}
+              style={{
+                fontSize: 30,
+                lineHeight: 34,
+                color: tokens.colors.epic,
+                textShadowColor: 'rgba(168,85,247,0.6)',
+                textShadowRadius: 14,
+                ...pixelFont(),
+              }}
             >
               {readiness.percent}%
             </Text>
-            <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 8, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               READY
             </Text>
           </View>
@@ -189,7 +219,11 @@ function EvolutionView() {
                     <Silhouette branch="aesthetic" stage={Math.min(row.stage, 4)} rim={tokens.colors.success} />
                   )}
                   <View className="ml-s3 flex-1">
-                    <Text className={`text-base font-bold ${row.unlocked ? 'text-text' : 'text-text-mute'}`}>
+                    <Text
+                      className={row.unlocked ? 'text-text' : 'text-text-mute'}
+                      allowFontScaling={false}
+                      style={{ fontSize: 16, ...pixelFont() }}
+                    >
                       {row.unlocked || row.stage === shredRows.find((r) => !r.unlocked)?.stage ? row.name : '???'}
                     </Text>
                     <Text className="text-2xs text-text-mute">
@@ -201,7 +235,10 @@ function EvolutionView() {
                     </Text>
                   </View>
                   {row.current ? (
-                    <Text className="text-xs font-bold" style={{ color: auraColour, letterSpacing: 1 }}>
+                    <Text
+                      allowFontScaling={false}
+                      style={{ fontSize: 11, color: auraColour, letterSpacing: 0.5, ...pixelFont() }}
+                    >
                       CURRENT
                     </Text>
                   ) : !row.unlocked ? (
@@ -250,7 +287,11 @@ function EvolutionView() {
                   <Silhouette branch={identity.display.donor} stage={row.stage} />
                 )}
                 <View className="ml-s3 flex-1">
-                  <Text className={`text-base font-bold ${row.unlocked ? 'text-text' : 'text-text-mute'}`}>
+                  <Text
+                    className={row.unlocked ? 'text-text' : 'text-text-mute'}
+                    allowFontScaling={false}
+                    style={{ fontSize: 16, ...pixelFont() }}
+                  >
                     {showName ? row.name : '???'}
                   </Text>
                   <Text className="text-2xs text-text-mute">
@@ -258,11 +299,18 @@ function EvolutionView() {
                   </Text>
                 </View>
                 {row.current ? (
-                  <Text className="text-xs font-bold" style={{ color: auraColour, letterSpacing: 1 }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={{ fontSize: 11, color: auraColour, letterSpacing: 0.5, ...pixelFont() }}
+                  >
                     CURRENT
                   </Text>
                 ) : isNext ? (
-                  <Text className="text-xs font-bold text-epic" style={{ letterSpacing: 1 }}>
+                  <Text
+                    className="text-epic"
+                    allowFontScaling={false}
+                    style={{ fontSize: 11, letterSpacing: 0.5, ...pixelFont() }}
+                  >
                     NEXT
                   </Text>
                 ) : !row.unlocked ? (

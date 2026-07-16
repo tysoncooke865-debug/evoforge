@@ -50,6 +50,7 @@ import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { todayIso as calendarToday } from '@/domain/today';
 
@@ -170,7 +171,7 @@ function ConfirmAbandon({
         className="w-full max-w-[420px] rounded-xl p-s5"
         style={{ borderWidth: 1, borderColor: `${tokens.colors.danger}59`, backgroundColor: tokens.colors.surface }}
       >
-        <Text className="text-lg font-bold text-text" style={{ letterSpacing: 1 }}>
+        <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
           ABANDON BATTLE?
         </Text>
         <Text className="mt-s2 text-xs text-text-dim">
@@ -197,7 +198,11 @@ function AbandonControl({ matchId }: { matchId: string }) {
         className="min-h-[44px] items-center justify-center"
         testID="battle-abandon"
       >
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
           ABANDON BATTLE
         </Text>
       </Pressable>
@@ -297,10 +302,14 @@ function ProgressBar({ pct, colour, label, kg, unit = 'kg' }: { pct: number; col
   return (
     <View className="mb-s2">
       <View className="mb-s1 flex-row justify-between">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
           {label}
         </Text>
-        <Text className="text-2xs font-bold" style={{ color: colour }}>
+        <Text allowFontScaling={false} style={{ fontSize: 11, color: colour, ...pixelFont() }}>
           {Math.trunc(pct)}% · {Math.trunc(kg)} {unit}
         </Text>
       </View>
@@ -343,10 +352,18 @@ function RoundStrip({ data, userId }: { data: BattleBundle; userId: string | nul
               backgroundColor: live ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.5)',
             }}
           >
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
               R{n} {kindLabel}
             </Text>
-            <Text className={`text-sm font-bold ${live ? 'text-accent' : mine ? 'text-text' : 'text-text-mute'}`}>
+            <Text
+              className={live ? 'text-accent' : mine ? 'text-text' : 'text-text-mute'}
+              allowFontScaling={false}
+              style={{ fontSize: 14, ...pixelFont() }}
+            >
               {mine ? mine.points : live ? 'LIVE' : '—'}
             </Text>
           </View>
@@ -454,7 +471,10 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
           titleLines={2}
           autoSize
           right={
-            <Text className="text-2xl font-bold" style={{ color: gold, textShadowColor: 'rgba(251,191,36,0.6)', textShadowRadius: 14 }}>
+            <Text
+              allowFontScaling={false}
+              style={{ fontSize: 24, color: gold, textShadowColor: 'rgba(251,191,36,0.6)', textShadowRadius: 14, ...pixelFont() }}
+            >
               {over ? 'TIME' : `${mm}:${ss}`}
             </Text>
           }
@@ -462,14 +482,22 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
         <GlowCard glow={gold}>
           <View className="items-center py-s3">
             <CoinFlip spinning={spinning} face={face} />
-            <Text className="mt-s3 text-center text-sm font-bold text-text" style={{ letterSpacing: 1 }}>
+            <Text
+              className="mt-s3 text-center text-text"
+              allowFontScaling={false}
+              style={{ fontSize: 14, letterSpacing: 0.5, ...pixelFont() }}
+            >
               {spinning ? 'THE COIN IS IN THE AIR…' : `${face.toUpperCase()} · ${pickerName} PICK${pickerName === 'YOU' ? '' : 'S'} ${stepLabel}`}
             </Text>
             <Text className="mt-s1 text-center text-2xs text-text-mute">
               Heads is seat one, tails is seat two. Three flips: the group, their exercise, yours.
             </Text>
             {group && state !== 'awaiting_muscle' ? (
-              <Text className="mt-s2 text-2xs font-bold" style={{ color: gold, letterSpacing: 1.5 }}>
+              <Text
+                className="mt-s2"
+                allowFontScaling={false}
+                style={{ fontSize: 9, color: gold, letterSpacing: 1, ...pixelFont(false) }}
+              >
                 GROUP LOCKED: {group.emoji} {group.name.toUpperCase()}
                 {spec.exerciseSeat1 ? ` · ${nameOf(seat1)} LIFT: ${String(spec.exerciseSeat1).toUpperCase()}` : ''}
               </Text>
@@ -548,7 +576,16 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
         titleLines={2}
         autoSize
         right={
-          <Text className="text-2xl font-bold" style={{ color: over ? tokens.colors.danger : gold, textShadowColor: 'rgba(251,191,36,0.6)', textShadowRadius: 14 }}>
+          <Text
+            allowFontScaling={false}
+            style={{
+              fontSize: 24,
+              color: over ? tokens.colors.danger : gold,
+              textShadowColor: 'rgba(251,191,36,0.6)',
+              textShadowRadius: 14,
+              ...pixelFont(),
+            }}
+          >
             {over ? 'TIME' : `${mm}:${ss}`}
           </Text>
         }
@@ -653,11 +690,13 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
         autoSize
         right={
           <Text
-            className="text-2xl font-bold"
+            allowFontScaling={false}
             style={{
+              fontSize: 24,
               color: over ? tokens.colors.danger : tint,
               textShadowColor: 'rgba(251,113,133,0.6)',
               textShadowRadius: 14,
+              ...pixelFont(),
             }}
           >
             {over ? 'TIME' : `${mm}:${ss}`}
@@ -770,11 +809,13 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
         autoSize
         right={
           <Text
-            className="text-2xl font-bold"
+            allowFontScaling={false}
             style={{
+              fontSize: 24,
               color: over ? tokens.colors.danger : tokens.colors.accent,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(34,211,238,0.6)',
               textShadowRadius: 14,
+              ...pixelFont(),
             }}
           >
             {over ? 'TIME' : `${mm}:${ss}`}
@@ -795,7 +836,11 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
               marginTop: 2,
             }}
           />
-          <Text className="mt-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+          <Text
+            className="mt-s2 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             GAME WEIGHT {Number(spec.displayKg ?? object.displayKg).toLocaleString()} KG
           </Text>
           <Text className="text-2xs text-text-mute">
@@ -856,11 +901,13 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
         autoSize
         right={
           <Text
-            className="text-2xl font-bold"
+            allowFontScaling={false}
             style={{
+              fontSize: 24,
               color: over ? tokens.colors.danger : tokens.colors.rare,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(56,189,248,0.6)',
               textShadowRadius: 14,
+              ...pixelFont(),
             }}
           >
             {over ? 'TIME' : `${mm}:${ss}`}
@@ -871,7 +918,11 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
       <GlowCard glow={Math.max(myPct, theirPct) >= 100 ? tokens.colors.success : tokens.colors.rare}>
         <View className="items-center py-s2">
           <Text style={{ fontSize: 64 }}>{challenge.emoji}</Text>
-          <Text className="mt-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+          <Text
+            className="mt-s2 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             TARGET {target} ENERGY UNITS
           </Text>
           <Text className="text-center text-2xs text-text-mute">
@@ -1021,11 +1072,13 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
         title="FACE THE JUDGE"
         right={
           <Text
-            className="text-2xl font-bold"
+            allowFontScaling={false}
             style={{
+              fontSize: 24,
               color: over ? tokens.colors.danger : tokens.colors.mythic,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(244,114,182,0.6)',
               textShadowRadius: 14,
+              ...pixelFont(),
             }}
           >
             {over ? 'TIME' : `${mm}:${ss}`}
@@ -1035,12 +1088,17 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
 
       <GlowCard glow={iAmDone ? tokens.colors.success : tokens.colors.mythic}>
         <View className="items-center py-s2">
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             THE ROLLED POSE
           </Text>
           <Text
-            className="my-s2 text-center text-2xl font-bold text-text"
-            style={{ textShadowColor: 'rgba(244,114,182,0.5)', textShadowRadius: 16 }}
+            className="my-s2 text-center text-text"
+            allowFontScaling={false}
+            style={{ fontSize: 24, textShadowColor: 'rgba(244,114,182,0.5)', textShadowRadius: 16, ...pixelFont() }}
           >
             {pose.name.toUpperCase()}
           </Text>
@@ -1052,7 +1110,11 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
 
         {last ? (
           <View className="mt-s3 rounded-md border border-border-strong bg-surface-2 p-s3">
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
               ATTEMPT {myMedia.length} · {String(last.confidence ?? '').toUpperCase()} CONFIDENCE ·{' '}
               {last.compliant ? 'POSE OK' : 'POSE NOT RECOGNISED'}
             </Text>
@@ -1229,7 +1291,11 @@ function DuelPanel({
   ];
   return (
     <View className="flex-1 rounded-xl p-s2" style={{ borderWidth: 1, borderColor: `${tint}40`, backgroundColor: 'rgba(6,12,24,0.5)' }}>
-      <Text className="mb-s1 text-center text-2xs font-bold" style={{ color: tint, letterSpacing: 2 }}>
+      <Text
+        className="mb-s1 text-center"
+        allowFontScaling={false}
+        style={{ fontSize: 9, color: tint, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
         {label}
       </Text>
       <View className="items-center justify-center rounded-md" style={{ height: 150, backgroundColor: 'rgba(4,10,20,0.7)', overflow: 'hidden' }}>
@@ -1294,13 +1360,19 @@ function ScoreCard({ p, scores, won, format }: { p: BattleParticipant | null; sc
   return (
     <View className="mb-s3 rounded-xl p-s4" style={{ borderWidth: 1, borderColor: won ? `${tokens.colors.success}59` : tint, backgroundColor: 'rgba(13,21,36,0.5)' }}>
       <View className="mb-s2 flex-row items-center justify-between">
-        <Text className="text-base font-bold text-text">
+        <Text className="text-text" allowFontScaling={false} style={{ fontSize: 16, ...pixelFont() }}>
           {won ? '👑 ' : ''}
           {p?.snapshot.name ?? '???'}
         </Text>
         <Text
-          className="text-2xl font-bold"
-          style={{ color: won ? tokens.colors.success : tokens.colors.text, textShadowColor: won ? 'rgba(52,211,153,0.6)' : undefined, textShadowRadius: won ? 14 : 0 }}
+          allowFontScaling={false}
+          style={{
+            fontSize: 24,
+            color: won ? tokens.colors.success : tokens.colors.text,
+            textShadowColor: won ? 'rgba(52,211,153,0.6)' : undefined,
+            textShadowRadius: won ? 14 : 0,
+            ...pixelFont(),
+          }}
         >
           {total}
         </Text>
@@ -1310,13 +1382,17 @@ function ScoreCard({ p, scores, won, format }: { p: BattleParticipant | null; sc
           <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
             {duel ? 'WEIGHT MOVED' : `R${s.round_no} ${ROUND_LABELS[s.round_no] ?? ''}`}
           </Text>
-          <Text className="text-2xs font-bold text-text-dim">
+          <Text className="text-text-dim" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>
             {duel ? `${s.points} EFFECTIVE KG` : `${s.points} / ${ROUND_BUDGETS[s.round_no] ?? ''}`}
           </Text>
         </View>
       ))}
       {p?.xp_awarded ? (
-        <Text className="mt-s2 text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+        <Text
+          className="mt-s2 text-accent"
+          allowFontScaling={false}
+          style={{ fontSize: 11, letterSpacing: 0.5, ...pixelFont() }}
+        >
           +{p.xp_awarded} XP BANKED
         </Text>
       ) : null}

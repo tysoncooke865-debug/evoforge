@@ -17,6 +17,7 @@ import { branchDisplayNameV2, branchPathsV2, type BranchV2, massArtStage } from 
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { pyFloat } from '@/domain/py';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { animatedAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Silhouette } from '@/ui/character/silhouette';
@@ -372,7 +373,10 @@ function SkillRing({ pct, tint, size = 66 }: { pct: number | null; tint: string;
           />
         ) : null}
       </Svg>
-      <Text className="text-xs font-bold" style={{ color: pct === null ? tokens.colors['text-mute'] : tint }}>
+      <Text
+        allowFontScaling={false}
+        style={{ fontSize: 13, color: pct === null ? tokens.colors['text-mute'] : tint, ...pixelFont() }}
+      >
         {pct === null ? '—' : `${Math.round(filled * 100)}%`}
       </Text>
     </View>
@@ -509,11 +513,21 @@ function SkillNodeCell({ n, tint, onPress }: { n: SkillNodeData; tint: string; o
       testID={`skill-${n.key}`}
     >
       <SkillRing pct={n.pct} tint={tint} />
-      <Text className="mt-s1 text-center text-2xs font-bold text-text" numberOfLines={1} style={{ letterSpacing: 0.6, fontSize: 10 }}>
+      <Text
+        className="mt-s1 text-center text-text"
+        numberOfLines={1}
+        allowFontScaling={false}
+        style={{ letterSpacing: 0.6, fontSize: 10, ...pixelFont(false) }}
+      >
         {(n.short ?? n.name).toUpperCase()}
       </Text>
       {n.current !== null ? (
-        <Text className="text-center text-2xs text-text-mute" numberOfLines={1} style={{ fontSize: 9 }}>
+        <Text
+          className="text-center text-text-mute"
+          numberOfLines={1}
+          allowFontScaling={false}
+          style={{ fontSize: 9, ...pixelFont(false) }}
+        >
           {trim1(n.current)} / {trim1(n.target)} {n.unit}
         </Text>
       ) : (
@@ -600,8 +614,13 @@ function PathDestination({
       </View>
       <View className="flex-1">
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-text">{branchDisplayNameV2(branch)}</Text>
-          <Text className="text-2xs font-bold" style={{ color: badgeTint, letterSpacing: 1.5 }}>
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+            {branchDisplayNameV2(branch)}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 9, color: badgeTint, letterSpacing: 1, ...pixelFont(false) }}
+          >
             {state.kind === 'locked' ? '🔒 ' : ''}
             {badge}
           </Text>
@@ -615,7 +634,11 @@ function PathDestination({
           <Text className="text-2xs text-text-mute">Your current branch.</Text>
         )}
         <Pressable onPress={onViewEvolution} accessibilityRole="button" className="mt-s1 self-start">
-          <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+          <Text
+            className="text-accent"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+          >
             VIEW IN EVOLUTION ▸
           </Text>
         </Pressable>
@@ -674,21 +697,28 @@ function SkillPathPanel({
             transform: [{ rotate: '45deg' }],
           }}
         >
-          <Text className="text-2xs font-bold" style={{ color: tint, letterSpacing: 1, transform: [{ rotate: '-45deg' }] }}>
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 11, color: tint, letterSpacing: 0.5, transform: [{ rotate: '-45deg' }], ...pixelFont() }}
+          >
             {path.abbr}
           </Text>
         </View>
         <View className="flex-1">
-          <Text className="text-lg font-bold text-text" style={{ letterSpacing: 1 }}>
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, letterSpacing: 0.5, ...pixelFont() }}>
             {path.name}
           </Text>
-          <Text className="text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+          >
             {path.eyebrow}
           </Text>
         </View>
         <Text
-          className="text-2xl font-bold"
-          style={{ color: tint, textShadowColor: `${tint}99`, textShadowRadius: 14 }}
+          allowFontScaling={false}
+          style={{ fontSize: 24, color: tint, textShadowColor: `${tint}99`, textShadowRadius: 14, ...pixelFont() }}
         >
           {path.percent}%
         </Text>
@@ -761,10 +791,16 @@ function SkillDetailSheet({
             className="rounded-t-2xl p-s5"
             style={{ backgroundColor: tokens.colors.surface, borderTopWidth: 1, borderColor: `${path.tint}59` }}
           >
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               {path.name} · SKILL
             </Text>
-            <Text className="mb-s3 text-2xl font-bold text-text">{n.name}</Text>
+            <Text className="mb-s3 text-text" allowFontScaling={false} style={{ fontSize: 24, ...pixelFont() }}>
+              {n.name}
+            </Text>
 
             {n.current !== null ? (
               <View className="mb-s3 flex-row gap-s3">
@@ -773,15 +809,29 @@ function SkillDetailSheet({
                 <SheetStat label="PROGRESS" value={n.pct === null ? '—' : `${Math.round(n.pct * 100)}%`} tint={path.tint} />
               </View>
             ) : (
-              <Text className="mb-s3 text-sm font-bold text-warn">NOT TRACKED YET</Text>
+              <Text
+                className="mb-s3 text-warn"
+                allowFontScaling={false}
+                style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}
+              >
+                NOT TRACKED YET
+              </Text>
             )}
 
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               HOW IT&apos;S MEASURED
             </Text>
             <Text className="mb-s3 mt-s1 text-xs text-text-dim">{n.untrackedHint && n.current === null ? n.untrackedHint : n.how}</Text>
 
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               NEXT ACTION
             </Text>
             <Text className="mt-s1 text-xs text-text-dim">{n.nextAction}</Text>
@@ -792,7 +842,11 @@ function SkillDetailSheet({
               className="mt-s4 min-h-[44px] items-center justify-center rounded-md border border-border bg-surface-2"
               testID="skill-sheet-close"
             >
-              <Text className="text-xs font-bold text-text-dim" style={{ letterSpacing: 1.5 }}>
+              <Text
+                className="text-text-dim"
+                allowFontScaling={false}
+                style={{ fontSize: 12, letterSpacing: 1, ...pixelFont() }}
+              >
                 CLOSE
               </Text>
             </Pressable>
@@ -809,10 +863,14 @@ function SheetStat({ label, value, tint }: { label: string; value: string; tint:
       className="flex-1 items-center rounded-md py-s2"
       style={{ borderWidth: 1, borderColor: `${tint}33`, backgroundColor: 'rgba(6,12,24,0.5)' }}
     >
-      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 8, letterSpacing: 1, ...pixelFont(false) }}
+      >
         {label}
       </Text>
-      <Text className="text-sm font-bold" style={{ color: tint }}>
+      <Text allowFontScaling={false} style={{ fontSize: 14, color: tint, ...pixelFont() }}>
         {value}
       </Text>
     </View>
@@ -829,12 +887,17 @@ export function SkillTreeView({ onViewEvolution }: { onViewEvolution: () => void
   return (
     <>
       <View className="items-center">
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+        >
           ATTRIBUTE PATHS
         </Text>
         <Text
-          className="text-xl font-bold text-text"
-          style={{ letterSpacing: 1, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 16 }}
+          className="text-text"
+          allowFontScaling={false}
+          style={{ fontSize: 20, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 16, ...pixelFont() }}
         >
           BUILD. LEVEL UP. UNLOCK.
         </Text>

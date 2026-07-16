@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 /**
@@ -32,8 +33,14 @@ export function HUDChip({
       }}
     >
       {icon}
-      <Text className="text-base font-bold text-text">{value}</Text>
-      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
+      <Text className="text-text" allowFontScaling={false} style={{ fontSize: 16, ...pixelFont() }}>
+        {value}
+      </Text>
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+      >
         {label}
       </Text>
     </View>
@@ -44,7 +51,11 @@ export function HUDChip({
 export function EdgeLabel({ children, right }: { children: string; right?: ReactNode }) {
   return (
     <View className="flex-row items-center justify-between">
-      <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2.5 }}>
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
         {children}
       </Text>
       {right}

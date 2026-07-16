@@ -12,6 +12,7 @@ import Animated, {
 
 import { progressPercent } from '@/domain/xp';
 import { animations } from '@/theme/animations';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { useSettingsStore } from '@/state/settings-store';
 
@@ -106,7 +107,7 @@ export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps)
         </Animated.View>
       </View>
       {showNumbers ? (
-        <Text className="mt-s1 text-xs text-text-dim">
+        <Text className="mt-s1 text-text-dim" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>
           {xpIntoLevel} / {xpNeeded} XP
         </Text>
       ) : null}

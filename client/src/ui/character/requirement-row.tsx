@@ -5,6 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import { requirementProgress } from '@/domain/evolution-readiness';
 import type { EvolutionRequirement } from '@/domain/next-evolution';
 import { animations } from '@/theme/animations';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 function format(label: string, value: number): string {
@@ -47,17 +48,25 @@ export function RequirementRow({
             {req.label}
           </Text>
           {priority === 'nearest' && !req.met ? (
-            <Text className="rounded-pill px-s2 text-2xs font-bold text-accent" style={{ backgroundColor: 'rgba(34,211,238,0.12)', letterSpacing: 1 }}>
+            <Text
+              className="rounded-pill px-s2 text-accent"
+              allowFontScaling={false}
+              style={{ backgroundColor: 'rgba(34,211,238,0.12)', fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
               NEXT UP
             </Text>
           ) : null}
           {priority === 'hardest' && !req.met ? (
-            <Text className="rounded-pill px-s2 text-2xs font-bold text-warn" style={{ backgroundColor: 'rgba(251,191,36,0.12)', letterSpacing: 1 }}>
+            <Text
+              className="rounded-pill px-s2 text-warn"
+              allowFontScaling={false}
+              style={{ backgroundColor: 'rgba(251,191,36,0.12)', fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
               THE WALL
             </Text>
           ) : null}
         </View>
-        <Text className="text-xs text-text-dim">
+        <Text className="text-text-dim" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>
           {format(req.label, req.current)} <Text className="text-text-mute">/ {format(req.label, req.target)}</Text>
         </Text>
       </View>

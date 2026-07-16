@@ -9,6 +9,7 @@ import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle
 import { useBattleSnapshot, useCreateInvite, useJoinBattle } from '@/data/battle/mutations';
 import { totalRoundsFor } from '@/domain/battle/engine';
 import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import {
   BLITZ_RULES,
@@ -88,7 +89,11 @@ export default function ArenaScreen() {
           className="flex-row items-center justify-between rounded-md border px-s3"
           style={{ minHeight: 44, borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(34,211,238,0.06)' }}
         >
-          <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+          <Text
+            className="text-accent"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+          >
             ⚔ RIVAL RANK — placements, rating, rated history
           </Text>
           <Text className="text-base font-bold text-accent">›</Text>
@@ -98,12 +103,24 @@ export default function ArenaScreen() {
       <View className="w-full">
         <View className="flex-row items-end justify-between">
           <View className="flex-1">
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
               SEASON 0 · PREVIEW
             </Text>
             <Text
-              className="text-3xl font-bold text-text"
-              style={{ letterSpacing: 0.5, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 18 }}
+              className="text-text"
+              allowFontScaling={false}
+              style={{
+                fontSize: 30,
+                lineHeight: 36,
+                letterSpacing: 0,
+                textShadowColor: 'rgba(34,211,238,0.55)',
+                textShadowRadius: 18,
+                ...pixelFont(),
+              }}
             >
               BATTLE ARENA
             </Text>
@@ -123,14 +140,14 @@ export default function ArenaScreen() {
         </View>
       ) : null}
 
-      <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} />
+      <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} pixelLabels />
 
       {tab === 0 ? (
         <GlowCard glow={tokens.colors.accent}>
           <View className="mb-s3 flex-row items-center gap-s3">
             <IconBadge glyph="🏋" />
             <View className="flex-1">
-              <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                 FRIENDLY BLITZ
               </Text>
               <View className="mt-s1 flex-row gap-s2">
@@ -169,7 +186,7 @@ export default function ArenaScreen() {
           <View className="mb-s3 flex-row items-center gap-s3">
             <IconBadge glyph="🔍" tint={tokens.colors.epic} />
             <View className="flex-1">
-              <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                 ENTER BATTLE CODE
               </Text>
               <Text className="mt-s1 text-2xs text-text-mute">Six characters, read aloud across the gym.</Text>
@@ -265,7 +282,7 @@ export default function ArenaScreen() {
             <View className="mb-s3 flex-row items-center gap-s3">
               <IconBadge glyph="⚖" tint={tokens.colors.danger} />
               <View className="flex-1">
-                <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                   VOLUME DUEL
                 </Text>
                 <View className="mt-s1 flex-row gap-s2">
@@ -291,7 +308,7 @@ export default function ArenaScreen() {
               <View className="mb-s3 flex-row items-center gap-s3">
                 <IconBadge glyph="🪙" tint={tokens.colors.legendary} />
                 <View className="flex-1">
-                  <Text className="text-xl font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                  <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                     HEADS OR TAILS
                   </Text>
                   <View className="mt-s1 flex-row gap-s2">
@@ -371,10 +388,14 @@ function ActiveBattleCard({ match, onPress }: { match: BattleMatch; onPress: () 
           <View className="mb-s3 flex-row items-center gap-s3">
             <IconBadge glyph={formatGlyph(match.format)} tint={state.tint} />
             <View className="flex-1">
-              <Text className="text-lg font-bold text-text" style={{ letterSpacing: 0.5 }}>
+              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
                 {formatLabel(match.format)}
               </Text>
-              <Text className="mt-s1 text-2xs font-bold" style={{ color: state.tint, letterSpacing: 1.5 }}>
+              <Text
+                className="mt-s1"
+                allowFontScaling={false}
+                style={{ fontSize: 9, color: state.tint, letterSpacing: 1, ...pixelFont(false) }}
+              >
                 {state.text}
                 {rounds > 1 ? ` · ROUND ${Math.min(Math.max(match.current_round, 1), rounds)}/${rounds}` : ''}
               </Text>
@@ -393,7 +414,11 @@ function MiniChip({ label }: { label: string }) {
       className="rounded-pill px-s2 py-[3px]"
       style={{ borderWidth: 1, borderColor: `${tokens.colors.accent}40`, backgroundColor: 'rgba(34,211,238,0.08)' }}
     >
-      <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
+      <Text
+        className="text-accent"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+      >
         {label}
       </Text>
     </View>
@@ -415,11 +440,15 @@ function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string;
       }}
     >
       <IconBadge glyph={glyph} tint={tint} size={44} />
-      <Text className="mt-s3 text-sm font-bold text-text" style={{ letterSpacing: 1 }}>
+      <Text className="mt-s3 text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
         {title}
       </Text>
       <Text className="mt-s1 text-2xs text-text-mute">{note}</Text>
-      <Text className="mt-s2 text-2xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
+      <Text
+        className="mt-s2"
+        allowFontScaling={false}
+        style={{ fontSize: 9, color: tint, letterSpacing: 1, ...pixelFont(false) }}
+      >
         COMING SOON
       </Text>
     </View>
@@ -465,18 +494,23 @@ function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
           <View className="flex-1">
             {/* Every row used to say "Friendly Blitz" — a duel lied about
                 what it was. The format decides its own name now. */}
-            <Text className="text-sm font-bold text-text">
+            <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
               {formatLabel(match.format)}
               {match.invite_code ? ` · ${match.invite_code}` : ''}
             </Text>
             <Text className="text-2xs text-text-mute">{String(match.created_at).slice(0, 10)}</Text>
           </View>
           <View className="items-end">
-            <Text className="text-xs font-bold" style={{ color: tint, letterSpacing: 1.5 }}>
+            <Text
+              allowFontScaling={false}
+              style={{ fontSize: 12, color: tint, letterSpacing: 1, ...pixelFont() }}
+            >
               {label}
             </Text>
             {settled && xp ? (
-              <Text className="text-2xs font-bold text-text-dim">+{xp} XP</Text>
+              <Text className="text-text-dim" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>
+                +{xp} XP
+              </Text>
             ) : null}
           </View>
         </View>

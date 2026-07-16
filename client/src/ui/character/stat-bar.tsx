@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { animations, durations } from '@/theme/animations';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 
 /**
@@ -38,7 +39,12 @@ export function StatBar({
       {/* Wide enough for the longest name (Aesthetic) — the label column
           must never wrap a word ("Aestheti/c" is a banned fragment). */}
       <View style={{ width: 64 }}>
-        <Text className="text-sm font-bold text-text" numberOfLines={1} style={{ letterSpacing: 1 }}>
+        <Text
+          className="text-text"
+          numberOfLines={1}
+          allowFontScaling={false}
+          style={{ fontSize: 14, letterSpacing: 0.5, ...pixelFont() }}
+        >
           {abbr}
         </Text>
         {name ? (
@@ -47,7 +53,11 @@ export function StatBar({
           </Text>
         ) : null}
       </View>
-      <Text className="w-s8 text-right text-base font-bold" style={{ color: colour }}>
+      <Text
+        className="w-s8 text-right"
+        allowFontScaling={false}
+        style={{ fontSize: 16, color: colour, ...pixelFont() }}
+      >
         {clamped}
       </Text>
       <View className="h-s2 flex-1 overflow-hidden rounded-pill" style={{ backgroundColor: tokens.colors['surface-3'] }}>
