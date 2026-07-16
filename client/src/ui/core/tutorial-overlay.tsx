@@ -20,15 +20,15 @@ const STEPS: readonly { icon: string; title: string; body: string }[] = [
     icon: '⌂',
     title: 'YOUR FIVE WORLDS',
     body:
-      'Home is your character. Train logs your workouts. Progress tracks the body. ' +
-      'Forge is where you evolve. Arena is where you fight.',
+      'Home is your character. Train logs your workouts. The Oracle judges your ' +
+      'physique with AI. Forge is where you evolve. Arena is where you fight.',
   },
   {
     icon: '🕹',
     title: 'YOUR COMPANION IS YOUR MENU',
     body:
       'Tap the little animated fighter in the top-right of any screen — that opens ' +
-      'your bag: the Oracle, awards, coins, schedule, profile and more.',
+      'your bag: progress charts, awards, coins, schedule, profile and more.',
   },
   {
     icon: '⚒',

@@ -6,9 +6,8 @@ import { ScreenShell } from '@/ui/core/shell';
 
 /** The overflow: everything that doesn't earn a bottom-bar slot. */
 const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
-  { href: '/ai', title: 'The Oracle', sub: 'AI physique + body fat analysis', glyph: '✦' },
-  { href: '/log', title: 'Stats Entry', sub: 'Log bodyweight and tape measurements', glyph: '▤' },
   { href: '/progress', title: 'Progress', sub: 'Bodyweight and bench e1RM over time', glyph: '◺' },
+  { href: '/log', title: 'Stats Entry', sub: 'Log bodyweight and tape measurements', glyph: '▤' },
   { href: '/goals', title: 'Goals', sub: 'Targets with honest journey bars', glyph: '◎' },
   { href: '/awards', title: 'Awards', sub: 'All 64 achievements', glyph: '★' },
   { href: '/rank', title: 'Rank', sub: 'The leaderboard — opt in to compete', glyph: '♛' },

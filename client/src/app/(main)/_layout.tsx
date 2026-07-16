@@ -116,14 +116,15 @@ export default function MainLayout() {
   // the other four in the background once the app is idle, so every tab
   // switch is a pure show. Safe by audit: none of the tab screens has
   // mount-time subscriptions (focus-scoped effects stay focus-scoped), and
-  // their queries share the already-warm cache. The workout page is NOT
-  // preloaded — it is params-dependent.
+  // their queries share the already-warm cache — /ai included: Oracle photos
+  // live in component state, nothing runs until the athlete acts. The
+  // workout page is NOT preloaded — it is params-dependent.
   const prefetchedRef = useRef(false);
   useEffect(() => {
     if (prefetchedRef.current || !session || profile.data === undefined) return;
     prefetchedRef.current = true;
     const warm = () => {
-      for (const href of ['/today', '/progress', '/avatar', '/arena']) {
+      for (const href of ['/today', '/ai', '/avatar', '/arena']) {
         try {
           router.prefetch(href as never);
         } catch {
@@ -208,7 +209,7 @@ export default function MainLayout() {
         name="today"
         options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
       />
-      <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: makeIcon('◺') }} />
+      <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />
       <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
       {/* Routable, not in the bar — reached from the profile menu. */}
@@ -220,7 +221,7 @@ export default function MainLayout() {
       {/* BATTLE RPG: the turn-based fight, pushed over the Arena tab. */}
       <Tabs.Screen name="battle" options={{ href: null }} />
       <Tabs.Screen name="log" options={{ href: null }} />
-      <Tabs.Screen name="ai" options={{ href: null }} />
+      <Tabs.Screen name="progress" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
       <Tabs.Screen name="routine" options={{ href: null }} />
       <Tabs.Screen name="goals" options={{ href: null }} />
