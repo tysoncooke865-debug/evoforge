@@ -12,8 +12,8 @@ export const progressionFeatures = {
   evoReviewsEnabled: true,
   /** Monthly guided Evo Scans (P6) — ON at P6 ship. */
   monthlyScansEnabled: true,
-  /** Rival Rank placements + rated matches (P7). */
-  rivalRankEnabled: false,
+  /** Rival Rank placements + rated matches (P7) — ON at P7 ship. */
+  rivalRankEnabled: true,
   /** Ghost matches (P7). */
   ghostMatchesEnabled: false,
   /** Player Stats affecting gameplay simulation (P8). */

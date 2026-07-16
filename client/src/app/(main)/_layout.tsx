@@ -229,6 +229,7 @@ export default function MainLayout() {
       <Tabs.Screen name="evo" options={{ href: null }} />
       <Tabs.Screen name="evo-scan" options={{ href: null }} />
       <Tabs.Screen name="forge-level" options={{ href: null }} />
+      <Tabs.Screen name="rival" options={{ href: null }} />
       {/* Dev-only mask workbench — the screen renders nothing in production. */}
       <Tabs.Screen name="muscle-lab" options={{ href: null }} />
     </Tabs>

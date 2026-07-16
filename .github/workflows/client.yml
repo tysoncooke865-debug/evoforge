@@ -95,6 +95,9 @@ jobs:
       - name: verify-battle-engine — client and server scoring are byte-identical
         run: node scripts/verify-battle-engine.mjs
 
+      - name: verify-glicko — preview and settle rating maths are byte-identical
+        run: node scripts/verify-glicko.mjs
+
       # TRANSFORM P8. withRepeat is Reanimated's only looping primitive, so a
       # component that loops without consulting useReducedMotion is exactly the
       # a11y bug this catches. It found two on the day it was written (the

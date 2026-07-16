@@ -251,6 +251,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   review. Chapters: first review opens chapter 1; reviews roll chapters
   every 84 days with before/after summaries (maintainChapters in
   evo-review-io).
+- **P7 SHIPPED: Rival Rank.** Glicko-2 lives as a FOURTH byte-pinned
+  contract: `contracts/rival/glicko2.ts` master → client domain copy +
+  functions copy, `scripts/verify-glicko.mjs` (in CI) — and the maths is
+  pinned to Glickman's published worked example (1500/200/0.06 →
+  1464.06/151.52/0.05999). Migration 028: competitive_ratings (NO client
+  write policy — `rival-settle` service-role only), competitive_matches
+  (unique(battle_id) = the settle idempotency lock), ghost_snapshots.
+  rival-settle verifies the settled battle + participants server-side and
+  rates BOTH players. `/rival` page reconciles unrated settled battles on
+  visit (idempotent). Tiers Iron→Apex ×III/II/I, 5 placements, RD-based
+  confidence; matchmaking constraints (never rank-only, never Evo-only,
+  farming cap) in rank-tiers.ts. `/rank` remains the XP leaderboard —
+  its drift gates are load-bearing; do not rename it into Rival Rank.
 
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge

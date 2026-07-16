@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
+
+import { progressionFeatures } from '@/data/progression/features';
 
 import { useAuth } from '@/data/auth-context';
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
@@ -69,6 +71,23 @@ export default function ArenaScreen() {
 
   return (
     <ScreenShell>
+      {/* PROGRESSION P7: the Rival Rank door — competitive standing lives
+          on its own page; battles here feed it. */}
+      {progressionFeatures.rivalRankEnabled ? (
+        <Pressable
+          onPress={() => router.push('/rival' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Open your Rival Rank"
+          testID="arena-rival-door"
+          className="flex-row items-center justify-between rounded-md border px-s3"
+          style={{ minHeight: 44, borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+        >
+          <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+            ⚔ RIVAL RANK — placements, rating, rated history
+          </Text>
+          <Text className="text-base font-bold text-accent">›</Text>
+        </Pressable>
+      ) : null}
       {/* Masthead — the Home identity treatment, with the arena emblem. */}
       <View className="w-full">
         <View className="flex-row items-end justify-between">
