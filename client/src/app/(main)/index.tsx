@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { useClaimCoin, useCoinTotal } from '@/data/coins';
+import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
 import { useUserExercises } from '@/data/exercises';
 import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutLog, useCardioLog } from '@/data/hooks';
@@ -212,11 +213,16 @@ export default function HomeScreen() {
 
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
+  const forge = useForgeProgression();
+  const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
   return (
     <ScreenShell>
-      {/* 1. Identity + the level module. */}
-      <HomeHeader level={summary.level} xpIntoLevel={summary.xpIntoLevel} xpNeeded={summary.xpNeeded} />
+      {/* 1. Identity + the level module — FORGE LEVEL (Tyson, 2026-07-16:
+          the game level starts from zero and holds ONLY earned XP; the old
+          onboarding-seeded level is retired from display, avatar stages
+          keep their own track so no character regresses). */}
+      <HomeHeader level={forgeProgress.level} xpIntoLevel={forgeProgress.xpIntoLevel} xpNeeded={forgeProgress.xpForNextLevel} />
 
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero

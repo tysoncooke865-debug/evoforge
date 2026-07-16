@@ -7,7 +7,7 @@ import { useUserExercises } from '@/data/exercises';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
-import { useAvatarData } from '@/data/use-avatar-data';
+import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { useUserPlans } from '@/data/user-plans';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
@@ -108,8 +108,9 @@ export default function TodayScreen() {
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
   const { sources, resolveDay } = useDayPlan();
-  // The header's LV. badge — same confirmed summary the whole app levels on.
-  const { summary } = useAvatarData();
+  // The header's LV. badge — FORGE LEVEL (earned XP only; Tyson 2026-07-16).
+  const forge = useForgeProgression();
+  const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
@@ -612,7 +613,7 @@ export default function TodayScreen() {
             style={{ minHeight: 24, minWidth: 44 }}
           >
             <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-              LV. {summary.level} ›
+              LV. {forgeProgress.level} ›
             </Text>
           </Pressable>
         </View>

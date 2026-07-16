@@ -13,7 +13,7 @@ import { migrateForgeHistory } from '@/data/progression/award-xp';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
 import { progressionFeatures } from '@/data/progression/features';
 import { supabase } from '@/data/supabase';
-import { useAvatarData } from '@/data/use-avatar-data';
+import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
@@ -137,15 +137,17 @@ export default function MainLayout() {
     else setTimeout(warm, 2500);
   }, [session, profile.data]);
 
-  // Level-up detector: compares CONFIRMED summary.level across refetches.
+  // Level-up detector: compares the CONFIRMED Forge Level across refetches
+  // (Tyson, 2026-07-16: the game level is the earned Forge Level now).
   // First observation only arms it (no ceremony for merely opening the app);
   // multi-level jumps celebrate once, from the old level to the new.
-  const { summary, ready } = useAvatarData();
+  const forge = useForgeProgression();
+  const ready = !forge.isPending;
   const prevLevelRef = useRef<number | null>(null);
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(null);
   useEffect(() => {
     if (!ready) return; // pre-load defaults must never arm or trigger
-    const level = summary.level;
+    const level = forgeProgressFromRow(forge.data ?? null).level;
     if (prevLevelRef.current === null) {
       prevLevelRef.current = level;
       return;
@@ -154,7 +156,7 @@ export default function MainLayout() {
       setLevelUp({ from: prevLevelRef.current, to: level });
     }
     prevLevelRef.current = level;
-  }, [summary.level, ready]);
+  }, [forge.data, ready]);
 
   if (loading || (session && profile.isPending)) {
     return (

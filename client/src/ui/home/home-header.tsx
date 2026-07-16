@@ -68,7 +68,9 @@ export function HomeHeader({
         className="flex-row items-center rounded-lg border p-s1"
         style={{ gap: 8, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
       >
-        <CompanionMenuButton anim="idle" height={40} />
+        {/* The header companion FLEXES (Tyson, 2026-07-16): the victory
+            anim is the front double bicep on aesthetic stages 2-4. */}
+        <CompanionMenuButton anim="victory" height={40} />
         <Pressable
           onPress={() => router.push('/profile' as never)}
           accessibilityRole="button"

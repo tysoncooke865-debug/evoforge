@@ -126,6 +126,12 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv2_victory_1.png'),
       require('../../assets/avatars/sprites/lv2_victory_2.png'),
       require('../../assets/avatars/sprites/lv2_victory_3.png'),
+      require('../../assets/avatars/sprites/lv2_victory_4.png'),
+      require('../../assets/avatars/sprites/lv2_victory_5.png'),
+      require('../../assets/avatars/sprites/lv2_victory_6.png'),
+      require('../../assets/avatars/sprites/lv2_victory_7.png'),
+      require('../../assets/avatars/sprites/lv2_victory_8.png'),
+      require('../../assets/avatars/sprites/lv2_victory_9.png'),
     ],
   },
   3: {
@@ -158,6 +164,12 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv3_victory_1.png'),
       require('../../assets/avatars/sprites/lv3_victory_2.png'),
       require('../../assets/avatars/sprites/lv3_victory_3.png'),
+      require('../../assets/avatars/sprites/lv3_victory_4.png'),
+      require('../../assets/avatars/sprites/lv3_victory_5.png'),
+      require('../../assets/avatars/sprites/lv3_victory_6.png'),
+      require('../../assets/avatars/sprites/lv3_victory_7.png'),
+      require('../../assets/avatars/sprites/lv3_victory_8.png'),
+      require('../../assets/avatars/sprites/lv3_victory_9.png'),
     ],
   },
   4: {
@@ -190,6 +202,12 @@ const FRAMES: Record<Stage, Record<Anim, number[]>> = {
       require('../../assets/avatars/sprites/lv4_victory_1.png'),
       require('../../assets/avatars/sprites/lv4_victory_2.png'),
       require('../../assets/avatars/sprites/lv4_victory_3.png'),
+      require('../../assets/avatars/sprites/lv4_victory_4.png'),
+      require('../../assets/avatars/sprites/lv4_victory_5.png'),
+      require('../../assets/avatars/sprites/lv4_victory_6.png'),
+      require('../../assets/avatars/sprites/lv4_victory_7.png'),
+      require('../../assets/avatars/sprites/lv4_victory_8.png'),
+      require('../../assets/avatars/sprites/lv4_victory_9.png'),
     ],
   },
 };
@@ -353,20 +371,17 @@ const FRAMES_F: Record<Stage, Record<Anim, number[]>> = {
   },
 };
 
-/** Frame counts are PER SEX now (the male sets became the Cyber Athlete
- *  pack, 2026-07-16: rotation idle 8 · run 8 · jab 3 · victory 3); the
- *  female sets keep their original counts until female art lands. */
-const COUNT: Record<Anim, number> = { idle: 8, run: 8, punch: 3, victory: 3 };
-const COUNT_F: Record<Anim, number> = { idle: 4, run: 9, punch: 6, victory: 3 };
-const countFor = (sex: Sex) => (sex === 'female' ? COUNT_F : COUNT);
+// Frame counts derive from the FRAMES arrays — ONE source of truth, per
+// sex, per stage, per animation (the flex pack made victory 9 frames on
+// stages 2-4 while stage 1 waits for its art; a flat table lied).
 
 /** Canvas aspect (w/h) per stage+animation. */
 const ASPECT: Record<Stage, Record<Anim, number>> = {
   // Measured from the Cyber Athlete pack's union bounding boxes (PIL).
   1: { idle: 43 / 64, run: 39 / 63, punch: 46 / 62, victory: 43 / 63 },
-  2: { idle: 45 / 65, run: 39 / 61, punch: 44 / 62, victory: 45 / 65 },
-  3: { idle: 53 / 65, run: 38 / 61, punch: 44 / 62, victory: 53 / 65 },
-  4: { idle: 78 / 71, run: 54 / 63, punch: 59 / 62, victory: 78 / 70 },
+  2: { idle: 45 / 65, run: 39 / 61, punch: 44 / 62, victory: 62 / 66 },
+  3: { idle: 53 / 65, run: 38 / 61, punch: 44 / 62, victory: 74 / 66 },
+  4: { idle: 78 / 71, run: 54 / 63, punch: 59 / 62, victory: 93 / 70 },
 };
 
 const ASPECT_F: Record<Stage, Record<Anim, number>> = {
@@ -390,7 +405,7 @@ const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: false
 
 /** Browser-native sprite playback: background-position through steps(). */
 function CssSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
-  const n = countFor(sex)[anim];
+  const n = framesFor(sex)[stage][anim].length;
   // resolveAssetSource does not exist on react-native-web; expo-asset
   // resolves Metro module ids to served URLs on every platform.
   const uri = Asset.fromModule(stripsFor(sex)[stage][anim]).uri;
@@ -460,7 +475,7 @@ function SpriteFrame({
 
 function NativeSprite({ stage, anim, sex, width, height, frozen }: { stage: Stage; anim: Anim; sex: Sex; width: number; height: number; frozen: boolean }) {
   const clock = useSharedValue(0);
-  const n = countFor(sex)[anim];
+  const n = framesFor(sex)[stage][anim].length;
   useEffect(() => {
     if (frozen) {
       clock.value = 0;

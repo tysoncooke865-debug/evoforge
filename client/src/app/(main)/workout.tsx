@@ -9,6 +9,7 @@ import { useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
+import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
@@ -90,6 +91,7 @@ export default function WorkoutScreen() {
   const claimCoins = useClaimCoin();
   const saveRoutine = useSaveRoutine();
   const { summary, stats, bfMid } = useAvatarData();
+  const forge = useForgeProgression();
   const { resolveDay } = useDayPlan();
 
   const adhoc = useSessionStore(adhocOf);
@@ -173,6 +175,7 @@ export default function WorkoutScreen() {
   const { done: totalDone, target: totalTarget, complete, nextExercise } = totals;
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
 
+  const forgeProgress = forgeProgressFromRow(forge.data ?? null);
   const buildSummary = (): WorkoutSummaryData => ({
     day: workoutName,
     setsDone: totalDone,
@@ -181,9 +184,11 @@ export default function WorkoutScreen() {
     prCount: prCountRef.current,
     prExercises: [...new Set(prNamesRef.current)],
     streak: computeStreak(workouts.data ?? [], todayIso).current,
-    level: summary.level,
-    xpIntoLevel: summary.xpIntoLevel,
-    xpNeeded: summary.xpNeeded,
+    // The ceremony's LEVEL PATH is the FORGE level now (earned XP only —
+    // Tyson 2026-07-16); evolution below keeps its own legacy-level track.
+    level: forgeProgress.level,
+    xpIntoLevel: forgeProgress.xpIntoLevel,
+    xpNeeded: forgeProgress.xpForNextLevel,
     evolution: nextEvolutionInfo(stats.branch, {
       level: summary.level,
       benchE1rm: stats.benchE1rm,

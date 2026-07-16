@@ -8,6 +8,7 @@ import type { NextSession } from '@/domain/scheduled-streak';
 import tokens from '@/theme/tokens';
 
 import { NeonButton } from '@/ui/core/neon-button';
+import { SpriteCompanion } from '@/ui/character/sprite-avatar';
 import { XpBar } from '@/ui/character/xp-bar';
 
 export interface WorkoutSummaryData {
@@ -125,9 +126,16 @@ function Ceremony({
             style={{ padding: 24 }}
           >
             <View className="mb-s1 flex-row items-center justify-between">
-              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
-                {complete ? 'MISSION COMPLETE' : 'MISSION FINISHED'}
-              </Text>
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                {/* THE VICTORY FLEX (Tyson, 2026-07-16): finishing a mission
+                    is the app's victory moment — the companion hits a front
+                    double bicep (9 frames, stages 2-4; stage 1 sways until
+                    its flex art lands). */}
+                <SpriteCompanion anim="victory" height={34} />
+                <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
+                  {complete ? 'MISSION COMPLETE' : 'MISSION FINISHED'}
+                </Text>
+              </View>
               <View className="flex-row" style={{ gap: 5 }}>
                 {phases.map((p, i) => (
                   <View
