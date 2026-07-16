@@ -462,6 +462,7 @@ function SetRow({
         }}
         step={WEIGHT_STEP[unit].step}
         bigStep={WEIGHT_STEP[unit].bigStep}
+        quickSteps={WEIGHT_STEP[unit].quick}
         placeholder={unit}
         label={`WEIGHT · ${unit.toUpperCase()}`}
         tint={tint}

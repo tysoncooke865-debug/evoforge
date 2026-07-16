@@ -92,8 +92,8 @@ describe('WEIGHT_STEP', () => {
   });
 
   it('metric: 2.5 steps, 20 plates; pounds: 5 steps, 45 plates', () => {
-    expect(WEIGHT_STEP.kg).toEqual({ step: 2.5, bigStep: 20 });
-    expect(WEIGHT_STEP.lb).toEqual({ step: 5, bigStep: 45 });
+    expect(WEIGHT_STEP.kg).toEqual({ step: 2.5, bigStep: 20, quick: [2.5, 5, 10, 20] });
+    expect(WEIGHT_STEP.lb).toEqual({ step: 5, bigStep: 45, quick: [5, 10, 25, 45] });
   });
 });
 

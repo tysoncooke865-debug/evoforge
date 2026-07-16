@@ -68,7 +68,9 @@ export function convertTyped(text: string, from: WeightUnit, to: WeightUnit): st
  * plates; pound gyms think in 5 lb increments and 45 lb plates. The double-
  * press plate jump must match the plates on the athlete's floor.
  */
-export const WEIGHT_STEP: Readonly<Record<WeightUnit, { step: number; bigStep: number }>> = {
-  kg: { step: 2.5, bigStep: 20 },
-  lb: { step: 5, bigStep: 45 },
+export const WEIGHT_STEP: Readonly<Record<WeightUnit, { step: number; bigStep: number; quick: number[] }>> = {
+  // `quick` = the keypad's tap-to-add plate chips (Tyson, 2026-07-16): kg uses
+  // the 2.5/5/10/20 set he asked for; lb uses the standard iron plates.
+  kg: { step: 2.5, bigStep: 20, quick: [2.5, 5, 10, 20] },
+  lb: { step: 5, bigStep: 45, quick: [5, 10, 25, 45] },
 };

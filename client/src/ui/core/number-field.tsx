@@ -86,11 +86,30 @@ const KEYS: readonly (readonly string[])[] = [
   ['.', '0', '⌫'],
 ];
 
+/** A single quick-adjust plate chip (e.g. "+10" / "−2.5") on the keypad. */
+function QuickChip({ label, onPress, tint, testID }: { label: string; onPress: () => void; tint: string; testID?: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-1 items-center justify-center rounded-md border"
+      style={{ minHeight: 40, borderColor: `${tint}55`, backgroundColor: `${tint}14` }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <Text className="text-sm font-bold" style={{ color: tint }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function KeyPad({
   label,
   initial,
   integer,
   tint,
+  quickSteps,
   onDone,
   onClose,
 }: {
@@ -98,6 +117,8 @@ function KeyPad({
   initial: string;
   integer: boolean;
   tint: string;
+  /** Quick +/− plate buttons (weight only), e.g. [2.5, 5, 10, 20]. */
+  quickSteps?: number[];
   onDone: (v: string) => void;
   onClose: () => void;
 }) {
@@ -116,6 +137,12 @@ function KeyPad({
       return setDraft(base === '' ? '0.' : `${base}.`);
     }
     setDraft(base === '0' ? k : base.length >= 6 ? base : `${base}${k}`);
+  };
+  // Quick plate adjust: bump the CURRENT draft by ±delta (clamped ≥ 0).
+  const adjust = (delta: number) => {
+    setTouched(true);
+    const cur = pyFloat(draft) ?? 0;
+    setDraft(formatValue(Math.max(0, cur + delta), integer));
   };
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -143,6 +170,23 @@ function KeyPad({
               {draft === '' ? '·' : draft}
             </Text>
           </View>
+
+          {/* Quick plate adjust (weight only) — a −row and a +row. */}
+          {quickSteps && quickSteps.length > 0 ? (
+            <View className="mb-s2" style={{ gap: 6 }}>
+              <View className="flex-row" style={{ gap: 6 }}>
+                {[...quickSteps].reverse().map((s) => (
+                  <QuickChip key={`m${s}`} label={`−${s}`} onPress={() => adjust(-s)} tint={tokens.colors.danger} testID={`keypad-minus-${s}`} />
+                ))}
+              </View>
+              <View className="flex-row" style={{ gap: 6 }}>
+                {quickSteps.map((s) => (
+                  <QuickChip key={`p${s}`} label={`+${s}`} onPress={() => adjust(s)} tint={tint} testID={`keypad-plus-${s}`} />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {KEYS.map((row, i) => (
             <View key={i} className="mb-s2 flex-row gap-s2">
               {row.map((k) => (
@@ -187,6 +231,7 @@ export function NumberField({
   tint = tokens.colors.accent,
   width = 68,
   bigStep,
+  quickSteps,
   dim = false,
   narrow = false,
   testID,
@@ -202,6 +247,8 @@ export function NumberField({
   width?: number;
   /** Quick double-press jump (weight: 20 kg plates). Omit for reps. */
   bigStep?: number;
+  /** Quick +/− plate buttons shown on the keypad (weight only), e.g. [2.5, 5, 10, 20]. */
+  quickSteps?: number[];
   /** True = render the value dimmed (untouched last-session prefill). */
   dim?: boolean;
   /** Sub-360px screens: slimmer steppers (P2 sweep, iPhone SE1/5s). */
@@ -290,7 +337,7 @@ export function NumberField({
         />
       </View>
       {USE_CUSTOM_PAD && padOpen ? (
-        <KeyPad label={label} initial={value} integer={integer} tint={tint} onDone={onChange} onClose={() => setPadOpen(false)} />
+        <KeyPad label={label} initial={value} integer={integer} tint={tint} quickSteps={quickSteps} onDone={onChange} onClose={() => setPadOpen(false)} />
       ) : null}
     </View>
   );
