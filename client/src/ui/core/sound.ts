@@ -41,24 +41,29 @@ function context(): AudioContext | null {
 
 /** One square-wave blip: frequency ramp + exponential fade. The envelope
  *  ends at (near) zero so there is never a click at note-off. */
-function blip(freqFrom: number, freqTo: number, seconds: number, volume: number): void {
+function blip(freqFrom: number, freqTo: number, seconds: number, volume: number, type: OscillatorType = 'square', delay = 0): void {
   if (!useSettingsStore.getState().soundEnabled) return;
   const c = context();
   if (!c) return;
+  const t0 = c.currentTime + delay;
+  blipAt(c, freqFrom, freqTo, seconds, volume, type, t0);
+}
+
+function blipAt(c: AudioContext, freqFrom: number, freqTo: number, seconds: number, volume: number, type: OscillatorType, t0: number): void {
   try {
     const osc = c.createOscillator();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(freqFrom, c.currentTime);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freqFrom, t0);
     if (freqTo !== freqFrom) {
-      osc.frequency.linearRampToValueAtTime(freqTo, c.currentTime + seconds);
+      osc.frequency.linearRampToValueAtTime(freqTo, t0 + seconds);
     }
     const gain = c.createGain();
-    gain.gain.setValueAtTime(volume, c.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + seconds);
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + seconds);
     osc.connect(gain);
     gain.connect(c.destination);
-    osc.start();
-    osc.stop(c.currentTime + seconds);
+    osc.start(t0);
+    osc.stop(t0 + seconds);
   } catch {
     /* an unsupported browser just stays quiet */
   }
@@ -68,3 +73,16 @@ function blip(freqFrom: number, freqTo: number, seconds: number, volume: number)
 export const playPress = () => blip(700, 1050, 0.09, 0.12);
 /** The selection tick — the old select.wav's 1500Hz blip. */
 export const playSelect = () => blip(1500, 1500, 0.04, 0.08);
+
+// ---- Battle SFX (Tyson turn-based beta) — same Web Audio path; web-only,
+// settings-gated, mixes with background audio (no media element). ----
+/** A dull impact thud. */
+export const playHit = () => blip(220, 90, 0.14, 0.14, 'triangle');
+/** A bright crunchy crit — thud + high sparkle. */
+export const playCrit = () => { blip(260, 80, 0.16, 0.16, 'square'); blip(1400, 1900, 0.12, 0.08, 'square', 0.02); };
+/** A soft rising heal. */
+export const playHeal = () => blip(520, 880, 0.16, 0.09, 'sine');
+/** A rising victory arpeggio. */
+export const playVictory = () => { blip(523, 523, 0.12, 0.1, 'square', 0); blip(659, 659, 0.12, 0.1, 'square', 0.12); blip(784, 784, 0.12, 0.1, 'square', 0.24); blip(1046, 1046, 0.22, 0.1, 'square', 0.36); };
+/** A falling defeat tone. */
+export const playDefeat = () => { blip(392, 392, 0.16, 0.09, 'sawtooth', 0); blip(311, 311, 0.16, 0.09, 'sawtooth', 0.16); blip(233, 233, 0.3, 0.09, 'sawtooth', 0.32); };

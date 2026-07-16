@@ -618,7 +618,49 @@ Owner: Tyson. He works through other Claude sessions too — **always
   a value. Verified in-browser: full loop Arena→Training→pick→10-turn
   fight→VICTORY→+5 Forge XP; gym preview shows Brax.
 
-**Migrations applied through `032`. Next free number: `033`**
+- **BATTLE RPG — POKÉMON POV + real rewards (Tyson: "make it better, POV
+  facing each other", 2026-07-16):** the turn-based beta got its visual
+  transformation and a secure economy.
+  * POV: ui/battle/battle-pov-art.ts extracts BACK (north-east frame) and
+    FRONT (south-west frame) stills from each line's rotation GIF (no new
+    art) — the PLAYER shows their back (near, lower-left, 148px), the
+    OPPONENT their front (far, upper-right, 104px). BattleArena
+    (ui/battle/battle-arena.tsx) fakes depth with two platforms + a
+    perspective floor + a MODE-TINTED haze (gym=orange, rival=pink,
+    training=cyan), SCREEN-SHAKES on impact and WHITE-BLINKS on crits/
+    ultimates. Sprites lunge on the DIAGONAL toward the foe (art already
+    faces correctly — no mirror). Typewriter message box with TAP-TO-
+    ADVANCE (useBattle.advance skips the event dwell) + a speed order hint.
+  * Audio: playHit/playCrit/playHeal/playVictory/playDefeat added to
+    ui/core/sound.ts (Web Audio oscillators, web-only, settings-gated,
+    mixes with music), fired per battle event.
+  * 3 gyms now (config): Iron Foundry/Brax, Velocity Lab/Rhea, Mirror
+    Hall/Cass + a badge case on the Arena hub. All reduced-motion gated
+    (verify-motion: 11 components).
+- **CRITICAL SECURITY FIX — xp_ledger exploit (migration 033, found while
+  building battle rewards):** xp_ledger_guard used `current_user not in
+  ('authenticated','anon')` to detect a definer grant, but inside a
+  SECURITY DEFINER trigger current_user is ALWAYS the owner → the bypass
+  fired for EVERY insert. A raw client POST of {event_type:'anything',
+  xp_awarded:99999} LANDED VERBATIM — any user could mint arbitrary Forge
+  XP (also a latent correctness bug: client rows stored xp_awarded 0).
+  FIX: the txn-local GUC pattern (evoforge.xp_authorized='server') only
+  definer grant functions set — forge_claim_weekly + forge_migrate_history
+  updated to set it; client inserts fall to the allowlist (forces amount,
+  rejects unknown kinds). SAME LESSON as the coin guard (030): NEVER gate
+  a definer trigger on current_user — use a txn GUC or service_role.
+  Falsified: the exploit + bogus workout + raw battle_win/battle_reward
+  ALL rejected; legit paths intact.
+- **grant_battle_reward RPC (033):** server-authoritative battle coins +
+  Forge XP — idempotent per result key, DAILY-CAPPED (200 XP / 120 coins)
+  so it can't be farmed; coin guard learns a 'battle_reward' kind admitted
+  only via the spend GUC. Client: data/battle-rpg.ts (useGrantBattleReward
+  → invalidates wallet + Forge Level). Battle HISTORY stays local (032
+  seam) for the beta. Verified in-browser: gym POV battle shows Brax
+  front-facing vs your back-view champion on a tinted stage; grant is
+  live + capped.
+
+**Migrations applied through `033`. Next free number: `034`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
 

@@ -9,14 +9,16 @@ import { rivalFor } from '@/domain/battle-rpg/rivals';
 import type { AiPersonality, ChampionId } from '@/domain/battle-rpg/types';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
+import { useGrantBattleReward } from '@/data/battle-rpg';
+import { playCrit, playDefeat, playHeal, playHit, playVictory } from '@/ui/core/sound';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { stillAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Image } from 'expo-image';
 import { BattleDebugPanel } from '@/ui/battle/debug-panel';
 import { BattleResultModal } from '@/ui/battle/result-modal';
-import { BattleSprite } from '@/ui/battle/battle-sprite';
-import { CombatantHud, FloatingNumber } from '@/ui/battle/battle-bits';
+import { BattleArena } from '@/ui/battle/battle-arena';
+import { CombatantHud } from '@/ui/battle/battle-bits';
 import { MoveGrid } from '@/ui/battle/move-grid';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -192,18 +194,25 @@ function PreviewScreen({
 
 function BattleRunner({ setup }: { setup: BattleSetup }) {
   const [resultOpen, setResultOpen] = useState(false);
+  const grantReward = useGrantBattleReward();
   const battle = useBattle(setup, (won, s) => {
-    settleBattle(setup, won, s.turnNumber, setup.opponentChampion, setup.opponentName);
+    const { resultKey } = settleBattle(setup, won, s.turnNumber, setup.opponentChampion, setup.opponentName);
+    // Real, server-authoritative reward (idempotent + daily-capped).
+    grantReward.mutate({ resultKey, mode: setup.mode, won });
+    if (won) playVictory(); else playDefeat();
     setResultOpen(true);
   });
   const { state, activeEvent, message } = battle;
 
   // Floating number: fire once per damage/heal event (effect-driven so render
-  // stays pure — a monotonic trigger re-runs the float animation).
+  // stays pure — a monotonic trigger re-runs the float animation) + SFX.
   const [floating, setFloating] = useState<{ side: 'player' | 'opponent'; kind: 'damage' | 'crit' | 'heal'; amount: number; trigger: number } | null>(null);
   const triggerRef = useRef(0);
   useEffect(() => {
     if (!activeEvent) return;
+    if (activeEvent.kind === 'crit') playCrit();
+    else if (activeEvent.kind === 'damage') playHit();
+    else if (activeEvent.kind === 'heal') playHeal();
     if ((activeEvent.kind === 'damage' || activeEvent.kind === 'crit' || activeEvent.kind === 'heal') && activeEvent.amount) {
       triggerRef.current += 1;
       setFloating({
@@ -216,6 +225,12 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
   }, [activeEvent]);
 
   const rewards = state.winner ? useBattleRpgStore.getState().history[0]?.rewards ?? null : null;
+  const orderHint =
+    !battle.isBusy && !state.winner
+      ? state.player.stats.speed >= state.opponent.stats.speed
+        ? 'You strike first'
+        : `${setup.opponentName} is faster`
+      : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.colors['bg-deep'] }}>
@@ -224,32 +239,30 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
         <ScreenHeader kicker="ARENA BATTLE" title={`TURN ${state.turnNumber}`} onBack={() => router.back()} />
 
         {/* Opponent HUD. */}
-        <CombatantHud combatant={state.opponent} align="right" />
+        <CombatantHud combatant={state.opponent} powerLabel={Math.round(state.opponent.stats.maxHealth + state.opponent.stats.power * 3)} align="right" />
 
-        {/* Arena. */}
-        <View style={{ height: 210, marginVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: `${tokens.colors.accent}22`, backgroundColor: 'rgba(6,12,24,0.6)', overflow: 'hidden' }}>
-          {/* holo floor */}
-          <View style={{ position: 'absolute', bottom: 14, alignSelf: 'center', width: '78%', height: 40, borderRadius: 999, borderWidth: 1, borderColor: `${tokens.colors.accent}44`, backgroundColor: 'rgba(34,211,238,0.06)' }} />
-          {/* opponent upper-right */}
-          <View style={{ position: 'absolute', top: 6, right: 18 }}>
-            <View>
-              {floating && floating.side === 'opponent' ? <FloatingNumber amount={floating.amount} kind={floating.kind} trigger={floating.trigger} /> : null}
-              <BattleSprite branch={state.opponent.spriteBranch} stage={state.opponent.spriteStage} side="opponent" activeEvent={activeEvent} size={110} defeated={state.winner === 'player'} />
-            </View>
-          </View>
-          {/* player lower-left */}
-          <View style={{ position: 'absolute', bottom: 6, left: 18 }}>
-            <View>
-              {floating && floating.side === 'player' ? <FloatingNumber amount={floating.amount} kind={floating.kind} trigger={floating.trigger} /> : null}
-              <BattleSprite branch={state.player.spriteBranch} stage={state.player.spriteStage} side="player" activeEvent={activeEvent} size={120} defeated={state.winner === 'opponent'} victory={state.winner === 'player'} />
-            </View>
-          </View>
+        {/* THE POKÉMON-POV ARENA. */}
+        <View style={{ marginVertical: 8 }}>
+          <BattleArena
+            player={state.player}
+            opponent={state.opponent}
+            mode={setup.mode}
+            activeEvent={activeEvent}
+            floating={floating}
+            winner={state.winner}
+            height={236}
+          />
         </View>
 
-        {/* Battle message. */}
-        <View style={{ minHeight: 34, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${tokens.colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.7)', paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8 }}>
-          <Text allowFontScaling={false} style={{ fontSize: 12, color: tokens.colors.text }}>{message || 'Choose your move…'}</Text>
-        </View>
+        {/* Battle message — typewriter reveal; tap to fast-forward. */}
+        <Pressable
+          onPress={() => battle.advance()}
+          accessibilityRole="button"
+          accessibilityLabel="advance battle text"
+          style={{ minHeight: 40, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${tokens.colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.8)', paddingHorizontal: 12, paddingVertical: 7, marginBottom: 8 }}
+        >
+          <TypewriterText key={message || 'idle'} text={message || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
+        </Pressable>
 
         {/* Player HUD. */}
         <CombatantHud combatant={state.player} />
@@ -274,3 +287,25 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
   );
 }
 
+/** Reveals the message character-by-character; snaps to full instantly when
+ *  the turn is idle (so move hints read immediately) or the text is short. */
+function TypewriterText({ text, busy }: { text: string; busy: boolean }) {
+  // Keyed by `text` in the parent, so `shown` starts empty for each new
+  // message — the interval (async setState) is the only writer.
+  const [shown, setShown] = useState('');
+  useEffect(() => {
+    if (!busy) return;
+    let i = 0;
+    const id = setInterval(() => {
+      i += 2;
+      setShown(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, 18);
+    return () => clearInterval(id);
+  }, [text, busy]);
+  return (
+    <Text allowFontScaling={false} style={{ fontSize: 12.5, color: tokens.colors.text, lineHeight: 17 }}>
+      {busy ? shown : text}
+    </Text>
+  );
+}

@@ -24,6 +24,7 @@ import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
+import { GYMS } from '@/domain/battle-rpg/gyms';
 
 /**
  * The Arena hub, in the Home screen's language. TRANSFORM P7: A BATTLE IN
@@ -43,7 +44,8 @@ export default function ArenaScreen() {
   const [tab, setTab] = useState<0 | 1>(0);
   const [code, setCode] = useState('');
   const rivalry = useBattleRpgStore((s) => s.rivalry);
-  const gymCleared = useBattleRpgStore((s) => s.gymProgress['iron_foundry']?.cleared ?? false);
+  const gymProgress = useBattleRpgStore((s) => s.gymProgress);
+  const badgeCount = GYMS.filter((g) => gymProgress[g.id]?.firstClearClaimed).length;
 
   // Live matches lead; open invites keep their code card; history is what's
   // actually over. Every match lands in exactly one bucket (pure, tested).
@@ -201,19 +203,30 @@ export default function ArenaScreen() {
 
       <RulesStrip rules={BLITZ_RULES} />
 
-      {/* CHAMPION BATTLES (turn-based beta) — Gym / Rival / Training. */}
+      {/* CHAMPION BATTLES (turn-based beta) — Gyms / Rival / Training. */}
       <View>
         <SectionLabel>CHAMPION BATTLES</SectionLabel>
+        {badgeCount > 0 ? (
+          <View className="mb-s2 flex-row items-center rounded-lg border px-s3 py-s2" style={{ gap: 6, borderColor: `${tokens.colors.legendary}45`, backgroundColor: 'rgba(251,191,36,0.06)' }}>
+            <Text style={{ fontSize: 13 }}>🎖</Text>
+            <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors.legendary, fontFamily: PIXEL, letterSpacing: 1 }}>
+              {badgeCount} / {GYMS.length} FORGE BADGES EARNED
+            </Text>
+          </View>
+        ) : null}
         <View style={{ gap: 8 }}>
-          <BattleModeCard
-            glyph="🛡️"
-            tint={tokens.colors.legendary}
-            title="GYM BATTLE"
-            note="Challenge specialised trainers and earn Forge Badges."
-            tag={gymCleared ? 'IRON FOUNDRY · CLEARED' : 'IRON FOUNDRY'}
-            onPress={() => router.push('/battle?mode=gym&gym=iron_foundry' as never)}
-            testID="mode-gym"
-          />
+          {GYMS.map((g) => (
+            <BattleModeCard
+              key={g.id}
+              glyph="🛡️"
+              tint={tokens.colors.legendary}
+              title={`${g.name.toUpperCase()} GYM`}
+              note={`${g.leaderName} — ${g.leaderTitle}. ${g.theme}`}
+              tag={gymProgress[g.id]?.cleared ? 'CLEARED ✓' : `REC. EVO ${g.recommendedRating}`}
+              onPress={() => router.push(`/battle?mode=gym&gym=${g.id}` as never)}
+              testID={`mode-gym-${g.id}`}
+            />
+          ))}
           <BattleModeCard
             glyph="⚔"
             tint={tokens.colors.danger}

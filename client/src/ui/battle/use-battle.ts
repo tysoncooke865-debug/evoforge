@@ -70,6 +70,7 @@ export interface UseBattle {
   isBusy: boolean;
   playerMoves: BattleMove[];
   selectMove: (moveId: string) => void;
+  advance: () => void;
   rematch: () => void;
   /** Debug hooks (dev only). */
   debug: {
@@ -88,6 +89,7 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
   const [forceCrit, setForceCrit] = useState(false);
   const queueRef = useRef<BattleEvent[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepRef = useRef<(() => void) | null>(null);
   const endedRef = useRef(false);
 
   const playerMoves = useMemo(() => movesForChampion(setup.playerChampion), [setup.playerChampion]);
@@ -117,10 +119,19 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
         setMessage(next.message);
         timerRef.current = setTimeout(step, EVENT_MS);
       };
+      stepRef.current = step;
       step();
     },
     [onEnd]
   );
+
+  /** Tap-to-advance: skip the current event's dwell and show the next now. */
+  const advance = useCallback(() => {
+    if (!timerRef.current || !stepRef.current) return;
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+    stepRef.current();
+  }, []);
 
   const selectMove = useCallback(
     (moveId: string) => {
@@ -181,7 +192,7 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
     [forceCrit, onEnd]
   );
 
-  return { state, activeEvent, message, isBusy: state.isResolvingTurn, playerMoves, selectMove, rematch, debug };
+  return { state, activeEvent, message, isBusy: state.isResolvingTurn, playerMoves, selectMove, advance, rematch, debug };
 }
 
 /** Compute the reward + persist it. Called from the battle screen onEnd. */
@@ -195,9 +206,10 @@ export function settleBattle(
   const store = useBattleRpgStore.getState();
   const gymAlreadyCleared = setup.gymId ? store.gymProgress[setup.gymId]?.firstClearClaimed ?? false : false;
   const rewards = rewardsFor(setup.mode, won, { gymId: setup.gymId, gymAlreadyCleared });
+  const resultKey = `r_${Date.now()}_${Math.floor(Math.random() * 1e4)}`;
 
   store.recordResult({
-    id: `r_${Date.now()}_${Math.floor(Math.random() * 1e4)}`,
+    id: resultKey,
     at: Date.now(),
     mode: setup.mode,
     playerChampion: setup.playerChampion,
@@ -212,7 +224,8 @@ export function settleBattle(
     store.markGymClear(setup.gymId, turns, !!rewards.firstClear);
   }
   if (setup.mode === 'rival') store.recordRival(won, Date.now());
-  return rewards;
+  // resultKey is the idempotency key the server grant uses.
+  return { rewards, resultKey };
 }
 
 /** A tactical tip for the defeat screen, based on how the battle went. */
