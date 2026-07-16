@@ -95,6 +95,20 @@ export default function ArenaScreen() {
           <Text className="text-base font-bold text-accent">›</Text>
         </Pressable>
       ) : null}
+      {/* FRIENDS & RIVALS door (migration 036) — the social hub. */}
+      <Pressable
+        onPress={() => router.push('/friends' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Open friends and rivals"
+        testID="arena-friends-door"
+        className="flex-row items-center justify-between rounded-md border px-s3"
+        style={{ minHeight: 44, borderColor: `${tokens.colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
+      >
+        <Text className="text-epic" allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}>
+          ✦ FRIENDS &amp; RIVALS — add by code, track your head-to-head
+        </Text>
+        <Text className="text-base font-bold text-epic">›</Text>
+      </Pressable>
       {/* Masthead — the Home identity treatment, with the arena emblem. */}
       <View className="w-full">
         <View className="flex-row items-end justify-between">
