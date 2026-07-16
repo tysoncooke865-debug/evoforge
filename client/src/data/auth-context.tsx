@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { useSessionStore } from '@/state/session-store';
+import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
@@ -72,6 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useLoadoutStore.getState().reset();
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-loadout').catch(() => undefined)
+    );
+    // Battle RPG progress (gyms, rivalry, history) is per-athlete too.
+    useBattleRpgStore.getState().reset();
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      AsyncStorage.removeItem('evoforge-battle-rpg').catch(() => undefined)
     );
   };
 

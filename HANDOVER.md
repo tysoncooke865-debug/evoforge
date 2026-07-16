@@ -592,7 +592,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
   zustand store, add a persist `merge` (or migrate) — a fresh account
   (my tours) never has the stale shape, so only real users hit it.
 
-**Migrations applied through `031`. Next free number: `032`**
+- **TURN-BASED BATTLE RPG BETA (Tyson, 2026-07-16):** a Pokémon-style 1v1
+  system ADDED ALONGSIDE the byte-pinned BLITZ engine (never touched it).
+  domain/battle-rpg/ is a pure, deterministic engine (RNG threaded → 17
+  vitest pins: damage floor/defence/crit, stamina gating, priority+speed
+  order, bleed tick, status expiry, regen, defeated-can't-act, victory,
+  battle-over no-op, AI always-legal, gym anti-farm, stat-scaler band).
+  4 champions (Elite Aesthetic/Titan/Apex/Shredded → aesthetic/titan/
+  cardio/shredder sprites), 4 moves each + shared Recover, 5 statuses,
+  createBattleStats maps real SIZE/AES/STR/CND at a controlled 0-20% and
+  NORMALISES opponents toward the player's combat power (competitive
+  across Evo Ratings). Modes: Gym (Iron Foundry / Brax, defensive AI),
+  Rival (simulated Vex from Forge Level), Training (no stakes). UI:
+  ui/battle/* (animated sprites via transforms — idle bob, lunge, hit
+  shake+flash, victory glow, floating damage numbers; reduced-motion
+  gated), MoveGrid (2×2 + Recover, unaffordable disabled), result modal,
+  DEV-ONLY debug panel. Route app/(main)/battle.tsx (?mode=&gym=), 3
+  cards on the Arena hub. Persistence LOCAL-FIRST (state/battle-rpg-store,
+  cleared on signout) with migration 032 (battle_results/gym_progress/
+  rivalry_records, applied) as the documented Supabase seam. Rewards are
+  recorded locally, NOT minted into the guarded coin ledger (needs a
+  server grant RPC — next step). CRASH LESSON: setting a Reanimated
+  shared value INSIDE a withTiming completion callback stack-overflowed
+  on web — use withSequence (the app idiom), never a callback that writes
+  a value. Verified in-browser: full loop Arena→Training→pick→10-turn
+  fight→VICTORY→+5 Forge XP; gym preview shows Brax.
+
+**Migrations applied through `032`. Next free number: `033`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).
 

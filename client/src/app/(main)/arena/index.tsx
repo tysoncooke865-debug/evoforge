@@ -22,6 +22,8 @@ import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { useBattleRpgStore } from '@/state/battle-rpg-store';
+import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 
 /**
  * The Arena hub, in the Home screen's language. TRANSFORM P7: A BATTLE IN
@@ -40,6 +42,8 @@ export default function ArenaScreen() {
   const results = useMyBattleScores();
   const [tab, setTab] = useState<0 | 1>(0);
   const [code, setCode] = useState('');
+  const rivalry = useBattleRpgStore((s) => s.rivalry);
+  const gymCleared = useBattleRpgStore((s) => s.gymProgress['iron_foundry']?.cleared ?? false);
 
   // Live matches lead; open invites keep their code card; history is what's
   // actually over. Every match lands in exactly one bucket (pure, tested).
@@ -196,6 +200,40 @@ export default function ArenaScreen() {
       )}
 
       <RulesStrip rules={BLITZ_RULES} />
+
+      {/* CHAMPION BATTLES (turn-based beta) — Gym / Rival / Training. */}
+      <View>
+        <SectionLabel>CHAMPION BATTLES</SectionLabel>
+        <View style={{ gap: 8 }}>
+          <BattleModeCard
+            glyph="🛡️"
+            tint={tokens.colors.legendary}
+            title="GYM BATTLE"
+            note="Challenge specialised trainers and earn Forge Badges."
+            tag={gymCleared ? 'IRON FOUNDRY · CLEARED' : 'IRON FOUNDRY'}
+            onPress={() => router.push('/battle?mode=gym&gym=iron_foundry' as never)}
+            testID="mode-gym"
+          />
+          <BattleModeCard
+            glyph="⚔"
+            tint={tokens.colors.danger}
+            title="RIVAL BATTLE"
+            note="Fight a saved rival or simulated challenger."
+            tag={`VEX · ${rivalry.wins}W ${rivalry.losses}L`}
+            onPress={() => router.push('/battle?mode=rival' as never)}
+            testID="mode-rival"
+          />
+          <BattleModeCard
+            glyph="🎯"
+            tint={tokens.colors.accent}
+            title="TRAINING BATTLE"
+            note="Test moves without affecting your record."
+            tag="NO STAKES"
+            onPress={() => router.push('/battle?mode=training' as never)}
+            testID="mode-training"
+          />
+        </View>
+      </View>
 
       {/* MINI GAMES (design §16): single-round duels on the battle spine. */}
       {tab === 0 && !openInvite ? (
@@ -422,5 +460,31 @@ function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
         </View>
       </PressCard>
     </View>
+  );
+}
+
+/** A turn-based battle mode card for the Arena hub. */
+function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID }: { glyph: string; tint: string; title: string; note: string; tag: string; onPress: () => void; testID: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${note}`}
+      testID={testID}
+      className="rounded-xl border p-s4"
+      style={{ borderColor: `${tint}59`, backgroundColor: 'rgba(13,21,36,0.6)', shadowColor: tint, shadowOpacity: 0.18, shadowRadius: 14 }}
+    >
+      <View className="flex-row items-center" style={{ gap: 12 }}>
+        <View style={{ width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: `${tint}66`, backgroundColor: `${tint}14`, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 22 }}>{glyph}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text allowFontScaling={false} style={{ fontSize: 15, color: tokens.colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5 }}>{title}</Text>
+          <Text style={{ marginTop: 2, fontSize: 12, color: tokens.colors['text-mute'] }} numberOfLines={2}>{note}</Text>
+        </View>
+        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint }}>›</Text>
+      </View>
+      <Text allowFontScaling={false} style={{ marginTop: 8, fontSize: 8, color: tint, fontFamily: PIXEL, letterSpacing: 1 }}>{tag}</Text>
+    </Pressable>
   );
 }
