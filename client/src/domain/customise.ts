@@ -32,23 +32,28 @@ import type { EvolutionRequirement } from './next-evolution';
 
 /** Palette-swap skins (classic alternate costumes): luminance duotones of
  *  every delivered art set, generated 2026-07-16. 'standard' = base art. */
-export type SkinId = 'standard' | 'red' | 'green' | 'yellow' | 'orange' | 'white' | 'black';
+export type SkinId = 'standard' | 'red' | 'green' | 'yellow' | 'orange' | 'white' | 'black' | 'adam';
 
 export interface SkinItem {
   id: SkinId;
   name: string;
   /** Swatch colour for the item card (standard = null → shows the sprite). */
   swatch: string | null;
+  unlock: CosmeticUnlock;
 }
 
 export const SKINS: SkinItem[] = [
-  { id: 'standard', name: 'Standard Issue', swatch: null },
-  { id: 'red', name: 'Crimson Ops', swatch: '#d63939' },
-  { id: 'green', name: 'Jade Protocol', swatch: '#2f9e44' },
-  { id: 'yellow', name: 'Volt Squad', swatch: '#e6b117' },
-  { id: 'orange', name: 'Ember Unit', swatch: '#e8590c' },
-  { id: 'white', name: 'Ghost Frame', swatch: '#b8bcc8' },
-  { id: 'black', name: 'Void Ops', swatch: '#2b2b33' },
+  { id: 'standard', name: 'Standard Issue', swatch: null, unlock: { kind: 'free' } },
+  { id: 'red', name: 'Crimson Ops', swatch: '#d63939', unlock: { kind: 'free' } },
+  { id: 'green', name: 'Jade Protocol', swatch: '#2f9e44', unlock: { kind: 'free' } },
+  { id: 'yellow', name: 'Volt Squad', swatch: '#e6b117', unlock: { kind: 'free' } },
+  { id: 'orange', name: 'Ember Unit', swatch: '#e8590c', unlock: { kind: 'free' } },
+  { id: 'white', name: 'Ghost Frame', swatch: '#b8bcc8', unlock: { kind: 'free' } },
+  { id: 'black', name: 'Void Ops', swatch: '#2b2b33', unlock: { kind: 'free' } },
+  /** THE ASCENSION REWARD (Tyson, 2026-07-16): reaching level 100 — True
+   *  Adam — unlocks the unique violet-gold Adam skin. Mythic tier IS
+   *  level 100, so the existing tier gate carries it. */
+  { id: 'adam', name: 'True Adam', swatch: '#f5cf6a', unlock: { kind: 'tier', slug: 'mythic' } },
 ];
 
 // ---------------------------------------------------------------- auras
@@ -143,7 +148,10 @@ export function cosmeticUnlocked(unlock: CosmeticUnlock, ctx: UnlockContext): bo
 export function unlockLabel(unlock: CosmeticUnlock): string {
   if (unlock.kind === 'free') return '';
   if (unlock.kind === 'forge') return `FORGE LEVEL ${unlock.level}`;
-  if (unlock.kind === 'tier') return `REACH ${unlock.slug.toUpperCase()} TIER`;
+  if (unlock.kind === 'tier') {
+    // Mythic is level 100 exactly — say it the way the athlete reads it.
+    return unlock.slug === 'mythic' ? 'REACH LEVEL 100 — TRUE ADAM' : `REACH ${unlock.slug.toUpperCase()} TIER`;
+  }
   return unlock.source.toUpperCase();
 }
 
@@ -235,25 +243,45 @@ export interface StageOption {
   requirement: string;
 }
 
-export function stageOptions(branch: BranchV2, level: number, bfMid: number | null): StageOption[] {
+/**
+ * A champion's stage ladder. `characterUnlocked` gates the whole ladder
+ * (Tyson, 2026-07-16: "stages of other characters show as unlocked
+ * despite not completing the skill tree") — your level lights a stage
+ * only on champions whose gates you have actually met; a locked
+ * champion's stages all read locked, previews only.
+ */
+export function stageOptions(
+  branch: BranchV2,
+  level: number,
+  bfMid: number | null,
+  characterUnlocked = true
+): StageOption[] {
+  const lockRow = (o: StageOption): StageOption =>
+    characterUnlocked
+      ? o
+      : { ...o, unlocked: false, current: false, requirement: 'UNLOCK THIS CHAMPION FIRST' };
   if (branch === 'shredder') {
-    return shredderRows(bfMid).map((row) => ({
-      key: `S${row.stage}`,
+    return shredderRows(bfMid).map((row) =>
+      lockRow({
+        key: `S${row.stage}`,
+        stage: row.stage,
+        name: row.name,
+        unlocked: row.unlocked,
+        current: row.current,
+        requirement: row.bfTarget === null ? '' : `UNDER ${row.bfTarget}% BODY FAT`,
+      })
+    );
+  }
+  return avatarStageRowsV2(branch, level).map((row) =>
+    lockRow({
+      key: `L${row.level}`,
       stage: row.stage,
       name: row.name,
       unlocked: row.unlocked,
       current: row.current,
-      requirement: row.bfTarget === null ? '' : `UNDER ${row.bfTarget}% BODY FAT`,
-    }));
-  }
-  return avatarStageRowsV2(branch, level).map((row) => ({
-    key: `L${row.level}`,
-    stage: row.stage,
-    name: row.name,
-    unlocked: row.unlocked,
-    current: row.current,
-    requirement: `REACH LEVEL ${row.level}`,
-  }));
+      requirement: `REACH LEVEL ${row.level}`,
+    })
+  );
 }
 
 // ---------------------------------------------------------------- loadout
@@ -333,8 +361,15 @@ export function resolveDisplay(derived: DerivedIdentity, loadout: Loadout): Reso
     branch === 'shredder'
       ? shredderName(derived.bfMid)
       : evolutionNameV2(branch, derived.level);
-  if (loadout.stageKey !== null && loadout.branch === branch) {
-    const option = stageOptions(branch, derived.level, derived.bfMid).find(
+  // The stage pick applies to the loadout's TARGET champion — and null
+  // branch MEANS the derived one (Tyson, 2026-07-16: "equipping the skin
+  // isn't working when trying to equip a lower level avatar" — comparing
+  // null against the resolved branch dropped every own-champion stage
+  // pick on the floor).
+  if (loadout.stageKey !== null && (loadout.branch ?? derived.branch) === branch) {
+    // branch here is already gate-validated (or derived), so the ladder
+    // evaluates as an UNLOCKED champion's.
+    const option = stageOptions(branch, derived.level, derived.bfMid, true).find(
       (o) => o.key === loadout.stageKey
     );
     if (option?.unlocked) {
@@ -344,7 +379,8 @@ export function resolveDisplay(derived: DerivedIdentity, loadout: Loadout): Reso
   }
 
   const ctx = unlockContext(derived);
-  const skin = SKINS.find((s) => s.id === loadout.skinId);
+  const skinItem = SKINS.find((s) => s.id === loadout.skinId);
+  const skin = skinItem && cosmeticUnlocked(skinItem.unlock, ctx) ? skinItem : undefined;
   const aura = AURAS.find((a) => a.id === loadout.auraId);
   const auraUnlocked = aura !== undefined && cosmeticUnlocked(aura.unlock, ctx);
   const emote = EMOTES.find((e) => e.id === loadout.emoteId);
@@ -432,6 +468,10 @@ export function equipState(
   }
 
   const ctx = unlockContext(derived);
+  const skin = SKINS.find((s) => s.id === sel.skinId);
+  if (skin && !cosmeticUnlocked(skin.unlock, ctx)) {
+    return { kind: 'locked-cosmetic', requirement: unlockLabel(skin.unlock) };
+  }
   const aura = AURAS.find((a) => a.id === sel.auraId);
   if (aura && !cosmeticUnlocked(aura.unlock, ctx)) {
     return { kind: 'locked-cosmetic', requirement: unlockLabel(aura.unlock) };

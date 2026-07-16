@@ -75,7 +75,7 @@ export function CosmeticTabs({
                   key={skin.id}
                   name={skin.name}
                   selected={selection.skinId === skin.id}
-                  unlock={{ kind: 'free' }}
+                  unlock={skin.unlock}
                   unlockCtx={unlockCtx}
                   testID={`skin-${skin.id}`}
                   onPress={() => onChange({ skinId: skin.id })}

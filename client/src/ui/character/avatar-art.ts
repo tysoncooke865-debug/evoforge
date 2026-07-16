@@ -69,6 +69,23 @@ const MASS_ROTATIONS: Record<number, ImageSourcePropType> = {
   4: require('../../assets/sprites/mass-monster/rotations-stage4.gif'),
 };
 
+/** THE TITAN LINE, stages 1-4 (Titan_L4.zip, Tyson, 2026-07-16 —
+ *  136×136, cyberpunk Viking): Titan no longer borrows the Mass
+ *  Monster's body. Rotations only so far — the COMPANION keeps the
+ *  mass move set until Titan's own animations land. */
+const TITAN_ROTATIONS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/titan/rotations-stage1.gif'),
+  2: require('../../assets/sprites/titan/rotations-stage2.gif'),
+  3: require('../../assets/sprites/titan/rotations-stage3.gif'),
+  4: require('../../assets/sprites/titan/rotations-stage4.gif'),
+};
+const TITAN_STILLS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/sprites/titan/still-stage1.png'),
+  2: require('../../assets/sprites/titan/still-stage2.png'),
+  3: require('../../assets/sprites/titan/still-stage3.png'),
+  4: require('../../assets/sprites/titan/still-stage4.png'),
+};
+
 /** The Cyber Athlete line, stages 1–4 (Tyson, 2026-07-16 — 124×124,
  *  8 frames @ 200ms): the aesthetic HOME avatar rotates per stage. */
 const AESTHETIC_ROTATIONS: Record<number, ImageSourcePropType> = {
@@ -91,12 +108,10 @@ export function animatedAvatar(
   sex: Sex
 ): ImageSourcePropType | undefined {
   if (sex !== 'male') return undefined;
-  if (branch === 'mass' || branch === 'titan') {
-    return MASS_ROTATIONS[Math.max(1, Math.min(4, Math.trunc(stage)))];
-  }
-  if (branch === 'aesthetic' || branch === 'shredder') {
-    return AESTHETIC_ROTATIONS[Math.max(1, Math.min(4, Math.trunc(stage)))];
-  }
+  const s = Math.max(1, Math.min(4, Math.trunc(stage)));
+  if (branch === 'titan') return TITAN_ROTATIONS[s];
+  if (branch === 'mass') return MASS_ROTATIONS[s];
+  if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_ROTATIONS[s];
   return undefined;
 }
 
@@ -124,12 +139,10 @@ export function stillAvatar(
   sex: Sex
 ): ImageSourcePropType | undefined {
   if (sex !== 'male') return undefined;
-  if (branch === 'mass' || branch === 'titan') {
-    return MASS_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))];
-  }
-  if (branch === 'aesthetic' || branch === 'shredder') {
-    return AESTHETIC_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))];
-  }
+  const s = Math.max(1, Math.min(4, Math.trunc(stage)));
+  if (branch === 'titan') return TITAN_STILLS[s];
+  if (branch === 'mass') return MASS_STILLS[s];
+  if (branch === 'aesthetic' || branch === 'shredder') return AESTHETIC_STILLS[s];
   return undefined;
 }
 
@@ -148,7 +161,12 @@ export function avatarArtV2(branch: BranchV2, stage: number, sex: Sex): AvatarAr
   if (branch === 'shredder') {
     return { source: shredderImage(stage), hasArt: true };
   }
-  const coreBranch = branch === 'titan' || branch === 'cardio' ? null : branch;
+  if (branch === 'titan') {
+    // Real art since the Titan pack: the still stands in as the "painted"
+    // source so nothing silhouettes a form that exists.
+    return { source: TITAN_STILLS[Math.max(1, Math.min(4, Math.trunc(stage)))], hasArt: true };
+  }
+  const coreBranch = branch === 'cardio' ? null : branch;
   if (coreBranch) {
     return { source: avatarImage(coreBranch, stage), hasArt: true };
   }

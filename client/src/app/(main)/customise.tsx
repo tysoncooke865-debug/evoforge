@@ -87,7 +87,7 @@ export default function CustomiseScreen() {
 
   const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
   const entry = roster.find((e) => e.id === selection.branch) ?? roster[0];
-  const options = stageOptions(entry.id, derived.level, derived.bfMid);
+  const options = stageOptions(entry.id, derived.level, derived.bfMid, entry.unlocked);
   const selectedOption =
     selection.branch === entry.id && selection.stageKey !== null
       ? (options.find((o) => o.key === selection.stageKey) ?? null)

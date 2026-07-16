@@ -459,6 +459,35 @@ Owner: Tyson. He works through other Claude sessions too — **always
      create an HTMLMediaElement; a future native build must use the
      ambient/mixWithOthers audio category.
 
+- **TITAN LINE + TRUE ADAM + LADDER FIXES (Tyson, 2026-07-16 late):**
+  1. *Titan_L4.zip*: Titan stands on its OWN body now — cyberpunk Viking,
+     rotations-stage{1..4}.gif + stills (136×136, pad 22.8–24.3% — the
+     0.24 constant holds) in assets/sprites/titan/, plus all 7 skin
+     recolours. avatarArtV2 male titan returns hasArt:true (the still
+     stands in as painted). ROTATIONS ONLY: companionLine(titan) stays
+     'mass' until Titan's move set lands; avatar-skins now resolves
+     tables per-line explicitly (skinTables — skins must NOT follow the
+     companion borrow). The stray "Viking warrior" folder in the zip is
+     an L1 duplicate, ignored.
+  2. *"Only 4 stages per skin; level 100 True Adam unlocks the Adam
+     skin"*: avatarStageRowsV2 folds duplicate-art rows (uniqueStages —
+     one row per BODY, current recomputed onto the kept ladder). Folded
+     forms (True Adam, Titan Prime, Perpetual…) remain FORM NAMES via
+     evolutionNameV2. NEW SKIN 'adam' (violet-shadowed white-gold,
+     distinct from Volt): gated {kind:'tier', slug:'mythic'} = level 100
+     exactly, label "REACH LEVEL 100 — TRUE ADAM". SkinItem carries
+     unlock now; resolveDisplay/equipState validate skins like auras.
+  3. *"Stages of locked champions show unlocked"*: stageOptions takes
+     characterUnlocked — a locked champion's ladder is all-locked
+     ("UNLOCK THIS CHAMPION FIRST"), previews only; your level lights
+     stages only on champions whose gates you met.
+  4. *"Equipping a lower-level avatar doesn't work"*: own-champion
+     loadouts store branch:null (follow evolutions), but resolveDisplay
+     compared null===branch and dropped every own-champion stage pick.
+     Now (loadout.branch ?? derived.branch). Proven in-browser: stage 1
+     + red equips, Home serves aesthetic-red-stage1 at base size (no
+     growth at stage 1), form badge CYBER RECRUIT.
+
 **Migrations applied through `024`. Next free number: `025`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).

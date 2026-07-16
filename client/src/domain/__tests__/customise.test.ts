@@ -99,6 +99,16 @@ describe('stage options mirror the real ladders', () => {
     expect(options.find((o) => o.current)).toBeTruthy();
   });
 
+  it("a LOCKED champion's stages are all locked, whatever your level", () => {
+    // Tyson, 2026-07-16: level 57 lit stages 1-3 of champions whose
+    // gates he had not met.
+    const options = stageOptions('mass', 57, null, false);
+    expect(options.every((o) => !o.unlocked && !o.current)).toBe(true);
+    expect(options.every((o) => o.requirement === 'UNLOCK THIS CHAMPION FIRST')).toBe(true);
+    // The same ladder for an UNLOCKED champion keeps its level gates.
+    expect(stageOptions('mass', 57, null, true).some((o) => o.unlocked)).toBe(true);
+  });
+
   it('shredder stages gate by body fat, not level', () => {
     const options = stageOptions('shredder', 99, 20);
     expect(options).toHaveLength(4);
@@ -144,6 +154,17 @@ describe('resolveDisplay — the persisted loadout is re-validated on read', () 
     const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: 'aesthetic', stageKey: early.key });
     expect(display.stage).toBe(early.stage);
     expect(display.formName).toBe(early.name);
+  });
+
+  it("TYSON'S CASE: equipping a LOWER stage of your OWN champion applies", () => {
+    // Equipping your own champion stores branch: null (follow future
+    // evolutions) — the stage pick must still land.
+    const d = derived({ level: 57 });
+    const early = stageOptions('aesthetic', 57, null).filter((o) => o.unlocked)[0];
+    const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: null, stageKey: early.key, skinId: 'red' });
+    expect(display.stage).toBe(early.stage);
+    expect(display.formName).toBe(early.name);
+    expect(display.skinId).toBe('red');
   });
 
   it('a locked aura/emote falls back; an unlocked one applies', () => {
@@ -238,18 +259,38 @@ describe('catalogs', () => {
     expect(unlockLabel({ kind: 'tier', slug: 'legendary' })).toBe('REACH LEGENDARY TIER');
   });
 
-  it('the mass line spreads FOUR art stages (stage 4 exists, none repeat early)', () => {
+  it('every ladder shows ONE ROW PER BODY — four stages, stage 4 real', () => {
     // Tyson: "mass monster is missing its stage 4, and stages 1 and 2 are
-    // the same" — the ladder must hit a NEW body at 25/50/75.
+    // the same" + "only 4 stages for each type of skin".
     expect([1, 24, 25, 50, 75, 100].map((l) => massArtStage(l))).toEqual([1, 1, 2, 3, 4, 4]);
-    const rowStages = avatarStageRowsV2('mass', 100).map((r) => r.stage);
-    expect(rowStages).toEqual([1, 2, 3, 4, 4]);
-    const titanStages = avatarStageRowsV2('titan', 100).map((r) => r.stage);
-    expect(titanStages).toEqual([1, 2, 3, 4, 4]);
+    expect(avatarStageRowsV2('mass', 100).map((r) => r.stage)).toEqual([1, 2, 3, 4]);
+    expect(avatarStageRowsV2('titan', 100).map((r) => r.stage)).toEqual([1, 2, 3, 4]);
+    expect(avatarStageRowsV2('aesthetic', 100).map((r) => r.stage)).toEqual([1, 2, 3, 4]);
     expect(currentStageFor('mass', 80, null)).toBe(4);
     expect(currentStageFor('titan', 55, null)).toBe(3);
-    // Cardio keeps the 3-stage hybrid painted scheme.
-    expect(Math.max(...avatarStageRowsV2('cardio', 100).map((r) => r.stage))).toBe(3);
+    // Cardio keeps the 3-stage hybrid painted scheme — three rows.
+    expect(avatarStageRowsV2('cardio', 100).map((r) => r.stage)).toEqual([1, 2, 3]);
+    // The fold recomputes CURRENT onto the kept ladder (level 100's row
+    // folded into the stage-4 card).
+    const rows = avatarStageRowsV2('mass', 100);
+    expect(rows.filter((r) => r.current)).toHaveLength(1);
+    expect(rows.find((r) => r.current)?.stage).toBe(4);
+  });
+
+  it("TRUE ADAM: the level-100 skin unlocks at mythic, locked before", () => {
+    const adam = SKINS.find((s) => s.id === 'adam')!;
+    expect(cosmeticUnlocked(adam.unlock, { forgeLevel: 999, legacyLevel: 99 })).toBe(false);
+    expect(cosmeticUnlocked(adam.unlock, { forgeLevel: 0, legacyLevel: 100 })).toBe(true);
+    expect(unlockLabel(adam.unlock)).toBe('REACH LEVEL 100 — TRUE ADAM');
+    // resolveDisplay refuses a locked adam skin (falls back to standard)…
+    const locked = resolveDisplay(derived({ level: 57 }), { ...DEFAULT_LOADOUT, skinId: 'adam' });
+    expect(locked.skinId).toBe('standard');
+    // …and serves it at 100.
+    const open = resolveDisplay(derived({ level: 100 }), { ...DEFAULT_LOADOUT, skinId: 'adam' });
+    expect(open.skinId).toBe('adam');
+    // The equip button surfaces the requirement.
+    const state = equipState(derived({ level: 57 }), { branch: 'aesthetic', stageKey: null, skinId: 'adam', auraId: 'rarity', emoteId: 'victory', effectId: 'podium' }, DEFAULT_LOADOUT);
+    expect(state).toEqual({ kind: 'locked-cosmetic', requirement: 'REACH LEVEL 100 — TRUE ADAM' });
   });
 
   it('emote ids ARE companion anims (the header depends on it)', () => {

@@ -113,11 +113,12 @@ describe('v2 ladders and evolutions', () => {
     expect(evolutionNameV2('mass', 80)).toBe('Titan Form');
   });
 
-  it('stage rows: current flags exactly one row, stages map 1/2/3', () => {
+  it('stage rows: one row per body, current flags exactly one', () => {
     const rows = avatarStageRowsV2('cardio', 60);
     expect(rows.filter((r) => r.current)).toHaveLength(1);
     expect(rows.find((r) => r.current)?.name).toBe('Enduro');
-    expect(rows.map((r) => r.stage)).toEqual([1, 1, 2, 3, 3]);
+    // ONE ROW PER BODY (Tyson, 2026-07-16): duplicate-art rows fold away.
+    expect(rows.map((r) => r.stage)).toEqual([1, 2, 3]);
   });
 
   it('nextEvolutionV2: titan gates, cardio gates, core delegation', () => {

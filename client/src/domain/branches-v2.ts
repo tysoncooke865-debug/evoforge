@@ -240,6 +240,19 @@ export interface StageRowV2 {
   current: boolean;
 }
 
+/** One row per BODY (Tyson, 2026-07-16: "only 4 stages for each type of
+ *  skin"): rows that re-use an earlier stage's art are folded away, so
+ *  4-stage lines show 4 rows and painted 3-stage lines show 3. The folded
+ *  forms (True Adam, Titan Prime, Perpetual…) remain FORM NAMES via
+ *  evolutionNameV2 — and reaching level 100 unlocks the True Adam SKIN
+ *  instead of a duplicate stage card. */
+function uniqueStages(rows: StageRowV2[]): StageRowV2[] {
+  const seen = new Set<number>();
+  const out = rows.filter((r) => (seen.has(r.stage) ? false : (seen.add(r.stage), true)));
+  const lastUnlocked = [...out].reverse().find((r) => r.unlocked);
+  return out.map((r) => ({ ...r, current: r === lastUnlocked }));
+}
+
 export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[] {
   if (branch === 'shredder') {
     // Body-fat-driven; use shredderRows(bfMid) instead. Empty here keeps the
@@ -254,21 +267,23 @@ export function avatarStageRowsV2(branch: BranchV2, level: number): StageRowV2[]
     // hybrid painted scheme until its own art lands.
     const stageFor = (unlock: number) =>
       branch === 'titan' ? massArtStage(unlock) : unlock >= 75 ? 3 : unlock >= 50 ? 2 : 1;
-    return ladder.map(([unlock, name]) => ({
-      level: unlock,
-      name,
-      stage: stageFor(unlock),
-      unlocked: level >= unlock,
-      current: level >= unlock && unlock === highest,
-    }));
+    return uniqueStages(
+      ladder.map(([unlock, name]) => ({
+        level: unlock,
+        name,
+        stage: stageFor(unlock),
+        unlocked: level >= unlock,
+        current: level >= unlock && unlock === highest,
+      }))
+    );
   }
   // Core branches use the pinned rows — except the mass line's ART stage,
   // remapped to the four delivered sprite stages (names + levels pinned).
   const rows = CORE_ROWS(branch, level);
   if (branch === 'mass') {
-    return rows.map((row) => ({ ...row, stage: massArtStage(row.level) }));
+    return uniqueStages(rows.map((row) => ({ ...row, stage: massArtStage(row.level) })));
   }
-  return rows;
+  return uniqueStages(rows);
 }
 
 /**
