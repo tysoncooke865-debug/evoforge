@@ -512,11 +512,11 @@ export function resolveDisplay(
   // is untouched. Aura/emote still apply.
   let character: ResolvedDisplay['character'] = null;
   let overlayName = formName;
-  if (loadout.character !== null && ownedCharacters.has(loadout.character)) {
+  if (loadout.character != null && ownedCharacters.has(loadout.character)) {
     const c = PREMIUM_CHARACTERS.find((x) => x.id === loadout.character);
     if (c) {
-      const cStage = Math.max(1, Math.min(c.stageNames.length, Math.trunc(loadout.characterStage)));
-      character = { id: c.id, stage: cStage, look: loadout.characterSkin };
+      const cStage = Math.max(1, Math.min(c.stageNames.length, Math.trunc(loadout.characterStage ?? 1)));
+      character = { id: c.id, stage: cStage, look: loadout.characterSkin ?? 'standard' };
       overlayName = c.stageNames[cStage - 1];
     }
   }
@@ -551,13 +551,16 @@ export function selectionFromLoadout(derivedBranch: BranchV2, loadout: Loadout):
   return {
     branch: loadout.branch ?? derivedBranch,
     stageKey: loadout.stageKey,
-    skinId: loadout.skinId,
-    auraId: loadout.auraId,
-    emoteId: loadout.emoteId,
-    effectId: loadout.effectId,
-    character: loadout.character,
-    characterStage: loadout.characterStage,
-    characterSkin: loadout.characterSkin,
+    skinId: loadout.skinId ?? 'standard',
+    auraId: loadout.auraId ?? 'rarity',
+    emoteId: loadout.emoteId ?? 'victory',
+    effectId: loadout.effectId ?? 'podium',
+    // Default the overlay fields (Tyson, 2026-07-16: a loadout persisted
+    // before these existed rehydrates them as undefined — undefined is
+    // truthy-different-from-null and crashed Gymerica mode).
+    character: loadout.character ?? null,
+    characterStage: loadout.characterStage ?? 1,
+    characterSkin: loadout.characterSkin ?? 'standard',
   };
 }
 
@@ -613,7 +616,7 @@ export function equipState(
 ): EquipState {
   // A premium character overlay is its own decision path — it does not
   // depend on the branch gates (it sits ON TOP of any class).
-  if (sel.character !== null) {
+  if (sel.character != null) {
     const c = PREMIUM_CHARACTERS.find((x) => x.id === sel.character);
     if (c && !ownedCharacters.has(c.id)) {
       return { kind: 'buy-character', character: c.id, price: c.price };

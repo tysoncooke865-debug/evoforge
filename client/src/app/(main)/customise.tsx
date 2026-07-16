@@ -116,7 +116,7 @@ export default function CustomiseScreen() {
 
   // GYMERICA MODE: a premium character is selected — his own panel replaces
   // the branch preview/stage/outfit blocks.
-  const gymericaMode = selection.character !== null;
+  const gymericaMode = selection.character != null;
 
   // The equipped loadout resolves to a branch (or premium char) for the
   // roster's ◈ marker.

@@ -580,6 +580,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
   adjustment insert, then re-enable; clean up the spend+unlock+topup
   after (ALPHA restored to 225 each time).
 
+- **CRASH HOTFIX (Tyson: "app crashes every time I click Customise",
+  2026-07-16):** a loadout persisted BEFORE the Gymerica overlay fields
+  existed rehydrated them as `undefined`, not null — and `undefined !==
+  null` is TRUE, so selection.character tripped gymericaMode into
+  GymericaPanel with characterSkin=undefined → art lookup crash. Fixed at
+  THREE layers: (1) loadout-store persist `merge` spreads DEFAULT_LOADOUT
+  under the saved values so every rehydrated wallet is complete; (2)
+  selectionFromLoadout defaults each field with `?? `; (3) the overlay
+  checks use loose `!= null`. RULE: when you add a field to a PERSISTED
+  zustand store, add a persist `merge` (or migrate) — a fresh account
+  (my tours) never has the stale shape, so only real users hit it.
+
 **Migrations applied through `031`. Next free number: `032`**
 (022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
 if 025 is taken by then; check `ls migrations/` first).

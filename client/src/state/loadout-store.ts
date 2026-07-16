@@ -35,6 +35,16 @@ export const useLoadoutStore = create<LoadoutState>()(
     {
       name: 'evoforge-loadout',
       storage: createJSONStorage(() => AsyncStorage),
+      // MIGRATION (Tyson, 2026-07-16: "app crashes on Customise"): a loadout
+      // persisted before a field existed (e.g. the Gymerica overlay fields)
+      // rehydrates WITHOUT it — `character` comes back undefined, not null,
+      // which is truthy-different-from-null and tripped Gymerica mode into a
+      // crash. Merging DEFAULT_LOADOUT under the saved values fills every
+      // missing field, so an old wallet is always a complete loadout.
+      merge: (persisted, current) => {
+        const saved = (persisted as { loadout?: Partial<Loadout> } | undefined)?.loadout;
+        return { ...current, loadout: { ...DEFAULT_LOADOUT, ...(saved ?? {}) } };
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         // Same convention as session-store: flip the flag on the rehydrated

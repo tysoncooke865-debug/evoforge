@@ -408,3 +408,24 @@ describe('premium character: Captain Gymerica (Tyson, 2026-07-16)', () => {
     expect(characterStageOptions(GYMERICA, false).every((o) => !o.unlocked)).toBe(true);
   });
 });
+
+describe('stale loadout migration (Tyson: "app crashes on Customise")', () => {
+  it('a loadout persisted before the overlay fields is safe', () => {
+    // Simulate an old persisted wallet: no character/characterStage/
+    // characterSkin (they rehydrate as undefined, not null).
+    const stale = {
+      branch: null, stageKey: null, skinId: 'standard', auraId: 'rarity',
+      emoteId: 'victory', effectId: 'podium',
+    } as unknown as typeof DEFAULT_LOADOUT;
+    const sel = selectionFromLoadout('aesthetic', stale);
+    expect(sel.character).toBeNull();
+    expect(sel.characterStage).toBe(1);
+    expect(sel.characterSkin).toBe('standard');
+    // resolveDisplay must not treat undefined as an equipped character.
+    const d = { branch: 'aesthetic' as const, level: 40, bfMid: 15,
+      scores: { strength: 40, size: 40, leanness: 40, conditioning: 40, aesthetic: 60 },
+      ctx: { nutritionPhase: 'bulking', earliestBf: 18 }, forgeLevel: 8 };
+    const shown = resolveDisplay(d, stale, new Set(), new Set(['gymerica']));
+    expect(shown.character).toBeNull();
+  });
+});
