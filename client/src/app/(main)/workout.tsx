@@ -34,6 +34,7 @@ import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
+import { playComplete } from '@/ui/core/sound';
 import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
@@ -239,6 +240,7 @@ export default function WorkoutScreen() {
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      playComplete(); // the retro workout-complete jingle (web; settings-gated)
       setSheet(buildSummary());
       claimCoins.mutate({ kind: 'workout_complete', sourceId: date });
     }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { SpecialCharacterId } from '@/domain/customise';
 import { useToastStore } from '@/state/toast-store';
+import { playPowerUp } from '@/ui/core/sound';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -57,6 +58,7 @@ export function usePurchaseCharacter() {
       void queryClient.invalidateQueries({ queryKey: ['user_character_unlocks'] });
       void queryClient.invalidateQueries({ queryKey: ['coin_total'] });
       void queryClient.invalidateQueries({ queryKey: ['coin_events'] });
+      playPowerUp(); // retro unlock chime (web; settings-gated)
       useToastStore.getState().push({
         kind: 'achievement',
         title: 'CHARACTER UNLOCKED',

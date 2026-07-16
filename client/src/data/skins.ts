@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BranchV2 } from '@/domain/branches-v2';
 import type { SkinId } from '@/domain/customise';
 import { useToastStore } from '@/state/toast-store';
+import { playPurchase } from '@/ui/core/sound';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -78,6 +79,7 @@ export function usePurchaseSkin() {
       void queryClient.invalidateQueries({ queryKey: ['user_skin_unlocks'] });
       void queryClient.invalidateQueries({ queryKey: ['coin_total'] });
       void queryClient.invalidateQueries({ queryKey: ['coin_events'] });
+      playPurchase(); // retro coin-cascade (web; settings-gated)
       useToastStore.getState().push({
         kind: 'achievement',
         title: 'COLOUR UNLOCKED',

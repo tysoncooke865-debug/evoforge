@@ -86,3 +86,20 @@ export const playHeal = () => blip(520, 880, 0.16, 0.09, 'sine');
 export const playVictory = () => { blip(523, 523, 0.12, 0.1, 'square', 0); blip(659, 659, 0.12, 0.1, 'square', 0.12); blip(784, 784, 0.12, 0.1, 'square', 0.24); blip(1046, 1046, 0.22, 0.1, 'square', 0.36); };
 /** A falling defeat tone. */
 export const playDefeat = () => { blip(392, 392, 0.16, 0.09, 'sawtooth', 0); blip(311, 311, 0.16, 0.09, 'sawtooth', 0.16); blip(233, 233, 0.3, 0.09, 'sawtooth', 0.32); };
+
+// ---- Progression SFX (Tyson 2026-07-17: "more retro 8-bit sounds") — the
+// reward moments of the core loop. Same Web Audio path; web-only, gated. ----
+/** The coin "bling" — banking a set. The classic quick B5→E6 pickup. */
+export const playCoin = () => { blip(988, 988, 0.05, 0.1, 'square', 0); blip(1319, 1319, 0.14, 0.1, 'square', 0.05); };
+/** A personal-record fanfare — brighter than a coin, with a sparkle tail. */
+export const playPr = () => { blip(1046, 1046, 0.06, 0.1, 'square', 0); blip(1319, 1319, 0.06, 0.1, 'square', 0.06); blip(1568, 1568, 0.08, 0.1, 'square', 0.12); blip(2093, 2637, 0.2, 0.07, 'square', 0.2); };
+/** Level up — a triumphant rising major run, the final note held. */
+export const playLevelUp = () => { const n = [523, 659, 784, 1046, 1319]; n.forEach((f, i) => blip(f, f, i === 4 ? 0.32 : 0.11, 0.1, 'square', i * 0.09)); };
+/** Power-up — a fast stepped rise for an unlock / new character. */
+export const playPowerUp = () => { const n = [330, 494, 659, 988, 1319]; n.forEach((f, i) => blip(f, f, 0.06, 0.09, 'square', i * 0.05)); };
+/** A cash-register cascade for a coin purchase. */
+export const playPurchase = () => { blip(1319, 1319, 0.05, 0.09, 'square', 0); blip(1047, 1047, 0.05, 0.09, 'square', 0.06); blip(1568, 1568, 0.18, 0.09, 'square', 0.12); };
+/** Rest-over chime — a gentle two-tone alert (softer triangle, not the coin). */
+export const playRestOver = () => { blip(784, 784, 0.12, 0.09, 'triangle', 0); blip(1046, 1046, 0.24, 0.09, 'triangle', 0.13); };
+/** Workout complete — a fuller victory jingle, distinct from the battle win. */
+export const playComplete = () => { const n = [523, 659, 784, 1046, 784, 1046, 1319]; n.forEach((f, i) => blip(f, f, i === 6 ? 0.36 : 0.1, 0.1, 'square', i * 0.1)); };

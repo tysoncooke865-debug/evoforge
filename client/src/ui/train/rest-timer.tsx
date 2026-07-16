@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import tokens from '@/theme/tokens';
+import { playRestOver } from '@/ui/core/sound';
 
 /**
  * TRANSFORM P2 — the rest timer. Absolute-timestamp design, per the
@@ -67,9 +68,9 @@ export function RestTimerBar() {
   // The completion buzz lives in an effect (refs/side-effects never run in
   // render): fires exactly once per rest as `over` flips true.
   useEffect(() => {
-    if (over && Platform.OS !== 'web') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    if (!over) return;
+    if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    playRestOver(); // the retro rest-over chime (web; settings-gated)
   }, [over]);
 
   if (endAt === null || remaining === null) return null;

@@ -12,6 +12,7 @@ import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/character/floating-xp';
 import { NumberField } from '@/ui/core/number-field';
+import { playCoin, playPr, playSelect } from '@/ui/core/sound';
 import { startRest } from '@/ui/train/rest-timer';
 import { schemeSentence } from '@/ui/train/scheme-sentence';
 import { GlowCard } from '@/ui/core/shell';
@@ -516,7 +517,12 @@ function SetRow({
             // P2: the rest clock starts the moment a NEW set banks.
             startRest();
           }
-          if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) onPr();
+          const isPr = (verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr;
+          if (isPr) onPr();
+          // Retro reward SFX: a PR fanfare trumps the coin; a plain re-log ticks.
+          if (isPr) playPr();
+          else if (verdict.action === 'insert') playCoin();
+          else if (verdict.action === 'update') playSelect();
           onLogged?.(verdict);
           // Show ✓ LOGGED + glow, then hand off so the parent advances the hero.
           setJustSaved(true);

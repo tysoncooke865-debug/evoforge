@@ -15,6 +15,7 @@ import { durations } from '@/theme/animations';
 import tokens from '@/theme/tokens';
 
 import { NeonButton } from '@/ui/core/neon-button';
+import { playLevelUp } from '@/ui/core/sound';
 
 /**
  * The level-up ceremony: world dims, the number counts old → new, the aura
@@ -38,6 +39,7 @@ export function LevelUpOverlay({
 
   useEffect(() => {
     if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    playLevelUp(); // the retro level-up run (web; settings-gated)
     if (reducedMotion) return;
     scale.value = withSequence(
       withTiming(1.08, { duration: durations.panel, easing: Easing.out(Easing.back(1.4)) }),
