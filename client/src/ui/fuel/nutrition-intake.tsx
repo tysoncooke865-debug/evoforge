@@ -16,6 +16,7 @@ import {
 } from '@/domain/nutrition';
 import { pyFloat } from '@/domain/py';
 import { todayIso as calendarToday } from '@/domain/today';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
@@ -233,7 +234,11 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
           {step.kind === 'loading' ? (
             <View className="items-center py-s5">
               <ActivityIndicator color={tokens.colors.accent} />
-              <Text className="mt-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+              <Text
+                className="mt-s2 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+              >
                 THINKING…
               </Text>
             </View>
@@ -307,12 +312,23 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
                   </View>
                 ))}
               </View>
-              <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+              >
                 YOUR DAILY TARGET
               </Text>
               <Text
-                className="mb-s3 text-3xl font-bold text-text"
-                style={{ textShadowColor: `${tokens.colors.accent}80`, textShadowRadius: 14, fontVariant: ['tabular-nums'] }}
+                className="mb-s3 text-text"
+                allowFontScaling={false}
+                style={{
+                  fontSize: 30,
+                  lineHeight: 36,
+                  textShadowColor: `${tokens.colors.accent}80`,
+                  textShadowRadius: 14,
+                  ...pixelFont(),
+                }}
                 testID="intake-target"
               >
                 {dailyTarget(step.fields).toLocaleString()} kcal

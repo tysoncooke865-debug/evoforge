@@ -19,6 +19,7 @@ import {
 import { pyFloat } from '@/domain/py';
 import { todayIso as calendarToday } from '@/domain/today';
 import { useToastStore } from '@/state/toast-store';
+import { pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -112,8 +113,8 @@ export default function FuelScreen() {
   return (
     <ScreenShell>
       <ScreenHeader
-        kicker={`FUEL · ${todayIso}`}
-        title={target ? GOAL_LABEL[target.goal].toUpperCase() : 'FUEL'}
+        kicker="EAT LIKE YOU TRAIN"
+        title="FUEL"
         right={<CompanionMenuButton anim={state === 'reached' ? 'victory' : 'idle'} height={56} />}
       />
 
@@ -121,6 +122,29 @@ export default function FuelScreen() {
       <GlowCard glow={target && state !== 'under' ? colour : undefined}>
         {target ? (
           <View>
+            {/* The page's one number, loud — Home stat-tile treatment. */}
+            <View className="mb-s2 flex-row items-baseline" style={{ gap: 6 }}>
+              <Text
+                allowFontScaling={false}
+                style={{
+                  fontSize: 30,
+                  lineHeight: 36,
+                  color: colour,
+                  textShadowColor: `${colour}8c`,
+                  textShadowRadius: 16,
+                  ...pixelFont(),
+                }}
+              >
+                {progress.consumed.toLocaleString()}
+              </Text>
+              <Text
+                className="text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 0.5, ...pixelFont(false) }}
+              >
+                / {target.daily_kcal.toLocaleString()} KCAL
+              </Text>
+            </View>
             <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
               <View
                 style={{
@@ -135,11 +159,11 @@ export default function FuelScreen() {
                 }}
               />
             </View>
-            <View className="mt-s2 flex-row justify-between">
-              <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 1.5 }}>
-                {progress.consumed.toLocaleString()} / {target.daily_kcal.toLocaleString()} KCAL
-              </Text>
-              <Text className="text-2xs font-bold" style={{ color: colour, letterSpacing: 1 }}>
+            <View className="mt-s2 items-end">
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 9, color: colour, letterSpacing: 1, ...pixelFont(false) }}
+              >
                 {state === 'over_cut'
                   ? `${progress.over.toLocaleString()} OVER`
                   : state === 'reached'
@@ -174,7 +198,7 @@ export default function FuelScreen() {
       {/* QUICK LOG — either unit, one tap. */}
       <GlowCard>
         <SectionLabel>QUICK LOG</SectionLabel>
-        <SegmentedTabs left="KCAL" right="KJ" active={unit} onChange={setUnit} testIDPrefix="fuel-unit" />
+        <SegmentedTabs left="KCAL" right="KJ" active={unit} onChange={setUnit} testIDPrefix="fuel-unit" pixelLabels />
         <View className="mt-s3 flex-row items-center gap-s2">
           <NumberField
             value={amount}
@@ -197,7 +221,13 @@ export default function FuelScreen() {
           />
         </View>
         {kcalPreview !== null ? (
-          <Text className="mt-s1 text-2xs text-text-dim">≈ {kcalPreview.toLocaleString()} kcal</Text>
+          <Text
+            className="mt-s1 text-text-dim"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
+            ≈ {kcalPreview.toLocaleString()} KCAL
+          </Text>
         ) : null}
         <View className="mt-s3">
           <NeonButton title="LOG IT" onPress={logNow} busy={logCalories.isPending} testID="fuel-log" />
@@ -209,7 +239,11 @@ export default function FuelScreen() {
         <SectionLabel>KJ ⇄ KCAL</SectionLabel>
         <View className="flex-row items-center gap-s2">
           <View className="flex-1 items-center">
-            <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+            <Text
+              className="mb-s1 text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+            >
               KILOJOULES
             </Text>
             <NumberField
@@ -228,7 +262,11 @@ export default function FuelScreen() {
           </View>
           <Text className="text-lg font-bold text-text-mute">⇄</Text>
           <View className="flex-1 items-center">
-            <Text className="mb-s1 text-2xs font-bold text-text-mute" style={{ letterSpacing: 1 }}>
+            <Text
+              className="mb-s1 text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+            >
               KILOCALORIES
             </Text>
             <NumberField
@@ -260,7 +298,7 @@ export default function FuelScreen() {
                 </Text>
                 <Text className="text-2xs text-text-mute">{timeOf(e.timestamp)}</Text>
               </View>
-              <Text className="text-sm font-bold text-accent" style={{ fontVariant: ['tabular-nums'] }}>
+              <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 16, ...pixelFont() }}>
                 {Math.round(Number(e.kcal)).toLocaleString()} kcal
               </Text>
               <Pressable
@@ -285,7 +323,17 @@ export default function FuelScreen() {
           <SectionLabel>DAILY TARGET</SectionLabel>
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-2xl font-bold text-text" style={{ fontVariant: ['tabular-nums'] }}>
+              <Text
+                className="text-text"
+                allowFontScaling={false}
+                style={{
+                  fontSize: 30,
+                  lineHeight: 36,
+                  textShadowColor: 'rgba(34,211,238,0.35)',
+                  textShadowRadius: 12,
+                  ...pixelFont(),
+                }}
+              >
                 {target.daily_kcal.toLocaleString()} kcal
               </Text>
               <Text className="text-2xs text-text-mute">
@@ -300,7 +348,11 @@ export default function FuelScreen() {
                 className="items-center justify-center px-s3"
                 style={{ minHeight: 44 }}
               >
-                <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
+                <Text
+                  className="text-epic"
+                  allowFontScaling={false}
+                  style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+                >
                   ✦ RECALCULATE
                 </Text>
               </Pressable>
@@ -311,7 +363,11 @@ export default function FuelScreen() {
                 className="items-center justify-center px-s3"
                 style={{ minHeight: 44 }}
               >
-                <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
+                <Text
+                  className="text-accent"
+                  allowFontScaling={false}
+                  style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+                >
                   EDIT
                 </Text>
               </Pressable>

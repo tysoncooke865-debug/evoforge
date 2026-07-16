@@ -18,10 +18,11 @@ const KEY = 'evoforge-tutorial-done-v1';
 const STEPS: readonly { icon: string; title: string; body: string }[] = [
   {
     icon: '⌂',
-    title: 'YOUR FIVE WORLDS',
+    title: 'YOUR SIX WORLDS',
     body:
       'Home is your character. Train logs your workouts. The Oracle judges your ' +
-      'physique with AI. Forge is where you evolve. Arena is where you fight.',
+      'physique with AI. Forge is where you evolve. Arena is where you fight. ' +
+      'Fuel tracks your calories.',
   },
   {
     icon: '🕹',
