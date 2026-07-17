@@ -8,17 +8,21 @@ import {
   AURAS,
   EFFECTS,
   EMOTES,
+  PALETTE_IDS,
   SKINS,
   cosmeticUnlocked,
+  palettePrice,
   skinLineFor,
   skinPrice,
   skinUnlocked,
   unlockLabel,
   type CosmeticUnlock,
+  type PaletteId,
   type Selection,
   type UnlockContext,
 } from '@/domain/customise';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
+import { PALETTE_META } from '@/theme/palettes';
 import { useThemeColors } from '@/theme/use-theme';
 import type { Sex } from '@/ui/character/avatar-art';
 import { SpriteAvatar } from '@/ui/character/sprite-avatar';
@@ -29,16 +33,19 @@ import { playSelect } from '@/ui/core/sound';
 import { formArt } from './art';
 import { StepperWheel } from './wheel';
 
-type Tab = 'outfit' | 'aura' | 'effects' | 'emotes';
+type Tab = 'outfit' | 'aura' | 'effects' | 'emotes' | 'themes';
 
 /**
  * CUSTOMISE §cosmetics — OUTFIT (the palette-swap skins), AURA (real
  * colour fields over the podium), EFFECTS (the platform; future entries
- * honestly marked incoming) and EMOTES (the real companion animations —
- * the equipped one drives the header sprite everywhere).
+ * honestly marked incoming), EMOTES (the real companion animations —
+ * the equipped one drives the header sprite everywhere) and THEMES (the
+ * palette shop: whole-app recolours bought with forge coins).
  *
  * Locked items PREVIEW on tap (the panel updates) but cannot equip —
- * equipState turns the primary button into the unlock requirement.
+ * equipState turns the primary button into the unlock requirement. A theme
+ * preview goes further: tapping a theme card recolours THIS page (and all
+ * chrome) live via the customise screen's focus-scoped theme preview.
  */
 export function CosmeticTabs({
   selection,
@@ -61,7 +68,7 @@ export function CosmeticTabs({
   return (
     <View>
       <View className="flex-row" style={{ gap: 6 }}>
-        {(['outfit', 'aura', 'effects', 'emotes'] as const).map((t) => (
+        {(['outfit', 'aura', 'effects', 'emotes', 'themes'] as const).map((t) => (
           <Chip key={t} label={t.toUpperCase()} active={tab === t} onPress={() => setTab(t)} testID={`cosmetic-tab-${t}`} />
         ))}
       </View>
@@ -147,6 +154,30 @@ export function CosmeticTabs({
                 }
               />
             ))
+          : null}
+
+        {tab === 'themes'
+          ? (['standard', ...PALETTE_IDS] as PaletteId[]).map((id) => {
+              const owned = id === 'standard' || unlockCtx.ownedPalettes.has(id);
+              const price = palettePrice(id);
+              return (
+                <CosmeticCard
+                  key={id}
+                  name={PALETTE_META[id].name}
+                  selected={selection.paletteId === id}
+                  unlock={id === 'standard' ? { kind: 'free' } : { kind: 'coins' }}
+                  unlockCtx={unlockCtx}
+                  ownedOverride={owned}
+                  footerOverride={owned ? undefined : price !== null ? `${price} COINS` : undefined}
+                  purchasable={!owned && price !== null}
+                  testID={`palette-${id}`}
+                  // Every theme previews on tap — the page itself recolours
+                  // (the screen's focus-scoped preview); BUY gates the equip.
+                  onPress={() => onChange({ paletteId: id })}
+                  thumb={<PaletteSwatchStrip swatch={PALETTE_META[id].swatch} />}
+                />
+              );
+            })
           : null}
 
         {tab === 'emotes'
@@ -262,6 +293,28 @@ function CosmeticCard({
         {unlocked ? (selected ? '✓ SELECTED' : 'OWNED') : label}
       </Text>
     </Pressable>
+  );
+}
+
+/** The theme card's thumb: the palette's bg, surface, accent and text as
+ *  four pixel squares — the whole reskin at a glance. */
+function PaletteSwatchStrip({ swatch }: { swatch: readonly [string, string, string, string] }) {
+  return (
+    <View className="flex-row" style={{ gap: 3 }}>
+      {swatch.map((colour, i) => (
+        <View
+          key={`${colour}-${i}`}
+          style={{
+            width: 13,
+            height: 26,
+            borderRadius: 3,
+            borderWidth: 1,
+            borderColor: 'rgba(120,170,220,0.25)',
+            backgroundColor: colour,
+          }}
+        />
+      ))}
+    </View>
   );
 }
 

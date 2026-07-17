@@ -1,9 +1,10 @@
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useCharacterUnlocks, usePurchaseCharacter } from '@/data/characters';
 import { useCoinTotal } from '@/data/coins';
+import { usePaletteUnlocks, usePurchasePalette } from '@/data/palettes';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useSkinUnlocks, usePurchaseSkin } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -24,6 +25,7 @@ import {
 } from '@/domain/customise';
 import { raritySlug } from '@/domain/avatar-stats';
 import { useLoadoutStore } from '@/state/loadout-store';
+import { useThemeStore } from '@/state/theme-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -62,8 +64,11 @@ export default function CustomiseScreen() {
   const purchase = usePurchaseSkin();
   const charUnlocks = useCharacterUnlocks();
   const purchaseCharacter = usePurchaseCharacter();
+  const paletteUnlocks = usePaletteUnlocks();
+  const purchasePalette = usePurchasePalette();
   const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
   const ownedCharacters = new Set((charUnlocks.data ?? []).map((u) => u.character));
+  const ownedPalettes = new Set((paletteUnlocks.data ?? []).map((u) => u.palette));
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -89,6 +94,20 @@ export default function CustomiseScreen() {
     seededRef.current = true;
     setSelection(selectionFromLoadout(branchV2, loadout));
   }, [ready, hydrated, branchV2, loadout]);
+
+  // LIVE PREVIEW (the palette shop): while this screen is FOCUSED, the whole
+  // app wears the SELECTED palette — cycling theme cards recolours the page
+  // itself, ownership not required. This screen stays mounted after its
+  // first visit (href:null tab), so blur must restore the equipped
+  // resolution, and unmount must too. ThemeRoot re-validates ownership on
+  // every read either way.
+  const focused = useIsFocused();
+  const setPreview = useThemeStore((s) => s.setPreview);
+  const selectedPalette = selection?.paletteId ?? null;
+  useEffect(() => {
+    setPreview(focused ? selectedPalette : null);
+    return () => setPreview(null);
+  }, [focused, selectedPalette, setPreview]);
 
   if (!ready || selection === null) {
     return (
@@ -123,10 +142,10 @@ export default function CustomiseScreen() {
   const equippedDisplay = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
   const equippedRosterId = equippedDisplay.character?.id ?? equippedDisplay.branch;
 
-  const state = equipState(derived, selection, loadout, ownedSkins, ownedCharacters);
+  const state = equipState(derived, selection, loadout, ownedSkins, ownedCharacters, ownedPalettes);
   const balance = coins.data ?? 0;
-  const isBuy = state.kind === 'buy-skin' || state.kind === 'buy-character';
-  const buyPrice = state.kind === 'buy-skin' || state.kind === 'buy-character' ? state.price : 0;
+  const isBuy = state.kind === 'buy-skin' || state.kind === 'buy-character' || state.kind === 'buy-palette';
+  const buyPrice = isBuy ? state.price : 0;
   const canAfford = isBuy && balance >= buyPrice;
   const buttonTitle =
     state.kind === 'equip'
@@ -140,7 +159,7 @@ export default function CustomiseScreen() {
               ? `BUY · ${buyPrice} COINS`
               : `NEED ${buyPrice} COINS`
             : `UNLOCK: ${state.requirement}`;
-  const buyPending = purchase.isPending || purchaseCharacter.isPending;
+  const buyPending = purchase.isPending || purchaseCharacter.isPending || purchasePalette.isPending;
   const buttonBusy = isBuy && buyPending;
   const buttonEnabled = state.kind === 'equip' || (isBuy && canAfford);
 
@@ -157,6 +176,7 @@ export default function CustomiseScreen() {
     // selection is untouched so the preview stays on what was bought.
     if (state.kind === 'buy-skin') purchase.mutate({ line: state.line, skin: state.skin });
     else if (state.kind === 'buy-character') purchaseCharacter.mutate({ character: state.character });
+    else if (state.kind === 'buy-palette') purchasePalette.mutate({ palette: state.palette });
   };
 
   return (
@@ -229,7 +249,7 @@ export default function CustomiseScreen() {
                 branch={entry.id}
                 stage={previewStage}
                 sex={sex}
-                unlockCtx={unlockContext(derived, ownedSkins)}
+                unlockCtx={unlockContext(derived, ownedSkins, ownedPalettes)}
                 onChange={select}
               />
             </View>
