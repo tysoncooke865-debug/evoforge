@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseAiMove } from '@/domain/battle-rpg/ai';
 import { CHAMPIONS } from '@/domain/battle-rpg/champions';
 import { buildCombatant, createBattle, moveById, resolveTurn } from '@/domain/battle-rpg/engine';
-import { RECOVER_MOVE, movesForChampion } from '@/domain/battle-rpg/moves';
+import { ITEM_MOVES, RECOVER_MOVE, movesForChampion } from '@/domain/battle-rpg/moves';
 import { combatPower, createBattleStats, type PlayerCombatInput } from '@/domain/battle-rpg/stat-scaler';
 import type {
   AiPersonality,
@@ -91,7 +91,9 @@ export function makeBattle(setup: BattleSetup): BattleState {
     spriteBranch: CHAMPIONS[setup.opponentChampion].spriteBranch,
     spriteStage: 4,
   });
-  return createBattle(`b_${setup.mode}_${Math.floor(Math.random() * 1e6)}`, setup.mode, player, opponent);
+  // Gym battles fight under their arena's ambient condition (conditions.ts).
+  const conditionId = setup.mode === 'gym' ? setup.gymId ?? null : null;
+  return createBattle(`b_${setup.mode}_${Math.floor(Math.random() * 1e6)}`, setup.mode, player, opponent, conditionId);
 }
 
 export interface UseBattle {
@@ -160,7 +162,9 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
         }
         setActiveEvent(next);
         setMessage(next.message);
-        timerRef.current = setTimeout(step, EVENT_MS);
+        // Battle speed (Phase D): 2× halves every beat; read at schedule time
+        // so flipping the toggle mid-playback applies from the next beat.
+        timerRef.current = setTimeout(step, EVENT_MS / useBattleRpgStore.getState().battleSpeed);
       };
       stepRef.current = step;
       step();
@@ -215,10 +219,11 @@ export function useBattle(setup: BattleSetup, onEnd?: (won: boolean, s: BattleSt
         setMessage('Not enough stamina.');
         return;
       }
-      const aiMove = chooseAiMove(state.opponent, state.player, setup.ai, Math.random);
+      // Gym leaders carry battle items too (Phase C — fair fight).
+      const aiMove = chooseAiMove(state.opponent, state.player, setup.ai, Math.random, setup.mode === 'gym' ? ITEM_MOVES : []);
       resolveWith(move, aiMove);
     },
-    [state, setup.ai, setup.versus, pendingPlayer, resolveWith]
+    [state, setup.ai, setup.versus, setup.mode, pendingPlayer, resolveWith]
   );
 
   const rematch = useCallback(() => {

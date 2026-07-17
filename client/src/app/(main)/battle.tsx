@@ -5,8 +5,11 @@ import { Pressable, Text, View } from 'react-native';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { CHAMPIONS, championForBranch } from '@/domain/battle-rpg/champions';
 import { championRequirement, unlockedChampionSet } from '@/domain/battle-rpg/unlock';
+import { conditionById } from '@/domain/battle-rpg/conditions';
 import { gymById } from '@/domain/battle-rpg/gyms';
+import { ITEM_MOVES } from '@/domain/battle-rpg/moves';
 import { rivalFor } from '@/domain/battle-rpg/rivals';
+import { matchupHint, STYLE_META, styleOfChampion } from '@/domain/battle-rpg/style';
 import type { AiPersonality, ChampionId } from '@/domain/battle-rpg/types';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
@@ -336,8 +339,25 @@ function PreviewScreen({
                 {leaderTitle ? <Text style={{ fontSize: 10, color: colors['text-mute'], fontFamily: PIXEL }}>{leaderTitle.toUpperCase()}</Text> : null}
                 <Text style={{ marginTop: 2, fontSize: 12, color: colors.accent }}>{CHAMPIONS[setup.opponentChampion].name}</Text>
                 <Text style={{ marginTop: 2, fontSize: 11, color: colors['text-mute'] }}>Combat Power ~{opponentPower}{recommendedRating ? ` · Rec. Evo ${recommendedRating}` : ''}</Text>
+                <Text style={{ marginTop: 2, fontSize: 10, color: STYLE_META[styleOfChampion(setup.opponentChampion)].color, fontFamily: PIXEL }}>
+                  {STYLE_META[styleOfChampion(setup.opponentChampion)].icon} {STYLE_META[styleOfChampion(setup.opponentChampion)].label} STYLE
+                </Text>
               </View>
             </View>
+          </View>
+
+          {/* The style triangle (Phase C) — counter-picking is a decision. */}
+          <View className="mt-s2 rounded-lg border p-s3" style={{ borderColor: `${colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.5)' }}>
+            <Text allowFontScaling={false} style={{ fontSize: 9, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 1 }}>
+              <Text style={{ color: STYLE_META.force.color }}>▲ FORCE</Text> beats <Text style={{ color: STYLE_META.form.color }}>◆ FORM</Text> beats{' '}
+              <Text style={{ color: STYLE_META.flow.color }}>● FLOW</Text> beats <Text style={{ color: STYLE_META.force.color }}>▲ FORCE</Text>
+            </Text>
+            <Text style={{ marginTop: 4, fontSize: 11, color: colors.text, lineHeight: 15 }}>{matchupHint(picked, setup.opponentChampion)}</Text>
+            {mode === 'gym' && setup.gymId && conditionById(setup.gymId) ? (
+              <Text style={{ marginTop: 4, fontSize: 10, color: colors.legendary, fontFamily: PIXEL }}>
+                ⚠ {conditionById(setup.gymId)!.label} — {conditionById(setup.gymId)!.blurb}
+              </Text>
+            ) : null}
           </View>
 
           <View className="mt-s4">
@@ -390,6 +410,9 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
     setResultOpen(true);
   });
   const { state, activeEvent, message } = battle;
+  const condition = conditionById(state.conditionId);
+  const battleSpeed = useBattleRpgStore((s) => s.battleSpeed);
+  const setBattleSpeed = useBattleRpgStore((s) => s.setBattleSpeed);
 
   // VERSUS: the "pass the device" gate — derived from the turn it was
   // acknowledged for, so it auto-resets each new turn (no setState-in-effect).
@@ -436,6 +459,38 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
         <BattleDebugPanel battle={battle} />
         <ScreenHeader kicker="ARENA BATTLE" title={`TURN ${state.turnNumber}`} onBack={() => router.back()} />
 
+        {/* Battle toolbar: gym condition · playback speed · run (training). */}
+        <View className="flex-row items-center" style={{ gap: 8, marginBottom: 8 }}>
+          {condition ? (
+            <View className="rounded-md border" style={{ borderColor: `${colors.legendary}55`, backgroundColor: 'rgba(251,191,36,0.08)', paddingHorizontal: 8, paddingVertical: 4, flexShrink: 1 }}>
+              <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: colors.legendary, fontFamily: PIXEL, letterSpacing: 0.5 }}>
+                ⚠ {condition.label}
+              </Text>
+            </View>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={() => setBattleSpeed(battleSpeed === 1 ? 2 : 1)}
+            accessibilityRole="button"
+            accessibilityLabel={`battle speed ${battleSpeed} times, tap to toggle`}
+            testID="battle-speed"
+            style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.accent}55`, backgroundColor: battleSpeed === 2 ? 'rgba(34,211,238,0.14)' : 'rgba(10,16,30,0.6)', paddingHorizontal: 10, paddingVertical: 4 }}
+          >
+            <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.accent, fontFamily: PIXEL_BOLD }}>{battleSpeed === 2 ? '▶▶ 2×' : '▶ 1×'}</Text>
+          </Pressable>
+          {setup.mode === 'training' && !state.winner ? (
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="run from this training battle"
+              testID="battle-run"
+              style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.danger}55`, backgroundColor: 'rgba(10,16,30,0.6)', paddingHorizontal: 10, paddingVertical: 4 }}
+            >
+              <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.danger, fontFamily: PIXEL_BOLD }}>RUN</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
         {/* Opponent HUD. */}
         <CombatantHud combatant={state.opponent} powerLabel={Math.round(state.opponent.stats.maxHealth + state.opponent.stats.power * 3)} align="right" />
 
@@ -472,7 +527,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
               {chooserLabel} — SELECT MOVE
             </Text>
           ) : null}
-          <MoveGrid moves={gridMoves} player={gridChooser} disabled={battle.isBusy || state.winner !== null || needsHandover} onSelect={battle.selectMove} />
+          <MoveGrid moves={gridMoves} player={gridChooser} items={ITEM_MOVES} disabled={battle.isBusy || state.winner !== null || needsHandover} onSelect={battle.selectMove} />
 
           {/* Pass-the-device gate — keeps P1's pick hidden until P2 is ready. */}
           {needsHandover ? (

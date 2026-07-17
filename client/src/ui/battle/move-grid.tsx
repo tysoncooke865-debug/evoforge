@@ -2,26 +2,31 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
 import { RECOVER_MOVE } from '@/domain/battle-rpg/moves';
+import { STYLE_META, styleOfMove } from '@/domain/battle-rpg/style';
 import type { BattleMove, Combatant } from '@/domain/battle-rpg/types';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { playSelect } from '@/ui/core/sound';
 
 /**
- * The 2×2 move grid + a full-width Recover fallback. A move the player can't
- * afford (or that's on cooldown) is visibly disabled with its cost shown —
- * it can never be selected. Long-press opens the description.
+ * The 2×2 move grid + an optional battle-item row + a full-width Recover
+ * fallback. A move the player can't afford (or that's on cooldown) is visibly
+ * disabled with its cost shown — it can never be selected. Long-press opens
+ * the description (style, priority, power).
  */
 export function MoveGrid({
   moves,
   player,
   disabled,
   onSelect,
+  items = [],
 }: {
   moves: BattleMove[];
   player: Combatant;
   disabled: boolean;
   onSelect: (moveId: string) => void;
+  /** Battle items (Phase C) — once per battle each, cost the turn. */
+  items?: BattleMove[];
 }) {
   const colors = useThemeColors();
   const [info, setInfo] = useState<BattleMove | null>(null);
@@ -32,6 +37,13 @@ export function MoveGrid({
           <MoveButton key={m.id} move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="48%" />
         ))}
       </View>
+      {items.length > 0 ? (
+        <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+          {items.map((m) => (
+            <MoveButton key={m.id} move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="48%" recover />
+          ))}
+        </View>
+      ) : null}
       <MoveButton move={RECOVER_MOVE} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="100%" recover />
 
       <Modal visible={info !== null} transparent animationType="fade" onRequestClose={() => setInfo(null)}>
@@ -42,6 +54,17 @@ export function MoveGrid({
               <Text style={{ marginTop: 2, fontSize: 9, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 1 }}>
                 {info.category.toUpperCase()} · {info.staminaCost} STAMINA{info.basePower > 0 ? ` · PWR ${info.basePower}` : ''}
               </Text>
+              {info.basePower > 0 || info.priority > 0 ? (
+                <Text style={{ marginTop: 3, fontSize: 9, fontFamily: PIXEL, letterSpacing: 1 }}>
+                  {info.basePower > 0 ? (
+                    <Text style={{ color: STYLE_META[styleOfMove(info)].color }}>
+                      {STYLE_META[styleOfMove(info)].icon} {STYLE_META[styleOfMove(info)].label}
+                    </Text>
+                  ) : null}
+                  {info.basePower > 0 && info.priority > 0 ? <Text style={{ color: colors['text-mute'] }}> · </Text> : null}
+                  {info.priority > 0 ? <Text style={{ color: colors.legendary }}>⚑ FIRST STRIKE +{info.priority}</Text> : null}
+                </Text>
+              ) : null}
               <Text style={{ marginTop: 8, fontSize: 13, color: colors.text, lineHeight: 18 }}>{info.description}</Text>
             </View>
           ) : null}
@@ -113,7 +136,15 @@ function MoveButton({
       </View>
       <View className="flex-row items-center justify-between" style={{ marginTop: 2 }}>
         <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 7.5, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5, flexShrink: 1 }}>
-          {cooling ? `COOLDOWN ${player.cooldowns[move.id]}` : recover ? 'RESTORE STAMINA' : move.category.toUpperCase()}
+          {cooling
+            ? move.isItem
+              ? 'USED'
+              : `COOLDOWN ${player.cooldowns[move.id]}`
+            : move.isItem
+              ? 'ITEM · ONCE PER BATTLE'
+              : recover
+                ? 'RESTORE STAMINA'
+                : `${move.basePower > 0 ? `${STYLE_META[styleOfMove(move)].icon} ` : ''}${move.category.toUpperCase()}${move.priority > 0 ? ' · ⚑FIRST' : ''}`}
         </Text>
         {!recover && !cooling && move.basePower > 0 ? (
           <Text allowFontScaling={false} style={{ fontSize: 8, color: usable ? tint : colors['text-mute'], fontFamily: PIXEL_BOLD }}>

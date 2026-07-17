@@ -54,6 +54,15 @@ export function BattleSprite({
   const knockY = useSharedValue(0);
   const burst = useSharedValue(1); // 1 = idle/invisible; animates 0→1 on a hit
   const critHit = useSharedValue(0); // 1 while the last hit was a crit (amber)
+  // Entry ceremony (Phase B): slide in from own corner on mount.
+  const entry = useSharedValue(reduced ? 1 : 0);
+  // Faint (Phase B): the loser slides DOWN off the platform while fading.
+  const faint = useSharedValue(0);
+
+  useEffect(() => {
+    entry.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (reduced || defeated) { bob.value = 0; return; }
@@ -109,17 +118,22 @@ export function BattleSprite({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEvent]);
 
-  useEffect(() => { fade.value = withTiming(defeated ? 0.12 : 1, { duration: 550 }); }, [defeated, fade]);
+  useEffect(() => {
+    // FireRed's signature faint: drop off the platform while fading out.
+    fade.value = withTiming(defeated ? 0 : 1, { duration: 620, easing: Easing.in(Easing.quad) });
+    faint.value = withTiming(defeated ? 1 : 0, { duration: 620, easing: Easing.in(Easing.quad) });
+  }, [defeated, fade, faint]);
   useEffect(() => {
     if (victory && !reduced) glow.value = withRepeat(withSequence(withTiming(1, { duration: 520 }), withTiming(0.3, { duration: 520 })), -1);
     else glow.value = withTiming(0, { duration: 300 });
   }, [victory, reduced, glow]);
 
+  const entryDir = side === 'player' ? -1 : 1;
   const style = useAnimatedStyle(() => ({
-    opacity: fade.value,
+    opacity: fade.value * Math.min(1, entry.value * 2),
     transform: [
-      { translateX: lx.value + shake.value + knockX.value },
-      { translateY: ly.value + bob.value + knockY.value },
+      { translateX: lx.value + shake.value + knockX.value + (1 - entry.value) * entryDir * 90 },
+      { translateY: ly.value + bob.value + knockY.value + faint.value * size * 0.6 },
     ],
   }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));

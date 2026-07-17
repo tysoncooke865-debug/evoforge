@@ -61,7 +61,12 @@ hand-coded one-offs, so new moves get animations by table entry.
 **Verify:** a scripted battle that casts every move once (training dummy,
 seeded RNG) + screenshot per move; zero page errors; reduced-motion run.
 
-## Phase B — FireRed presentation beats
+## Phase B — FireRed presentation beats ✅ SHIPPED 2026-07-18
+HP bars recolour by stage (>50% green, 20–50% amber, <20% red + pulse +
+heartbeat SFX); sprites slide in from their corners at battle start; the
+loser slides DOWN off the platform while fading (arena overflow clips it);
+crit/status/effectiveness consequence lines are their own beats. Stat-change
+flashes ride the Phase A rise-particle FX. Original spec:
 1. **HP drain over time**: CombatBar animates to the new value across
    ~600ms SYNCED to the event beat (ghost already exists), with FireRed
    colour stages — >50% green, 20–50% yellow, <20% red + bar pulse and a
@@ -81,7 +86,22 @@ seeded RNG) + screenshot per move; zero page errors; reduced-motion run.
 **Verify:** full-battle recording (screenshot strip), the beat order asserted
 from the event log, tour green.
 
-## Phase C — Dynamic gameplay: the STYLE TRIANGLE + choices that matter
+## Phase C — Dynamic gameplay: the STYLE TRIANGLE ✅ SHIPPED 2026-07-18
+style.ts (FORCE>FORM>FLOW>FORCE, ×1.3/×0.77, judged move-style vs defender
+champion) applied in damage.ts; each champion carries ONE coverage move as
+its line into its counter (apex_execution+cut_deep→flow, colossal_pressure→
+form, velocity_crash→force); "It's super effective!"/"It barely landed…"
+beats; ⚑FIRST badges + style icons on move buttons and the info modal; two
+battle items (Protein Shake 35% heal, Pre-Workout overclock+form, once per
+battle via 99-turn cooldown, priority +3, AI carries them at gym tier); gym
+conditions (HEAVY IRON +15% heavies, TEMPO FLOOR +2 regen, MIRROR FOCUS +5%
+crit) bannered in-battle and on the preview. REBALANCED against the new
+AI-vs-AI sim (battle-balance.test.ts, seeded, 480 battles): titan was
+winning 96% at stat parity → titan 122HP/20pow/14def + forge_smash 25;
+apex 106HP/19pow/crit .14 + rapid 14@65% + crash 22@22st; shredded evasion
+.13/power 18; aesthetic speed 17 + precision 23. Bounds held in CI:
+aggregate win rate ∈ [0.30,0.70] per champion, no matchup outside
+[0.15,0.85]. The AI scores damage THROUGH the triangle. Original spec:
 The strategic core FireRed has and we lack: type effectiveness.
 1. **Styles**: every champion and every attack move gets a style —
    `FORCE` (titan/mass power), `FORM` (aesthetic/shredded technique),
@@ -108,7 +128,11 @@ The strategic core FireRed has and we lack: type effectiveness.
 **Verify:** golden tests for triangle math + items; the AI-vs-AI balance sim
 in CI; challenge/ghost/versus modes inherit automatically (same engine).
 
-## Phase D — Polish that makes it "a better game"
+## Phase D — Polish that makes it "a better game" ✅ SHIPPED 2026-07-18
+Rewards tick up on the result sheet; 1×/2× battle-speed toggle (persisted,
+read per beat); RUN button on training battles (leaves without recording);
+move info modal shows style + FIRST STRIKE; the pre-battle preview shows
+both styles, the triangle legend and a matchup hint. Original spec:
 1. **XP bar tick-up** on the victory screen (FireRed's EXP fill + level-up
    jingle already exists — connect them).
 2. **Battle speed setting** (1×/2× beats) beside the existing tap-to-skip.

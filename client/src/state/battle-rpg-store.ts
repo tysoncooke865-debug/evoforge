@@ -49,9 +49,12 @@ interface BattleRpgState {
   /** Local tally of coins/XP earned in battle (not yet banked to the ledger). */
   earnedCoins: number;
   earnedForgeXp: number;
+  /** Battle playback speed (Phase D): 1× or 2× beats. */
+  battleSpeed: 1 | 2;
   _hydrated: boolean;
 
   setSelectedChampion: (id: ChampionId) => void;
+  setBattleSpeed: (speed: 1 | 2) => void;
   recordResult: (r: Omit<BattleResultRecord, 'id' | 'at'> & { at: number; id: string }) => void;
   markGymClear: (gymId: string, turns: number, claimedFirstClear: boolean) => void;
   recordRival: (won: boolean, at: number) => void;
@@ -69,9 +72,11 @@ export const useBattleRpgStore = create<BattleRpgState>()(
       history: [],
       earnedCoins: 0,
       earnedForgeXp: 0,
+      battleSpeed: 1,
       _hydrated: false,
 
       setSelectedChampion: (id) => set({ selectedChampion: id }),
+      setBattleSpeed: (speed) => set({ battleSpeed: speed }),
 
       recordResult: (r) =>
         set((s) => ({

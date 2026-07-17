@@ -32,7 +32,7 @@ const AESTHETIC: BattleMove[] = [
     category: 'attack',
     requiredChampion: 'aesthetic',
     staminaCost: 12,
-    basePower: 22,
+    basePower: 23,
     accuracy: 0.98,
     priority: 0,
     cooldown: 0,
@@ -89,6 +89,9 @@ const AESTHETIC: BattleMove[] = [
     target: 'opponent',
     theme: 'legendary',
     conditional: { kind: 'execute_below', threshold: 0.4, multiplier: 1.8 },
+    // COVERAGE (Phase C rebalance): the finisher flows — Aesthetic's line
+    // into Titan's FORCE wall. Trade: it no longer supers Apex.
+    style: 'flow',
   },
 ];
 
@@ -100,7 +103,7 @@ const TITAN: BattleMove[] = [
     category: 'heavy',
     requiredChampion: 'titan',
     staminaCost: 18,
-    basePower: 28,
+    basePower: 25,
     accuracy: 0.9,
     priority: 0,
     cooldown: 0,
@@ -140,6 +143,8 @@ const TITAN: BattleMove[] = [
     animationType: 'technique',
     target: 'opponent',
     theme: 'epic',
+    // COVERAGE: pressure is technique — Titan's line into Apex's FLOW.
+    style: 'form',
   },
   {
     id: 'titan_breaker',
@@ -168,7 +173,7 @@ const APEX: BattleMove[] = [
     category: 'attack',
     requiredChampion: 'apex',
     staminaCost: 8,
-    basePower: 12,
+    basePower: 14,
     accuracy: 0.96,
     priority: 1,
     cooldown: 0,
@@ -176,7 +181,7 @@ const APEX: BattleMove[] = [
     animationType: 'quick',
     target: 'opponent',
     theme: 'accent',
-    multiHit: { times: 2, chance: 0.55 },
+    multiHit: { times: 2, chance: 0.65 },
   },
   {
     id: 'overclock',
@@ -219,8 +224,8 @@ const APEX: BattleMove[] = [
     description: 'A dash whose force scales with speed. Expensive.',
     category: 'heavy',
     requiredChampion: 'apex',
-    staminaCost: 26,
-    basePower: 20,
+    staminaCost: 22,
+    basePower: 22,
     accuracy: 0.92,
     priority: 0,
     cooldown: 1,
@@ -228,6 +233,8 @@ const APEX: BattleMove[] = [
     animationType: 'ultimate',
     target: 'opponent',
     theme: 'legendary',
+    // COVERAGE: a crash is raw impact — Apex's line into FORM champions.
+    style: 'force',
   },
 ];
 
@@ -280,6 +287,8 @@ const SHREDDED: BattleMove[] = [
     target: 'opponent',
     theme: 'epic',
     conditional: { kind: 'stronger_if_bleeding', multiplier: 1.7 },
+    // COVERAGE: the deep cut flows — Shredded's line into Titan's FORCE wall.
+    style: 'flow',
   },
   {
     id: 'final_shred',
@@ -307,9 +316,55 @@ export const MOVES_BY_CHAMPION: Record<ChampionId, BattleMove[]> = {
   shredded: SHREDDED,
 };
 
-/** Every move keyed by id, incl. the shared Recover. */
+/**
+ * BATTLE ITEMS (Phase C) — one of each per battle (cooldown 99 outlasts any
+ * real battle), costs the turn, priority +3 so an item always resolves before
+ * moves (FireRed's bag rule). Shared by every champion; the AI gets them at
+ * gym tier. `style: undefined` is fine — basePower 0 never reads the triangle.
+ */
+export const ITEM_MOVES: BattleMove[] = [
+  {
+    id: 'item_protein_shake',
+    name: 'Protein Shake',
+    description: 'Chug it — restore 35% of max health. One per battle; costs the turn.',
+    category: 'recovery',
+    requiredChampion: 'aesthetic', // unused for shared items
+    staminaCost: 0,
+    basePower: 0,
+    accuracy: 1,
+    priority: 3,
+    cooldown: 99,
+    effects: [{ kind: 'heal_percent', target: 'self', amount: 0.35 }],
+    animationType: 'recovery',
+    target: 'self',
+    theme: 'success',
+    isItem: true,
+  },
+  {
+    id: 'item_pre_workout',
+    name: 'Pre-Workout',
+    description: 'The good scoop — spike speed, regen and precision for 2 turns. One per battle.',
+    category: 'buff',
+    requiredChampion: 'aesthetic', // unused for shared items
+    staminaCost: 0,
+    basePower: 0,
+    accuracy: 1,
+    priority: 3,
+    cooldown: 99,
+    effects: [
+      { kind: 'apply_status', status: 'overclocked', target: 'self', duration: 2, amount: 0.25 },
+      { kind: 'apply_status', status: 'perfect_form', target: 'self', duration: 2, amount: 0.15 },
+    ],
+    animationType: 'buff',
+    target: 'self',
+    theme: 'epic',
+    isItem: true,
+  },
+];
+
+/** Every move keyed by id, incl. the shared Recover + items. */
 export const ALL_MOVES: Record<string, BattleMove> = Object.fromEntries(
-  [...AESTHETIC, ...TITAN, ...APEX, ...SHREDDED, RECOVER_MOVE].map((m) => [m.id, m])
+  [...AESTHETIC, ...TITAN, ...APEX, ...SHREDDED, RECOVER_MOVE, ...ITEM_MOVES].map((m) => [m.id, m])
 );
 
 export function movesForChampion(id: ChampionId): BattleMove[] {

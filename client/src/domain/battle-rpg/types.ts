@@ -9,6 +9,11 @@ import type { BranchV2 } from '@/domain/branches-v2';
 
 export type ChampionId = 'aesthetic' | 'titan' | 'apex' | 'shredded';
 
+/** The style triangle (FireRed plan Phase C): FORCE > FORM > FLOW > FORCE.
+ *  Every champion fights in one style; damage vs a countered style is ×1.3,
+ *  into the counter ×0.77 (see style.ts — the ONLY place the wheel turns). */
+export type BattleStyle = 'force' | 'form' | 'flow';
+
 /** Which real avatar branch each archetype borrows its sprite from. */
 export type SpriteBranch = BranchV2;
 
@@ -49,7 +54,8 @@ export interface MoveEffect {
     | 'restore_stamina'
     | 'restore_health'
     | 'lower_defence'
-    | 'heal_self';
+    | 'heal_self'
+    | 'heal_percent'; // amount is a 0..1 fraction of maxHealth (battle items)
   status?: StatusKind;
   target: 'self' | 'opponent';
   /** Turns the status/buff lasts (statuses). */
@@ -90,6 +96,10 @@ export interface BattleMove {
   };
   /** Damage hits more than once (RapidStrike). */
   multiHit?: { times: number; chance: number };
+  /** Battle item (Phase C): once per battle, shown on the item row. */
+  isItem?: boolean;
+  /** Style-triangle override; defaults to the champion's style (style.ts). */
+  style?: BattleStyle;
 }
 
 export interface BattleStats {
@@ -175,6 +185,8 @@ export interface BattleRewards {
 export interface BattleState {
   battleId: string;
   mode: BattleMode;
+  /** Gym ambient condition in force (conditions.ts), null elsewhere. */
+  conditionId: string | null;
   turnNumber: number;
   phase: BattlePhase;
   player: Combatant;

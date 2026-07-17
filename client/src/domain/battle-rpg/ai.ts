@@ -1,5 +1,6 @@
 import { movesForChampion, RECOVER_MOVE } from './moves';
 import { hasStatus } from './status';
+import { styleEffectiveness, styleMultiplier, styleOfChampion, styleOfMove } from './style';
 import type { AiPersonality, BattleMove, Combatant, Rng } from './types';
 
 /**
@@ -15,9 +16,10 @@ export function isMoveUsable(move: BattleMove, c: Combatant): boolean {
   return true;
 }
 
-/** Pick the AI's move. Guaranteed legal (falls back to Recover). */
-export function chooseAiMove(self: Combatant, foe: Combatant, personality: AiPersonality, rng: Rng): BattleMove {
-  const pool = movesForChampion(self.championId).filter((m) => isMoveUsable(m, self));
+/** Pick the AI's move. Guaranteed legal (falls back to Recover).
+ *  `extraMoves` lets gym leaders carry battle items (Phase C). */
+export function chooseAiMove(self: Combatant, foe: Combatant, personality: AiPersonality, rng: Rng, extraMoves: BattleMove[] = []): BattleMove {
+  const pool = [...movesForChampion(self.championId), ...extraMoves].filter((m) => isMoveUsable(m, self));
   if (pool.length === 0) return RECOVER_MOVE;
 
   const selfHpFrac = self.stats.currentHealth / self.stats.maxHealth;
@@ -29,7 +31,9 @@ export function chooseAiMove(self: Combatant, foe: Combatant, personality: AiPer
     const dmg = m.basePower > 0;
     const finisher = m.category === 'ultimate';
 
-    if (dmg) s += m.basePower * 0.6;
+    // Damage value is judged THROUGH the style triangle — the AI prefers its
+    // coverage move into a wall and avoids feeding a resisted style.
+    if (dmg) s += m.basePower * 0.6 * styleMultiplier(styleEffectiveness(styleOfMove(m), styleOfChampion(foe.championId)));
     // Finish the player when they are low.
     if (finisher && foeHpFrac < 0.4) s += 60;
     if (m.conditional?.kind === 'execute_below' && foeHpFrac <= (m.conditional.threshold ?? 0)) s += 50;
@@ -44,6 +48,12 @@ export function chooseAiMove(self: Combatant, foe: Combatant, personality: AiPer
     if (m.category === 'buff') s += selfHpFrac > 0.5 ? 14 : -10;
     // Don't dump the whole stamina bar unless it's worth it.
     if (m.staminaCost > self.stats.currentStamina * 0.7 && !finisher) s -= 15;
+
+    // Items: the shake is an emergency heal, the scoop an opener.
+    if (m.isItem) {
+      if (m.effects.some((e) => e.kind === 'heal_percent')) s += selfHpFrac < 0.4 ? 55 : -40;
+      else s += selfHpFrac > 0.6 && foeHpFrac > 0.6 ? 20 : -20;
+    }
 
     // Personality shaping.
     if (personality === 'aggressive') { if (dmg) s += 18; if (m.category === 'defence') s -= 14; }

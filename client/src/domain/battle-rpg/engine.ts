@@ -1,4 +1,5 @@
 import { isMoveUsable } from './ai';
+import { conditionById, type GymCondition } from './conditions';
 import { computeDamage, rollHit } from './damage';
 import { ALL_MOVES } from './moves';
 import {
@@ -57,11 +58,13 @@ export function createBattle(
   battleId: string,
   mode: BattleMode,
   player: Combatant,
-  opponent: Combatant
+  opponent: Combatant,
+  conditionId: string | null = null
 ): BattleState {
   return {
     battleId,
     mode,
+    conditionId,
     turnNumber: 1,
     phase: 'awaiting_player',
     player,
@@ -93,7 +96,8 @@ function executeMove(
   rng: Rng,
   tally: BattleState['stats'],
   events: BattleEvent[],
-  forceCrit: boolean
+  forceCrit: boolean,
+  condition: GymCondition | null
 ): void {
   // Pay stamina + arm cooldown (validated by the caller).
   actor.stats.currentStamina = clamp(actor.stats.currentStamina - move.staminaCost, 0, actor.stats.maxStamina);
@@ -118,7 +122,7 @@ function executeMove(
         continue;
       }
       landedAny = true;
-      const res = computeDamage(move, actor, target, rng, { forceCrit });
+      const res = computeDamage(move, actor, target, rng, { forceCrit, condition });
       let dmg = res.damage;
       if (target.guard) dmg = Math.max(1, Math.round(dmg * target.guard.mult));
       target.stats.currentHealth = clamp(target.stats.currentHealth - dmg, 0, target.stats.maxHealth);
@@ -133,6 +137,14 @@ function executeMove(
         amount: dmg,
         animationType: move.animationType,
       });
+      // Style-triangle consequence beat (first hit only — multi-hit repeats add noise).
+      if (h === 0 && res.effectiveness !== 'neutral') {
+        events.push({
+          kind: 'info',
+          side,
+          message: res.effectiveness === 'super' ? "It's super effective!" : 'It barely landed…',
+        });
+      }
       // Counter (returns melee damage to the attacker).
       if (target.guard && target.guard.counter > 0 && isAlive(target)) {
         const back = Math.max(1, Math.round(dmg * target.guard.counter));
@@ -173,9 +185,11 @@ function executeMove(
         break;
       }
       case 'restore_health':
-      case 'heal_self': {
+      case 'heal_self':
+      case 'heal_percent': {
         const before = recv.stats.currentHealth;
-        recv.stats.currentHealth = clamp(recv.stats.currentHealth + (eff.amount ?? 0), 0, recv.stats.maxHealth);
+        const amount = eff.kind === 'heal_percent' ? Math.round(recv.stats.maxHealth * (eff.amount ?? 0)) : eff.amount ?? 0;
+        recv.stats.currentHealth = clamp(recv.stats.currentHealth + amount, 0, recv.stats.maxHealth);
         const gained = Math.round(recv.stats.currentHealth - before);
         if (gained > 0) events.push({ kind: 'heal', side: recvSide, message: `${recv.name} healed ${gained}.`, amount: gained });
         break;
@@ -188,7 +202,7 @@ function executeMove(
   }
 }
 
-function endOfTurn(c: Combatant, side: 'player' | 'opponent', events: BattleEvent[], tally: BattleState['stats']): void {
+function endOfTurn(c: Combatant, side: 'player' | 'opponent', events: BattleEvent[], tally: BattleState['stats'], condition: GymCondition | null): void {
   // Bleed damage.
   const bleed = c.statuses.find((s) => s.kind === 'bleed');
   if (bleed && isAlive(c)) {
@@ -198,9 +212,9 @@ function endOfTurn(c: Combatant, side: 'player' | 'opponent', events: BattleEven
     else tally.playerDamage += dmg;
     events.push({ kind: 'status_tick', side, message: `${c.name} bleeds for ${dmg}.`, amount: dmg, status: 'bleed' });
   }
-  // Stamina regen (never past max).
+  // Stamina regen (never past max) — gym conditions can boost it (both sides).
   if (isAlive(c)) {
-    c.stats.currentStamina = clamp(c.stats.currentStamina + effectiveRegen(c), 0, c.stats.maxStamina);
+    c.stats.currentStamina = clamp(c.stats.currentStamina + effectiveRegen(c) + (condition?.regenBonus ?? 0), 0, c.stats.maxStamina);
   }
   // Cooldowns down.
   for (const id of Object.keys(c.cooldowns)) {
@@ -235,6 +249,7 @@ export function resolveTurn(
   const state: BattleState = structuredClone(prev);
   const events: BattleEvent[] = [];
   const { player, opponent } = state;
+  const condition = conditionById(state.conditionId);
 
   // Validate the player's move (defensive — the UI also blocks this).
   if (!isMoveUsable(playerMove, player) && playerMove.id !== 'recover') {
@@ -261,7 +276,7 @@ export function resolveTurn(
       events.push({ kind: 'info', side: a.side, message: `${a.c.name} is staggered and falters!` });
       continue;
     }
-    executeMove(a.c, a.foe, a.move, a.side, rng, state.stats, events, a.crit);
+    executeMove(a.c, a.foe, a.move, a.side, rng, state.stats, events, a.crit, condition);
     if (!isAlive(a.foe)) {
       events.push({ kind: 'defeated', side: a.side === 'player' ? 'opponent' : 'player', message: `${a.foe.name} was defeated!` });
       break; // second action does not resolve
@@ -273,8 +288,8 @@ export function resolveTurn(
   // by running end-of-turn only when no winner yet).
   const someoneDead = !isAlive(player) || !isAlive(opponent);
   if (!someoneDead) {
-    endOfTurn(player, 'player', events, state.stats);
-    if (isAlive(opponent)) endOfTurn(opponent, 'opponent', events, state.stats);
+    endOfTurn(player, 'player', events, state.stats, condition);
+    if (isAlive(opponent)) endOfTurn(opponent, 'opponent', events, state.stats, condition);
     // Both could hit 0 from bleed — resolve as a draw toward the player-loses
     // side is unfair; treat simultaneous KO as the player winning ties.
   }

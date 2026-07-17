@@ -34,7 +34,7 @@ export const CHAMPIONS: Record<ChampionId, ChampionDef> = {
       maxStamina: 100,
       power: 20,
       defence: 14,
-      speed: 16,
+      speed: 17,
       precision: 20,
       evasion: 0.1,
       critChance: 0.18,
@@ -49,11 +49,15 @@ export const CHAMPIONS: Record<ChampionId, ChampionDef> = {
     identity: 'Huge HP, defence, staggering power.',
     spriteBranch: 'titan',
     accent: 'legendary',
+    // Rebalanced 2026-07-18 (Phase C sim): at stat parity Titan won 96% of
+    // AI-vs-AI games — the HP/def/power mix beats speed/evasion under this
+    // engine, and FORCE supers two of three foes. Tank identity stays; the
+    // wall comes down. battle-balance.test.ts holds the bounds.
     base: {
-      maxHealth: 140,
+      maxHealth: 122,
       maxStamina: 88,
-      power: 22,
-      defence: 20,
+      power: 20,
+      defence: 14,
       speed: 9,
       precision: 12,
       evasion: 0.04,
@@ -69,15 +73,17 @@ export const CHAMPIONS: Record<ChampionId, ChampionDef> = {
     identity: 'Fast, tireless, relentless.',
     spriteBranch: 'cardio',
     accent: 'success',
+    // Rebalanced 2026-07-18 (Phase C sim): apex won 1% at parity — speed and
+    // stamina never became damage. Its motor now hits.
     base: {
-      maxHealth: 100,
+      maxHealth: 106,
       maxStamina: 116,
-      power: 16,
+      power: 19,
       defence: 12,
       speed: 22,
       precision: 15,
       evasion: 0.14,
-      critChance: 0.12,
+      critChance: 0.14,
       critMultiplier: 1.5,
       staminaRegen: 20,
     },
@@ -92,11 +98,11 @@ export const CHAMPIONS: Record<ChampionId, ChampionDef> = {
     base: {
       maxHealth: 104,
       maxStamina: 100,
-      power: 19,
+      power: 18,
       defence: 11,
       speed: 20,
       precision: 17,
-      evasion: 0.16,
+      evasion: 0.13,
       critChance: 0.15,
       critMultiplier: 1.6,
       staminaRegen: 15,

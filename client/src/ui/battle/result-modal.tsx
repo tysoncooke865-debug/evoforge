@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Modal, Text, View } from 'react-native';
 
 import type { BattleRewards, BattleState } from '@/domain/battle-rpg/types';
@@ -87,6 +88,23 @@ export function BattleResultModal({
   );
 }
 
+/** FireRed's EXP fill, in numbers — the reward counts up over ~900ms.
+ *  The interval (async setState) is the only writer, same as TypewriterText. */
+function TickUp({ target }: { target: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const steps = 18;
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setShown(Math.min(target, Math.round((target * i) / steps)));
+      if (i >= steps) clearInterval(id);
+    }, 50);
+    return () => clearInterval(id);
+  }, [target]);
+  return <>{shown}</>;
+}
+
 function SummaryRow({ label, value }: { label: string; value: string }) {
   const colors = useThemeColors();
   return (
@@ -110,11 +128,15 @@ function RewardStrip({ rewards }: { rewards: BattleRewards }) {
           {rewards.coins > 0 ? (
             <View className="flex-row items-center" style={{ gap: 4 }}>
               <CoinIcon size={13} />
-              <Text style={{ fontSize: 13, color: colors.legendary, fontFamily: PIXEL_BOLD }}>+{rewards.coins}</Text>
+              <Text style={{ fontSize: 13, color: colors.legendary, fontFamily: PIXEL_BOLD }}>
+                +<TickUp target={rewards.coins} />
+              </Text>
             </View>
           ) : null}
           {rewards.forgeXp > 0 ? (
-            <Text style={{ fontSize: 13, color: colors.accent, fontFamily: PIXEL_BOLD }}>+{rewards.forgeXp} FORGE XP</Text>
+            <Text style={{ fontSize: 13, color: colors.accent, fontFamily: PIXEL_BOLD }}>
+              +<TickUp target={rewards.forgeXp} /> FORGE XP
+            </Text>
           ) : null}
           {rewards.badgeId ? (
             <Text style={{ fontSize: 12, color: colors.success, fontFamily: PIXEL_BOLD }}>🎖 BADGE EARNED</Text>

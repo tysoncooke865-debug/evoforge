@@ -69,6 +69,9 @@ export const MOVE_FX: Record<string, MoveFxSpec> = {
   final_shred: { prims: [{ t: 'slash', angles: [-45, 45], color: C.legendary, ms: 520 }, { t: 'strobe', color: '#ffffff', flashes: 1, ms: 240 }, { t: 'stars', count: 6, color: C.legendary, ms: 520, delay: 420 }] },
   // Shared
   recover: { prims: [{ t: 'rise', color: C.success, count: 6, ms: 800, glyph: '＋' }] },
+  // Battle items (Phase C).
+  item_protein_shake: { prims: [{ t: 'rise', color: C.success, count: 8, ms: 850, glyph: '🥤' }] },
+  item_pre_workout: { prims: [{ t: 'rise', color: C.epic, count: 8, ms: 850, glyph: '⚡' }] },
 };
 
 /** A hand-drawn pixel dumbbell/barbell out of plain Views (no assets). */

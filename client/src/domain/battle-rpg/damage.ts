@@ -1,4 +1,6 @@
+import type { GymCondition } from './conditions';
 import { effectiveDefence, effectiveEvasion, hasStatus } from './status';
+import { styleEffectiveness, styleMultiplier, styleOfChampion, styleOfMove, type Effectiveness } from './style';
 import type { BattleMove, Combatant, Rng } from './types';
 
 /**
@@ -20,6 +22,8 @@ export interface DamageResult {
   damage: number;
   crit: boolean;
   hit: boolean;
+  /** Style-triangle verdict, for the consequence beat ("It's super effective!"). */
+  effectiveness: Effectiveness;
 }
 
 const POWER_BASELINE = 20;
@@ -35,9 +39,9 @@ export function computeDamage(
   attacker: Combatant,
   defender: Combatant,
   rng: Rng,
-  opts: { forceCrit?: boolean; hitOverride?: boolean } = {}
+  opts: { forceCrit?: boolean; hitOverride?: boolean; condition?: GymCondition | null } = {}
 ): DamageResult {
-  if (move.basePower <= 0) return { damage: 0, crit: false, hit: true };
+  if (move.basePower <= 0) return { damage: 0, crit: false, hit: true, effectiveness: 'neutral' };
 
   const powerMod = attacker.stats.power / POWER_BASELINE;
   const defMod = defenceModifier(effectiveDefence(defender));
@@ -61,14 +65,25 @@ export function computeDamage(
   // Shadow Step combo bonus.
   if (attacker.comboArmed) conditional *= 1.35;
 
+  // The style triangle (style.ts): FORCE > FORM > FLOW > FORCE.
+  const effectiveness = styleEffectiveness(styleOfMove(move), styleOfChampion(defender.championId));
+  const styleMod = styleMultiplier(effectiveness);
+
+  // Gym condition: heavy iron amplifies heavies/ultimates for both sides.
+  const condMult =
+    opts.condition?.heavyMult && (move.category === 'heavy' || move.category === 'ultimate')
+      ? opts.condition.heavyMult
+      : 1;
+
   const variance = 0.9 + rng() * 0.2; // 0.9–1.1
 
-  const crit = opts.forceCrit ?? rng() < attacker.stats.critChance;
+  const critChance = attacker.stats.critChance + (opts.condition?.critBonus ?? 0);
+  const crit = opts.forceCrit ?? rng() < critChance;
   const critMod = crit ? attacker.stats.critMultiplier : 1;
 
-  const raw = move.basePower * powerMod * defMod * conditional * variance * critMod;
+  const raw = move.basePower * powerMod * defMod * conditional * styleMod * condMult * variance * critMod;
   const damage = Math.max(1, Math.round(raw));
-  return { damage, crit, hit: true };
+  return { damage, crit, hit: true, effectiveness };
 }
 
 /** Does the move connect? Accuracy vs the defender's evasion. */

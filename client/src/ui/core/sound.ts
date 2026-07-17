@@ -124,6 +124,12 @@ const MOVE_SFX: Record<string, () => void> = {
   second_wind: () => blip(420, 900, 0.3, 0.08, 'sine'),
   shadow_step: () => blip(700, 220, 0.2, 0.08, 'triangle'),
   recover: () => { blip(520, 880, 0.14, 0.08, 'sine'); blip(660, 1040, 0.16, 0.08, 'sine', 0.12); },
+  // Battle items (Phase C): a gulp-gulp swallow, and the pre-workout jolt.
+  item_protein_shake: () => { blip(300, 180, 0.1, 0.1, 'sine'); blip(320, 190, 0.1, 0.1, 'sine', 0.14); blip(520, 900, 0.16, 0.08, 'sine', 0.3); },
+  item_pre_workout: () => { const n = [440, 660, 880, 1320]; n.forEach((f, i) => blip(f, f * 1.2, 0.07, 0.09, 'square', i * 0.06)); },
 };
 /** The move's own sound — falls back to the press chirp for unknown ids. */
 export const playMoveFx = (moveId: string) => (MOVE_SFX[moveId] ?? playPress)();
+
+/** A soft low-HP heartbeat — two muffled thumps (FireRed's red-zone tension). */
+export const playHeartbeat = () => { blip(85, 60, 0.11, 0.1, 'sine'); blip(70, 50, 0.13, 0.08, 'sine', 0.16); };

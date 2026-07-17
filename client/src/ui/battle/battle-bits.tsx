@@ -1,53 +1,71 @@
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { STATUS_META } from '@/domain/battle-rpg/status';
 import type { BattleStatus, Combatant } from '@/domain/battle-rpg/types';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { playHeartbeat } from '@/ui/core/sound';
 
-/** A labelled combat bar (health / stamina) that eases to its value. */
+/** A labelled combat bar (health / stamina) that eases to its value.
+ *  `stages` (HP bars) recolours FireRed-style — >50% green, 20–50% amber,
+ *  <20% red with a pulse + a soft heartbeat on each hit while red. */
 export function CombatBar({
   value,
   max,
   colour,
   label,
   height = 10,
+  stages = false,
 }: {
   value: number;
   max: number;
   colour: string;
   label: string;
   height?: number;
+  stages?: boolean;
 }) {
   const colors = useThemeColors();
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const w = useSharedValue(pct);
   const ghost = useSharedValue(pct); // trailing bar — catches up slowly on loss
+  const pulse = useSharedValue(1);
+  const critical = stages && pct > 0 && pct < 20;
   useEffect(() => {
     w.value = withTiming(pct, { duration: 260, easing: Easing.out(Easing.quad) });
     // On a loss the ghost lingers (the classic RPG "damage trail"); on a gain
     // it snaps ahead so the green fill leads.
     ghost.value = withTiming(pct, { duration: 620, easing: Easing.out(Easing.cubic) });
   }, [pct, w, ghost]);
-  const fill = useAnimatedStyle(() => ({ width: `${w.value}%` }));
+  useEffect(() => {
+    if (critical) {
+      pulse.value = withRepeat(withSequence(withTiming(0.55, { duration: 420 }), withTiming(1, { duration: 420 })), -1);
+      playHeartbeat();
+    } else {
+      pulse.value = withTiming(1, { duration: 200 });
+    }
+    // Re-thump on every HP change while critical, not just on entry.
+  }, [critical, pct, pulse]);
+  const fill = useAnimatedStyle(() => ({ width: `${w.value}%`, opacity: pulse.value }));
   const ghostStyle = useAnimatedStyle(() => ({ width: `${Math.max(w.value, ghost.value)}%` }));
   const low = pct <= 25;
+  const stageColour = !stages ? colour : pct > 50 ? colors.success : pct > 20 ? colors.legendary : colors.danger;
+  const barColour = stages ? stageColour : low ? colors.danger : colour;
   return (
     <View>
       <View className="flex-row items-center justify-between" style={{ marginBottom: 2 }}>
         <Text allowFontScaling={false} style={{ fontSize: 8, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {label}
         </Text>
-        <Text allowFontScaling={false} style={{ fontSize: 9, color: low ? colors.danger : colour, fontFamily: PIXEL_BOLD }}>
+        <Text allowFontScaling={false} style={{ fontSize: 9, color: stages ? stageColour : low ? colors.danger : colour, fontFamily: PIXEL_BOLD }}>
           {Math.round(value)}/{Math.round(max)}
         </Text>
       </View>
       <View style={{ height, borderRadius: height, backgroundColor: 'rgba(120,170,220,0.12)', overflow: 'hidden' }}>
         {/* Ghost trail (whitened) sits behind the real fill. */}
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: height, backgroundColor: 'rgba(255,255,255,0.5)' }, ghostStyle]} />
-        <Animated.View style={[{ height, borderRadius: height, backgroundColor: low ? colors.danger : colour, shadowColor: colour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
+        <Animated.View style={[{ height, borderRadius: height, backgroundColor: barColour, shadowColor: barColour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
       </View>
     </View>
   );
@@ -106,7 +124,7 @@ export function CombatantHud({ combatant, powerLabel, align = 'left' }: { combat
         ) : null}
       </View>
       <View style={{ gap: 4, marginTop: 4 }}>
-        <CombatBar label="HP" value={combatant.stats.currentHealth} max={combatant.stats.maxHealth} colour={colors.success} />
+        <CombatBar label="HP" value={combatant.stats.currentHealth} max={combatant.stats.maxHealth} colour={colors.success} stages />
         <CombatBar label="STAMINA" value={combatant.stats.currentStamina} max={combatant.stats.maxStamina} colour={colors.accent} height={6} />
       </View>
       <View style={{ marginTop: 4 }}>
