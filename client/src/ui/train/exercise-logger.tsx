@@ -11,7 +11,7 @@ import { WEIGHT_STEP, convertTyped, displayWeight, toKgForSave, type WeightUnit 
 import { XP_PER_SET } from '@/domain/xp';
 import tokens from '@/theme/tokens';
 import { FloatingXP } from '@/ui/character/floating-xp';
-import { NumberField } from '@/ui/core/number-field';
+import { KeyPad, NumberField } from '@/ui/core/number-field';
 import { playCoin, playPr, playSelect } from '@/ui/core/sound';
 import { startRest } from '@/ui/train/rest-timer';
 import { schemeSentence } from '@/ui/train/scheme-sentence';
@@ -84,6 +84,8 @@ export function ExerciseCard({
   skipped = false,
   onAddSet,
   onRemoveSet,
+  supersetWith = null,
+  onSuperset,
   readOnly = false,
 }: {
   date: string;
@@ -116,6 +118,10 @@ export function ExerciseCard({
   onAddSet?: () => void;
   /** Undefined when at the floor (never orphan a logged row). */
   onRemoveSet?: () => void;
+  /** SUPERSET (2026-07-18): partner exercise name when paired. */
+  supersetWith?: string | null;
+  /** Open the pair-picker (or unpair when already paired). */
+  onSuperset?: () => void;
   /**
    * TRAIN_IMPROVEMENTS: the workout was FINISHED. Rows render as static text —
    * no inputs, no LOG. This is a UX lock, NOT a security boundary: RLS still
@@ -256,6 +262,13 @@ export function ExerciseCard({
         <Text className="text-xs text-text-dim">{schemeSentence(scheme)}</Text>
         <SetPips done={doneCount} target={targetSets} tint={tint} />
       </View>
+      {supersetWith ? (
+        <View className="mb-s2 self-start rounded-pill border px-s2 py-s1" style={{ borderColor: `${tokens.colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
+          <Text allowFontScaling={false} className="text-2xs font-bold text-epic" style={{ letterSpacing: 0.5 }} testID={`${exercise}-superset-chip`}>
+            SUPERSET · {supersetWith.toUpperCase()}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Column header. The weight header is the KG⇄LB toggle and spans the
           value+stepper so "WEIGHT · KG" no longer truncates to "WEIGH…". */}
@@ -294,6 +307,7 @@ export function ExerciseCard({
             setNo={setNo}
             initialWeight={existing ? String(pyFloat(existing.weight) ?? '') : ''}
             initialReps={existing ? String(pyInt(existing.reps) ?? '') : ''}
+            initialNotes={existing ? String((existing as Record<string, unknown>).notes ?? '') : ''}
             prefill={prefill}
             onPr={onPr}
             tint={tint}
@@ -339,6 +353,20 @@ export function ExerciseCard({
               </Text>
             </Pressable>
           ) : null}
+          {onSuperset ? (
+            <Pressable
+              onPress={onSuperset}
+              accessibilityRole="button"
+              accessibilityLabel={supersetWith ? `unpair superset for ${exercise}` : `superset ${exercise} with another exercise`}
+              testID={`${exercise}-superset`}
+              className="items-center justify-center px-s2"
+              style={{ minHeight: 44 }}
+            >
+              <Text className="text-2xs font-bold" style={{ letterSpacing: 1.5, color: supersetWith ? tokens.colors.epic : tokens.colors['text-dim'] }}>
+                {supersetWith ? 'UNPAIR' : 'SUPERSET'}
+              </Text>
+            </Pressable>
+          ) : null}
           {onSkip ? (
             <Pressable
               onPress={onSkip}
@@ -366,6 +394,7 @@ function SetRow({
   setNo,
   initialWeight,
   initialReps,
+  initialNotes = '',
   prefill = null,
   onPr,
   tint,
@@ -379,6 +408,8 @@ function SetRow({
   setNo: number;
   initialWeight: string;
   initialReps: string;
+  /** The row's saved notes — DROPS ride here ("DROPS: 50x6, 40x5"). */
+  initialNotes?: string;
   /** Last session's numbers for this set — shown editable, saved only on LOG. */
   prefill?: { weight: number; reps: number } | null;
   onPr: () => void;
@@ -412,8 +443,31 @@ function SetRow({
   const [weightDirty, setWeightDirty] = useState(initialWeight !== '');
   const [repsDirty, setRepsDirty] = useState(initialReps !== '');
   const [floatXp, setFloatXp] = useState(false);
+  // DROP SETS (2026-07-18): back-off mini-sets after the working set, stored
+  // in the row's notes — ONE set row, ONE XP grant (the anti-farm contract).
+  // Entry = warm keypad for weight, then reps; each drop autosaves.
+  const parseDrops = (n: string) => (n.startsWith('DROPS: ') ? n.slice(7).split(', ').filter(Boolean) : []);
+  const [drops, setDrops] = useState<string[]>(() => parseDrops(initialNotes));
+  const [dropPad, setDropPad] = useState<null | { stage: 'w' | 'r'; w?: string; keep?: boolean }>(null);
   const save = useSaveSet();
   const logged = initialWeight !== '';
+
+  const saveDrops = (next: string[]) => {
+    setDrops(next);
+    const w = pyFloat(weight);
+    const r = pyFloat(reps);
+    if (w === null || r === null || w <= 0 || r <= 0) return;
+    save.mutate({
+      workoutDate: date,
+      workout,
+      exercise,
+      setNo,
+      weight: toKgForSave(w, unit),
+      reps: Math.trunc(r),
+      notes: next.length ? `DROPS: ${next.join(', ')}` : '',
+      durable,
+    });
+  };
 
   const onSave = () => {
     const w = pyFloat(weight);
@@ -434,6 +488,7 @@ function SetRow({
         // else. kg mode passes through verbatim (no new rounding on metric).
         weight: toKgForSave(w, unit),
         reps: Math.trunc(r),
+        notes: drops.length ? `DROPS: ${drops.join(', ')}` : '',
         durable,
       },
       {
@@ -461,7 +516,8 @@ function SetRow({
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   return (
-    <View className="mb-s2 flex-row items-center gap-s1 px-[2px] py-s1">
+    <View className="mb-s2">
+    <View className="flex-row items-center gap-s1 px-[2px] py-s1">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
       <View className="justify-center" style={{ width: compact ? 30 : 40 }}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: compact ? 0 : 1 }}>
@@ -526,6 +582,61 @@ function SetRow({
           </Text>
         )}
       </Pressable>
+    </View>
+    {/* Drop-set chips + the add affordance (once the set is banked). */}
+    {logged || drops.length > 0 ? (
+      <View className="flex-row flex-wrap items-center px-[2px]" style={{ gap: 6 }}>
+        {drops.map((d, i) => (
+          <Pressable
+            key={`${d}:${i}`}
+            onPress={() => saveDrops(drops.filter((_, j) => j !== i))}
+            accessibilityRole="button"
+            accessibilityLabel={`remove drop ${d}`}
+            className="rounded-pill border px-s2 py-s1"
+            style={{ borderColor: `${tokens.colors.warn}59`, backgroundColor: 'rgba(251,191,36,0.07)' }}
+            testID={`${exercise}-drop-${setNo}-${i}`}
+          >
+            <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: tokens.colors.warn }}>
+              ↓ {d} ✕
+            </Text>
+          </Pressable>
+        ))}
+        {logged ? (
+          <Pressable
+            onPress={() => setDropPad({ stage: 'w' })}
+            accessibilityRole="button"
+            accessibilityLabel={`add a drop set to set ${setNo}`}
+            className="rounded-pill border px-s2 py-s1"
+            style={{ borderColor: tokens.colors.border, minHeight: 28, justifyContent: 'center' }}
+            testID={`${exercise}-adddrop-${setNo}`}
+          >
+            <Text allowFontScaling={false} className="text-2xs font-bold text-text-dim">＋ DROP</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    ) : null}
+    {dropPad ? (
+      <KeyPad
+        label={dropPad.stage === 'w' ? `DROP WEIGHT · ${unit.toUpperCase()}` : 'DROP REPS'}
+        initial=""
+        integer={dropPad.stage === 'r'}
+        tint={tokens.colors.warn}
+        quickSteps={dropPad.stage === 'w' ? WEIGHT_STEP[unit].quick : undefined}
+        onDone={(v) => {
+          const n = pyFloat(v);
+          if (n === null || n <= 0) return;
+          if (dropPad.stage === 'w') {
+            // KeyPad fires onDone THEN onClose — `keep` survives that close
+            // exactly once, so the reps pad stays up.
+            setDropPad({ stage: 'r', w: v, keep: true });
+          } else {
+            saveDrops([...drops, `${dropPad.w}×${Math.trunc(n)}`]);
+            setDropPad(null);
+          }
+        }}
+        onClose={() => setDropPad((p) => (p?.keep ? { ...p, keep: false } : null))}
+      />
+    ) : null}
     </View>
   );
 }

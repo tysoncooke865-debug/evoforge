@@ -55,6 +55,8 @@ interface SessionState {
   restoreExercise: (day: string, exercise: string) => void;
   toggleSkip: (day: string, exercise: string) => void;
   bumpSets: (day: string, exercise: string, delta: number) => void;
+  /** Pair a and b as a superset (symmetric); calling again on a pair unlinks. */
+  toggleSuperset: (day: string, a: string, b: string) => void;
 
   /** Adding to an ad-hoc day goes through addExercise like any other day —
    *  the override layer keys on the day NAME, and an ad-hoc workout's name is
@@ -70,7 +72,7 @@ interface SessionState {
 
 // The athlete's calendar day (domain/today.ts) — NOT the UTC date.
 
-const emptyDay = (): DayOverrides => ({ added: [], removed: [], skipped: [], setDelta: {} });
+const emptyDay = (): DayOverrides => ({ added: [], removed: [], skipped: [], setDelta: {}, superset: {} });
 
 /** Mutate one day's overrides, rolling the whole store over if the date
  *  changed. Every action goes through this — there is no other way to write. */
@@ -182,6 +184,20 @@ export const useSessionStore = create<SessionState>()(
           };
         }),
 
+      toggleSuperset: (day, a, b) =>
+        set((s) => {
+          const d = { ...(s.days[day] ?? emptyDay()) };
+          const sup = { ...(d.superset ?? {}) };
+          const linked = sup[a] === b;
+          // unlink anything either party is currently in, then link (or stop).
+          for (const k of [a, b, sup[a], sup[b]]) if (k) delete sup[k];
+          if (!linked) {
+            sup[a] = b;
+            sup[b] = a;
+          }
+          d.superset = sup;
+          return { days: { ...s.days, [day]: d } };
+        }),
       clearActive: () => set({ activeDay: null, activeSource: null }),
 
       reset: () =>

@@ -111,12 +111,15 @@ export default function WorkoutScreen() {
   const addExercise = useSessionStore((s) => s.addExercise);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
+  const toggleSuperset = useSessionStore((s) => s.toggleSuperset);
   const bumpSets = useSessionStore((s) => s.bumpSets);
 
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
+  // SUPERSET (2026-07-18): which exercise is picking a partner.
+  const [pairFor, setPairFor] = useState<string | null>(null);
 
   /** Swap the card being substituted for `altName` — keyed back to the
    *  ORIGINAL plan exercise so RESET TO PLAN works. One path for the
@@ -230,6 +233,7 @@ export default function WorkoutScreen() {
     setSheet(null);
     setSubs({});
     setSubFor(null);
+    setPairFor(null);
     setPickerOpen(false);
   }, [date, workoutName]);
 
@@ -433,6 +437,16 @@ export default function WorkoutScreen() {
             skipped={skipped}
             onRemove={editable ? () => removeOrSkip(exercise) : undefined}
             onSkip={editable ? () => toggleSkip(workoutName, exercise) : undefined}
+            supersetWith={overrides.superset?.[exercise] ?? null}
+            onSuperset={
+              editable
+                ? () => {
+                    const partner = overrides.superset?.[exercise];
+                    if (partner) toggleSuperset(workoutName, exercise, partner); // unpair
+                    else setPairFor(exercise);
+                  }
+                : undefined
+            }
             onAddSet={editable && canAddSet(sets) ? () => bumpSets(workoutName, exercise, 1) : undefined}
             onRemoveSet={
               editable && canRemoveSet(sets, facts)
@@ -541,6 +555,48 @@ export default function WorkoutScreen() {
         excludeNames={plan.map((p) => p.exercise)}
         programExercises={plan.map((p) => p.exercise)}
       />
+
+      {/* SUPERSET pair-picker: link this exercise with another from today. */}
+      {pairFor !== null ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setPairFor(null)}>
+          <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={() => setPairFor(null)}>
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-t-xl border-t p-s4"
+              style={{ borderColor: `${tokens.colors.epic}40`, backgroundColor: tokens.colors.surface, maxHeight: 480 }}
+            >
+              <Text className="mb-s1 text-text-mute" allowFontScaling={false} style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}>
+                SUPERSET · PICK THE PARTNER
+              </Text>
+              <Text className="mb-s3 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+                {pairFor}
+              </Text>
+              <View className="flex-row flex-wrap gap-s2">
+                {plan
+                  .filter((e) => e.exercise !== pairFor && !e.skipped)
+                  .map((e) => (
+                    <Pressable
+                      key={e.exercise}
+                      onPress={() => {
+                        toggleSuperset(workoutName, pairFor, e.exercise);
+                        setPairFor(null);
+                      }}
+                      accessibilityRole="button"
+                      testID={`pair-${e.exercise}`}
+                      className="rounded-md border border-border px-s3 py-s2"
+                      style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}
+                    >
+                      <Text className="text-2xs font-bold text-text-dim">{e.exercise}</Text>
+                    </Pressable>
+                  ))}
+              </View>
+              <View className="mt-s3">
+                <NeonButton title="CANCEL" variant="ghost" onPress={() => setPairFor(null)} />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
 
       {/* Substitution sheet: same-muscle alternatives, one tap. */}
       {subFor !== null ? (

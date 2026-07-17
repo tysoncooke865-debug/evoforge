@@ -39,6 +39,9 @@ export interface DayOverrides {
   skipped: string[];
   /** exercise -> ±slots against the plan. */
   setDelta: Record<string, number>;
+  /** SUPERSETS (2026-07-18): exercise -> partner, stored SYMMETRICALLY
+   *  (both directions). Presentation-level pairing — sets log normally. */
+  superset?: Record<string, string>;
 }
 
 export const EMPTY_OVERRIDES: DayOverrides = { added: [], removed: [], skipped: [], setDelta: {} };

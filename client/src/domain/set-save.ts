@@ -22,6 +22,9 @@ export interface SetInput {
   setNo: number;
   weight: number;
   reps: number;
+  /** DROP SETS (2026-07-18): back-off mini-sets ride the SET's notes column
+   *  ("DROPS: 50x6, 40x5") — one set row, one XP grant, honest storage. */
+  notes?: string;
 }
 
 export type SetVerdict =
@@ -120,6 +123,6 @@ export function buildSetRow(input: SetInput, muscle: string, timestamp: string) 
     muscle,
     estimated_1rm: estimated1rm(input.weight, Math.trunc(input.reps)),
     volume: input.weight * Math.trunc(input.reps),
-    notes: '',
+    notes: input.notes ?? '',
   };
 }
