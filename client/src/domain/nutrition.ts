@@ -219,6 +219,130 @@ export function mealTotals(entries: readonly MealEntryLike[], count: number): nu
   return totals.map((t) => Math.round(t));
 }
 
+/**
+ * The first four slots carry the day's names (the redesign's reference
+ * layout); slots past SNACKS keep the numbered fallback so an 8-meal
+ * athlete loses nothing. Position IS meaning: slot 1 is breakfast because
+ * it is slot 1 — no schema change, meal_no stays the storage contract.
+ */
+export const MEAL_SLOT_NAMES = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACKS'] as const;
+
+export function mealSlotName(slot: number): string {
+  return MEAL_SLOT_NAMES[slot - 1] ?? `MEAL ${slot}`;
+}
+
+export interface MacroEntryLike extends MealEntryLike {
+  protein_g?: unknown;
+  carbs_g?: unknown;
+  fat_g?: unknown;
+}
+
+export interface MacroProgress {
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+const finitePositive = (v: unknown): number => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+/** Grams of each macro logged today. Manual kcal-only entries contribute
+ *  nothing here — a macro sum must never be invented from calories. */
+export function macroProgress(entries: readonly MacroEntryLike[]): MacroProgress {
+  let protein = 0;
+  let carbs = 0;
+  let fat = 0;
+  for (const e of entries) {
+    protein += finitePositive(e.protein_g);
+    carbs += finitePositive(e.carbs_g);
+    fat += finitePositive(e.fat_g);
+  }
+  return { protein: Math.round(protein), carbs: Math.round(carbs), fat: Math.round(fat) };
+}
+
+export interface MacroTargets {
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+/** The fallback when no target exists — one place, per the redesign spec. */
+export const DEFAULT_MACRO_TARGETS: Readonly<MacroTargets> = {
+  protein: 200,
+  carbs: 220,
+  fat: 65,
+};
+
+const round5 = (n: number): number => Math.max(5, Math.round(n / 5) * 5);
+
+/**
+ * Macro targets derived from the calorie target: protein 2 g/kg when the
+ * intake captured a body weight (the lifter's number), else 30% of kcal;
+ * carbs 40%, fat 30% (4/4/9 kcal per gram). Deterministic and derived —
+ * never stored, never from the AI. No target at all → the spec's defaults.
+ */
+export function macroTargetsFor(
+  target: { daily_kcal: number; inputs?: { weightKg?: number } } | null
+): MacroTargets {
+  if (!target || !Number.isFinite(target.daily_kcal) || target.daily_kcal <= 0)
+    return { ...DEFAULT_MACRO_TARGETS };
+  const kcal = target.daily_kcal;
+  const w = Number(target.inputs?.weightKg ?? NaN);
+  const protein = Number.isFinite(w) && w >= 30 && w <= 300 ? round5(2 * w) : round5((0.3 * kcal) / 4);
+  return {
+    protein,
+    carbs: round5((0.4 * kcal) / 4),
+    fat: round5((0.3 * kcal) / 9),
+  };
+}
+
+export interface MealSlotTotals {
+  kcal: number;
+  protein: number;
+}
+
+/** kcal + protein per slot (index 0 = slot 1) — mealTotals' tolerance rules. */
+export function mealMacroTotals(
+  entries: readonly MacroEntryLike[],
+  count: number
+): MealSlotTotals[] {
+  const totals = Array.from({ length: Math.max(0, count) }, () => ({ kcal: 0, protein: 0 }));
+  for (const e of entries) {
+    const n = e.meal_no;
+    if (typeof n !== 'number' || !Number.isFinite(n)) continue;
+    const slot = Math.floor(n);
+    if (slot < 1 || slot > totals.length) continue;
+    totals[slot - 1].kcal += finitePositive(e.kcal);
+    totals[slot - 1].protein += finitePositive(e.protein_g);
+  }
+  return totals.map((t) => ({ kcal: Math.round(t.kcal), protein: Math.round(t.protein) }));
+}
+
+const dayBefore = (iso: string): string => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * Consecutive logged days ending at today. An unlogged TODAY does not break
+ * the run — the athlete opening the page at 7am has not failed yet; the
+ * streak counts back from yesterday until they log. Dates are ISO strings
+ * from the caller (the no-wall-clock rule).
+ */
+export function streakDays(dates: readonly string[], today: string): number {
+  const set = new Set(dates);
+  let cursor = set.has(today) ? today : dayBefore(today);
+  let run = 0;
+  while (set.has(cursor)) {
+    run += 1;
+    cursor = dayBefore(cursor);
+  }
+  return run;
+}
+
 export function canAddMeal(count: number): boolean {
   return count < MAX_MEALS;
 }

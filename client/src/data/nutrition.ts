@@ -29,6 +29,10 @@ export interface NutritionEntry {
   source: 'manual' | 'photo';
   /** null = an absolute quick-add; 1..N = the meal slot it belongs to. */
   meal_no: number | null;
+  /** Grams — present on scanned/looked-up meals, null on manual kcal entries. */
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
   timestamp: string;
 }
 
@@ -105,7 +109,7 @@ export function useNutritionLog(date: string) {
       try {
         const { data, error } = await supabase
           .from('nutrition_log')
-          .select('id,date,kcal,label,source,meal_no,"timestamp"')
+          .select('id,date,kcal,label,source,meal_no,protein_g,carbs_g,fat_g,"timestamp"')
           .eq('date', date)
           .order('timestamp', { ascending: true });
         if (error) {
@@ -115,6 +119,48 @@ export function useNutritionLog(date: string) {
           return [];
         }
         return (data ?? []) as NutritionEntry[];
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+/**
+ * The distinct dates with ANY logged entry in the trailing window — the
+ * streak's input. Reads degrade to empty exactly like the day query; the
+ * streak simply shows nothing rather than crashing a pre-migration client.
+ */
+export function useNutritionDates(today: string, windowDays = 45) {
+  const userId = useUserId();
+  const since = (() => {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - windowDays);
+    return d.toISOString().slice(0, 10);
+  })();
+  return useQuery({
+    queryKey: ['nutrition_dates', userId, today],
+    enabled: userId !== null,
+    queryFn: async (): Promise<string[]> => {
+      try {
+        // Newest-first + the ROW_CAP convention: if a heavy logger's window
+        // overflows the server cap, truncation drops the OLDEST rows, so the
+        // streak shortens at the horizon instead of falsely breaking mid-run.
+        const { data, error } = await supabase
+          .from('nutrition_log')
+          .select('date')
+          .gte('date', since)
+          .lte('date', today)
+          .order('date', { ascending: false })
+          .limit(2500);
+        if (error) {
+          if (tableMissing(error)) {
+            const rows = await readLocal<NutritionEntry>(PREVIEW_LOG_KEY);
+            return [...new Set(rows.filter((e) => e.date >= since && e.date <= today).map((e) => e.date))];
+          }
+          return [];
+        }
+        return [...new Set((data ?? []).map((r) => String((r as { date: string }).date)))];
       } catch {
         return [];
       }
@@ -179,6 +225,7 @@ export function useLogCalories() {
     },
     onSettled: (_d, _e, input) => {
       void queryClient.invalidateQueries({ queryKey: ['nutrition_log', userId, input.date] });
+      void queryClient.invalidateQueries({ queryKey: ['nutrition_dates', userId] });
     },
   });
 }
@@ -204,6 +251,7 @@ export function useDeleteEntry() {
     },
     onSuccess: (_d, entry) => {
       void queryClient.invalidateQueries({ queryKey: ['nutrition_log', userId, entry.date] });
+      void queryClient.invalidateQueries({ queryKey: ['nutrition_dates', userId] });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'NOT DELETED', subtitle: e.message });
@@ -370,10 +418,14 @@ export function useLogMeal() {
   return useMutation({
     mutationFn: async (input: { date: string; items: MealItem[]; mealNo?: number | null }) => {
       const t = scanTotals(input.items);
+      // Mirror 037/043's CHECKs and REFUSE rather than clamp — a silently
+      // clamped kcal would disagree with the stored items it claims to sum.
+      if (t.kcal < 1 || t.kcal > 6000 || t.p > 1000 || t.c > 1500 || t.f > 600)
+        throw new Error('Meals cap at 6,000 kcal (P 1000 · C 1500 · F 600). Split it into two meals.');
       const label = input.items.map((i) => i.name).join(', ').slice(0, 60);
       const { error } = await supabase.from('nutrition_log').insert({
         date: input.date,
-        kcal: Math.max(1, Math.min(6000, t.kcal)),
+        kcal: t.kcal,
         label,
         source: 'photo',
         meal_no: input.mealNo ?? null,
@@ -387,12 +439,18 @@ export function useLogMeal() {
     },
     onSuccess: (t, input) => {
       void queryClient.invalidateQueries({ queryKey: ['nutrition_log', userId, input.date] });
+      void queryClient.invalidateQueries({ queryKey: ['nutrition_dates', userId] });
       useToastStore.getState().push({
         kind: 'achievement',
         title: 'MEAL LOGGED',
         subtitle: `${t.kcal} kcal · P${Math.round(t.p)} C${Math.round(t.c)} F${Math.round(t.f)}`,
       });
     },
-    onError: () => useToastStore.getState().push({ kind: 'error', title: 'NOT LOGGED', subtitle: 'Could not save the meal. Try again.' }),
+    onError: (e: Error) =>
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'NOT LOGGED',
+        subtitle: e.message.includes('cap') ? e.message : 'Could not save the meal. Try again.',
+      }),
   });
 }

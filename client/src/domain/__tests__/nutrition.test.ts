@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ACTIVITY_FACTORS,
+  DEFAULT_MACRO_TARGETS,
   FLOOR_KCAL,
   KJ_PER_KCAL,
   canAddMeal,
@@ -13,9 +14,14 @@ import {
   intakeProgress,
   kcalToKj,
   kjToKcal,
+  macroProgress,
+  macroTargetsFor,
+  mealMacroTotals,
+  mealSlotName,
   mealTotals,
   meterState,
   mifflinStJeor,
+  streakDays,
   type TargetInputs,
 } from '../nutrition';
 
@@ -213,6 +219,104 @@ describe('meals — the day structured like Train structures sets', () => {
     // this go red (canRemoveMeal(2, [meal(2)]) returned true), restored.
     expect(canRemoveMeal(2, [meal(2, 400)])).toBe(false);
     expect(canRemoveMeal(3, [meal(2, 400)])).toBe(true);
+  });
+});
+
+describe('mealSlotName — position IS meaning', () => {
+  it('names the first four slots, numbers the rest', () => {
+    expect([1, 2, 3, 4, 5, 8].map(mealSlotName)).toEqual([
+      'BREAKFAST',
+      'LUNCH',
+      'DINNER',
+      'SNACKS',
+      'MEAL 5',
+      'MEAL 8',
+    ]);
+  });
+});
+
+describe('macroProgress — grams are summed, never invented', () => {
+  it('sums the macro columns and rounds', () => {
+    expect(
+      macroProgress([
+        { protein_g: 28.4, carbs_g: 40, fat_g: 12 },
+        { protein_g: 30.2, carbs_g: 22.5, fat_g: 6.1 },
+      ])
+    ).toEqual({ protein: 59, carbs: 63, fat: 18 });
+  });
+
+  it('a manual kcal-only entry contributes nothing', () => {
+    expect(macroProgress([{ kcal: 700 }])).toEqual({ protein: 0, carbs: 0, fat: 0 });
+  });
+
+  it('garbage and negatives count nothing', () => {
+    expect(macroProgress([{ protein_g: 'soup', carbs_g: -5, fat_g: null }])).toEqual({
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    });
+  });
+});
+
+describe('macroTargetsFor — derived, never stored, never from the AI', () => {
+  it('no target → the spec defaults, verbatim', () => {
+    expect(macroTargetsFor(null)).toEqual(DEFAULT_MACRO_TARGETS);
+    expect(macroTargetsFor({ daily_kcal: 0 })).toEqual(DEFAULT_MACRO_TARGETS);
+  });
+
+  it('with a body weight, protein is 2 g/kg (80 kg → 160 g)', () => {
+    expect(macroTargetsFor({ daily_kcal: 2000, inputs: { weightKg: 80 } }).protein).toBe(160);
+  });
+
+  it('without a weight, protein is 30% of kcal at 4 kcal/g (2000 → 150 g)', () => {
+    expect(macroTargetsFor({ daily_kcal: 2000 }).protein).toBe(150);
+  });
+
+  it('carbs 40% at 4 kcal/g, fat 30% at 9 kcal/g, rounded to 5 g', () => {
+    // 2000 kcal: carbs 800/4 = 200; fat 600/9 = 66.7 → 65.
+    expect(macroTargetsFor({ daily_kcal: 2000 })).toMatchObject({ carbs: 200, fat: 65 });
+  });
+
+  it('an out-of-range weight falls back to the kcal split, not 2 g/kg', () => {
+    expect(macroTargetsFor({ daily_kcal: 2000, inputs: { weightKg: 999 } }).protein).toBe(150);
+  });
+});
+
+describe('mealMacroTotals — kcal + protein per slot', () => {
+  it('groups both numbers by slot with mealTotals tolerance', () => {
+    const entries = [
+      { meal_no: 1, kcal: 320, protein_g: 28 },
+      { meal_no: 1, kcal: 100, protein_g: 2.4 },
+      { meal_no: 3, kcal: 650 }, // manual — no macros
+      { meal_no: null, kcal: 999, protein_g: 50 }, // quick-add — no slot
+      { meal_no: 9, kcal: 100, protein_g: 10 }, // beyond the count
+    ];
+    expect(mealMacroTotals(entries, 3)).toEqual([
+      { kcal: 420, protein: 30 },
+      { kcal: 0, protein: 0 },
+      { kcal: 650, protein: 0 },
+    ]);
+  });
+});
+
+describe('streakDays — the run ends when a day was truly missed', () => {
+  const days = ['2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17'];
+
+  it('counts back from a logged today', () => {
+    expect(streakDays([...days, '2026-07-18'], '2026-07-18')).toBe(6);
+  });
+
+  it('an unlogged TODAY does not break the run — 7am has not failed yet', () => {
+    expect(streakDays(days, '2026-07-18')).toBe(5);
+  });
+
+  it('a gap two days back ends the run', () => {
+    expect(streakDays(['2026-07-15', '2026-07-17', '2026-07-18'], '2026-07-18')).toBe(2);
+  });
+
+  it('nothing logged → 0, and a month boundary walks correctly', () => {
+    expect(streakDays([], '2026-07-18')).toBe(0);
+    expect(streakDays(['2026-06-30', '2026-07-01'], '2026-07-01')).toBe(2);
   });
 });
 

@@ -43,8 +43,38 @@ Owner: Tyson. He works through other Claude sessions too — **always
   for scans (storeCache swallows errors) → migration `021` extends the check.
 - SUPABASE_SETUP.md steps all done; `SUPABASE_ACCESS_TOKEN` repo secret set and
   the parked CI step wired into `client.yml` — edge functions now deploy on push.
-- Parallel `nutrition` branch (FUEL tab, unmerged): its `020_nutrition.sql` must
-  be **renumbered to 022** at merge — mainline claimed 020 and 021.
+- FUEL (nutrition) is ON MAINLINE — the old `origin/nutrition` branch is
+  superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
+  macros), both applied. See §875ff for the numbering note.
+
+- **FUEL_REDESIGN — EXECUTED 2026-07-18** (Tyson's reference mock): fuel.tsx
+  is now a composition over `ui/fuel/*` — FuelHeader (framed champion + Forge
+  LV, the Train pattern) · NutritionSummaryCard (remaining kcal loud + three
+  macro rows; two-col ≥380px, stacked below; meter colour rules unchanged) ·
+  AIMealScanCard (epic treatment; photo scan AND the new **barcode scan**
+  share ONE confirm sheet + useLogMeal) · MealsSection (slots wear
+  BREAKFAST/LUNCH/DINNER/SNACKS via `mealSlotName` — position IS meaning,
+  meal_no stays the contract; 5..8 stay numbered; ＋/− MEAL kept) ·
+  FuelBonusCard (protein goal; **deliberately NO "+Recovery XP" promise —
+  no such backend exists**, hidden-never-mocked) · QuickLogCard (+100/200/
+  300/500 chips ADD to the field; LOG IT is the only write) ·
+  DailyTargetCard · converter + quick-adds kept. Domain adds (all tested):
+  `mealSlotName/macroProgress/macroTargetsFor` (2g/kg when intake knows
+  weight, else 30/40/30 split; `DEFAULT_MACRO_TARGETS` fallback)
+  /`mealMacroTotals`/`streakDays` (unlogged TODAY doesn't break the run).
+  Data adds: day query now selects `protein_g/carbs_g/fat_g`;
+  `useNutritionDates` (streak window, invalidated by every log/delete).
+  **Barcode:** `@zxing/browser` lazy-imported over getUserMedia
+  (`ui/fuel/barcode-video.web.tsx`; native twin stubs unavailable → photo
+  decode → manual digits), product lookup = direct Open Food Facts v2 fetch
+  (`data/food-lookup.ts` — keyless+CORS-open, per-100g normalised, serving
+  default). NeonButton grew the `epic` variant; pixel-icons grew the fuel
+  set (sun/bloom/moon/apple/muscle/bolt/drop/camera/barcode/target/shield).
+  Toured against production (ALPHA): real OFF lookup via the modal
+  (Coca-Cola 139 kcal/330ml), quick-log write→delete self-cleaned, rich
+  state via READ interception. **Tour gotcha: the origin-v5 DISCOVER YOUR
+  ORIGIN sheet floats over every page for accounts without an origin — click
+  its LATER before driving anything.**
 
 - **`TRAIN_OVERHAUL.md` — EXECUTED IN FULL 2026-07-15** (4 commits): hero
   briefing card (title/sub split, muscle pills, ≈SETS/MIN/KCAL, hero

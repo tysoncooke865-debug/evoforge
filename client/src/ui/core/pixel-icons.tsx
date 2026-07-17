@@ -271,3 +271,177 @@ export const PixelHelmet = ({ size = 18, color, testID }: IconProps) => (
 export const PixelCalendar = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={CALENDAR} size={size} color={color} testID={testID ?? 'pixel-calendar'} />
 );
+
+// FUEL_REDESIGN — the calorie day's iconography: meal-slot marks (sun /
+// bloom / moon / apple), the macro trio (muscle / bolt / drop), and the
+// scanner kit (camera / barcode / target / shield). Same convention: grids
+// are art, iterate them against screenshots.
+
+const SUN = [
+  '.....#.....',
+  '.#...#...#.',
+  '..#.###.#..',
+  '...#####...',
+  '..#######..',
+  '#.#######.#',
+  '..#######..',
+  '...#####...',
+  '..#.###.#..',
+  '.#...#...#.',
+  '.....#.....',
+] as const;
+
+const BLOOM = [
+  '...###...',
+  '...###...',
+  '##..#..##',
+  '###...###',
+  '..#####..',
+  '###...###',
+  '##..#..##',
+  '...###...',
+  '...###...',
+] as const;
+
+const MOON = [
+  '..#####..',
+  '.#####...',
+  '#####....',
+  '####.....',
+  '####.....',
+  '####.....',
+  '#####....',
+  '.#####...',
+  '..#####..',
+] as const;
+
+const APPLE = [
+  '....#....',
+  '...#.....',
+  '.###.###.',
+  '#########',
+  '#########',
+  '#########',
+  '#########',
+  '.#######.',
+  '..##.##..',
+] as const;
+
+const MUSCLE = [
+  '..###......',
+  '..####.....',
+  '..####..##.',
+  '...###.###.',
+  '...#######.',
+  '..########.',
+  '.#########.',
+  '.########..',
+  '..######...',
+] as const;
+
+const BOLT = [
+  '...###.',
+  '..###..',
+  '.###...',
+  '#######',
+  '...###.',
+  '..###..',
+  '.###...',
+  '###....',
+] as const;
+
+const DROP = [
+  '...#...',
+  '...#...',
+  '..###..',
+  '..###..',
+  '.#####.',
+  '#######',
+  '#######',
+  '.#####.',
+  '..###..',
+] as const;
+
+const CAMERA = [
+  '....###....',
+  '###########',
+  '####...####',
+  '###.....###',
+  '###.....###',
+  '####...####',
+  '###########',
+  '###########',
+] as const;
+
+const BARCODE = [
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+  '#.##.#.##..#',
+] as const;
+
+const TARGET = [
+  '...###...',
+  '.##...##.',
+  '.#.....#.',
+  '#...#...#',
+  '#..###..#',
+  '#...#...#',
+  '.#.....#.',
+  '.##...##.',
+  '...###...',
+] as const;
+
+const SHIELD = [
+  '#########',
+  '#########',
+  '#########',
+  '#########',
+  '#########',
+  '.#######.',
+  '.#######.',
+  '..#####..',
+  '...###...',
+  '....#....',
+] as const;
+
+/** The meal-slot marks. */
+export const PixelSun = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={SUN} size={size} color={color} testID={testID ?? 'pixel-sun'} />
+);
+export const PixelBloom = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={BLOOM} size={size} color={color} testID={testID ?? 'pixel-bloom'} />
+);
+export const PixelMoon = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={MOON} size={size} color={color} testID={testID ?? 'pixel-moon'} />
+);
+export const PixelApple = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={APPLE} size={size} color={color} testID={testID ?? 'pixel-apple'} />
+);
+/** The macro trio: protein / carbs / fat. */
+export const PixelMuscle = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={MUSCLE} size={size} color={color} testID={testID ?? 'pixel-muscle'} />
+);
+export const PixelBolt = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={BOLT} size={size} color={color} testID={testID ?? 'pixel-bolt'} />
+);
+export const PixelDrop = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={DROP} size={size} color={color} testID={testID ?? 'pixel-drop'} />
+);
+/** The scanner kit. */
+export const PixelCamera = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={CAMERA} size={size} color={color} testID={testID ?? 'pixel-camera'} />
+);
+export const PixelBarcode = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={BARCODE} size={size} color={color} testID={testID ?? 'pixel-barcode'} />
+);
+export const PixelTarget = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={TARGET} size={size} color={color} testID={testID ?? 'pixel-target'} />
+);
+export const PixelShield = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={SHIELD} size={size} color={color} testID={testID ?? 'pixel-shield'} />
+);

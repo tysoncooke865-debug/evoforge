@@ -11,7 +11,7 @@ import { playPress, playSelect } from '@/ui/core/sound';
 import { PIXEL_BOLD } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
-type Variant = 'primary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'ghost' | 'danger' | 'epic';
 
 /**
  * The one button. Gradient fill (primary), thin neon outline (ghost),
@@ -68,6 +68,9 @@ export function NeonButton({
     primary: { shadow: colors.accent, text: colors['accent-ink'] },
     ghost: { shadow: colors.accent, text: colors.accent },
     danger: { shadow: colors.danger, text: colors['accent-ink'] },
+    // FUEL_REDESIGN: the AI/reward accent — purple fill, light label (the
+    // epic gradient runs darker than the cyan one; accent-ink would vanish).
+    epic: { shadow: colors.epic, text: '#f8f4ff' },
   }[variant];
 
   const inner =
@@ -107,7 +110,11 @@ export function NeonButton({
             ? [colors['surface-2'], colors['surface-2']]
             : variant === 'danger'
               ? [colors.danger, '#e11d48']
-              : [colors['accent-strong'], colors.accent, colors['accent-deep']]
+              : variant === 'epic'
+                ? // Darker ramp than raw epic: every stop clears WCAG 4.5:1
+                  // against the light label (epic #a855f7 itself sits at 3.6).
+                  ['#9333ea', '#7e22ce', '#6b21a8']
+                : [colors['accent-strong'], colors.accent, colors['accent-deep']]
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -176,11 +183,15 @@ export function Chip({
   active,
   onPress,
   testID,
+  hitSlop,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   testID?: string;
+  /** Chips render ~28px tall; rows using them as primary controls extend
+   *  the target to the 44px floor without changing the visual. */
+  hitSlop?: { top?: number; bottom?: number; left?: number; right?: number };
 }) {
   const colors = useThemeColors();
   const scale = useSharedValue(1);
@@ -196,6 +207,7 @@ export function Chip({
         onPressIn={() => (scale.value = withSpring(0.95, { damping: 20, stiffness: 400 }))}
         onPressOut={() => (scale.value = withSpring(1, { damping: 16, stiffness: 300 }))}
         testID={testID}
+        hitSlop={hitSlop}
         style={{
           borderRadius: 999,
           borderWidth: 1,
