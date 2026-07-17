@@ -35,6 +35,13 @@ export function initVersionGuard(): void {
       /* offline or blocked — never an error surface */
     }
   };
+  // Shell service worker: cache-first launches (the grey-screen cure) — the
+  // guard above stays the freshness authority.
+  try {
+    void navigator.serviceWorker?.register('/sw.js');
+  } catch {
+    /* unsupported — launches stay network-dependent as before */
+  }
   void check();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void check();
