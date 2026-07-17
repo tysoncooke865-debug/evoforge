@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, type ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -33,18 +33,26 @@ export function ScreenShell({ children }: { children: ReactNode }) {
   // content once (220ms, one-shot; never re-fires on scroll). Reduced
   // motion pins it fully visible.
   const reducedMotion = useReducedMotion();
-  const enter = useSharedValue(reducedMotion ? 1 : 0);
+  // THE PAGE-CHANGE FLASH/FREEZE (Tyson's iPhone, iOS 18 WebKit, 2026-07-18;
+  // beacon-proven current bundle + zero errors): this entrance used to set
+  // opacity to 0 ON EVERY FOCUS and animate to 1 — gating the whole screen's
+  // VISIBILITY on an animation frame. Under page-change load an older engine
+  // stalls that frame: the new page sits invisible, then pops. Same doctrine
+  // as the boot fade: visibility must never depend on an animation firing.
+  // Web now pins the screen visible (no entrance); native builds keep it.
+  const animateEntrance = Platform.OS !== 'web' && !reducedMotion;
+  const enter = useSharedValue(animateEntrance ? 0 : 1);
   useFocusEffect(
     useCallback(() => {
       const toTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
       setActiveScroller(toTop);
-      if (!reducedMotion) {
+      if (animateEntrance) {
         enter.value = 0;
         enter.value = withTiming(1, { duration: 140, easing: Easing.out(Easing.cubic) });
       }
       return () => clearActiveScroller(toTop);
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reducedMotion])
+    }, [animateEntrance])
   );
   // ANIMATED NODES CARRY INLINE STYLES ONLY (the xp-bar lesson): className
   // interop drops composed styles on Animated.View on web.

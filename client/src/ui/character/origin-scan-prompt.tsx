@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Text, View } from 'react-native';
@@ -15,6 +16,27 @@ import { NeonButton } from '@/ui/core/neon-button';
  */
 let promptedThisLaunch = false;
 
+/** Once per DAY, not per launch (Tyson's phone, 2026-07-18): the modal was
+ *  fading in 4s into EVERY launch — over whatever the athlete was doing,
+ *  blocking every tap until dismissed. Mid-navigation that IS the "freeze
+ *  and flash". The gold FORGE YOUR ORIGIN button on the Home podium is the
+ *  always-on path; this modal is just the daily nudge. */
+const PROMPT_DAY_KEY = 'evoforge-origin-prompt-day';
+function alreadyPromptedToday(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(PROMPT_DAY_KEY) === new Date().toDateString();
+  } catch {
+    return false;
+  }
+}
+function markPromptedToday(): void {
+  try {
+    globalThis.localStorage?.setItem(PROMPT_DAY_KEY, new Date().toDateString());
+  } catch {
+    /* storage unavailable — fall back to once-per-launch */
+  }
+}
+
 export function OriginScanPrompt() {
   const status = useOriginStatus();
   const [open, setOpen] = useState(false);
@@ -25,11 +47,25 @@ export function OriginScanPrompt() {
   useEffect(() => {
     if (!eligible || promptedThisLaunch) return;
     // Give the tutorial overlay / boot moment the first few seconds.
+    if (alreadyPromptedToday()) return;
+    // NEVER stack on the tutorial (Tyson's phone, 2026-07-18): the two modals
+    // fought — the prompt's buttons landed under the tutorial overlay, taps
+    // died, and page changes flashed the pair. A fresh install replays the
+    // tutorial, so this collision hit every reinstall. The prompt waits for
+    // its own NEXT day once the tutorial has been completed.
+    let live = true;
     const t = setTimeout(() => {
-      promptedThisLaunch = true;
-      setOpen(true);
+      void AsyncStorage.getItem('evoforge-tutorial-done-v1').then((done) => {
+        if (!live || !done) return;
+        promptedThisLaunch = true;
+        markPromptedToday();
+        setOpen(true);
+      });
     }, 4000);
-    return () => clearTimeout(t);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
   }, [eligible]);
 
   if (!open) return null;
