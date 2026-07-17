@@ -21,7 +21,7 @@ import { PixelDumbbell, PixelFork } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
-import { PIXEL } from '@/theme/fonts';
+import { PIXEL, pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
 /**
@@ -162,8 +162,27 @@ export default function MainLayout() {
   }, [forge.data, ready]);
 
   if (loading || (session && profile.isPending)) {
+    // This view IS the static pre-render of `/` — it paints at first
+    // contentful paint, long before the JS bundle hydrates. The wordmark
+    // makes that first paint the LCP element (it must stay >= the sign-in
+    // wordmark's 30px, or the post-hydration render re-anchors LCP at ~6s).
+    // Text only: the pixel font swaps in when it loads, never blocks paint.
     return (
       <View className="flex-1 items-center justify-center bg-bg">
+        <Text
+          className="mb-s4 text-accent"
+          allowFontScaling={false}
+          style={{
+            fontSize: 30,
+            lineHeight: 36,
+            letterSpacing: 0,
+            textShadowColor: 'rgba(34, 211, 238, 0.55)',
+            textShadowRadius: 18,
+            ...pixelFont(),
+          }}
+        >
+          EVOFORGE
+        </Text>
         <ActivityIndicator color={colors.accent} />
       </View>
     );
