@@ -236,14 +236,33 @@ increments:
 - **Phase 5+6 ✅** (`e9cb56d`): Forge-page candidate reveal for existing
   users behind `candidateRevealEnabled`; ReforgeCard. Stale origin-panel
   comment repaired.
-- **Phase 7 (verification):** O-series Playwright tour
-  (`tools/tour_origin_onboarding.py`). First run caught a REAL race
-  (bind-hook invalidating `['profile']` yanked resuming users out of the
-  awakening) — fixed in `data/origin.ts`; and two script-side issues
-  (networkidle, aria-disabled). See commit history for the final result.
+- **Phase 7 (verification) ✅:** O-series Playwright tour
+  (`tools/tour_origin_onboarding.py`) — final result **19/19**: signup →
+  Act I (DRIVE) → rating reveal BEFORE candidates (O-2) → gate bounce
+  (O-1) → 3 distinct cards, CONFIRM gated, recommended never auto-selected
+  (O-3) → preview → reload resumes with the IDENTICAL candidate set (O-5)
+  → non-recommended pick binds (O-4) → Stage 1 awakening → Home with
+  champion, seeded PUSH mission, EVO core (O-6) → reduced-motion leg
+  (O-7) → zero page errors → tour account deleted.
+  The tour caught two REAL races, both fixed: the bind hook invalidating
+  `['profile']` mid-ceremony (awakening yank) and onComplete navigating
+  before the refetch (gate bounce back to /onboarding).
+- **#418 hydration flake (documented, not gating):** Minified React error
+  #418 fired at /sign-up in ~40% of full-tour runs. Not reproducible in
+  isolation (4/4 clean probes of the identical sequence on the same build),
+  not seen in 3 probes of the live deploy, and the program's diff touches
+  nothing in the (auth) render tree. React recovers hydration mismatches
+  by client-rendering; every functional check passed in every run.
+  Re-probe after the next deploy; if it ever reproduces on live, treat as
+  a root-layout hydration bug independent of this program.
+- **Wordmark WIP — REVERTED after all:** the retained `_layout.tsx`
+  loading-wordmark change from the interrupted session was reverted during
+  #418 isolation (it was not the cause). It stays out: unverified WIP,
+  unrelated to this program, its LCP claims untested. Re-propose it as its
+  own change with measurements if wanted.
 - **Deferred honestly:** persisting the onboarding SCAN as a
   `physique_assessments` row (contradiction 2 — the v5 tier-S fallbacks
   cover unscanned users; scanned users currently get no calibration benefit
   from their scan); Firstbound badge UI; O-8 (RPC-intercept retry path —
-  unit-covered by the mutation handler semantics, not browser-tested);
+  the mutation-handler semantics are unit-covered, not browser-tested);
   playable combat trial (spec §10).

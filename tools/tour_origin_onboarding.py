@@ -36,7 +36,7 @@ try:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={'width': 390, 'height': 844})
         errors = []
-        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.on('pageerror', lambda e: errors.append(f'[url={page.url}] {e}'))
 
         # ---- sign up through the real UI ---------------------------------
         page.goto(BASE, wait_until='networkidle')
@@ -122,8 +122,15 @@ try:
         check('awakening ceremony shows Stage 1', 'STAGE 1' in page.content())
         page.screenshot(path=str(SHOTS / 'origin-awakening.png'))
         page.get_by_test_id('origin-finish').click()
-        time.sleep(5)
-        check('O-4 lands on Home after the ceremony', page.url.rstrip('/').endswith((':8794', '/')), page.url)
+        landed = True
+        try:
+            page.wait_for_url('**/', timeout=25000)
+            page.wait_for_url(lambda url: '/onboarding' not in url, timeout=25000)
+        except Exception:
+            landed = False
+        time.sleep(3)
+        check('O-4 lands on Home after the ceremony',
+              landed and '/onboarding' not in page.url, page.url)
         # The first-launch tutorial overlay intercepts before Home content —
         # dismiss it (SKIP TOUR) so the checks read the real screen.
         skip = page.locator('text=SKIP TOUR')
@@ -145,8 +152,16 @@ try:
         # ---- O-7: reduced motion — the ceremony completes statically ------
         ctx = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
         page2 = ctx.new_page()
-        page2.goto(f'{BASE}/sign-in', wait_until='load')
-        page2.get_by_test_id('email').wait_for(timeout=30000)
+        errors2 = []
+        page2.on('pageerror', lambda e: errors2.append(str(e)))
+        page2.goto(f'{BASE}/', wait_until='load')  # static export: no /sign-in file; client routes there
+        time.sleep(5)
+        try:
+            page2.get_by_test_id('email').wait_for(timeout=45000)
+        except Exception:
+            page2.screenshot(path=str(SHOTS / 'origin-o7-debug.png'))
+            print('O-7 debug: url=', page2.url, ' errors=', errors2[:3])
+            raise
         page2.get_by_test_id('email').fill(EMAIL)
         page2.get_by_test_id('password').fill(PASSWORD)
         page2.get_by_test_id('sign-in').click()
@@ -166,6 +181,25 @@ finally:
     server.terminate()
 
 # ---- cleanup: delete the throwaway account -------------------------------
+import atexit
+def _cleanup():
+    env2 = {}
+    for line in (ROOT / 'client/.env.local').read_text().splitlines():
+        if '=' in line and not line.startswith('#'):
+            k, v = line.split('=', 1)
+            env2[k.strip()] = v.strip().strip('"')
+    token2 = (ROOT / 'client/.env.sbtoken.local').read_text().strip()
+    sql2 = f"delete from auth.users where email = '{EMAIL}';"
+    (ROOT / '.tmp_tour.json').write_text(json.dumps({'query': sql2}))
+    subprocess.run(
+        ['curl', '-s', '-X', 'POST',
+         'https://api.supabase.com/v1/projects/rysbpwpvnqbngqncrfaa/database/query',
+         '-H', f'Authorization: Bearer {token2}', '-H', 'Content-Type: application/json',
+         '-d', f'@{ROOT / ".tmp_tour.json"}'],
+        capture_output=True, text=True, timeout=60)
+    (ROOT / '.tmp_tour.json').unlink(missing_ok=True)
+atexit.register(_cleanup)
+
 env = {}
 for line in (ROOT / 'client/.env.local').read_text().splitlines():
     if '=' in line and not line.startswith('#'):
