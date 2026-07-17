@@ -80,6 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The equipped loadout (skin/aura/emote/stage) is PERSISTED too — the
     // next athlete on this device must not wear the last one's costume.
     useLoadoutStore.getState().reset();
+    // The active palette rides the loadout, but the theme store carries the
+    // resolved/preview state in memory — reset it or the next athlete's
+    // first frames wear the last one's theme.
+    void import('@/state/theme-store').then(({ useThemeStore }) => useThemeStore.getState().reset());
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-loadout').catch(() => undefined)
     );

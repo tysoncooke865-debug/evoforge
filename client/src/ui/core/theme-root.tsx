@@ -2,13 +2,11 @@ import { vars } from 'nativewind';
 import { type ReactNode, useEffect } from 'react';
 import { Platform, View } from 'react-native';
 
+import { usePaletteUnlocks } from '@/data/palettes';
+import { resolveActivePalette } from '@/domain/customise';
+import { useLoadoutStore } from '@/state/loadout-store';
 import { useThemeStore } from '@/state/theme-store';
-import {
-  isThemePaletteId,
-  PALETTE_COLOURS,
-  type ThemePaletteId,
-  varsFor,
-} from '@/theme/palettes';
+import { PALETTE_COLOURS, type ThemePaletteId, varsFor } from '@/theme/palettes';
 
 /**
  * THE ONE PALETTE RESOLVER (2026-07-17). Wraps the whole app (inside
@@ -27,15 +25,20 @@ import {
  * It also writes the resolved palette into the theme store, which is what
  * useThemeColors() (the inline-read path) serves.
  *
- * Resolution: store preview (the CUSTOMISE screen cycling cards; ownership
- * NOT required — that is the try-before-you-buy feature) beats the equipped
- * palette; anything invalid is standard. The equipped-and-owned path arrives
- * with the loadout's paletteId field (commit D of the palette shop).
+ * Resolution is the pure domain fn (resolveActivePalette): store preview
+ * (the CUSTOMISE screen cycling cards; ownership NOT required — that is the
+ * try-before-you-buy feature) beats the equipped palette; the equipped
+ * palette renders only while user_palette_unlocks says it is owned;
+ * anything invalid is standard. While unlocks are still loading, an
+ * equipped non-standard palette reads as unowned and the first frames are
+ * standard — same posture as the sprite skins.
  */
 function useResolvedPalette(): ThemePaletteId {
   const preview = useThemeStore((s) => s.preview);
-  if (isThemePaletteId(preview)) return preview;
-  return 'standard';
+  const equipped = useLoadoutStore((s) => s.loadout.paletteId);
+  const unlocks = usePaletteUnlocks();
+  const owned = new Set((unlocks.data ?? []).map((u) => u.palette));
+  return resolveActivePalette(preview, equipped, owned);
 }
 
 export function ThemeRoot({ children }: { children: ReactNode }) {

@@ -151,6 +151,61 @@ export function skinUnlocked(
   return false;
 }
 
+// ------------------------------------------------- palettes (app themes)
+
+/** The purchasable whole-app colour palettes (migration 044). Colours live
+ *  in theme/palettes.ts (PALETTE_COLOURS); the vitest pins the two id sets
+ *  equal both ways so domain stays free of UI imports. */
+export const PALETTE_IDS = ['emerald', 'crimson', 'synthwave', 'solar', 'arctic', 'void'] as const;
+
+export type PurchasablePalette = (typeof PALETTE_IDS)[number];
+
+/** 'standard' is the free default — never priced, never a DB row. */
+export type PaletteId = PurchasablePalette | 'standard';
+
+/** Server-mirrored prices (palette_price(), migration 044). Ascending; a
+ *  whole-app reskin outranks a single sprite skin, sits under Gymerica. */
+const PALETTE_PRICES: Record<PurchasablePalette, number> = {
+  emerald: 500,
+  crimson: 750,
+  synthwave: 1000,
+  solar: 1250,
+  arctic: 1500,
+  void: 2000,
+};
+
+/** Coin price for a palette, or null when it is not purchasable. */
+export function palettePrice(id: string): number | null {
+  return (PALETTE_PRICES as Record<string, number>)[id] ?? null;
+}
+
+export function isPaletteId(id: string | null | undefined): id is PaletteId {
+  return id === 'standard' || (PALETTE_IDS as readonly string[]).includes(id ?? '');
+}
+
+/**
+ * THE ONE DISPLAY VALIDATOR for the active palette — the resolveDisplay
+ * doctrine applied to app chrome: re-validate on every read, fall back
+ * silently.
+ *
+ * - `preview` (the CUSTOMISE screen cycling store cards) wins and does NOT
+ *   require ownership — that is the try-before-you-buy feature. Anything
+ *   invalid resolves standard.
+ * - the equipped palette renders only while the server says it is owned;
+ *   an unowned/unknown/retired id falls back to standard, never throws.
+ */
+export function resolveActivePalette(
+  preview: string | null,
+  equipped: string | null | undefined,
+  ownedPalettes: ReadonlySet<string>
+): PaletteId {
+  if (preview !== null && isPaletteId(preview)) return preview;
+  if (equipped != null && isPaletteId(equipped)) {
+    if (equipped === 'standard' || ownedPalettes.has(equipped)) return equipped;
+  }
+  return 'standard';
+}
+
 // ---------------------------------------------------------------- auras
 
 export type AuraId = 'rarity' | 'cyan' | 'epic' | 'gold' | 'crimson' | 'emerald';
@@ -176,6 +231,8 @@ export interface UnlockContext {
   legacyLevel: number;
   /** Owned coin-skin keys ("line:skin"). Empty when unknown/loading. */
   ownedSkins: ReadonlySet<string>;
+  /** Owned palette ids. Empty when unknown/loading. */
+  ownedPalettes: ReadonlySet<string>;
 }
 
 const TIER_ORDER = ['common', 'rare', 'epic', 'legendary', 'mythic'] as const;
@@ -257,8 +314,12 @@ export function unlockLabel(unlock: CosmeticUnlock): string {
   return unlock.source.toUpperCase();
 }
 
-export function unlockContext(derived: DerivedIdentity, ownedSkins: ReadonlySet<string> = new Set()): UnlockContext {
-  return { forgeLevel: derived.forgeLevel, legacyLevel: derived.level, ownedSkins };
+export function unlockContext(
+  derived: DerivedIdentity,
+  ownedSkins: ReadonlySet<string> = new Set(),
+  ownedPalettes: ReadonlySet<string> = new Set()
+): UnlockContext {
+  return { forgeLevel: derived.forgeLevel, legacyLevel: derived.level, ownedSkins, ownedPalettes };
 }
 
 // ---------------------------------------------------------------- roster
@@ -404,6 +465,8 @@ export interface Loadout {
   characterStage: number;
   /** Which look of the premium character. */
   characterSkin: GymericaSkin;
+  /** The whole-app colour palette (the palette shop). 'standard' = default. */
+  paletteId: PaletteId;
 }
 
 export const DEFAULT_LOADOUT: Loadout = {
@@ -416,6 +479,7 @@ export const DEFAULT_LOADOUT: Loadout = {
   character: null,
   characterStage: 1,
   characterSkin: 'standard',
+  paletteId: 'standard',
 };
 
 /** The shape donor for stage math + silhouettes (mirrors avatar-art's
@@ -545,6 +609,8 @@ export interface Selection {
   character: SpecialCharacterId | null;
   characterStage: number;
   characterSkin: GymericaSkin;
+  /** The whole-app palette in the live selection (previews immediately). */
+  paletteId: PaletteId;
 }
 
 export function selectionFromLoadout(derivedBranch: BranchV2, loadout: Loadout): Selection {
@@ -561,6 +627,7 @@ export function selectionFromLoadout(derivedBranch: BranchV2, loadout: Loadout):
     character: loadout.character ?? null,
     characterStage: loadout.characterStage ?? 1,
     characterSkin: loadout.characterSkin ?? 'standard',
+    paletteId: loadout.paletteId ?? 'standard',
   };
 }
 
@@ -576,6 +643,7 @@ export function loadoutFromSelection(derivedBranch: BranchV2, sel: Selection): L
     character: sel.character,
     characterStage: sel.characterStage,
     characterSkin: sel.characterSkin,
+    paletteId: sel.paletteId,
   };
 }
 
@@ -589,7 +657,8 @@ export function sameLoadout(a: Loadout, b: Loadout): boolean {
     a.effectId === b.effectId &&
     a.character === b.character &&
     a.characterStage === b.characterStage &&
-    a.characterSkin === b.characterSkin
+    a.characterSkin === b.characterSkin &&
+    (a.paletteId ?? 'standard') === (b.paletteId ?? 'standard')
   );
 }
 
@@ -604,7 +673,9 @@ export type EquipState =
    *  drive the purchase call. */
   | { kind: 'buy-skin'; line: SkinLine; skin: SkinId; price: number }
   /** The selected premium character is not owned — BUY it (10000). */
-  | { kind: 'buy-character'; character: SpecialCharacterId; price: number };
+  | { kind: 'buy-character'; character: SpecialCharacterId; price: number }
+  /** The selected whole-app palette is unbought — BUY it. */
+  | { kind: 'buy-palette'; palette: PurchasablePalette; price: number };
 
 /** Which state the primary button is in for the current selection. */
 export function equipState(
@@ -612,7 +683,8 @@ export function equipState(
   sel: Selection,
   equipped: Loadout,
   ownedSkins: ReadonlySet<string> = new Set(),
-  ownedCharacters: ReadonlySet<string> = new Set()
+  ownedCharacters: ReadonlySet<string> = new Set(),
+  ownedPalettes: ReadonlySet<string> = new Set()
 ): EquipState {
   // A premium character overlay is its own decision path — it does not
   // depend on the branch gates (it sits ON TOP of any class).
@@ -656,6 +728,14 @@ export function equipState(
   const emote = EMOTES.find((e) => e.id === sel.emoteId);
   if (emote && !cosmeticUnlocked(emote.unlock, ctx)) {
     return { kind: 'locked-cosmetic', requirement: unlockLabel(emote.unlock) };
+  }
+
+  // A whole-app palette: previewing is free, equipping needs ownership —
+  // an unbought selection turns the primary button into BUY.
+  if (sel.paletteId !== 'standard' && !ownedPalettes.has(sel.paletteId)) {
+    const price = palettePrice(sel.paletteId);
+    if (price !== null) return { kind: 'buy-palette', palette: sel.paletteId, price };
+    return { kind: 'locked-cosmetic', requirement: 'BUY WITH FORGE COINS' };
   }
 
   return sameLoadout(loadoutFromSelection(derived.branch, sel), equipped)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { PALETTE_IDS } from '../../domain/customise';
 import { PALETTE_COLOURS, PALETTE_META, THEME_PALETTE_IDS, varsFor } from '../palettes';
 import tokens from '../tokens';
 
@@ -72,6 +73,12 @@ describe('the palette registry', () => {
       expect(contrast(c.accent, c.bg), `${id} accent/bg`).toBeGreaterThanOrEqual(3);
       expect(contrast(c['accent-ink'], c.accent), `${id} accent-ink/accent`).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it('the domain id registry and the colour registry agree, both ways', () => {
+    // domain/customise.ts sells ids+prices; theme/palettes.ts carries the
+    // colours. They must name exactly the same palettes.
+    expect([...PALETTE_IDS, 'standard'].sort()).toEqual([...THEME_PALETTE_IDS].sort());
   });
 
   it('every palette has store-card metadata', () => {

@@ -8,6 +8,9 @@ import {
   DEFAULT_LOADOUT,
   EFFECTS,
   EMOTES,
+  PALETTE_IDS,
+  palettePrice,
+  resolveActivePalette,
   SKINS,
   buildRoster,
   cosmeticUnlocked,
@@ -207,6 +210,7 @@ describe('equip state machine', () => {
     character: null,
     characterStage: 1,
     characterSkin: 'standard',
+    paletteId: 'standard',
     ...over,
   });
 
@@ -270,7 +274,12 @@ describe('catalogs', () => {
   });
 
   it('free/forge/tier/incoming gates all bind correctly', () => {
-    const ctx = (forgeLevel: number, legacyLevel = 0) => ({ forgeLevel, legacyLevel, ownedSkins: new Set<string>() });
+    const ctx = (forgeLevel: number, legacyLevel = 0) => ({
+      forgeLevel,
+      legacyLevel,
+      ownedSkins: new Set<string>(),
+      ownedPalettes: new Set<string>(),
+    });
     expect(cosmeticUnlocked({ kind: 'free' }, ctx(0))).toBe(true);
     expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(4))).toBe(false);
     expect(cosmeticUnlocked({ kind: 'forge', level: 5 }, ctx(5))).toBe(true);
@@ -315,7 +324,7 @@ describe('catalogs', () => {
     const open = resolveDisplay(derived({ level: 100 }), { ...DEFAULT_LOADOUT, skinId: 'adam' });
     expect(open.skinId).toBe('adam');
     // The equip button surfaces the requirement.
-    const state = equipState(derived({ level: 57 }), { branch: 'aesthetic', stageKey: null, skinId: 'adam', auraId: 'rarity', emoteId: 'victory', effectId: 'podium', character: null, characterStage: 1, characterSkin: 'standard' }, DEFAULT_LOADOUT);
+    const state = equipState(derived({ level: 57 }), { branch: 'aesthetic', stageKey: null, skinId: 'adam', auraId: 'rarity', emoteId: 'victory', effectId: 'podium', character: null, characterStage: 1, characterSkin: 'standard', paletteId: 'standard' }, DEFAULT_LOADOUT);
     expect(state).toEqual({ kind: 'locked-cosmetic', requirement: 'REACH LEVEL 100 — TRUE ADAM' });
   });
 
@@ -378,7 +387,8 @@ describe('premium character: Captain Gymerica (Tyson, 2026-07-16)', () => {
   const gsel = (over = {}) => ({
     branch: 'aesthetic' as const, stageKey: null, skinId: 'standard' as const,
     auraId: 'rarity' as const, emoteId: 'victory' as const, effectId: 'podium',
-    character: 'gymerica' as const, characterStage: 1, characterSkin: 'standard' as const, ...over,
+    character: 'gymerica' as const, characterStage: 1, characterSkin: 'standard' as const,
+    paletteId: 'standard' as const, ...over,
   });
 
   it('costs 10000 and has two stages + two looks', () => {
@@ -427,5 +437,86 @@ describe('stale loadout migration (Tyson: "app crashes on Customise")', () => {
       ctx: { nutritionPhase: 'bulking', earliestBf: 18 }, forgeLevel: 8 };
     const shown = resolveDisplay(d, stale, new Set(), new Set(['gymerica']));
     expect(shown.character).toBeNull();
+  });
+});
+
+describe('the palette shop (whole-app themes, migration 044)', () => {
+  const sel = (over: Partial<Selection> = {}): Selection => ({
+    branch: 'aesthetic',
+    stageKey: null,
+    skinId: 'standard',
+    auraId: 'rarity',
+    emoteId: 'victory',
+    effectId: 'podium',
+    character: null,
+    characterStage: 1,
+    characterSkin: 'standard',
+    paletteId: 'standard',
+    ...over,
+  });
+
+  it('prices mirror palette_price() exactly and ascend', () => {
+    expect(PALETTE_IDS.map((id) => [id, palettePrice(id)])).toEqual([
+      ['emerald', 500],
+      ['crimson', 750],
+      ['synthwave', 1000],
+      ['solar', 1250],
+      ['arctic', 1500],
+      ['void', 2000],
+    ]);
+    const prices = PALETTE_IDS.map((id) => palettePrice(id)!);
+    expect([...prices].sort((a, b) => a - b)).toEqual(prices);
+  });
+
+  it('standard is free — never priced, never purchasable', () => {
+    expect(palettePrice('standard')).toBeNull();
+    expect(palettePrice('nope')).toBeNull();
+    expect(DEFAULT_LOADOUT.paletteId).toBe('standard');
+  });
+
+  it('resolveActivePalette: preview beats equipped and needs NO ownership', () => {
+    expect(resolveActivePalette('emerald', 'crimson', new Set(['crimson']))).toBe('emerald');
+    expect(resolveActivePalette('void', null, new Set())).toBe('void');
+  });
+
+  it('resolveActivePalette: the equipped palette renders only while owned', () => {
+    expect(resolveActivePalette(null, 'emerald', new Set(['emerald']))).toBe('emerald');
+    expect(resolveActivePalette(null, 'emerald', new Set())).toBe('standard');
+    expect(resolveActivePalette(null, 'standard', new Set())).toBe('standard');
+    expect(resolveActivePalette(null, null, new Set())).toBe('standard');
+    expect(resolveActivePalette(null, undefined, new Set())).toBe('standard');
+    // A retired/garbage id can never render or throw.
+    expect(resolveActivePalette('garbage', 'garbage', new Set(['garbage']))).toBe('standard');
+  });
+
+  it('an unbought palette turns the primary button into BUY at its price', () => {
+    const d = derived();
+    const s = sel({ paletteId: 'emerald' });
+    expect(equipState(d, s, DEFAULT_LOADOUT)).toEqual({ kind: 'buy-palette', palette: 'emerald', price: 500 });
+    // Owned: a plain EQUIP, and the equip round-trips to EQUIPPED.
+    const owned = new Set(['emerald']);
+    expect(equipState(d, s, DEFAULT_LOADOUT, new Set(), new Set(), owned).kind).toBe('equip');
+    const saved = loadoutFromSelection(d.branch, s);
+    expect(equipState(d, s, saved, new Set(), new Set(), owned).kind).toBe('equipped');
+    expect(saved.paletteId).toBe('emerald');
+    // Standard is always equippable without coins.
+    expect(equipState(d, sel(), DEFAULT_LOADOUT).kind).toBe('equipped');
+  });
+
+  it('sameLoadout discriminates on paletteId and tolerates stale wallets', () => {
+    const a = { ...DEFAULT_LOADOUT, paletteId: 'emerald' as const };
+    expect(sameLoadout(a, DEFAULT_LOADOUT)).toBe(false);
+    // A pre-palette persisted loadout (undefined) equals an explicit standard.
+    const stale = { ...DEFAULT_LOADOUT } as Record<string, unknown>;
+    delete stale.paletteId;
+    expect(sameLoadout(stale as unknown as typeof DEFAULT_LOADOUT, DEFAULT_LOADOUT)).toBe(true);
+  });
+
+  it('selection round-trips paletteId and defaults stale loadouts to standard', () => {
+    const stale = { ...DEFAULT_LOADOUT } as Record<string, unknown>;
+    delete stale.paletteId;
+    expect(selectionFromLoadout('aesthetic', stale as unknown as typeof DEFAULT_LOADOUT).paletteId).toBe('standard');
+    const s = sel({ paletteId: 'void' });
+    expect(loadoutFromSelection('aesthetic', s).paletteId).toBe('void');
   });
 });

@@ -15,7 +15,7 @@ function useEquippedEmote(forgeLevel: number): EmoteId {
   const emote = EMOTES.find((e) => e.id === emoteId);
   // Emote gates are free/forge only (pinned by the catalogs vitest), so
   // legacyLevel 0 here can never wrongly lock one.
-  return emote && cosmeticUnlocked(emote.unlock, { forgeLevel, legacyLevel: 0, ownedSkins: new Set() }) ? emote.id : 'victory';
+  return emote && cosmeticUnlocked(emote.unlock, { forgeLevel, legacyLevel: 0, ownedSkins: new Set(), ownedPalettes: new Set() }) ? emote.id : 'victory';
 }
 
 /**
