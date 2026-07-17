@@ -31,9 +31,9 @@ export default function Root({ children }: PropsWithChildren) {
             against a parent with a DEFINITE height; with min-height alone the
             whole chain collapsed to content height and the app filled just the
             top of the taller standalone viewport. Every level needs an explicit
-            height:100% (100dvh on modern iOS for the dynamic viewport), and
+            height:100%, and
             #root is a flex column so the app view stretches to fill it. */}
-        <style>{'html,body,#root{height:100%;min-height:100%;background:#04070e}html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}#root{display:flex;flex-direction:column}@supports(height:100dvh){html,body,#root{height:100dvh}}'}</style>
+        <style>{'html,body,#root{height:100%;min-height:100%;background:#04070e}html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}#root{display:flex;flex-direction:column}'}</style>
         {/* Boot cross-fade (OPTIMISE_PLAN M3), PURE CSS so it can NEVER strand
             the app invisible. A Reanimated opacity gate once left an installed
             iOS PWA stuck on the blank boot colour when its animation frame did
@@ -47,7 +47,12 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="theme-color" content="#04070e" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/* "black", NOT "black-translucent" (Tyson 2026-07-18): translucent makes
+            standalone draw UNDER the notch/status bar — overlapping fixed
+            compositor layers there are a notorious iOS blend/jitter source,
+            and his beacons show a GPU artifact (clean boot, no JS stalls).
+            The dvh viewport override was removed for the same reason. */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <meta name="apple-mobile-web-app-title" content="EvoForge" />
         <title>EvoForge — The Fitness RPG</title>
         <meta name="description" content="Your character is forged from real training. Lift, level, evolve — and battle in the Arena." />
