@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { STATUS_META } from '@/domain/battle-rpg/status';
 import type { BattleStatus, Combatant } from '@/domain/battle-rpg/types';
@@ -27,6 +27,7 @@ export function CombatBar({
   stages?: boolean;
 }) {
   const colors = useThemeColors();
+  const reduced = useReducedMotion();
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const w = useSharedValue(pct);
   const ghost = useSharedValue(pct); // trailing bar — catches up slowly on loss
@@ -40,13 +41,15 @@ export function CombatBar({
   }, [pct, w, ghost]);
   useEffect(() => {
     if (critical) {
-      pulse.value = withRepeat(withSequence(withTiming(0.55, { duration: 420 }), withTiming(1, { duration: 420 })), -1);
+      // Reduced motion: the red stage colour carries the signal; the bar
+      // holds still (never fast-forward, never loop).
+      if (!reduced) pulse.value = withRepeat(withSequence(withTiming(0.55, { duration: 420 }), withTiming(1, { duration: 420 })), -1);
       playHeartbeat();
     } else {
       pulse.value = withTiming(1, { duration: 200 });
     }
     // Re-thump on every HP change while critical, not just on entry.
-  }, [critical, pct, pulse]);
+  }, [critical, pct, pulse, reduced]);
   const fill = useAnimatedStyle(() => ({ width: `${w.value}%`, opacity: pulse.value }));
   const ghostStyle = useAnimatedStyle(() => ({ width: `${Math.max(w.value, ghost.value)}%` }));
   const low = pct <= 25;
