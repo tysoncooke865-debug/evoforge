@@ -79,3 +79,39 @@ export function initVersionGuard(): void {
     })();
   }, 8000);
 }
+
+/**
+ * NAV FREEZE BEACON (Tyson 2026-07-18: page changes still freeze/flash on the
+ * phone with a clean boot beacon — instrument navigation itself). A 250ms
+ * heartbeat measures main-thread stalls; any gap ≥ 700ms within 4s of a URL
+ * change is recorded and shipped (max 3 reports per session) as
+ * pwa_nav_diag: {stall_ms, path, secs_after_nav}.
+ */
+export function initNavFreezeBeacon(): void {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+  let lastBeat = Date.now();
+  let lastNavAt = Date.now();
+  let lastPath = location.pathname;
+  let sent = 0;
+  setInterval(() => {
+    const now = Date.now();
+    const gap = now - lastBeat;
+    lastBeat = now;
+    if (location.pathname !== lastPath) {
+      lastPath = location.pathname;
+      lastNavAt = now;
+    }
+    if (gap >= 700 && sent < 3) {
+      sent += 1;
+      void supabase.from('analytics_events').insert({
+        event_name: 'pwa_nav_diag',
+        props: {
+          stall_ms: gap,
+          path: lastPath,
+          secs_after_nav: Math.round((now - lastNavAt) / 1000),
+          standalone: window.matchMedia?.('(display-mode: standalone)')?.matches ?? false,
+        },
+      }).then(undefined, () => undefined);
+    }
+  }, 250);
+}

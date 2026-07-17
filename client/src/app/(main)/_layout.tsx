@@ -179,6 +179,13 @@ export default function MainLayout() {
   return (
     <>
     <Tabs
+      // PAGE-CHANGE FREEZE/FLASH (Tyson's iOS 18 PWA, 2026-07-18, beacon-
+      // proven current build + clean boot): react-navigation DETACHES blurred
+      // tab screens from the DOM on web, so every switch tears the old page
+      // down and rebuilds the next — a dark blank + JS parse stall on an
+      // older engine. Keep every visited tab attached: a switch becomes a
+      // pure display toggle. The idle prefetch already pays the mount cost.
+      detachInactiveScreens={false}
       // P2 C4: EVERY tab press scrolls the focused screen to the top. The
       // deferred call lets a cross-tab press land focus first, so one code
       // path covers re-pressing the current tab AND navigating to a page.
