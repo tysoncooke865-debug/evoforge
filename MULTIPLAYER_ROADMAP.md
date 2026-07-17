@@ -217,5 +217,15 @@ Streamlit app.
 ## Status
 - [x] Champion-battle animation + move-selection upgrade (shipped 2026-07-17,
       commit `9928429`).
-- [ ] Phase 0 foundation (migration 035) — NEXT.
-- [ ] Phases 1–4 as above.
+- [x] Phase 0 foundation — shipped as migration 036 (035 was taken), falsified;
+      Friends & Rivals screen live. Found+fixed: Supabase default-grants EXECUTE
+      to authenticated on new public functions — cheat seams must be revoked
+      from anon+authenticated EXPLICITLY.
+- [x] Phase 2 ghost battles — migration 037 + client, playable end-to-end
+      (publish from summary sheet → Arena list → /battle?mode=ghost → rivalry).
+- [x] Phase 3 damage assessment — migration 038 + damage-assessment edge fn +
+      /damage screen. Deployed judge exercised E2E in production: pre-before-
+      post enforced, 4th photo triggers the 4-image AI verdict, draw within 3
+      points, finalize grants XP + rivalry, photos deleted in-invocation.
+- [ ] Phase 1 rivalry polish (history log) — optional, data already flows.
+- [ ] Phase 4 live matchmaking (migrations 039–041 + Realtime) — NEXT.
