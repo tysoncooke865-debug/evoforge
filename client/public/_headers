@@ -8,19 +8,25 @@
 # every relaunch pulls the current index. The hashed assets stay immutable
 # (content-addressed) — the later, more specific rule wins for them.
 
-# Scope no-store to the SHELL entry points only. A broad `/*` rule leaks its
+# no-cache (NOT no-store) since 2026-07-18: a no-store start_url left the
+# installed iOS PWA a frozen grey screen — at standalone launch there is no
+# stored copy to fall back on and a stalled fetch never retries (beacons show
+# Safari booting fine while standalone never executed JS). Freshness is now
+# guaranteed by the IN-APP version guard (auto-reload on hash mismatch), so
+# revalidation semantics are enough here.
+# Scope the rule to the SHELL entry points only. A broad `/*` rule leaks its
 # Cache-Control onto the hashed assets too (Cloudflare Pages COMBINES the values
 # of every matching rule), and `no-store` there would defeat their immutable
 # caching — so target the root, index.html and manifest explicitly instead. The
 # PWA launches at `/`, so that is the request that must never be cached.
 /
-  Cache-Control: no-store
+  Cache-Control: no-cache, must-revalidate
 
 /index.html
-  Cache-Control: no-store
+  Cache-Control: no-cache, must-revalidate
 
 /manifest.webmanifest
-  Cache-Control: no-store
+  Cache-Control: no-cache, must-revalidate
 
 /_expo/static/*
   Cache-Control: public, max-age=31536000, immutable
