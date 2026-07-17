@@ -15,6 +15,8 @@ import { supabase } from './supabase';
 export function initVersionGuard(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
   const RELOADED_KEY = 'evoforge-version-guard-at';
+  // Expo's client render can leave the document untitled (a11y + tab name).
+  if (!document.title) document.title = 'EvoForge — The Fitness RPG';
   const check = async () => {
     try {
       const mine = Array.from(document.querySelectorAll('script[src]'))

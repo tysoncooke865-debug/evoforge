@@ -58,6 +58,7 @@ export default function SignInScreen() {
             autoCapitalize="none"
             autoComplete="email"
             inputMode="email"
+            accessibilityLabel="Email"
             value={email}
             onChangeText={setEmail}
             testID="email"
@@ -68,6 +69,7 @@ export default function SignInScreen() {
             className="mb-s6 rounded-md border border-border bg-surface-2 p-s3 text-text"
             secureTextEntry
             autoComplete="current-password"
+            accessibilityLabel="Password"
             value={password}
             onChangeText={setPassword}
             testID="password"

@@ -6,8 +6,10 @@ import type { PropsWithChildren } from 'react';
  * Expo's default viewport omits maximum-scale, which leaves iOS Safari's
  * double-tap-to-zoom armed — the browser holds every first tap to see if a
  * second follows, so buttons feel like they need a double tap.
- * maximum-scale=1 + touch-action: manipulation disarm the gesture and make
- * the first tap a click, everywhere, always.
+ * touch-action: manipulation disarms the gesture and makes the first tap a
+ * click (iOS 12.2+). The old maximum-scale=1/user-scalable=no belt-and-braces
+ * was REMOVED 2026-07-18: it blocked pinch-zoom (a real accessibility harm,
+ * flagged by the Lighthouse gate) and touch-action alone covers the latency.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -17,7 +19,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no"
         />
         <ScrollViewStyleReset />
         {/* background on html/body/root: an INSTALLED PWA paints the
