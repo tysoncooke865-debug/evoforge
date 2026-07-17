@@ -105,10 +105,46 @@ if (!media) {
   }
 }
 
+// THE PALETTE SHOP (2026-07-17): tailwind colour utilities resolve through
+// `var(--c-<key>, <standard>)` so an equipped palette can restyle the app at
+// runtime. Tailwind cannot alpha-transform a var() colour, which means a
+// colour class carrying an opacity modifier (`/40` etc.) now SILENTLY
+// generates no style at all. That failure mode is invisible in review and in
+// tsc — so it is guarded here, next to the token contract it comes from.
+// Doctrine: assert the walk saw files before trusting "no offenders".
+import { readdirSync } from 'node:fs';
+
+const srcRoot = join(here, '..', 'src');
+const colourNames = Object.keys(tokens.colors).join('|');
+const offenderRe = new RegExp(`[a-z-]+-(?:${colourNames})/\\d`);
+const offenders = [];
+let scanned = 0;
+const walk = (dir) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) walk(p);
+    else if (/\.(ts|tsx)$/.test(entry.name)) {
+      scanned += 1;
+      if (offenderRe.test(readFileSync(p, 'utf-8'))) offenders.push(p);
+    }
+  }
+};
+walk(srcRoot);
+if (scanned === 0) {
+  console.error('FAIL: the opacity-modifier scan saw zero source files — the guard is not guarding');
+  process.exit(2);
+}
+for (const p of offenders) {
+  problems.push(`opacity-modified colour class (dies under the var() wrapper): ${p}`);
+}
+
 if (problems.length > 0) {
   console.error(`FAIL: ${problems.length} token parity problem(s):`);
   for (const p of problems) console.error(`  ${p}`);
   process.exit(1);
 }
 
-console.log(`OK: ${cssTokens.size} :root tokens + 2 desktop overrides match tokens.js exactly`);
+console.log(
+  `OK: ${cssTokens.size} :root tokens + 2 desktop overrides match tokens.js exactly; ` +
+    `${scanned} src files carry no opacity-modified colour classes`
+);

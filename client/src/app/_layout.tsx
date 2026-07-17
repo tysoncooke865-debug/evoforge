@@ -5,11 +5,12 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 
 import { AuthProvider } from '@/data/auth-context';
 import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/version-guard';
 import { PIXEL_FONTS } from '@/theme/fonts';
+import { useThemeColors } from '@/theme/use-theme';
+import { ThemeRoot } from '@/ui/core/theme-root';
 import { ToastHost } from '@/ui/core/toast-host';
 
 import '@/global.css';
@@ -18,6 +19,21 @@ import '@/global.css';
  *  cache-hygiene invariant: a device must never hand one athlete's
  *  character to the next. */
 export const QUERY_CACHE_KEY = 'evoforge-query-cache-v1';
+
+/** The Stack needs the ACTIVE palette's bg behind route transitions, so it
+ *  reads the theme hook — its own component keeps RootLayout's providers
+ *  above the subscription. */
+function ThemedStack() {
+  const colors = useThemeColors();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg }, // --bg, behind route transitions
+      }}
+    />
+  );
+}
 
 export default function RootLayout() {
   // useState, not module scope: one QueryClient per app instance, never shared
@@ -74,15 +90,13 @@ export default function RootLayout() {
       persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v1' }}
     >
       <AuthProvider>
-        <View style={{ flex: 1, backgroundColor: '#070b14' }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#070b14' }, // --bg, behind route transitions
-            }}
-          />
-        </View>
-        <ToastHost />
+        {/* ThemeRoot applies the equipped/previewed palette (CSS vars +
+            themed background); its View replaces the old hardcoded #070b14
+            wrapper. ToastHost rides inside so toasts theme too. */}
+        <ThemeRoot>
+          <ThemedStack />
+          <ToastHost />
+        </ThemeRoot>
       </AuthProvider>
     </PersistQueryClientProvider>
   );
