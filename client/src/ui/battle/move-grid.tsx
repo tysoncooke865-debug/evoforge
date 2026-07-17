@@ -31,20 +31,23 @@ export function MoveGrid({
   const colors = useThemeColors();
   const [info, setInfo] = useState<BattleMove | null>(null);
   return (
-    <View style={{ gap: 8 }}>
-      <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+    <View style={{ gap: 6 }}>
+      <View className="flex-row flex-wrap" style={{ gap: 6 }}>
         {moves.map((m) => (
-          <MoveButton key={m.id} move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="48%" />
+          <MoveButton key={m.id} move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="49%" />
         ))}
       </View>
-      {items.length > 0 ? (
-        <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-          {items.map((m) => (
-            <MoveButton key={m.id} move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="48%" recover />
-          ))}
+      {/* Items + Recover share ONE row (one-screen layout). */}
+      <View className="flex-row" style={{ gap: 6 }}>
+        {items.map((m) => (
+          <View key={m.id} style={{ flex: 1 }}>
+            <MoveButton move={m} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="100%" recover />
+          </View>
+        ))}
+        <View style={{ flex: 1.15 }}>
+          <MoveButton move={RECOVER_MOVE} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="100%" recover />
         </View>
-      ) : null}
-      <MoveButton move={RECOVER_MOVE} player={player} disabled={disabled} onSelect={onSelect} onInfo={setInfo} width="100%" recover />
+      </View>
 
       <Modal visible={info !== null} transparent animationType="fade" onRequestClose={() => setInfo(null)}>
         <Pressable onPress={() => setInfo(null)} style={{ flex: 1, backgroundColor: 'rgba(2,6,14,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -88,7 +91,7 @@ function MoveButton({
   disabled: boolean;
   onSelect: (id: string) => void;
   onInfo: (m: BattleMove) => void;
-  width: '48%' | '100%';
+  width: '48%' | '49%' | '100%';
   recover?: boolean;
 }) {
   const colors = useThemeColors();
@@ -111,13 +114,13 @@ function MoveButton({
       testID={`move-${move.id}`}
       style={{
         width,
-        minHeight: recover ? 44 : 58,
+        minHeight: recover ? 40 : 52,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: usable ? `${tint}8c` : 'rgba(120,170,220,0.14)',
         backgroundColor: usable ? `${tint}14` : 'rgba(13,21,36,0.5)',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
+        paddingHorizontal: 9,
+        paddingVertical: 6,
         opacity: usable ? 1 : 0.5,
         justifyContent: 'center',
       }}
@@ -141,7 +144,7 @@ function MoveButton({
               ? 'USED'
               : `COOLDOWN ${player.cooldowns[move.id]}`
             : move.isItem
-              ? 'ITEM · ONCE PER BATTLE'
+              ? 'ITEM · 1×'
               : recover
                 ? 'RESTORE STAMINA'
                 : `${move.basePower > 0 ? `${STYLE_META[styleOfMove(move)].icon} ` : ''}${move.category.toUpperCase()}${move.priority > 0 ? ' · ⚑FIRST' : ''}`}

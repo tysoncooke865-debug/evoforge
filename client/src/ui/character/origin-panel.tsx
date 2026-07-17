@@ -101,13 +101,25 @@ export function OriginPanel() {
         ORIGIN PATH DISCOVERED
       </Text>
       <Text className="mt-s1 text-2xs text-text-mute">
-        {offerChoice
-          ? 'Your scores are close — choose the path that defines you. This choice is permanent.'
-          : `Your training points one way: ${PATH_NAMES[cls.recommended_path ?? ''] ?? ''}. Claiming unlocks its Stage 1 champion.`}
+        {cls.shredder_auto
+          ? 'You are cutting from a heavy build — your journey IS the character. The Shredder walks with you until the cut is done.'
+          : offerChoice
+            ? 'Your scores are close — choose the path that defines you. This choice is permanent.'
+            : `Your training points one way: ${PATH_NAMES[cls.recommended_path ?? ''] ?? ''}. Claiming unlocks its Stage 1 champion.`}
       </Text>
-      {/* score breakdown */}
+      {/* score breakdown — ordered by the server's affinity ranking (v3):
+          the raw numbers sit on different per-pillar scales, so raw-desc
+          order would contradict the recommendation. */}
       <View className="mt-s2 flex-row flex-wrap" style={{ gap: 6 }}>
-        {Object.entries(cls.scores ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+        {Object.entries(cls.scores ?? {})
+          .sort((a, b) => {
+            const rank = cls.ranking ?? [];
+            const ra = rank.indexOf(a[0]);
+            const rb = rank.indexOf(b[0]);
+            if (ra !== rb) return (ra === -1 ? rank.length : ra) - (rb === -1 ? rank.length : rb);
+            return b[1] - a[1];
+          })
+          .map(([k, v]) => (
           <Text key={k} allowFontScaling={false} style={{ fontSize: 8, color: colors['text-dim'], letterSpacing: 0.5, ...pixelFont(false) }}>
             {(PATH_NAMES[k] ?? k).toUpperCase()} {Math.round(v)}
           </Text>

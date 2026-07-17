@@ -137,6 +137,43 @@ export function CombatantHud({ combatant, powerLabel, align = 'left' }: { combat
   );
 }
 
+/** The in-arena HUD plate (one-screen redesign) — FireRed's floating name
+ *  box: name + CP, staged HP bar, hairline stamina, status icons only.
+ *  Sits OVER the arena art, so it stays translucent and tight. */
+export function CompactHud({ combatant, powerLabel }: { combatant: Combatant; powerLabel?: number }) {
+  const colors = useThemeColors();
+  return (
+    <View
+      style={{ borderRadius: 10, borderWidth: 1, borderColor: `${colors.accent}3d`, backgroundColor: 'rgba(6,10,20,0.82)', paddingHorizontal: 8, paddingVertical: 6 }}
+    >
+      <View className="flex-row items-center justify-between">
+        <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 9.5, color: colors.text, fontFamily: PIXEL_BOLD, flexShrink: 1, letterSpacing: 0.5 }}>
+          {combatant.name.toUpperCase()}
+        </Text>
+        {powerLabel != null ? (
+          <Text allowFontScaling={false} style={{ fontSize: 7, color: colors['text-mute'], fontFamily: PIXEL, marginLeft: 4 }}>
+            CP {powerLabel}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ gap: 3, marginTop: 4 }}>
+        <CombatBar label="HP" value={combatant.stats.currentHealth} max={combatant.stats.maxHealth} colour={colors.success} height={7} stages />
+        <CombatBar label="ST" value={combatant.stats.currentStamina} max={combatant.stats.maxStamina} colour={colors.accent} height={4} />
+      </View>
+      {combatant.statuses.length > 0 ? (
+        <View className="flex-row flex-wrap" style={{ gap: 3, marginTop: 3 }}>
+          {combatant.statuses.map((s) => (
+            <Text key={s.kind} style={{ fontSize: 8 }} accessibilityLabel={`${STATUS_META[s.kind].label}, ${s.turnsLeft} turns left`}>
+              {STATUS_META[s.kind].icon}
+              <Text style={{ fontSize: 6.5, color: STATUS_META[s.kind].good ? colors.success : colors.danger, fontFamily: PIXEL_BOLD }}>{s.turnsLeft}</Text>
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** A floating damage/heal number over a sprite. */
 export function FloatingNumber({ amount, kind, trigger }: { amount: number; kind: 'damage' | 'crit' | 'heal'; trigger: number }) {
   const colors = useThemeColors();

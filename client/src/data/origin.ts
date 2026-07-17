@@ -58,9 +58,16 @@ export interface Classification {
   reason?: string;
   recommended_path?: string;
   scores?: Record<string, number>;
+  /** v3: score − per-pillar baseline. The RANKING rides these, not the raw
+   *  scores — pillars are scored on different effective scales. */
+  affinities?: Record<string, number>;
+  /** v3: evidenced pillars in affinity order — the display order. */
+  ranking?: string[];
   requires_choice?: boolean;
   choices?: string[];
   shredder_eligible?: boolean;
+  /** v3: cutting phase + high body fat → The Shredder outright. */
+  shredder_auto?: boolean;
   confidence?: number;
 }
 

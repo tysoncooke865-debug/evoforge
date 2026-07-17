@@ -22,7 +22,7 @@ import { Image } from 'expo-image';
 import { BattleDebugPanel } from '@/ui/battle/debug-panel';
 import { BattleResultModal } from '@/ui/battle/result-modal';
 import { BattleArena } from '@/ui/battle/battle-arena';
-import { CombatantHud } from '@/ui/battle/battle-bits';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MoveGrid } from '@/ui/battle/move-grid';
 import { ChampionPicker, championSprite } from '@/ui/battle/champion-picker';
 import { VsIntro } from '@/ui/battle/vs-intro';
@@ -413,6 +413,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
   const condition = conditionById(state.conditionId);
   const battleSpeed = useBattleRpgStore((s) => s.battleSpeed);
   const setBattleSpeed = useBattleRpgStore((s) => s.setBattleSpeed);
+  const insets = useSafeAreaInsets();
 
   // VERSUS: the "pass the device" gate — derived from the turn it was
   // acknowledged for, so it auto-resets each new turn (no setState-in-effect).
@@ -453,97 +454,103 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
   const gridChooser = setup.versus ? battle.activeChooser : state.player;
   const versusPrompt = setup.versus && !battle.isBusy && !state.winner ? `${chooserLabel} — choose your move` : null;
 
+  // ONE SCREEN, NO SCROLL (Tyson): a fixed column — slim top bar, the arena
+  // takes every spare pixel (HUD plates live inside it), message strip, move
+  // panel. The tab bar takes its own layout space, so no bottom fudge.
   return (
-    <View style={{ flex: 1, backgroundColor: colors['bg-deep'] }}>
-      <ScreenShell>
-        <BattleDebugPanel battle={battle} />
-        <ScreenHeader kicker="ARENA BATTLE" title={`TURN ${state.turnNumber}`} onBack={() => router.back()} />
+    <View style={{ flex: 1, backgroundColor: colors['bg-deep'], paddingTop: insets.top + 4, paddingHorizontal: 10, paddingBottom: 8 }}>
+      <BattleDebugPanel battle={battle} />
 
-        {/* Battle toolbar: gym condition · playback speed · run (training). */}
-        <View className="flex-row items-center" style={{ gap: 8, marginBottom: 8 }}>
-          {condition ? (
-            <View className="rounded-md border" style={{ borderColor: `${colors.legendary}55`, backgroundColor: 'rgba(251,191,36,0.08)', paddingHorizontal: 8, paddingVertical: 4, flexShrink: 1 }}>
-              <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: colors.legendary, fontFamily: PIXEL, letterSpacing: 0.5 }}>
-                ⚠ {condition.label}
-              </Text>
-            </View>
-          ) : null}
-          <View style={{ flex: 1 }} />
-          <Pressable
-            onPress={() => setBattleSpeed(battleSpeed === 1 ? 2 : 1)}
-            accessibilityRole="button"
-            accessibilityLabel={`battle speed ${battleSpeed} times, tap to toggle`}
-            testID="battle-speed"
-            style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.accent}55`, backgroundColor: battleSpeed === 2 ? 'rgba(34,211,238,0.14)' : 'rgba(10,16,30,0.6)', paddingHorizontal: 10, paddingVertical: 4 }}
-          >
-            <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.accent, fontFamily: PIXEL_BOLD }}>{battleSpeed === 2 ? '▶▶ 2×' : '▶ 1×'}</Text>
-          </Pressable>
-          {setup.mode === 'training' && !state.winner ? (
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="run from this training battle"
-              testID="battle-run"
-              style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.danger}55`, backgroundColor: 'rgba(10,16,30,0.6)', paddingHorizontal: 10, paddingVertical: 4 }}
-            >
-              <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.danger, fontFamily: PIXEL_BOLD }}>RUN</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {/* Opponent HUD. */}
-        <CombatantHud combatant={state.opponent} powerLabel={Math.round(state.opponent.stats.maxHealth + state.opponent.stats.power * 3)} align="right" />
-
-        {/* THE POKÉMON-POV ARENA. */}
-        <View style={{ marginVertical: 8 }}>
-          <BattleArena
-            player={state.player}
-            opponent={state.opponent}
-            mode={setup.mode}
-            activeEvent={activeEvent}
-            floating={floating}
-            winner={state.winner}
-            height={236}
-          />
-        </View>
-
-        {/* Battle message — typewriter reveal; tap to fast-forward. */}
+      {/* Slim top bar: back · turn · condition · speed · run. */}
+      <View className="flex-row items-center" style={{ gap: 8, minHeight: 30 }}>
         <Pressable
-          onPress={() => battle.advance()}
+          onPress={() => router.back()}
           accessibilityRole="button"
-          accessibilityLabel="advance battle text"
-          style={{ minHeight: 40, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.8)', paddingHorizontal: 12, paddingVertical: 7, marginBottom: 8 }}
+          accessibilityLabel="back"
+          hitSlop={10}
+          style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: `${colors.accent}44`, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,16,30,0.6)' }}
         >
-          <TypewriterText key={message || versusPrompt || 'idle'} text={message || versusPrompt || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: colors.accent, fontFamily: PIXEL_BOLD, marginTop: -1 }}>‹</Text>
         </Pressable>
-
-        {/* Player HUD (the active chooser in versus). */}
-        <CombatantHud combatant={gridChooser} />
-
-        {/* Moves — served to whoever is choosing. */}
-        <View style={{ marginTop: 10, position: 'relative' }}>
-          {chooserLabel ? (
-            <Text allowFontScaling={false} style={{ marginBottom: 6, fontSize: 9, color: battle.awaitingSide === 'opponent' ? colors.danger : colors.accent, fontFamily: PIXEL, letterSpacing: 1 }}>
-              {chooserLabel} — SELECT MOVE
+        <Text allowFontScaling={false} style={{ fontSize: 11, color: colors.text, ...pixelFont() }}>
+          TURN {state.turnNumber}
+        </Text>
+        {condition ? (
+          <View className="rounded-md border" style={{ borderColor: `${colors.legendary}55`, backgroundColor: 'rgba(251,191,36,0.08)', paddingHorizontal: 6, paddingVertical: 3, flexShrink: 1 }}>
+            <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 7.5, color: colors.legendary, fontFamily: PIXEL, letterSpacing: 0.5 }}>
+              ⚠ {condition.label}
             </Text>
-          ) : null}
-          <MoveGrid moves={gridMoves} player={gridChooser} items={ITEM_MOVES} disabled={battle.isBusy || state.winner !== null || needsHandover} onSelect={battle.selectMove} />
+          </View>
+        ) : null}
+        <View style={{ flex: 1 }} />
+        <Pressable
+          onPress={() => setBattleSpeed(battleSpeed === 1 ? 2 : 1)}
+          accessibilityRole="button"
+          accessibilityLabel={`battle speed ${battleSpeed} times, tap to toggle`}
+          testID="battle-speed"
+          style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.accent}55`, backgroundColor: battleSpeed === 2 ? 'rgba(34,211,238,0.14)' : 'rgba(10,16,30,0.6)', paddingHorizontal: 9, paddingVertical: 4 }}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.accent, fontFamily: PIXEL_BOLD }}>{battleSpeed === 2 ? '▶▶ 2×' : '▶ 1×'}</Text>
+        </Pressable>
+        {setup.mode === 'training' && !state.winner ? (
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="run from this training battle"
+            testID="battle-run"
+            style={{ borderRadius: 8, borderWidth: 1, borderColor: `${colors.danger}55`, backgroundColor: 'rgba(10,16,30,0.6)', paddingHorizontal: 9, paddingVertical: 4 }}
+          >
+            <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.danger, fontFamily: PIXEL_BOLD }}>RUN</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
-          {/* Pass-the-device gate — keeps P1's pick hidden until P2 is ready. */}
-          {needsHandover ? (
-            <Pressable
-              onPress={() => setHandedTurn(state.turnNumber)}
-              accessibilityRole="button"
-              accessibilityLabel="pass the device to player 2"
-              testID="pass-device"
-              style={{ position: 'absolute', inset: -4, borderRadius: 14, backgroundColor: 'rgba(2,6,14,0.94)', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-            >
-              <Text style={{ fontSize: 15, color: colors.danger, ...pixelFont() }}>PASS TO PLAYER 2</Text>
-              <Text allowFontScaling={false} style={{ fontSize: 10, color: colors['text-mute'], fontFamily: PIXEL }}>PLAYER 1 LOCKED IN · TAP WHEN READY</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </ScreenShell>
+      {/* THE ARENA — every spare pixel; HUD plates overlaid inside. */}
+      <View style={{ flex: 1, minHeight: 230, marginTop: 6 }}>
+        <BattleArena
+          player={state.player}
+          opponent={state.opponent}
+          mode={setup.mode}
+          activeEvent={activeEvent}
+          floating={floating}
+          winner={state.winner}
+          opponentPower={Math.round(state.opponent.stats.maxHealth + state.opponent.stats.power * 3)}
+        />
+      </View>
+
+      {/* Battle message — typewriter reveal; tap to fast-forward. */}
+      <Pressable
+        onPress={() => battle.advance()}
+        accessibilityRole="button"
+        accessibilityLabel="advance battle text"
+        style={{ minHeight: 42, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.86)', paddingHorizontal: 12, paddingVertical: 7, marginTop: 8 }}
+      >
+        <TypewriterText key={message || versusPrompt || 'idle'} text={message || versusPrompt || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
+      </Pressable>
+
+      {/* Moves — served to whoever is choosing. */}
+      <View style={{ marginTop: 8, position: 'relative' }}>
+        {chooserLabel ? (
+          <Text allowFontScaling={false} style={{ marginBottom: 4, fontSize: 9, color: battle.awaitingSide === 'opponent' ? colors.danger : colors.accent, fontFamily: PIXEL, letterSpacing: 1 }}>
+            {chooserLabel} — SELECT MOVE
+          </Text>
+        ) : null}
+        <MoveGrid moves={gridMoves} player={gridChooser} items={ITEM_MOVES} disabled={battle.isBusy || state.winner !== null || needsHandover} onSelect={battle.selectMove} />
+
+        {/* Pass-the-device gate — keeps P1's pick hidden until P2 is ready. */}
+        {needsHandover ? (
+          <Pressable
+            onPress={() => setHandedTurn(state.turnNumber)}
+            accessibilityRole="button"
+            accessibilityLabel="pass the device to player 2"
+            testID="pass-device"
+            style={{ position: 'absolute', inset: -4, borderRadius: 14, backgroundColor: 'rgba(2,6,14,0.94)', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <Text style={{ fontSize: 15, color: colors.danger, ...pixelFont() }}>PASS TO PLAYER 2</Text>
+            <Text allowFontScaling={false} style={{ fontSize: 10, color: colors['text-mute'], fontFamily: PIXEL }}>PLAYER 1 LOCKED IN · TAP WHEN READY</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       {!introDone ? (
         <VsIntro
@@ -588,7 +595,7 @@ function TypewriterText({ text, busy }: { text: string; busy: boolean }) {
     return () => clearInterval(id);
   }, [text, busy]);
   return (
-    <Text allowFontScaling={false} style={{ fontSize: 12.5, color: colors.text, lineHeight: 17 }}>
+    <Text allowFontScaling={false} style={{ fontSize: 10.5, color: colors.text, lineHeight: 16, fontFamily: PIXEL, letterSpacing: 0.3 }}>
       {busy ? shown : text}
     </Text>
   );
