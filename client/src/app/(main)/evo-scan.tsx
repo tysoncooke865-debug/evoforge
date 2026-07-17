@@ -73,7 +73,16 @@ export default function EvoScanScreen() {
       });
       const payload = data as { result?: { id?: string; status?: string; sizeScore?: number; aestheticsScore?: number }; error?: string } | null;
       if (fnError || !payload?.result) {
-        setError(payload?.error ?? fnError?.message ?? 'The scan failed.');
+        // Surface the function's REAL message: on a non-2xx, supabase-js hides
+        // the body behind error.context (the data/ai.ts lesson) — without this
+        // every failure read as the useless "non-2xx status code".
+        let msg = payload?.error ?? null;
+        const ctx = (fnError as { context?: Response } | null)?.context;
+        if (!msg && ctx && typeof ctx.json === 'function') {
+          const body = await ctx.json().catch(() => null);
+          msg = body?.error ?? null;
+        }
+        setError(msg ?? fnError?.message ?? 'The scan failed.');
         return;
       }
       const r = payload.result;

@@ -69,7 +69,12 @@ Deno.serve(async (req) => {
     .order('assessment_date', { ascending: false })
     .limit(1);
   const last = lastScan?.[0] ?? null;
-  if (last && !confirmation) {
+  // ORIGIN DISCOVERY EXCEPTION (Tyson 2026-07-18): an account with NO Origin
+  // yet is being ASKED to scan at every sign-in — the 28-day cooldown must not
+  // refuse the very scan that discovers their path.
+  const { data: prof } = await sb.from('profile').select('origin_path').limit(1);
+  const originUnset = (prof?.[0]?.origin_path ?? null) == null;
+  if (last && !confirmation && !originUnset) {
     const ageDays = Math.floor(
       (Date.now() - Date.parse(String(last.assessment_date))) / 86_400_000
     );
