@@ -5,6 +5,8 @@ import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '@/data/auth-context';
 import { useClaimCoin } from '@/data/coins';
+import { useOriginStatus } from '@/data/origin';
+import { originAsBranch } from '@/domain/customise';
 import { usePublishGhost } from '@/data/ghosts';
 import { useWorkoutLog } from '@/data/hooks';
 import { useSaveRoutine } from '@/data/routines';
@@ -95,6 +97,9 @@ export default function WorkoutScreen() {
   const claimCoins = useClaimCoin();
   const saveRoutine = useSaveRoutine();
   const { summary, stats, bfMid, branchV2 } = useAvatarData();
+  // THE ORIGIN LOCK: a published ghost carries the origin champion.
+  const originStatus = useOriginStatus();
+  const ghostBranch = originAsBranch(originStatus.data?.origin_path) ?? branchV2;
   const { session } = useAuth();
   const publishGhost = usePublishGhost();
   const forge = useForgeProgression();
@@ -538,7 +543,7 @@ export default function WorkoutScreen() {
           publishGhost.mutate({
             workout: workoutName,
             date,
-            champion: championForBranch(branchV2),
+            champion: championForBranch(ghostBranch),
             ownerName: (session?.user?.email ?? 'Athlete').split('@')[0],
             input: { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore },
             headline: { sets: totalDone },

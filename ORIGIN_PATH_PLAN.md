@@ -29,7 +29,31 @@ This file is the repo-adapted version of Tyson's full spec (delivered in-chat
    strength→titan · cardio→cardio (Apex Engine) · aesthetics→aesthetic
    (Elite Aesthetic) · size→mass (Mass Monster).
 
-## Classification v3 (migration 045, 2026-07-17) — SUPERSEDES v1/v2 below
+## Classification v4 + THE ORIGIN LOCK (migration 046, 2026-07-17)
+Tyson's live feedback on v3 ("I somehow got given Titan… 57/58/56/44"):
+- **The raw ±5 choice rule**: the CHOICE test rides the RAW scores the player
+  sees — every evidenced pillar within 5 raw points of the evidenced raw
+  maximum joins the choice set (the affinity top always included); more than
+  one member is ALWAYS the player's decision. Recommendation + ranking still
+  ride v3's affinities. classification_version 4.
+- **THE ORIGIN LOCK**: once an origin is claimed, the origin champion is the
+  ONLY equipable champion. Server: set_active_champion refuses any other
+  path ('origin_locked'). Client: buildRoster(originPath) locks the roster
+  (customise equip, stage ladders via entry.unlocked, battle champion
+  select through unlockedChampionSet), resolveDisplay pins the displayed
+  branch, ghosts + versus snapshots carry the origin branch, path-sync
+  mirrors the ORIGIN line's derived stage as the active champion (the
+  origin champion keeps growing with training). Premium characters
+  (Gymerica) stay equipable — they are purchased overlays, not path
+  champions. Non-origin lines keep progress/purchases; they just cannot
+  render.
+- The lone v3 claim (titan) was reset to re-choose under the raw rule.
+- Verified: domain vitest (origin-lock describe), forged-JWT SQL check
+  (origin_locked / ok), and a Playwright tour with a titan-origin smoke
+  account — Home podium renders the titan champion, customise roster shows
+  1/9 unlocked with the rest LOCKED, battle select shows ORIGIN LOCKED.
+
+## Classification v3 (migration 045, 2026-07-17) — margins superseded by v4
 Tyson: "most characters' origin having to be aesthetics" — v1/v2 compared the
 four pillar scores RAW and the pillars sit on different effective scales
 (measured on production: aesthetics beat size 10/10; strength/cardio floor at

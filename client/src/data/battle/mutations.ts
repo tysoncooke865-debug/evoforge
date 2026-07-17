@@ -7,15 +7,20 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { originAsBranch } from '@/domain/customise';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from '../auth-context';
+import { useOriginStatus } from '../origin';
 import { supabase } from '../supabase';
 import { useAvatarData } from '../use-avatar-data';
 
-/** The display snapshot sent to invite/join; server clamps + names it. */
+/** The display snapshot sent to invite/join; server clamps + names it.
+ *  THE ORIGIN LOCK: with an Origin assigned, the branch the opponent sees
+ *  is the origin champion, not the derivation. */
 export function useBattleSnapshot(): Record<string, unknown> {
   const { summary, stats, branchV2, sex } = useAvatarData();
+  const origin = useOriginStatus();
   const power = Math.trunc(
     summary.level * 2 +
       (stats.strengthScore + stats.sizeScore + stats.leannessScore + stats.conditioningScore + stats.aestheticScore) / 5
@@ -25,7 +30,7 @@ export function useBattleSnapshot(): Record<string, unknown> {
     power,
     strengthScore: stats.strengthScore,
     conditioningScore: stats.conditioningScore,
-    branch: branchV2,
+    branch: originAsBranch(origin.data?.origin_path) ?? branchV2,
     stage: 1,
     sex,
     characterClass: stats.characterClass,

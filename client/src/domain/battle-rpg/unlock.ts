@@ -1,5 +1,5 @@
 import type { BranchContext, BranchV2, ScoresV2 } from '@/domain/branches-v2';
-import { buildRoster } from '@/domain/customise';
+import { buildRoster, originAsBranch } from '@/domain/customise';
 
 import { CHAMPIONS } from './champions';
 import type { ChampionId } from './types';
@@ -15,8 +15,15 @@ import type { ChampionId } from './types';
 
 const BATTLE_CHAMPIONS: ChampionId[] = ['aesthetic', 'titan', 'apex', 'shredded'];
 
-export function unlockedChampionSet(derived: BranchV2, scores: ScoresV2, ctx?: BranchContext): Set<ChampionId> {
-  const roster = buildRoster(derived, scores, ctx);
+/** With an Origin assigned (originPath), the roster locks to it (THE ORIGIN
+ *  LOCK) and so does the battle select — only the origin champion battles. */
+export function unlockedChampionSet(
+  derived: BranchV2,
+  scores: ScoresV2,
+  ctx?: BranchContext,
+  originPath?: string | null
+): Set<ChampionId> {
+  const roster = buildRoster(derived, scores, ctx, originPath);
   const set = new Set<ChampionId>();
   for (const id of BATTLE_CHAMPIONS) {
     const branch = CHAMPIONS[id].spriteBranch;
@@ -30,11 +37,13 @@ export function championRequirement(
   id: ChampionId,
   derived: BranchV2,
   scores: ScoresV2,
-  ctx?: BranchContext
+  ctx?: BranchContext,
+  originPath?: string | null
 ): string {
-  const roster = buildRoster(derived, scores, ctx);
+  const roster = buildRoster(derived, scores, ctx, originPath);
   const entry = roster.find((e) => e.id === CHAMPIONS[id].spriteBranch);
   if (!entry || entry.unlocked) return '';
+  if (originAsBranch(originPath) !== null) return 'ORIGIN LOCKED';
   const unmet = entry.requirements.find((r) => !r.met);
   if (!unmet) return 'TRAIN TO UNLOCK';
   return `${unmet.label.toUpperCase()} ${Math.ceil(unmet.target)}+`;

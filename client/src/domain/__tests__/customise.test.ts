@@ -97,6 +97,38 @@ describe('roster — locks are the LIVE branch gates', () => {
   });
 });
 
+describe('THE ORIGIN LOCK — the origin champion is the only equipable one', () => {
+  it('buildRoster with an origin unlocks the origin champion ONLY', () => {
+    // Gates that would open mass are irrelevant once an origin exists.
+    const roster = buildRoster('aesthetic', scores({ strength: 60, size: 70, aesthetic: 50 }), undefined, 'titan');
+    for (const entry of roster) {
+      expect(entry.unlocked).toBe(entry.id === 'titan');
+      expect(entry.current).toBe(entry.id === 'titan');
+    }
+  });
+
+  it('an unknown/absent origin slug changes nothing', () => {
+    const base = buildRoster('aesthetic', scores(), undefined);
+    expect(buildRoster('aesthetic', scores(), undefined, null)).toEqual(base);
+    expect(buildRoster('aesthetic', scores(), undefined, 'gymerica')).toEqual(base);
+  });
+
+  it('resolveDisplay pins the branch to the origin over derivation AND loadout', () => {
+    const d = derived({ scores: scores({ strength: 60, size: 70, aesthetic: 50 }), originPath: 'titan' });
+    // Loadout says mass (its gates are even open) — origin still wins.
+    const display = resolveDisplay(d, { ...DEFAULT_LOADOUT, branch: 'mass' });
+    expect(display.branch).toBe('titan');
+  });
+
+  it('equipState refuses a non-origin champion selection', () => {
+    const d = derived({ scores: scores({ strength: 60, size: 70, aesthetic: 50 }), originPath: 'titan' });
+    const sel: Selection = { ...selectionFromLoadout('titan', DEFAULT_LOADOUT), branch: 'mass' };
+    expect(equipState(d, sel, DEFAULT_LOADOUT)).toEqual({ kind: 'locked-character' });
+    const own: Selection = { ...selectionFromLoadout('titan', DEFAULT_LOADOUT), branch: 'titan' };
+    expect(equipState(d, own, DEFAULT_LOADOUT).kind).not.toBe('locked-character');
+  });
+});
+
 describe('stage options mirror the real ladders', () => {
   it('level ladders key by unlock level and gate by the live level', () => {
     const options = stageOptions('aesthetic', 40, null);

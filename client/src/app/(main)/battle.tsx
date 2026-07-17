@@ -2,8 +2,10 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useOriginStatus } from '@/data/origin';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { CHAMPIONS, championForBranch } from '@/domain/battle-rpg/champions';
+import { originAsBranch } from '@/domain/customise';
 import { championRequirement, unlockedChampionSet } from '@/domain/battle-rpg/unlock';
 import { conditionById } from '@/domain/battle-rpg/conditions';
 import { gymById } from '@/domain/battle-rpg/gyms';
@@ -99,12 +101,16 @@ export default function BattleScreen() {
     conditioning: stats.conditioningScore, aesthetic: stats.aestheticScore,
   };
   const ctx = { nutritionPhase, earliestBf };
+  // THE ORIGIN LOCK: with an Origin assigned, the only battle champion is
+  // the origin champion (unlockedChampionSet locks with the roster).
+  const originStatus = useOriginStatus();
+  const originBranch = originAsBranch(originStatus.data?.origin_path);
   const unlockedSet = useMemo(
-    () => unlockedChampionSet(branchV2, scores, ctx),
+    () => unlockedChampionSet(branchV2, scores, ctx, originBranch),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [branchV2, stats.strengthScore, stats.sizeScore, stats.leannessScore, stats.conditioningScore, stats.aestheticScore, nutritionPhase, earliestBf]
+    [branchV2, stats.strengthScore, stats.sizeScore, stats.leannessScore, stats.conditioningScore, stats.aestheticScore, nutritionPhase, earliestBf, originBranch]
   );
-  const requirementFor = (id: ChampionId) => championRequirement(id, branchV2, scores, ctx);
+  const requirementFor = (id: ChampionId) => championRequirement(id, branchV2, scores, ctx, originBranch);
   // A single /battle route is REUSED across modes (expo-router keeps it
   // mounted and only swaps params), so tying "started" to a boolean loaded
   // you back into the last fight when you opened a different mode. Instead:
@@ -119,9 +125,10 @@ export default function BattleScreen() {
   const started = startedKey === paramKey;
   useFocusEffect(useCallback(() => { setStartedKey(null); setJoined(null); }, []));
 
-  // A picked-but-now-locked champion falls back to your (always-unlocked)
-  // derived class.
-  const playerChampion: ChampionId = picked && unlockedSet.has(picked) ? picked : championForBranch(branchV2);
+  // A picked-but-now-locked champion falls back to your origin champion
+  // when one is assigned, else your (always-unlocked) derived class.
+  const playerChampion: ChampionId =
+    picked && unlockedSet.has(picked) ? picked : championForBranch(originBranch ?? branchV2);
 
   // Opponent + AI by mode.
   const gym = gymId ? gymById(gymId) : undefined;

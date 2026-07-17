@@ -776,7 +776,30 @@ Owner: Tyson. He works through other Claude sessions too — **always
   for the next reader: a bare `CASE … THEN` inside an `IF` condition eats
   the IF's THEN — parenthesise the CASE.
 
-**Migrations applied through `045`. Next free number: `046`.**
+- **ORIGIN CHOICE (raw ±5) + THE ORIGIN LOCK (Tyson live feedback,
+  migration 046, 2026-07-17):** "I somehow got given Titan… if the top stat
+  is within ±5 of another, let the player decide; the only equipable
+  character from then on is the origin character." classify_evo_path v4:
+  the choice set = every evidenced pillar within 5 RAW points of the
+  evidenced raw max (affinity top always included; >1 member → the player
+  decides); recommendation/ranking still ride the 045 affinities; Tyson's
+  own row now offers titan+mass+aesthetic (verified live) and his v3 titan
+  claim was reset to re-choose. THE ORIGIN LOCK: server-side,
+  set_active_champion refuses any non-origin path ('origin_locked' —
+  falsified with forged JWT claims both directions); client-side, ONE seam
+  (buildRoster's originPath param + originAsBranch) locks customise equip,
+  stage ladders, and battle champion select (unlockedChampionSet), while
+  resolveDisplay pins the displayed branch, ghost publishes + versus
+  snapshots carry the origin branch, and path-sync mirrors the ORIGIN
+  line's derived stage as the active champion. DECISION: premium
+  characters (Gymerica) remain equipable — purchased overlays, not path
+  champions; non-origin lines keep progress/purchases, they just cannot
+  render. Verified: 778 vitest (new origin-lock describe), tsc, lint, and
+  a Playwright tour with a titan-origin smoke account (Home podium =
+  titan champion; customise roster 1/9 unlocked, others LOCKED; battle
+  select ORIGIN LOCKED; smoke restored after).
+
+**Migrations applied through `046`. Next free number: `047`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `037_workout_ghosts.sql`; both are applied, the number is just shared.)

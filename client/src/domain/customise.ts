@@ -350,7 +350,38 @@ function splitDisplayName(branch: BranchV2): { icon: string; name: string } {
   return { icon, name: rest.join(' ') };
 }
 
-export function buildRoster(current: BranchV2, s: ScoresV2, ctx?: BranchContext): RosterEntry[] {
+/** Is a server origin slug one of the five roster champions? */
+export function originAsBranch(originPath: string | null | undefined): BranchV2 | null {
+  return (ROSTER_ORDER as string[]).includes(originPath ?? '') ? (originPath as BranchV2) : null;
+}
+
+export function buildRoster(
+  current: BranchV2,
+  s: ScoresV2,
+  ctx?: BranchContext,
+  originPath?: string | null
+): RosterEntry[] {
+  // THE ORIGIN LOCK (Tyson, 2026-07-17): once an Origin is assigned, the
+  // origin champion is the ONLY equipable champion. Everything that gates on
+  // this roster — customise equip, battle champion select — locks with it.
+  // Other champions stay visible (and their progress/purchases are kept),
+  // but they cannot be equipped.
+  const origin = originAsBranch(originPath);
+  if (origin !== null) {
+    return ROSTER_ORDER.map((branch) => {
+      const { icon, name } = splitDisplayName(branch);
+      const isOrigin = branch === origin;
+      return {
+        id: branch,
+        name,
+        icon,
+        unlocked: isOrigin,
+        current: isOrigin,
+        requirements: [],
+        note: isOrigin ? undefined : 'Origin locked — your Origin is your champion.',
+      };
+    });
+  }
   const paths = branchPathsV2(current, s, ctx);
   return ROSTER_ORDER.map((branch) => {
     const { icon, name } = splitDisplayName(branch);
@@ -506,6 +537,9 @@ export interface DerivedIdentity {
   scores: ScoresV2;
   ctx?: BranchContext;
   forgeLevel: number;
+  /** The assigned Origin Path slug (server truth), null/absent before the
+   *  reveal. When set, display and equip lock to this champion. */
+  originPath?: string | null;
 }
 
 export interface ResolvedDisplay {
@@ -533,10 +567,14 @@ export function resolveDisplay(
   ownedSkins: ReadonlySet<string> = new Set(),
   ownedCharacters: ReadonlySet<string> = new Set()
 ): ResolvedDisplay {
-  const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
+  const roster = buildRoster(derived.branch, derived.scores, derived.ctx, derived.originPath);
 
-  let branch = derived.branch;
-  if (loadout.branch !== null && loadout.branch !== derived.branch) {
+  // THE ORIGIN LOCK: with an Origin assigned, the displayed champion IS the
+  // origin champion — the derivation and any persisted branch override are
+  // both ignored (their progress still exists; they just cannot render).
+  const origin = originAsBranch(derived.originPath);
+  let branch = origin ?? derived.branch;
+  if (origin === null && loadout.branch !== null && loadout.branch !== derived.branch) {
     const entry = roster.find((e) => e.id === loadout.branch);
     if (entry?.unlocked) branch = loadout.branch;
   }
@@ -551,7 +589,7 @@ export function resolveDisplay(
   // isn't working when trying to equip a lower level avatar" — comparing
   // null against the resolved branch dropped every own-champion stage
   // pick on the floor).
-  if (loadout.stageKey !== null && (loadout.branch ?? derived.branch) === branch) {
+  if (loadout.stageKey !== null && (loadout.branch ?? branch) === branch) {
     // branch here is already gate-validated (or derived), so the ladder
     // evaluates as an UNLOCKED champion's.
     const option = stageOptions(branch, derived.level, derived.bfMid, true).find(
@@ -698,7 +736,7 @@ export function equipState(
       : { kind: 'equip' };
   }
 
-  const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
+  const roster = buildRoster(derived.branch, derived.scores, derived.ctx, derived.originPath);
   const entry = roster.find((e) => e.id === sel.branch);
   if (!entry?.unlocked) return { kind: 'locked-character' };
 

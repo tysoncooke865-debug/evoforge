@@ -40,6 +40,7 @@ export function useDisplayIdentity(): DisplayIdentity {
   const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
   const charUnlocks = useCharacterUnlocks();
   const ownedCharacters = new Set((charUnlocks.data ?? []).map((u) => u.character));
+  const origin = useOriginStatus();
 
   const derived: DerivedIdentity = {
     branch: branchV2,
@@ -54,6 +55,9 @@ export function useDisplayIdentity(): DisplayIdentity {
     },
     ctx: { nutritionPhase, earliestBf },
     forgeLevel: forgeProgressFromRow(forge.data ?? null).level,
+    // THE ORIGIN LOCK (Tyson, 2026-07-17): with an Origin assigned,
+    // resolveDisplay pins the champion to it — everywhere this hook feeds.
+    originPath: ORIGIN_FLAGS.newSchemaReadEnabled ? (origin.data?.origin_path ?? null) : null,
   };
   let display = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
 
@@ -65,7 +69,6 @@ export function useDisplayIdentity(): DisplayIdentity {
   // origin are untouched: legacy remains their entire read path. Cross-path
   // overrides stay off until Release 5's roster gains an equip action — the
   // dual-write mirror keeps active_path aligned with the derivation anyway.
-  const origin = useOriginStatus();
   if (
     ORIGIN_FLAGS.newSchemaReadEnabled &&
     origin.data?.origin_path != null &&

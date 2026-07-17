@@ -6,6 +6,7 @@ import { useCharacterUnlocks, usePurchaseCharacter } from '@/data/characters';
 import { useCoinTotal } from '@/data/coins';
 import { usePaletteUnlocks, usePurchasePalette } from '@/data/palettes';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+import { useOriginStatus } from '@/data/origin';
 import { useSkinUnlocks, usePurchaseSkin } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
 import {
@@ -15,6 +16,7 @@ import {
   currentStageFor,
   equipState,
   loadoutFromSelection,
+  originAsBranch,
   resolveDisplay,
   selectionFromLoadout,
   skinKey,
@@ -66,6 +68,7 @@ export default function CustomiseScreen() {
   const purchaseCharacter = usePurchaseCharacter();
   const paletteUnlocks = usePaletteUnlocks();
   const purchasePalette = usePurchasePalette();
+  const originStatus = useOriginStatus();
   const ownedSkins = new Set((unlocks.data ?? []).map((u) => skinKey(u.line, u.skin)));
   const ownedCharacters = new Set((charUnlocks.data ?? []).map((u) => u.character));
   const ownedPalettes = new Set((paletteUnlocks.data ?? []).map((u) => u.palette));
@@ -83,6 +86,9 @@ export default function CustomiseScreen() {
     },
     ctx: { nutritionPhase, earliestBf },
     forgeLevel: forgeProgressFromRow(forge.data ?? null).level,
+    // THE ORIGIN LOCK: with an Origin assigned, the roster + equip below
+    // lock to the origin champion (buildRoster/equipState read this).
+    originPath: originStatus.data?.origin_path ?? null,
   };
 
   // The screen-local SELECTION, seeded from the equipped loadout once both
@@ -90,10 +96,15 @@ export default function CustomiseScreen() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const seededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current || !ready || !hydrated) return;
+    // Wait for the origin row too (isLoading only — an error seeds legacy):
+    // an Origin pins the seed to the origin champion, or a stale persisted
+    // branch would open the screen on an ORIGIN-LOCKED card.
+    if (seededRef.current || !ready || !hydrated || originStatus.isLoading) return;
     seededRef.current = true;
-    setSelection(selectionFromLoadout(branchV2, loadout));
-  }, [ready, hydrated, branchV2, loadout]);
+    const sel = selectionFromLoadout(branchV2, loadout);
+    const origin = originAsBranch(originStatus.data?.origin_path);
+    setSelection(origin !== null ? { ...sel, branch: origin } : sel);
+  }, [ready, hydrated, branchV2, loadout, originStatus.isLoading, originStatus.data]);
 
   // LIVE PREVIEW (the palette shop): while this screen is FOCUSED, the whole
   // app wears the SELECTED palette — cycling theme cards recolours the page
@@ -120,7 +131,7 @@ export default function CustomiseScreen() {
     );
   }
 
-  const roster = buildRoster(derived.branch, derived.scores, derived.ctx);
+  const roster = buildRoster(derived.branch, derived.scores, derived.ctx, derived.originPath);
   const entry = roster.find((e) => e.id === selection.branch) ?? roster[0];
   const options = stageOptions(entry.id, derived.level, derived.bfMid, entry.unlocked);
   const selectedOption =
@@ -153,7 +164,9 @@ export default function CustomiseScreen() {
       : state.kind === 'equipped'
         ? 'EQUIPPED ✓'
         : state.kind === 'locked-character'
-          ? 'LOCKED — GATES UNMET'
+          ? derived.originPath != null
+            ? 'ORIGIN LOCKED'
+            : 'LOCKED — GATES UNMET'
           : isBuy
             ? canAfford
               ? `BUY · ${buyPrice} COINS`
