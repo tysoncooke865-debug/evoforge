@@ -14,6 +14,9 @@ import { pickPhoto } from '@/data/ai';
 import { progressionFeatures } from '@/data/progression/features';
 import { awardEvoScan } from '@/data/progression/award-xp';
 import { useProfile } from '@/data/hooks';
+import { PATH_NAMES } from '@/data/origin';
+import { useToastStore } from '@/state/toast-store';
+import { playPowerUp } from '@/ui/core/sound';
 import { supabase } from '@/data/supabase';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
@@ -88,6 +91,31 @@ export default function EvoScanScreen() {
       const r = payload.result;
       if (r.id) void awardEvoScan(supabase, r.id);
       void queryClient.invalidateQueries({ queryKey: ['physique_assessments'] });
+      // ORIGIN FROM THE SCAN (Tyson 2026-07-18): an origin-less athlete is
+      // GIVEN their origin champion right here — classify (the scan itself is
+      // the evidence, migration 042) and auto-claim the recommendation; the
+      // champion is equipped server-side and appears on the Home podium.
+      try {
+        const { data: cls } = await supabase.rpc('classify_evo_path');
+        const c = cls as { ok?: boolean; recommended_path?: string } | null;
+        if (c?.ok && c.recommended_path) {
+          const { data: award } = await supabase.rpc('assign_origin_path', { p_path: c.recommended_path });
+          if ((award as { ok?: boolean } | null)?.ok) {
+            playPowerUp();
+            useToastStore.getState().push({
+              kind: 'achievement',
+              title: 'ORIGIN FORGED',
+              subtitle: `${PATH_NAMES[c.recommended_path] ?? c.recommended_path} — your champion awaits on Home`,
+            });
+            void queryClient.invalidateQueries({ queryKey: ['origin_status'] });
+            void queryClient.invalidateQueries({ queryKey: ['user_paths'] });
+            router.replace('/' as never);
+            return;
+          }
+        }
+      } catch {
+        /* origin already set or not yet classifiable — the scan still counts */
+      }
       setOutcome(
         r.status === 'pending_confirmation'
           ? 'BIG CHANGE DETECTED — this result is pending. Take a confirmation scan within 7 days to lock it in.'

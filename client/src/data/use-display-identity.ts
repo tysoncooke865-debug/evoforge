@@ -75,6 +75,23 @@ export function useDisplayIdentity(): DisplayIdentity {
   ) {
     display = { ...display, stage: Math.min(4, origin.data.active_stage) };
   }
+  // CROSS-PATH (Tyson 2026-07-18: the ORIGIN champion appears on Home): when
+  // the equipped server path DIFFERS from the derivation and no custom skin or
+  // premium character is worn, the server champion wins the podium.
+  if (
+    ORIGIN_FLAGS.newSchemaReadEnabled &&
+    origin.data?.origin_path != null &&
+    origin.data.active_path != null &&
+    origin.data.active_path !== display.branch &&
+    !display.character &&
+    display.skinId === 'standard'
+  ) {
+    display = {
+      ...display,
+      branch: origin.data.active_path as typeof display.branch,
+      stage: Math.min(4, Math.max(1, origin.data.active_stage)),
+    };
+  }
 
   // PREMIUM OVERLAY: an equipped, owned premium character takes over the
   // rendered art everywhere Home/Forge read this hook — branch/stats below
