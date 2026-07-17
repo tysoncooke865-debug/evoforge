@@ -156,7 +156,15 @@ export function BattleArena({
       </Animated.View>
 
       {/* Per-move FX (punches, dumbbell throws, speed blitz, LUNK ALARM…). */}
-      <MoveFxLayer event={activeEvent} height={height} width={width} playerBranch={player.spriteBranch} playerStage={player.spriteStage} />
+      <MoveFxLayer
+        event={activeEvent}
+        height={height}
+        width={width}
+        playerBranch={player.spriteBranch}
+        playerStage={player.spriteStage}
+        opponentBranch={opponent.spriteBranch}
+        opponentStage={opponent.spriteStage}
+      />
 
       {/* Crit / ultimate white blink over everything. */}
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#fff' }, blinkStyle]} />

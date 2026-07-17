@@ -154,7 +154,11 @@ export function BattleSprite({
       <Animated.View style={[{ position: 'absolute', bottom: 2, width: size * 0.85, height: size * 0.34, borderRadius: size, backgroundColor: '#22d3ee', shadowColor: '#22d3ee', shadowOpacity: 0.9, shadowRadius: 22 }, glowStyle]} pointerEvents="none" />
       <Animated.View style={style}>
         <Image source={src} style={{ width: size, height: size, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-        <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0, backgroundColor: '#fb7185' }, flashStyle]} />
+        {/* Hit flash = the SPRITE ITSELF tinted red (Pokémon's silhouette
+            blink) — never a rectangle over the transparent box. */}
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0 }, flashStyle]}>
+          <Image source={src} tintColor="#fb7185" style={{ width: size, height: size, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
+        </Animated.View>
       </Animated.View>
       {/* Impact burst (over the sprite, fixed to the hit point). */}
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: burstTop, width: ringSize, height: ringSize, borderRadius: ringSize, borderWidth: 3, borderColor: '#dffcff' }, ring1Style]} />
