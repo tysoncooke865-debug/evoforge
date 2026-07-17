@@ -799,6 +799,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
   titan champion; customise roster 1/9 unlocked, others LOCKED; battle
   select ORIGIN LOCKED; smoke restored after).
 
+- **THE 09:34 INCIDENT — scan auto-claim vs the choice rule (2026-07-17,
+  same evening):** Tyson reported "still stuck as Titan, the origin scan
+  has not come up". Root cause in the AUDIT TRAIL (user_path_migration_log
+  + evo_assessments raw snapshots): evo-scan.tsx's 042-era auto-claim
+  assigned the RECOMMENDED path ~300ms after every scan, ignoring
+  requires_choice — his scan at 09:34 classified as a three-way choice and
+  the client claimed Titan anyway; and the once-per-day prompt key had
+  already burned for the day, so no nudge either. FIXES (client-only, the
+  server was correct): (1) the scan auto-claims ONLY when requires_choice
+  is false (shredder_auto included) — a close call toasts "YOUR SCORES ARE
+  CLOSE" and routes to the Forge reveal where the choice buttons live;
+  (2) the prompt's day-key now stores date|origin:migration_status, so an
+  origin RESET re-prompts the same day; (3) when classification is already
+  open, the prompt modal AND the Home gold button read CHOOSE YOUR ORIGIN
+  and route to /avatar (the Forge reveal) instead of another scan. His
+  titan claim was reset a third time — next launch he lands in the choice.
+
 **Migrations applied through `046`. Next free number: `047`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with

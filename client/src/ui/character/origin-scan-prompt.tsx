@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Text, View } from 'react-native';
 
-import { ORIGIN_FLAGS, useOriginStatus } from '@/data/origin';
+import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -22,16 +22,23 @@ let promptedThisLaunch = false;
  *  and flash". The gold FORGE YOUR ORIGIN button on the Home podium is the
  *  always-on path; this modal is just the daily nudge. */
 const PROMPT_DAY_KEY = 'evoforge-origin-prompt-day';
-function alreadyPromptedToday(): boolean {
+/** The stored value carries the account state alongside the date: a
+ *  RE-ASSESSMENT (migration_status flips back to needs_assessment after an
+ *  origin reset, e.g. classification v4's global re-choice) must re-prompt
+ *  the SAME day — "the origin scan has not come up" (Tyson, 2026-07-17). */
+function promptStamp(statusKey: string): string {
+  return `${new Date().toDateString()}|${statusKey}`;
+}
+function alreadyPromptedToday(statusKey: string): boolean {
   try {
-    return globalThis.localStorage?.getItem(PROMPT_DAY_KEY) === new Date().toDateString();
+    return globalThis.localStorage?.getItem(PROMPT_DAY_KEY) === promptStamp(statusKey);
   } catch {
     return false;
   }
 }
-function markPromptedToday(): void {
+function markPromptedToday(statusKey: string): void {
   try {
-    globalThis.localStorage?.setItem(PROMPT_DAY_KEY, new Date().toDateString());
+    globalThis.localStorage?.setItem(PROMPT_DAY_KEY, promptStamp(statusKey));
   } catch {
     /* storage unavailable — fall back to once-per-launch */
   }
@@ -44,11 +51,16 @@ export function OriginScanPrompt() {
 
   const eligible =
     ORIGIN_FLAGS.originRevealEnabled && status.data != null && status.data.origin_path == null;
+  const statusKey = `${status.data?.origin_path ?? 'none'}:${status.data?.migration_status ?? ''}`;
+  // When the last scan already classifies (the raw ±5 rule holding a CHOICE
+  // open), the nudge points at the Forge reveal, not another scan.
+  const classification = useClassification(eligible);
+  const choiceReady = classification.data?.ok === true;
 
   useEffect(() => {
     if (!eligible || promptedThisLaunch) return;
     // Give the tutorial overlay / boot moment the first few seconds.
-    if (alreadyPromptedToday()) return;
+    if (alreadyPromptedToday(statusKey)) return;
     // NEVER stack on the tutorial (Tyson's phone, 2026-07-18): the two modals
     // fought — the prompt's buttons landed under the tutorial overlay, taps
     // died, and page changes flashed the pair. A fresh install replays the
@@ -59,7 +71,7 @@ export function OriginScanPrompt() {
       void AsyncStorage.getItem('evoforge-tutorial-done-v1').then((done) => {
         if (!live || !done) return;
         promptedThisLaunch = true;
-        markPromptedToday();
+        markPromptedToday(statusKey);
         setOpen(true);
       });
     }, 4000);
@@ -67,7 +79,7 @@ export function OriginScanPrompt() {
       live = false;
       clearTimeout(t);
     };
-  }, [eligible]);
+  }, [eligible, statusKey]);
 
   if (!open) return null;
   return (
@@ -78,20 +90,23 @@ export function OriginScanPrompt() {
             ✦ DISCOVER YOUR ORIGIN
           </Text>
           <Text className="mt-s2 text-sm text-text">
-            Run an EvoGuide scan and EvoForge will read your physique, assign your Origin Path, and
-            forge your champion from who you actually are.
+            {choiceReady
+              ? 'Your scores are in — your Origin is waiting to be chosen on the Forge. The pick is yours, and permanent.'
+              : 'Run an EvoGuide scan and EvoForge will read your physique, assign your Origin Path, and forge your champion from who you actually are.'}
           </Text>
-          <Text className="mt-s1 text-2xs text-text-mute">
-            Two photos and your bodyweight — the waist is optional. Your current champion and
-            progress will not change.
-          </Text>
+          {choiceReady ? null : (
+            <Text className="mt-s1 text-2xs text-text-mute">
+              Two photos and your bodyweight — the waist is optional. Your current champion and
+              progress will not change.
+            </Text>
+          )}
           <View className="mt-s4 gap-s2">
             <NeonButton
-              title="SCAN NOW"
+              title={choiceReady ? 'CHOOSE MY ORIGIN' : 'SCAN NOW'}
               pixel
               onPress={() => {
                 setOpen(false);
-                router.push('/evo-scan' as never);
+                router.push((choiceReady ? '/avatar' : '/evo-scan') as never);
               }}
               testID="origin-scan-now"
             />

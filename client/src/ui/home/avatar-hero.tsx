@@ -44,6 +44,7 @@ export function AvatarHero({
   evolutionPercent,
   features,
   originUnset = false,
+  originChoiceReady = false,
 }: {
   branch: Branch;
   stage: number;
@@ -60,6 +61,9 @@ export function AvatarHero({
   /** ORIGIN (Tyson 2026-07-18): no Origin selected → BLANK podium, no avatar,
    *  no rating — just the gold FORGE YOUR ORIGIN button on the stage. */
   originUnset?: boolean;
+  /** The raw ±5 rule (046): a CHOICE is already open from the last scan —
+   *  the gold button goes to the Forge reveal instead of another scan. */
+  originChoiceReady?: boolean;
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -83,19 +87,25 @@ export function AvatarHero({
         <HeroStage branch={branch} stage={1} auraColour={colors.legendary} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
-            onPress={() => router.push('/evo-scan' as never)}
+            onPress={() => router.push((originChoiceReady ? '/avatar' : '/evo-scan') as never)}
             accessibilityRole="button"
-            accessibilityLabel="Forge your Origin — run an EvoGuide scan"
+            accessibilityLabel={
+              originChoiceReady
+                ? 'Choose your Origin on the Forge'
+                : 'Forge your Origin — run an EvoGuide scan'
+            }
             testID="forge-origin"
             className="items-center justify-center rounded-xl px-s5"
             style={{ minHeight: 56, backgroundColor: colors.legendary, shadowColor: colors.legendary, shadowOpacity: 0.55, shadowRadius: 18, elevation: 8 }}
           >
             <Text allowFontScaling={false} style={{ fontSize: 13, color: '#1a1305', letterSpacing: 1, ...pixelFont() }}>
-              FORGE YOUR ORIGIN
+              {originChoiceReady ? 'CHOOSE YOUR ORIGIN' : 'FORGE YOUR ORIGIN'}
             </Text>
           </Pressable>
           <Text className="mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
-            Run an EvoGuide scan to discover your path
+            {originChoiceReady
+              ? 'Your scores are close — the decision is yours'
+              : 'Run an EvoGuide scan to discover your path'}
           </Text>
         </View>
       </View>

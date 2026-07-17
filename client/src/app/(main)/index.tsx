@@ -38,7 +38,7 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
-import { useOriginStatus } from '@/data/origin';
+import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { EvoCore } from '@/ui/home/evo-core';
 import { homeFeatures } from '@/ui/home/home-features';
@@ -219,6 +219,10 @@ export default function HomeScreen() {
   // BLANK — no avatar, no rating — just the gold FORGE YOUR ORIGIN button.
   const originStatus = useOriginStatus();
   const originUnset = originStatus.data != null && originStatus.data.origin_path == null;
+  // The raw ±5 rule can hold a CHOICE open from the last scan — the gold
+  // button then leads to the Forge reveal, not another scan.
+  const originClassification = useClassification(ORIGIN_FLAGS.originRevealEnabled && originUnset);
+  const originChoiceReady = originClassification.data?.ok === true;
   const displayBranch = identity.display.branch;
   const evolution = nextEvolutionV2(displayBranch, {
     level: summary.level,
@@ -269,6 +273,7 @@ export default function HomeScreen() {
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero
         originUnset={originUnset}
+        originChoiceReady={originChoiceReady}
         branch={identity.display.donor}
         stage={stage}
         auraColour={auraColour}

@@ -92,14 +92,17 @@ export default function EvoScanScreen() {
       const r = payload.result;
       if (r.id) void awardEvoScan(supabase, r.id);
       void queryClient.invalidateQueries({ queryKey: ['physique_assessments'] });
-      // ORIGIN FROM THE SCAN (Tyson 2026-07-18): an origin-less athlete is
-      // GIVEN their origin champion right here — classify (the scan itself is
-      // the evidence, migration 042) and auto-claim the recommendation; the
-      // champion is equipped server-side and appears on the Home podium.
+      // ORIGIN FROM THE SCAN (042), AMENDED by the raw ±5 rule (Tyson,
+      // 2026-07-17, migration 046): the scan auto-claims ONLY a clear single
+      // winner (requires_choice false — includes shredder_auto). Close
+      // scores are THE PLAYER'S decision: never auto-claim; hand over to the
+      // Forge reveal, where the choice buttons live. The 09:34 incident:
+      // this block claimed Titan 300ms after a scan whose classification
+      // said requires_choice — the choice UI never got a chance.
       try {
         const { data: cls } = await supabase.rpc('classify_evo_path');
-        const c = cls as { ok?: boolean; recommended_path?: string } | null;
-        if (c?.ok && c.recommended_path) {
+        const c = cls as { ok?: boolean; recommended_path?: string; requires_choice?: boolean } | null;
+        if (c?.ok && c.recommended_path && c.requires_choice !== true) {
           const { data: award } = await supabase.rpc('assign_origin_path', { p_path: c.recommended_path });
           if ((award as { ok?: boolean } | null)?.ok) {
             playPowerUp();
@@ -113,6 +116,15 @@ export default function EvoScanScreen() {
             router.replace('/' as never);
             return;
           }
+        } else if (c?.ok && c.requires_choice === true) {
+          void queryClient.invalidateQueries({ queryKey: ['origin_classification'] });
+          useToastStore.getState().push({
+            kind: 'achievement',
+            title: 'YOUR SCORES ARE CLOSE',
+            subtitle: 'Choose your Origin on the Forge — the decision is yours, and permanent.',
+          });
+          router.replace('/avatar' as never);
+          return;
         }
       } catch {
         /* origin already set or not yet classifiable — the scan still counts */
