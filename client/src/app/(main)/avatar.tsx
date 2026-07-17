@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
+import { usePathDualWrite } from '@/data/path-sync';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useDisplayIdentity } from '@/data/use-display-identity';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
@@ -58,7 +59,10 @@ export default function AvatarScreen() {
  * requirement rows with readiness, the quick win and the wall called out.
  */
 function EvolutionView() {
-  const { summary, stats, bfMid, sex } = useAvatarData();
+  const { summary, stats, bfMid, sex, ready, branchV2 } = useAvatarData();
+  // ORIGIN PATH Release 2: mirror the derived path+stage into user_paths
+  // (dual-write; legacy stays the read path — ORIGIN_PATH_PLAN.md).
+  usePathDualWrite(ready, branchV2, summary.level, bfMid);
   // CUSTOMISE (Tyson, 2026-07-16: "customising doesn't change the forge
   // avatar screen"): the Forge shows the DISPLAY identity — the equipped
   // character/stage/skin/aura, gate-validated on every read — exactly

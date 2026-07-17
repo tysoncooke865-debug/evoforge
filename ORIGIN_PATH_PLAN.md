@@ -53,10 +53,14 @@ This file is the repo-adapted version of Tyson's full spec (delivered in-chat
     user_paths (is_origin, min stage 1, never lowers), sets profile origin/
     active-if-missing, logs to user_path_migration_log. Idempotent: a second
     call returns already_assigned. ORIGIN NEVER CHANGES.
-- **Release 2 — dual-write progression**: skill-tree actions gain
-  `path` and write `user_paths.current_stage` / `user_skill_nodes`; legacy
-  fields keep working. Battle + customise read stages from user_paths when
-  present, else legacy.
+- **Release 2 — dual-write progression** ✅ SHIPPED 2026-07-17 (migration 040,
+  applied + falsified): stages are DERIVED today (level+bf → currentStageFor),
+  so the dual-write mirrors that derived truth — record_path_progress
+  (monotonic, bounded, never lowers) + set_active_champion (clamped to the
+  recorded stage), fired once per user+path+stage from the Forge screen
+  (src/data/path-sync.ts). Legacy stays the read path; live-verified: a Forge
+  visit mirrored aesthetic S3 + active champion for the smoke account.
+  user_skill_nodes still deferred until a real spendable tree exists.
 - **Release 3 — existing-user backfill** (idempotent script per spec Phase 6):
   copy legacy loadout/stage into user_paths (`unlock_source='legacy_migration'`,
   preserve-higher), classify where confidence suffices, else
