@@ -742,7 +742,41 @@ Owner: Tyson. He works through other Claude sessions too — **always
   Downloads/evoforge-screenshots/palette-*). Artifacts deleted, ALPHA
   restored to 225.
 
-**Migrations applied through `044`. Next free number: `045`.**
+- **ORIGIN CLASSIFICATION v3 + THE GLOBAL RE-ASSESSMENT (Tyson: "most
+  characters' origin having to be aesthetics… more variety… every current
+  player is required to get a new evo rating and origin character",
+  migration 045, 2026-07-17):** v1/v2 compared the four pillar scores RAW,
+  and the pillars live on different effective scales (production 2026-07-17:
+  aesthetics averaged 60.6 and beat size on 10/10 rating rows; strength/
+  cardio bottom out at provisional floors) — so 3/3 assigned origins were
+  aesthetic. v3 ranks CALIBRATED AFFINITIES (score − per-pillar baseline:
+  aesthetic 60 · mass 52 · titan 50 · cardio 48, versioned in the function
+  like the strength reference curves), gates recommendation on per-pillar
+  confidence ≥ 25 (no Apex Engine without a single logged run — the pillar
+  still SHOWS in the breakdown), and adds Tyson's Shredder rule: cutting
+  phase + fresh (≤90d) bf_mid ≥ 20% male / 28% female → THE SHREDDER,
+  outright; cutters below the threshold keep shredder_eligible as before.
+  Choice margins (≤8 spread / top-two ≤5) now ride the affinities.
+  `classify_evo_path_for(uuid)` is the core (service-role only);
+  `classify_evo_path()` keeps its exact client signature and returns new
+  `affinities`/`ranking`/`shredder_auto` fields (origin-panel sorts the
+  score chips by ranking, not raw score — raw-desc order would contradict
+  the recommendation). `require_origin_reassessment_v3(dry_run)` EXECUTED
+  LIVE 2026-07-17: all 3 assigned origins (all aesthetic) retired to
+  needs_assessment with previous state archived to user_path_migration_log
+  (migration_version 3), is_origin cleared, EARNED user_paths
+  stages/unlocks untouched (verified: stages 2–4 all survived), re-run = 0
+  (idempotent). Every account now re-discovers its origin through the
+  existing machinery: sign-in scan prompt + Home podium button → new Evo
+  scan (origin-unset cooldown exception reopens it) → v3 reveal → claim
+  equips. Falsified on production: the 3 scan accounts now classify
+  titan/titan/mass (was aesthetic ×3); smoke-account shredder positive
+  (cutting + bf 24 → shredder outright) and both negatives (bf 15 →
+  choice, bulking → ineligible); staged rows deleted after. plpgsql trap
+  for the next reader: a bare `CASE … THEN` inside an `IF` condition eats
+  the IF's THEN — parenthesise the CASE.
+
+**Migrations applied through `045`. Next free number: `046`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `037_workout_ghosts.sql`; both are applied, the number is just shared.)

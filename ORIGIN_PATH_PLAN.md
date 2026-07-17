@@ -29,7 +29,36 @@ This file is the repo-adapted version of Tyson's full spec (delivered in-chat
    strength→titan · cardio→cardio (Apex Engine) · aesthetics→aesthetic
    (Elite Aesthetic) · size→mass (Mass Monster).
 
-## Classification v1 constants (in `classify_evo_path`)
+## Classification v3 (migration 045, 2026-07-17) — SUPERSEDES v1/v2 below
+Tyson: "most characters' origin having to be aesthetics" — v1/v2 compared the
+four pillar scores RAW and the pillars sit on different effective scales
+(measured on production: aesthetics beat size 10/10; strength/cardio floor at
+30/35–45 without evidence), so every assigned origin was aesthetic. v3:
+- **Affinities, not raw scores**: `affinity = score − BASELINE(pillar)` with
+  versioned CALIBRATION_V3 baselines (aesthetic 60 · mass 52 · titan 50 ·
+  cardio 48 — fit to the 2026-07-17 production distribution). You are
+  classified by the pillar you are most above YOUR PEERS on.
+- **Evidence gate**: pillar confidence < 25 → cannot be recommended or
+  offered (still shown in the breakdown). The v2 scan-fallback's neutral-mid
+  fill for strength/cardio no longer competes.
+- **The Shredder is REAL** (Tyson's amendment over the v1 "eligibility
+  only"): nutrition_phase = 'cutting' + fresh (≤90-day) bf_mid ≥ 20% (male) /
+  28% (female) → Shredder recommended outright (`shredder_auto`). Cutters
+  below the threshold keep `shredder_eligible` as a claimable alternative.
+- Margins ride the affinities: `CHOICE_MARGIN = 5`, `BALANCED_SPREAD = 8`
+  (over gated candidates only), `MIN_CONFIDENCE = 30` unchanged.
+- New RPC fields: `affinities`, `ranking` (gated pillars in affinity order —
+  the panel's display order), `shredder_auto`; `classification_version = 3`.
+- `classify_evo_path_for(uuid)` is the per-user core (service-role only);
+  the client wrapper keeps its signature.
+- **THE GLOBAL RE-ASSESSMENT** (`require_origin_reassessment_v3`, EXECUTED
+  LIVE 2026-07-17): every assigned origin (3, all aesthetic) retired to
+  needs_assessment, previous state archived (migration_version 3), is_origin
+  cleared, earned stages/unlocks untouched, idempotent (re-run = 0). Every
+  player re-discovers their origin through the existing scan-prompt →
+  reveal → claim flow under v3.
+
+## Classification v1 constants (HISTORICAL — superseded by v3 above)
 - `CHOICE_MARGIN = 5` — top two within 5 points → requires_choice (both offered)
 - `BALANCED_SPREAD = 8` — all four within 8 points → requires_choice (all four)
 - `MIN_CONFIDENCE = 30` — overall_confidence below → `insufficient_data`
