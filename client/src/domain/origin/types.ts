@@ -84,7 +84,7 @@ export interface OriginCandidate {
   score: number;
   /** Ordered by weight — index 0 is the headline reason. */
   reasonCodes: OriginReasonCode[];
-  /** 1..100 — how well the CURRENT body/evidence matches this origin. */
+  /** 0..100 — how well the CURRENT body/evidence matches this origin. */
   currentStrengthMatch: number;
   /** 1..100 — alignment with the stated (or phase-inferred) goal. */
   goalAlignment: number;
