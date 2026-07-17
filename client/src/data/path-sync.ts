@@ -18,7 +18,11 @@ import { supabase } from './supabase';
  * champion NEVER leaves the origin path — set_active_champion mirrors the
  * ORIGIN line's derived stage (so the origin champion keeps growing with
  * training), and the server refuses any other path anyway (migration 046).
- * The derived line's stage is still recorded into user_paths as roster truth.
+ * ORIGIN EXCLUSIVITY (048, Tyson, same evening): with an Origin assigned,
+ * ONLY the origin line is mirrored — the derived (non-origin) branch is
+ * NEVER recorded into user_paths. ("Nobody should have any data on any
+ * character other than their origin"; the pre-048 behaviour recorded the
+ * derived line "as roster truth" and resurrected wiped rows.)
  */
 
 const PATH_FOR_BRANCH: Partial<Record<BranchV2, string>> = {
@@ -50,13 +54,13 @@ export function usePathDualWrite(ready: boolean, branch: BranchV2, level: number
     synced.add(key);
     void (async () => {
       try {
-        await supabase.rpc('record_path_progress', { p_path: path, p_stage: stage });
         if (originPath !== null) {
-          if (originPath !== branch) {
-            await supabase.rpc('record_path_progress', { p_path: originPath, p_stage: originStage });
-          }
+          // 048 exclusivity: mirror ONLY the origin line.
+          await supabase.rpc('record_path_progress', { p_path: originPath, p_stage: originStage });
           await supabase.rpc('set_active_champion', { p_path: originPath, p_stage: originStage });
         } else {
+          // No origin yet: the derived line IS the roster truth (unchanged).
+          await supabase.rpc('record_path_progress', { p_path: path, p_stage: stage });
           await supabase.rpc('set_active_champion', { p_path: path, p_stage: stage });
         }
       } catch {

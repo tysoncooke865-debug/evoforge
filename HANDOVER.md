@@ -864,7 +864,12 @@ Owner: Tyson. He works through other Claude sessions too — **always
   Origin-LESS users' legacy rows are UNTOUCHED — they have no origin yet;
   their rows wipe when they bind (048's assign delete). Falsified 5/5
   (legacy row wiped on bind, old origin wiped not collected on reforge,
-  bond follows the new champion). Docs updated:
+  bond follows the new champion). FOLLOW-UP (same evening): the wipe
+  resurrected — `path-sync.ts` still recorded the DERIVED (non-origin)
+  branch "as roster truth" on every Forge visit (046-era comment). Now,
+  with an origin set, it mirrors ONLY the origin line; the legacy mirror
+  stays for origin-less users. Grep before declaring any wipe durable:
+  `record_path_progress` had exactly one call site. Docs updated:
   EXISTING_USER_ORIGIN_MIGRATION §4, ORIGIN_DATA_MODEL §5.
 
 **Migrations applied through `048`. Next free number: `049`.**
