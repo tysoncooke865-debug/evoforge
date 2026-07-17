@@ -11,7 +11,7 @@ import type { AiPersonality, ChampionId } from '@/domain/battle-rpg/types';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { useGrantBattleReward } from '@/data/battle-rpg';
-import { playCrit, playDefeat, playHeal, playHit, playVictory } from '@/ui/core/sound';
+import { playCrit, playDefeat, playHeal, playHit, playMoveFx, playVictory } from '@/ui/core/sound';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import tokens from '@/theme/tokens';
 import { stillAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
@@ -400,6 +400,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
     if (activeEvent.kind === 'crit') playCrit();
     else if (activeEvent.kind === 'damage') playHit();
     else if (activeEvent.kind === 'heal') playHeal();
+    else if (activeEvent.kind === 'move' && activeEvent.moveId) playMoveFx(activeEvent.moveId);
     if ((activeEvent.kind === 'damage' || activeEvent.kind === 'crit' || activeEvent.kind === 'heal') && activeEvent.amount) {
       triggerRef.current += 1;
       setFloating({

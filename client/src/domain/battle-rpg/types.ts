@@ -161,6 +161,8 @@ export interface BattleEvent {
   amount?: number;
   animationType?: AnimationType;
   status?: StatusKind;
+  /** The move that caused this event (move events; MOVE_FX keys on it). */
+  moveId?: string;
 }
 
 export interface BattleRewards {

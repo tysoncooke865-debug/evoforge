@@ -13,6 +13,7 @@ import type { BattleEvent, BattleMode, Combatant } from '@/domain/battle-rpg/typ
 import tokens from '@/theme/tokens';
 
 import { BattleSprite } from './battle-sprite';
+import { MoveFxLayer } from './move-fx';
 import { FloatingNumber } from './battle-bits';
 
 /**
@@ -87,6 +88,9 @@ export function BattleArena({
           <BattleSprite branch={player.spriteBranch} stage={player.spriteStage} side="player" activeEvent={activeEvent} size={148} defeated={winner === 'opponent'} victory={winner === 'player'} />
         </View>
       </Animated.View>
+
+      {/* Per-move FX (punches, dumbbell throws, speed blitz, LUNK ALARM…). */}
+      <MoveFxLayer event={activeEvent} height={height} width={360} playerBranch={player.spriteBranch} playerStage={player.spriteStage} />
 
       {/* Crit / ultimate white blink over everything. */}
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0, backgroundColor: '#fff' }, blinkStyle]} />

@@ -25,7 +25,18 @@ slide, low-HP tension, and a type triangle that makes move choice matter.
 
 ---
 
-## Phase A — Per-move animation system (the headline ask)
+## Phase A — Per-move animation system ✅ SHIPPED 2026-07-18 (gym-flavoured)
+Tyson's direction: "punching, throwing a dumbbell, speed blitz, LUNK ALARM".
+Shipped as ui/battle/move-fx.tsx — MOVE_FX table over 9 primitives
+(projectile/ghostDash/slash/strobe/drop/stars/rise/dome/speedlines), all 17
+moves uniquely animated: Forge Smash THROWS A SPINNING PIXEL DUMBBELL,
+Rapid Strike is the SPEED BLITZ (the attacker's own sprite afterimages dash
+through), Colossal Pressure is the LUNK ALARM (red siren strobes + siren
+SFX), Precision Strike is the punch-star combo, ultimates drop barbells,
+shredder moves slash arcs, buffs rise auras. Per-move SFX table in sound.ts
+(whoosh+clang, zips, siren, shings, booms). Verified live: 4 casts, blitz
+afterimages captured on screen, zero errors; reduced-motion renders none.
+Original spec follows for reference:
 A DECLARATIVE spec per move, rendered by a small FX layer — data, not
 hand-coded one-offs, so new moves get animations by table entry.
 

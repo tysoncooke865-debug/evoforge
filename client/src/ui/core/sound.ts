@@ -103,3 +103,27 @@ export const playPurchase = () => { blip(1319, 1319, 0.05, 0.09, 'square', 0); b
 export const playRestOver = () => { blip(784, 784, 0.12, 0.09, 'triangle', 0); blip(1046, 1046, 0.24, 0.09, 'triangle', 0.13); };
 /** Workout complete — a fuller victory jingle, distinct from the battle win. */
 export const playComplete = () => { const n = [523, 659, 784, 1046, 784, 1046, 1319]; n.forEach((f, i) => blip(f, f, i === 6 ? 0.36 : 0.1, 0.1, 'square', i * 0.1)); };
+
+// ---- Per-move battle SFX (Tyson 2026-07-18, FireRed plan Phase A) — each
+// move family gets its own chirp so attacks SOUND different too. ----
+const MOVE_SFX: Record<string, () => void> = {
+  precision_strike: () => { blip(300, 120, 0.08, 0.13, 'square'); blip(320, 130, 0.08, 0.13, 'square', 0.11); blip(340, 110, 0.1, 0.14, 'square', 0.22); },
+  forge_smash: () => { blip(900, 200, 0.3, 0.1, 'sawtooth'); blip(180, 70, 0.16, 0.16, 'square', 0.4); }, // whoosh → clang
+  colossal_pressure: () => { for (let i = 0; i < 3; i++) { blip(620, 620, 0.14, 0.11, 'triangle', i * 0.28); blip(920, 920, 0.14, 0.11, 'triangle', i * 0.28 + 0.14); } }, // LUNK ALARM siren
+  rapid_strike: () => { blip(1400, 2200, 0.06, 0.08, 'square'); blip(1400, 2200, 0.06, 0.08, 'square', 0.1); blip(1500, 2400, 0.07, 0.09, 'square', 0.2); }, // speed blitz zips
+  velocity_crash: () => { blip(500, 2400, 0.3, 0.1, 'sawtooth'); blip(240, 80, 0.18, 0.15, 'square', 0.34); },
+  twin_slash: () => { blip(2400, 900, 0.09, 0.1, 'sawtooth'); blip(2600, 1000, 0.09, 0.1, 'sawtooth', 0.13); },
+  cut_deep: () => blip(2600, 700, 0.14, 0.11, 'sawtooth'),
+  final_shred: () => { blip(2600, 800, 0.1, 0.11, 'sawtooth'); blip(2800, 900, 0.1, 0.11, 'sawtooth', 0.12); blip(200, 70, 0.2, 0.15, 'square', 0.28); },
+  apex_execution: () => { blip(700, 90, 0.34, 0.13, 'sawtooth'); blip(140, 60, 0.22, 0.17, 'square', 0.4); },
+  titan_breaker: () => { blip(600, 80, 0.3, 0.14, 'sawtooth'); blip(120, 50, 0.26, 0.18, 'square', 0.36); },
+  perfect_form: () => { blip(880, 1320, 0.16, 0.08, 'sine'); blip(1100, 1760, 0.18, 0.07, 'sine', 0.14); },
+  counter_pose: () => blip(500, 740, 0.16, 0.09, 'triangle'),
+  iron_guard: () => { blip(400, 400, 0.07, 0.12, 'square'); blip(300, 300, 0.12, 0.11, 'square', 0.09); },
+  overclock: () => { blip(800, 1600, 0.1, 0.08, 'square'); blip(900, 1800, 0.1, 0.08, 'square', 0.12); },
+  second_wind: () => blip(420, 900, 0.3, 0.08, 'sine'),
+  shadow_step: () => blip(700, 220, 0.2, 0.08, 'triangle'),
+  recover: () => { blip(520, 880, 0.14, 0.08, 'sine'); blip(660, 1040, 0.16, 0.08, 'sine', 0.12); },
+};
+/** The move's own sound — falls back to the press chirp for unknown ids. */
+export const playMoveFx = (moveId: string) => (MOVE_SFX[moveId] ?? playPress)();

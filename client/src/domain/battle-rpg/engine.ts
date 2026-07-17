@@ -99,7 +99,7 @@ function executeMove(
   actor.stats.currentStamina = clamp(actor.stats.currentStamina - move.staminaCost, 0, actor.stats.maxStamina);
   if (move.cooldown > 0) actor.cooldowns[move.id] = move.cooldown + 1; // +1: decremented same end-of-turn
 
-  events.push({ kind: 'move', side, message: `${actor.name} used ${move.name}!`, animationType: move.animationType });
+  events.push({ kind: 'move', side, message: `${actor.name} used ${move.name}!`, animationType: move.animationType, moveId: move.id });
 
   // Defensive stances (one-turn guard).
   if (move.id === 'counter_pose') actor.guard = { mult: 0.5, counter: 0.3 };
