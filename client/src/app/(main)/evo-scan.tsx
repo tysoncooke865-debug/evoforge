@@ -64,7 +64,10 @@ export default function EvoScanScreen() {
         body: {
           images,
           bodyweightKg: pyFloat(bodyweight) ?? 0,
+          // Waist is optional (Tyson 2026-07-17): 0 = the AI estimates it
+          // from the photos + height + bodyweight server-side.
           waistCm: pyFloat(waist) ?? 0,
+          heightCm: pyFloat(String(profile.data?.height_cm ?? '')) ?? 0,
           sex: profile.data?.sex === 'female' ? 'female' : 'male',
         },
       });
@@ -89,7 +92,7 @@ export default function EvoScanScreen() {
   };
 
   const canSubmit =
-    photos.filter(Boolean).length >= 2 && (pyFloat(bodyweight) ?? 0) > 0 && (pyFloat(waist) ?? 0) > 0 && !busy;
+    photos.filter(Boolean).length >= 2 && (pyFloat(bodyweight) ?? 0) > 0 && !busy;
 
   return (
     <ScreenShell>
@@ -148,7 +151,7 @@ export default function EvoScanScreen() {
         <TextInput
           className="min-h-[48px] flex-1 rounded-xl border bg-surface-2 px-s3 text-base text-text"
           style={{ borderColor: tokens.colors.border }}
-          placeholder="Waist (cm)"
+          placeholder="Waist cm · optional (AI estimates)"
           placeholderTextColor="#64758f"
           keyboardType="numeric"
           value={waist}

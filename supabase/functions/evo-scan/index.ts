@@ -50,11 +50,15 @@ Deno.serve(async (req) => {
     return json({ error: 'A guided scan needs at least front and side photos.' }, 400);
   }
   const bodyweightKg = Number(body?.bodyweightKg ?? 0);
-  const waistCm = Number(body?.waistCm ?? 0);
+  // Waist is OPTIONAL (Tyson 2026-07-17): when absent the AI estimates it
+  // from the photos + height + bodyweight, and the estimate is stored.
+  const waistProvided = Number(body?.waistCm ?? 0) > 0;
+  let waistCm = Number(body?.waistCm ?? 0);
+  const heightCm = Number(body?.heightCm ?? 0);
   const sex = body?.sex === 'female' ? 'female' : 'male';
   const confirmation = body?.confirmation === true;
-  if (!(bodyweightKg > 0) || !(waistCm > 0)) {
-    return json({ error: 'Current bodyweight and waist measurement are required.' }, 400);
+  if (!(bodyweightKg > 0)) {
+    return json({ error: 'Current bodyweight is required.' }, 400);
   }
 
   // 28-day eligibility (confirmation scans within 7 days are the exception).
@@ -88,7 +92,7 @@ Deno.serve(async (req) => {
   if (!result) {
     const userText = `
 Assess this ${sex} athlete's physique for a fitness tracking game from the attached photos (front, side${images.length > 2 ? ', back' : ''}).
-Bodyweight ${bodyweightKg} kg, waist ${waistCm} cm. Do not identify the person. Judge conservatively and consistently.
+Bodyweight ${bodyweightKg} kg${heightCm > 0 ? `, height ${heightCm} cm` : ''}${waistProvided ? `, waist ${waistCm} cm` : ' (no waist measurement given — ESTIMATE the waist circumference in cm from the photos, height and bodyweight, and include it as "waist_estimate_cm")'}. Do not identify the person. Judge conservatively and consistently.
 Score 1-100 where 50 = a typical dedicated gym-goer after ~2 years, 90+ = national-competitor development.
 Return ONLY valid JSON:
 {
@@ -98,6 +102,7 @@ Return ONLY valid JSON:
   "symmetry_score": 0-100,
   "regional_scores": { ${REGIONS.map((r) => `"${r}": 0-100`).join(', ')} },
   "pose_consistent": true/false,
+  "waist_estimate_cm": number,
   "notes": "one short sentence"
 }`;
     const r = await callOpenAiJson(userText, images, [
@@ -106,6 +111,12 @@ Return ONLY valid JSON:
     if (r.error || !r.data) return json({ error: r.error ?? 'The scan judge failed.' }, 502);
     result = r.data;
     await storeCache(sb, 'evo-scan', imageHash, result);
+  }
+
+  // No measurement given → use the AI's estimate (sanity-bounded).
+  if (!waistProvided) {
+    const est = Number((result as Record<string, unknown>).waist_estimate_cm ?? 0);
+    waistCm = est >= 50 && est <= 200 ? est : Math.max(50, Math.round(bodyweightKg * 0.95));
   }
 
   const clamp = (v: unknown) => Math.max(1, Math.min(100, Number(v) || 1));

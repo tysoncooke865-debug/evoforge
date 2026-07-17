@@ -18,6 +18,7 @@ import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
 import { PixelDumbbell, PixelFork } from '@/ui/core/pixel-icons';
+import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
@@ -253,6 +254,8 @@ export default function MainLayout() {
       <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />
     ) : null}
     <TutorialOverlay />
+    {/* ORIGIN (Tyson 2026-07-17): every sign-in without an origin asks for a scan. */}
+    <OriginScanPrompt />
     </>
   );
 }
