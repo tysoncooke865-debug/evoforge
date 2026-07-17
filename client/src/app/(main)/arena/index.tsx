@@ -317,6 +317,20 @@ export default function ArenaScreen() {
         )}
       </View>
 
+      {/* DAMAGE ASSESSMENT (migration 038): the pre/post pump photo duel. */}
+      <View>
+        <SectionLabel>DAMAGE ASSESSMENT</SectionLabel>
+        <BattleModeCard
+          glyph="📸"
+          tint={tokens.colors.danger}
+          title="DAMAGE ASSESSMENT"
+          note="PRE photo, train, POST photo — the AI judges whose physique changed most."
+          tag="VS A FRIEND"
+          onPress={() => router.push('/damage' as never)}
+          testID="mode-damage"
+        />
+      </View>
+
       {/* MINI GAMES (design §16): single-round duels on the battle spine. */}
       {tab === 0 && !openInvite ? (
         <View>

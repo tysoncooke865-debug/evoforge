@@ -243,6 +243,7 @@ export default function MainLayout() {
       <Tabs.Screen name="forge-level" options={{ href: null }} />
       <Tabs.Screen name="rival" options={{ href: null }} />
       <Tabs.Screen name="friends" options={{ href: null }} />
+      <Tabs.Screen name="damage" options={{ href: null }} />
       {/* GAME LOG: full arena history, pushed from Arena or the menu. */}
       <Tabs.Screen name="game-log" options={{ href: null }} />
       {/* Dev-only mask workbench — the screen renders nothing in production. */}
