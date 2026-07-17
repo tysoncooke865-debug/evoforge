@@ -21,7 +21,7 @@ import { type MappedDay, type MatchConfidence } from '@/domain/workout-import';
 import { useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { PlanImportSheet } from '@/ui/train/plan-import';
@@ -40,6 +40,7 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
  */
 
 export default function RoutineBuilderScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -341,7 +342,7 @@ export default function RoutineBuilderScreen() {
               <View className="mt-s3 flex-row items-center gap-s2">
                 <TextInput
                   className="min-h-[44px] flex-1 rounded-xl border bg-surface-2 px-s3 text-sm text-text"
-                  style={{ borderColor: tokens.colors.border }}
+                  style={{ borderColor: colors.border }}
                   placeholder="Name a day — e.g. Chest & Arms"
                   placeholderTextColor="#64758f"
                   value={newDayName}
@@ -354,7 +355,7 @@ export default function RoutineBuilderScreen() {
                   accessibilityRole="button"
                   testID="custom-day-add"
                   className="rounded-md border px-s3"
-                  style={{ minHeight: 44, justifyContent: 'center', borderColor: `${tokens.colors.accent}66` }}
+                  style={{ minHeight: 44, justifyContent: 'center', borderColor: `${colors.accent}66` }}
                 >
                   <Text
                     className="text-accent"
@@ -368,7 +369,7 @@ export default function RoutineBuilderScreen() {
             ) : null}
           </View>
 
-          <GlowCard glow={dayList.length > 0 ? tokens.colors.accent : undefined}>
+          <GlowCard glow={dayList.length > 0 ? colors.accent : undefined}>
             <View className="mb-s2">
               <EdgeLabel
                 right={
@@ -430,8 +431,8 @@ export default function RoutineBuilderScreen() {
                         style={{
                           color:
                             meta.confidence === 'unmatched'
-                              ? tokens.colors.warn
-                              : tokens.colors['text-mute'],
+                              ? colors.warn
+                              : colors['text-mute'],
                         }}
                         numberOfLines={1}
                         testID={`import-badge-${e.exercise}`}
@@ -446,7 +447,7 @@ export default function RoutineBuilderScreen() {
                     onPress={() => cycleSets(e.exercise)}
                     accessibilityRole="button"
                     className="items-center justify-center rounded-pill border px-s2"
-                    style={{ minHeight: 44, borderColor: `${tokens.colors.accent}59` }}
+                    style={{ minHeight: 44, borderColor: `${colors.accent}59` }}
                   >
                     <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 10, ...pixelFont() }}>
                       {e.sets} SETS
@@ -456,11 +457,11 @@ export default function RoutineBuilderScreen() {
                     onPress={() => cycleReps(e.exercise)}
                     accessibilityRole="button"
                     className="items-center justify-center rounded-pill border px-s2"
-                    style={{ minHeight: 44, borderColor: `${tokens.colors.epic}59` }}
+                    style={{ minHeight: 44, borderColor: `${colors.epic}59` }}
                   >
                     <Text
                       allowFontScaling={false}
-                      style={{ fontSize: 10, color: tokens.colors.epic, ...pixelFont() }}
+                      style={{ fontSize: 10, color: colors.epic, ...pixelFont() }}
                     >
                       {e.reps}
                     </Text>
@@ -501,7 +502,7 @@ export default function RoutineBuilderScreen() {
                     style={{
                       minHeight: 44,
                       justifyContent: 'center',
-                      borderColor: added ? `${tokens.colors.success}8c` : tokens.colors.border,
+                      borderColor: added ? `${colors.success}8c` : colors.border,
                       backgroundColor: added ? 'rgba(52,211,153,0.08)' : 'rgba(13,21,36,0.6)',
                     }}
                   >

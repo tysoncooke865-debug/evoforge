@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 import { useWorkoutSchedule, useSaveSchedule } from '@/data/schedule';
 import { PPPPLA_DAYS } from '@/domain/custom-plan';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -29,6 +29,7 @@ const SUGGESTED: Record<string, string> = {
 };
 
 export default function ScheduleScreen() {
+  const colors = useThemeColors();
   const schedule = useWorkoutSchedule();
   const save = useSaveSchedule();
   const [plan, setPlan] = useState<Record<string, string>>(SUGGESTED);
@@ -68,7 +69,7 @@ export default function ScheduleScreen() {
             ))}
           </View>
           {plan[String(dow)] && plan[String(dow)] !== 'Rest' ? (
-            <Text className="mt-s1 text-2xs" style={{ color: tokens.colors.accent }}>
+            <Text className="mt-s1 text-2xs" style={{ color: colors.accent }}>
               {plan[String(dow)]}
             </Text>
           ) : null}

@@ -5,7 +5,7 @@ import { Modal, Text, View } from 'react-native';
 
 import { ORIGIN_FLAGS, useOriginStatus } from '@/data/origin';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
@@ -38,6 +38,7 @@ function markPromptedToday(): void {
 }
 
 export function OriginScanPrompt() {
+  const colors = useThemeColors();
   const status = useOriginStatus();
   const [open, setOpen] = useState(false);
 
@@ -72,8 +73,8 @@ export function OriginScanPrompt() {
   return (
     <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <View className="flex-1 items-center justify-center px-s5" style={{ backgroundColor: 'rgba(2,5,11,0.82)' }}>
-        <View className="w-full max-w-[360px] rounded-xl border p-s5" style={{ borderColor: `${tokens.colors.legendary}59`, backgroundColor: tokens.colors.surface }}>
-          <Text allowFontScaling={false} style={{ fontSize: 11, color: tokens.colors.legendary, letterSpacing: 2, ...pixelFont(false) }}>
+        <View className="w-full max-w-[360px] rounded-xl border p-s5" style={{ borderColor: `${colors.legendary}59`, backgroundColor: colors.surface }}>
+          <Text allowFontScaling={false} style={{ fontSize: 11, color: colors.legendary, letterSpacing: 2, ...pixelFont(false) }}>
             ✦ DISCOVER YOUR ORIGIN
           </Text>
           <Text className="mt-s2 text-sm text-text">

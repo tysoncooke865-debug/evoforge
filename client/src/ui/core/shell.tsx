@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registry';
 
 /**
@@ -25,6 +25,7 @@ import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registr
  * Safari the browser chrome + home indicator make this the #1 layout bug.
  */
 export function ScreenShell({ children }: { children: ReactNode }) {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   // P2 C4: the FOCUSED shell owns the scroll-to-top registration; blur
   // clears it (focus-scoped — never keyed by pathname, see scroll-registry).
@@ -61,7 +62,7 @@ export function ScreenShell({ children }: { children: ReactNode }) {
     transform: [{ translateY: (1 - enter.value) * 6 }],
   }));
   return (
-    <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
+    <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
       {/* Quiet ambient light — recessive enough that the header owns the top. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
@@ -106,7 +107,8 @@ export function GlowCard({
   /** Stretch to the parent's fixed height (the carousel's equal cards). */
   fill?: boolean;
 }) {
-  const edge = glow ? `${glow}59` : tokens.colors.border;
+  const colors = useThemeColors();
+  const edge = glow ? `${glow}59` : colors.border;
   return (
     <View
       className={`overflow-hidden rounded-xl ${className}`}
@@ -122,7 +124,7 @@ export function GlowCard({
       }}
     >
       <LinearGradient
-        colors={[tokens.colors['surface-2'], tokens.colors.surface, tokens.colors['bg-deep']]}
+        colors={[colors['surface-2'], colors.surface, colors['bg-deep']]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
         style={{ padding, flex: fill ? 1 : undefined }}

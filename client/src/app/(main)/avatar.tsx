@@ -12,7 +12,7 @@ import { raritySlug } from '@/domain/avatar-stats';
 import { avatarStageRowsV2, branchDisplayNameV2, nextEvolutionV2, shredderRows } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { avatarArtV2 } from '@/ui/character/avatar-art';
 import { formArt } from '@/ui/customise/art';
 import { Silhouette } from '@/ui/character/silhouette';
@@ -60,6 +60,7 @@ export default function AvatarScreen() {
  * requirement rows with readiness, the quick win and the wall called out.
  */
 function EvolutionView() {
+  const colors = useThemeColors();
   const { summary, stats, bfMid, sex, ready, branchV2 } = useAvatarData();
   // ORIGIN PATH Release 2: mirror the derived path+stage into user_paths
   // (dual-write; legacy stays the read path — ORIGIN_PATH_PLAN.md).
@@ -86,7 +87,7 @@ function EvolutionView() {
 
   const stage = identity.display.stage;
   const slug = raritySlug(summary.level);
-  const rarityColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const rarityColour = (colors as Record<string, string>)[slug] ?? colors.common;
   const auraColour = identity.display.auraColour ?? rarityColour;
 
   // Only the NEXT stage shows its name; deeper futures stay "???".
@@ -147,7 +148,7 @@ function EvolutionView() {
       {/* Next evolution — the signature panel. */}
       <View
         className="rounded-xl p-s5"
-        style={{ borderWidth: 1, borderColor: `${tokens.colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
+        style={{ borderWidth: 1, borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
       >
         <View className="mb-s4 flex-row items-center justify-between">
           <View>
@@ -162,7 +163,7 @@ function EvolutionView() {
               style={{
                 fontSize: 30,
                 lineHeight: 34,
-                color: tokens.colors.epic,
+                color: colors.epic,
                 textShadowColor: 'rgba(168,85,247,0.6)',
                 textShadowRadius: 14,
                 ...pixelFont(),
@@ -206,7 +207,7 @@ function EvolutionView() {
                   className="mb-s2 flex-row items-center rounded-xl p-s3"
                   style={{
                     borderWidth: 1,
-                    borderColor: row.current ? `${auraColour}66` : row.unlocked ? tokens.colors.border : 'rgba(120,170,220,0.10)',
+                    borderColor: row.current ? `${auraColour}66` : row.unlocked ? colors.border : 'rgba(120,170,220,0.10)',
                     backgroundColor: row.current ? `${auraColour}12` : 'rgba(13,21,36,0.5)',
                   }}
                 >
@@ -223,7 +224,7 @@ function EvolutionView() {
                       />
                     </View>
                   ) : (
-                    <Silhouette branch="aesthetic" stage={Math.min(row.stage, 4)} rim={tokens.colors.success} />
+                    <Silhouette branch="aesthetic" stage={Math.min(row.stage, 4)} rim={colors.success} />
                   )}
                   <View className="ml-s3 flex-1">
                     <Text
@@ -266,7 +267,7 @@ function EvolutionView() {
                   borderColor: row.current
                     ? `${auraColour}66`
                     : row.unlocked
-                      ? tokens.colors.border
+                      ? colors.border
                       : 'rgba(120,170,220,0.10)',
                   backgroundColor: row.current ? `${auraColour}12` : 'rgba(13,21,36,0.5)',
                   shadowColor: row.current ? auraColour : '#000',

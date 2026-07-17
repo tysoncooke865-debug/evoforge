@@ -9,7 +9,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 
 import { playPress, playSelect } from '@/ui/core/sound';
 import { PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 type Variant = 'primary' | 'ghost' | 'danger';
 
@@ -47,6 +47,7 @@ export function NeonButton({
    *  label, stronger glow. Everything else keeps `base`. */
   size?: 'base' | 'hero';
 }) {
+  const colors = useThemeColors();
   const hero = size === 'hero';
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -64,9 +65,9 @@ export function NeonButton({
   };
 
   const palette = {
-    primary: { shadow: tokens.colors.accent, text: tokens.colors['accent-ink'] },
-    ghost: { shadow: tokens.colors.accent, text: tokens.colors.accent },
-    danger: { shadow: tokens.colors.danger, text: tokens.colors['accent-ink'] },
+    primary: { shadow: colors.accent, text: colors['accent-ink'] },
+    ghost: { shadow: colors.accent, text: colors.accent },
+    danger: { shadow: colors.danger, text: colors['accent-ink'] },
   }[variant];
 
   const inner =
@@ -74,7 +75,7 @@ export function NeonButton({
       <View
         style={{
           borderWidth: 1,
-          borderColor: disabled ? tokens.colors.border : `${tokens.colors.accent}8c`,
+          borderColor: disabled ? colors.border : `${colors.accent}8c`,
           borderRadius: 12,
           paddingVertical: hero ? 20 : 14,
           alignItems: 'center',
@@ -92,7 +93,7 @@ export function NeonButton({
             fontFamily: pixel ? PIXEL_BOLD : undefined,
             letterSpacing: pixel ? 0.5 : 1,
             fontSize: pixel ? (hero ? 16 : 13) : hero ? 18 : undefined,
-            color: disabled ? tokens.colors['text-mute'] : palette.text,
+            color: disabled ? colors['text-mute'] : palette.text,
           }}
         >
           {title}
@@ -103,10 +104,10 @@ export function NeonButton({
       <LinearGradient
         colors={
           disabled
-            ? [tokens.colors['surface-2'], tokens.colors['surface-2']]
+            ? [colors['surface-2'], colors['surface-2']]
             : variant === 'danger'
-              ? [tokens.colors.danger, '#e11d48']
-              : [tokens.colors['accent-strong'], tokens.colors.accent, tokens.colors['accent-deep']]
+              ? [colors.danger, '#e11d48']
+              : [colors['accent-strong'], colors.accent, colors['accent-deep']]
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -128,7 +129,7 @@ export function NeonButton({
               fontFamily: pixel ? PIXEL_BOLD : undefined,
               letterSpacing: pixel ? 0.5 : 1,
               fontSize: pixel ? (hero ? 16 : 13) : hero ? 18 : undefined,
-              color: disabled ? tokens.colors['text-mute'] : palette.text,
+              color: disabled ? colors['text-mute'] : palette.text,
             }}
           >
             {title}
@@ -181,6 +182,7 @@ export function Chip({
   onPress: () => void;
   testID?: string;
 }) {
+  const colors = useThemeColors();
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
@@ -199,9 +201,9 @@ export function Chip({
           borderWidth: 1,
           paddingHorizontal: 12,
           paddingVertical: 6,
-          borderColor: active ? `${tokens.colors.accent}8c` : tokens.colors.border,
-          backgroundColor: active ? 'rgba(34, 211, 238, 0.12)' : tokens.colors['surface-2'],
-          shadowColor: tokens.colors.accent,
+          borderColor: active ? `${colors.accent}8c` : colors.border,
+          backgroundColor: active ? 'rgba(34, 211, 238, 0.12)' : colors['surface-2'],
+          shadowColor: colors.accent,
           shadowOpacity: active ? 0.35 : 0,
           shadowRadius: 10,
           elevation: active ? 4 : 0,
@@ -211,7 +213,7 @@ export function Chip({
           style={{
             fontSize: 12,
             fontWeight: '700',
-            color: active ? tokens.colors.accent : tokens.colors['text-dim'],
+            color: active ? colors.accent : colors['text-dim'],
           }}
         >
           {label}

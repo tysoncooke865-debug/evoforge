@@ -21,7 +21,7 @@ import {
   type NutritionPhase,
 } from '@/domain/starting-level-v2';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { GlowCard } from '@/ui/core/shell';
 import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
@@ -57,6 +57,7 @@ const PHASES: { key: NutritionPhase; label: string }[] = [
 const ONBOARDING_SPLITS = SPLITS.filter((s) => ['ppl3', 'ul4', 'cbal3', 'fb3'].includes(s.key));
 
 export default function OnboardingScreen() {
+  const colors = useThemeColors();
   const { session, loading } = useAuth();
   const profile = useProfile();
   const queryClient = useQueryClient();
@@ -229,7 +230,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: tokens.colors['bg-deep'] }}>
+    <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
       {/* The shell's ambient light rig — creation sits on the same stage. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
@@ -364,7 +365,7 @@ export default function OnboardingScreen() {
                 style={{
                   minHeight: 44,
                   justifyContent: 'center',
-                  borderColor: splitKey === s.key ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                  borderColor: splitKey === s.key ? `${colors.accent}8c` : colors.border,
                   backgroundColor: splitKey === s.key ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
                 }}
               >
@@ -385,7 +386,7 @@ export default function OnboardingScreen() {
               style={{
                 minHeight: 44,
                 justifyContent: 'center',
-                borderColor: splitKey === 'builder' ? `${tokens.colors.epic}8c` : tokens.colors.border,
+                borderColor: splitKey === 'builder' ? `${colors.epic}8c` : colors.border,
                 backgroundColor: splitKey === 'builder' ? 'rgba(168,85,247,0.08)' : 'rgba(13,21,36,0.6)',
               }}
             >
@@ -407,7 +408,7 @@ export default function OnboardingScreen() {
               style={{
                 minHeight: 44,
                 justifyContent: 'center',
-                borderColor: splitKey === 'scan' ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                borderColor: splitKey === 'scan' ? `${colors.accent}8c` : colors.border,
                 backgroundColor: splitKey === 'scan' ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
               }}
             >
@@ -444,7 +445,7 @@ export default function OnboardingScreen() {
                 className="flex-1 items-center justify-center rounded-md border px-s3 py-s2"
                 style={{
                   minHeight: 48,
-                  borderColor: goPublic === isPublic ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                  borderColor: goPublic === isPublic ? `${colors.accent}8c` : colors.border,
                   backgroundColor: goPublic === isPublic ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
                 }}
               >
@@ -519,7 +520,7 @@ export default function OnboardingScreen() {
               style={{
                 fontSize: 30,
                 lineHeight: 36,
-                color: tokens.colors.accent,
+                color: colors.accent,
                 textShadowColor: 'rgba(34,211,238,0.6)',
                 textShadowRadius: 14,
                 ...pixelFont(),

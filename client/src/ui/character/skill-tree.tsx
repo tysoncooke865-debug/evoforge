@@ -18,7 +18,7 @@ import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { animatedAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Silhouette } from '@/ui/character/silhouette';
 
@@ -88,6 +88,7 @@ function node(
 }
 
 export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: BranchV2) => DestinationState } {
+  const colors = useThemeColors();
   const { stats, bfMid, earliestBf, nutritionPhase, branchV2 } = useAvatarData();
   const cardio = useCardioLog();
   const tape = useLatestMeasurements();
@@ -130,7 +131,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       name: 'STRENGTH',
       eyebrow: 'IRON PATH',
       abbr: 'STR',
-      tint: tokens.colors.accent,
+      tint: colors.accent,
       destinations: ['titan', 'mass'],
       nodes: [
         node('bench', 'Bench Press', round1(stats.benchE1rm) || null, round1(1.75 * bw), 'kg',
@@ -156,7 +157,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       name: 'CONDITIONING',
       eyebrow: 'ENDURANCE PATH',
       abbr: 'CND',
-      tint: tokens.colors.rare,
+      tint: colors.rare,
       destinations: ['cardio'],
       nodes: [
         node('run', 'Run', round1(runKm) || (runKm > 0 ? runKm : null), 50, 'km total',
@@ -184,7 +185,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       name: 'SIZE',
       eyebrow: 'MASS PATH',
       abbr: 'SIZ',
-      tint: tokens.colors.epic,
+      tint: colors.epic,
       destinations: ['mass', 'titan'],
       nodes: [
         node('bw', 'Bodyweight', round1(bw) || null, 88, 'kg',
@@ -211,7 +212,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       name: 'AESTHETIC',
       eyebrow: 'PHYSIQUE PATH',
       abbr: 'AES',
-      tint: tokens.colors.mythic,
+      tint: colors.mythic,
       destinations: ['aesthetic'],
       nodes: [
         node('taper', 'V-Taper', taper !== null ? round2(taper) : null, 1.62, 'shoulder:waist',
@@ -238,7 +239,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
       name: 'LEANNESS',
       eyebrow: 'SHREDDED PATH',
       abbr: 'LEN',
-      tint: tokens.colors.success,
+      tint: colors.success,
       destinations: ['shredder'],
       nodes: [
         node('bf', 'Body Fat', bfMid !== null ? round1(bfMid) : null, 12, '% (target ≤)',
@@ -274,7 +275,7 @@ export function useSkillTree(): { paths: SkillPathData[]; branchState: (b: Branc
           : 0;
     }
     return [strength, conditioning, size, aesthetic, leanness];
-  }, [stats, cardio.data, tape.data, physique.data, bfMid, earliestBf, nutritionPhase]);
+  }, [stats, cardio.data, tape.data, physique.data, bfMid, earliestBf, nutritionPhase, colors]);
 
   // Destination states from the REAL branch engine.
   const branchPaths = branchPathsV2(
@@ -327,6 +328,7 @@ const trim1 = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
  * a soft glow that only burns when there is real progress.
  */
 function SkillRing({ pct, tint, size = 66 }: { pct: number | null; tint: string; size?: number }) {
+  const colors = useThemeColors();
   const stroke = 5;
   const rOuter = (size - 3) / 2;
   const r = (size - 3) / 2 - 6;
@@ -375,7 +377,7 @@ function SkillRing({ pct, tint, size = 66 }: { pct: number | null; tint: string;
       </Svg>
       <Text
         allowFontScaling={false}
-        style={{ fontSize: 13, color: pct === null ? tokens.colors['text-mute'] : tint, ...pixelFont() }}
+        style={{ fontSize: 13, color: pct === null ? colors['text-mute'] : tint, ...pixelFont() }}
       >
         {pct === null ? '—' : `${Math.round(filled * 100)}%`}
       </Text>
@@ -555,6 +557,7 @@ function PathDestination({
   level: number;
   onViewEvolution: () => void;
 }) {
+  const colors = useThemeColors();
   const donor = branch === 'titan' ? 'mass' : branch === 'cardio' ? 'hybrid' : branch === 'shredder' ? 'aesthetic' : branch;
   const stage = donor === 'mass' || branch === 'cardio' ? massArtStage(level) : getBranchStage(donor, level);
   const art = avatarArtV2(branch, stage, sex);
@@ -562,16 +565,16 @@ function PathDestination({
   const badge =
     state.kind === 'active' ? 'ACTIVE' : state.kind === 'eligible' ? 'ELIGIBLE' : state.kind === 'progress' ? 'IN PROGRESS' : 'LOCKED';
   const badgeTint =
-    state.kind === 'active' ? tokens.colors.success : state.kind === 'eligible' ? tokens.colors.accent : state.kind === 'progress' ? tint : tokens.colors['text-mute'];
+    state.kind === 'active' ? colors.success : state.kind === 'eligible' ? colors.accent : state.kind === 'progress' ? tint : colors['text-mute'];
 
   return (
     <View
       className="mt-s3 flex-row items-center gap-s3 rounded-xl p-s3"
       style={{
         borderWidth: 1,
-        borderColor: active ? `${tokens.colors.success}59` : `${tint}33`,
+        borderColor: active ? `${colors.success}59` : `${tint}33`,
         backgroundColor: 'rgba(6,12,24,0.55)',
-        shadowColor: active ? tokens.colors.success : tint,
+        shadowColor: active ? colors.success : tint,
         shadowOpacity: active ? 0.35 : 0.15,
         shadowRadius: 14,
       }}
@@ -781,6 +784,7 @@ function SkillDetailSheet({
   detail: { node: SkillNodeData; path: SkillPathData } | null;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   if (!detail) return null;
   const { node: n, path } = detail;
   return (
@@ -789,7 +793,7 @@ function SkillDetailSheet({
         <Pressable onPress={() => undefined}>
           <View
             className="rounded-t-2xl p-s5"
-            style={{ backgroundColor: tokens.colors.surface, borderTopWidth: 1, borderColor: `${path.tint}59` }}
+            style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderColor: `${path.tint}59` }}
           >
             <Text
               className="text-text-mute"

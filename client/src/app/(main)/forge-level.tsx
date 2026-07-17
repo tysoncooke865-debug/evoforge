@@ -14,7 +14,7 @@ import { supabase } from '@/data/supabase';
 import { weekStartOf } from '@/domain/progression/momentum';
 import { todayIso } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/data/auth-context';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -32,6 +32,7 @@ const EVENT_LABEL: Record<string, string> = {
 };
 
 export default function ForgeLevelScreen() {
+  const colors = useThemeColors();
   const forge = useForgeProgression();
   const ledger = useXpLedger(20);
   const { momentum } = useMomentum();
@@ -69,13 +70,13 @@ export default function ForgeLevelScreen() {
     <ScreenShell>
       <ScreenHeader kicker="PROGRESSION" title="FORGE LEVEL" onBack={() => router.back()} />
 
-      <GlowCard glow={tokens.colors.accent} padding={16}>
+      <GlowCard glow={colors.accent} padding={16}>
         <View className="flex-row items-end justify-between">
           <View>
             <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
               FORGE LEVEL
             </Text>
-            <Text allowFontScaling={false} style={{ fontSize: 44, lineHeight: 50, letterSpacing: 0, color: tokens.colors.accent, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 14, ...pixelFont() }}>
+            <Text allowFontScaling={false} style={{ fontSize: 44, lineHeight: 50, letterSpacing: 0, color: colors.accent, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 14, ...pixelFont() }}>
               {progress.level}
             </Text>
           </View>
@@ -104,7 +105,7 @@ export default function ForgeLevelScreen() {
             WEEKLY MOMENTUM
           </Text>
           {momentum?.tier ? (
-            <Text className="text-2xs" allowFontScaling={false} style={{ color: tokens.colors.legendary, letterSpacing: 0, ...pixelFont() }}>
+            <Text className="text-2xs" allowFontScaling={false} style={{ color: colors.legendary, letterSpacing: 0, ...pixelFont() }}>
               {momentum.tier.toUpperCase()}
             </Text>
           ) : null}
@@ -158,11 +159,11 @@ export default function ForgeLevelScreen() {
           <Text className="text-xs text-text-mute">No Forge XP yet — finish a workout to begin.</Text>
         ) : (
           (ledger.data ?? []).map((e) => (
-            <View key={String(e.id)} className="mb-s1 flex-row items-center justify-between rounded-md border px-s3 py-s2" style={{ borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}>
+            <View key={String(e.id)} className="mb-s1 flex-row items-center justify-between rounded-md border px-s3 py-s2" style={{ borderColor: colors.border, backgroundColor: colors['surface-2'] }}>
               <Text className="text-xs text-text-dim" numberOfLines={1} style={{ flexShrink: 1 }}>
                 {EVENT_LABEL[String(e.event_type)] ?? String(e.event_type)} · {String(e.created_at).slice(0, 10)}
               </Text>
-              <Text className="text-sm" allowFontScaling={false} style={{ color: tokens.colors.accent, ...pixelFont() }}>
+              <Text className="text-sm" allowFontScaling={false} style={{ color: colors.accent, ...pixelFont() }}>
                 +{String(e.xp_awarded)}
               </Text>
             </View>

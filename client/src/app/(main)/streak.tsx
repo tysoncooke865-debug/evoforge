@@ -7,7 +7,7 @@ import { useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { computeScheduledStreak, crossedMilestones } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { HUDChip } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -21,6 +21,7 @@ import { todayIso as calendarToday } from '@/domain/today';
  * coin claim whose amount and truth the 013 guard re-proves server-side.
  */
 export default function StreakScreen() {
+  const colors = useThemeColors();
   const todayIso = calendarToday();
   const schedule = useWorkoutSchedule();
   const workouts = useWorkoutLog();
@@ -61,8 +62,8 @@ export default function StreakScreen() {
       ) : (
         <>
           <View className="flex-row justify-center gap-s2">
-            <HUDChip label="CURRENT" value={`${streak.current}🔥`} tint={streak.current > 0 ? tokens.colors.legendary : tokens.colors.common} />
-            <HUDChip label="BEST" value={streak.best} tint={tokens.colors.epic} />
+            <HUDChip label="CURRENT" value={`${streak.current}🔥`} tint={streak.current > 0 ? colors.legendary : colors.common} />
+            <HUDChip label="BEST" value={streak.best} tint={colors.epic} />
           </View>
           <View className="flex-row items-center justify-between">
             <Pressable onPress={() => setMonthOffset((m) => m - 1)} accessibilityRole="button" className="min-h-[44px] justify-center px-s3">

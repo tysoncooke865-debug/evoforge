@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { View } from 'react-native';
 
 import type { Branch } from '@/domain/avatar-stats';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { avatarImage } from './avatar-images';
 
@@ -17,7 +17,7 @@ export function Silhouette({
   stage,
   width = 44,
   height = 48,
-  rim = tokens.colors.epic,
+  rim,
 }: {
   branch: Branch;
   stage: number;
@@ -25,6 +25,8 @@ export function Silhouette({
   height?: number;
   rim?: string;
 }) {
+  const colors = useThemeColors();
+  const rimColor = rim ?? colors.epic;
   return (
     <View
       style={{
@@ -34,7 +36,7 @@ export function Silhouette({
         justifyContent: 'center',
         borderRadius: 10,
         backgroundColor: 'rgba(4,7,14,0.8)',
-        shadowColor: rim,
+        shadowColor: rimColor,
         shadowOpacity: 0.45,
         shadowRadius: 10,
         overflow: 'hidden',

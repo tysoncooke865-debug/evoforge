@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { durations } from '@/theme/animations';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
 import { playLevelUp } from '@/ui/core/sound';
@@ -32,6 +32,7 @@ export function LevelUpOverlay({
   to: number;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   const reducedMotion = useReducedMotion();
   const [shown, setShown] = useState(reducedMotion ? to : from);
   const burst = useSharedValue(0);
@@ -79,8 +80,8 @@ export function LevelUpOverlay({
               width: 340,
               height: 340,
               borderRadius: 170,
-              backgroundColor: `${tokens.colors.accent}30`,
-              shadowColor: tokens.colors.accent,
+              backgroundColor: `${colors.accent}30`,
+              shadowColor: colors.accent,
               shadowOpacity: 0.8,
               shadowRadius: 60,
             },
@@ -95,7 +96,7 @@ export function LevelUpOverlay({
             style={{
               fontSize: 96,
               fontWeight: '900',
-              color: tokens.colors.accent,
+              color: colors.accent,
               textShadowColor: 'rgba(34,211,238,0.8)',
               textShadowRadius: 30,
             }}

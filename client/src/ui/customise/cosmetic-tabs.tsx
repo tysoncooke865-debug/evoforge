@@ -19,7 +19,7 @@ import {
   type UnlockContext,
 } from '@/domain/customise';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import type { Sex } from '@/ui/character/avatar-art';
 import { SpriteAvatar } from '@/ui/character/sprite-avatar';
 import { CoinIcon } from '@/ui/core/coin-icon';
@@ -55,6 +55,7 @@ export function CosmeticTabs({
   unlockCtx: UnlockContext;
   onChange: (next: Partial<Selection>) => void;
 }) {
+  const colors = useThemeColors();
   const [tab, setTab] = useState<Tab>('outfit');
 
   return (
@@ -103,7 +104,7 @@ export function CosmeticTabs({
                         contentFit="contain"
                       />
                     ) : (
-                      <Swatch colour={skin.swatch ?? tokens.colors.border} />
+                      <Swatch colour={skin.swatch ?? colors.border} />
                     )
                   }
                 />
@@ -121,7 +122,7 @@ export function CosmeticTabs({
                 unlockCtx={unlockCtx}
                 testID={`aura-${aura.id}`}
                 onPress={() => onChange({ auraId: aura.id })}
-                thumb={<Swatch colour={aura.colour ?? tokens.colors.accent} rainbow={aura.colour === null} />}
+                thumb={<Swatch colour={aura.colour ?? colors.accent} rainbow={aura.colour === null} />}
               />
             ))
           : null}
@@ -203,6 +204,7 @@ function CosmeticCard({
    *  ask). Earned gates (tier/forge) keep the 🔒. */
   purchasable?: boolean;
 }) {
+  const colors = useThemeColors();
   const unlocked = ownedOverride ?? cosmeticUnlocked(unlock, unlockCtx);
   const label = footerOverride ?? unlockLabel(unlock);
   return (
@@ -224,9 +226,9 @@ function CosmeticCard({
         width: 92,
         minHeight: 100,
         justifyContent: 'space-between',
-        borderColor: selected ? `${tokens.colors.accent}b3` : unlocked ? tokens.colors.border : 'rgba(120,170,220,0.10)',
+        borderColor: selected ? `${colors.accent}b3` : unlocked ? colors.border : 'rgba(120,170,220,0.10)',
         backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
-        shadowColor: tokens.colors.accent,
+        shadowColor: colors.accent,
         shadowOpacity: selected ? 0.4 : 0,
         shadowRadius: 10,
         elevation: selected ? 4 : 0,
@@ -248,14 +250,14 @@ function CosmeticCard({
       <Text
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 7.5, color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}
+        style={{ fontSize: 7.5, color: selected ? colors.accent : colors.text, fontFamily: PIXEL_BOLD }}
       >
         {name.toUpperCase()}
       </Text>
       <Text
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 6.5, color: selected && unlocked ? tokens.colors.success : tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}
+        style={{ fontSize: 6.5, color: selected && unlocked ? colors.success : colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}
       >
         {unlocked ? (selected ? '✓ SELECTED' : 'OWNED') : label}
       </Text>

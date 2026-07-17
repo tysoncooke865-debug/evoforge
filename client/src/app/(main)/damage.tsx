@@ -13,7 +13,7 @@ import {
 import { useAuth } from '@/data/auth-context';
 import { useFriends } from '@/data/social';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -26,6 +26,7 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
  * server-side the moment the verdict lands.
  */
 export default function DamageScreen() {
+  const colors = useThemeColors();
   const { session } = useAuth();
   const me = session?.user?.id ?? '';
   const assessments = useDamageAssessments();
@@ -58,7 +59,7 @@ export default function DamageScreen() {
       {/* Start one. */}
       {picking ? (
         <GlowCard>
-          <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors.epic, letterSpacing: 1.5, ...pixelFont(false) }}>
+          <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.epic, letterSpacing: 1.5, ...pixelFont(false) }}>
             PICK YOUR VICTIM
           </Text>
           <View className="mt-s2 gap-s2">
@@ -103,7 +104,7 @@ export default function DamageScreen() {
 
       {/* Verdicts. */}
       {judged.length > 0 ? (
-        <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors['text-mute'], letterSpacing: 1.5, ...pixelFont(false) }}>
+        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors['text-mute'], letterSpacing: 1.5, ...pixelFont(false) }}>
           PAST VERDICTS
         </Text>
       ) : null}
@@ -117,7 +118,7 @@ export default function DamageScreen() {
             key={a.id}
             className="rounded-xl border p-s3"
             style={{
-              borderColor: draw ? tokens.colors.border : iWon ? `${tokens.colors.success}59` : `${tokens.colors.danger}45`,
+              borderColor: draw ? colors.border : iWon ? `${colors.success}59` : `${colors.danger}45`,
               backgroundColor: draw ? 'rgba(13,21,36,0.4)' : iWon ? 'rgba(52,211,153,0.06)' : 'rgba(251,113,133,0.05)',
             }}
             testID={`da-verdict-${a.id}`}
@@ -126,7 +127,7 @@ export default function DamageScreen() {
               <Text className="text-sm font-bold text-text">vs {a.opponent_name}</Text>
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 12, color: draw ? tokens.colors['text-dim'] : iWon ? tokens.colors.success : tokens.colors.danger, ...pixelFont() }}
+                style={{ fontSize: 12, color: draw ? colors['text-dim'] : iWon ? colors.success : colors.danger, ...pixelFont() }}
               >
                 {draw ? 'DRAW' : iWon ? 'VICTORY +40 XP' : 'DEFEAT'}
               </Text>
@@ -153,12 +154,13 @@ function OpenCard({
   onCapture: (id: string, kind: 'pre' | 'post') => void;
   onCancel: () => void;
 }) {
+  const colors = useThemeColors();
   const stage: 'pre' | 'post' | 'waiting' = !a.my_pre ? 'pre' : !a.my_post ? 'post' : 'waiting';
   return (
-    <GlowCard glow={tokens.colors.epic}>
+    <GlowCard glow={colors.epic}>
       <View className="flex-row items-center justify-between">
         <Text className="text-sm font-bold text-text">vs {a.opponent_name}</Text>
-        <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors.epic, letterSpacing: 1, ...pixelFont(false) }}>
+        <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.epic, letterSpacing: 1, ...pixelFont(false) }}>
           {stage === 'waiting' ? 'YOU ARE IN' : stage === 'pre' ? 'PRE PHOTO DUE' : 'TRAIN, THEN POST PHOTO'}
         </Text>
       </View>
@@ -191,15 +193,16 @@ function OpenCard({
 }
 
 function Step({ done, label }: { done: boolean; label: string }) {
+  const colors = useThemeColors();
   return (
     <View
       className="flex-1 items-center rounded-lg border px-s1 py-s1"
       style={{
-        borderColor: done ? `${tokens.colors.success}59` : tokens.colors.border,
+        borderColor: done ? `${colors.success}59` : colors.border,
         backgroundColor: done ? 'rgba(52,211,153,0.08)' : 'rgba(13,21,36,0.4)',
       }}
     >
-      <Text allowFontScaling={false} style={{ fontSize: 7.5, color: done ? tokens.colors.success : tokens.colors['text-mute'], letterSpacing: 0.5, ...pixelFont(false) }}>
+      <Text allowFontScaling={false} style={{ fontSize: 7.5, color: done ? colors.success : colors['text-mute'], letterSpacing: 0.5, ...pixelFont(false) }}>
         {done ? '✓ ' : ''}{label}
       </Text>
     </View>

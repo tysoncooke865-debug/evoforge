@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { playRestOver } from '@/ui/core/sound';
 
 /**
@@ -44,6 +44,7 @@ async function readEndAt(): Promise<number | null> {
 
 /** The floating rest bar. Renders nothing when no rest is live. */
 export function RestTimerBar() {
+  const colors = useThemeColors();
   const [endAt, setEndAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -87,7 +88,7 @@ export function RestTimerBar() {
       className="flex-row items-center justify-between rounded-xl px-s4 py-s2"
       style={{
         borderWidth: 1,
-        borderColor: over ? `${tokens.colors.success}8c` : `${tokens.colors.accent}59`,
+        borderColor: over ? `${colors.success}8c` : `${colors.accent}59`,
         backgroundColor: over ? 'rgba(52,211,153,0.10)' : 'rgba(34,211,238,0.07)',
       }}
       testID="rest-timer"
@@ -99,7 +100,7 @@ export function RestTimerBar() {
         <Text
           className="text-xl font-bold"
           style={{
-            color: over ? tokens.colors.success : tokens.colors.accent,
+            color: over ? colors.success : colors.accent,
             fontVariant: ['tabular-nums'],
           }}
         >

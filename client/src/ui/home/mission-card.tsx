@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { Mission } from '@/domain/home-mission';
 import type { NextSession } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { PixelBars, PixelClock, PixelFlame } from '@/ui/core/pixel-icons';
 import { GlowCard } from '@/ui/core/shell';
@@ -56,9 +56,10 @@ export function MissionCard({
   onOpen: () => void;
   features: HomeFeatures;
 }) {
+  const colors = useThemeColors();
   if (loading) {
     return (
-      <GlowCard glow={tokens.colors.accent} padding={16}>
+      <GlowCard glow={colors.accent} padding={16}>
         <Kicker>TODAY&apos;S MISSION</Kicker>
         <View className="mt-s2 rounded-md bg-surface-2" style={{ height: 24, width: '62%' }} />
         <View className="mt-s2 rounded-md bg-surface-2" style={{ height: 12, width: '40%' }} />
@@ -115,7 +116,7 @@ export function MissionCard({
         <Text className="mt-s1 text-sm text-text-dim">Build a workout plan to begin progressing.</Text>
         <View className="mt-s3 flex-row flex-wrap" style={{ gap: 8 }}>
           <Door label="CREATE PLAN" testID="mission-create-plan" onPress={() => router.push('/routine' as never)} />
-          <Door label="CREATE AI PLAN" tint={tokens.colors.epic} testID="mission-ai-plan" onPress={() => router.push('/ai' as never)} />
+          <Door label="CREATE AI PLAN" tint={colors.epic} testID="mission-ai-plan" onPress={() => router.push('/ai' as never)} />
           <Door label="QUICK WORKOUT" testID="mission-quick" onPress={() => router.push('/today' as never)} />
           <Door label="SCAN WORKOUT" testID="mission-scan" onPress={() => router.push('/routine?import=1' as never)} />
         </View>
@@ -125,8 +126,8 @@ export function MissionCard({
 
   if (mission.status === 'completed') {
     return (
-      <GlowCard glow={tokens.colors.success} padding={16}>
-        <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: tokens.colors.success }}>
+      <GlowCard glow={colors.success} padding={16}>
+        <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: colors.success }}>
           ✓ MISSION COMPLETE
         </Text>
         <Text className="mt-s1 text-text" allowFontScaling={false} style={{ fontSize: 19, letterSpacing: 0, ...pixelFont() }} numberOfLines={1}>
@@ -149,7 +150,7 @@ export function MissionCard({
   const inProgress = mission.status === 'in_progress';
   const showRewards = features.showMissionRewards && mission.xpReward > 0 && !inProgress;
   return (
-    <GlowCard glow={tokens.colors.accent} padding={16}>
+    <GlowCard glow={colors.accent} padding={16}>
       <View className="flex-row items-start justify-between" style={{ gap: 10 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Kicker>{inProgress ? 'MISSION IN PROGRESS' : "TODAY'S MISSION"}</Kicker>
@@ -170,14 +171,14 @@ export function MissionCard({
           {pills.length > 0 ? (
             <View className="mt-s2 flex-row flex-wrap" style={{ gap: 4 }}>
               {pills.slice(0, 3).map((p) => (
-                <View key={p} className="rounded-pill border bg-surface-2 px-s2 py-s1" style={{ borderColor: tokens.colors.border }}>
+                <View key={p} className="rounded-pill border bg-surface-2 px-s2 py-s1" style={{ borderColor: colors.border }}>
                   <Text className="text-center text-2xs font-bold text-text-dim" numberOfLines={1}>
                     {p}
                   </Text>
                 </View>
               ))}
               {pills.length > 3 ? (
-                <View className="rounded-pill border bg-surface-2 px-s2 py-s1" style={{ borderColor: tokens.colors.border }}>
+                <View className="rounded-pill border bg-surface-2 px-s2 py-s1" style={{ borderColor: colors.border }}>
                   <Text className="text-center text-2xs font-bold text-text-dim">+{pills.length - 3}</Text>
                 </View>
               ) : null}
@@ -189,13 +190,13 @@ export function MissionCard({
         {showRewards ? (
           <View
             className="items-start rounded-md border px-s2 py-s2"
-            style={{ borderColor: `${tokens.colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.07)' }}
+            style={{ borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.07)' }}
             testID="mission-rewards"
           >
             <Text className="text-2xs text-text-mute" allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 0.5, ...pixelFont(false) }}>
               REWARDS
             </Text>
-            <Text className="mt-s1" allowFontScaling={false} style={{ fontSize: 13, letterSpacing: 0, color: tokens.colors.epic, ...pixelFont() }}>
+            <Text className="mt-s1" allowFontScaling={false} style={{ fontSize: 13, letterSpacing: 0, color: colors.epic, ...pixelFont() }}>
               +{mission.xpReward} XP
             </Text>
           </View>
@@ -207,9 +208,9 @@ export function MissionCard({
         <View className="mt-s3 flex-row items-center" style={{ gap: 12, rowGap: 4, flexWrap: 'wrap' }}>
           {(
             [
-              [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(mission.targetSets), 'SETS'],
-              [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, String(minutes), 'EST. MIN'],
-              [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(kcal), 'EST. CAL'],
+              [<PixelBars key="sets" size={16} color={colors['text-dim']} />, String(mission.targetSets), 'SETS'],
+              [<PixelClock key="min" size={16} color={colors['text-dim']} />, String(minutes), 'EST. MIN'],
+              [<PixelFlame key="kcal" size={16} color={colors['text-dim']} />, String(kcal), 'EST. CAL'],
             ] as const
           ).map(([icon, value, label]) => (
             <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
@@ -232,13 +233,13 @@ export function MissionCard({
           <Text className="text-2xs text-text-dim" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }} testID="mission-progress">
             {mission.doneSets} / {mission.targetSets} SETS COMPLETED
           </Text>
-          <View className="mt-s1 self-stretch overflow-hidden rounded-pill" style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}>
+          <View className="mt-s1 self-stretch overflow-hidden rounded-pill" style={{ height: 4, backgroundColor: colors['surface-3'] }}>
             <View
               style={{
                 width: `${Math.min(100, (mission.doneSets / mission.targetSets) * 100)}%`,
                 height: '100%',
                 borderRadius: 999,
-                backgroundColor: tokens.colors.accent,
+                backgroundColor: colors.accent,
               }}
             />
           </View>
@@ -251,7 +252,7 @@ export function MissionCard({
           pixel
           size="hero"
           onPress={onOpen}
-          rightIcon={<Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+          rightIcon={<Text style={{ color: colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
           testID="mission-start"
         />
         <Text className="mt-s1 text-center text-2xs text-text-mute">
@@ -274,13 +275,15 @@ function Door({
   label,
   onPress,
   testID,
-  tint = tokens.colors.accent,
+  tint: tintProp,
 }: {
   label: string;
   onPress: () => void;
   testID: string;
   tint?: string;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.accent;
   return (
     <Pressable
       onPress={onPress}

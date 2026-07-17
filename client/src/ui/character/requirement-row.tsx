@@ -6,7 +6,7 @@ import { requirementProgress } from '@/domain/evolution-readiness';
 import type { EvolutionRequirement } from '@/domain/next-evolution';
 import { animations } from '@/theme/animations';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 function format(label: string, value: number): string {
   if (label === 'Bench') return `${value.toFixed(0)}kg`;
@@ -26,6 +26,7 @@ export function RequirementRow({
   req: EvolutionRequirement;
   priority?: 'nearest' | 'hardest';
 }) {
+  const colors = useThemeColors();
   const progress = requirementProgress(req) * 100;
   const width = useSharedValue(0);
 
@@ -37,7 +38,7 @@ export function RequirementRow({
   }, [progress, width]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: `${width.value}%` }));
-  const colour = req.met ? tokens.colors.success : tokens.colors.accent;
+  const colour = req.met ? colors.success : colors.accent;
 
   return (
     <View className="mb-s3">
@@ -70,7 +71,7 @@ export function RequirementRow({
           {format(req.label, req.current)} <Text className="text-text-mute">/ {format(req.label, req.target)}</Text>
         </Text>
       </View>
-      <View className="h-s1 overflow-hidden rounded-pill" style={{ backgroundColor: tokens.colors['surface-3'] }}>
+      <View className="h-s1 overflow-hidden rounded-pill" style={{ backgroundColor: colors['surface-3'] }}>
         <Animated.View
           style={[
             {

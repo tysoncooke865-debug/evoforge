@@ -10,17 +10,18 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 export type ScanState = 'idle' | 'ready' | 'analysing' | 'confirm' | 'complete' | 'error';
 
-const STATUS: Record<ScanState, { text: string; colour: string }> = {
-  idle: { text: 'AWAITING SUBJECT', colour: tokens.colors['text-mute'] },
-  ready: { text: 'SUBJECT LOCKED · READY TO ANALYSE', colour: tokens.colors.accent },
-  analysing: { text: 'ANALYSING…', colour: tokens.colors.accent },
-  confirm: { text: 'CONFIRM PHOTO CONDITIONS', colour: tokens.colors.warn },
-  complete: { text: 'ANALYSIS COMPLETE', colour: tokens.colors.success },
-  error: { text: 'ANALYSIS FAILED', colour: tokens.colors.danger },
+// Colour as a token KEY, resolved through the theme at render.
+const STATUS: Record<ScanState, { text: string; colour: 'text-mute' | 'accent' | 'warn' | 'success' | 'danger' }> = {
+  idle: { text: 'AWAITING SUBJECT', colour: 'text-mute' },
+  ready: { text: 'SUBJECT LOCKED · READY TO ANALYSE', colour: 'accent' },
+  analysing: { text: 'ANALYSING…', colour: 'accent' },
+  confirm: { text: 'CONFIRM PHOTO CONDITIONS', colour: 'warn' },
+  complete: { text: 'ANALYSIS COMPLETE', colour: 'success' },
+  error: { text: 'ANALYSIS FAILED', colour: 'danger' },
 };
 
 /**
@@ -29,6 +30,7 @@ const STATUS: Record<ScanState, { text: string; colour: string }> = {
  * actual invoke lifecycle -- the sweep never runs while nothing is happening.
  */
 export function ScanFrame({ state, children }: { state: ScanState; children: ReactNode }) {
+  const colors = useThemeColors();
   const reducedMotion = useReducedMotion();
   const sweep = useSharedValue(0);
   const scanning = state === 'analysing';
@@ -47,7 +49,7 @@ export function ScanFrame({ state, children }: { state: ScanState; children: Rea
     opacity: scanning ? 0.85 : 0,
   }));
 
-  const edge = STATUS[state].colour;
+  const edge = colors[STATUS[state].colour];
 
   return (
     <View>
@@ -79,8 +81,8 @@ export function ScanFrame({ state, children }: { state: ScanState; children: Rea
               left: 6,
               right: 6,
               height: 2,
-              backgroundColor: tokens.colors.accent,
-              shadowColor: tokens.colors.accent,
+              backgroundColor: colors.accent,
+              shadowColor: colors.accent,
               shadowOpacity: 0.9,
               shadowRadius: 8,
             },

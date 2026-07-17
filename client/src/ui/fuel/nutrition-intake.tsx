@@ -17,7 +17,7 @@ import {
 import { pyFloat } from '@/domain/py';
 import { todayIso as calendarToday } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
 
@@ -115,6 +115,7 @@ async function askServer(
 }
 
 export function NutritionIntake({ onClose, onManual }: { onClose: () => void; onManual: () => void }) {
+  const colors = useThemeColors();
   const todayIso = calendarToday();
   const profile = useProfile();
   const saveTarget = useSaveTarget();
@@ -227,13 +228,13 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
         <Pressable
           onPress={() => undefined}
           className="rounded-t-xl border-t p-s4"
-          style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 620 }}
+          style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 620 }}
         >
           <SectionLabel>CALORIE TARGET · AI INTAKE</SectionLabel>
 
           {step.kind === 'loading' ? (
             <View className="items-center py-s5">
-              <ActivityIndicator color={tokens.colors.accent} />
+              <ActivityIndicator color={colors.accent} />
               <Text
                 className="mt-s2 text-text-mute"
                 allowFontScaling={false}
@@ -263,7 +264,7 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
               <View className="flex-row items-center gap-s2">
                 <TextInput
                   className="min-h-[48px] flex-1 rounded-xl border bg-surface-2 px-s3 text-base text-text"
-                  style={{ borderColor: tokens.colors.border }}
+                  style={{ borderColor: colors.border }}
                   placeholder="Type an answer…"
                   placeholderTextColor="#64758f"
                   value={draft}
@@ -276,7 +277,7 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
                   onPress={() => submitDraft(step.q)}
                   accessibilityRole="button"
                   className="items-center justify-center rounded-xl border px-s3"
-                  style={{ minHeight: 48, borderColor: `${tokens.colors.accent}8c` }}
+                  style={{ minHeight: 48, borderColor: `${colors.accent}8c` }}
                   testID="intake-send"
                 >
                   <Text className="text-sm font-bold text-accent">→</Text>
@@ -325,7 +326,7 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
                 style={{
                   fontSize: 30,
                   lineHeight: 36,
-                  textShadowColor: `${tokens.colors.accent}80`,
+                  textShadowColor: `${colors.accent}80`,
                   textShadowRadius: 14,
                   ...pixelFont(),
                 }}
@@ -344,7 +345,7 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
 
           {step.kind === 'error' ? (
             <View>
-              <Text className="mb-s3 text-sm" style={{ color: tokens.colors.danger }}>
+              <Text className="mb-s3 text-sm" style={{ color: colors.danger }}>
                 {step.message}
               </Text>
               <NeonButton title="TRY AGAIN" variant="ghost" onPress={() => void ask(known, messages)} testID="intake-retry" />

@@ -5,7 +5,7 @@ import { EMOTES, cosmeticUnlocked, type EmoteId } from '@/domain/customise';
 import { progressPercent } from '@/domain/xp';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 
 /** The equipped emote, validated against the live Forge Level. Reads the
@@ -41,6 +41,7 @@ export function HomeHeader({
    *  null while the flag is off. */
   rank: { label: string; provisional: boolean } | null;
 }) {
+  const colors = useThemeColors();
   const emote = useEquippedEmote(level);
   const pct = progressPercent(xpIntoLevel, xpNeeded);
   const toNext = Math.max(0, xpNeeded - xpIntoLevel);
@@ -96,7 +97,7 @@ export function HomeHeader({
               style={{
                 fontSize: 13,
                 letterSpacing: 0.5,
-                color: rank.provisional ? tokens.colors['text-mute'] : tokens.colors.accent,
+                color: rank.provisional ? colors['text-mute'] : colors.accent,
                 ...(rank.provisional
                   ? null
                   : { textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 10 }),
@@ -112,7 +113,7 @@ export function HomeHeader({
       {/* The level module — mirrors the mock's top-right chip. */}
       <View
         className="flex-row items-center rounded-lg border p-s1"
-        style={{ gap: 8, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+        style={{ gap: 8, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
       >
         {/* The header companion plays the EQUIPPED EMOTE (CUSTOMISE,
             2026-07-16) — default remains the victory flex; a locked emote
@@ -141,7 +142,7 @@ export function HomeHeader({
           {/* Mini XP bar — same progressPercent that grants the level. */}
           <View
             className="mt-s1 overflow-hidden rounded-pill"
-            style={{ height: 5, width: 88, backgroundColor: tokens.colors['surface-3'] }}
+            style={{ height: 5, width: 88, backgroundColor: colors['surface-3'] }}
           >
             <View
               style={{
@@ -149,7 +150,7 @@ export function HomeHeader({
                 minWidth: pct > 0 ? 4 : 0,
                 height: '100%',
                 borderRadius: 999,
-                backgroundColor: tokens.colors.accent,
+                backgroundColor: colors.accent,
               }}
             />
           </View>

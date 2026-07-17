@@ -11,7 +11,7 @@ import {
   type ChallengeSnapshot,
 } from '@/data/battle-rpg-challenge';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { ChampionPicker } from '@/ui/battle/champion-picker';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -45,6 +45,7 @@ export function ChallengeHub({
    *  JOIN tab prefilled and joins without a second button press. */
   initialCode?: string;
 }) {
+  const colors = useThemeColors();
   const [tab, setTab] = useState<0 | 1>(initialCode ? 1 : 0);
   const [code, setCode] = useState(initialCode ?? '');
   const [createdCode, setCreatedCode] = useState<string | null>(null);
@@ -79,9 +80,9 @@ export function ChallengeHub({
       {tab === 0 ? (
         <View className="mt-s3">
           {createdCode ? (
-            <View className="rounded-xl border p-s5 items-center" style={{ borderColor: `${tokens.colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.06)' }}>
-              <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>YOUR CHALLENGE CODE</Text>
-              <Text selectable style={{ marginTop: 8, fontSize: 40, color: tokens.colors.text, letterSpacing: 8, ...pixelFont() }} testID="challenge-code">{createdCode}</Text>
+            <View className="rounded-xl border p-s5 items-center" style={{ borderColor: `${colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.06)' }}>
+              <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>YOUR CHALLENGE CODE</Text>
+              <Text selectable style={{ marginTop: 8, fontSize: 40, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="challenge-code">{createdCode}</Text>
               <Text className="mt-s2 text-center text-2xs text-text-mute">Share it with a friend. They join by code and fight your {CHAMPIONS[champion].name}. Come back to see how it holds up.</Text>
               <View className="mt-s4 w-full">
                 <NeonButton title="DONE · BACK TO ARENA" variant="ghost" onPress={() => router.replace('/arena')} pixel testID="challenge-done" />
@@ -89,7 +90,7 @@ export function ChallengeHub({
             </View>
           ) : (
             <>
-              <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>CHOOSE YOUR CHALLENGER</Text>
+              <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>CHOOSE YOUR CHALLENGER</Text>
               <View className="mt-s2">
                 <ChampionPicker picked={champion} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
               </View>
@@ -108,10 +109,10 @@ export function ChallengeHub({
         </View>
       ) : (
         <View className="mt-s3">
-          <Text style={{ fontSize: 10, color: tokens.colors.epic, fontFamily: PIXEL, letterSpacing: 1.5 }}>ENTER A FRIEND&apos;S CODE</Text>
+          <Text style={{ fontSize: 10, color: colors.epic, fontFamily: PIXEL, letterSpacing: 1.5 }}>ENTER A FRIEND&apos;S CODE</Text>
           <TextInput
             className="mt-s2 min-h-[54px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
-            style={{ letterSpacing: 10, borderColor: code.trim().length === 6 ? `${tokens.colors.epic}8c` : tokens.colors.border }}
+            style={{ letterSpacing: 10, borderColor: code.trim().length === 6 ? `${colors.epic}8c` : colors.border }}
             placeholder="——————"
             placeholderTextColor="#64758f"
             autoCapitalize="characters"
@@ -149,10 +150,10 @@ export function ChallengeHub({
         accessibilityRole="button"
         testID="challenge-passplay"
         className="mt-s5 flex-row items-center justify-center rounded-lg border px-s3 py-s2"
-        style={{ gap: 6, borderColor: tokens.colors.border }}
+        style={{ gap: 6, borderColor: colors.border }}
       >
         <Text style={{ fontSize: 13 }}>📱</Text>
-        <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors['text-mute'], fontFamily: PIXEL_BOLD, letterSpacing: 0.5 }}>OR PLAY PASS-AND-PLAY ON ONE DEVICE</Text>
+        <Text allowFontScaling={false} style={{ fontSize: 9, color: colors['text-mute'], fontFamily: PIXEL_BOLD, letterSpacing: 0.5 }}>OR PLAY PASS-AND-PLAY ON ONE DEVICE</Text>
       </Pressable>
     </ScreenShell>
   );

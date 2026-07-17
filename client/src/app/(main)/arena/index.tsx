@@ -10,7 +10,7 @@ import { useBattleSnapshot, useCreateInvite, useUniversalJoin } from '@/data/bat
 import { totalRoundsFor } from '@/domain/battle/engine';
 import { formatGlyph, formatLabel, normalizeCode, splitBattles } from '@/domain/battle/format';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CodeCard, IconBadge, PressCard } from '@/ui/arena/battle-arena';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
@@ -30,6 +30,7 @@ import { GYMS } from '@/domain/battle-rpg/gyms';
  * way they ended.
  */
 export default function ArenaScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const snapshot = useBattleSnapshot();
   const invite = useCreateInvite();
@@ -85,7 +86,7 @@ export default function ArenaScreen() {
           accessibilityLabel="Open your Rival Rank"
           testID="arena-rival-door"
           className="flex-row items-center justify-between rounded-md border px-s3"
-          style={{ minHeight: 44, borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+          style={{ minHeight: 44, borderColor: `${colors.accent}45`, backgroundColor: 'rgba(34,211,238,0.06)' }}
         >
           <Text
             className="text-accent"
@@ -104,7 +105,7 @@ export default function ArenaScreen() {
         accessibilityLabel="Open friends and rivals"
         testID="arena-friends-door"
         className="flex-row items-center justify-between rounded-md border px-s3"
-        style={{ minHeight: 44, borderColor: `${tokens.colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
+        style={{ minHeight: 44, borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
       >
         <Text className="text-epic" allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}>
           ✦ FRIENDS &amp; RIVALS — add by code, track your head-to-head
@@ -155,7 +156,7 @@ export default function ArenaScreen() {
       <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} pixelLabels />
 
       {tab === 0 ? (
-        <GlowCard glow={tokens.colors.accent}>
+        <GlowCard glow={colors.accent}>
           <View className="mb-s3 flex-row items-center gap-s3">
             <IconBadge glyph="🏋" />
             <View className="flex-1">
@@ -194,13 +195,13 @@ export default function ArenaScreen() {
           )}
         </GlowCard>
       ) : (
-        <GlowCard glow={tokens.colors.epic}>
+        <GlowCard glow={colors.epic}>
           {/* JUST the box — any game's code works here, so no per-game copy. */}
           <TextInput
             className="min-h-[52px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
             style={{
               letterSpacing: 10,
-              borderColor: code.trim().length === 6 ? `${tokens.colors.epic}8c` : tokens.colors.border,
+              borderColor: code.trim().length === 6 ? `${colors.epic}8c` : colors.border,
             }}
             placeholder="——————"
             placeholderTextColor="#64758f"
@@ -225,8 +226,8 @@ export default function ArenaScreen() {
       {/* The queue modes — still coming-soon, promoted to the old rules
           strip's slot (the strip is gone; the rules live on the battle page). */}
       <View className="flex-row gap-s3">
-        <ComingCard glyph="⚡" tint={tokens.colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
-        <ComingCard glyph="🏆" tint={tokens.colors.epic} title="RANKED" note="Trophies on the line" />
+        <ComingCard glyph="⚡" tint={colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
+        <ComingCard glyph="🏆" tint={colors.epic} title="RANKED" note="Trophies on the line" />
       </View>
 
       {/* The turn-based trio — same tints, glyphs and doors as their old
@@ -235,7 +236,7 @@ export default function ArenaScreen() {
         <BattleModeCard
           compact
           glyph="⚔"
-          tint={tokens.colors.danger}
+          tint={colors.danger}
           title="RIVAL"
           note="Fight a saved rival or simulated challenger."
           tag={`VEX · ${rivalry.wins}W ${rivalry.losses}L`}
@@ -245,7 +246,7 @@ export default function ArenaScreen() {
         <BattleModeCard
           compact
           glyph="👥"
-          tint={tokens.colors.epic}
+          tint={colors.epic}
           title="VERSUS"
           note="Challenge a friend by code — or pass-and-play on one device."
           tag="ONLINE 1V1"
@@ -255,7 +256,7 @@ export default function ArenaScreen() {
         <BattleModeCard
           compact
           glyph="🎯"
-          tint={tokens.colors.accent}
+          tint={colors.accent}
           title="TRAINING"
           note="Test moves without affecting your record."
           tag="NO STAKES"
@@ -268,9 +269,9 @@ export default function ArenaScreen() {
       <View>
         <SectionLabel>CHAMPION BATTLES</SectionLabel>
         {badgeCount > 0 ? (
-          <View className="mb-s2 flex-row items-center rounded-lg border px-s3 py-s2" style={{ gap: 6, borderColor: `${tokens.colors.legendary}45`, backgroundColor: 'rgba(251,191,36,0.06)' }}>
+          <View className="mb-s2 flex-row items-center rounded-lg border px-s3 py-s2" style={{ gap: 6, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(251,191,36,0.06)' }}>
             <Text style={{ fontSize: 13 }}>🎖</Text>
-            <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors.legendary, fontFamily: PIXEL, letterSpacing: 1 }}>
+            <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.legendary, fontFamily: PIXEL, letterSpacing: 1 }}>
               {badgeCount} / {GYMS.length} FORGE BADGES EARNED
             </Text>
           </View>
@@ -280,7 +281,7 @@ export default function ArenaScreen() {
             <BattleModeCard
               key={g.id}
               glyph="🛡️"
-              tint={tokens.colors.legendary}
+              tint={colors.legendary}
               title={`${g.name.toUpperCase()} GYM`}
               note={`${g.leaderName} — ${g.leaderTitle}. ${g.theme}`}
               tag={gymProgress[g.id]?.cleared ? 'CLEARED ✓' : `REC. EVO ${g.recommendedRating}`}
@@ -301,7 +302,7 @@ export default function ArenaScreen() {
               <BattleModeCard
                 key={g.id}
                 glyph="👻"
-                tint={tokens.colors.epic}
+                tint={colors.epic}
                 title={`${g.owner_name.toUpperCase()} — ${g.workout.toUpperCase()}`}
                 note={`${g.date} · ${g.headline?.sets ?? '?'} sets banked. Beat the session's ghost.`}
                 tag={g.plays > 0 ? `${g.defeats}/${g.plays} FELLED` : 'UNTESTED'}
@@ -322,7 +323,7 @@ export default function ArenaScreen() {
         <SectionLabel>DAMAGE ASSESSMENT</SectionLabel>
         <BattleModeCard
           glyph="📸"
-          tint={tokens.colors.danger}
+          tint={colors.danger}
           title="DAMAGE ASSESSMENT"
           note="PRE photo, train, POST photo — the AI judges whose physique changed most."
           tag="VS A FRIEND"
@@ -335,9 +336,9 @@ export default function ArenaScreen() {
       {tab === 0 && !openInvite ? (
         <View>
           <SectionLabel>MINI GAMES</SectionLabel>
-          <GlowCard glow={tokens.colors.danger}>
+          <GlowCard glow={colors.danger}>
             <View className="mb-s3 flex-row items-center gap-s3">
-              <IconBadge glyph="⚖" tint={tokens.colors.danger} />
+              <IconBadge glyph="⚖" tint={colors.danger} />
               <View className="flex-1">
                 <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                   VOLUME DUEL
@@ -361,9 +362,9 @@ export default function ArenaScreen() {
             />
           </GlowCard>
           <View className="mt-s3">
-            <GlowCard glow={tokens.colors.legendary}>
+            <GlowCard glow={colors.legendary}>
               <View className="mb-s3 flex-row items-center gap-s3">
-                <IconBadge glyph="🪙" tint={tokens.colors.legendary} />
+                <IconBadge glyph="🪙" tint={colors.legendary} />
                 <View className="flex-1">
                   <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
                     HEADS OR TAILS
@@ -410,11 +411,11 @@ export default function ArenaScreen() {
               accessibilityLabel="See full battle history"
               testID="arena-full-history"
               className="mt-s1 flex-row items-center justify-center rounded-lg border px-s3 py-s2"
-              style={{ gap: 6, minHeight: 44, borderColor: `${tokens.colors.accent}40` }}
+              style={{ gap: 6, minHeight: 44, borderColor: `${colors.accent}40` }}
             >
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 9, color: tokens.colors.accent, letterSpacing: 1, ...pixelFont(false) }}
+                style={{ fontSize: 9, color: colors.accent, letterSpacing: 1, ...pixelFont(false) }}
               >
                 SEE FULL HISTORY ›
               </Text>
@@ -433,13 +434,14 @@ export default function ArenaScreen() {
  * totalRoundsFor, not a hardcoded 3 (a duel has one round).
  */
 function ActiveBattleCard({ match, onPress }: { match: BattleMatch; onPress: () => void }) {
+  const colors = useThemeColors();
   const rounds = totalRoundsFor(match.format);
   const state =
     match.status === 'judging'
-      ? { text: 'JUDGING · REVEAL WAITING', tint: tokens.colors.epic }
+      ? { text: 'JUDGING · REVEAL WAITING', tint: colors.epic }
       : match.status === 'matched'
-        ? { text: 'BOTH READY TO START', tint: tokens.colors.legendary }
-        : { text: 'LIVE NOW', tint: tokens.colors.success };
+        ? { text: 'BOTH READY TO START', tint: colors.legendary }
+        : { text: 'LIVE NOW', tint: colors.success };
 
   return (
     <View className="mb-s3">
@@ -480,10 +482,11 @@ function ActiveBattleCard({ match, onPress }: { match: BattleMatch; onPress: () 
 }
 
 function MiniChip({ label }: { label: string }) {
+  const colors = useThemeColors();
   return (
     <View
       className="rounded-pill px-s2 py-[3px]"
-      style={{ borderWidth: 1, borderColor: `${tokens.colors.accent}40`, backgroundColor: 'rgba(34,211,238,0.08)' }}
+      style={{ borderWidth: 1, borderColor: `${colors.accent}40`, backgroundColor: 'rgba(34,211,238,0.08)' }}
     >
       <Text
         className="text-accent"
@@ -530,6 +533,7 @@ function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string;
  *  3-across mini-tile: same tint/border/glow formula, glyph tile on top,
  *  no note (it survives in the accessibility label) and no chevron. */
 function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID, compact = false }: { glyph: string; tint: string; title: string; note: string; tag: string; onPress: () => void; testID: string; compact?: boolean }) {
+  const colors = useThemeColors();
   if (compact) {
     return (
       <Pressable
@@ -546,7 +550,7 @@ function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID, compac
         <Text
           allowFontScaling={false}
           numberOfLines={1}
-          style={{ marginTop: 6, fontSize: 12, color: tokens.colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5, textAlign: 'center' }}
+          style={{ marginTop: 6, fontSize: 12, color: colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5, textAlign: 'center' }}
         >
           {title}
         </Text>
@@ -574,8 +578,8 @@ function BattleModeCard({ glyph, tint, title, note, tag, onPress, testID, compac
           <Text style={{ fontSize: 22 }}>{glyph}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text allowFontScaling={false} style={{ fontSize: 15, color: tokens.colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5 }}>{title}</Text>
-          <Text style={{ marginTop: 2, fontSize: 12, color: tokens.colors['text-mute'] }} numberOfLines={2}>{note}</Text>
+          <Text allowFontScaling={false} style={{ fontSize: 15, color: colors.text, fontFamily: PIXEL_BOLD, letterSpacing: 0.5 }}>{title}</Text>
+          <Text style={{ marginTop: 2, fontSize: 12, color: colors['text-mute'] }} numberOfLines={2}>{note}</Text>
         </View>
         <Text allowFontScaling={false} style={{ fontSize: 15, color: tint }}>›</Text>
       </View>

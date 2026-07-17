@@ -10,7 +10,7 @@ import { rankLadder } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
 import { useSettingsStore } from '@/state/settings-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -242,6 +242,7 @@ function BodyStatsCard() {
  * athletes; base_level stays immutable.
  */
 function TrainingNumbersCard() {
+  const colors = useThemeColors();
   const profile = useProfile();
   const save = useUpdateTrainingNumbers();
   const [deadlift, setDeadlift] = useState('');
@@ -299,7 +300,7 @@ function TrainingNumbersCard() {
           </Text>
           <TextInput
             className="min-h-[44px] rounded-md border bg-surface-2 p-s2 text-text"
-            style={{ borderColor: dlValid ? tokens.colors.border : tokens.colors.danger }}
+            style={{ borderColor: dlValid ? colors.border : colors.danger }}
             inputMode="decimal"
             placeholder="e.g. 180"
             placeholderTextColor="#64758f"
@@ -334,6 +335,7 @@ function TrainingNumbersCard() {
  * invite-code either way. The full matrix lives in IMPROVEMENT_PLAN.md #13.
  */
 function PrivacyCard() {
+  const colors = useThemeColors();
   const identity = usePublicIdentity();
   const save = useSavePublicIdentity();
   const [name, setName] = useState('');
@@ -368,8 +370,8 @@ function PrivacyCard() {
           onValueChange={(v) =>
             save.mutate({ displayName: identity.data?.displayName ?? null, isPublic: v })
           }
-          trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
-          thumbColor={tokens.colors.accent}
+          trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+          thumbColor={colors.accent}
           testID="privacy-toggle"
         />
       </View>
@@ -414,28 +416,30 @@ function PrivacyCard() {
 }
 
 function SoundSwitch() {
+  const colors = useThemeColors();
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const setSoundEnabled = useSettingsStore((s) => s.setSoundEnabled);
   return (
     <Switch
       value={soundEnabled}
       onValueChange={setSoundEnabled}
-      trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
-      thumbColor={tokens.colors.accent}
+      trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+      thumbColor={colors.accent}
       testID="sound-toggle"
     />
   );
 }
 
 function PerfSwitch() {
+  const colors = useThemeColors();
   const perfMode = useSettingsStore((s) => s.perfMode);
   const setPerfMode = useSettingsStore((s) => s.setPerfMode);
   return (
     <Switch
       value={perfMode}
       onValueChange={setPerfMode}
-      trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
-      thumbColor={tokens.colors.accent}
+      trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+      thumbColor={colors.accent}
       testID="perf-mode"
     />
   );

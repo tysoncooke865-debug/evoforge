@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { KeyPad } from '@/ui/core/number-field';
 import { USE_CUSTOM_PAD } from '@/ui/core/pad-env';
 
@@ -17,7 +17,7 @@ export function Field({
   placeholder,
   testID,
   integer = false,
-  tint = tokens.colors.accent,
+  tint: tintProp,
   keypadLabel,
   accessory,
 }: {
@@ -34,6 +34,8 @@ export function Field({
   /** Optional node on the right of the label row (e.g. a unit toggle). */
   accessory?: ReactNode;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.accent;
   const [padOpen, setPadOpen] = useState(false);
   return (
     <View className="flex-1">

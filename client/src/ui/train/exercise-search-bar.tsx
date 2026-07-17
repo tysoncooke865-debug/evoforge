@@ -7,7 +7,7 @@ import { useCreateUserExercise, useUserExercises } from '@/data/exercises';
 import { useWorkoutLog } from '@/data/hooks';
 import { rankExercises } from '@/domain/exercise-rank';
 import { muscleOptionsForCreate } from '@/domain/exercise-taxonomy';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import type { PickedExercise } from './exercise-picker';
 
@@ -46,6 +46,7 @@ export function ExerciseSearchBar({
   limit?: number;
   testIDPrefix?: string;
 }) {
+  const colors = useThemeColors();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [creating, setCreating] = useState(false);
@@ -100,7 +101,7 @@ export function ExerciseSearchBar({
     <View>
       <TextInput
         className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
-        style={{ borderColor: searching ? `${tokens.colors.accent}66` : tokens.colors.border }}
+        style={{ borderColor: searching ? `${colors.accent}66` : colors.border }}
         placeholder={placeholder}
         placeholderTextColor="#64758f"
         value={query}
@@ -147,7 +148,7 @@ export function ExerciseSearchBar({
               style={{
                 minHeight: 44,
                 justifyContent: 'center',
-                borderColor: `${tokens.colors.accent}8c`,
+                borderColor: `${colors.accent}8c`,
                 backgroundColor: 'rgba(34,211,238,0.08)',
               }}
             >

@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { BattleEvent, BattleMode, Combatant } from '@/domain/battle-rpg/types';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { BattleSprite } from './battle-sprite';
 import { MoveFxLayer } from './move-fx';
@@ -39,6 +39,7 @@ export function BattleArena({
   winner: 'player' | 'opponent' | null;
   height?: number;
 }) {
+  const colors = useThemeColors();
   const reduced = useReducedMotion();
   const shake = useSharedValue(0);
   const blink = useSharedValue(0);
@@ -64,10 +65,10 @@ export function BattleArena({
 
   const haze =
     mode === 'gym' ? 'rgba(251,146,60,0.10)' : mode === 'rival' ? 'rgba(251,113,133,0.08)' : 'rgba(34,211,238,0.07)';
-  const hazeEdge = mode === 'gym' ? '#fb923c' : mode === 'rival' ? '#fb7185' : tokens.colors.accent;
+  const hazeEdge = mode === 'gym' ? '#fb923c' : mode === 'rival' ? '#fb7185' : colors.accent;
 
   return (
-    <View style={{ height, borderRadius: 16, borderWidth: 1, borderColor: `${tokens.colors.accent}22`, overflow: 'hidden', backgroundColor: tokens.colors['bg-deep'] }}>
+    <View style={{ height, borderRadius: 16, borderWidth: 1, borderColor: `${colors.accent}22`, overflow: 'hidden', backgroundColor: colors['bg-deep'] }}>
       <Animated.View style={[{ flex: 1 }, containerStyle]}>
         {/* Backdrop haze. */}
         <LinearGradient colors={['rgba(4,7,14,0)', haze, 'rgba(4,7,14,0.55)']} style={{ position: 'absolute', inset: 0 }} />
@@ -83,7 +84,7 @@ export function BattleArena({
 
         {/* Player — near platform, lower-left, back-facing, bigger. */}
         <View style={{ position: 'absolute', bottom: 4, left: 14, alignItems: 'center' }}>
-          <View style={{ position: 'absolute', bottom: 8, width: 150, height: 40, borderRadius: 999, borderWidth: 1, borderColor: `${tokens.colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.08)' }} />
+          <View style={{ position: 'absolute', bottom: 8, width: 150, height: 40, borderRadius: 999, borderWidth: 1, borderColor: `${colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.08)' }} />
           {floating && floating.side === 'player' ? <FloatingNumber amount={floating.amount} kind={floating.kind} trigger={floating.trigger} /> : null}
           <BattleSprite branch={player.spriteBranch} stage={player.spriteStage} side="player" activeEvent={activeEvent} size={148} defeated={winner === 'opponent'} victory={winner === 'player'} />
         </View>

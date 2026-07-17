@@ -5,12 +5,13 @@ import { useAuth } from '@/data/auth-context';
 import type { BattleMatch } from '@/data/battle/hooks';
 import { formatGlyph, formatLabel } from '@/domain/battle/format';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { IconBadge, PressCard } from '@/ui/arena/battle-arena';
 
 /** One finished (or in-flight) match, glowing the way it ended — extracted
  *  from the Arena hub so the GAME LOG page renders the identical row. */
 export function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | null }) {
+  const colors = useThemeColors();
   const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
@@ -20,14 +21,14 @@ export function HistoryRow({ match, xp }: { match: BattleMatch; xp: number | nul
   const won = settled && match.winner_user_id !== null && match.winner_user_id === userId;
   const draw = settled && match.winner_user_id === null;
   const tint = abandoned
-    ? tokens.colors['text-mute']
+    ? colors['text-mute']
     : !settled
-      ? tokens.colors.accent
+      ? colors.accent
       : won
-        ? tokens.colors.success
+        ? colors.success
         : draw
-          ? tokens.colors.rare
-          : tokens.colors.danger;
+          ? colors.rare
+          : colors.danger;
   const label = abandoned ? 'CANCELLED' : !settled ? match.status.toUpperCase() : won ? 'VICTORY' : draw ? 'DRAW' : 'DEFEAT';
 
   return (

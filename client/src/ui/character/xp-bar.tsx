@@ -13,7 +13,7 @@ import Animated, {
 import { progressPercent } from '@/domain/xp';
 import { animations } from '@/theme/animations';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { useSettingsStore } from '@/state/settings-store';
 
 interface XpBarProps {
@@ -36,6 +36,7 @@ const fill = animations.fillGrowXp;
  * ambient loop and yields to perf mode / reduced motion.
  */
 export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps) {
+  const colors = useThemeColors();
   const pct = progressPercent(xpIntoLevel, xpNeeded);
   const width = useSharedValue(0);
   const sheenX = useSharedValue(-60);
@@ -77,7 +78,7 @@ export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps)
               borderRadius: 999,
               overflow: 'hidden',
               minWidth: pct > 0 ? 6 : 0, // earned XP is always visible, never a 0px sliver
-              shadowColor: tokens.colors.accent,
+              shadowColor: colors.accent,
               shadowOpacity: 0.5,
               shadowRadius: 8,
             },
@@ -85,7 +86,7 @@ export function XpBar({ xpIntoLevel, xpNeeded, showNumbers = true }: XpBarProps)
           ]}
         >
           <LinearGradient
-            colors={[tokens.colors['accent-strong'], tokens.colors.accent, tokens.colors['accent-deep']]}
+            colors={[colors['accent-strong'], colors.accent, colors['accent-deep']]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}

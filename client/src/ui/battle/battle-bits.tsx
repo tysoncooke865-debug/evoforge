@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withT
 import { STATUS_META } from '@/domain/battle-rpg/status';
 import type { BattleStatus, Combatant } from '@/domain/battle-rpg/types';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /** A labelled combat bar (health / stamina) that eases to its value. */
 export function CombatBar({
@@ -21,6 +21,7 @@ export function CombatBar({
   label: string;
   height?: number;
 }) {
+  const colors = useThemeColors();
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const w = useSharedValue(pct);
   const ghost = useSharedValue(pct); // trailing bar — catches up slowly on loss
@@ -36,17 +37,17 @@ export function CombatBar({
   return (
     <View>
       <View className="flex-row items-center justify-between" style={{ marginBottom: 2 }}>
-        <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
+        <Text allowFontScaling={false} style={{ fontSize: 8, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {label}
         </Text>
-        <Text allowFontScaling={false} style={{ fontSize: 9, color: low ? tokens.colors.danger : colour, fontFamily: PIXEL_BOLD }}>
+        <Text allowFontScaling={false} style={{ fontSize: 9, color: low ? colors.danger : colour, fontFamily: PIXEL_BOLD }}>
           {Math.round(value)}/{Math.round(max)}
         </Text>
       </View>
       <View style={{ height, borderRadius: height, backgroundColor: 'rgba(120,170,220,0.12)', overflow: 'hidden' }}>
         {/* Ghost trail (whitened) sits behind the real fill. */}
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: height, backgroundColor: 'rgba(255,255,255,0.5)' }, ghostStyle]} />
-        <Animated.View style={[{ height, borderRadius: height, backgroundColor: low ? tokens.colors.danger : colour, shadowColor: colour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
+        <Animated.View style={[{ height, borderRadius: height, backgroundColor: low ? colors.danger : colour, shadowColor: colour, shadowOpacity: 0.6, shadowRadius: 6 }, fill]} />
       </View>
     </View>
   );
@@ -65,8 +66,9 @@ export function StatusRow({ statuses }: { statuses: BattleStatus[] }) {
 }
 
 function StatusChip({ status }: { status: BattleStatus }) {
+  const colors = useThemeColors();
   const meta = STATUS_META[status.kind];
-  const tint = meta.good ? tokens.colors.success : tokens.colors.danger;
+  const tint = meta.good ? colors.success : colors.danger;
   const pulse = useSharedValue(1);
   useEffect(() => {
     pulse.value = withSequence(withTiming(1.08, { duration: 260 }), withTiming(1, { duration: 260 }));
@@ -87,24 +89,25 @@ function StatusChip({ status }: { status: BattleStatus }) {
 
 /** A combatant's HUD panel — name, champion, bars, statuses. */
 export function CombatantHud({ combatant, powerLabel, align = 'left' }: { combatant: Combatant; powerLabel?: number; align?: 'left' | 'right' }) {
+  const colors = useThemeColors();
   return (
     <View
       className="rounded-xl border p-s2"
-      style={{ borderColor: `${tokens.colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.78)' }}
+      style={{ borderColor: `${colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.78)' }}
     >
       <View className={`flex-row items-center justify-between`}>
-        <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 11, color: tokens.colors.text, fontFamily: PIXEL_BOLD, flexShrink: 1 }}>
+        <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 11, color: colors.text, fontFamily: PIXEL_BOLD, flexShrink: 1 }}>
           {combatant.name.toUpperCase()}
         </Text>
         {powerLabel != null ? (
-          <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>
+          <Text allowFontScaling={false} style={{ fontSize: 8, color: colors['text-mute'], fontFamily: PIXEL }}>
             CP {powerLabel}
           </Text>
         ) : null}
       </View>
       <View style={{ gap: 4, marginTop: 4 }}>
-        <CombatBar label="HP" value={combatant.stats.currentHealth} max={combatant.stats.maxHealth} colour={tokens.colors.success} />
-        <CombatBar label="STAMINA" value={combatant.stats.currentStamina} max={combatant.stats.maxStamina} colour={tokens.colors.accent} height={6} />
+        <CombatBar label="HP" value={combatant.stats.currentHealth} max={combatant.stats.maxHealth} colour={colors.success} />
+        <CombatBar label="STAMINA" value={combatant.stats.currentStamina} max={combatant.stats.maxStamina} colour={colors.accent} height={6} />
       </View>
       <View style={{ marginTop: 4 }}>
         <StatusRow statuses={combatant.statuses} />
@@ -115,6 +118,7 @@ export function CombatantHud({ combatant, powerLabel, align = 'left' }: { combat
 
 /** A floating damage/heal number over a sprite. */
 export function FloatingNumber({ amount, kind, trigger }: { amount: number; kind: 'damage' | 'crit' | 'heal'; trigger: number }) {
+  const colors = useThemeColors();
   const y = useSharedValue(0);
   const op = useSharedValue(0);
   useEffect(() => {
@@ -122,7 +126,7 @@ export function FloatingNumber({ amount, kind, trigger }: { amount: number; kind
     y.value = withSequence(withTiming(0, { duration: 1 }), withTiming(-42, { duration: 780, easing: Easing.out(Easing.quad) }));
   }, [trigger, y, op]);
   const style = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: y.value }] }));
-  const colour = kind === 'heal' ? tokens.colors.success : kind === 'crit' ? tokens.colors.legendary : tokens.colors.danger;
+  const colour = kind === 'heal' ? colors.success : kind === 'crit' ? colors.legendary : colors.danger;
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, alignSelf: 'center' }, style]}>
       <Text allowFontScaling={false} style={{ fontSize: kind === 'crit' ? 26 : 20, color: colour, fontFamily: PIXEL_BOLD, textShadowColor: '#000', textShadowRadius: 4 }}>

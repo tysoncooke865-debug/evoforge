@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import { COIN_LABELS, useCoinHistory, useCoinTotal } from '@/data/coins';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
@@ -10,6 +10,7 @@ import { ScreenShell } from '@/ui/core/shell';
 /** IMPROVEMENT_PLAN #12: the transaction history. The balance renders "—"
  *  on any read failure — a failure shown as 0 reads as a wiped wallet. */
 export default function CoinsScreen() {
+  const colors = useThemeColors();
   const total = useCoinTotal();
   const history = useCoinHistory();
 
@@ -26,7 +27,7 @@ export default function CoinsScreen() {
               style={{
                 fontSize: 30,
                 lineHeight: 36,
-                color: tokens.colors.legendary,
+                color: colors.legendary,
                 textShadowColor: 'rgba(251,191,36,0.5)',
                 textShadowRadius: 14,
                 ...pixelFont(),
@@ -64,7 +65,7 @@ export default function CoinsScreen() {
               <CoinIcon size={16} />
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 14, color: e.amount > 0 ? tokens.colors.legendary : tokens.colors.danger, ...pixelFont() }}
+                style={{ fontSize: 14, color: e.amount > 0 ? colors.legendary : colors.danger, ...pixelFont() }}
               >
                 {e.amount > 0 ? `+${e.amount}` : e.amount}
               </Text>

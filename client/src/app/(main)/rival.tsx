@@ -13,11 +13,12 @@ import { progressionFeatures } from '@/data/progression/features';
 import { useReconcileSettles, useRivalMatches, useRivalRating } from '@/data/progression/use-rival-rank';
 import { rankStandingFor } from '@/domain/progression/rank-tiers';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 export default function RivalRankScreen() {
+  const colors = useThemeColors();
   const { session } = useAuth();
   const rating = useRivalRating();
   const matches = useRivalMatches();
@@ -53,13 +54,13 @@ export default function RivalRankScreen() {
     <ScreenShell>
       <ScreenHeader kicker="COMPETITIVE" title="RIVAL RANK" onBack={() => router.back()} />
 
-      <GlowCard glow={tokens.colors.accent} padding={16}>
+      <GlowCard glow={colors.accent} padding={16}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
           SEASON 1 · OVERALL
         </Text>
         <Text
           allowFontScaling={false}
-          style={{ fontSize: 30, lineHeight: 38, letterSpacing: 0, color: standing.provisional ? tokens.colors['text-dim'] : tokens.colors.accent, textShadowColor: 'rgba(34,211,238,0.4)', textShadowRadius: 12, ...pixelFont() }}
+          style={{ fontSize: 30, lineHeight: 38, letterSpacing: 0, color: standing.provisional ? colors['text-dim'] : colors.accent, textShadowColor: 'rgba(34,211,238,0.4)', textShadowRadius: 12, ...pixelFont() }}
         >
           {standing.label}
         </Text>
@@ -106,11 +107,11 @@ export default function RivalRankScreen() {
             const delta = Number(isA ? m.rating_change_a : m.rating_change_b);
             const won = (m.outcome === 'a' && isA) || (m.outcome === 'b' && !isA);
             return (
-              <View key={String(m.id)} className="mb-s1 flex-row items-center justify-between rounded-md border px-s3 py-s2" style={{ borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}>
-                <Text className="text-xs" style={{ color: m.outcome === 'draw' ? tokens.colors['text-dim'] : won ? tokens.colors.success : tokens.colors.danger }}>
+              <View key={String(m.id)} className="mb-s1 flex-row items-center justify-between rounded-md border px-s3 py-s2" style={{ borderColor: colors.border, backgroundColor: colors['surface-2'] }}>
+                <Text className="text-xs" style={{ color: m.outcome === 'draw' ? colors['text-dim'] : won ? colors.success : colors.danger }}>
                   {m.outcome === 'draw' ? 'DRAW' : won ? 'VICTORY' : 'DEFEAT'} · {String(m.created_at).slice(0, 10)}
                 </Text>
-                <Text className="text-sm" allowFontScaling={false} style={{ color: delta >= 0 ? tokens.colors.success : tokens.colors.danger, ...pixelFont() }}>
+                <Text className="text-sm" allowFontScaling={false} style={{ color: delta >= 0 ? colors.success : colors.danger, ...pixelFont() }}>
                   {delta >= 0 ? '+' : ''}
                   {Math.round(delta)}
                 </Text>

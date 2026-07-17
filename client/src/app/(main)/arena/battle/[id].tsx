@@ -51,7 +51,7 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { todayIso as calendarToday } from '@/domain/today';
 
 const BATTLE_WORKOUT = 'Battle Arena';
@@ -121,13 +121,14 @@ export default function BattleScreen() {
 // ------------------------------------------------------------------ phases
 
 function InvitePhase({ matchId, code, format }: { matchId: string; code: string | null; format: string | null }) {
+  const colors = useThemeColors();
   const router = useRouter();
   const cancel = useCancelBattle(matchId);
   const duel = format === 'volume_duel';
   return (
     <>
       <ScreenHeader kicker={formatName(format)} title="CHALLENGE SENT" />
-      <GlowCard glow={duel ? tokens.colors.danger : tokens.colors.accent}>
+      <GlowCard glow={duel ? colors.danger : colors.accent}>
         {code ? <CodeCard code={code} /> : null}
         <Text className="mt-s3 text-center text-2xs text-text-mute">
           Waiting for a challenger… the screen advances the moment they join.
@@ -161,6 +162,7 @@ function ConfirmAbandon({
   onConfirm: () => void;
   onKeep: () => void;
 }) {
+  const colors = useThemeColors();
   if (!visible) return null;
   return (
     <View
@@ -169,7 +171,7 @@ function ConfirmAbandon({
     >
       <View
         className="w-full max-w-[420px] rounded-xl p-s5"
-        style={{ borderWidth: 1, borderColor: `${tokens.colors.danger}59`, backgroundColor: tokens.colors.surface }}
+        style={{ borderWidth: 1, borderColor: `${colors.danger}59`, backgroundColor: colors.surface }}
       >
         <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
           ABANDON BATTLE?
@@ -333,6 +335,7 @@ function ProgressBar({ pct, colour, label, kg, unit = 'kg' }: { pct: number; col
 
 /** Which round we're in, with the scores banked so far. */
 function RoundStrip({ data, userId }: { data: BattleBundle; userId: string | null }) {
+  const colors = useThemeColors();
   const current = data.match?.current_round ?? 1;
   // Single-round duels have no round journey to narrate.
   if (data.match && ['volume_duel', 'heads_or_tails'].includes(String(data.match.format))) return null;
@@ -348,7 +351,7 @@ function RoundStrip({ data, userId }: { data: BattleBundle; userId: string | nul
             className="flex-1 items-center rounded-md py-s2"
             style={{
               borderWidth: 1,
-              borderColor: live ? `${tokens.colors.accent}66` : tokens.colors.border,
+              borderColor: live ? `${colors.accent}66` : colors.border,
               backgroundColor: live ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.5)',
             }}
           >
@@ -425,6 +428,7 @@ interface RoundProps {
  * per step (a single timeout state flip — not frame driving).
  */
 function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const colors = useThemeColors();
   const spec = round.spec as Record<string, unknown>;
   const state = String(spec.state ?? 'awaiting_muscle');
   const step = Math.min(3, Number(spec.step ?? 1));
@@ -433,7 +437,7 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
   const secondsLeft = useCountdown(round.ends_at ?? null);
   const pickMut = useBattlePick(matchId);
   const settle = useSettleBattle(matchId);
-  const gold = tokens.colors.legendary;
+  const gold = colors.legendary;
 
   // The ceremony: spin briefly whenever a new flip lands, then reveal.
   const [revealedStep, setRevealedStep] = useState(0);
@@ -580,7 +584,7 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
             allowFontScaling={false}
             style={{
               fontSize: 24,
-              color: over ? tokens.colors.danger : gold,
+              color: over ? colors.danger : gold,
               textShadowColor: 'rgba(251,191,36,0.6)',
               textShadowRadius: 14,
               ...pixelFont(),
@@ -599,7 +603,7 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
         />
         <ProgressBar
           pct={(theirKg / lead) * 100}
-          colour={tokens.colors.epic}
+          colour={colors.epic}
           label={`${String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} · ${theirAssigned.replace(' (Strength)', '').toUpperCase()}${theirKg > myKg ? ' · LEADING' : ''}`}
           kg={theirKg}
         />
@@ -632,6 +636,7 @@ function HeadsOrTailsRound({ matchId, data, round, me, them, userId }: RoundProp
  * insert), so a post-hoc edit can never inflate a duel.
  */
 function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const colors = useThemeColors();
   const secondsLeft = useCountdown(round.ends_at ?? null);
   const settle = useSettleBattle(matchId);
   const workouts = useWorkoutLog();
@@ -679,7 +684,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
 
   const mm = secondsLeft === null ? '–' : String(Math.trunc(secondsLeft / 60)).padStart(1, '0');
   const ss = secondsLeft === null ? '––' : String(secondsLeft % 60).padStart(2, '0');
-  const tint = tokens.colors.danger;
+  const tint = colors.danger;
 
   return (
     <>
@@ -693,7 +698,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
             allowFontScaling={false}
             style={{
               fontSize: 24,
-              color: over ? tokens.colors.danger : tint,
+              color: over ? colors.danger : tint,
               textShadowColor: 'rgba(251,113,133,0.6)',
               textShadowRadius: 14,
               ...pixelFont(),
@@ -713,7 +718,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
         />
         <ProgressBar
           pct={(theirKg / lead) * 100}
-          colour={tokens.colors.epic}
+          colour={colors.epic}
           label={`${String(them?.snapshot.name ?? 'RIVAL').toUpperCase()}${theirKg > myKg ? ' · LEADING' : ''}`}
           kg={theirKg}
         />
@@ -772,6 +777,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
 }
 
 function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const colors = useThemeColors();
   const spec = round.spec;
   const object = objectByKey(String(spec.objectKey ?? ''));
   const target = Number(spec.targetEffectiveKg ?? object.blitzTargetKg);
@@ -812,7 +818,7 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
             allowFontScaling={false}
             style={{
               fontSize: 24,
-              color: over ? tokens.colors.danger : tokens.colors.accent,
+              color: over ? colors.danger : colors.accent,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(34,211,238,0.6)',
               textShadowRadius: 14,
               ...pixelFont(),
@@ -824,7 +830,7 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
       />
 
       {/* The object, rising off its shadow as the leader closes in. */}
-      <GlowCard glow={lift >= 100 ? tokens.colors.success : undefined}>
+      <GlowCard glow={lift >= 100 ? colors.success : undefined}>
         <View className="items-center py-s2">
           <Text style={{ fontSize: 72, transform: [{ translateY: -(lift * 0.28) }] }}>{object.emoji}</Text>
           <View
@@ -848,8 +854,8 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
           </Text>
         </View>
         <View className="mt-s3">
-          <ProgressBar pct={myPct} colour={tokens.colors.accent} label={String(me?.snapshot.name ?? 'YOU').toUpperCase()} kg={myKg} />
-          <ProgressBar pct={theirPct} colour={tokens.colors.epic} label={String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} kg={theirKg} />
+          <ProgressBar pct={myPct} colour={colors.accent} label={String(me?.snapshot.name ?? 'YOU').toUpperCase()} kg={myKg} />
+          <ProgressBar pct={theirPct} colour={colors.epic} label={String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} kg={theirKg} />
         </View>
       </GlowCard>
 
@@ -867,6 +873,7 @@ function StrengthRound({ matchId, data, round, me, them, userId }: RoundProps) {
 }
 
 function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
+  const colors = useThemeColors();
   const spec = round.spec;
   const challenge = cardioChallengeByKey(String(spec.challengeKey ?? ''));
   const target = Number(spec.targetUnits ?? challenge.blitzTargetUnits);
@@ -904,7 +911,7 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
             allowFontScaling={false}
             style={{
               fontSize: 24,
-              color: over ? tokens.colors.danger : tokens.colors.rare,
+              color: over ? colors.danger : colors.rare,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(56,189,248,0.6)',
               textShadowRadius: 14,
               ...pixelFont(),
@@ -915,7 +922,7 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
         }
       />
 
-      <GlowCard glow={Math.max(myPct, theirPct) >= 100 ? tokens.colors.success : tokens.colors.rare}>
+      <GlowCard glow={Math.max(myPct, theirPct) >= 100 ? colors.success : colors.rare}>
         <View className="items-center py-s2">
           <Text style={{ fontSize: 64 }}>{challenge.emoji}</Text>
           <Text
@@ -930,8 +937,8 @@ function CardioRound({ matchId, data, round, me, them, userId }: RoundProps) {
           </Text>
         </View>
         <View className="mt-s3">
-          <ProgressBar pct={myPct} colour={tokens.colors.rare} label={String(me?.snapshot.name ?? 'YOU').toUpperCase()} kg={myUnits} unit="EU" />
-          <ProgressBar pct={theirPct} colour={tokens.colors.epic} label={String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} kg={theirUnits} unit="EU" />
+          <ProgressBar pct={myPct} colour={colors.rare} label={String(me?.snapshot.name ?? 'YOU').toUpperCase()} kg={myUnits} unit="EU" />
+          <ProgressBar pct={theirPct} colour={colors.epic} label={String(them?.snapshot.name ?? 'RIVAL').toUpperCase()} kg={theirUnits} unit="EU" />
         </View>
       </GlowCard>
 
@@ -1019,6 +1026,7 @@ function CardioBattleLogger({ matchId, roundNo }: { matchId: string; roundNo: nu
 }
 
 function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' | 'them'>) {
+  const colors = useThemeColors();
   const spec = round.spec;
   const pose = poseByKey(String(spec.poseKey ?? ''));
   const secondsLeft = useCountdown(round.ends_at ?? null);
@@ -1075,7 +1083,7 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
             allowFontScaling={false}
             style={{
               fontSize: 24,
-              color: over ? tokens.colors.danger : tokens.colors.mythic,
+              color: over ? colors.danger : colors.mythic,
               textShadowColor: over ? 'rgba(251,113,133,0.6)' : 'rgba(244,114,182,0.6)',
               textShadowRadius: 14,
               ...pixelFont(),
@@ -1086,7 +1094,7 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
         }
       />
 
-      <GlowCard glow={iAmDone ? tokens.colors.success : tokens.colors.mythic}>
+      <GlowCard glow={iAmDone ? colors.success : colors.mythic}>
         <View className="items-center py-s2">
           <Text
             className="text-text-mute"
@@ -1138,8 +1146,8 @@ function PhysiqueRound({ matchId, data, round, userId }: Omit<RoundProps, 'me' |
         ) : null}
 
         <View className="mt-s4 flex-row gap-s3">
-          <DuelPanel label="YOU" tint={tokens.colors.accent} rows={myMedia} revealed={revealed} judging={judge.isPending} />
-          <DuelPanel label="OPPONENT" tint={tokens.colors.epic} rows={theirMedia} revealed={revealed} judging={false} />
+          <DuelPanel label="YOU" tint={colors.accent} rows={myMedia} revealed={revealed} judging={judge.isPending} />
+          <DuelPanel label="OPPONENT" tint={colors.epic} rows={theirMedia} revealed={revealed} judging={false} />
         </View>
         {!revealed && (myMedia.length > 0 || theirMedia.length > 0) ? (
           <Text className="mt-s2 text-center text-2xs text-text-mute">
@@ -1352,13 +1360,14 @@ const ROUND_LABELS: Record<number, string> = { 1: 'STRENGTH', 2: 'CARDIO', 3: 'P
 const ROUND_BUDGETS: Record<number, number> = { 1: 1200, 2: 1050, 3: 750 };
 
 function ScoreCard({ p, scores, won, format }: { p: BattleParticipant | null; scores: BattleBundle['scores']; won: boolean; format?: string | null }) {
+  const colors = useThemeColors();
   // Duels: one round, no budget — points ARE effective kg.
   const duel = format === 'volume_duel' || format === 'heads_or_tails';
   const mine = scores.filter((s) => s.user_id === p?.user_id).sort((a, b) => a.round_no - b.round_no);
   const total = p?.total_score ?? mine.reduce((acc, s) => acc + s.points, 0);
-  const tint = won ? tokens.colors.success : tokens.colors.border;
+  const tint = won ? colors.success : colors.border;
   return (
-    <View className="mb-s3 rounded-xl p-s4" style={{ borderWidth: 1, borderColor: won ? `${tokens.colors.success}59` : tint, backgroundColor: 'rgba(13,21,36,0.5)' }}>
+    <View className="mb-s3 rounded-xl p-s4" style={{ borderWidth: 1, borderColor: won ? `${colors.success}59` : tint, backgroundColor: 'rgba(13,21,36,0.5)' }}>
       <View className="mb-s2 flex-row items-center justify-between">
         <Text className="text-text" allowFontScaling={false} style={{ fontSize: 16, ...pixelFont() }}>
           {won ? '👑 ' : ''}
@@ -1368,7 +1377,7 @@ function ScoreCard({ p, scores, won, format }: { p: BattleParticipant | null; sc
           allowFontScaling={false}
           style={{
             fontSize: 24,
-            color: won ? tokens.colors.success : tokens.colors.text,
+            color: won ? colors.success : colors.text,
             textShadowColor: won ? 'rgba(52,211,153,0.6)' : undefined,
             textShadowRadius: won ? 14 : 0,
             ...pixelFont(),

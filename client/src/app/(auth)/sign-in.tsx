@@ -4,11 +4,12 @@ import { Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/data/supabase';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { GlowCard } from '@/ui/core/shell';
 
 export default function SignInScreen() {
+  const colors = useThemeColors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,7 +30,7 @@ export default function SignInScreen() {
   return (
     <View
       className="flex-1 items-center justify-center p-s6"
-      style={{ backgroundColor: tokens.colors['bg-deep'] }}
+      style={{ backgroundColor: colors['bg-deep'] }}
     >
       {/* The shell's ambient light rig — auth screens sit on the same stage. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />

@@ -10,7 +10,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 
 import type { Branch } from '@/domain/avatar-stats';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { PixelHelmet, PixelShirt } from '@/ui/core/pixel-icons';
 
@@ -61,6 +61,7 @@ export function AvatarHero({
    *  no rating — just the gold FORGE YOUR ORIGIN button on the stage. */
   originUnset?: boolean;
 }) {
+  const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const overlay = width >= 380;
 
@@ -79,7 +80,7 @@ export function AvatarHero({
     const BLANK = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
     return (
       <View testID="hero-origin-empty">
-        <HeroStage branch={branch} stage={1} auraColour={tokens.colors.legendary} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
+        <HeroStage branch={branch} stage={1} auraColour={colors.legendary} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
             onPress={() => router.push('/evo-scan' as never)}
@@ -87,7 +88,7 @@ export function AvatarHero({
             accessibilityLabel="Forge your Origin — run an EvoGuide scan"
             testID="forge-origin"
             className="items-center justify-center rounded-xl px-s5"
-            style={{ minHeight: 56, backgroundColor: tokens.colors.legendary, shadowColor: tokens.colors.legendary, shadowOpacity: 0.55, shadowRadius: 18, elevation: 8 }}
+            style={{ minHeight: 56, backgroundColor: colors.legendary, shadowColor: colors.legendary, shadowOpacity: 0.55, shadowRadius: 18, elevation: 8 }}
           >
             <Text allowFontScaling={false} style={{ fontSize: 13, color: '#1a1305', letterSpacing: 1, ...pixelFont() }}>
               FORGE YOUR ORIGIN
@@ -104,12 +105,12 @@ export function AvatarHero({
   const badges = (
     <>
       <StatusBadge icon={<Text style={{ fontSize: 14, color: tierColour }}>◆</Text>} value={tierName} label="TIER" tint={tierColour} testID="hero-tier" onPress={() => router.push('/rank' as never)} />
-      <StatusBadge icon={<Text style={{ fontSize: 14 }}>🔥</Text>} value={formName} label="CURRENT FORM" tint={tokens.colors.accent} testID="hero-form" onPress={openCharacter} />
+      <StatusBadge icon={<Text style={{ fontSize: 14 }}>🔥</Text>} value={formName} label="CURRENT FORM" tint={colors.accent} testID="hero-form" onPress={openCharacter} />
       <StatusBadge
-        icon={<Text style={{ fontSize: 14, color: tokens.colors.epic }}>▲</Text>}
+        icon={<Text style={{ fontSize: 14, color: colors.epic }}>▲</Text>}
         value={`${evolutionPercent}%`}
         label="NEXT EVOLUTION"
-        tint={tokens.colors.epic}
+        tint={colors.epic}
         testID="hero-evolution"
         onPress={openCharacter}
       />
@@ -120,7 +121,7 @@ export function AvatarHero({
     <>
       {features.showLoadout ? (
         <QuickAction
-          icon={<PixelHelmet size={18} color={tokens.colors.accent} />}
+          icon={<PixelHelmet size={18} color={colors.accent} />}
           label="LOADOUT"
           testID="hero-loadout"
           onPress={openCharacter}
@@ -128,7 +129,7 @@ export function AvatarHero({
       ) : null}
       {features.showCustomise ? (
         <QuickAction
-          icon={<PixelShirt size={18} color={tokens.colors.accent} />}
+          icon={<PixelShirt size={18} color={colors.accent} />}
           label="CUSTOMISE"
           testID="hero-customise"
           onPress={() => router.push('/customise' as never)}
@@ -247,6 +248,7 @@ function QuickAction({
   testID: string;
   accessibilityHint?: string;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -255,7 +257,7 @@ function QuickAction({
       accessibilityHint={accessibilityHint}
       testID={testID}
       className="items-center rounded-md border px-s2 py-s2"
-      style={{ minHeight: 56, minWidth: 96, justifyContent: 'center', gap: 4, borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+      style={{ minHeight: 56, minWidth: 96, justifyContent: 'center', gap: 4, borderColor: `${colors.accent}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
     >
       {icon}
       <Text

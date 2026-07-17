@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import { pyFloat } from '@/domain/py';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { USE_CUSTOM_PAD } from '@/ui/core/pad-env';
 
 /**
@@ -118,6 +118,7 @@ export function KeyPad({
   onDone: (v: string) => void;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   // Mounted fresh on every open (the parent conditions the render), so the
   // draft always seeds from the value as it was when the pad opened.
   const [draft, setDraft] = useState(initial);
@@ -146,7 +147,7 @@ export function KeyPad({
         <Pressable
           onPress={() => undefined}
           className="rounded-t-xl border-t p-s4"
-          style={{ borderColor: `${tint}40`, backgroundColor: tokens.colors.surface }}
+          style={{ borderColor: `${tint}40`, backgroundColor: colors.surface }}
         >
           <View className="mb-s3 flex-row items-center justify-between">
             <Pressable
@@ -172,7 +173,7 @@ export function KeyPad({
             <View className="mb-s2" style={{ gap: 6 }}>
               <View className="flex-row" style={{ gap: 6 }}>
                 {[...quickSteps].reverse().map((s) => (
-                  <QuickChip key={`m${s}`} label={`−${s}`} onPress={() => adjust(-s)} tint={tokens.colors.danger} testID={`keypad-minus-${s}`} />
+                  <QuickChip key={`m${s}`} label={`−${s}`} onPress={() => adjust(-s)} tint={colors.danger} testID={`keypad-minus-${s}`} />
                 ))}
               </View>
               <View className="flex-row" style={{ gap: 6 }}>
@@ -224,7 +225,7 @@ export function NumberField({
   placeholder,
   label,
   integer = false,
-  tint = tokens.colors.accent,
+  tint: tintProp,
   width = 68,
   bigStep,
   quickSteps,
@@ -251,6 +252,8 @@ export function NumberField({
   narrow?: boolean;
   testID?: string;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.accent;
   const [padOpen, setPadOpen] = useState(false);
   const gesture = useRef<{ dir: 1 | -1; at: number; baseline: number; count: number } | null>(null);
 
@@ -284,7 +287,7 @@ export function NumberField({
             // but NOT oversized (Tyson 2026-07-16: 800/20px read as amateur).
             fontSize: narrow ? 16 : 18,
             fontWeight: '700',
-            color: dim ? tokens.colors['text-dim'] : tokens.colors.text,
+            color: dim ? colors['text-dim'] : colors.text,
             fontVariant: ['tabular-nums'],
           }}
           inputMode={USE_CUSTOM_PAD ? 'none' : integer ? 'numeric' : 'decimal'}

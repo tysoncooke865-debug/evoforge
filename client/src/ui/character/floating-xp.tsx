@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { durations } from '@/theme/animations';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * A +XP number that rises from where the action happened and fades. One-shot
@@ -25,6 +25,7 @@ export function FloatingXP({
   onDone: () => void;
   reducedMotion?: boolean;
 }) {
+  const colors = useThemeColors();
   const rise = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -50,7 +51,7 @@ export function FloatingXP({
         style={{
           fontWeight: '900',
           fontSize: 16,
-          color: tokens.colors.accent,
+          color: colors.accent,
           textShadowColor: 'rgba(34,211,238,0.7)',
           textShadowRadius: 10,
         }}

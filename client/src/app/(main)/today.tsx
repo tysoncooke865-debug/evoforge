@@ -27,7 +27,7 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CardioCard, cardioAnim } from '@/ui/train/cardio-logger';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/train/daily-workout-carousel';
@@ -97,6 +97,7 @@ const datesAround = (todayIso: string): string[] => {
 };
 
 export default function TodayScreen() {
+  const colors = useThemeColors();
   const todayIso = calendarToday();
 
   const workouts = useWorkoutLog();
@@ -265,7 +266,7 @@ export default function TodayScreen() {
         className="text-2xs"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ letterSpacing: 0, flexShrink: 0, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'], ...pixelFont() }}
+        style={{ letterSpacing: 0, flexShrink: 0, color: isToday ? colors.accent : colors['text-mute'], ...pixelFont() }}
         testID={`card-date-${date}`}
       >
         {cardDate(date, todayIso)}
@@ -278,7 +279,7 @@ export default function TodayScreen() {
         accessibilityLabel="change plan source"
         testID="plan-dropdown"
         className="flex-row items-center rounded-md border px-s2"
-        style={{ minHeight: 28, gap: 5, flexShrink: 1, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
+        style={{ minHeight: 28, gap: 5, flexShrink: 1, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
       >
         <Text
           className="text-2xs text-accent"
@@ -298,7 +299,7 @@ export default function TodayScreen() {
       const hasSchedule = (schedule.data ?? []).length > 0;
       return (
         <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
-          <GlowCard glow={tokens.colors.accent} padding={14} fill>
+          <GlowCard glow={colors.accent} padding={14} fill>
             <View testID={`hero-card-${date}`} style={{ flex: 1 }}>
               <View className="flex-row items-center justify-between">
                 {dropdown}
@@ -338,7 +339,7 @@ export default function TodayScreen() {
         : 'START WORKOUT';
     return (
       <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
-      <GlowCard glow={tokens.colors.accent} padding={14} fill>
+      <GlowCard glow={colors.accent} padding={14} fill>
         <View testID={isToday ? 'hero-card' : `hero-card-${date}`} style={{ flex: 1 }}>
           {/* HEADER - fixed. */}
           <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
@@ -380,7 +381,7 @@ export default function TodayScreen() {
                   <View
                     key={p}
                     className="rounded-pill border bg-surface-2 px-s2 py-s1"
-                    style={{ borderColor: tokens.colors.border }}
+                    style={{ borderColor: colors.border }}
                   >
                     <Text
                       className="text-center text-text-dim"
@@ -397,9 +398,9 @@ export default function TodayScreen() {
               <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 10, rowGap: 4, flexWrap: 'wrap' }}>
                 {(
                   [
-                    [<PixelBars key="sets" size={16} color={tokens.colors['text-dim']} />, String(data.sets), 'SETS'],
-                    [<PixelClock key="min" size={16} color={tokens.colors['text-dim']} />, String(data.minutes), 'EST. MIN'],
-                    [<PixelFlame key="kcal" size={16} color={tokens.colors['text-dim']} />, String(data.kcal), 'EST. CAL'],
+                    [<PixelBars key="sets" size={16} color={colors['text-dim']} />, String(data.sets), 'SETS'],
+                    [<PixelClock key="min" size={16} color={colors['text-dim']} />, String(data.minutes), 'EST. MIN'],
+                    [<PixelFlame key="kcal" size={16} color={colors['text-dim']} />, String(data.kcal), 'EST. CAL'],
                   ] as const
                 ).map(([icon, value, label]) => (
                   <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
@@ -459,14 +460,14 @@ export default function TodayScreen() {
             </Text>
             <View
               className="mt-s1 self-stretch overflow-hidden rounded-pill"
-              style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}
+              style={{ height: 4, backgroundColor: colors['surface-3'] }}
             >
               <View
                 style={{
                   width: `${data.sets > 0 ? Math.min(100, (data.done / data.sets) * 100) : 0}%`,
                   height: '100%',
                   borderRadius: 999,
-                  backgroundColor: tokens.colors.accent,
+                  backgroundColor: colors.accent,
                 }}
               />
             </View>
@@ -476,7 +477,7 @@ export default function TodayScreen() {
               title={buttonTitle}
               pixel
               onPress={() => open(date, data.workout)}
-              rightIcon={<Text style={{ color: tokens.colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+              rightIcon={<Text style={{ color: colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
               testID={isToday ? 'hero-start' : `hero-start-${date}`}
             />
           </View>
@@ -541,7 +542,7 @@ export default function TodayScreen() {
       testID={testID}
       onPress={goScan}
       className="flex-row items-center justify-center rounded-md border px-s3"
-      style={{ minHeight: 48, gap: 8, borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
+      style={{ minHeight: 48, gap: 8, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
     >
       <Text className="text-base">📷</Text>
       <View className="items-start">
@@ -566,7 +567,7 @@ export default function TodayScreen() {
       testID={testID}
       onPress={onPress}
       className="flex-1 flex-row items-center rounded-md border px-s2"
-      style={{ minHeight: 46, gap: 7, borderColor: tokens.colors.border, backgroundColor: tokens.colors['surface-2'] }}
+      style={{ minHeight: 46, gap: 7, borderColor: colors.border, backgroundColor: colors['surface-2'] }}
     >
       {icon}
       <View style={{ flexShrink: 1 }}>
@@ -619,7 +620,7 @@ export default function TodayScreen() {
         <View className="items-center">
           <View
             className="rounded-lg border p-s1"
-            style={{ borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+            style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
           >
             <CompanionMenuButton anim={mode === 1 ? cardioAnim(cardioType) : 'idle'} height={44} />
           </View>
@@ -645,8 +646,8 @@ export default function TodayScreen() {
         onChange={setMode}
         testIDPrefix="today-mode"
         pixelLabels
-        leftIcon={<PixelDumbbell size={14} color={mode === 0 ? tokens.colors.accent : tokens.colors['text-dim']} />}
-        rightIcon={<PixelHeart size={14} color={mode === 1 ? tokens.colors.accent : tokens.colors['text-dim']} />}
+        leftIcon={<PixelDumbbell size={14} color={mode === 0 ? colors.accent : colors['text-dim']} />}
+        rightIcon={<PixelHeart size={14} color={mode === 1 ? colors.accent : colors['text-dim']} />}
       />
 
       <View style={{ display: mode === 0 ? 'flex' : 'none', gap: 12 }}>
@@ -668,21 +669,21 @@ export default function TodayScreen() {
         <View>
           <View className="flex-row gap-s2">
             {utilityButton(
-              <PixelSwap size={17} color={tokens.colors['text-dim']} />,
+              <PixelSwap size={17} color={colors['text-dim']} />,
               'CHOOSE WORKOUT',
               'Switch today\u2019s session',
               () => setChangeOpen(true),
               'change-workout'
             )}
             {utilityButton(
-              <PixelPlusSquare size={16} color={tokens.colors['text-dim']} />,
+              <PixelPlusSquare size={16} color={colors['text-dim']} />,
               'QUICK WORKOUT',
               'Train without a plan',
               () => setEmptyOpen(true),
               'start-empty'
             )}
             {utilityButton(
-              <PixelPencil size={16} color={tokens.colors['text-dim']} />,
+              <PixelPencil size={16} color={colors['text-dim']} />,
               'EDIT SCHEDULE',
               'Set your training week',
               () => router.push('/schedule' as never),
@@ -690,7 +691,7 @@ export default function TodayScreen() {
             )}
           </View>
           <View className="mt-s2 flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
-            <PixelCurvedArrow size={16} color={tokens.colors.accent} />
+            <PixelCurvedArrow size={16} color={colors.accent} />
             <Text className="text-2xs text-accent" style={{ flexShrink: 1 }}>
               Switch between My Plan, AI Plan or the EvoForge Plan
             </Text>
@@ -786,7 +787,7 @@ export default function TodayScreen() {
             <Pressable
               onPress={() => undefined}
               className="rounded-t-xl border-t p-s4"
-              style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 560 }}
+              style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 560 }}
             >
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
                 CHOOSE WORKOUT
@@ -820,14 +821,14 @@ export default function TodayScreen() {
                     style={{
                       minHeight: 52,
                       justifyContent: 'center',
-                      borderColor: active ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                      borderColor: active ? `${colors.accent}8c` : colors.border,
                       backgroundColor: active ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
                       opacity: empty && !active ? 0.65 : 1,
                     }}
                   >
                     <Text
                       className="text-2xs font-bold"
-                      style={{ letterSpacing: 1, color: active ? tokens.colors.accent : tokens.colors.text }}
+                      style={{ letterSpacing: 1, color: active ? colors.accent : colors.text }}
                     >
                       {active ? '✓ ' : ''}
                       {label}
@@ -890,14 +891,14 @@ export default function TodayScreen() {
             <Pressable
               onPress={() => undefined}
               className="rounded-t-xl border-t p-s4"
-              style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 560 }}
+              style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 560 }}
             >
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
                 QUICK WORKOUT
               </Text>
               <TextInput
                 className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
-                style={{ borderColor: tokens.colors.border }}
+                style={{ borderColor: colors.border }}
                 placeholder="Workout name (optional)"
                 placeholderTextColor="#64758f"
                 value={adhocName}
@@ -934,7 +935,7 @@ export default function TodayScreen() {
                       style={{
                         minHeight: 44,
                         justifyContent: 'center',
-                        borderColor: `${tokens.colors.success}8c`,
+                        borderColor: `${colors.success}8c`,
                         backgroundColor: 'rgba(52,211,153,0.08)',
                       }}
                     >

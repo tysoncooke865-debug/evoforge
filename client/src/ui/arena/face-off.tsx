@@ -18,7 +18,7 @@ import Animated, {
 
 import type { BattleParticipant } from '@/data/battle/hooks';
 import { type BranchV2 } from '@/domain/branches-v2';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { avatarArtV2, battleBackArtV2 } from '@/ui/character/avatar-art';
 import { ParticleLayer } from '@/ui/character/particle-layer';
 import { Silhouette } from '@/ui/character/silhouette';
@@ -31,8 +31,6 @@ import { Silhouette } from '@/ui/character/silhouette';
  * reduced motion; every animated node carries inline styles only.
  */
 
-const CYAN = tokens.colors.accent;
-const PURPLE = tokens.colors.epic;
 
 // Deterministic crowd bumps (no randomness in render — the compiler lint
 // is right that render must be pure).
@@ -147,13 +145,14 @@ function FogBank({ bottom, tint, delay }: { bottom: number; tint: string; delay:
 
 /** Perspective lines converging toward the VS. */
 function FloorLines() {
+  const colors = useThemeColors();
   const lines: { side: 'left' | 'right'; bottom: number; rot: number; tint: string }[] = [
-    { side: 'left', bottom: 18, rot: -16, tint: CYAN },
-    { side: 'left', bottom: 44, rot: -9, tint: CYAN },
-    { side: 'left', bottom: 70, rot: -4, tint: CYAN },
-    { side: 'right', bottom: 18, rot: 16, tint: PURPLE },
-    { side: 'right', bottom: 44, rot: 9, tint: PURPLE },
-    { side: 'right', bottom: 70, rot: 4, tint: PURPLE },
+    { side: 'left', bottom: 18, rot: -16, tint: colors.accent },
+    { side: 'left', bottom: 44, rot: -9, tint: colors.accent },
+    { side: 'left', bottom: 70, rot: -4, tint: colors.accent },
+    { side: 'right', bottom: 18, rot: 16, tint: colors.epic },
+    { side: 'right', bottom: 44, rot: 9, tint: colors.epic },
+    { side: 'right', bottom: 70, rot: 4, tint: colors.epic },
   ];
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 }}>
@@ -423,6 +422,7 @@ function HudPanel({ p, tint, align }: { p: BattleParticipant | null; tint: strin
 
 /** The cinematic VS: bloom, pulse, a light streak crossing behind it. */
 function CinematicVS() {
+  const colors = useThemeColors();
   const reducedMotion = useReducedMotion();
   const pulse = useSharedValue(0);
   const streak = useSharedValue(-1);
@@ -456,7 +456,7 @@ function CinematicVS() {
         ]}
       >
         <LinearGradient
-          colors={[`${PURPLE}00`, '#ffffffcc', `${PURPLE}00`]}
+          colors={[`${colors.epic}00`, '#ffffffcc', `${colors.epic}00`]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={{ flex: 1 }}
@@ -469,7 +469,7 @@ function CinematicVS() {
             fontWeight: '900',
             fontStyle: 'italic',
             letterSpacing: 3,
-            color: PURPLE,
+            color: colors.epic,
             textShadowColor: 'rgba(168,85,247,0.9)',
             textShadowRadius: 28,
           }}
@@ -483,6 +483,7 @@ function CinematicVS() {
 
 /** The whole arena. Heroes first; everything else is set dressing. */
 export function FaceOffScene({ me, them }: { me: BattleParticipant | null; them: BattleParticipant | null }) {
+  const colors = useThemeColors();
   return (
     <View
       style={{
@@ -499,39 +500,39 @@ export function FaceOffScene({ me, them }: { me: BattleParticipant | null; them:
         end={{ x: 0.5, y: 1 }}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -70, left: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: `${CYAN}12` }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -70, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: `${PURPLE}12` }} />
-      <LightRay left="6%" tint={CYAN} angle="14deg" delay={0} />
-      <LightRay left="30%" tint={CYAN} angle="6deg" delay={1300} />
-      <LightRay left="58%" tint={PURPLE} angle="-6deg" delay={700} />
-      <LightRay left="82%" tint={PURPLE} angle="-14deg" delay={2000} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -70, left: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: `${colors.accent}12` }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -70, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: `${colors.epic}12` }} />
+      <LightRay left="6%" tint={colors.accent} angle="14deg" delay={0} />
+      <LightRay left="30%" tint={colors.accent} angle="6deg" delay={1300} />
+      <LightRay left="58%" tint={colors.epic} angle="-6deg" delay={700} />
+      <LightRay left="82%" tint={colors.epic} angle="-14deg" delay={2000} />
       <CrowdStrip top={116} />
       <CrowdStrip top={132} flip />
       <View pointerEvents="none" style={{ position: 'absolute', top: 148, left: 0, right: 0, height: 1, backgroundColor: 'rgba(120,170,220,0.14)' }} />
       <FloorLines />
-      <FogBank bottom={26} tint={CYAN} delay={0} />
-      <FogBank bottom={54} tint={PURPLE} delay={2400} />
+      <FogBank bottom={26} tint={colors.accent} delay={0} />
+      <FogBank bottom={54} tint={colors.epic} delay={2400} />
 
       {/* the two athletes light their own arena */}
-      <ParticleLayer colour={CYAN} height={300} />
-      <ParticleLayer colour={PURPLE} height={260} />
+      <ParticleLayer colour={colors.accent} height={300} />
+      <ParticleLayer colour={colors.epic} height={260} />
 
       <View style={{ flex: 1, paddingHorizontal: 14, paddingTop: 14 }}>
         <View style={{ flexDirection: 'row', gap: 60 }}>
-          <HudPanel p={me} tint={CYAN} align="left" />
-          <HudPanel p={them} tint={PURPLE} align="right" />
+          <HudPanel p={me} tint={colors.accent} align="left" />
+          <HudPanel p={them} tint={colors.epic} align="right" />
         </View>
         <View style={{ flex: 1 }} />
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 12 }}>
-          <Fighter p={me} tint={CYAN} side="left" />
-          <Fighter p={them} tint={PURPLE} side="right" />
+          <Fighter p={me} tint={colors.accent} side="left" />
+          <Fighter p={them} tint={colors.epic} side="right" />
         </View>
       </View>
 
       {/* holographic centre-court projection under the VS */}
       <View pointerEvents="none" style={{ position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center' }}>
-        <View style={{ width: 210, height: 52, borderRadius: 999, borderWidth: 1, borderColor: `${PURPLE}30` }} />
-        <View style={{ position: 'absolute', top: 8, width: 150, height: 36, borderRadius: 999, borderWidth: 1, borderColor: `${CYAN}26` }} />
+        <View style={{ width: 210, height: 52, borderRadius: 999, borderWidth: 1, borderColor: `${colors.epic}30` }} />
+        <View style={{ position: 'absolute', top: 8, width: 150, height: 36, borderRadius: 999, borderWidth: 1, borderColor: `${colors.accent}26` }} />
       </View>
 
       {/* the focal point: on the fighters' eye line */}
@@ -544,6 +545,7 @@ export function FaceOffScene({ me, them }: { me: BattleParticipant | null; them:
 
 /** One elegant rules panel: glowing glyphs, hairline separators. */
 export function BattleRulesPanel({ rules }: { rules: readonly { glyph: string; text: string }[] }) {
+  const colors = useThemeColors();
   return (
     <View
       style={{
@@ -554,7 +556,7 @@ export function BattleRulesPanel({ rules }: { rules: readonly { glyph: string; t
         paddingVertical: 14,
       }}
     >
-      <Text className="text-center text-2xs font-bold" style={{ color: CYAN, letterSpacing: 3 }}>
+      <Text className="text-center text-2xs font-bold" style={{ color: colors.accent, letterSpacing: 3 }}>
         BATTLE RULES
       </Text>
       <View className="mt-s3 flex-row">
@@ -564,7 +566,7 @@ export function BattleRulesPanel({ rules }: { rules: readonly { glyph: string; t
             className="flex-1 items-center gap-s1 px-s2"
             style={i > 0 ? { borderLeftWidth: 1, borderLeftColor: 'rgba(120,170,220,0.12)' } : undefined}
           >
-            <Text style={{ fontSize: 20, textShadowColor: `${CYAN}99`, textShadowRadius: 12 }}>{rule.glyph}</Text>
+            <Text style={{ fontSize: 20, textShadowColor: `${colors.accent}99`, textShadowRadius: 12 }}>{rule.glyph}</Text>
             <Text className="text-center text-2xs text-text-dim">{rule.text}</Text>
           </View>
         ))}
@@ -587,6 +589,7 @@ export function ReadyCTA({
   busy?: boolean;
   testID?: string;
 }) {
+  const colors = useThemeColors();
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -611,7 +614,7 @@ export function ReadyCTA({
 
   return (
     <Animated.View
-      style={[{ shadowColor: CYAN, shadowRadius: 22, shadowOffset: { width: 0, height: 4 }, elevation: 10 }, halo]}
+      style={[{ shadowColor: colors.accent, shadowRadius: 22, shadowOffset: { width: 0, height: 4 }, elevation: 10 }, halo]}
     >
       <Pressable
         onPress={onPress}
@@ -624,8 +627,8 @@ export function ReadyCTA({
         <LinearGradient
           colors={
             disabled
-              ? [tokens.colors['surface-2'], tokens.colors['surface-2']]
-              : [tokens.colors['accent-strong'], tokens.colors.accent, tokens.colors['accent-deep']]
+              ? [colors['surface-2'], colors['surface-2']]
+              : [colors['accent-strong'], colors.accent, colors['accent-deep']]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -642,14 +645,14 @@ export function ReadyCTA({
             />
           ) : null}
           {busy ? (
-            <ActivityIndicator color={tokens.colors['accent-ink']} />
+            <ActivityIndicator color={colors['accent-ink']} />
           ) : (
             <Text
               style={{
                 fontWeight: '900',
                 fontSize: 16,
                 letterSpacing: 2,
-                color: disabled ? tokens.colors['text-mute'] : tokens.colors['accent-ink'],
+                color: disabled ? colors['text-mute'] : colors['accent-ink'],
               }}
             >
               {title}

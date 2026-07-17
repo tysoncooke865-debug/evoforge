@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 
 import type { DayState } from '@/domain/scheduled-streak';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The month grid (IMPROVEMENT_PLAN #11): completed filled, missed hollow
@@ -22,6 +22,7 @@ export function StreakCalendar({
   days: Map<string, DayState>;
   todayIso: string;
 }) {
+  const colors = useThemeColors();
   const first = new Date(Date.UTC(year, month, 1));
   const startDow = first.getUTCDay();
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -39,7 +40,7 @@ export function StreakCalendar({
   return (
     <View
       className="rounded-xl p-s4"
-      style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(8,14,26,0.6)' }}
+      style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(8,14,26,0.6)' }}
     >
       <Text className="mb-s3 text-center text-xs font-bold text-text" style={{ letterSpacing: 2 }}>
         {monthName.toUpperCase()} {year}
@@ -61,21 +62,22 @@ export function StreakCalendar({
         </View>
       ))}
       <View className="mt-s2 flex-row flex-wrap justify-center gap-s3">
-        <Legend colour={tokens.colors.success} label="done" filled />
-        <Legend colour={tokens.colors.danger} label="missed" />
-        <Legend colour={tokens.colors['text-mute']} label="rest" dim />
+        <Legend colour={colors.success} label="done" filled />
+        <Legend colour={colors.danger} label="missed" />
+        <Legend colour={colors['text-mute']} label="rest" dim />
       </View>
     </View>
   );
 }
 
 function DayDot({ iso, state, today }: { iso: string; state: DayState; today: boolean }) {
+  const colors = useThemeColors();
   const styles: Record<DayState, { bg: string; border: string; text: string; opacity?: number }> = {
-    completed: { bg: `${tokens.colors.success}33`, border: tokens.colors.success, text: tokens.colors.success },
-    missed: { bg: 'transparent', border: `${tokens.colors.danger}8c`, text: tokens.colors.danger },
-    rest: { bg: 'transparent', border: 'transparent', text: tokens.colors['text-mute'], opacity: 0.55 },
-    pending: { bg: 'transparent', border: `${tokens.colors.accent}8c`, text: tokens.colors.text },
-    future: { bg: 'transparent', border: 'transparent', text: tokens.colors['text-mute'], opacity: 0.35 },
+    completed: { bg: `${colors.success}33`, border: colors.success, text: colors.success },
+    missed: { bg: 'transparent', border: `${colors.danger}8c`, text: colors.danger },
+    rest: { bg: 'transparent', border: 'transparent', text: colors['text-mute'], opacity: 0.55 },
+    pending: { bg: 'transparent', border: `${colors.accent}8c`, text: colors.text },
+    future: { bg: 'transparent', border: 'transparent', text: colors['text-mute'], opacity: 0.35 },
   };
   const s = styles[state];
   return (
@@ -85,12 +87,12 @@ function DayDot({ iso, state, today }: { iso: string; state: DayState; today: bo
         height: 28,
         borderRadius: 14,
         borderWidth: today ? 2 : state === 'missed' || state === 'completed' || state === 'pending' ? 1 : 0,
-        borderColor: today ? tokens.colors.accent : s.border,
+        borderColor: today ? colors.accent : s.border,
         backgroundColor: s.bg,
         alignItems: 'center',
         justifyContent: 'center',
         opacity: s.opacity ?? 1,
-        shadowColor: state === 'completed' ? tokens.colors.success : 'transparent',
+        shadowColor: state === 'completed' ? colors.success : 'transparent',
         shadowOpacity: state === 'completed' ? 0.4 : 0,
         shadowRadius: 6,
       }}

@@ -17,7 +17,7 @@ import {
 import { weeklyContract } from '@/domain/scheduled-streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { LineChart, type ChartPoint } from '@/ui/core/line-chart';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -31,6 +31,7 @@ import { todayIso as calendarToday } from '@/domain/today';
  * never a dual axis.
  */
 export default function ProgressScreen() {
+  const colors = useThemeColors();
   const bodyweights = useBodyweightLog();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
@@ -118,8 +119,8 @@ export default function ProgressScreen() {
                 letterSpacing: 0.5,
                 color:
                   contract.target > 0 && contract.done >= contract.target
-                    ? tokens.colors.success
-                    : tokens.colors.accent,
+                    ? colors.success
+                    : colors.accent,
                 ...pixelFont(),
               }}
             >
@@ -137,9 +138,9 @@ export default function ProgressScreen() {
         </View>
         <View className="flex-row flex-wrap" style={{ rowGap: 12 }}>
           <Stat value={String(week.sets)} label="SETS" />
-          <Stat value={fmtKg(week.volumeKg)} label="VOLUME" tint={tokens.colors.epic} />
-          <Stat value={String(Math.trunc(week.cardioMinutes))} label="CARDIO MIN" tint={tokens.colors.rare} />
-          <Stat value={`+${week.xp}`} label="XP" tint={tokens.colors.accent} />
+          <Stat value={fmtKg(week.volumeKg)} label="VOLUME" tint={colors.epic} />
+          <Stat value={String(Math.trunc(week.cardioMinutes))} label="CARDIO MIN" tint={colors.rare} />
+          <Stat value={`+${week.xp}`} label="XP" tint={colors.accent} />
         </View>
       </GlowCard>
 
@@ -224,10 +225,12 @@ export default function ProgressScreen() {
   );
 }
 
-function Stat({ value, label, tint = tokens.colors.text }: { value: string; label: string; tint?: string }) {
+function Stat({ value, label, tint }: { value: string; label: string; tint?: string }) {
+  const colors = useThemeColors();
+  const tintColor = tint ?? colors.text;
   return (
     <View style={{ width: '25%' }}>
-      <Text allowFontScaling={false} style={{ fontSize: 18, color: tint, ...pixelFont() }} numberOfLines={1}>
+      <Text allowFontScaling={false} style={{ fontSize: 18, color: tintColor, ...pixelFont() }} numberOfLines={1}>
         {value}
       </Text>
       <Text

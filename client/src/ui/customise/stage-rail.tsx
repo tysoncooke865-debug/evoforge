@@ -3,7 +3,7 @@ import type { ImageSourcePropType } from 'react-native';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { PIXEL } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { playSelect } from '@/ui/core/sound';
 
 /**
@@ -29,6 +29,7 @@ export interface StageRailItem {
 }
 
 export function StageRail({ items, maxHeight }: { items: StageRailItem[]; maxHeight: number }) {
+  const colors = useThemeColors();
   if (items.length <= 1) return null;
   return (
     <ScrollView
@@ -50,9 +51,9 @@ export function StageRail({ items, maxHeight }: { items: StageRailItem[]; maxHei
           style={{
             width: 52,
             minHeight: 56,
-            borderColor: item.selected ? `${tokens.colors.accent}b3` : item.locked ? 'rgba(120,170,220,0.10)' : tokens.colors.border,
+            borderColor: item.selected ? `${colors.accent}b3` : item.locked ? 'rgba(120,170,220,0.10)' : colors.border,
             backgroundColor: item.selected ? 'rgba(34,211,238,0.12)' : 'rgba(13,21,36,0.6)',
-            shadowColor: tokens.colors.accent,
+            shadowColor: colors.accent,
             shadowOpacity: item.selected ? 0.4 : 0,
             shadowRadius: 10,
             elevation: item.selected ? 4 : 0,
@@ -62,7 +63,7 @@ export function StageRail({ items, maxHeight }: { items: StageRailItem[]; maxHei
             allowFontScaling={false}
             style={{
               fontSize: 7,
-              color: item.selected ? tokens.colors.accent : tokens.colors['text-mute'],
+              color: item.selected ? colors.accent : colors['text-mute'],
               fontFamily: PIXEL,
               letterSpacing: 0.5,
             }}

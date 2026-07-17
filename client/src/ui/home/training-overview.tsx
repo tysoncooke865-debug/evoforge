@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 
 import type { WeeklyContract } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { PixelBars, PixelClock, PixelDumbbell, PixelHeart } from '@/ui/core/pixel-icons';
 
 /**
@@ -28,10 +28,11 @@ export function TrainingOverview({
   weekXp: number;
   hasSchedule: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <View
       className="rounded-xl border p-s4"
-      style={{ borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
+      style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
     >
       <View className="flex-row items-center justify-between">
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
@@ -44,28 +45,28 @@ export function TrainingOverview({
 
       <View className="mt-s3 flex-row flex-wrap" style={{ gap: 12 }}>
         <Metric
-          icon={<PixelDumbbell size={15} color={tokens.colors['text-dim']} />}
+          icon={<PixelDumbbell size={15} color={colors['text-dim']} />}
           label="WORKOUTS"
           value={hasSchedule ? `${contract.done} / ${contract.target}` : String(contract.done)}
           pct={hasSchedule && contract.target > 0 ? (contract.done / contract.target) * 100 : null}
           testID="overview-workouts"
         />
         <Metric
-          icon={<PixelBars size={15} color={tokens.colors['text-dim']} />}
+          icon={<PixelBars size={15} color={colors['text-dim']} />}
           label="SETS"
           value={String(weekSets)}
           pct={null}
           testID="overview-sets"
         />
         <Metric
-          icon={<PixelHeart size={15} color={tokens.colors['text-dim']} />}
+          icon={<PixelHeart size={15} color={colors['text-dim']} />}
           label="CARDIO"
           value={`${Math.trunc(weekCardioMinutes)} MIN`}
           pct={null}
           testID="overview-cardio"
         />
         <Metric
-          icon={<PixelClock size={15} color={tokens.colors['text-dim']} />}
+          icon={<PixelClock size={15} color={colors['text-dim']} />}
           label="XP EARNED"
           value={`+${weekXp}`}
           pct={null}
@@ -97,6 +98,7 @@ function Metric({
   pct: number | null;
   testID: string;
 }) {
+  const colors = useThemeColors();
   return (
     <View style={{ flexGrow: 1, flexBasis: '44%', minWidth: 0 }} testID={testID}>
       <View className="flex-row items-center" style={{ gap: 6 }}>
@@ -114,14 +116,14 @@ function Metric({
         {value}
       </Text>
       {pct !== null ? (
-        <View className="mt-s1 overflow-hidden rounded-pill" style={{ height: 4, backgroundColor: tokens.colors['surface-3'] }}>
+        <View className="mt-s1 overflow-hidden rounded-pill" style={{ height: 4, backgroundColor: colors['surface-3'] }}>
           <View
             style={{
               width: `${Math.min(100, pct)}%`,
               minWidth: pct > 0 ? 4 : 0,
               height: '100%',
               borderRadius: 999,
-              backgroundColor: tokens.colors.accent,
+              backgroundColor: colors.accent,
             }}
           />
         </View>
@@ -132,12 +134,13 @@ function Metric({
 
 /** One day of the week strip — the contract's own state palette. */
 function DayDot({ letter, state }: { letter: string; state: string }) {
+  const colors = useThemeColors();
   const palette: Record<string, { border: string; bg: string; text: string }> = {
-    completed: { bg: `${tokens.colors.success}26`, border: tokens.colors.success, text: tokens.colors.success },
-    missed: { bg: 'transparent', border: `${tokens.colors.danger}66`, text: `${tokens.colors.danger}99` },
-    pending: { bg: `${tokens.colors.accent}1f`, border: tokens.colors.accent, text: tokens.colors.accent },
-    rest: { bg: 'transparent', border: tokens.colors.border, text: tokens.colors['text-mute'] },
-    future: { bg: 'transparent', border: tokens.colors.border, text: tokens.colors['text-dim'] },
+    completed: { bg: `${colors.success}26`, border: colors.success, text: colors.success },
+    missed: { bg: 'transparent', border: `${colors.danger}66`, text: `${colors.danger}99` },
+    pending: { bg: `${colors.accent}1f`, border: colors.accent, text: colors.accent },
+    rest: { bg: 'transparent', border: colors.border, text: colors['text-mute'] },
+    future: { bg: 'transparent', border: colors.border, text: colors['text-dim'] },
   };
   const c = palette[state] ?? palette.future;
   return (

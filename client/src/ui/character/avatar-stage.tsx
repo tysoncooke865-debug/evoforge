@@ -14,7 +14,7 @@ import type { ImageSourcePropType } from 'react-native';
 
 import type { Branch } from '@/domain/avatar-stats';
 import { animations } from '@/theme/animations';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { useAmbient } from '@/ui/core/use-ambient';
 
@@ -60,6 +60,7 @@ export function AvatarStage({
   /** True = placeholder form: render as a rim-lit silhouette, never as art. */
   silhouette?: boolean;
 }) {
+  const colors = useThemeColors();
   // PERF: focus-aware — a preloaded hidden tab's stage runs NO loops and
   // serves the STATIC art instead of the gif (use-ambient.ts).
   const animate = useAmbient();
@@ -190,7 +191,7 @@ export function AvatarStage({
             width: size * 0.55,
             height: 10,
             borderRadius: 8,
-            backgroundColor: tokens.colors['bg-deep'],
+            backgroundColor: colors['bg-deep'],
           },
           groundStyle,
         ]}

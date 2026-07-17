@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line as SvgLine, Path, Text as SvgText } from 'react-native-svg';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The hand-rolled time-series line chart the plan specifies (react-native-svg
@@ -36,6 +36,7 @@ interface LineChartProps {
 const PAD = { top: 10, right: 12, bottom: 22, left: 44 };
 
 export function LineChart({ points, height = 180, formatY = (y) => String(y), xStart, xEnd }: LineChartProps) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const [active, setActive] = useState<number | null>(null);
 
@@ -110,7 +111,7 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
                 x2={width - PAD.right}
                 y1={geometry.sy(t)}
                 y2={geometry.sy(t)}
-                stroke={tokens.colors['border-soft']}
+                stroke={colors['border-soft']}
                 strokeWidth={1}
               />
             ))}
@@ -120,13 +121,13 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
                 x={PAD.left - 6}
                 y={geometry.sy(t) + 3}
                 fontSize={9}
-                fill={tokens.colors['text-mute']}
+                fill={colors['text-mute']}
                 textAnchor="end"
               >
                 {formatY(t)}
               </SvgText>
             ))}
-            <Path d={geometry.path} stroke={tokens.colors.accent} strokeWidth={2} fill="none" />
+            <Path d={geometry.path} stroke={colors.accent} strokeWidth={2} fill="none" />
 
             {activePoint ? (
               <>
@@ -135,7 +136,7 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
                   x2={geometry.sx(activePoint.x)}
                   y1={PAD.top}
                   y2={height - PAD.bottom}
-                  stroke={tokens.colors['border-strong']}
+                  stroke={colors['border-strong']}
                   strokeWidth={1}
                 />
                 {/* >=8px marker with a surface ring so it reads over the line */}
@@ -143,8 +144,8 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
                   cx={geometry.sx(activePoint.x)}
                   cy={geometry.sy(activePoint.y)}
                   r={5}
-                  fill={tokens.colors.accent}
-                  stroke={tokens.colors.surface}
+                  fill={colors.accent}
+                  stroke={colors.surface}
                   strokeWidth={2}
                 />
               </>
@@ -153,18 +154,18 @@ export function LineChart({ points, height = 180, formatY = (y) => String(y), xS
                 cx={geometry.sx(points[points.length - 1].x)}
                 cy={geometry.sy(points[points.length - 1].y)}
                 r={4}
-                fill={tokens.colors.accent}
+                fill={colors.accent}
               />
             )}
 
-            <SvgText x={PAD.left} y={height - 6} fontSize={9} fill={tokens.colors['text-mute']}>
+            <SvgText x={PAD.left} y={height - 6} fontSize={9} fill={colors['text-mute']}>
               {xStart ?? points[0].label.split(' ·')[0]}
             </SvgText>
             <SvgText
               x={width - PAD.right}
               y={height - 6}
               fontSize={9}
-              fill={tokens.colors['text-mute']}
+              fill={colors['text-mute']}
               textAnchor="end"
             >
               {xEnd ?? points[points.length - 1].label.split(' ·')[0]}

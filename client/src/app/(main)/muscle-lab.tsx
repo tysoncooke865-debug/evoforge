@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { focusFor, type MuscleId, type MuscleView } from '@/domain/muscle-map';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { BACK_MUSCLE_MASKS } from '@/ui/muscle-map/back-masks';
 import { FRONT_MUSCLE_MASKS } from '@/ui/muscle-map/front-masks';
 import { MuscleMap } from '@/ui/muscle-map/muscle-map';
@@ -26,6 +26,7 @@ const OPACITIES = [0.4, 0.6, 0.8, 1.0] as const;
 const ENABLED = __DEV__ || process.env.EXPO_PUBLIC_MUSCLE_LAB === '1';
 
 export default function MuscleLabScreen() {
+  const colors = useThemeColors();
   const [view, setView] = useState<MuscleView>('front');
   const [active, setActive] = useState<MuscleId[]>(['chest', 'shoulders', 'triceps']);
   const [opacity, setOpacity] = useState<number>(1);
@@ -49,11 +50,11 @@ export default function MuscleLabScreen() {
       style={{
         minHeight: 40,
         justifyContent: 'center',
-        borderColor: on ? `${tokens.colors.accent}8c` : tokens.colors.border,
-        backgroundColor: on ? 'rgba(34,211,238,0.12)' : tokens.colors['surface-2'],
+        borderColor: on ? `${colors.accent}8c` : colors.border,
+        backgroundColor: on ? 'rgba(34,211,238,0.12)' : colors['surface-2'],
       }}
     >
-      <Text className="text-2xs font-bold" style={{ color: on ? tokens.colors.accent : tokens.colors['text-dim'] }}>
+      <Text className="text-2xs font-bold" style={{ color: on ? colors.accent : colors['text-dim'] }}>
         {label}
       </Text>
     </Pressable>
@@ -85,7 +86,7 @@ export default function MuscleLabScreen() {
         </View>
 
         {/* The map at the ACTUAL Train-card size (120) or enlarged (320). */}
-        <View className="items-center rounded-xl border p-s3" style={{ borderColor: tokens.colors.border }}>
+        <View className="items-center rounded-xl border p-s3" style={{ borderColor: colors.border }}>
           <MuscleMap
             selectedMuscles={active}
             view={view}

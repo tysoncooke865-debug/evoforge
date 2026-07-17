@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { UseBattle } from '@/ui/battle/use-battle';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * DEV-ONLY battle debug panel. Hidden unless __DEV__; a collapsed tab in the
@@ -34,9 +34,10 @@ export function BattleDebugPanel({ battle }: { battle: UseBattle }) {
 }
 
 function Btn({ label, onPress, active = false }: { label: string; onPress: () => void; active?: boolean }) {
+  const colors = useThemeColors();
   return (
-    <Pressable onPress={onPress} style={{ borderRadius: 5, borderWidth: 1, borderColor: active ? tokens.colors.accent : '#334155', backgroundColor: active ? 'rgba(34,211,238,0.12)' : 'rgba(20,30,50,0.8)', paddingHorizontal: 6, paddingVertical: 4 }}>
-      <Text allowFontScaling={false} style={{ fontSize: 8.5, color: active ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL }}>{label}</Text>
+    <Pressable onPress={onPress} style={{ borderRadius: 5, borderWidth: 1, borderColor: active ? colors.accent : '#334155', backgroundColor: active ? 'rgba(34,211,238,0.12)' : 'rgba(20,30,50,0.8)', paddingHorizontal: 6, paddingVertical: 4 }}>
+      <Text allowFontScaling={false} style={{ fontSize: 8.5, color: active ? colors.accent : colors.text, fontFamily: PIXEL }}>{label}</Text>
     </Pressable>
   );
 }

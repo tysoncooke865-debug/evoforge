@@ -13,7 +13,7 @@ import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { useGrantBattleReward } from '@/data/battle-rpg';
 import { playCrit, playDefeat, playHeal, playHit, playMoveFx, playVictory } from '@/ui/core/sound';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { stillAvatar, avatarArtV2 } from '@/ui/character/avatar-art';
 import { Image } from 'expo-image';
 import { BattleDebugPanel } from '@/ui/battle/debug-panel';
@@ -44,6 +44,7 @@ import {
  * ?mode=training|rival|gym[&gym=iron_foundry]. Pushed over the tabs.
  */
 export default function BattleScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ mode?: string; gym?: string; code?: string; ghost?: string }>();
   const mode = (['gym', 'rival', 'versus', 'challenge', 'ghost'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
   const isChallenge = mode === 'challenge';
@@ -150,7 +151,7 @@ export default function BattleScreen() {
       <ScreenShell>
         <ScreenHeader kicker="ARENA" title="BATTLE" onBack={() => router.back()} />
         <View style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: tokens.colors['text-mute'] }}>Loading your champion…</Text>
+          <Text style={{ color: colors['text-mute'] }}>Loading your champion…</Text>
         </View>
       </ScreenShell>
     );
@@ -197,7 +198,7 @@ export default function BattleScreen() {
       return (
         <ScreenShell>
           <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
-          <Text style={{ color: tokens.colors['text-mute'] }}>
+          <Text style={{ color: colors['text-mute'] }}>
             That ghost is gone — or its owner isn&apos;t your friend yet.
           </Text>
         </ScreenShell>
@@ -208,7 +209,7 @@ export default function BattleScreen() {
         <ScreenShell>
           <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
           <View style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: tokens.colors['text-mute'] }}>Summoning the ghost…</Text>
+            <Text style={{ color: colors['text-mute'] }}>Summoning the ghost…</Text>
           </View>
         </ScreenShell>
       );
@@ -293,6 +294,7 @@ function PreviewScreen({
   onP2Pick: (id: ChampionId) => void;
   onStart: () => void;
 }) {
+  const colors = useThemeColors();
   const title = versus ? 'VERSUS' : mode === 'gym' ? (gymName ?? 'GYM').toUpperCase() : mode === 'rival' ? 'RIVAL BATTLE' : 'TRAINING BATTLE';
   const oppBranch = CHAMPIONS[setup.opponentChampion].spriteBranch;
   return (
@@ -302,21 +304,21 @@ function PreviewScreen({
       {versus ? (
         <>
           {/* VS matchup banner. */}
-          <View className="rounded-xl border p-s4 flex-row items-center justify-between" style={{ borderColor: `${tokens.colors.accent}45`, backgroundColor: 'rgba(10,16,30,0.55)' }}>
-            <MatchupSide label="PLAYER 1" id={picked} tint={tokens.colors.accent} />
-            <Text style={{ fontSize: 22, color: tokens.colors.legendary, ...pixelFont() }}>VS</Text>
-            <MatchupSide label="PLAYER 2" id={p2Picked} tint={tokens.colors.danger} right />
+          <View className="rounded-xl border p-s4 flex-row items-center justify-between" style={{ borderColor: `${colors.accent}45`, backgroundColor: 'rgba(10,16,30,0.55)' }}>
+            <MatchupSide label="PLAYER 1" id={picked} tint={colors.accent} />
+            <Text style={{ fontSize: 22, color: colors.legendary, ...pixelFont() }}>VS</Text>
+            <MatchupSide label="PLAYER 2" id={p2Picked} tint={colors.danger} right />
           </View>
           <Text className="mt-s2 text-center text-2xs text-text-mute">Pass-and-play on one device — take turns choosing moves.</Text>
 
           <View className="mt-s4">
-            <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 1 — YOUR CHAMPION</Text>
+            <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 1 — YOUR CHAMPION</Text>
             <View className="mt-s2">
               <ChampionPicker picked={picked} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
             </View>
           </View>
           <View className="mt-s4">
-            <Text style={{ fontSize: 10, color: tokens.colors.danger, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 2 — FRIEND&apos;S CHAMPION</Text>
+            <Text style={{ fontSize: 10, color: colors.danger, fontFamily: PIXEL, letterSpacing: 1.5 }}>PLAYER 2 — FRIEND&apos;S CHAMPION</Text>
             <View className="mt-s2">
               <ChampionPicker picked={p2Picked} unlocked={null} testPrefix="p2" onPick={onP2Pick} />
             </View>
@@ -325,21 +327,21 @@ function PreviewScreen({
       ) : (
         <>
           {/* Opponent preview. */}
-          <View className="rounded-xl border p-s4" style={{ borderColor: `${tokens.colors.danger}45`, backgroundColor: 'rgba(20,10,16,0.5)' }}>
-            <Text style={{ fontSize: 10, color: tokens.colors.danger, fontFamily: PIXEL, letterSpacing: 1 }}>OPPONENT</Text>
+          <View className="rounded-xl border p-s4" style={{ borderColor: `${colors.danger}45`, backgroundColor: 'rgba(20,10,16,0.5)' }}>
+            <Text style={{ fontSize: 10, color: colors.danger, fontFamily: PIXEL, letterSpacing: 1 }}>OPPONENT</Text>
             <View className="mt-s2 flex-row items-center" style={{ gap: 12 }}>
               <Image source={stillAvatar(oppBranch, 4, 'male') ?? avatarArtV2(oppBranch, 4, 'male').source} style={{ width: 88, height: 88, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, color: tokens.colors.text, ...pixelFont() }}>{setup.opponentName.toUpperCase()}</Text>
-                {leaderTitle ? <Text style={{ fontSize: 10, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>{leaderTitle.toUpperCase()}</Text> : null}
-                <Text style={{ marginTop: 2, fontSize: 12, color: tokens.colors.accent }}>{CHAMPIONS[setup.opponentChampion].name}</Text>
-                <Text style={{ marginTop: 2, fontSize: 11, color: tokens.colors['text-mute'] }}>Combat Power ~{opponentPower}{recommendedRating ? ` · Rec. Evo ${recommendedRating}` : ''}</Text>
+                <Text style={{ fontSize: 16, color: colors.text, ...pixelFont() }}>{setup.opponentName.toUpperCase()}</Text>
+                {leaderTitle ? <Text style={{ fontSize: 10, color: colors['text-mute'], fontFamily: PIXEL }}>{leaderTitle.toUpperCase()}</Text> : null}
+                <Text style={{ marginTop: 2, fontSize: 12, color: colors.accent }}>{CHAMPIONS[setup.opponentChampion].name}</Text>
+                <Text style={{ marginTop: 2, fontSize: 11, color: colors['text-mute'] }}>Combat Power ~{opponentPower}{recommendedRating ? ` · Rec. Evo ${recommendedRating}` : ''}</Text>
               </View>
             </View>
           </View>
 
           <View className="mt-s4">
-            <Text style={{ fontSize: 10, color: tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>SELECT YOUR CHAMPION</Text>
+            <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>SELECT YOUR CHAMPION</Text>
             <View className="mt-s2">
               <ChampionPicker picked={picked} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
             </View>
@@ -355,11 +357,12 @@ function PreviewScreen({
 }
 
 function MatchupSide({ label, id, tint, right = false }: { label: string; id: ChampionId; tint: string; right?: boolean }) {
+  const colors = useThemeColors();
   return (
     <View style={{ alignItems: 'center', flex: 1 }}>
       <Text allowFontScaling={false} style={{ fontSize: 8, color: tint, fontFamily: PIXEL, letterSpacing: 1 }}>{label}</Text>
       <Image source={championSprite(id)} style={{ width: 64, height: 64, marginVertical: 2, transform: [{ scaleX: right ? -1 : 1 }], ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.text, fontFamily: PIXEL_BOLD }}>{CHAMPIONS[id].name.toUpperCase()}</Text>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, color: colors.text, fontFamily: PIXEL_BOLD }}>{CHAMPIONS[id].name.toUpperCase()}</Text>
     </View>
   );
 }
@@ -367,6 +370,7 @@ function MatchupSide({ label, id, tint, right = false }: { label: string; id: Ch
 // ------------------------------------------------------------- runner
 
 function BattleRunner({ setup }: { setup: BattleSetup }) {
+  const colors = useThemeColors();
   const [resultOpen, setResultOpen] = useState(false);
   const [introDone, setIntroDone] = useState(false);
   const [handedTurn, setHandedTurn] = useState(-1);
@@ -427,7 +431,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
   const versusPrompt = setup.versus && !battle.isBusy && !state.winner ? `${chooserLabel} — choose your move` : null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.colors['bg-deep'] }}>
+    <View style={{ flex: 1, backgroundColor: colors['bg-deep'] }}>
       <ScreenShell>
         <BattleDebugPanel battle={battle} />
         <ScreenHeader kicker="ARENA BATTLE" title={`TURN ${state.turnNumber}`} onBack={() => router.back()} />
@@ -453,7 +457,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
           onPress={() => battle.advance()}
           accessibilityRole="button"
           accessibilityLabel="advance battle text"
-          style={{ minHeight: 40, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${tokens.colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.8)', paddingHorizontal: 12, paddingVertical: 7, marginBottom: 8 }}
+          style={{ minHeight: 40, justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: `${colors.accent}44`, backgroundColor: 'rgba(10,16,30,0.8)', paddingHorizontal: 12, paddingVertical: 7, marginBottom: 8 }}
         >
           <TypewriterText key={message || versusPrompt || 'idle'} text={message || versusPrompt || (orderHint ? `Choose your move · ${orderHint}` : 'Choose your move…')} busy={battle.isBusy} />
         </Pressable>
@@ -464,7 +468,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
         {/* Moves — served to whoever is choosing. */}
         <View style={{ marginTop: 10, position: 'relative' }}>
           {chooserLabel ? (
-            <Text allowFontScaling={false} style={{ marginBottom: 6, fontSize: 9, color: battle.awaitingSide === 'opponent' ? tokens.colors.danger : tokens.colors.accent, fontFamily: PIXEL, letterSpacing: 1 }}>
+            <Text allowFontScaling={false} style={{ marginBottom: 6, fontSize: 9, color: battle.awaitingSide === 'opponent' ? colors.danger : colors.accent, fontFamily: PIXEL, letterSpacing: 1 }}>
               {chooserLabel} — SELECT MOVE
             </Text>
           ) : null}
@@ -479,8 +483,8 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
               testID="pass-device"
               style={{ position: 'absolute', inset: -4, borderRadius: 14, backgroundColor: 'rgba(2,6,14,0.94)', alignItems: 'center', justifyContent: 'center', gap: 6 }}
             >
-              <Text style={{ fontSize: 15, color: tokens.colors.danger, ...pixelFont() }}>PASS TO PLAYER 2</Text>
-              <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors['text-mute'], fontFamily: PIXEL }}>PLAYER 1 LOCKED IN · TAP WHEN READY</Text>
+              <Text style={{ fontSize: 15, color: colors.danger, ...pixelFont() }}>PASS TO PLAYER 2</Text>
+              <Text allowFontScaling={false} style={{ fontSize: 10, color: colors['text-mute'], fontFamily: PIXEL }}>PLAYER 1 LOCKED IN · TAP WHEN READY</Text>
             </Pressable>
           ) : null}
         </View>
@@ -514,6 +518,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
 /** Reveals the message character-by-character; snaps to full instantly when
  *  the turn is idle (so move hints read immediately) or the text is short. */
 function TypewriterText({ text, busy }: { text: string; busy: boolean }) {
+  const colors = useThemeColors();
   // Keyed by `text` in the parent, so `shown` starts empty for each new
   // message — the interval (async setState) is the only writer.
   const [shown, setShown] = useState('');
@@ -528,7 +533,7 @@ function TypewriterText({ text, busy }: { text: string; busy: boolean }) {
     return () => clearInterval(id);
   }, [text, busy]);
   return (
-    <Text allowFontScaling={false} style={{ fontSize: 12.5, color: tokens.colors.text, lineHeight: 17 }}>
+    <Text allowFontScaling={false} style={{ fontSize: 12.5, color: colors.text, lineHeight: 17 }}>
       {busy ? shown : text}
     </Text>
   );

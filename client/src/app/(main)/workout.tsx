@@ -36,7 +36,7 @@ import { XP_PER_SET } from '@/domain/xp';
 import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { playComplete } from '@/ui/core/sound';
 import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
@@ -68,6 +68,7 @@ import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet'
  * is load-bearing in week-status.
  */
 export default function WorkoutScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string }>();
   const todayIso = calendarToday();
   const date = params.date ?? todayIso;
@@ -314,7 +315,7 @@ export default function WorkoutScreen() {
           className="text-2xs font-bold"
           style={{
             letterSpacing: 1.5,
-            color: borrowedFrom !== null ? tokens.colors.warn : tokens.colors['text-mute'],
+            color: borrowedFrom !== null ? colors.warn : colors['text-mute'],
           }}
           testID="workout-source"
         >
@@ -325,16 +326,16 @@ export default function WorkoutScreen() {
       ) : null}
 
       {/* Progress — kept compact (Tyson 2026-07-16: it wasted ~30% height). */}
-      <GlowCard glow={complete ? tokens.colors.success : undefined} padding={12}>
+      <GlowCard glow={complete ? colors.success : undefined} padding={12}>
         <View className="h-s2 overflow-hidden rounded-pill bg-surface-3">
           <View
             style={{
               width: `${dayPct}%`,
               height: '100%',
               borderRadius: 999,
-              backgroundColor: complete ? tokens.colors.success : tokens.colors.accent,
+              backgroundColor: complete ? colors.success : colors.accent,
               minWidth: totalDone > 0 ? 4 : 0,
-              shadowColor: complete ? tokens.colors.success : tokens.colors.accent,
+              shadowColor: complete ? colors.success : colors.accent,
               shadowOpacity: 0.5,
               shadowRadius: 8,
             }}
@@ -360,14 +361,14 @@ export default function WorkoutScreen() {
           className="flex-row items-center justify-between rounded-xl p-s4"
           style={{
             borderWidth: 1,
-            borderColor: `${tokens.colors.success}66`,
+            borderColor: `${colors.success}66`,
             backgroundColor: 'rgba(52,211,153,0.06)',
           }}
         >
           <View className="flex-1">
             <Text
               allowFontScaling={false}
-              style={{ fontSize: 10, color: tokens.colors.success, letterSpacing: 1.5, ...pixelFont(false) }}
+              style={{ fontSize: 10, color: colors.success, letterSpacing: 1.5, ...pixelFont(false) }}
             >
               ✓ WORKOUT COMPLETE
             </Text>
@@ -563,7 +564,7 @@ export default function WorkoutScreen() {
             <Pressable
               onPress={() => undefined}
               className="rounded-t-xl border-t p-s4"
-              style={{ borderColor: `${tokens.colors.epic}40`, backgroundColor: tokens.colors.surface, maxHeight: 480 }}
+              style={{ borderColor: `${colors.epic}40`, backgroundColor: colors.surface, maxHeight: 480 }}
             >
               <Text className="mb-s1 text-text-mute" allowFontScaling={false} style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}>
                 SUPERSET · PICK THE PARTNER
@@ -610,8 +611,8 @@ export default function WorkoutScreen() {
               onPress={() => undefined}
               className="rounded-t-xl border-t p-s4"
               style={{
-                borderColor: `${tokens.colors.accent}40`,
-                backgroundColor: tokens.colors.surface,
+                borderColor: `${colors.accent}40`,
+                backgroundColor: colors.surface,
                 maxHeight: 520,
               }}
             >

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 
 import type { HomeFeatures } from './home-features';
@@ -39,6 +39,7 @@ export function StatusGrid({
   rank: { label: string; provisional: boolean; placements: string } | null;
   features: HomeFeatures;
 }) {
+  const colors = useThemeColors();
   // The brief's responsive rule: four across on wide screens, 2×2 on
   // standard phones. flexBasis drives the wrap; nothing shrinks unreadable.
   const { width } = useWindowDimensions();
@@ -50,7 +51,7 @@ export function StatusGrid({
         label={streakLabel}
         value={`${streakCurrent} DAY${streakCurrent === 1 ? '' : 'S'}`}
         sub={streakBest > 0 ? `Best: ${streakBest} days` : 'Start today'}
-        tint={streakCurrent > 0 ? tokens.colors.legendary : tokens.colors['text-mute']}
+        tint={streakCurrent > 0 ? colors.legendary : colors['text-mute']}
         onPress={() => router.push('/streak' as never)}
         testID="status-streak"
         basis={basis}
@@ -61,18 +62,18 @@ export function StatusGrid({
           label="COINS"
           value={coins === null || coins === undefined ? '—' : String(coins)}
           sub="View rewards ›"
-          tint={tokens.colors.legendary}
+          tint={colors.legendary}
           onPress={() => router.push('/coins' as never)}
           testID="status-coins"
           basis={basis}
         />
       ) : null}
       <StatusCard
-        icon={<Text style={{ fontSize: 13, color: tokens.colors.accent }}>◇</Text>}
+        icon={<Text style={{ fontSize: 13, color: colors.accent }}>◇</Text>}
         label="TOTAL XP"
         value={totalXp.toLocaleString('en-US')}
         sub="All-time"
-        tint={tokens.colors.accent}
+        tint={colors.accent}
         onPress={() => router.push('/profile' as never)}
         testID="status-xp"
         basis={basis}
@@ -81,7 +82,7 @@ export function StatusGrid({
         <StatusCard
           icon={
             <Text
-              style={{ fontSize: 13, color: rank.provisional ? tokens.colors['text-mute'] : tokens.colors.accent }}
+              style={{ fontSize: 13, color: rank.provisional ? colors['text-mute'] : colors.accent }}
             >
               ⚔
             </Text>
@@ -89,7 +90,7 @@ export function StatusGrid({
           label="ARENA RANK"
           value={rank.provisional ? 'UNRANKED' : rank.label}
           sub={rank.provisional ? `${rank.placements} placements ›` : 'Rival standing ›'}
-          tint={rank.provisional ? tokens.colors['text-mute'] : tokens.colors.accent}
+          tint={rank.provisional ? colors['text-mute'] : colors.accent}
           onPress={() => router.push('/rival' as never)}
           testID="status-rank"
           basis={basis}
@@ -129,6 +130,7 @@ function StatusCard({
   testID: string;
   basis?: '21%' | '45%';
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -140,8 +142,8 @@ function StatusCard({
         flexGrow: 1,
         flexBasis: basis,
         minHeight: 76,
-        borderColor: tokens.colors.border,
-        backgroundColor: tokens.colors['surface-2'],
+        borderColor: colors.border,
+        backgroundColor: colors['surface-2'],
       }}
     >
       <View className="flex-row items-center" style={{ gap: 6 }}>

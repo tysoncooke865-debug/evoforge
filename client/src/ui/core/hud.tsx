@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * HUD primitives: floating information without the card chrome. The layered-
@@ -15,7 +15,7 @@ import tokens from '@/theme/tokens';
 export function HUDChip({
   label,
   value,
-  tint = tokens.colors.accent,
+  tint,
   icon,
 }: {
   label: string;
@@ -23,13 +23,15 @@ export function HUDChip({
   tint?: string;
   icon?: ReactNode;
 }) {
+  const colors = useThemeColors();
+  const tintColor = tint ?? colors.accent;
   return (
     <View
       className="flex-row items-center gap-s2 rounded-pill px-s3 py-s2"
       style={{
         borderWidth: 1,
-        borderColor: `${tint}38`,
-        backgroundColor: `${tint}0f`,
+        borderColor: `${tintColor}38`,
+        backgroundColor: `${tintColor}0f`,
       }}
     >
       {icon}

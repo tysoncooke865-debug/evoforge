@@ -6,7 +6,7 @@ import { getBranchStage } from '@/domain/avatar-stats';
 import { massArtStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { EdgeLabel } from '@/ui/core/hud';
 import { Silhouette } from './silhouette';
@@ -23,6 +23,7 @@ export function EvolutionTeaser({
   branch: Branch;
   evolution: NextEvolution;
 }) {
+  const colors = useThemeColors();
   const readiness = evolutionReadiness(evolution.requirements);
   const nextStage = branch === 'mass' ? massArtStage(evolution.targetLevel) : getBranchStage(branch, evolution.targetLevel);
 
@@ -33,7 +34,7 @@ export function EvolutionTeaser({
           className="flex-row items-center gap-s4 rounded-xl p-s4"
           style={{
             borderWidth: 1,
-            borderColor: `${tokens.colors.epic}45`,
+            borderColor: `${colors.epic}45`,
             backgroundColor: 'rgba(168, 85, 247, 0.06)',
           }}
         >
@@ -55,7 +56,7 @@ export function EvolutionTeaser({
             <Text
               className="text-2xl font-bold"
               style={{
-                color: tokens.colors.epic,
+                color: colors.epic,
                 textShadowColor: 'rgba(168,85,247,0.6)',
                 textShadowRadius: 12,
               }}

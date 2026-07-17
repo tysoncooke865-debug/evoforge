@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { USE_CUSTOM_PAD } from '@/ui/core/pad-env';
 
 /**
@@ -27,7 +27,7 @@ function KeyCap({
   label,
   onPress,
   flex = 1,
-  tint = tokens.colors.text,
+  tint: tintProp,
   bg = 'rgba(13,21,36,0.7)',
   small = false,
   testID,
@@ -40,6 +40,8 @@ function KeyCap({
   small?: boolean;
   testID?: string;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.text;
   return (
     <Pressable
       onPress={onPress}
@@ -69,6 +71,7 @@ function TextPad({
   onDone: (v: string) => void;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   const [draft, setDraft] = useState(initial);
   const [shift, setShift] = useState(false);
   const [mode, setMode] = useState<'abc' | 'sym'>('abc');
@@ -87,7 +90,7 @@ function TextPad({
         <Pressable
           onPress={() => undefined}
           className="rounded-t-xl border-t p-s3"
-          style={{ borderColor: `${tint}40`, backgroundColor: tokens.colors.surface }}
+          style={{ borderColor: `${tint}40`, backgroundColor: colors.surface }}
         >
           <View className="mb-s2 flex-row items-center justify-between px-[2px]">
             <Pressable
@@ -125,7 +128,7 @@ function TextPad({
                   label={mode === 'abc' ? (shift ? '⇪' : '⇧') : '='}
                   onPress={() => (mode === 'abc' ? setShift((s) => !s) : undefined)}
                   flex={1.5}
-                  tint={shift ? tint : tokens.colors.text}
+                  tint={shift ? tint : colors.text}
                   bg={shift ? `${tint}22` : 'rgba(13,21,36,0.7)'}
                   testID="textpad-shift"
                 />
@@ -172,7 +175,7 @@ export function TextField({
   onChange,
   placeholder,
   label,
-  tint = tokens.colors.accent,
+  tint: tintProp,
   testID,
 }: {
   value: string;
@@ -183,6 +186,8 @@ export function TextField({
   tint?: string;
   testID?: string;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.accent;
   const [padOpen, setPadOpen] = useState(false);
   return (
     <View>

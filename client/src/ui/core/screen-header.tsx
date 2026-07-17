@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, Text, View } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The screen masthead: a whispered kicker, a dominant hero title with neon
@@ -35,6 +35,7 @@ export function ScreenHeader({
    *  3xl and verify-tokens pins the token file against styles.css). */
   hero?: boolean;
 }) {
+  const colors = useThemeColors();
   const big = !autoSize || title.length <= 14;
   return (
     <View className="mb-s1 w-full">
@@ -81,7 +82,7 @@ export function ScreenHeader({
         {right}
       </View>
       <LinearGradient
-        colors={[tokens.colors.accent, 'rgba(34, 211, 238, 0)']}
+        colors={[colors.accent, 'rgba(34, 211, 238, 0)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{ height: 2, borderRadius: 1, marginTop: 8, width: '55%' }}

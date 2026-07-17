@@ -8,7 +8,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useLeaderboardTop, usePublicIdentity } from '@/data/hooks';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import { durations } from '@/theme/animations';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 
@@ -22,6 +22,7 @@ import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
  * screen's job — this teaser stays dumb and just links there.
  */
 export function LeaderboardTeaser() {
+  const colors = useThemeColors();
   const [open, setOpen] = useState(false);
   const [openedOnce, setOpenedOnce] = useState(false);
   const [contentH, setContentH] = useState(0);
@@ -38,7 +39,7 @@ export function LeaderboardTeaser() {
   return (
     <View
       className="w-full rounded-xl"
-      style={{ borderWidth: 1, borderColor: `${tokens.colors.accent}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
+      style={{ borderWidth: 1, borderColor: `${colors.accent}40`, backgroundColor: 'rgba(13,21,36,0.5)' }}
     >
       <Pressable
         onPress={toggle}

@@ -17,7 +17,7 @@ import {
   useRunEvoReview,
 } from '@/data/progression/use-evo-rating';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { GlowCard } from '@/ui/core/shell';
 import { NeonButton } from '@/ui/core/neon-button';
 
@@ -29,6 +29,7 @@ const PILLAR_ROWS: readonly (readonly [key: string, label: string])[] = [
 ];
 
 export function EvoCore() {
+  const colors = useThemeColors();
   const current = useEvoRatingCurrent();
   const pending = usePendingEvoEvidence();
   const review = useRunEvoReview();
@@ -40,7 +41,7 @@ export function EvoCore() {
 
   if (!row) {
     return (
-      <GlowCard glow={tokens.colors.epic} padding={16}>
+      <GlowCard glow={colors.epic} padding={16}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
           EVO RATING
         </Text>
@@ -84,7 +85,7 @@ export function EvoCore() {
       accessibilityLabel={`Evo Rating ${rating}, ${descriptor}. ${progress} of 100 toward ${Math.min(rating + 1, 100)}. Opens the Evo Rating page.`}
       testID="evo-core"
     >
-      <GlowCard glow={tokens.colors.epic} padding={16}>
+      <GlowCard glow={colors.epic} padding={16}>
         <View className="flex-row items-start justify-between">
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
@@ -93,7 +94,7 @@ export function EvoCore() {
             <View className="flex-row items-baseline" style={{ gap: 8 }}>
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 44, lineHeight: 50, letterSpacing: 0, color: tokens.colors.epic, textShadowColor: 'rgba(168,85,247,0.5)', textShadowRadius: 14, ...pixelFont() }}
+                style={{ fontSize: 44, lineHeight: 50, letterSpacing: 0, color: colors.epic, textShadowColor: 'rgba(168,85,247,0.5)', textShadowRadius: 14, ...pixelFont() }}
               >
                 {rating}
               </Text>
@@ -110,7 +111,7 @@ export function EvoCore() {
                 </Text>
                 <Text
                   allowFontScaling={false}
-                  style={{ fontSize: 13, letterSpacing: 0, minWidth: 26, textAlign: 'right', color: limiting === label ? tokens.colors.warn : tokens.colors.text, ...pixelFont() }}
+                  style={{ fontSize: 13, letterSpacing: 0, minWidth: 26, textAlign: 'right', color: limiting === label ? colors.warn : colors.text, ...pixelFont() }}
                 >
                   {Math.floor(Number(row[key] ?? 1))}
                 </Text>
@@ -129,8 +130,8 @@ export function EvoCore() {
               TOWARD {Math.min(rating + 1, 100)}
             </Text>
           </View>
-          <View className="mt-s1 overflow-hidden rounded-pill" style={{ height: 6, backgroundColor: tokens.colors['surface-3'] }}>
-            <View style={{ width: `${progress}%`, minWidth: progress > 0 ? 4 : 0, height: '100%', borderRadius: 999, backgroundColor: tokens.colors.epic }} />
+          <View className="mt-s1 overflow-hidden rounded-pill" style={{ height: 6, backgroundColor: colors['surface-3'] }}>
+            <View style={{ width: `${progress}%`, minWidth: progress > 0 ? 4 : 0, height: '100%', borderRadius: 999, backgroundColor: colors.epic }} />
           </View>
         </View>
 
@@ -138,7 +139,7 @@ export function EvoCore() {
           <Text className="text-2xs text-text-mute" numberOfLines={1}>
             {limiting ? `Limiting pillar: ${limiting.toLowerCase()}` : ' '}
           </Text>
-          <Text className="text-2xs" style={{ color: reviewDue || pendingCount > 0 ? tokens.colors.accent : tokens.colors['text-mute'] }} numberOfLines={1}>
+          <Text className="text-2xs" style={{ color: reviewDue || pendingCount > 0 ? colors.accent : colors['text-mute'] }} numberOfLines={1}>
             {reviewDue
               ? 'EVO REVIEW READY ›'
               : daysToReview !== null

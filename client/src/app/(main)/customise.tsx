@@ -26,7 +26,7 @@ import { raritySlug } from '@/domain/avatar-stats';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { CosmeticTabs } from '@/ui/customise/cosmetic-tabs';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -50,6 +50,7 @@ import { SpriteCompanion } from '@/ui/character/sprite-avatar';
  * re-validates that loadout against live state on every read.
  */
 export default function CustomiseScreen() {
+  const colors = useThemeColors();
   const { ready, branchV2, sex, summary, stats, bfMid, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
   const loadout = useLoadoutStore((s) => s.loadout);
@@ -94,7 +95,7 @@ export default function CustomiseScreen() {
       <ScreenShell>
         <ScreenHeader kicker="SELECT YOUR CHAMPION" title="CUSTOMISE" onBack={() => router.back()} />
         <View className="items-center p-s6" style={{ minHeight: 240, justifyContent: 'center' }}>
-          <ActivityIndicator color={tokens.colors.accent} />
+          <ActivityIndicator color={colors.accent} />
         </View>
       </ScreenShell>
     );
@@ -111,7 +112,7 @@ export default function CustomiseScreen() {
   const previewStage = selectedOption?.stage ?? currentStage;
   const stageCount = Math.max(options.length, 4);
   const rarityColourKey = raritySlug(derived.level);
-  const rarityColour = (tokens.colors as Record<string, string>)[rarityColourKey] ?? tokens.colors.common;
+  const rarityColour = (colors as Record<string, string>)[rarityColourKey] ?? colors.common;
 
   // GYMERICA MODE: a premium character is selected — his own panel replaces
   // the branch preview/stage/outfit blocks.
@@ -251,6 +252,7 @@ export default function CustomiseScreen() {
 
 /** Compact header module: coin wallet + Forge Level + the companion. */
 function ForgeLevelModule() {
+  const colors = useThemeColors();
   const forge = useForgeProgression();
   const coins = useCoinTotal();
   const progress = forgeProgressFromRow(forge.data ?? null);
@@ -261,11 +263,11 @@ function ForgeLevelModule() {
         {/* The wallet — the shop's currency, read straight from coin_total. */}
         <View className="flex-row items-center" style={{ gap: 3 }} testID="customise-coins">
           <CoinIcon size={12} />
-          <Text allowFontScaling={false} style={{ fontSize: 12, color: tokens.colors.legendary, ...pixelFont() }}>
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: colors.legendary, ...pixelFont() }}>
             {coins.data ?? '—'}
           </Text>
         </View>
-        <Text allowFontScaling={false} style={{ fontSize: 12, color: tokens.colors.accent, ...pixelFont() }}>
+        <Text allowFontScaling={false} style={{ fontSize: 12, color: colors.accent, ...pixelFont() }}>
           LV.{progress.level}
         </Text>
         <View
@@ -277,8 +279,8 @@ function ForgeLevelModule() {
               width: `${Math.round(pct * 100)}%`,
               height: 4,
               borderRadius: 2,
-              backgroundColor: tokens.colors.accent,
-              shadowColor: tokens.colors.accent,
+              backgroundColor: colors.accent,
+              shadowColor: colors.accent,
               shadowOpacity: 0.6,
               shadowRadius: 6,
             }}

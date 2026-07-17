@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
@@ -49,6 +49,7 @@ const STEPS: readonly { icon: string; title: string; body: string }[] = [
 ];
 
 export function TutorialOverlay() {
+  const colors = useThemeColors();
   const [step, setStep] = useState(-1); // -1 = unknown/hidden
 
   useEffect(() => {
@@ -72,7 +73,7 @@ export function TutorialOverlay() {
     >
       <View
         className="rounded-xl border p-s5"
-        style={{ borderColor: `${tokens.colors.accent}59`, backgroundColor: tokens.colors.surface }}
+        style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface }}
       >
         <View className="mb-s2 flex-row items-center justify-between">
           <Text className="text-2xl">{s.icon}</Text>

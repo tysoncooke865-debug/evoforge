@@ -22,7 +22,7 @@ import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The signed-in shell. Gate order mirrors app.py: no session -> sign-in;
@@ -34,6 +34,7 @@ import tokens from '@/theme/tokens';
  * hides them from the bar without unmounting the router entries).
  */
 export default function MainLayout() {
+  const colors = useThemeColors();
   const { session, loading } = useAuth();
   // TRANSFORM P2: resume flushing any offline-logged sets after a cold
   // start; also re-flushes on the browser 'online' event.
@@ -163,7 +164,7 @@ export default function MainLayout() {
   if (loading || (session && profile.isPending)) {
     return (
       <View className="flex-1 items-center justify-center bg-bg">
-        <ActivityIndicator color={tokens.colors.accent} />
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
@@ -190,10 +191,10 @@ export default function MainLayout() {
       screenListeners={{ tabPress: () => setTimeout(scrollActiveToTop, 0) }}
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: tokens.colors.bg },
+        sceneStyle: { backgroundColor: colors.bg },
         tabBarStyle: {
-          backgroundColor: tokens.colors.surface,
-          borderTopColor: tokens.colors.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           // Safe-area aware: never let the home indicator / Safari chrome
           // swallow the bar. Height grows with the inset, not over content.
           // Compact (Tyson's target layout): the bar must not eat the week.
@@ -201,8 +202,8 @@ export default function MainLayout() {
           paddingBottom: Math.max(insets.bottom, 4),
           paddingTop: 4,
         },
-        tabBarActiveTintColor: tokens.colors.accent,
-        tabBarInactiveTintColor: tokens.colors['text-mute'],
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors['text-mute'],
         tabBarLabelStyle: { fontFamily: PIXEL, fontWeight: 'normal', fontSize: 9, letterSpacing: 0 },
       }}
     >

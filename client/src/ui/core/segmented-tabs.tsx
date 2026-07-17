@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /** The segmented capsule: two tabs, a sprung slider, cyan-lit active side.
  *  TRAIN_OVERHAUL: optional icons before each label (Train's pixel dumbbell /
@@ -31,6 +31,7 @@ export function SegmentedTabs({
   /** Train's 16-bit labels. */
   pixelLabels?: boolean;
 }) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const x = useSharedValue(0);
   const slider = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
@@ -52,7 +53,7 @@ export function SegmentedTabs({
         x.value = (active * w) / 2;
       }}
       className="flex-row rounded-pill p-s1"
-      style={{ borderWidth: 1, borderColor: `${tokens.colors.epic}33`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+      style={{ borderWidth: 1, borderColor: `${colors.epic}33`, backgroundColor: 'rgba(13,21,36,0.6)' }}
     >
       <Animated.View
         pointerEvents="none"
@@ -66,8 +67,8 @@ export function SegmentedTabs({
             borderRadius: 999,
             backgroundColor: 'rgba(34,211,238,0.14)',
             borderWidth: 1,
-            borderColor: `${tokens.colors.accent}8c`,
-            shadowColor: tokens.colors.accent,
+            borderColor: `${colors.accent}8c`,
+            shadowColor: colors.accent,
             shadowOpacity: 0.4,
             shadowRadius: 12,
           },
@@ -95,7 +96,7 @@ export function SegmentedTabs({
                 letterSpacing: pixelLabels ? 0.5 : 1.5,
                 fontFamily: pixelLabels ? PIXEL_BOLD : undefined,
                 fontWeight: pixelLabels ? 'normal' : undefined,
-                color: active === i ? tokens.colors.accent : tokens.colors['text-dim'],
+                color: active === i ? colors.accent : colors['text-dim'],
               }}
             >
               {label}

@@ -5,7 +5,7 @@ import { Modal, Text, TextInput, View } from 'react-native';
 import { evolutionReadiness, requirementProgress } from '@/domain/evolution-readiness';
 import type { NextEvolution } from '@/domain/next-evolution';
 import type { NextSession } from '@/domain/scheduled-streak';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
 import { SpriteCompanion } from '@/ui/character/sprite-avatar';
@@ -94,6 +94,7 @@ function Ceremony({
   defaultRoutineName: string;
   onFinish?: () => void;
 }) {
+  const colors = useThemeColors();
   const phases: PhaseKey[] = [
     'summary',
     ...(data.prCount > 0 ? (['pr'] as const) : []),
@@ -113,7 +114,7 @@ function Ceremony({
   const [ghosted, setGhosted] = useState(false);
 
   const complete = data.setsDone >= data.setsTarget;
-  const accent = complete ? tokens.colors.success : tokens.colors.accent;
+  const accent = complete ? colors.success : colors.accent;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -130,7 +131,7 @@ function Ceremony({
           }}
         >
           <LinearGradient
-            colors={[tokens.colors['surface-2'], tokens.colors['bg-deep']]}
+            colors={[colors['surface-2'], colors['bg-deep']]}
             style={{ padding: 24 }}
           >
             <View className="mb-s1 flex-row items-center justify-between">
@@ -152,7 +153,7 @@ function Ceremony({
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: i === idx ? accent : tokens.colors['surface-3'],
+                      backgroundColor: i === idx ? accent : colors['surface-3'],
                     }}
                   />
                 ))}
@@ -166,7 +167,7 @@ function Ceremony({
                 <View className="mb-s4">
                   <TextInput
                     className="min-h-[44px] rounded-xl border bg-surface-2 px-s3 text-sm text-text"
-                    style={{ borderColor: tokens.colors.border }}
+                    style={{ borderColor: colors.border }}
                     value={routineName}
                     onChangeText={setRoutineName}
                     maxLength={60}
@@ -204,14 +205,14 @@ function Ceremony({
             ) : null}
 
             {phase === 'summary' && saved ? (
-              <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 1.5 }}>
+              <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: colors.success, letterSpacing: 1.5 }}>
                 ✓ SAVED TO MY ROUTINES
               </Text>
             ) : null}
 
             {phase === 'summary' && onShareGhost ? (
               ghosted ? (
-                <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: tokens.colors.epic, letterSpacing: 1.5 }}>
+                <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: colors.epic, letterSpacing: 1.5 }}>
                   👻 GHOST PUBLISHED — FRIENDS CAN BATTLE IT
                 </Text>
               ) : (
@@ -280,6 +281,7 @@ function Ceremony({
 }
 
 function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: string }) {
+  const colors = useThemeColors();
   return (
     <View>
       <Text
@@ -290,20 +292,21 @@ function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: stri
       </Text>
       <View className="mb-s5 flex-row justify-between">
         <Cell value={`${data.setsDone}/${data.setsTarget}`} label="SETS" />
-        <Cell value={`+${data.xpBanked}`} label="XP BANKED" tint={tokens.colors.accent} />
-        <Cell value={String(data.prCount)} label={data.prCount === 1 ? 'NEW PR' : 'NEW PRS'} tint={tokens.colors.legendary} />
-        <Cell value={`${data.streak}🔥`} label="STREAK" tint={tokens.colors.legendary} />
+        <Cell value={`+${data.xpBanked}`} label="XP BANKED" tint={colors.accent} />
+        <Cell value={String(data.prCount)} label={data.prCount === 1 ? 'NEW PR' : 'NEW PRS'} tint={colors.legendary} />
+        <Cell value={`${data.streak}🔥`} label="STREAK" tint={colors.legendary} />
       </View>
     </View>
   );
 }
 
 function PrPhase({ data }: { data: WorkoutSummaryData }) {
+  const colors = useThemeColors();
   return (
     <View className="mb-s5">
       <Text
         className="mb-s3 text-2xl font-bold"
-        style={{ color: tokens.colors.legendary, textShadowColor: `${tokens.colors.legendary}80`, textShadowRadius: 14 }}
+        style={{ color: colors.legendary, textShadowColor: `${colors.legendary}80`, textShadowRadius: 14 }}
       >
         {data.prCount === 1 ? 'NEW PERSONAL RECORD' : `${data.prCount} NEW PERSONAL RECORDS`}
       </Text>
@@ -311,7 +314,7 @@ function PrPhase({ data }: { data: WorkoutSummaryData }) {
         <View
           key={name}
           className="mb-s2 rounded-md p-s3"
-          style={{ backgroundColor: 'rgba(250,204,21,0.08)', borderWidth: 1, borderColor: `${tokens.colors.legendary}40` }}
+          style={{ backgroundColor: 'rgba(250,204,21,0.08)', borderWidth: 1, borderColor: `${colors.legendary}40` }}
         >
           <Text className="text-sm font-bold text-text">🏆 {name}</Text>
         </View>
@@ -334,6 +337,7 @@ function PathPhase({ data }: { data: WorkoutSummaryData }) {
 }
 
 function EvolutionPhase({ data }: { data: WorkoutSummaryData }) {
+  const colors = useThemeColors();
   const readiness = evolutionReadiness(data.evolution.requirements);
   return (
     <View className="mb-s5">
@@ -344,7 +348,7 @@ function EvolutionPhase({ data }: { data: WorkoutSummaryData }) {
           </Text>
           <Text className="text-lg font-bold text-text">{data.evolution.targetName}</Text>
         </View>
-        <Text className="text-2xl font-bold" style={{ color: tokens.colors.epic }}>
+        <Text className="text-2xl font-bold" style={{ color: colors.epic }}>
           {readiness.percent}%
         </Text>
       </View>
@@ -354,7 +358,7 @@ function EvolutionPhase({ data }: { data: WorkoutSummaryData }) {
           <View key={req.label} className="mb-s2">
             <View className="flex-row justify-between">
               <Text className="text-2xs font-bold text-text-dim">{req.label.toUpperCase()}</Text>
-              <Text className="text-2xs font-bold" style={{ color: req.met ? tokens.colors.success : tokens.colors['text-mute'] }}>
+              <Text className="text-2xs font-bold" style={{ color: req.met ? colors.success : colors['text-mute'] }}>
                 {req.met ? '✓ MET' : `${fmtReq(req.current)} / ${fmtReq(req.target)}`}
               </Text>
             </View>
@@ -364,7 +368,7 @@ function EvolutionPhase({ data }: { data: WorkoutSummaryData }) {
                   width: `${pct}%`,
                   height: '100%',
                   borderRadius: 999,
-                  backgroundColor: req.met ? tokens.colors.success : tokens.colors.epic,
+                  backgroundColor: req.met ? colors.success : colors.epic,
                   minWidth: pct > 0 ? 4 : 0,
                 }}
               />
@@ -379,6 +383,7 @@ function EvolutionPhase({ data }: { data: WorkoutSummaryData }) {
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
 function NextPhase({ data }: { data: WorkoutSummaryData }) {
+  const colors = useThemeColors();
   const next = data.nextSession;
   if (!next) return null;
   const when =
@@ -389,7 +394,7 @@ function NextPhase({ data }: { data: WorkoutSummaryData }) {
         NEXT MISSION
       </Text>
       <Text className="text-2xl font-bold text-text">{next.day}</Text>
-      <Text className="mt-s1 text-sm font-bold" style={{ color: tokens.colors.accent, letterSpacing: 1.5 }}>
+      <Text className="mt-s1 text-sm font-bold" style={{ color: colors.accent, letterSpacing: 1.5 }}>
         {when}
       </Text>
     </View>
@@ -400,10 +405,12 @@ function fmtReq(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-function Cell({ value, label, tint = tokens.colors.text }: { value: string; label: string; tint?: string }) {
+function Cell({ value, label, tint }: { value: string; label: string; tint?: string }) {
+  const colors = useThemeColors();
+  const tintColor = tint ?? colors.text;
   return (
     <View className="items-center">
-      <Text className="text-xl font-bold" style={{ color: tint }}>
+      <Text className="text-xl font-bold" style={{ color: tintColor }}>
         {value}
       </Text>
       <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>

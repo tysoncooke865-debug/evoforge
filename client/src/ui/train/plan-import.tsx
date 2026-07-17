@@ -11,7 +11,7 @@ import {
   type ImportedDay,
   type MappedDay,
 } from '@/domain/workout-import';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
 import { SectionLabel } from '@/ui/core/screen-header';
@@ -38,6 +38,7 @@ export function PlanImportSheet({
   /** The mapped draft — the builder seeds its editor from this. */
   onImported: (draft: { planName: string; days: MappedDay[] }) => void;
 }) {
+  const colors = useThemeColors();
   const [mode, setMode] = useState<0 | 1>(0); // 0 = PHOTO, 1 = TYPE IT
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [text, setText] = useState('');
@@ -99,7 +100,7 @@ export function PlanImportSheet({
         <Pressable
           onPress={() => undefined}
           className="rounded-t-xl border-t p-s4"
-          style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface, maxHeight: 640 }}
+          style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 640 }}
         >
           <SectionLabel>SCAN A WRITTEN WORKOUT</SectionLabel>
           <SegmentedTabs left="PHOTO" right="TYPE IT" active={mode} onChange={setMode} testIDPrefix="import-mode" />
@@ -125,7 +126,7 @@ export function PlanImportSheet({
                           height: 96,
                           borderWidth: 1,
                           borderStyle: p ? 'solid' : 'dashed',
-                          borderColor: p ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                          borderColor: p ? `${colors.accent}8c` : colors.border,
                           overflow: 'hidden',
                         }}
                       >
@@ -154,7 +155,7 @@ export function PlanImportSheet({
               <View className="mt-s3">
                 <TextInput
                   className="rounded-xl border bg-surface-2 px-s3 py-s2 text-sm text-text"
-                  style={{ borderColor: tokens.colors.border, minHeight: 160, textAlignVertical: 'top' }}
+                  style={{ borderColor: colors.border, minHeight: 160, textAlignVertical: 'top' }}
                   placeholder={'Paste it — e.g.\nPush Day\nBench 5x5\nIncline DB Press 3x8-12\nLateral Raise 3x15'}
                   placeholderTextColor="#64758f"
                   value={text}
@@ -170,7 +171,7 @@ export function PlanImportSheet({
             )}
 
             {error ? (
-              <Text className="mt-s2 text-2xs" style={{ color: tokens.colors.danger }} testID="import-error">
+              <Text className="mt-s2 text-2xs" style={{ color: colors.danger }} testID="import-error">
                 {error}
               </Text>
             ) : null}

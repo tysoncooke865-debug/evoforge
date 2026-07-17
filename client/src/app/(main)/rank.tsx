@@ -6,7 +6,7 @@ import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLeaderboard } from '@/domain/leaderboard';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -19,6 +19,7 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
  * Ranking is BY LEVEL through the one curve, XP tiebreak, then name.
  */
 export default function RankScreen() {
+  const colors = useThemeColors();
   const { summary } = useAvatarData();
   const identity = usePublicIdentity();
   const board = useLeaderboardTop(50);
@@ -37,7 +38,7 @@ export default function RankScreen() {
   if (unexplainedDrift !== 0) {
     return (
       <Shell>
-        <GlowCard glow={tokens.colors.warn}>
+        <GlowCard glow={colors.warn}>
           <Text
             className="mb-s2 text-warn"
             allowFontScaling={false}
@@ -58,7 +59,7 @@ export default function RankScreen() {
   if (identity.isPending) {
     return (
       <Shell>
-        <ActivityIndicator color={tokens.colors.accent} />
+        <ActivityIndicator color={colors.accent} />
       </Shell>
     );
   }
@@ -102,12 +103,13 @@ export default function RankScreen() {
 }
 
 function OptInCard({ current }: { current: string | null }) {
+  const colors = useThemeColors();
   const [name, setName] = useState(current ?? '');
   const [isPublic, setIsPublic] = useState(true);
   const save = useSavePublicIdentity();
 
   return (
-    <GlowCard glow={tokens.colors.accent}>
+    <GlowCard glow={colors.accent}>
       <Text className="mb-s2 text-accent" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
         JOIN THE BOARD
       </Text>
@@ -134,8 +136,8 @@ function OptInCard({ current }: { current: string | null }) {
         <Switch
           value={isPublic}
           onValueChange={setIsPublic}
-          trackColor={{ true: tokens.colors['accent-deep'], false: tokens.colors['surface-3'] }}
-          thumbColor={tokens.colors.accent}
+          trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+          thumbColor={colors.accent}
         />
       </View>
       <Pressable

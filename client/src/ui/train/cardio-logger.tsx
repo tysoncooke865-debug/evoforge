@@ -5,7 +5,7 @@ import { useCardioLog } from '@/data/hooks';
 import { useLogCardio } from '@/data/mutations';
 import { CARDIO_TYPES, cardioEventAmount } from '@/domain/cardio';
 import { pyFloat } from '@/domain/py';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Field } from '@/ui/core/field';
 import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -50,6 +50,7 @@ export function cardioAnim(type: string): 'punch' | 'run' {
 }
 
 export function CardioCard({ type, setType }: { type: string; setType: (t: string) => void }) {
+  const colors = useThemeColors();
   const [minutes, setMinutes] = useState('');
   const [distance, setDistance] = useState('');
   const [incline, setIncline] = useState('');
@@ -129,12 +130,12 @@ export function CardioCard({ type, setType }: { type: string; setType: (t: strin
   };
 
   return (
-    <GlowCard glow={mins > 0 ? tokens.colors.rare : undefined}>
+    <GlowCard glow={mins > 0 ? colors.rare : undefined}>
       <View className="mb-s3">
         <EdgeLabel
           right={
             mins > 0 ? (
-              <Text className="text-2xs font-bold" style={{ color: tokens.colors.rare, letterSpacing: 1.5 }}>
+              <Text className="text-2xs font-bold" style={{ color: colors.rare, letterSpacing: 1.5 }}>
                 {Math.trunc(mins)} MIN LOCKED IN
               </Text>
             ) : undefined
@@ -160,7 +161,7 @@ export function CardioCard({ type, setType }: { type: string; setType: (t: strin
           onPress={repeatLast}
           accessibilityRole="button"
           className="mb-s3 self-start rounded-pill border px-s3 py-s1"
-          style={{ borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+          style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
         >
           <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
             ↺ REPEAT LAST · {Math.trunc(pyFloat(lastOfType.minutes) ?? 0)} MIN
@@ -228,6 +229,7 @@ export function CardioCard({ type, setType }: { type: string; setType: (t: strin
 /** KM/H ⇄ MPH pill toggle shown beside the SPEED field's label. One tap flips
  *  the unit and converts the current value to the same physical speed. */
 function SpeedUnitToggle({ unit, onToggle }: { unit: 'kmh' | 'mph'; onToggle: () => void }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onToggle}
@@ -235,7 +237,7 @@ function SpeedUnitToggle({ unit, onToggle }: { unit: 'kmh' | 'mph'; onToggle: ()
       accessibilityLabel={`speed unit: ${unit === 'mph' ? 'miles per hour' : 'kilometres per hour'}, tap to switch`}
       testID="cardio-speed-unit"
       className="rounded-pill border px-s2"
-      style={{ minHeight: 20, justifyContent: 'center', borderColor: `${tokens.colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+      style={{ minHeight: 20, justifyContent: 'center', borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
     >
       <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 0.5 }}>
         {unit === 'mph' ? 'MPH' : 'KM/H'}

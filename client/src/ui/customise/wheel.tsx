@@ -2,7 +2,7 @@ import { Children, useRef, useState, type ReactNode } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * CUSTOMISE §wheel — the horizontal stepper wheel. A snapping FlatList of
@@ -22,6 +22,7 @@ export function StepperWheel({
   testID?: string;
   children: ReactNode;
 }) {
+  const colors = useThemeColors();
   const items = Children.toArray(children);
   const listRef = useRef<FlatList>(null);
   const [index, setIndex] = useState(0);
@@ -69,7 +70,7 @@ export function StepperWheel({
             transform: [{ translateY: '-50%' as never }],
             width: 28,
             minHeight: 44,
-            borderColor: `${tokens.colors.accent}59`,
+            borderColor: `${colors.accent}59`,
             backgroundColor: 'rgba(7,11,20,0.82)',
           }}
         >
@@ -91,7 +92,7 @@ export function StepperWheel({
             transform: [{ translateY: '-50%' as never }],
             width: 28,
             minHeight: 44,
-            borderColor: `${tokens.colors.accent}59`,
+            borderColor: `${colors.accent}59`,
             backgroundColor: 'rgba(7,11,20,0.82)',
           }}
         >

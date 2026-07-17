@@ -31,7 +31,7 @@ import { todayIso as calendarToday } from '@/domain/today';
 import { mealCountOf, useFuelStore } from '@/state/fuel-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Field } from '@/ui/core/field';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -55,14 +55,16 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
 
-/** Meter colour per state — the colour must not lie about the goal. */
+/** Meter colour per state (a token KEY, resolved through the theme at
+ *  render) — the colour must not lie about the goal. */
 const METER_COLOUR = {
-  under: tokens.colors.accent,
-  reached: tokens.colors.success,
-  over_cut: tokens.colors.warn,
+  under: 'accent',
+  reached: 'success',
+  over_cut: 'warn',
 } as const;
 
 export default function FuelScreen() {
+  const colors = useThemeColors();
   const todayIso = calendarToday();
 
   const log = useNutritionLog(todayIso);
@@ -73,7 +75,7 @@ export default function FuelScreen() {
   const target = targetInForce(targets.data ?? [], todayIso);
   const progress = intakeProgress(log.data ?? [], target?.daily_kcal ?? 0);
   const state = target ? meterState(progress.consumed, target.daily_kcal, target.goal) : 'under';
-  const colour = METER_COLOUR[state];
+  const colour = colors[METER_COLOUR[state]];
 
   // QUICK LOG state. Unit is sticky per visit, not persisted — the athlete
   // who thinks in kJ flips once per session.
@@ -323,7 +325,7 @@ export default function FuelScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`log to meal ${slot}`}
                       className="items-center justify-center rounded-md border px-s3"
-                      style={{ minHeight: 44, borderColor: `${tokens.colors.accent}59` }}
+                      style={{ minHeight: 44, borderColor: `${colors.accent}59` }}
                       testID={`fuel-meal-${slot}-log`}
                     >
                       <Text
@@ -468,7 +470,7 @@ export default function FuelScreen() {
             label={`${scanItems[gramsFor]?.name?.toUpperCase().slice(0, 18) ?? 'PORTION'} · GRAMS`}
             initial={String(scanItems[gramsFor]?.grams ?? '')}
             integer
-            tint={tokens.colors.accent}
+            tint={colors.accent}
             onDone={(v) => {
               const n = Math.max(1, Math.min(2000, Math.trunc(pyFloat(v) ?? 0)));
               if (n > 0) setScanItems(scanItems.map((it, j) => (j === gramsFor ? { ...it, grams: n } : it)));
@@ -692,6 +694,7 @@ function ManualTargetSheet({
   todayIso: string;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   const [kcal, setKcal] = useState(initialKcal === null ? '' : String(initialKcal));
   const [goal, setGoal] = useState<Goal>(initialGoal);
   const saveTarget = useSaveTarget();
@@ -719,7 +722,7 @@ function ManualTargetSheet({
         <Pressable
           onPress={() => undefined}
           className="rounded-t-xl border-t p-s4"
-          style={{ borderColor: `${tokens.colors.accent}40`, backgroundColor: tokens.colors.surface }}
+          style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface }}
         >
           <SectionLabel>DAILY TARGET · MANUAL</SectionLabel>
           <View className="mb-s3 flex-row flex-wrap gap-s2">

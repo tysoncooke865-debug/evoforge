@@ -10,7 +10,7 @@ import {
   useUserPaths,
 } from '@/data/origin';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { playPowerUp } from '@/ui/core/sound';
 import { GlowCard } from '@/ui/core/shell';
@@ -27,6 +27,7 @@ import { GlowCard } from '@/ui/core/shell';
  *      ORIGIN and ACTIVE tags.
  */
 export function OriginPanel() {
+  const colors = useThemeColors();
   const status = useOriginStatus();
   const originUnset = status.data != null && status.data.origin_path == null;
   const classification = useClassification(ORIGIN_FLAGS.originRevealEnabled && originUnset);
@@ -41,7 +42,7 @@ export function OriginPanel() {
     if (!ORIGIN_FLAGS.pathRosterEnabled || !paths.data || paths.data.length === 0) return null;
     return (
       <GlowCard padding={14}>
-        <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors['text-mute'], letterSpacing: 1.5, ...pixelFont(false) }}>
+        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors['text-mute'], letterSpacing: 1.5, ...pixelFont(false) }}>
           YOUR PATHS
         </Text>
         <View className="mt-s2 gap-s1">
@@ -50,17 +51,17 @@ export function OriginPanel() {
               <View className="flex-row items-center" style={{ gap: 6 }}>
                 <Text className="text-sm font-bold text-text">{PATH_NAMES[p.path] ?? p.path}</Text>
                 {p.is_origin ? (
-                  <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.legendary, letterSpacing: 0.5, ...pixelFont(false) }}>
+                  <Text allowFontScaling={false} style={{ fontSize: 8, color: colors.legendary, letterSpacing: 0.5, ...pixelFont(false) }}>
                     ORIGIN
                   </Text>
                 ) : null}
                 {status.data?.active_path === p.path ? (
-                  <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.accent, letterSpacing: 0.5, ...pixelFont(false) }}>
+                  <Text allowFontScaling={false} style={{ fontSize: 8, color: colors.accent, letterSpacing: 0.5, ...pixelFont(false) }}>
                     ACTIVE
                   </Text>
                 ) : null}
               </View>
-              <Text allowFontScaling={false} style={{ fontSize: 11, color: tokens.colors['text-dim'], ...pixelFont() }}>
+              <Text allowFontScaling={false} style={{ fontSize: 11, color: colors['text-dim'], ...pixelFont() }}>
                 STAGE {p.current_stage}
               </Text>
             </View>
@@ -76,10 +77,10 @@ export function OriginPanel() {
     return (
       <View
         className="rounded-xl border p-s3"
-        style={{ borderColor: `${tokens.colors.legendary}45`, backgroundColor: 'rgba(251,191,36,0.05)' }}
+        style={{ borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(251,191,36,0.05)' }}
         testID="origin-banner"
       >
-        <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors.legendary, letterSpacing: 1.5, ...pixelFont(false) }}>
+        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.legendary, letterSpacing: 1.5, ...pixelFont(false) }}>
           ✦ YOUR ORIGIN AWAITS
         </Text>
         <Text className="mt-s1 text-2xs text-text-mute">
@@ -95,8 +96,8 @@ export function OriginPanel() {
   const offerChoice = Boolean(cls.requires_choice) && choices.length > 1;
   const selection = offerChoice ? picked : (cls.recommended_path ?? null);
   return (
-    <GlowCard glow={tokens.colors.legendary} padding={14}>
-      <Text allowFontScaling={false} style={{ fontSize: 10, color: tokens.colors.legendary, letterSpacing: 2, ...pixelFont(false) }}>
+    <GlowCard glow={colors.legendary} padding={14}>
+      <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.legendary, letterSpacing: 2, ...pixelFont(false) }}>
         ORIGIN PATH DISCOVERED
       </Text>
       <Text className="mt-s1 text-2xs text-text-mute">
@@ -107,7 +108,7 @@ export function OriginPanel() {
       {/* score breakdown */}
       <View className="mt-s2 flex-row flex-wrap" style={{ gap: 6 }}>
         {Object.entries(cls.scores ?? {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-          <Text key={k} allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors['text-dim'], letterSpacing: 0.5, ...pixelFont(false) }}>
+          <Text key={k} allowFontScaling={false} style={{ fontSize: 8, color: colors['text-dim'], letterSpacing: 0.5, ...pixelFont(false) }}>
             {(PATH_NAMES[k] ?? k).toUpperCase()} {Math.round(v)}
           </Text>
         ))}
@@ -124,11 +125,11 @@ export function OriginPanel() {
               style={{
                 minHeight: 40,
                 justifyContent: 'center',
-                borderColor: picked === c ? `${tokens.colors.legendary}b3` : tokens.colors.border,
+                borderColor: picked === c ? `${colors.legendary}b3` : colors.border,
                 backgroundColor: picked === c ? 'rgba(251,191,36,0.10)' : 'rgba(13,21,36,0.5)',
               }}
             >
-              <Text allowFontScaling={false} style={{ fontSize: 10, color: picked === c ? tokens.colors.legendary : tokens.colors['text-dim'], ...pixelFont() }}>
+              <Text allowFontScaling={false} style={{ fontSize: 10, color: picked === c ? colors.legendary : colors['text-dim'], ...pixelFont() }}>
                 {PATH_NAMES[c] ?? c}
               </Text>
             </Pressable>

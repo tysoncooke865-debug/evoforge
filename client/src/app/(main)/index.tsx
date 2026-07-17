@@ -36,7 +36,7 @@ import { sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { useOriginStatus } from '@/data/origin';
 import { AvatarHero } from '@/ui/home/avatar-hero';
@@ -90,6 +90,7 @@ function DriftWarning({ drift, source }: { drift: number; source: string }) {
 }
 
 export default function HomeScreen() {
+  const colors = useThemeColors();
   const { summary, stats, bfMid, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
@@ -229,7 +230,7 @@ export default function HomeScreen() {
   const readiness = evolutionReadiness(evolution.requirements);
   const stage = identity.display.stage;
   const slug = raritySlug(summary.level);
-  const rarityColour = (tokens.colors as Record<string, string>)[slug] ?? tokens.colors.common;
+  const rarityColour = (colors as Record<string, string>)[slug] ?? colors.common;
   const auraColour = identity.display.auraColour ?? rarityColour;
   const formName = identity.display.formName;
 
@@ -369,11 +370,11 @@ export default function HomeScreen() {
             />
           ) : (
             <>
-              <StatBar abbr="STR" name="Strength" value={stats.strengthScore} colour={tokens.colors.accent} />
-              <StatBar abbr="SIZE" name="Mass" value={stats.sizeScore} colour={tokens.colors.epic} />
-              <StatBar abbr="LEAN" name="Leanness" value={stats.leannessScore} colour={tokens.colors.success} />
-              <StatBar abbr="COND" name="Engine" value={stats.conditioningScore} colour={tokens.colors.rare} />
-              <StatBar abbr="AES" name="Aesthetic" value={stats.aestheticScore} colour={tokens.colors.mythic} />
+              <StatBar abbr="STR" name="Strength" value={stats.strengthScore} colour={colors.accent} />
+              <StatBar abbr="SIZE" name="Mass" value={stats.sizeScore} colour={colors.epic} />
+              <StatBar abbr="LEAN" name="Leanness" value={stats.leannessScore} colour={colors.success} />
+              <StatBar abbr="COND" name="Engine" value={stats.conditioningScore} colour={colors.rare} />
+              <StatBar abbr="AES" name="Aesthetic" value={stats.aestheticScore} colour={colors.mythic} />
             </>
           )}
         </View>

@@ -4,7 +4,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { RECOVER_MOVE } from '@/domain/battle-rpg/moves';
 import type { BattleMove, Combatant } from '@/domain/battle-rpg/types';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { playSelect } from '@/ui/core/sound';
 
 /**
@@ -23,6 +23,7 @@ export function MoveGrid({
   disabled: boolean;
   onSelect: (moveId: string) => void;
 }) {
+  const colors = useThemeColors();
   const [info, setInfo] = useState<BattleMove | null>(null);
   return (
     <View style={{ gap: 8 }}>
@@ -36,12 +37,12 @@ export function MoveGrid({
       <Modal visible={info !== null} transparent animationType="fade" onRequestClose={() => setInfo(null)}>
         <Pressable onPress={() => setInfo(null)} style={{ flex: 1, backgroundColor: 'rgba(2,6,14,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           {info ? (
-            <View className="rounded-xl border p-s4" style={{ maxWidth: 340, borderColor: `${tokens.colors.accent}59`, backgroundColor: tokens.colors.surface }}>
-              <Text style={{ fontSize: 14, color: tokens.colors.accent, fontFamily: PIXEL_BOLD }}>{info.name.toUpperCase()}</Text>
-              <Text style={{ marginTop: 2, fontSize: 9, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 1 }}>
+            <View className="rounded-xl border p-s4" style={{ maxWidth: 340, borderColor: `${colors.accent}59`, backgroundColor: colors.surface }}>
+              <Text style={{ fontSize: 14, color: colors.accent, fontFamily: PIXEL_BOLD }}>{info.name.toUpperCase()}</Text>
+              <Text style={{ marginTop: 2, fontSize: 9, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 1 }}>
                 {info.category.toUpperCase()} · {info.staminaCost} STAMINA{info.basePower > 0 ? ` · PWR ${info.basePower}` : ''}
               </Text>
-              <Text style={{ marginTop: 8, fontSize: 13, color: tokens.colors.text, lineHeight: 18 }}>{info.description}</Text>
+              <Text style={{ marginTop: 8, fontSize: 13, color: colors.text, lineHeight: 18 }}>{info.description}</Text>
             </View>
           ) : null}
         </Pressable>
@@ -67,10 +68,11 @@ function MoveButton({
   width: '48%' | '100%';
   recover?: boolean;
 }) {
+  const colors = useThemeColors();
   const cooling = (player.cooldowns[move.id] ?? 0) > 0;
   const affordable = move.staminaCost <= player.stats.currentStamina;
   const usable = !disabled && affordable && !cooling;
-  const tint = (tokens.colors as Record<string, string>)[move.theme] ?? tokens.colors.accent;
+  const tint = (colors as Record<string, string>)[move.theme] ?? colors.accent;
   return (
     <Pressable
       onPress={() => {
@@ -98,23 +100,23 @@ function MoveButton({
       }}
     >
       <View className="flex-row items-center justify-between">
-        <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 11, color: usable ? tint : tokens.colors['text-mute'], fontFamily: PIXEL_BOLD, flexShrink: 1 }}>
+        <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 11, color: usable ? tint : colors['text-mute'], fontFamily: PIXEL_BOLD, flexShrink: 1 }}>
           {move.name.toUpperCase()}
         </Text>
         {move.staminaCost > 0 ? (
-          <Text allowFontScaling={false} style={{ fontSize: 8, color: affordable ? tokens.colors.accent : tokens.colors.danger, fontFamily: PIXEL }}>
+          <Text allowFontScaling={false} style={{ fontSize: 8, color: affordable ? colors.accent : colors.danger, fontFamily: PIXEL }}>
             ⚡{move.staminaCost}
           </Text>
         ) : (
-          <Text allowFontScaling={false} style={{ fontSize: 8, color: tokens.colors.success, fontFamily: PIXEL }}>FREE</Text>
+          <Text allowFontScaling={false} style={{ fontSize: 8, color: colors.success, fontFamily: PIXEL }}>FREE</Text>
         )}
       </View>
       <View className="flex-row items-center justify-between" style={{ marginTop: 2 }}>
-        <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 7.5, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5, flexShrink: 1 }}>
+        <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 7.5, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5, flexShrink: 1 }}>
           {cooling ? `COOLDOWN ${player.cooldowns[move.id]}` : recover ? 'RESTORE STAMINA' : move.category.toUpperCase()}
         </Text>
         {!recover && !cooling && move.basePower > 0 ? (
-          <Text allowFontScaling={false} style={{ fontSize: 8, color: usable ? tint : tokens.colors['text-mute'], fontFamily: PIXEL_BOLD }}>
+          <Text allowFontScaling={false} style={{ fontSize: 8, color: usable ? tint : colors['text-mute'], fontFamily: PIXEL_BOLD }}>
             {'⚔'} {move.basePower}
           </Text>
         ) : null}

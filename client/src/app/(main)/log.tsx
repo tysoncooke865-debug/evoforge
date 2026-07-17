@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { useLogBodyweight, useLogMeasurements } from '@/data/mutations';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { Field } from '@/ui/core/field';
 import { EdgeLabel } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -28,6 +28,7 @@ export default function LogScreen() {
 }
 
 function BodyweightCard() {
+  const colors = useThemeColors();
   const [weight, setWeight] = useState('');
   const log = useLogBodyweight();
   const kg = pyFloat(weight) ?? 0;
@@ -41,7 +42,7 @@ function BodyweightCard() {
           className={`min-h-[44px] items-center justify-center rounded-md px-s4 ${kg > 0 ? 'bg-accent' : 'border border-border bg-surface-2'}`}
           style={
             kg > 0
-              ? { shadowColor: tokens.colors.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 }
+              ? { shadowColor: colors.accent, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 }
               : undefined
           }
           onPress={() => kg > 0 && log.mutate(kg, { onSuccess: () => setWeight('') })}

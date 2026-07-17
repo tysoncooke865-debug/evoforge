@@ -6,7 +6,7 @@ import { Platform, Pressable, Share, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { useToastStore } from '@/state/toast-store';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * Shared Battle Arena chrome, in the Home screen's design language: the
@@ -18,13 +18,15 @@ import tokens from '@/theme/tokens';
 /** A glowing circular glyph badge — the arena's icon treatment. */
 export function IconBadge({
   glyph,
-  tint = tokens.colors.accent,
+  tint,
   size = 52,
 }: {
   glyph: string;
   tint?: string;
   size?: number;
 }) {
+  const colors = useThemeColors();
+  const tintColor = tint ?? colors.accent;
   return (
     <View
       style={{
@@ -32,11 +34,11 @@ export function IconBadge({
         height: size,
         borderRadius: size / 2,
         borderWidth: 1,
-        borderColor: `${tint}59`,
-        backgroundColor: `${tint}0f`,
+        borderColor: `${tintColor}59`,
+        backgroundColor: `${tintColor}0f`,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: tint,
+        shadowColor: tintColor,
         shadowOpacity: 0.45,
         shadowRadius: 12,
         elevation: 5,
@@ -68,6 +70,7 @@ export async function shareBattleCode(code: string): Promise<boolean> {
 
 /** The battle-code glass card: whispered label, glowing code, copy control. */
 export function CodeCard({ code }: { code: string }) {
+  const colors = useThemeColors();
   const flash = useSharedValue(0);
   const flashStyle = useAnimatedStyle(() => ({
     borderColor: `rgba(52,211,153,${0.35 + flash.value * 0.4})`,
@@ -86,7 +89,7 @@ export function CodeCard({ code }: { code: string }) {
   return (
     <View
       className="rounded-xl p-s4"
-      style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.6)' }}
+      style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.6)' }}
     >
       <Text className="text-center text-2xs font-bold text-text-mute" style={{ letterSpacing: 3 }}>
         YOUR BATTLE CODE
@@ -103,13 +106,13 @@ export function CodeCard({ code }: { code: string }) {
             },
             copied
               ? flashStyle
-              : { borderColor: `${tokens.colors.accent}40` },
+              : { borderColor: `${colors.accent}40` },
           ]}
         >
           <Text
             className="text-center text-3xl font-bold"
             style={{
-              color: tokens.colors.accent,
+              color: colors.accent,
               letterSpacing: 10,
               textShadowColor: 'rgba(34,211,238,0.6)',
               textShadowRadius: 16,
@@ -126,8 +129,8 @@ export function CodeCard({ code }: { code: string }) {
           className="min-h-[44px] items-center justify-center rounded-md px-s3"
           style={{
             borderWidth: 1,
-            borderColor: copied ? `${tokens.colors.success}8c` : `${tokens.colors.accent}59`,
-            backgroundColor: copied ? `${tokens.colors.success}14` : 'rgba(34,211,238,0.08)',
+            borderColor: copied ? `${colors.success}8c` : `${colors.accent}59`,
+            backgroundColor: copied ? `${colors.success}14` : 'rgba(34,211,238,0.08)',
           }}
           testID="battle-code-copy"
         >
@@ -144,16 +147,17 @@ export function RulesStrip({
 }: {
   rules: readonly { glyph: string; text: string }[];
 }) {
+  const colors = useThemeColors();
   return (
     <View
       className="flex-row rounded-xl py-s4"
-      style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
+      style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
     >
       {rules.map((rule, i) => (
         <View
           key={rule.text}
           className="flex-1 items-center gap-s1 px-s2"
-          style={i > 0 ? { borderLeftWidth: 1, borderLeftColor: tokens.colors.border } : undefined}
+          style={i > 0 ? { borderLeftWidth: 1, borderLeftColor: colors.border } : undefined}
         >
           <Text className="text-lg">{rule.glyph}</Text>
           <Text className="text-center text-2xs text-text-dim">{rule.text}</Text>
@@ -167,7 +171,7 @@ export function RulesStrip({
 export function PressCard({
   children,
   onPress,
-  tint = tokens.colors.accent,
+  tint,
   testID,
 }: {
   children: ReactNode;
@@ -175,6 +179,7 @@ export function PressCard({
   tint?: string;
   testID?: string;
 }) {
+  void tint; // accepted for API compatibility; the glow treatment retired
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (

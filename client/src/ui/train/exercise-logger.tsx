@@ -9,7 +9,7 @@ import { pyFloat, pyInt } from '@/domain/py';
 import type { SetVerdict } from '@/domain/set-save';
 import { WEIGHT_STEP, convertTyped, displayWeight, toKgForSave, type WeightUnit } from '@/domain/units';
 import { XP_PER_SET } from '@/domain/xp';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { FloatingXP } from '@/ui/character/floating-xp';
 import { KeyPad, NumberField } from '@/ui/core/number-field';
 import { playCoin, playPr, playSelect } from '@/ui/core/sound';
@@ -42,6 +42,7 @@ const useCompact = () => useWindowDimensions().width < 360;
 
 /** One pip per target set: filled = logged. Quest steps. */
 function SetPips({ done, target, tint }: { done: number; target: number; tint: string }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row gap-s1">
       {Array.from({ length: target }, (_, i) => (
@@ -51,7 +52,7 @@ function SetPips({ done, target, tint }: { done: number; target: number; tint: s
             width: 14,
             height: 6,
             borderRadius: 3,
-            backgroundColor: i < done ? tint : tokens.colors['surface-3'],
+            backgroundColor: i < done ? tint : colors['surface-3'],
             shadowColor: tint,
             shadowOpacity: i < done ? 0.6 : 0,
             shadowRadius: 4,
@@ -75,7 +76,7 @@ export function ExerciseCard({
   doneCount,
   isNext,
   onPr,
-  tint = tokens.colors.accent,
+  tint: tintProp,
   onLogged,
   durable = false,
   onSubstitute,
@@ -130,6 +131,8 @@ export function ExerciseCard({
    */
   readOnly?: boolean;
 }) {
+  const colors = useThemeColors();
+  const tint = tintProp ?? colors.accent;
   const done = doneCount >= targetSets;
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
@@ -144,7 +147,7 @@ export function ExerciseCard({
   const last = lastPerformance(allRows, exercise, date);
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
   // WHOLE exercise card, not one set row. Battles follow their tint.
-  const activeColor = tint === tokens.colors.accent ? tokens.colors.epic : tint;
+  const activeColor = tint === colors.accent ? colors.epic : tint;
 
   // SKIPPED = "not today". The card collapses to a ghost row: the exercise is
   // still visible (you chose to skip it, you didn't imagine it), any sets you
@@ -154,7 +157,7 @@ export function ExerciseCard({
     return (
       <View
         className="flex-row items-center justify-between rounded-xl px-s4 py-s3"
-        style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}
+        style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}
       >
         <View className="flex-1 pr-s2">
           <Text className="text-sm font-bold text-text-mute">
@@ -190,7 +193,7 @@ export function ExerciseCard({
       return { setNo, w, reps, done: w > 0 && reps > 0 };
     });
     return (
-      <GlowCard glow={done ? tokens.colors.success : undefined}>
+      <GlowCard glow={done ? colors.success : undefined}>
         <View className="mb-s2 flex-row items-center justify-between">
           <Text className="flex-1 text-base font-bold text-text">{exercise}</Text>
           <Text className={`text-xs font-bold ${done ? 'text-success' : 'text-text-mute'}`}>
@@ -215,7 +218,7 @@ export function ExerciseCard({
   }
 
   return (
-    <GlowCard glow={done ? tokens.colors.success : isNext ? activeColor : undefined}>
+    <GlowCard glow={done ? colors.success : isNext ? activeColor : undefined}>
       <View className="mb-s1 flex-row items-center justify-between">
         {/* Full name, wraps — never truncated (Tyson 2026-07-17). */}
         <Text className="flex-1 pr-s2 text-base font-bold text-text">{exercise}</Text>
@@ -238,7 +241,7 @@ export function ExerciseCard({
         ) : position && total ? (
           <Text
             className="text-2xs font-bold"
-            style={{ color: isNext ? activeColor : tokens.colors['text-mute'], letterSpacing: 0.5 }}
+            style={{ color: isNext ? activeColor : colors['text-mute'], letterSpacing: 0.5 }}
           >
             EXERCISE {position} OF {total}
           </Text>
@@ -263,7 +266,7 @@ export function ExerciseCard({
         <SetPips done={doneCount} target={targetSets} tint={tint} />
       </View>
       {supersetWith ? (
-        <View className="mb-s2 self-start rounded-pill border px-s2 py-s1" style={{ borderColor: `${tokens.colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
+        <View className="mb-s2 self-start rounded-pill border px-s2 py-s1" style={{ borderColor: `${colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
           <Text allowFontScaling={false} className="text-2xs font-bold text-epic" style={{ letterSpacing: 0.5 }} testID={`${exercise}-superset-chip`}>
             SUPERSET · {supersetWith.toUpperCase()}
           </Text>
@@ -362,7 +365,7 @@ export function ExerciseCard({
               className="items-center justify-center px-s2"
               style={{ minHeight: 44 }}
             >
-              <Text className="text-2xs font-bold" style={{ letterSpacing: 1.5, color: supersetWith ? tokens.colors.epic : tokens.colors['text-dim'] }}>
+              <Text className="text-2xs font-bold" style={{ letterSpacing: 1.5, color: supersetWith ? colors.epic : colors['text-dim'] }}>
                 {supersetWith ? 'UNPAIR' : 'SUPERSET'}
               </Text>
             </Pressable>
@@ -419,6 +422,7 @@ function SetRow({
   /** The lens: what the athlete types/reads. Props and saves are ALWAYS kg. */
   unit: WeightUnit;
 }) {
+  const colors = useThemeColors();
   // Seeds arrive as kg (log rows / last-session prefill) and are painted in
   // the exercise's unit. Typed state lives in that unit until save.
   const [weight, setWeight] = useState(
@@ -512,7 +516,7 @@ function SetRow({
     );
   };
 
-  const standardTint = tint === tokens.colors.accent;
+  const standardTint = tint === colors.accent;
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   return (
@@ -593,10 +597,10 @@ function SetRow({
             accessibilityRole="button"
             accessibilityLabel={`remove drop ${d}`}
             className="rounded-pill border px-s2 py-s1"
-            style={{ borderColor: `${tokens.colors.warn}59`, backgroundColor: 'rgba(251,191,36,0.07)' }}
+            style={{ borderColor: `${colors.warn}59`, backgroundColor: 'rgba(251,191,36,0.07)' }}
             testID={`${exercise}-drop-${setNo}-${i}`}
           >
-            <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: tokens.colors.warn }}>
+            <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: colors.warn }}>
               ↓ {d} ✕
             </Text>
           </Pressable>
@@ -607,7 +611,7 @@ function SetRow({
             accessibilityRole="button"
             accessibilityLabel={`add a drop set to set ${setNo}`}
             className="rounded-pill border px-s2 py-s1"
-            style={{ borderColor: tokens.colors.border, minHeight: 28, justifyContent: 'center' }}
+            style={{ borderColor: colors.border, minHeight: 28, justifyContent: 'center' }}
             testID={`${exercise}-adddrop-${setNo}`}
           >
             <Text allowFontScaling={false} className="text-2xs font-bold text-text-dim">＋ DROP</Text>
@@ -620,7 +624,7 @@ function SetRow({
         label={dropPad.stage === 'w' ? `DROP WEIGHT · ${unit.toUpperCase()}` : 'DROP REPS'}
         initial=""
         integer={dropPad.stage === 'r'}
-        tint={tokens.colors.warn}
+        tint={colors.warn}
         quickSteps={dropPad.stage === 'w' ? WEIGHT_STEP[unit].quick : undefined}
         onDone={(v) => {
           const n = pyFloat(v);

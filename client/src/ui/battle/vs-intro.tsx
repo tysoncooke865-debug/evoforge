@@ -13,7 +13,7 @@ import Animated, {
 
 import type { ChampionId } from '@/domain/battle-rpg/types';
 import { pixelFont, PIXEL } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { championSprite } from './champion-picker';
 
@@ -35,6 +35,7 @@ export function VsIntro({
   opponentName: string;
   onDone: () => void;
 }) {
+  const colors = useThemeColors();
   const reduced = useReducedMotion();
   const leftX = useSharedValue(reduced ? 0 : -160);
   const rightX = useSharedValue(reduced ? 0 : 160);
@@ -63,14 +64,14 @@ export function VsIntro({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Animated.View style={[{ alignItems: 'center' }, leftS]}>
           <Image source={championSprite(playerId)} style={{ width: 96, height: 96, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-          <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors.accent, fontFamily: PIXEL }}>{playerName.toUpperCase()}</Text>
+          <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.accent, fontFamily: PIXEL }}>{playerName.toUpperCase()}</Text>
         </Animated.View>
         <Animated.View style={vsS}>
-          <Text style={{ fontSize: 40, color: tokens.colors.legendary, textShadowColor: `${tokens.colors.legendary}88`, textShadowRadius: 18, ...pixelFont() }}>VS</Text>
+          <Text style={{ fontSize: 40, color: colors.legendary, textShadowColor: `${colors.legendary}88`, textShadowRadius: 18, ...pixelFont() }}>VS</Text>
         </Animated.View>
         <Animated.View style={[{ alignItems: 'center' }, rightS]}>
           <Image source={championSprite(opponentId)} style={{ width: 96, height: 96, transform: [{ scaleX: -1 }], ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
-          <Text allowFontScaling={false} style={{ fontSize: 9, color: tokens.colors.danger, fontFamily: PIXEL }}>{opponentName.toUpperCase()}</Text>
+          <Text allowFontScaling={false} style={{ fontSize: 9, color: colors.danger, fontFamily: PIXEL }}>{opponentName.toUpperCase()}</Text>
         </Animated.View>
       </View>
     </Animated.View>

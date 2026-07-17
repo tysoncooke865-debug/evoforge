@@ -4,7 +4,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 
 import { animations, durations } from '@/theme/animations';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The RPG stat row — the mobile-first replacement for the radar as the
@@ -15,13 +15,15 @@ export function StatBar({
   abbr,
   name,
   value,
-  colour = tokens.colors.accent,
+  colour,
 }: {
   abbr: string;
   name?: string;
   value: number;
   colour?: string;
 }) {
+  const colors = useThemeColors();
+  const colourResolved = colour ?? colors.accent;
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
   const width = useSharedValue(0);
 
@@ -56,19 +58,19 @@ export function StatBar({
       <Text
         className="w-s8 text-right"
         allowFontScaling={false}
-        style={{ fontSize: 16, color: colour, ...pixelFont() }}
+        style={{ fontSize: 16, color: colourResolved, ...pixelFont() }}
       >
         {clamped}
       </Text>
-      <View className="h-s2 flex-1 overflow-hidden rounded-pill" style={{ backgroundColor: tokens.colors['surface-3'] }}>
+      <View className="h-s2 flex-1 overflow-hidden rounded-pill" style={{ backgroundColor: colors['surface-3'] }}>
         <Animated.View
           style={[
             {
               height: '100%',
               borderRadius: 999,
-              backgroundColor: colour,
+              backgroundColor: colourResolved,
               minWidth: clamped > 0 ? 4 : 0,
-              shadowColor: colour,
+              shadowColor: colourResolved,
               shadowOpacity: 0.5,
               shadowRadius: 6,
             },

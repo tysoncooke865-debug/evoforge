@@ -20,7 +20,7 @@ import { playPowerUp } from '@/ui/core/sound';
 import { supabase } from '@/data/supabase';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -35,6 +35,7 @@ const GUIDE = [
 const SLOTS = ['FRONT', 'SIDE', 'BACK'] as const;
 
 export default function EvoScanScreen() {
+  const colors = useThemeColors();
   const profile = useProfile();
   const queryClient = useQueryClient();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -161,11 +162,11 @@ export default function EvoScanScreen() {
             style={{
               flex: 1,
               height: 96,
-              borderColor: photos[i] ? tokens.colors.success : tokens.colors.border,
-              backgroundColor: photos[i] ? 'rgba(52,211,153,0.08)' : tokens.colors['surface-2'],
+              borderColor: photos[i] ? colors.success : colors.border,
+              backgroundColor: photos[i] ? 'rgba(52,211,153,0.08)' : colors['surface-2'],
             }}
           >
-            <Text allowFontScaling={false} style={{ fontSize: 11, letterSpacing: 0, color: photos[i] ? tokens.colors.success : tokens.colors['text-dim'], ...pixelFont() }}>
+            <Text allowFontScaling={false} style={{ fontSize: 11, letterSpacing: 0, color: photos[i] ? colors.success : colors['text-dim'], ...pixelFont() }}>
               {photos[i] ? '✓ ' : '+ '}
               {label}
             </Text>
@@ -177,7 +178,7 @@ export default function EvoScanScreen() {
       <View className="flex-row" style={{ gap: 8 }}>
         <TextInput
           className="min-h-[48px] flex-1 rounded-xl border bg-surface-2 px-s3 text-base text-text"
-          style={{ borderColor: tokens.colors.border }}
+          style={{ borderColor: colors.border }}
           placeholder="Bodyweight (kg)"
           placeholderTextColor="#64758f"
           keyboardType="numeric"
@@ -187,7 +188,7 @@ export default function EvoScanScreen() {
         />
         <TextInput
           className="min-h-[48px] flex-1 rounded-xl border bg-surface-2 px-s3 text-base text-text"
-          style={{ borderColor: tokens.colors.border }}
+          style={{ borderColor: colors.border }}
           placeholder="Waist cm · optional (AI estimates)"
           placeholderTextColor="#64758f"
           keyboardType="numeric"
@@ -200,14 +201,14 @@ export default function EvoScanScreen() {
       <NeonButton title="RUN OFFICIAL SCAN" pixel size="hero" disabled={!canSubmit} busy={busy} onPress={() => void submit()} testID="scan-submit" />
 
       {outcome ? (
-        <GlowCard glow={tokens.colors.success} padding={16}>
+        <GlowCard glow={colors.success} padding={16}>
           <Text className="text-sm text-text">{outcome}</Text>
           <View className="mt-s2">
             <NeonButton title="BACK TO EVO RATING" variant="ghost" pixel onPress={() => router.push('/evo' as never)} testID="scan-done" />
           </View>
         </GlowCard>
       ) : null}
-      {error ? <Text className="text-xs" style={{ color: tokens.colors.danger }}>{error}</Text> : null}
+      {error ? <Text className="text-xs" style={{ color: colors.danger }}>{error}</Text> : null}
     </ScreenShell>
   );
 }

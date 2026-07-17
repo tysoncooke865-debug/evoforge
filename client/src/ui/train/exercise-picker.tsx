@@ -30,7 +30,7 @@ import {
   type LibraryExercise,
 } from '@/domain/exercise-taxonomy';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
 
@@ -80,6 +80,7 @@ export function ExercisePicker({
   programExercises?: readonly string[];
   multi?: boolean;
 }) {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -264,7 +265,7 @@ export function ExercisePicker({
 
   return (
     <Modal transparent={false} animationType="slide" onRequestClose={close} visible>
-      <View className="flex-1" style={{ backgroundColor: tokens.colors.bg, paddingTop: insets.top }}>
+      <View className="flex-1" style={{ backgroundColor: colors.bg, paddingTop: insets.top }}>
         {creating ? (
           <CreateCustom
             name={trimmed}
@@ -285,7 +286,7 @@ export function ExercisePicker({
         ) : (
           <>
             {/* STICKY HEADER — stays put while the list scrolls. */}
-            <View className="border-b border-border px-s4 pb-s2" style={{ backgroundColor: tokens.colors.surface }}>
+            <View className="border-b border-border px-s4 pb-s2" style={{ backgroundColor: colors.surface }}>
               <View className="flex-row items-center justify-between">
                 <Pressable
                   onPress={close}
@@ -305,7 +306,7 @@ export function ExercisePicker({
               </View>
 
               {/* STICKY SEARCH */}
-              <View className="mt-s1 flex-row items-center rounded-xl border bg-surface-2 px-s3" style={{ borderColor: tokens.colors.border, minHeight: 48 }}>
+              <View className="mt-s1 flex-row items-center rounded-xl border bg-surface-2 px-s3" style={{ borderColor: colors.border, minHeight: 48 }}>
                 <Text className="mr-s2 text-sm text-text-mute">🔍</Text>
                 <TextInput
                   className="flex-1 text-base text-text"
@@ -378,7 +379,7 @@ export function ExercisePicker({
                   className="flex-row items-center justify-center rounded-pill border px-s3"
                   style={{
                     minHeight: 44,
-                    borderColor: filterCount > 0 ? `${tokens.colors.accent}8c` : tokens.colors.border,
+                    borderColor: filterCount > 0 ? `${colors.accent}8c` : colors.border,
                     backgroundColor: filterCount > 0 ? 'rgba(34,211,238,0.10)' : 'transparent',
                   }}
                 >
@@ -444,11 +445,11 @@ export function ExercisePicker({
                         minHeight: 44,
                         justifyContent: 'center',
                         borderWidth: 1,
-                        borderColor: `${tokens.colors.legendary}66`,
+                        borderColor: `${colors.legendary}66`,
                         backgroundColor: 'rgba(250,204,21,0.08)',
                       }}
                     >
-                      <Text className="text-sm font-bold" style={{ color: tokens.colors.legendary }}>
+                      <Text className="text-sm font-bold" style={{ color: colors.legendary }}>
                         ＋ CREATE &ldquo;{trimmed}&rdquo;
                       </Text>
                       <Text className="text-2xs text-text-mute">Not in the library — make it yours.</Text>
@@ -462,7 +463,7 @@ export function ExercisePicker({
             {multi && selected.length > 0 ? (
               <View
                 className="border-t border-border px-s4 pt-s2"
-                style={{ backgroundColor: tokens.colors.surface, paddingBottom: 8 + insets.bottom }}
+                style={{ backgroundColor: colors.surface, paddingBottom: 8 + insets.bottom }}
               >
                 <NeonButton
                   title={`ADD ${selected.length} ${selected.length === 1 ? 'EXERCISE' : 'EXERCISES'}`}
@@ -521,6 +522,7 @@ function ExerciseRow({
   onAdd: () => void;
   onFavourite: () => void;
 }) {
+  const colors = useThemeColors();
   const name = exercise.name;
   // Locate the matched text in the name we are ACTUALLY RENDERING. The old code
   // used an offset measured against the NORMALISED name, where "(" had become a
@@ -538,7 +540,7 @@ function ExerciseRow({
       className="mb-s2 flex-row items-center rounded-xl border px-s3 py-s2"
       style={{
         minHeight: 64,
-        borderColor: state === 'idle' ? tokens.colors.border : `${tokens.colors.success}66`,
+        borderColor: state === 'idle' ? colors.border : `${colors.success}66`,
         backgroundColor: state === 'idle' ? 'rgba(13,21,36,0.6)' : 'rgba(52,211,153,0.06)',
       }}
     >
@@ -551,7 +553,7 @@ function ExerciseRow({
         className="mr-s2 items-center justify-center"
         style={{ minWidth: 44, minHeight: 44 }}
       >
-        <Text className="text-base" style={{ color: favourite ? tokens.colors.legendary : tokens.colors['text-mute'] }}>
+        <Text className="text-base" style={{ color: favourite ? colors.legendary : colors['text-mute'] }}>
           {favourite ? '★' : '☆'}
         </Text>
       </Pressable>
@@ -561,7 +563,7 @@ function ExerciseRow({
           {hit ? (
             <>
               {before}
-              <Text style={{ color: tokens.colors.accent }}>{hit}</Text>
+              <Text style={{ color: colors.accent }}>{hit}</Text>
               {after}
             </>
           ) : (
@@ -573,7 +575,7 @@ function ExerciseRow({
           {exercise.equipment ? ` • ${exercise.equipment}` : ''}
         </Text>
         {last ? (
-          <Text className="text-2xs" style={{ color: tokens.colors.accent }} numberOfLines={1}>
+          <Text className="text-2xs" style={{ color: colors.accent }} numberOfLines={1}>
             {last}
           </Text>
         ) : null}
@@ -591,13 +593,13 @@ function ExerciseRow({
           minWidth: 48,
           minHeight: 48,
           borderWidth: 1,
-          borderColor: state === 'idle' ? `${tokens.colors.accent}66` : `${tokens.colors.success}8c`,
+          borderColor: state === 'idle' ? `${colors.accent}66` : `${colors.success}8c`,
           backgroundColor: state === 'idle' ? 'rgba(34,211,238,0.10)' : 'rgba(52,211,153,0.14)',
         }}
       >
         <Text
           className="text-base font-bold"
-          style={{ color: state === 'idle' ? tokens.colors.accent : tokens.colors.success }}
+          style={{ color: state === 'idle' ? colors.accent : colors.success }}
         >
           {state === 'idle' ? '＋' : '✓'}
         </Text>
@@ -619,6 +621,7 @@ function Chip({
   testID?: string;
   small?: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -628,13 +631,13 @@ function Chip({
       className="items-center justify-center rounded-pill border px-s3"
       style={{
         minHeight: 44,
-        borderColor: active ? `${tokens.colors.accent}8c` : tokens.colors.border,
+        borderColor: active ? `${colors.accent}8c` : colors.border,
         backgroundColor: active ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
       }}
     >
       <Text
         className={`font-bold ${small ? 'text-2xs' : 'text-2xs'}`}
-        style={{ letterSpacing: 1, color: active ? tokens.colors.accent : tokens.colors['text-dim'] }}
+        style={{ letterSpacing: 1, color: active ? colors.accent : colors['text-dim'] }}
       >
         {/* Colour is never the only cue (a11y): the selected chip is ticked. */}
         {active ? `✓ ${label}` : label}
@@ -657,6 +660,7 @@ function FilterSheet({
   onApply: (f: ExerciseFilters) => void;
   onClose: () => void;
 }) {
+  const colors = useThemeColors();
   const [draft, setDraft] = useState<ExerciseFilters>(filters);
   const insets = useSafeAreaInsets();
 
@@ -672,8 +676,8 @@ function FilterSheet({
           onPress={() => undefined}
           className="rounded-t-xl border-t px-s4 pt-s4"
           style={{
-            borderColor: `${tokens.colors.accent}40`,
-            backgroundColor: tokens.colors.surface,
+            borderColor: `${colors.accent}40`,
+            backgroundColor: colors.surface,
             maxHeight: '85%',
             paddingBottom: 12 + insets.bottom,
           }}

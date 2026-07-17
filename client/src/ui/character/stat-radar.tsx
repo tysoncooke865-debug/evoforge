@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Text as RNText, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The character radar: five attributes on a pentagon, the RPG stat wheel.
@@ -15,6 +15,7 @@ export interface RadarStat {
 }
 
 export function StatRadar({ stats, size = 260 }: { stats: RadarStat[]; size?: number }) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
   const s = Math.min(size, width || size);
@@ -42,21 +43,21 @@ export function StatRadar({ stats, size = 260 }: { stats: RadarStat[]; size?: nu
               key={f}
               points={polygonFor(() => radius * f)}
               fill="none"
-              stroke={tokens.colors['border-soft']}
+              stroke={colors['border-soft']}
               strokeWidth={1}
             />
           ))}
           {stats.map((_, i) => {
             const [x, y] = point(i, radius);
             return (
-              <Line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke={tokens.colors['border-soft']} strokeWidth={1} />
+              <Line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke={colors['border-soft']} strokeWidth={1} />
             );
           })}
 
-          <Polygon points={valuePoly} fill={`${tokens.colors.accent}2b`} stroke={tokens.colors.accent} strokeWidth={2} />
+          <Polygon points={valuePoly} fill={`${colors.accent}2b`} stroke={colors.accent} strokeWidth={2} />
           {stats.map((st, i) => {
             const [x, y] = point(i, (Math.max(0, Math.min(100, st.value)) / 100) * radius);
-            return <Circle key={st.label} cx={x} cy={y} r={3.5} fill={tokens.colors.accent} stroke={tokens.colors.surface} strokeWidth={1.5} />;
+            return <Circle key={st.label} cx={x} cy={y} r={3.5} fill={colors.accent} stroke={colors.surface} strokeWidth={1.5} />;
           })}
 
           {stats.map((st, i) => {
@@ -68,7 +69,7 @@ export function StatRadar({ stats, size = 260 }: { stats: RadarStat[]; size?: nu
                 y={y}
                 fontSize={9}
                 fontWeight="bold"
-                fill={tokens.colors['text-mute']}
+                fill={colors['text-mute']}
                 textAnchor="middle"
               >
                 {st.label}

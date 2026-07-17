@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { GymericaSkin, PremiumCharacter, Selection } from '@/domain/customise';
 import { PIXEL_BOLD, pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { gymericaAnimated, gymericaStill } from '@/ui/character/gymerica-art';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -31,6 +31,7 @@ export function GymericaPanel({
   auraColour: string;
   onChange: (next: Partial<Selection>) => void;
 }) {
+  const colors = useThemeColors();
   const stage = Math.max(1, Math.min(character.stageNames.length, selection.characterStage));
   const look = selection.characterSkin;
 
@@ -38,14 +39,14 @@ export function GymericaPanel({
     <View>
       <View
         className="rounded-xl p-s4"
-        style={{ borderWidth: 1, borderColor: `${tokens.colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.55)' }}
+        style={{ borderWidth: 1, borderColor: `${colors.accent}33`, backgroundColor: 'rgba(10,16,30,0.55)' }}
       >
         <View className="flex-row items-start justify-between">
           <View style={{ flexShrink: 1 }}>
             <Text
               className="text-xl font-bold"
               numberOfLines={1}
-              style={{ color: tokens.colors.accent, textShadowColor: `${tokens.colors.accent}66`, textShadowRadius: 14, ...pixelFont() }}
+              style={{ color: colors.accent, textShadowColor: `${colors.accent}66`, textShadowRadius: 14, ...pixelFont() }}
             >
               {character.stageNames[stage - 1].toUpperCase()}
             </Text>
@@ -54,9 +55,9 @@ export function GymericaPanel({
             </Text>
           </View>
           {!owned ? (
-            <View className="flex-row items-center rounded-md border px-s2 py-s1" style={{ gap: 4, borderColor: `${tokens.colors.legendary}59` }}>
+            <View className="flex-row items-center rounded-md border px-s2 py-s1" style={{ gap: 4, borderColor: `${colors.legendary}59` }}>
               <CoinIcon size={12} />
-              <Text allowFontScaling={false} style={{ fontSize: 11, color: tokens.colors.legendary, ...pixelFont() }}>
+              <Text allowFontScaling={false} style={{ fontSize: 11, color: colors.legendary, ...pixelFont() }}>
                 {character.price}
               </Text>
             </View>
@@ -129,7 +130,7 @@ export function GymericaPanel({
                 className="items-center rounded-xl border p-s2"
                 style={{
                   width: 110,
-                  borderColor: selected ? `${tokens.colors.accent}b3` : tokens.colors.border,
+                  borderColor: selected ? `${colors.accent}b3` : colors.border,
                   backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
                 }}
               >
@@ -138,7 +139,7 @@ export function GymericaPanel({
                   style={{ width: 48, height: 54, ...({ imageRendering: 'pixelated' } as object) }}
                   contentFit="contain"
                 />
-                <Text numberOfLines={2} allowFontScaling={false} style={{ marginTop: 2, fontSize: 7.5, textAlign: 'center', color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}>
+                <Text numberOfLines={2} allowFontScaling={false} style={{ marginTop: 2, fontSize: 7.5, textAlign: 'center', color: selected ? colors.accent : colors.text, fontFamily: PIXEL_BOLD }}>
                   {l.name.toUpperCase()}
                 </Text>
               </Pressable>

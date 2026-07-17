@@ -5,7 +5,7 @@ import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-nat
 import type { RosterEntry, RosterFilter, SkinId } from '@/domain/customise';
 import { COMING_SOON_SLOTS, currentStageFor, filterRoster } from '@/domain/customise';
 import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import type { Sex } from '@/ui/character/avatar-art';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { Chip } from '@/ui/core/neon-button';
@@ -171,6 +171,7 @@ const RosterCard = memo(function RosterCard({
   skin: SkinId;
   onSelect: (id: RosterEntry['id']) => void;
 }) {
+  const colors = useThemeColors();
   const art = formArt(entry.id, stage, sex, skin);
   const statusText = entry.current ? 'ACTIVE' : entry.unlocked ? 'OWNED' : 'LOCKED';
   return (
@@ -186,9 +187,9 @@ const RosterCard = memo(function RosterCard({
       style={{
         width,
         minHeight: 44,
-        borderColor: selected ? `${tokens.colors.accent}b3` : entry.unlocked ? tokens.colors.border : 'rgba(120,170,220,0.10)',
+        borderColor: selected ? `${colors.accent}b3` : entry.unlocked ? colors.border : 'rgba(120,170,220,0.10)',
         backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
-        shadowColor: tokens.colors.accent,
+        shadowColor: colors.accent,
         shadowOpacity: selected ? 0.4 : 0,
         shadowRadius: 12,
         elevation: selected ? 4 : 0,
@@ -207,7 +208,7 @@ const RosterCard = memo(function RosterCard({
         />
         {equipped ? (
           <Text
-            style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: tokens.colors.accent }}
+            style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: colors.accent }}
             accessibilityLabel="equipped"
           >
             ◈
@@ -217,12 +218,12 @@ const RosterCard = memo(function RosterCard({
       <Text
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 8, textAlign: 'center', color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}
+        style={{ fontSize: 8, textAlign: 'center', color: selected ? colors.accent : colors.text, fontFamily: PIXEL_BOLD }}
       >
         {entry.name.toUpperCase()}
       </Text>
       <View className="mt-s1 flex-row items-center justify-center" style={{ gap: 3 }}>
-        <Text allowFontScaling={false} style={{ fontSize: 7, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
+        <Text allowFontScaling={false} style={{ fontSize: 7, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {statusText}
         </Text>
         <Text style={{ fontSize: 8 }}>{entry.unlocked ? entry.icon : '🔒'}</Text>
@@ -246,6 +247,7 @@ const PremiumCard = memo(function PremiumCard({
   equipped: boolean;
   onSelect: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={() => {
@@ -259,9 +261,9 @@ const PremiumCard = memo(function PremiumCard({
       style={{
         width,
         minHeight: 44,
-        borderColor: selected ? `${tokens.colors.accent}b3` : entry.owned ? `${tokens.colors.legendary}66` : 'rgba(120,170,220,0.10)',
+        borderColor: selected ? `${colors.accent}b3` : entry.owned ? `${colors.legendary}66` : 'rgba(120,170,220,0.10)',
         backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
-        shadowColor: selected ? tokens.colors.accent : tokens.colors.legendary,
+        shadowColor: selected ? colors.accent : colors.legendary,
         shadowOpacity: selected ? 0.4 : entry.owned ? 0.25 : 0,
         shadowRadius: 12,
         elevation: selected ? 4 : 0,
@@ -274,16 +276,16 @@ const PremiumCard = memo(function PremiumCard({
           contentFit="contain"
         />
         {equipped ? (
-          <Text style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: tokens.colors.accent }} accessibilityLabel="equipped">
+          <Text style={{ position: 'absolute', top: 0, right: 0, fontSize: 9, color: colors.accent }} accessibilityLabel="equipped">
             ◈
           </Text>
         ) : null}
       </View>
-      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, textAlign: 'center', color: selected ? tokens.colors.accent : tokens.colors.text, fontFamily: PIXEL_BOLD }}>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 8, textAlign: 'center', color: selected ? colors.accent : colors.text, fontFamily: PIXEL_BOLD }}>
         {entry.name.toUpperCase()}
       </Text>
       <View className="mt-s1 flex-row items-center justify-center" style={{ gap: 3 }}>
-        <Text allowFontScaling={false} style={{ fontSize: 7, color: entry.owned ? tokens.colors.legendary : tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
+        <Text allowFontScaling={false} style={{ fontSize: 7, color: entry.owned ? colors.legendary : colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
           {entry.owned ? 'OWNED' : `${entry.price}`}
         </Text>
         {/* Purchasable → the forge coin, not a lock (owner ask). */}
@@ -295,6 +297,7 @@ const PremiumCard = memo(function PremiumCard({
 
 /** An honest future slot — art not delivered, not pretending otherwise. */
 function ComingSoonCard({ width }: { width: number }) {
+  const colors = useThemeColors();
   return (
     <View
       className="items-center justify-center rounded-xl border p-s2"
@@ -307,10 +310,10 @@ function ComingSoonCard({ width }: { width: number }) {
       accessibilityLabel="future champion, coming soon"
     >
       <Text style={{ fontSize: 22, opacity: 0.25 }}>👤</Text>
-      <Text allowFontScaling={false} style={{ marginTop: 6, fontSize: 8, color: tokens.colors['text-mute'], fontFamily: PIXEL_BOLD }}>
+      <Text allowFontScaling={false} style={{ marginTop: 6, fontSize: 8, color: colors['text-mute'], fontFamily: PIXEL_BOLD }}>
         ???
       </Text>
-      <Text allowFontScaling={false} style={{ marginTop: 2, fontSize: 7, color: tokens.colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
+      <Text allowFontScaling={false} style={{ marginTop: 2, fontSize: 7, color: colors['text-mute'], fontFamily: PIXEL, letterSpacing: 0.5 }}>
         COMING SOON
       </Text>
     </View>

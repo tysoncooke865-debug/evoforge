@@ -13,7 +13,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
@@ -43,6 +43,7 @@ export default function AiScreen() {
 }
 
 function PhotoSlot({ label, uri, onPick }: { label: string; uri: string | null; onPick: () => void }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPick}
@@ -52,8 +53,8 @@ function PhotoSlot({ label, uri, onPick }: { label: string; uri: string | null; 
       style={{
         borderWidth: 1,
         borderStyle: uri ? 'solid' : 'dashed',
-        borderColor: uri ? `${tokens.colors.accent}8c` : tokens.colors.border,
-        backgroundColor: uri ? 'rgba(34,211,238,0.06)' : tokens.colors['surface-2'],
+        borderColor: uri ? `${colors.accent}8c` : colors.border,
+        backgroundColor: uri ? 'rgba(34,211,238,0.06)' : colors['surface-2'],
       }}
     >
       {uri ? (
@@ -141,14 +142,15 @@ function ConditionsConfirm({
   busy: boolean;
   onConfirm: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <View
       className="mt-s3 rounded-xl p-s3"
-      style={{ borderWidth: 1, borderColor: `${tokens.colors.warn}45`, backgroundColor: 'rgba(6,12,24,0.5)' }}
+      style={{ borderWidth: 1, borderColor: `${colors.warn}45`, backgroundColor: 'rgba(6,12,24,0.5)' }}
     >
       <Text
         allowFontScaling={false}
-        style={{ fontSize: 10, color: tokens.colors.warn, letterSpacing: 1.5, ...pixelFont(false) }}
+        style={{ fontSize: 10, color: colors.warn, letterSpacing: 1.5, ...pixelFont(false) }}
       >
         THE ORACLE READ THE CONDITIONS AS…
       </Text>
@@ -184,6 +186,7 @@ function ConditionsConfirm({
 }
 
 function PhysiqueSection() {
+  const colors = useThemeColors();
   const { summary, stats } = useAvatarData();
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -255,7 +258,7 @@ function PhysiqueSection() {
   const state = confirming && !busy ? 'confirm' as const : physiqueScanState(busy, error, result !== null, anyPhoto);
 
   return (
-    <GlowCard glow={state === 'complete' ? tokens.colors.success : anyPhoto ? tokens.colors.accent : undefined}>
+    <GlowCard glow={state === 'complete' ? colors.success : anyPhoto ? colors.accent : undefined}>
       <SectionLabel>AI PHYSIQUE RATING</SectionLabel>
       <ScanFrame state={state}>
         <View className="flex-row gap-s2">
@@ -287,7 +290,7 @@ function PhysiqueSection() {
       {result ? (
         <View
           className="mt-s4 rounded-xl p-s4"
-          style={{ borderWidth: 1, borderColor: `${tokens.colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
+          style={{ borderWidth: 1, borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
         >
           <View className="mb-s3">
             <EdgeLabel
@@ -296,7 +299,7 @@ function PhysiqueSection() {
                   allowFontScaling={false}
                   style={{
                     fontSize: 20,
-                    color: tokens.colors.epic,
+                    color: colors.epic,
                     textShadowColor: 'rgba(168,85,247,0.6)',
                     textShadowRadius: 14,
                     ...pixelFont(),
@@ -310,9 +313,9 @@ function PhysiqueSection() {
               THE ORACLE&apos;S VERDICT
             </EdgeLabel>
           </View>
-          <ScoreRow label="Leanness" value={result.leanness_score} colour={tokens.colors.success} />
-          <ScoreRow label="Symmetry" value={result.symmetry_score} colour={tokens.colors.mythic} />
-          <ScoreRow label="Muscularity" value={result.muscularity_score} colour={tokens.colors.epic} />
+          <ScoreRow label="Leanness" value={result.leanness_score} colour={colors.success} />
+          <ScoreRow label="Symmetry" value={result.symmetry_score} colour={colors.mythic} />
+          <ScoreRow label="Muscularity" value={result.muscularity_score} colour={colors.epic} />
           <Text className="mt-s1 text-xs text-text-dim">{result.summary}</Text>
           {result.improvements?.slice(0, 3).map((im) => (
             <Text key={im} className="mt-s1 text-2xs text-text-mute">
@@ -326,6 +329,7 @@ function PhysiqueSection() {
 }
 
 function BodyfatSection() {
+  const colors = useThemeColors();
   const current = useCurrentStats();
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -394,7 +398,7 @@ function BodyfatSection() {
   const state = confirming && !busy ? 'confirm' as const : physiqueScanState(busy, error, result !== null, anyPhoto);
 
   return (
-    <GlowCard glow={state === 'complete' ? tokens.colors.success : anyPhoto ? tokens.colors.accent : undefined}>
+    <GlowCard glow={state === 'complete' ? colors.success : anyPhoto ? colors.accent : undefined}>
       <SectionLabel>AI BODY FAT ESTIMATE</SectionLabel>
       <ScanFrame state={state}>
         <View className="flex-row gap-s2">
@@ -426,7 +430,7 @@ function BodyfatSection() {
       {result ? (
         <View
           className="mt-s4 items-center rounded-xl p-s4"
-          style={{ borderWidth: 1, borderColor: `${tokens.colors.success}45`, backgroundColor: `${tokens.colors.success}0f` }}
+          style={{ borderWidth: 1, borderColor: `${colors.success}45`, backgroundColor: `${colors.success}0f` }}
         >
           <Text
             className="text-text-mute"
@@ -440,8 +444,8 @@ function BodyfatSection() {
             style={{
               fontSize: 30,
               lineHeight: 36,
-              color: tokens.colors.success,
-              textShadowColor: `${tokens.colors.success}99`,
+              color: colors.success,
+              textShadowColor: `${colors.success}99`,
               textShadowRadius: 16,
               ...pixelFont(),
             }}
@@ -472,6 +476,7 @@ const PLAN_GOALS = ['Aesthetics', 'Strength', 'Recomposition'] as const;
  * routine is generated/pinned and untouched either way.
  */
 function ForgeRoutineSection() {
+  const colors = useThemeColors();
   const physique = usePhysiqueRatings();
   const workouts = useWorkoutLog();
   const accept = useAcceptPlan();
@@ -499,7 +504,7 @@ function ForgeRoutineSection() {
   };
 
   return (
-    <GlowCard glow={preview ? tokens.colors.epic : undefined}>
+    <GlowCard glow={preview ? colors.epic : undefined}>
       <SectionLabel>AI CUSTOM ROUTINE</SectionLabel>
       {!preview ? (
         <>
@@ -525,7 +530,7 @@ function ForgeRoutineSection() {
             <View
               key={day.day}
               className="mb-s2 rounded-md p-s3"
-              style={{ borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(6,12,24,0.5)' }}
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(6,12,24,0.5)' }}
             >
               <Text
                 className="text-text"

@@ -7,7 +7,7 @@ import { useAuth } from '@/data/auth-context';
 import { supabase } from '@/data/supabase';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { todayIso } from '@/domain/today';
@@ -120,6 +120,7 @@ function ExportCard() {
 }
 
 function DeleteCard() {
+  const colors = useThemeColors();
   const [table, setTable] = useState<string | null>(null);
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -151,7 +152,7 @@ function DeleteCard() {
     // Not the danger class with a /40 opacity suffix: colour utilities
     // resolve through var() now and Tailwind cannot alpha-transform those —
     // hex-alpha inline instead.
-    <View className="rounded-lg border bg-surface p-s4" style={{ borderColor: `${tokens.colors.danger}66` }}>
+    <View className="rounded-lg border bg-surface p-s4" style={{ borderColor: `${colors.danger}66` }}>
       <Text
         className="mb-s2 text-danger"
         allowFontScaling={false}

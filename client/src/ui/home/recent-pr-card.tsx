@@ -5,7 +5,7 @@ import type { RecentPr } from '@/domain/recent-pr';
 import type { WeightUnit } from '@/domain/units';
 import { kgToLb } from '@/domain/units';
 import { pixelFont } from '@/theme/fonts';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -22,6 +22,7 @@ const shortDate = (iso: string): string => {
  * forever). No PR yet is an honest invitation, not a fake record.
  */
 export function RecentPrCard({ pr, unit }: { pr: RecentPr | null; unit: WeightUnit }) {
+  const colors = useThemeColors();
   const weight =
     pr === null
       ? null
@@ -39,9 +40,9 @@ export function RecentPrCard({ pr, unit }: { pr: RecentPr | null; unit: WeightUn
       }
       testID="recent-pr-card"
       className="rounded-xl border p-s4"
-      style={{ flex: 1, borderColor: tokens.colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
+      style={{ flex: 1, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
     >
-      <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: tokens.colors.success }}>
+      <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: colors.success }}>
         RECENT PR
       </Text>
       {pr ? (
@@ -57,7 +58,7 @@ export function RecentPrCard({ pr, unit }: { pr: RecentPr | null; unit: WeightUn
               {unit.toUpperCase()}
             </Text>
           </View>
-          <Text className="text-2xs" style={{ color: tokens.colors.success }}>
+          <Text className="text-2xs" style={{ color: colors.success }}>
             {pr.reps} rep{pr.reps === 1 ? '' : 's'}
           </Text>
           <Text className="text-2xs text-text-mute">{shortDate(pr.date)}</Text>

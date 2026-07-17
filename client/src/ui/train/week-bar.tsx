@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { STATUS_LABEL, type WeekBar, type WorkoutStatus } from '@/domain/week-status';
-import tokens from '@/theme/tokens';
+import { useThemeColors } from '@/theme/use-theme';
 import { PixelCross, PixelTick } from '@/ui/core/pixel-icons';
 
 /**
@@ -19,26 +19,28 @@ import { PixelCross, PixelTick } from '@/ui/core/pixel-icons';
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-const BADGE: Partial<Record<WorkoutStatus, { label: string; colour: string }>> = {
-  completed: { label: 'COMPLETED', colour: tokens.colors.success },
-  partial: { label: 'PARTIAL', colour: tokens.colors.warn },
-  missed: { label: 'MISSED', colour: tokens.colors.danger },
-  in_progress: { label: 'TODAY', colour: tokens.colors.accent },
+// Colour as a token KEY, resolved through the theme at render.
+const BADGE: Partial<Record<WorkoutStatus, { label: string; colour: 'success' | 'warn' | 'danger' | 'accent' }>> = {
+  completed: { label: 'COMPLETED', colour: 'success' },
+  partial: { label: 'PARTIAL', colour: 'warn' },
+  missed: { label: 'MISSED', colour: 'danger' },
+  in_progress: { label: 'TODAY', colour: 'accent' },
 };
 
 /** The verdict, drawn: an outlined circle; decided states carry their mark. */
 function StatusCircle({ status }: { status: WorkoutStatus }) {
+  const colors = useThemeColors();
   const D = 20;
   const colour =
     status === 'completed'
-      ? tokens.colors.success
+      ? colors.success
       : status === 'partial'
-        ? tokens.colors.warn
+        ? colors.warn
         : status === 'missed'
-          ? tokens.colors.danger
+          ? colors.danger
           : status === 'in_progress'
-            ? tokens.colors.accent
-            : tokens.colors.border;
+            ? colors.accent
+            : colors.border;
   return (
     <View
       testID={`status-circle-${status}`}
@@ -77,6 +79,7 @@ export function WeekBarRow({
   showDay?: boolean;
   sets?: { done: number; target: number };
 }) {
+  const colors = useThemeColors();
   const rest = bar.status === 'rest';
   const isToday = bar.status === 'in_progress';
   const frac = sets ?? { done: bar.done, target: bar.target };
@@ -95,7 +98,7 @@ export function WeekBarRow({
         style={{
           minHeight: 52,
           gap: 10,
-          borderColor: isToday ? `${tokens.colors.accent}8c` : tokens.colors.border,
+          borderColor: isToday ? `${colors.accent}8c` : colors.border,
           backgroundColor: isToday ? 'rgba(34,211,238,0.06)' : rest ? 'rgba(13,21,36,0.35)' : 'rgba(13,21,36,0.65)',
           opacity: rest ? 0.6 : 1,
         }}
@@ -104,12 +107,12 @@ export function WeekBarRow({
           <Text
             className="text-2xs font-bold"
             numberOfLines={1}
-            style={{ width: 34, letterSpacing: 1, color: isToday ? tokens.colors.accent : tokens.colors['text-mute'] }}
+            style={{ width: 34, letterSpacing: 1, color: isToday ? colors.accent : colors['text-mute'] }}
           >
             {WEEKDAYS[bar.dow]}
           </Text>
         ) : (
-          <Text className="text-2xs font-bold" style={{ width: 34, color: tokens.colors.accent }}>
+          <Text className="text-2xs font-bold" style={{ width: 34, color: colors.accent }}>
             ＋
           </Text>
         )}
@@ -131,9 +134,9 @@ export function WeekBarRow({
         {badge ? (
           <View
             className="rounded-md px-s2 py-s1"
-            style={{ backgroundColor: `${badge.colour}22` }}
+            style={{ backgroundColor: `${colors[badge.colour]}22` }}
           >
-            <Text className="text-2xs font-bold" style={{ color: badge.colour, letterSpacing: 1 }}>
+            <Text className="text-2xs font-bold" style={{ color: colors[badge.colour], letterSpacing: 1 }}>
               {badge.label}
             </Text>
           </View>
@@ -153,7 +156,7 @@ export function WeekBarRow({
             </Text>
           </Pressable>
         ) : !rest ? (
-          <Text className="text-sm" style={{ color: tokens.colors['text-mute'] }}>
+          <Text className="text-sm" style={{ color: colors['text-mute'] }}>
             ›
           </Text>
         ) : null}
