@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 import { useCharacterUnlocks } from '@/data/characters';
+import { ORIGIN_FLAGS, useOriginStatus } from '@/data/origin';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useSkinUnlocks } from '@/data/skins';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -54,7 +55,26 @@ export function useDisplayIdentity(): DisplayIdentity {
     ctx: { nutritionPhase, earliestBf },
     forgeLevel: forgeProgressFromRow(forge.data ?? null).level,
   };
-  const display = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
+  let display = resolveDisplay(derived, loadout, ownedSkins, ownedCharacters);
+
+  // ORIGIN PATH Release 6 — the DUAL-READ cutover (ORIGIN_PATH_PLAN.md): an
+  // account WITH an assigned Origin reads its champion stage from the new
+  // schema when it shows the same path — the server record is monotonic
+  // (record_path_progress never lowers), so an EARNED stage can never regress
+  // even if the legacy level/bf derivation would drop it. Accounts without an
+  // origin are untouched: legacy remains their entire read path. Cross-path
+  // overrides stay off until Release 5's roster gains an equip action — the
+  // dual-write mirror keeps active_path aligned with the derivation anyway.
+  const origin = useOriginStatus();
+  if (
+    ORIGIN_FLAGS.newSchemaReadEnabled &&
+    origin.data?.origin_path != null &&
+    origin.data.active_path === display.branch &&
+    !display.character &&
+    origin.data.active_stage > display.stage
+  ) {
+    display = { ...display, stage: Math.min(4, origin.data.active_stage) };
+  }
 
   // PREMIUM OVERLAY: an equipped, owned premium character takes over the
   // rendered art everywhere Home/Forge read this hook — branch/stats below

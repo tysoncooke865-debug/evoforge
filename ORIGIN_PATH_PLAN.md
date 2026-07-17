@@ -80,11 +80,18 @@ This file is the repo-adapted version of Tyson's full spec (delivered in-chat
   keep the derived look until their confidence crosses the gate, then the
   same reveal fires; onboarding untouched. All three states live-verified
   on WebKit iPhone (banner at conf 20; reveal→claim titan→roster at conf 80).
-- **Release 6 — legacy removal**: ⛔ INTENTIONALLY GATED, per this plan's own
-  rule — legacy stays the read path until (a) every active account is
-  migration_status='migrated' (today: 17/17 needs_assessment), (b) backups
-  retained, (c) battles/customise/store verified on the new schema. Flip
-  ORIGIN_FLAGS + drop legacy reads only then.
+- **Release 6 — dual-read cutover** ✅ machinery SHIPPED 2026-07-17; deletion
+  still gated. What shipped: (b) legacy snapshot taken
+  (legacy_state_backup_20260717, 17 accounts, RLS-locked, no client access);
+  (c) the DUAL-READ in use-display-identity.ts — an account WITH an origin
+  reads its champion stage from the new schema (same-path, monotonic, capped
+  4; earned stages can never regress), everyone else stays fully legacy —
+  live-verified: a migrated account rendered its server stage 4 over a
+  derived 3, and Forge/Home/Train/Arena/Customise/Battle all ran clean; flag
+  newSchemaReadEnabled kills it instantly. STILL GATED: physically dropping
+  legacy columns/derivation — only when (a) 100% of accounts are migrated
+  (today 0/17; accounts migrate as confidence crosses 30 via backfill
+  re-runs). Cross-path display override lands with the roster equip action.
 
 ## Non-negotiable migration rules (spec, AS AMENDED by Tyson 2026-07-17)
 Never reduce an EARNED stage · never delete tree progress · never swap the

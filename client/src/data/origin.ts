@@ -15,6 +15,10 @@ import { supabase } from './supabase';
 export const ORIGIN_FLAGS = {
   originRevealEnabled: true,
   pathRosterEnabled: true,
+  /** Release 6 dual-read: accounts WITH an origin read their champion from
+   *  the new schema (profile.active_path/active_stage, monotonic server
+   *  record); accounts without one stay entirely on legacy. */
+  newSchemaReadEnabled: true,
 };
 
 export const PATH_NAMES: Record<string, string> = {
