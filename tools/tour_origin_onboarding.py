@@ -122,37 +122,46 @@ try:
         check('awakening ceremony shows Stage 1', 'STAGE 1' in page.content())
         page.screenshot(path=str(SHOTS / 'origin-awakening.png'))
         page.get_by_test_id('origin-finish').click()
-        try:
-            page.wait_for_url('**/', timeout=30000)
-        except Exception:
-            pass
-        time.sleep(4)
+        time.sleep(5)
+        check('O-4 lands on Home after the ceremony', page.url.rstrip('/').endswith((':8794', '/')), page.url)
+        # The first-launch tutorial overlay intercepts before Home content —
+        # dismiss it (SKIP TOUR) so the checks read the real screen.
+        skip = page.locator('text=SKIP TOUR')
+        if skip.count() > 0:
+            skip.first.click()
+            time.sleep(1)
         check('O-4 non-recommended selection was bound (free choice)',
               page.locator('[data-testid="forge-origin"]').count() == 0,
               'blank podium still showing')
-        check('O-6 Home shows the mission card', 'MISSION' in page.content().upper())
-        check('O-6 Home shows the rating (EVO core)', 'EVO' in page.content().upper())
+        content = page.content().upper()
+        check('O-6 Home shows the mission card', 'MISSION' in content)
+        check('O-6 first mission is a real seeded workout (PUSH = ppl3 day 1)',
+              'PUSH' in content, 'seeded split day not visible')
+        check('O-6 Home shows the rating (EVO core)', 'EVO RATING' in content or 'TRAINED' in content or 'NOVICE' in content)
         page.screenshot(path=str(SHOTS / 'origin-o6-home.png'), full_page=True)
 
         check('zero page errors across the whole tour', len(errors) == 0, '; '.join(errors[:3]))
-        browser.close()
 
         # ---- O-7: reduced motion — the ceremony completes statically ------
-        browser2 = p.chromium.launch()
-        ctx = browser2.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
+        ctx = browser.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce')
         page2 = ctx.new_page()
         page2.goto(f'{BASE}/sign-in', wait_until='load')
-        time.sleep(2)
+        page2.get_by_test_id('email').wait_for(timeout=30000)
         page2.get_by_test_id('email').fill(EMAIL)
         page2.get_by_test_id('password').fill(PASSWORD)
         page2.get_by_test_id('sign-in').click()
-        time.sleep(4)
+        time.sleep(6)
+        skip2 = page2.locator('text=SKIP TOUR')
+        if skip2.count() > 0:
+            skip2.first.click()
+            time.sleep(1)
         # already-bound user: reduced-motion leg just proves Home renders with
         # the champion under prefers-reduced-motion (the ceremony itself ran above)
         check('O-7 reduced-motion Home renders (champion bound)',
               page2.locator('[data-testid="forge-origin"]').count() == 0)
         page2.screenshot(path=str(SHOTS / 'origin-o7-reduced-motion.png'), full_page=True)
-        browser2.close()
+        ctx.close()
+        browser.close()
 finally:
     server.terminate()
 

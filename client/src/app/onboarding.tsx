@@ -145,11 +145,16 @@ export default function OnboardingScreen() {
         sex={profile.data?.sex ?? sex}
         userType="new"
         onComplete={() => {
-          void queryClient.invalidateQueries({ queryKey: ['profile'] });
-          // BUILD MY OWN / SCAN MY PLAN still land where Act I promised.
-          router.replace(
-            (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never,
-          );
+          // AWAIT the refetch: navigating with a stale null profile makes
+          // the (main) gate bounce the just-finished athlete straight back
+          // to /onboarding (caught by the O-series tour).
+          void (async () => {
+            await queryClient.invalidateQueries({ queryKey: ['profile'] });
+            // BUILD MY OWN / SCAN MY PLAN still land where Act I promised.
+            router.replace(
+              (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never,
+            );
+          })();
         }}
       />
     );
