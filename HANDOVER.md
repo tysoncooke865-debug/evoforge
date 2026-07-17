@@ -704,9 +704,48 @@ Owner: Tyson. He works through other Claude sessions too — **always
   code, BRAVO joined + fought ALPHA's champion to a result. LIVE
   move-by-move PvP remains the documented next step.
 
-**Migrations applied through `034`. Next free number: `035`**
-(022 stays RESERVED for the nutrition branch — it renumbers to 025+ at merge
-if 025 is taken by then; check `ls migrations/` first).
+- **THE PALETTE SHOP (Tyson: "sell reskins of the entire website — colour
+  palettes bought with forge coins, own for life, equip or remove whenever",
+  migration 044, 2026-07-17):** whole-app recolours, per athlete. Six
+  palettes — emerald 500 / crimson 750 / synthwave 1000 / solar 1250 /
+  arctic 1500 / void 2000 (ascending) — sold by `purchase_palette()` +
+  `palette_price()` on the exact 030/031 secure pattern (advisory lock,
+  balance check, the `evoforge.spend_authorized` txn-GUC; ZERO coin-guard
+  changes) into select-only-RLS `user_palette_unlocks`.
+  THE THEMING LAYER: tailwind colour utilities now resolve through
+  `var(--c-<key>, <standard>)` (generated in tailwind.config.js from
+  tokens.js, which is UNTOUCHED — verify-tokens holds); `ui/core/theme-root`
+  applies the active palette as NativeWind `vars()` + web
+  `document.documentElement` properties (RN-web Modals portal outside the
+  tree), so ~850 className usages restyle with zero per-file work. Every
+  inline `tokens.colors` read (785 across 90 files) was AST-codemodded to
+  `useThemeColors()` (`theme/use-theme`, fed by `state/theme-store`).
+  `theme/palettes.ts` carries the colour records — rarity + success/warn/
+  danger are PINNED IDENTICAL in every palette (rarity is a cross-app
+  vocabulary; semantic colours encode meaning). CUSTOMISE gains a THEMES
+  tab: tapping a card previews the palette APP-WIDE while the screen is
+  focused (ownership-free try-before-you-buy; blur/unmount restores), BUY
+  rides the coin ledger (invalidates wallet + unlocks + history), EQUIP
+  persists `loadout.paletteId`, and `resolveActivePalette`
+  (domain/customise) re-validates ownership on EVERY read — an unowned
+  equipped palette silently renders standard. RULE THE WRAPPER CREATES:
+  Tailwind cannot alpha-transform a var() colour, so a colour class with an
+  opacity modifier (`/40`) silently generates NOTHING — verify-tokens now
+  walks src and fails on any; use inline hex-alpha suffixes. NOT themed in
+  v1 (deliberate): glow/shadow tokens (`--glow-*` vars are the v2 seam),
+  +html.tsx boot colours (pre-hydration), sprite art, AURAS/GYMERICA
+  literals. Falsified: the full 044 checklist as ALPHA/BRAVO (raw inserts
+  rejected, exact deduction, duplicate/unfunded/unknown refused, cross-user
+  empty) + a 15-check Playwright tour (preview cycling recolours the live
+  page, wallet 1225→475 on a 750 buy, /coins agrees, reload survival,
+  standard revert, sign-out teardown; screenshots in
+  Downloads/evoforge-screenshots/palette-*). Artifacts deleted, ALPHA
+  restored to 225.
+
+**Migrations applied through `044`. Next free number: `045`.**
+(Historical: `022` was reserved for the nutrition branch and never used —
+nutrition landed as `037_nutrition.sql`, which COLLIDES with
+`037_workout_ghosts.sql`; both are applied, the number is just shared.)
 
 <!-- superseded: **Migrations applied through `021`. Next free number: `022`.** -->
 `016` user_exercises+routines · `017` workout_sessions · `018` user_plans ·
