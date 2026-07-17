@@ -212,37 +212,61 @@ export const MOVE_FX: Record<string, MoveFxSpec> = {
 
 // ---------- hand-drawn pixel props (Views only — no assets) ----------
 
-/** A pixel dumbbell out of plain Views. */
+/** A pixel dumbbell out of plain Views — three-tone shaded, knurled bar. */
 function DumbbellGlyph({ size = 34 }: { size?: number }) {
-  const plate = { width: size * 0.28, height: size * 0.62, backgroundColor: '#8fa3bd', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420' } as const;
+  const plate = (
+    <View style={{ width: size * 0.28, height: size * 0.62, backgroundColor: '#8fa3bd', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420', overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', top: 1, left: 1, right: 1, height: size * 0.12, backgroundColor: '#c9d8ea', borderRadius: 1 }} />
+      <View style={{ position: 'absolute', bottom: 1, left: 1, right: 1, height: size * 0.1, backgroundColor: '#5d7391', borderRadius: 1 }} />
+    </View>
+  );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <View style={plate} />
-      <View style={{ width: size * 0.5, height: size * 0.16, backgroundColor: '#c3d2e6', borderWidth: 1, borderColor: '#0b1420' }} />
-      <View style={plate} />
+      {plate}
+      <View style={{ width: size * 0.5, height: size * 0.16, backgroundColor: '#c3d2e6', borderWidth: 1, borderColor: '#0b1420', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' }}>
+        {[0, 1, 2].map((k) => (
+          <View key={k} style={{ width: 1, height: size * 0.08, backgroundColor: '#7f93ad' }} />
+        ))}
+      </View>
+      {plate}
     </View>
   );
 }
 
-/** A properly plated pixel barbell — two plates a side, knurled bar. */
+/** A properly plated pixel barbell — shaded plates, knurled bar. */
 function BarbellGlyph({ size = 52 }: { size?: number }) {
-  const big = { width: size * 0.14, height: size * 0.72, backgroundColor: '#8fa3bd', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420' } as const;
-  const small = { width: size * 0.1, height: size * 0.5, backgroundColor: '#6d82a0', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420' } as const;
+  const big = (
+    <View style={{ width: size * 0.14, height: size * 0.72, backgroundColor: '#8fa3bd', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420', overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', top: 1, left: 1, right: 1, height: size * 0.12, backgroundColor: '#c9d8ea' }} />
+      <View style={{ position: 'absolute', bottom: 1, left: 1, right: 1, height: size * 0.12, backgroundColor: '#5d7391' }} />
+    </View>
+  );
+  const small = (
+    <View style={{ width: size * 0.1, height: size * 0.5, backgroundColor: '#6d82a0', borderRadius: 2, borderWidth: 1, borderColor: '#0b1420', overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', top: 1, left: 1, right: 1, height: size * 0.09, backgroundColor: '#a9bcd4' }} />
+    </View>
+  );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <View style={small} />
-      <View style={big} />
-      <View style={{ width: size * 1.1, height: size * 0.12, backgroundColor: '#c3d2e6', borderWidth: 1, borderColor: '#0b1420' }} />
-      <View style={big} />
-      <View style={small} />
+      {small}
+      {big}
+      <View style={{ width: size * 1.1, height: size * 0.12, backgroundColor: '#c3d2e6', borderWidth: 1, borderColor: '#0b1420', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' }}>
+        {[0, 1, 2, 3, 4].map((k) => (
+          <View key={k} style={{ width: 1, height: size * 0.06, backgroundColor: '#7f93ad' }} />
+        ))}
+      </View>
+      {big}
+      {small}
     </View>
   );
 }
 
-/** A weight plate seen face-on — a ring with a hub hole. */
+/** A weight plate seen face-on — a ring with a hub hole and a glint. */
 function PlateGlyph({ size = 15, color = '#8fa3bd' }: { size?: number; color?: string }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size, borderWidth: size * 0.28, borderColor: color, backgroundColor: '#0b1420' }} />
+    <View style={{ width: size, height: size, borderRadius: size, borderWidth: size * 0.28, borderColor: color, backgroundColor: '#0b1420' }}>
+      <View style={{ position: 'absolute', top: -size * 0.16, left: size * 0.06, width: size * 0.3, height: size * 0.12, borderRadius: size, backgroundColor: '#e6eefb', opacity: 0.85, transform: [{ rotate: '-30deg' }] }} />
+    </View>
   );
 }
 
@@ -251,6 +275,7 @@ function Star({ color, size }: { color: string; size: number }) {
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ position: 'absolute', width: size, height: size * 0.28, backgroundColor: color, borderRadius: 2 }} />
       <View style={{ position: 'absolute', width: size * 0.28, height: size, backgroundColor: color, borderRadius: 2 }} />
+      <View style={{ position: 'absolute', width: size * 0.34, height: size * 0.34, borderRadius: size, backgroundColor: '#ffffff', opacity: 0.95 }} />
     </View>
   );
 }
@@ -553,7 +578,7 @@ function Ghost({ idx, src, dx, dy, ms, origin }: { idx: number; src: ReturnType<
   }));
   return (
     <Animated.View style={[origin as object, style]}>
-      <Image source={src} style={{ width: 96, height: 96, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
+      <Image source={src} tintColor="#9fe8ff" style={{ width: 96, height: 96, ...({ imageRendering: 'pixelated' } as object) }} contentFit="contain" />
     </Animated.View>
   );
 }
@@ -569,7 +594,9 @@ function SlashArc({ angle, color, ms, delayMs, size, at }: { angle: number; colo
     transform: [{ rotate: `${angle}deg` }, { translateX: -size * 0.58 + t.value * size * 1.16 }, { scaleX: 0.4 + t.value * 0.9 }],
   }));
   return (
-    <Animated.View style={[at, { width: size, height: 7, borderRadius: 4, backgroundColor: color, shadowColor: color, shadowOpacity: 0.9, shadowRadius: 10 }, style]} />
+    <Animated.View style={[at, { width: size, height: 7, borderRadius: 4, backgroundColor: color, shadowColor: color, shadowOpacity: 0.9, shadowRadius: 10, justifyContent: 'center' }, style]}>
+      <View style={{ marginHorizontal: size * 0.12, height: 2.5, borderRadius: 2, backgroundColor: '#ffffff', opacity: 0.9 }} />
+    </Animated.View>
   );
 }
 

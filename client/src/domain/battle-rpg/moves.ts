@@ -27,8 +27,8 @@ export const RECOVER_MOVE: BattleMove = {
 const AESTHETIC: BattleMove[] = [
   {
     id: 'precision_strike',
-    name: 'Precision Strike',
-    description: 'A reliable, high-accuracy hit with a raised crit chance.',
+    name: 'Flash Jab',
+    description: 'A picture-perfect jab thrown mid-pose — lands almost every time, with a raised crit chance.',
     category: 'attack',
     requiredChampion: 'aesthetic',
     staminaCost: 12,
@@ -43,8 +43,8 @@ const AESTHETIC: BattleMove[] = [
   },
   {
     id: 'perfect_form',
-    name: 'Perfect Form',
-    description: 'Raise precision and evasion for two turns. No damage.',
+    name: 'Golden Hour',
+    description: 'Strike a pose in the spotlight — precision and evasion up for two turns. No damage.',
     category: 'buff',
     requiredChampion: 'aesthetic',
     staminaCost: 14,
@@ -59,8 +59,8 @@ const AESTHETIC: BattleMove[] = [
   },
   {
     id: 'counter_pose',
-    name: 'Counter Pose',
-    description: 'A guarded stance — cut incoming damage this turn and return part of it.',
+    name: 'Front Double Bi',
+    description: 'Hit the pose and HOLD — halve incoming damage this turn and reflect part of it back.',
     category: 'defence',
     requiredChampion: 'aesthetic',
     staminaCost: 10,
@@ -75,8 +75,8 @@ const AESTHETIC: BattleMove[] = [
   },
   {
     id: 'apex_execution',
-    name: 'Apex Execution',
-    description: 'A strong technique — devastating if the opponent is below 40% health.',
+    name: 'Grand Posedown',
+    description: 'The final callout — a devastating finisher against opponents below 40% health.',
     category: 'ultimate',
     requiredChampion: 'aesthetic',
     staminaCost: 30,
@@ -98,8 +98,8 @@ const AESTHETIC: BattleMove[] = [
 const TITAN: BattleMove[] = [
   {
     id: 'forge_smash',
-    name: 'Forge Smash',
-    description: 'A heavy blow with a chance to stagger.',
+    name: 'Plate Toss',
+    description: 'Hurl loaded iron downrange — a heavy blow with a chance to stagger.',
     category: 'heavy',
     requiredChampion: 'titan',
     staminaCost: 18,
@@ -114,8 +114,8 @@ const TITAN: BattleMove[] = [
   },
   {
     id: 'iron_guard',
-    name: 'Iron Guard',
-    description: 'Brace hard — greatly raise defence for a turn and recover some stamina.',
+    name: 'Rack Lockout',
+    description: 'Brace in the rack — massive defence for a turn, and recover some stamina.',
     category: 'defence',
     requiredChampion: 'titan',
     staminaCost: 8,
@@ -130,8 +130,8 @@ const TITAN: BattleMove[] = [
   },
   {
     id: 'colossal_pressure',
-    name: 'Colossal Pressure',
-    description: 'Moderate damage that breaks the opponent’s guard (does not stack).',
+    name: 'Lunk Alarm',
+    description: 'Drop the weights, trip the alarm — damage that shatters the opponent’s guard.',
     category: 'debuff',
     requiredChampion: 'titan',
     staminaCost: 14,
@@ -148,8 +148,8 @@ const TITAN: BattleMove[] = [
   },
   {
     id: 'titan_breaker',
-    name: 'Titan Breaker',
-    description: 'A colossal, slow strike — stronger the more damage Titan has taken.',
+    name: 'PR or ER',
+    description: 'Load the bar past sanity — a colossal slam that hits harder the more damage you’ve taken.',
     category: 'ultimate',
     requiredChampion: 'titan',
     staminaCost: 32,
@@ -168,8 +168,8 @@ const TITAN: BattleMove[] = [
 const APEX: BattleMove[] = [
   {
     id: 'rapid_strike',
-    name: 'Rapid Strike',
-    description: 'A quick jab that may land twice. Cheap.',
+    name: 'Double Time',
+    description: 'A snapping jab at double pace — cheap, and may land twice.',
     category: 'attack',
     requiredChampion: 'apex',
     staminaCost: 8,
@@ -185,8 +185,8 @@ const APEX: BattleMove[] = [
   },
   {
     id: 'overclock',
-    name: 'Overclock',
-    description: 'Spike speed and stamina regen for two turns — at the cost of defence.',
+    name: 'Zone Five',
+    description: 'Redline the engine — speed and stamina regen surge for two turns.',
     category: 'buff',
     requiredChampion: 'apex',
     staminaCost: 12,
@@ -202,7 +202,7 @@ const APEX: BattleMove[] = [
   {
     id: 'second_wind',
     name: 'Second Wind',
-    description: 'Restore stamina and a little health. Short cooldown.',
+    description: 'Catch your breath mid-round — restore stamina and a little health.',
     category: 'recovery',
     requiredChampion: 'apex',
     staminaCost: 0,
@@ -220,8 +220,8 @@ const APEX: BattleMove[] = [
   },
   {
     id: 'velocity_crash',
-    name: 'Velocity Crash',
-    description: 'A dash whose force scales with speed. Expensive.',
+    name: 'Sprint Finish',
+    description: 'An all-out closing sprint — force scales with your speed. Expensive.',
     category: 'heavy',
     requiredChampion: 'apex',
     staminaCost: 22,
@@ -241,8 +241,8 @@ const APEX: BattleMove[] = [
 const SHREDDED: BattleMove[] = [
   {
     id: 'twin_slash',
-    name: 'Twin Slash',
-    description: 'Two quick cuts with a chance to open a bleed.',
+    name: 'Razor Reps',
+    description: 'Two razor-fast cuts with a chance to open a bleed.',
     category: 'attack',
     requiredChampion: 'shredded',
     staminaCost: 12,
@@ -257,8 +257,8 @@ const SHREDDED: BattleMove[] = [
   },
   {
     id: 'shadow_step',
-    name: 'Shadow Step',
-    description: 'Vanish — huge evasion this turn, and your next attack hits harder.',
+    name: 'Shadow Work',
+    description: 'Vanish into the shadow work — huge evasion this turn, and your next attack hits harder.',
     category: 'buff',
     requiredChampion: 'shredded',
     staminaCost: 12,
@@ -273,8 +273,8 @@ const SHREDDED: BattleMove[] = [
   },
   {
     id: 'cut_deep',
-    name: 'Cut Deep',
-    description: 'A precise strike — far stronger against a bleeding target.',
+    name: 'Deep Cut',
+    description: 'A surgical strike — far crueler against a bleeding target.',
     category: 'technique',
     requiredChampion: 'shredded',
     staminaCost: 16,
@@ -292,8 +292,8 @@ const SHREDDED: BattleMove[] = [
   },
   {
     id: 'final_shred',
-    name: 'Final Shred',
-    description: 'A finisher — brutal below 30% enemy health.',
+    name: 'Peak Week',
+    description: 'The last brutal week before the show — executes opponents below 30% health.',
     category: 'ultimate',
     requiredChampion: 'shredded',
     staminaCost: 30,

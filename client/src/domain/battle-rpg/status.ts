@@ -16,8 +16,8 @@ export const STATUS_META: Record<StatusKind, { label: string; icon: string; good
   bleed: { label: 'Bleed', icon: '🩸', good: false },
   stagger: { label: 'Stagger', icon: '💫', good: false },
   guard_break: { label: 'Guard Break', icon: '🛡️', good: false },
-  overclocked: { label: 'Overclocked', icon: '⚡', good: true },
-  perfect_form: { label: 'Perfect Form', icon: '✦', good: true },
+  overclocked: { label: 'Redline', icon: '⚡', good: true },
+  perfect_form: { label: 'Dialed In', icon: '✦', good: true },
 };
 
 function magOf(c: Combatant, kind: StatusKind): number {

@@ -320,7 +320,7 @@ export function tacticalTip(state: BattleState, gymId?: string): string {
   if (p.stats.currentStamina < p.stats.maxStamina * 0.25) {
     return 'Recover stamina before committing to a heavy move.';
   }
-  if (gymId === 'iron_foundry') return 'Brax guards hard — bait Iron Guard, then strike, and use defence before his Titan Breaker.';
+  if (gymId === 'iron_foundry') return 'Brax guards hard — bait Rack Lockout, then strike, and get defensive before his PR or ER.';
   if (state.opponent.stats.speed > p.stats.speed) return 'Speed-based attacks can act before slow heavies — lead with a fast or high-priority move.';
   return 'Open with a buff or a status, then punish while it holds.';
 }

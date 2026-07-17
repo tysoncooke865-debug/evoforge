@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -46,6 +47,10 @@ export function BattleArena({
   const reduced = useReducedMotion();
   const shake = useSharedValue(0);
   const blink = useSharedValue(0);
+  const zoom = useSharedValue(1);
+  // Platform impact flashes — the ground reacts under whoever got hit/healed.
+  const oppPlate = useSharedValue(0);
+  const plyPlate = useSharedValue(0);
   const [dims, setDims] = useState({ width: 360, height: 300 });
   const { width, height } = dims;
 
@@ -62,11 +67,26 @@ export function BattleArena({
     if (activeEvent.kind === 'crit' || (activeEvent.kind === 'move' && activeEvent.animationType === 'ultimate')) {
       blink.value = withSequence(withTiming(0.55, { duration: 60 }), withTiming(0, { duration: 300 }));
     }
+    // PUNCH-ZOOM: the camera leans into big moves (deeper for ultimates).
+    if (activeEvent.kind === 'move' && heavy) {
+      const depth = activeEvent.animationType === 'ultimate' ? 1.05 : 1.028;
+      zoom.value = withSequence(withTiming(depth, { duration: 200, easing: Easing.out(Easing.quad) }), withTiming(1, { duration: 380, easing: Easing.inOut(Easing.quad) }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEvent]);
 
-  const containerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
+  useEffect(() => {
+    if (!floating || reduced) return;
+    const v = floating.side === 'opponent' ? oppPlate : plyPlate;
+    v.value = withSequence(withTiming(1, { duration: 80 }), withTiming(0, { duration: 420, easing: Easing.out(Easing.quad) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floating?.trigger]);
+
+  const containerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }, { scale: zoom.value }] }));
   const blinkStyle = useAnimatedStyle(() => ({ opacity: blink.value }));
+  const oppPlateStyle = useAnimatedStyle(() => ({ opacity: oppPlate.value }));
+  const plyPlateStyle = useAnimatedStyle(() => ({ opacity: plyPlate.value }));
+  const plateTint = floating?.kind === 'heal' ? colors.success : '#ff6688';
 
   const hazeEdge = mode === 'gym' ? '#fb923c' : mode === 'rival' ? '#fb7185' : colors.accent;
   const horizonY = height * 0.46;
@@ -135,6 +155,7 @@ export function BattleArena({
         {/* Opponent — far platform, upper-right, front-facing, smaller. */}
         <View style={{ position: 'absolute', top: height * 0.13, right: 16, alignItems: 'center' }}>
           <View style={{ position: 'absolute', bottom: 2, width: oSize * 0.95, height: oSize * 0.26, borderRadius: 999, borderWidth: 1.5, borderColor: `${hazeEdge}66`, backgroundColor: `${hazeEdge}14`, shadowColor: hazeEdge, shadowOpacity: 0.5, shadowRadius: 12 }} />
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: 2, width: oSize * 0.95, height: oSize * 0.26, borderRadius: 999, borderWidth: 2, borderColor: plateTint, backgroundColor: `${plateTint}22` }, oppPlateStyle]} />
           {floating && floating.side === 'opponent' ? <FloatingNumber amount={floating.amount} kind={floating.kind} trigger={floating.trigger} /> : null}
           <BattleSprite branch={opponent.spriteBranch} stage={opponent.spriteStage} side="opponent" activeEvent={activeEvent} size={oSize} defeated={winner === 'player'} />
         </View>
@@ -142,6 +163,7 @@ export function BattleArena({
         {/* Player — near platform, lower-left, back-facing, bigger. */}
         <View style={{ position: 'absolute', bottom: 6, left: 10, alignItems: 'center' }}>
           <View style={{ position: 'absolute', bottom: 4, width: pSize * 1.02, height: pSize * 0.27, borderRadius: 999, borderWidth: 1.5, borderColor: `${colors.accent}77`, backgroundColor: 'rgba(34,211,238,0.1)', shadowColor: colors.accent, shadowOpacity: 0.55, shadowRadius: 14 }} />
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: 4, width: pSize * 1.02, height: pSize * 0.27, borderRadius: 999, borderWidth: 2, borderColor: plateTint, backgroundColor: `${plateTint}22` }, plyPlateStyle]} />
           {floating && floating.side === 'player' ? <FloatingNumber amount={floating.amount} kind={floating.kind} trigger={floating.trigger} /> : null}
           <BattleSprite branch={player.spriteBranch} stage={player.spriteStage} side="player" activeEvent={activeEvent} size={pSize} defeated={winner === 'opponent'} victory={winner === 'player'} />
         </View>

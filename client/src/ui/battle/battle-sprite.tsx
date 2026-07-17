@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -54,6 +55,10 @@ export function BattleSprite({
   const knockY = useSharedValue(0);
   const burst = useSharedValue(1); // 1 = idle/invisible; animates 0→1 on a hit
   const critHit = useSharedValue(0); // 1 while the last hit was a crit (amber)
+  // Squash & stretch deviation: scaleY = 1 + squash, scaleX = 1 - squash*0.8.
+  const squash = useSharedValue(0);
+  // Faint dust: animates 0→1 once when defeated.
+  const dust = useSharedValue(0);
   // Entry ceremony (Phase B): slide in from own corner on mount.
   const entry = useSharedValue(reduced ? 1 : 0);
   // Faint (Phase B): the loser slides DOWN off the platform while fading.
@@ -81,35 +86,51 @@ export function BattleSprite({
     const isHit = (activeEvent.kind === 'damage' || activeEvent.kind === 'crit') && activeEvent.side === side;
     if (isMover && activeEvent.animationType !== 'buff' && activeEvent.animationType !== 'recovery' && activeEvent.animationType !== 'defence') {
       // Lunge along the diagonal toward the foe (player up-right, foe down-left).
-      const dist = activeEvent.animationType === 'quick' ? 28 : activeEvent.animationType === 'ultimate' || activeEvent.animationType === 'heavy' ? 46 : 22;
+      const heavy = activeEvent.animationType === 'ultimate' || activeEvent.animationType === 'heavy';
+      const dist = activeEvent.animationType === 'quick' ? 28 : heavy ? 46 : 22;
       const dx = side === 'player' ? dist : -dist;
       const dy = side === 'player' ? -dist * 0.7 : dist * 0.7;
-      // Anticipation → strike → recover: wind back first, snap forward, ease home.
+      // Anticipation → strike → recover; HEAVY moves recover slower with an
+      // overshoot past home — mass has momentum.
+      const back = heavy ? 400 : 240;
       lx.value = withSequence(
         withTiming(-dx * 0.28, { duration: 120, easing: Easing.out(Easing.quad) }),
         withTiming(dx, { duration: 90, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 240, easing: Easing.inOut(Easing.quad) })
+        withTiming(heavy ? -dx * 0.07 : 0, { duration: back * 0.6, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: back * 0.4, easing: Easing.out(Easing.quad) })
       );
       ly.value = withSequence(
         withTiming(-dy * 0.28, { duration: 120, easing: Easing.out(Easing.quad) }),
         withTiming(dy, { duration: 90, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 240, easing: Easing.inOut(Easing.quad) })
+        withTiming(0, { duration: back, easing: Easing.inOut(Easing.quad) })
+      );
+      // SQUASH & STRETCH: coil down in the wind-up, stretch into the strike.
+      const amt = heavy ? 0.12 : 0.07;
+      squash.value = withSequence(
+        withTiming(-amt, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withTiming(amt * 0.8, { duration: 90, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: back, easing: Easing.out(Easing.quad) })
       );
     }
     if (isHit) {
       const crit = activeEvent.kind === 'crit';
       const mag = crit ? 12 : 7;
-      shake.value = withSequence(
+      // HIT-STOP: the flash lands INSTANTLY, the body reacts a beat later —
+      // that frozen beat is what sells the weight.
+      const stop = crit ? 90 : 60;
+      shake.value = withDelay(stop, withSequence(
         withTiming(-mag, { duration: 45 }), withTiming(mag, { duration: 45 }),
         withTiming(-mag * 0.6, { duration: 45 }), withTiming(0, { duration: 60 })
-      );
-      flash.value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 240 }));
+      ));
+      flash.value = withSequence(withTiming(1, { duration: 50 }), withTiming(0, { duration: 250 }));
+      // Impact squash — the body compresses under the blow.
+      squash.value = withDelay(stop, withSequence(withTiming(-0.12, { duration: 90 }), withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) })));
       // Knock the struck sprite AWAY from the foe, then settle back.
       const kmag = crit ? 20 : 11;
       const kx = side === 'player' ? -kmag : kmag;
       const ky = side === 'player' ? kmag * 0.6 : -kmag * 0.6;
-      knockX.value = withSequence(withTiming(kx, { duration: 70, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 340, easing: Easing.out(Easing.cubic) }));
-      knockY.value = withSequence(withTiming(ky, { duration: 70, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 340, easing: Easing.out(Easing.cubic) }));
+      knockX.value = withDelay(stop, withSequence(withTiming(kx, { duration: 70, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 340, easing: Easing.out(Easing.cubic) })));
+      knockY.value = withDelay(stop, withSequence(withTiming(ky, { duration: 70, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 340, easing: Easing.out(Easing.cubic) })));
       // Impact burst rings + core expand out from the point of contact.
       critHit.value = crit ? 1 : 0;
       burst.value = 0;
@@ -119,10 +140,12 @@ export function BattleSprite({
   }, [activeEvent]);
 
   useEffect(() => {
-    // FireRed's signature faint: drop off the platform while fading out.
+    // FireRed's signature faint: drop off the platform while fading out,
+    // kicking up a puff of platform dust.
     fade.value = withTiming(defeated ? 0 : 1, { duration: 620, easing: Easing.in(Easing.quad) });
     faint.value = withTiming(defeated ? 1 : 0, { duration: 620, easing: Easing.in(Easing.quad) });
-  }, [defeated, fade, faint]);
+    dust.value = defeated ? withDelay(300, withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })) : 0;
+  }, [defeated, fade, faint, dust]);
   useEffect(() => {
     if (victory && !reduced) glow.value = withRepeat(withSequence(withTiming(1, { duration: 520 }), withTiming(0.3, { duration: 520 })), -1);
     else glow.value = withTiming(0, { duration: 300 });
@@ -134,7 +157,13 @@ export function BattleSprite({
     transform: [
       { translateX: lx.value + shake.value + knockX.value + (1 - entry.value) * entryDir * 90 },
       { translateY: ly.value + bob.value + knockY.value + faint.value * size * 0.6 },
+      { scaleY: 1 + squash.value },
+      { scaleX: 1 - squash.value * 0.8 },
     ],
+  }));
+  const dustStyle = useAnimatedStyle(() => ({
+    opacity: dust.value === 0 ? 0 : (1 - dust.value) * 0.8,
+    transform: [{ scale: 0.4 + dust.value * 1.5 }, { translateY: -dust.value * 10 }],
   }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
@@ -165,6 +194,8 @@ export function BattleSprite({
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: burstTop + ringSize * 0.08, width: ringSize * 0.82, height: ringSize * 0.82, borderRadius: ringSize, borderWidth: 2, borderColor: '#9fe8ff' }, ring2Style]} />
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: burstTop + ringSize * 0.2, width: ringSize * 0.5, height: ringSize * 0.5, borderRadius: ringSize, backgroundColor: '#f2feff', shadowColor: '#bdf3ff', shadowOpacity: 0.9, shadowRadius: 14 }, coreStyle]} />
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: burstTop + ringSize * 0.2, width: ringSize * 0.5, height: ringSize * 0.5, borderRadius: ringSize, backgroundColor: '#fde68a' }, coreStyle, critTintStyle]} />
+      {/* Faint dust puff at the platform. */}
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: 0, width: size * 0.5, height: size * 0.18, borderRadius: size, backgroundColor: '#3a4152' }, dustStyle]} />
     </View>
   );
 }
