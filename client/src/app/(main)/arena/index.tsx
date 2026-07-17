@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { progressionFeatures } from '@/data/progression/features';
 
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
+import { useFriendGhosts } from '@/data/ghosts';
 import { useBattleSnapshot, useCreateInvite, useUniversalJoin } from '@/data/battle/mutations';
 import { totalRoundsFor } from '@/domain/battle/engine';
 import { formatGlyph, formatLabel, normalizeCode, splitBattles } from '@/domain/battle/format';
@@ -40,6 +41,7 @@ export default function ArenaScreen() {
   const rivalry = useBattleRpgStore((s) => s.rivalry);
   const gymProgress = useBattleRpgStore((s) => s.gymProgress);
   const badgeCount = GYMS.filter((g) => gymProgress[g.id]?.firstClearClaimed).length;
+  const friendGhosts = useFriendGhosts();
 
   // Live matches lead; open invites keep their code card; history is what's
   // actually over. Every match lands in exactly one bucket (pure, tested).
@@ -287,6 +289,32 @@ export default function ArenaScreen() {
             />
           ))}
         </View>
+      </View>
+
+      {/* GHOST BATTLES (migration 037): fight the snapshot of a friend's real
+          logged session. Empty state points at the Friends hub. */}
+      <View>
+        <SectionLabel>GHOST BATTLES</SectionLabel>
+        {friendGhosts.data && friendGhosts.data.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {friendGhosts.data.slice(0, 6).map((g) => (
+              <BattleModeCard
+                key={g.id}
+                glyph="👻"
+                tint={tokens.colors.epic}
+                title={`${g.owner_name.toUpperCase()} — ${g.workout.toUpperCase()}`}
+                note={`${g.date} · ${g.headline?.sets ?? '?'} sets banked. Beat the session's ghost.`}
+                tag={g.plays > 0 ? `${g.defeats}/${g.plays} FELLED` : 'UNTESTED'}
+                onPress={() => router.push(`/battle?mode=ghost&ghost=${g.id}` as never)}
+                testID={`mode-ghost-${g.id}`}
+              />
+            ))}
+          </View>
+        ) : (
+          <Text className="text-2xs text-text-mute">
+            No ghosts yet — friends publish them from a finished workout. Add rivals above.
+          </Text>
+        )}
       </View>
 
       {/* MINI GAMES (design §16): single-round duels on the battle spine. */}

@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
+import { useAuth } from '@/data/auth-context';
 import { useClaimCoin } from '@/data/coins';
+import { usePublishGhost } from '@/data/ghosts';
 import { useWorkoutLog } from '@/data/hooks';
 import { useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
@@ -11,6 +13,7 @@ import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/s
 import { useAvatarData } from '@/data/use-avatar-data';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
+import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { pyFloat, pyInt } from '@/domain/py';
@@ -90,7 +93,9 @@ export default function WorkoutScreen() {
   const reopenWorkout = useReopenWorkout();
   const claimCoins = useClaimCoin();
   const saveRoutine = useSaveRoutine();
-  const { summary, stats, bfMid } = useAvatarData();
+  const { summary, stats, bfMid, branchV2 } = useAvatarData();
+  const { session } = useAuth();
+  const publishGhost = usePublishGhost();
   const forge = useForgeProgression();
   const { resolveDay, preferredSource: savedSource } = useDayPlan();
   // A deep link without ?source= follows the SAVED choice (035), so a
@@ -512,6 +517,18 @@ export default function WorkoutScreen() {
             : undefined
         }
         defaultRoutineName={workoutName}
+        // GHOST (migration 037): one tap publishes this session's combat
+        // snapshot (numbers only) for friends to battle from the Arena.
+        onShareGhost={() =>
+          publishGhost.mutate({
+            workout: workoutName,
+            date,
+            champion: championForBranch(branchV2),
+            ownerName: (session?.user?.email ?? 'Athlete').split('@')[0],
+            input: { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore },
+            headline: { sets: totalDone },
+          })
+        }
       />
 
       <ExercisePicker

@@ -43,6 +43,7 @@ export function SummarySheet({
   data,
   onClose,
   onSaveRoutine,
+  onShareGhost,
   defaultRoutineName = '',
   onFinish,
 }: {
@@ -51,6 +52,8 @@ export function SummarySheet({
   /** STAGE 1: save what was performed as a reusable routine. Absent when
    *  nothing was logged — there would be nothing to save. */
   onSaveRoutine?: (name: string) => void;
+  /** GHOST (migration 037): publish this finished session for friends to fight. */
+  onShareGhost?: () => void;
   defaultRoutineName?: string;
   /**
    * TRAIN_IMPROVEMENTS: end the workout FOR REAL — write the finish marker.
@@ -68,6 +71,7 @@ export function SummarySheet({
       data={data}
       onClose={onClose}
       onSaveRoutine={onSaveRoutine}
+      onShareGhost={onShareGhost}
       defaultRoutineName={defaultRoutineName}
       onFinish={onFinish}
     />
@@ -78,12 +82,15 @@ function Ceremony({
   data,
   onClose,
   onSaveRoutine,
+  onShareGhost,
   defaultRoutineName,
   onFinish,
 }: {
   data: WorkoutSummaryData;
   onClose: () => void;
   onSaveRoutine?: (name: string) => void;
+  /** GHOST (migration 037): publish this finished session for friends to fight. */
+  onShareGhost?: () => void;
   defaultRoutineName: string;
   onFinish?: () => void;
 }) {
@@ -103,6 +110,7 @@ function Ceremony({
   const [naming, setNaming] = useState(false);
   const [routineName, setRoutineName] = useState(defaultRoutineName);
   const [saved, setSaved] = useState(false);
+  const [ghosted, setGhosted] = useState(false);
 
   const complete = data.setsDone >= data.setsTarget;
   const accent = complete ? tokens.colors.success : tokens.colors.accent;
@@ -199,6 +207,26 @@ function Ceremony({
               <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: tokens.colors.success, letterSpacing: 1.5 }}>
                 ✓ SAVED TO MY ROUTINES
               </Text>
+            ) : null}
+
+            {phase === 'summary' && onShareGhost ? (
+              ghosted ? (
+                <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: tokens.colors.epic, letterSpacing: 1.5 }}>
+                  👻 GHOST PUBLISHED — FRIENDS CAN BATTLE IT
+                </Text>
+              ) : (
+                <View className="mb-s4">
+                  <NeonButton
+                    title="👻 SHARE AS GHOST"
+                    variant="ghost"
+                    onPress={() => {
+                      onShareGhost();
+                      setGhosted(true); // optimistic; the mutation toasts its own failure
+                    }}
+                    testID="share-as-ghost"
+                  />
+                </View>
+              )
             ) : null}
             {phase === 'pr' ? <PrPhase data={data} /> : null}
             {phase === 'path' ? <PathPhase data={data} /> : null}

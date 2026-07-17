@@ -43,12 +43,15 @@ export interface BattleSetup {
   opponentInput?: PlayerCombatInput;
   /** The challenge code, for posting the result back. */
   challengeCode?: string;
+  /** GHOST (migration 037): the workout_ghosts id, for posting the result. */
+  ghostId?: string;
 }
 
 const EVENT_MS = 780;
 
 /** Versus uses balanced (training) scaling — both are human. */
-const scalingFor = (m: BattleMode): ScalingContext => (m === 'versus' || m === 'challenge' ? 'training' : m);
+const scalingFor = (m: BattleMode): ScalingContext =>
+  m === 'versus' || m === 'challenge' || m === 'ghost' ? 'training' : m;
 
 /** Clamp a stat block so its combat power does not exceed `ceil` — keeps a
  *  challenger's champion tough but never impossible. */

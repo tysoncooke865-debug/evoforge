@@ -25,6 +25,7 @@ import { ChampionPicker, championSprite } from '@/ui/battle/champion-picker';
 import { VsIntro } from '@/ui/battle/vs-intro';
 import { ChallengeHub } from '@/ui/battle/challenge-hub';
 import { recordChallengeResult, type ChallengeSnapshot } from '@/data/battle-rpg-challenge';
+import { fetchGhost, recordGhostResult, type GhostSnapshot } from '@/data/ghosts';
 import { useAuth } from '@/data/auth-context';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -43,9 +44,10 @@ import {
  * ?mode=training|rival|gym[&gym=iron_foundry]. Pushed over the tabs.
  */
 export default function BattleScreen() {
-  const params = useLocalSearchParams<{ mode?: string; gym?: string; code?: string }>();
-  const mode = (['gym', 'rival', 'versus', 'challenge'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
+  const params = useLocalSearchParams<{ mode?: string; gym?: string; code?: string; ghost?: string }>();
+  const mode = (['gym', 'rival', 'versus', 'challenge', 'ghost'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
   const isChallenge = mode === 'challenge';
+  const ghostId = mode === 'ghost' && typeof params.ghost === 'string' ? params.ghost : undefined;
   const gymId = params.gym;
   const versus = mode === 'versus';
   // The Arena's universal code box hands a verified challenge code over.
@@ -60,6 +62,29 @@ export default function BattleScreen() {
   const [picked, setPicked] = useState<ChampionId | null>(storedChampion);
   const [p2Picked, setP2Picked] = useState<ChampionId>('titan');
   const [joined, setJoined] = useState<ChallengeSnapshot | null>(null);
+  // GHOST (migration 037): the loaded snapshot, fetched by id from the URL.
+  const [ghost, setGhost] = useState<GhostSnapshot | null>(null);
+  const [ghostMissing, setGhostMissing] = useState(false);
+  // Param change resets the loaded ghost — render-time derived state, not an
+  // effect (set-state-in-effect is a lint error in this repo).
+  const [prevGhostId, setPrevGhostId] = useState(ghostId);
+  if (prevGhostId !== ghostId) {
+    setPrevGhostId(ghostId);
+    setGhost(null);
+    setGhostMissing(false);
+  }
+  useEffect(() => {
+    if (!ghostId) return;
+    let live = true;
+    void fetchGhost(ghostId).then((g) => {
+      if (!live) return;
+      if (g) setGhost(g);
+      else setGhostMissing(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [ghostId]);
   const { session } = useAuth();
   const ownerName = (session?.user?.email ?? 'Challenger').split('@')[0];
 
@@ -163,6 +188,44 @@ export default function BattleScreen() {
       playerSprite: { branch: CHAMPIONS[playerChampion].spriteBranch, stage: 4 },
     };
     return <BattleRunner key={`challenge:${joined.code}`} setup={challengeSetup} />;
+  }
+
+  // GHOST BATTLE (migration 037): fight the AI driven by a friend's published
+  // session snapshot. Loads by id; a missing/non-friend ghost says so.
+  if (mode === 'ghost') {
+    if (ghostMissing || !ghostId) {
+      return (
+        <ScreenShell>
+          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
+          <Text style={{ color: tokens.colors['text-mute'] }}>
+            That ghost is gone — or its owner isn&apos;t your friend yet.
+          </Text>
+        </ScreenShell>
+      );
+    }
+    if (!ghost) {
+      return (
+        <ScreenShell>
+          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
+          <View style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: tokens.colors['text-mute'] }}>Summoning the ghost…</Text>
+          </View>
+        </ScreenShell>
+      );
+    }
+    const ghostSetup: BattleSetup = {
+      mode: 'ghost',
+      playerChampion,
+      opponentChampion: ghost.champion,
+      opponentName: `${ghost.owner_name}'s Ghost`,
+      ai: 'balanced',
+      difficulty: 1,
+      player: { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore },
+      opponentInput: ghost.player_input,
+      ghostId: ghost.id,
+      playerSprite: { branch: CHAMPIONS[playerChampion].spriteBranch, stage: 4 },
+    };
+    return <BattleRunner key={`ghost:${ghost.id}`} setup={ghostSetup} />;
   }
 
   if (!started) {
@@ -312,8 +375,13 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
     const { resultKey } = settleBattle(setup, won, s.turnNumber, setup.opponentChampion, setup.opponentName);
     // Real, server-authoritative reward (idempotent + daily-capped). Casual
     // versus duels bank nothing — bragging rights only.
-    if (!setup.versus && setup.mode !== 'challenge') grantReward.mutate({ resultKey, mode: setup.mode, won });
+    // Ghost battles bank the 'training' reward tier — the server RPC (033)
+    // only vouches for training/rival/gym, and a friendly vs a snapshot IS
+    // training-grade. The rivalry update rides record_ghost_result (037).
+    if (!setup.versus && setup.mode !== 'challenge')
+      grantReward.mutate({ resultKey, mode: setup.mode === 'ghost' ? 'training' : setup.mode, won });
     if (setup.mode === 'challenge' && setup.challengeCode) void recordChallengeResult(setup.challengeCode, won);
+    if (setup.mode === 'ghost' && setup.ghostId) void recordGhostResult(setup.ghostId, won);
     if (won) playVictory(); else playDefeat();
     setResultOpen(true);
   });
