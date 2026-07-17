@@ -2,13 +2,19 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import {
+  scanMeal,
+  scanTotals,
   targetInForce,
   useDeleteEntry,
   useLogCalories,
+  useLogMeal,
   useNutritionLog,
   useNutritionTargets,
   useSaveTarget,
+  type MealItem,
 } from '@/data/nutrition';
+import { pickPhoto } from '@/data/ai';
+import { KeyPad } from '@/ui/core/number-field';
 import {
   GOAL_LABEL,
   canAddMeal,
@@ -73,6 +79,24 @@ export default function FuelScreen() {
   // QUICK LOG state. Unit is sticky per visit, not persisted — the athlete
   // who thinks in kJ flips once per session.
   const [unit, setUnit] = useState<0 | 1>(0); // 0 = KCAL, 1 = KJ
+  // MEAL SCAN (2026-07-18): AI identifies + estimates; the athlete corrects
+  // grams / removes items; deterministic totals; SAVE stores kcal+macros+items.
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanItems, setScanItems] = useState<MealItem[] | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [gramsFor, setGramsFor] = useState<number | null>(null);
+  const saveMeal = useLogMeal();
+
+  const runScan = async () => {
+    setScanError(null);
+    const uri = await pickPhoto();
+    if (!uri) return;
+    setScanBusy(true);
+    const r = await scanMeal(uri);
+    setScanBusy(false);
+    if ('error' in r) setScanError(r.error);
+    else setScanItems(r.items);
+  };
   const [amount, setAmount] = useState('');
   const [label, setLabel] = useState('');
 
@@ -352,6 +376,107 @@ export default function FuelScreen() {
             </Pressable>
           ) : null}
         </View>
+      </GlowCard>
+
+      {/* MEAL SCAN — photo → identified foods → corrections → deterministic
+          totals → saved with macros. */}
+      <GlowCard>
+        <SectionLabel>SCAN A MEAL</SectionLabel>
+        {scanItems === null ? (
+          <>
+            <Text className="mb-s3 text-2xs text-text-mute">
+              Photograph your plate — the AI identifies the foods and estimates portions, the numbers
+              come from a fixed nutrition table, and you correct anything before it saves.
+            </Text>
+            <NeonButton
+              title={scanBusy ? 'READING THE PLATE…' : '📸 SCAN A MEAL'}
+              onPress={() => void runScan()}
+              busy={scanBusy}
+              pixel
+              testID="meal-scan"
+            />
+            {scanError ? <Text className="mt-s2 text-2xs text-danger">{scanError}</Text> : null}
+          </>
+        ) : (
+          <>
+            {scanItems.map((it, i) => {
+              const kcal = Math.round((it.grams * it.per100.kcal) / 100);
+              return (
+                <View key={`${it.name}:${i}`} className="mb-s2 flex-row items-center gap-s2">
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-text" numberOfLines={1}>
+                      {it.name}
+                      {it.source === 'ai' ? (
+                        <Text className="text-2xs text-warn">  AI EST.</Text>
+                      ) : null}
+                    </Text>
+                    <Text className="text-2xs text-text-mute">
+                      {kcal} kcal · P{Math.round((it.grams * it.per100.p) / 100)} C{Math.round((it.grams * it.per100.c) / 100)} F{Math.round((it.grams * it.per100.f) / 100)}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setGramsFor(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`edit grams for ${it.name}`}
+                    className="rounded-md border border-border px-s2 py-s2"
+                    style={{ minWidth: 76, alignItems: 'center' }}
+                    testID={`meal-grams-${i}`}
+                  >
+                    <Text className="text-sm font-bold text-text">{it.grams} g</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setScanItems(scanItems.filter((_, j) => j !== i))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`remove ${it.name}`}
+                    className="items-center justify-center"
+                    style={{ minWidth: 36, minHeight: 44 }}
+                    testID={`meal-remove-${i}`}
+                  >
+                    <Text className="text-sm text-text-mute">✕</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+            {(() => {
+              const t = scanTotals(scanItems);
+              return (
+                <View className="mb-s3 flex-row items-center justify-between rounded-lg border px-s3 py-s2" style={{ borderColor: 'rgba(34,211,238,0.35)', backgroundColor: 'rgba(34,211,238,0.06)' }}>
+                  <Text className="text-sm font-bold text-accent" testID="meal-total">{t.kcal} kcal</Text>
+                  <Text className="text-2xs text-text-dim">P {Math.round(t.p)}g · C {Math.round(t.c)}g · F {Math.round(t.f)}g</Text>
+                </View>
+              );
+            })()}
+            <NeonButton
+              title="SAVE MEAL"
+              onPress={() =>
+                saveMeal.mutate(
+                  { date: todayIso, items: scanItems },
+                  { onSuccess: () => setScanItems(null) }
+                )
+              }
+              busy={saveMeal.isPending}
+              disabled={scanItems.length === 0}
+              pixel
+              testID="meal-save"
+            />
+            <View className="mt-s2">
+              <NeonButton title="DISCARD" variant="ghost" onPress={() => setScanItems(null)} testID="meal-discard" />
+            </View>
+          </>
+        )}
+        {gramsFor !== null && scanItems ? (
+          <KeyPad
+            label={`${scanItems[gramsFor]?.name?.toUpperCase().slice(0, 18) ?? 'PORTION'} · GRAMS`}
+            initial={String(scanItems[gramsFor]?.grams ?? '')}
+            integer
+            tint={tokens.colors.accent}
+            onDone={(v) => {
+              const n = Math.max(1, Math.min(2000, Math.trunc(pyFloat(v) ?? 0)));
+              if (n > 0) setScanItems(scanItems.map((it, j) => (j === gramsFor ? { ...it, grams: n } : it)));
+            }}
+            onClose={() => setGramsFor(null)}
+          />
+        ) : null}
       </GlowCard>
 
       {/* QUICK LOG — either unit, one tap. */}

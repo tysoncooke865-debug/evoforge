@@ -307,3 +307,92 @@ export function useSaveTarget() {
     },
   });
 }
+
+// ---- MEAL SCAN (2026-07-18): the photo calorie calculator. The meal-scan
+// edge fn identifies foods + estimates grams; factors are DETERMINISTIC
+// (curated per-100g table, AI estimate only as a flagged fallback). The maths
+// below mirrors the server exactly, so corrections recompute identically. ----
+
+export interface MealItem {
+  name: string;
+  grams: number;
+  per100: { kcal: number; p: number; c: number; f: number };
+  source: 'db' | 'ai';
+  matched: string | null;
+}
+
+export interface MealTotals {
+  kcal: number;
+  p: number;
+  c: number;
+  f: number;
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Pure multiplication — identical to the edge function's computation. */
+export function scanTotals(items: MealItem[]): MealTotals {
+  return items.reduce(
+    (t, it) => ({
+      kcal: t.kcal + Math.round((it.grams * it.per100.kcal) / 100),
+      p: round1(t.p + (it.grams * it.per100.p) / 100),
+      c: round1(t.c + (it.grams * it.per100.c) / 100),
+      f: round1(t.f + (it.grams * it.per100.f) / 100),
+    }),
+    { kcal: 0, p: 0, c: 0, f: 0 }
+  );
+}
+
+export async function scanMeal(image: string): Promise<{ items: MealItem[]; notes: string } | { error: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('meal-scan', { body: { image } });
+    if (error) {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json().catch(() => null);
+        return { error: body?.error ?? error.message };
+      }
+      return { error: error.message };
+    }
+    if (data?.error) return { error: String(data.error) };
+    const r = data?.result as { items: MealItem[]; notes: string } | undefined;
+    if (!r?.items?.length) return { error: 'No foods identified.' };
+    return { items: r.items, notes: r.notes ?? '' };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'The scan failed.' };
+  }
+}
+
+/** Save a corrected, confirmed meal — kcal + macros + full item provenance. */
+export function useLogMeal() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (input: { date: string; items: MealItem[]; mealNo?: number | null }) => {
+      const t = scanTotals(input.items);
+      const label = input.items.map((i) => i.name).join(', ').slice(0, 60);
+      const { error } = await supabase.from('nutrition_log').insert({
+        date: input.date,
+        kcal: Math.max(1, Math.min(6000, t.kcal)),
+        label,
+        source: 'photo',
+        meal_no: input.mealNo ?? null,
+        protein_g: t.p,
+        carbs_g: t.c,
+        fat_g: t.f,
+        items: input.items,
+      });
+      if (error) throw error;
+      return t;
+    },
+    onSuccess: (t, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['nutrition_log', userId, input.date] });
+      useToastStore.getState().push({
+        kind: 'achievement',
+        title: 'MEAL LOGGED',
+        subtitle: `${t.kcal} kcal · P${Math.round(t.p)} C${Math.round(t.c)} F${Math.round(t.f)}`,
+      });
+    },
+    onError: () => useToastStore.getState().push({ kind: 'error', title: 'NOT LOGGED', subtitle: 'Could not save the meal. Try again.' }),
+  });
+}
