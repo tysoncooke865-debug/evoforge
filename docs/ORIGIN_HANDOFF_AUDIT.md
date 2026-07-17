@@ -217,3 +217,33 @@ increments:
   touched; onboarding scan → persist a `physique_assessments` row so the
   scan feeds calibration (contradiction 2).
 - **Revert:** nothing. No conflicting or unsafe WIP exists.
+
+---
+
+## Completion log (the takeover, 2026-07-17)
+
+- **Phase 2 ✅** (`6937da9`): `candidates.ts` + `reasons.ts` +
+  `first-mission.ts` + 42 C-series/mission tests + 21 goldens; three
+  mutations falsified red, restored. types comment repaired.
+- **Phase 3 ✅** (`44641f5`): `migrations/047_origin_onboarding.sql` APPLIED
+  to production. 21/21 goldens replay exactly against the SQL twin
+  (`tools/replay_origin_goldens.py`). 32/32 adversarial B/R checks
+  (`tools/falsify_origin_047.py`, throwaway account): atomic bind,
+  idempotent retries, advisory lock, not_offered/invalid slug, write-once
+  firstbound/reforge, monotonic clamps, reforge rules, cross-user RLS.
+- **Phase 4 ✅** (`c75cb9c`): DRIVE section, Act II step machine, gate
+  clause, analytics emitter, first-mission seed.
+- **Phase 5+6 ✅** (`e9cb56d`): Forge-page candidate reveal for existing
+  users behind `candidateRevealEnabled`; ReforgeCard. Stale origin-panel
+  comment repaired.
+- **Phase 7 (verification):** O-series Playwright tour
+  (`tools/tour_origin_onboarding.py`). First run caught a REAL race
+  (bind-hook invalidating `['profile']` yanked resuming users out of the
+  awakening) — fixed in `data/origin.ts`; and two script-side issues
+  (networkidle, aria-disabled). See commit history for the final result.
+- **Deferred honestly:** persisting the onboarding SCAN as a
+  `physique_assessments` row (contradiction 2 — the v5 tier-S fallbacks
+  cover unscanned users; scanned users currently get no calibration benefit
+  from their scan); Firstbound badge UI; O-8 (RPC-intercept retry path —
+  unit-covered by the mutation handler semantics, not browser-tested);
+  playable combat trial (spec §10).

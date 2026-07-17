@@ -816,7 +816,42 @@ Owner: Tyson. He works through other Claude sessions too — **always
   and route to /avatar (the Forge reveal) instead of another scan. His
   titan claim was reset a third time — next launch he lands in the choice.
 
-**Migrations applied through `046`. Next free number: `047`.**
+- **THE 047 PROGRAM — ORIGIN IN ONBOARDING (candidate model v5, 2026-07-17,
+  takeover of an interrupted session):** the full program docs live in
+  `docs/ORIGIN_*.md` (7 specs + `ORIGIN_HANDOFF_AUDIT.md`, the takeover
+  audit). SHIPPED: migration 047 (profile: primary_goal/battle_style/
+  onboarding_flow_version/firstbound_origin/reforge_granted_at/reforge_used_at
+  + write-once guard; user_paths + user_champion_bond monotonic guards;
+  bond table owner-SELECT-only; `origin_candidates_compute(jsonb)` — the
+  PURE SQL twin of `client/src/domain/origin/candidates.ts`, pinned by 21
+  goldens in `contracts/fixtures/origin_candidates.json`
+  (`tools/replay_origin_goldens.py`: 21/21 EXACT); `origin_candidates_for/
+  origin_candidates`; `assign_origin_path` v5 — advisory-locked now,
+  already_assigned success-shaped, validates against a FRESH candidate
+  generation or the v4 choice set; `claim_free_reforge`/`reforge_origin`).
+  Falsified live (`tools/falsify_origin_047.py`: 32/32, throwaway account
+  deleted after). Client: onboarding is now TWO ACTS — Act I form gains the
+  DRIVE section (goal + battle style), insert stamps
+  onboarding_flow_version=2; Act II is `ui/origin/origin-flow.tsx`
+  (rating reveal → 3 candidate cards → confirm → bind → awakening → Home);
+  the (main) gate bounces flow-v2 origin-less users back (legacy users
+  untouched — flow version NULL). Existing users get the candidate reveal
+  on the Forge page behind ORIGIN_FLAGS.candidateRevealEnabled; ReforgeCard
+  ships the free reforge (claim on visit, KEEP = dismiss). First mission:
+  binding seeds the origin split rotated so today = training day 1 (only
+  when the user skipped the split step). Analytics: `data/analytics.ts`
+  track() + the ORIGIN_ANALYTICS vocabulary.
+  **GOTCHAS:** (1) `useBindOrigin` must NOT invalidate ['profile'] on
+  success — onboarding's legacy redirect reads profile.data and an early
+  refetch yanks the athlete out of the awakening mid-ceremony (the O-series
+  tour caught it); OriginFlow.onComplete invalidates + navigates. (2) The
+  plpgsql CASE-in-IF trap (045's note) bit again in 047 — parenthesise.
+  (3) JS Math.round = floor(x+0.5), NOT Postgres round() — the SQL twin
+  uses floor(x+0.5) everywhere or .5 boundaries drift. (4) O-series tour:
+  `tools/tour_origin_onboarding.py` (throwaway account, screenshots to
+  Downloads/evoforge-screenshots).
+
+**Migrations applied through `047`. Next free number: `048`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `037_workout_ghosts.sql`; both are applied, the number is just shared.)

@@ -217,7 +217,11 @@ export function useBindOrigin() {
       void queryClient.invalidateQueries({ queryKey: ['origin_status'] });
       void queryClient.invalidateQueries({ queryKey: ['user_paths'] });
       void queryClient.invalidateQueries({ queryKey: ['origin_candidates'] });
-      void queryClient.invalidateQueries({ queryKey: ['profile'] });
+      // NOTE: ['profile'] is deliberately NOT invalidated here. Onboarding's
+      // legacy redirect fires on profile.data non-null/origin-set, and an
+      // early refetch yanked a resuming athlete out of the awakening
+      // ceremony mid-render (the O-series tour caught it). OriginFlow's
+      // onComplete does the profile invalidation + navigation itself.
     },
   });
 }
