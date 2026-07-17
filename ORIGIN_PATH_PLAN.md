@@ -61,19 +61,30 @@ This file is the repo-adapted version of Tyson's full spec (delivered in-chat
   (src/data/path-sync.ts). Legacy stays the read path; live-verified: a Forge
   visit mirrored aesthetic S3 + active champion for the smoke account.
   user_skill_nodes still deferred until a real spendable tree exists.
-- **Release 3 — existing-user backfill** (idempotent script per spec Phase 6):
-  copy legacy loadout/stage into user_paths (`unlock_source='legacy_migration'`,
-  preserve-higher), classify where confidence suffices, else
-  needs_assessment. NEVER lower a stage, never touch the equipped champion.
-  Audit every account in user_path_migration_log. Dry-run counts first.
-- **Release 4 — new onboarding**: neutral Forge Initiate → assessment →
-  `classify_evo_path` → reveal (choice UI when requires_choice) →
-  `assign_origin_path` → tutorial battle. Stop defaulting to Elite Aesthetic.
-- **Release 5 — existing-user reveal**: one-time ORIGIN DISCOVERED sheet
-  (never auto-equips), needs_assessment banner ("unlock a free Origin
-  champion — your current champion will not change"), path roster on Forge,
-  path selector on the skill tree.
-- **Release 6 — legacy removal**: only after 100% migrated + backups.
+- **Release 3 — existing-user backfill** ✅ SHIPPED 2026-07-17 (migration 041,
+  `backfill_origin_paths(dry_run)`, admin/service-role only). Dry run reviewed
+  first: 17 accounts, 0 auto-migratable (nobody at confidence ≥30), 17 →
+  needs_assessment — no origins guessed, nothing touched. Live run applied;
+  second run proved idempotent (0 writes). Auto-assignment (top scorer,
+  deterministic tie-break) activates as accounts cross the confidence gate on
+  future runs. Stage copying rides the Release 2 dual-write (preserve-higher).
+- **Releases 4+5 — reveal / banner / roster** ✅ SHIPPED 2026-07-17 as ONE
+  flow (src/data/origin.ts + src/ui/character/origin-panel.tsx on the Forge):
+  origin unset + classification OK → ORIGIN PATH DISCOVERED (score breakdown,
+  choice buttons when scores are close, permanent claim → Stage 1 + roster);
+  not enough data → the DISCOVER banner ("your current champion will not
+  change"); origin set → YOUR PATHS roster (stage, ORIGIN/ACTIVE tags).
+  Claiming never swaps the equipped champion (active only set when null).
+  ORIGIN_FLAGS in origin.ts are the spec's Phase 12 kill-switches.
+  ADAPTATION: no separate "neutral Forge Initiate" art exists — new users
+  keep the derived look until their confidence crosses the gate, then the
+  same reveal fires; onboarding untouched. All three states live-verified
+  on WebKit iPhone (banner at conf 20; reveal→claim titan→roster at conf 80).
+- **Release 6 — legacy removal**: ⛔ INTENTIONALLY GATED, per this plan's own
+  rule — legacy stays the read path until (a) every active account is
+  migration_status='migrated' (today: 17/17 needs_assessment), (b) backups
+  retained, (c) battles/customise/store verified on the new schema. Flip
+  ORIGIN_FLAGS + drop legacy reads only then.
 
 ## Non-negotiable migration rules (spec, AS AMENDED by Tyson 2026-07-17)
 Never reduce an EARNED stage · never delete tree progress · never swap the

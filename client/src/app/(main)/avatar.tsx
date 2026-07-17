@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { usePathDualWrite } from '@/data/path-sync';
+import { OriginPanel } from '@/ui/character/origin-panel';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useDisplayIdentity } from '@/data/use-display-identity';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
@@ -93,6 +94,8 @@ function EvolutionView() {
 
   return (
     <>
+      {/* ORIGIN PATH (Releases 4+5): reveal / discover banner / path roster. */}
+      <OriginPanel />
       <View className="items-center">
         <Text
           className="text-text-mute"
