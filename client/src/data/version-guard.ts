@@ -122,3 +122,44 @@ export function initNavFreezeBeacon(): void {
     }
   }, 250);
 }
+
+/**
+ * SCENE JANITOR (Tyson's iOS 18 PWA, 2026-07-18 — the combined/flashing
+ * pages). Inactive tab scenes are absolutely-positioned and STILL PAINT
+ * (children's explicit visibility punches through the wrappers); desktop
+ * engines cover them by paint order, but iOS 18's compositor drops tiles and
+ * the scene underneath shows through — blended, flickering pages. The fix
+ * with no compositor left to glitch: display:none the inactive scenes
+ * (aria-hidden, scene-sized, absolutely-wrapped), restore the moment
+ * react-navigation removes aria-hidden on refocus.
+ */
+export function initSceneJanitor(): void {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+  const hiddenByUs = new Set<HTMLElement>();
+  const tick = () => {
+    // restore anything we hid that is active again
+    for (const el of Array.from(hiddenByUs)) {
+      if (!el.isConnected || el.getAttribute('aria-hidden') !== 'true') {
+        el.style.removeProperty('display');
+        hiddenByUs.delete(el);
+      }
+    }
+    // hide inactive scenes: aria-hidden, taller than half the viewport,
+    // inside an absolutely-positioned wrapper (the scene stack signature —
+    // modal backdrops and small aria-hidden decorations never match).
+    document.querySelectorAll<HTMLElement>('[aria-hidden="true"]').forEach((el) => {
+      if (hiddenByUs.has(el)) return;
+      const parent = el.parentElement;
+      if (!parent) return;
+      if (el.offsetHeight < window.innerHeight * 0.5 && !hiddenByUs.has(el)) {
+        // display:none'd elements report 0 height — only size-check new ones
+        if (el.style.display !== 'none' && el.offsetHeight < window.innerHeight * 0.5) return;
+      }
+      if (getComputedStyle(parent).position !== 'absolute') return;
+      el.style.setProperty('display', 'none', 'important');
+      hiddenByUs.add(el);
+    });
+  };
+  setInterval(tick, 250);
+  tick();
+}

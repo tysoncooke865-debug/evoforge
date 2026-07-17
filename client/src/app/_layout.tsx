@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { AuthProvider } from '@/data/auth-context';
-import { initNavFreezeBeacon, initVersionGuard } from '@/data/version-guard';
+import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/version-guard';
 import { PIXEL_FONTS } from '@/theme/fonts';
 import { ToastHost } from '@/ui/core/toast-host';
 
@@ -45,6 +45,7 @@ export default function RootLayout() {
   useEffect(() => {
     initVersionGuard();
     initNavFreezeBeacon();
+    initSceneJanitor();
   }, []);
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
