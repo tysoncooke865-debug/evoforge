@@ -14,13 +14,16 @@ import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { playPowerUp } from '@/ui/core/sound';
 import { GlowCard } from '@/ui/core/shell';
+import { CandidateReveal } from '@/ui/origin/candidate-reveal';
 
 /**
  * ORIGIN PANEL (Releases 4+5, ORIGIN_PATH_PLAN.md) — one component, three
  * states, mounted on the Forge screen:
- *   1. Origin unset + classification OK → the REVEAL: recommendation, score
- *      breakdown, a choice when scores are close. Claiming never swaps the
- *      equipped champion (assign only sets active when none exists).
+ *   1. Origin unset + classification OK → the REVEAL. With
+ *      ORIGIN_FLAGS.candidateRevealEnabled (047 program, Phase 5) this is
+ *      the v5 three-candidate experience (<CandidateReveal/>); flag OFF
+ *      renders the deployed v4 choice reveal unchanged. Since 042, claiming
+ *      EQUIPS the origin champion (assign sets active_path unconditionally).
  *   2. Origin unset + not enough data → the DISCOVER banner ("your current
  *      champion will not change").
  *   3. Origin set → the PATH ROSTER: every unlocked path, its stage, the
@@ -30,7 +33,9 @@ export function OriginPanel() {
   const colors = useThemeColors();
   const status = useOriginStatus();
   const originUnset = status.data != null && status.data.origin_path == null;
-  const classification = useClassification(ORIGIN_FLAGS.originRevealEnabled && originUnset);
+  const classification = useClassification(
+    ORIGIN_FLAGS.originRevealEnabled && !ORIGIN_FLAGS.candidateRevealEnabled && originUnset,
+  );
   const assign = useAssignOrigin();
   const paths = useUserPaths();
   const [picked, setPicked] = useState<string | null>(null);
@@ -69,6 +74,12 @@ export function OriginPanel() {
         </View>
       </GlowCard>
     );
+  }
+
+  // 1b · the v5 candidate reveal (047, Phase 5) — existing users' upgraded
+  // introduction flow, sharing the onboarding Act II components.
+  if (ORIGIN_FLAGS.candidateRevealEnabled) {
+    return <CandidateReveal />;
   }
 
   // 2 · discover banner (no/insufficient data — never guess)

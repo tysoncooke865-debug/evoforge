@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 
 import { usePathDualWrite } from '@/data/path-sync';
 import { OriginPanel } from '@/ui/character/origin-panel';
+import { ReforgeCard } from '@/ui/origin/reforge-card';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { useDisplayIdentity } from '@/data/use-display-identity';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
@@ -97,6 +98,8 @@ function EvolutionView() {
     <>
       {/* ORIGIN PATH (Releases 4+5): reveal / discover banner / path roster. */}
       <OriginPanel />
+      {/* FREE REFORGE (047): one free re-choice after 3 valid workouts. */}
+      <ReforgeCard />
       <View className="items-center">
         <Text
           className="text-text-mute"
