@@ -14,7 +14,7 @@ import {
   type MealItem,
 } from '@/data/nutrition';
 import { pickPhoto } from '@/data/ai';
-import { KeyPad } from '@/ui/core/number-field';
+import { KeyPad, NumberField } from '@/ui/core/number-field';
 import {
   GOAL_LABEL,
   canAddMeal,
@@ -36,7 +36,6 @@ import { Field } from '@/ui/core/field';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
-import { NumberField } from '@/ui/core/number-field';
 import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
