@@ -91,7 +91,9 @@ user_path_migration_log rows per successful bind.
   `origin_path/active_path/active_stage` to the new origin (stage
   preserve-higher ≥1 on its user_paths row, is_origin moves), seed the new
   champion's bond row, set `reforge_used_at`. `firstbound_origin`
-  untouched, previous user_paths row keeps is_unlocked/stage/path_xp.
+  untouched. **[CHANGED by 048, Tyson 2026-07-17]** the previous origin is
+  WIPED (its user_paths row + its champion's bond row deleted), not kept —
+  "nobody should have any data on any character other than their origin."
 - Workout-count manipulation [documented limitation]: workout_log is
   owner-insertable (root CLAUDE.md problem #7) — the gate is as strong as
   the rest of the app's workout economy, no weaker (definer re-proof, no

@@ -817,8 +817,7 @@ Owner: Tyson. He works through other Claude sessions too — **always
   titan claim was reset a third time — next launch he lands in the choice.
 
 - **THE 047 PROGRAM — ORIGIN IN ONBOARDING (candidate model v5, 2026-07-17,
-  takeover of an interrupted session):** the full program docs live in
-  `docs/ORIGIN_*.md` (7 specs + `ORIGIN_HANDOFF_AUDIT.md`, the takeover
+  takeover of an interrupted session):** the full program docs live in  `docs/ORIGIN_*.md` (7 specs + `ORIGIN_HANDOFF_AUDIT.md`, the takeover
   audit). SHIPPED: migration 047 (profile: primary_goal/battle_style/
   onboarding_flow_version/firstbound_origin/reforge_granted_at/reforge_used_at
   + write-once guard; user_paths + user_champion_bond monotonic guards;
@@ -851,7 +850,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
   `tools/tour_origin_onboarding.py` (throwaway account, screenshots to
   Downloads/evoforge-screenshots).
 
-**Migrations applied through `047`. Next free number: `048`.**
+- **048 — ORIGIN DATA IS EXCLUSIVE (Tyson, 2026-07-17, same evening):**
+  "nobody should have any data on any character other than their origin."
+  Reverses 046's "non-origin lines keep progress" AND 047's "old origin
+  stays collected": `assign_origin_path` v5 and `reforge_origin` now DELETE
+  every non-origin user_paths row and every non-origin-champion bond row
+  at bind. Purchases (skins/palettes/Gymerica) and firstbound_origin are
+  never touched. One-off cleanup applied for existing origin-havers
+  (Tyson: aesthetic 3 + titan 3 wiped; shredder kept — he had just used
+  the free Reforge titan→shredder, the FIRST real reforge, and asked why
+  shredder was stage 3: the reforge grants stage 1, then path-sync mirrors
+  the DERIVED stage from real stats, preserve-higher, by 046 design).
+  Origin-LESS users' legacy rows are UNTOUCHED — they have no origin yet;
+  their rows wipe when they bind (048's assign delete). Falsified 5/5
+  (legacy row wiped on bind, old origin wiped not collected on reforge,
+  bond follows the new champion). Docs updated:
+  EXISTING_USER_ORIGIN_MIGRATION §4, ORIGIN_DATA_MODEL §5.
+
+**Migrations applied through `048`. Next free number: `049`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `037_workout_ghosts.sql`; both are applied, the number is just shared.)

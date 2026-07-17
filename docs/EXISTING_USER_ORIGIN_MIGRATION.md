@@ -58,7 +58,7 @@ upgrade behind a flag. No forced onboarding, no resets, no data rewrite.
 | Origin Mastery transfers? | NO — path_xp stays on its path (mastery is per-origin by definition); it is never reduced. |
 | Champion Bond transfers? | NO — bond is per-champion by definition; old bond rows persist untouched. |
 | Stage 1 auto-granted for the new origin? | YES — preserve-higher ≥1 on the new path's row. |
-| Previous origin remains collected? | YES — its user_paths row keeps is_unlocked/stage/xp; it simply can't be equipped (ORIGIN LOCK follows the ACTIVE origin). |
+| Previous origin remains collected? | **NO — WIPED (migration 048, Tyson 2026-07-17):** "nobody should have any data on any character other than their origin." Binding (first or reforge) deletes every non-origin user_paths row and every non-origin-champion bond row. Reverses the 046 "keep progress, cannot render" rule and the original 047 "stays collected" rule below. Purchases (skins/palettes/Gymerica) are NOT progression data and are never touched; firstbound_origin is permanent history and is never touched. |
 | Skill-tree selections reset? | N/A — the tree is derived, nothing is spendable yet; when user_skill_nodes ships, this doc must be revisited [OPEN]. |
 | Cosmetics remain available? | YES — purchases are never touched; non-active-line skins stay owned. |
 | Firstbound badge? | YES — `firstbound_origin` is permanent; surfacing it as a profile badge is UI-only and may ship later [OPEN, non-blocking]. |
