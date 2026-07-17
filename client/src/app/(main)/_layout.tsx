@@ -10,6 +10,7 @@ import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { migrateForgeHistory } from '@/data/progression/award-xp';
+import { ORIGIN_FLAGS } from '@/data/origin';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
 import { progressionFeatures } from '@/data/progression/features';
 import { supabase } from '@/data/supabase';
@@ -193,6 +194,19 @@ export default function MainLayout() {
   }
 
   if (profile.data === null) {
+    return <Redirect href="/onboarding" />;
+  }
+
+  // ORIGIN GATE (047): a flow-v2 athlete who interrupted Act II can never
+  // wander into the app origin-less — they resume the ceremony. Legacy
+  // users (onboarding_flow_version NULL) never match and keep the
+  // prompt/podium reveal path.
+  if (
+    ORIGIN_FLAGS.originOnboardingEnabled &&
+    profile.data != null &&
+    (profile.data.onboarding_flow_version ?? 0) >= 2 &&
+    profile.data.origin_path == null
+  ) {
     return <Redirect href="/onboarding" />;
   }
 

@@ -40,6 +40,9 @@ export interface ProfileRow {
   sex: 'male' | 'female' | null;
   deadlift_e1rm: number | null;
   nutrition_phase: string | null;
+  /** 047 program: NULL = legacy user (the origin gate never traps them). */
+  origin_path: string | null;
+  onboarding_flow_version: number | null;
 }
 
 function useUserId(): string | null {
@@ -60,7 +63,7 @@ export function useProfile() {
     queryFn: async (): Promise<ProfileRow | null> => {
       const { data, error } = await supabase
         .from('profile')
-        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase')
+        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version')
         .order('created_at', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;
