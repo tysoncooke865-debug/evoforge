@@ -43,6 +43,7 @@ export function AvatarHero({
   formName,
   evolutionPercent,
   features,
+  originUnset = false,
 }: {
   branch: Branch;
   stage: number;
@@ -56,6 +57,9 @@ export function AvatarHero({
   formName: string;
   evolutionPercent: number;
   features: HomeFeatures;
+  /** ORIGIN (Tyson 2026-07-18): no Origin selected → BLANK podium, no avatar,
+   *  no rating — just the gold FORGE YOUR ORIGIN button on the stage. */
+  originUnset?: boolean;
 }) {
   const { width } = useWindowDimensions();
   const overlay = width >= 380;
@@ -66,6 +70,33 @@ export function AvatarHero({
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/avatar' as never);
   };
+
+  if (originUnset) {
+    return (
+      <View style={{ height: 280, alignItems: 'center', justifyContent: 'center' }} testID="hero-origin-empty">
+        {/* the empty podium */}
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', bottom: 22, width: 216, height: 58, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(251,191,36,0.45)', backgroundColor: 'rgba(251,191,36,0.07)' }}
+        />
+        <Pressable
+          onPress={() => router.push('/evo-scan' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Forge your Origin — run an EvoGuide scan"
+          testID="forge-origin"
+          className="items-center justify-center rounded-xl px-s5"
+          style={{ minHeight: 56, backgroundColor: tokens.colors.legendary, shadowColor: tokens.colors.legendary, shadowOpacity: 0.55, shadowRadius: 18, elevation: 8 }}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 13, color: '#1a1305', letterSpacing: 1, ...pixelFont() }}>
+            FORGE YOUR ORIGIN
+          </Text>
+        </Pressable>
+        <Text className="mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+          Run an EvoGuide scan to discover your path
+        </Text>
+      </View>
+    );
+  }
 
   const badges = (
     <>

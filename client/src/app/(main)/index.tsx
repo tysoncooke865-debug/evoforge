@@ -38,6 +38,7 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import tokens from '@/theme/tokens';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
+import { useOriginStatus } from '@/data/origin';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { EvoCore } from '@/ui/home/evo-core';
 import { homeFeatures } from '@/ui/home/home-features';
@@ -213,6 +214,10 @@ export default function HomeScreen() {
   // the derived truth with the equipped loadout applied, re-validated
   // against live gates on every read (a closed gate falls back silently).
   const identity = useDisplayIdentity();
+  // ORIGIN (Tyson 2026-07-18): until an Origin is selected the podium is
+  // BLANK — no avatar, no rating — just the gold FORGE YOUR ORIGIN button.
+  const originStatus = useOriginStatus();
+  const originUnset = originStatus.data != null && originStatus.data.origin_path == null;
   const displayBranch = identity.display.branch;
   const evolution = nextEvolutionV2(displayBranch, {
     level: summary.level,
@@ -262,6 +267,7 @@ export default function HomeScreen() {
 
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero
+        originUnset={originUnset}
         branch={identity.display.donor}
         stage={stage}
         auraColour={auraColour}
