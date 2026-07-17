@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { AuthProvider } from '@/data/auth-context';
+import { initVersionGuard } from '@/data/version-guard';
 import { PIXEL_FONTS } from '@/theme/fonts';
 import { ToastHost } from '@/ui/core/toast-host';
 
@@ -40,6 +41,10 @@ export default function RootLayout() {
   // The pixel display face (Pixelify Sans). No splash gate: the system font
   // paints first and swaps in — a font must never block the app.
   useFonts(PIXEL_FONTS);
+  // Stale-shell guard: one-shot per app instance (see data/version-guard.ts).
+  useEffect(() => {
+    initVersionGuard();
+  }, []);
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
   );
