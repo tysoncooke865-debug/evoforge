@@ -144,8 +144,8 @@ export default function FuelScreen() {
       {/* THE SCANNERS — photo AI and barcode, one confirm sheet. */}
       <AIMealScanCard date={todayIso} />
 
-      {/* THE DAY'S STRUCTURE — named slots. */}
-      <MealsSection date={todayIso} entries={entries} consumed={progress.consumed} />
+      {/* THE DAY'S STRUCTURE — named slots (display-only since 2026-07-19). */}
+      <MealsSection entries={entries} consumed={progress.consumed} />
 
       {/* THE PROTEIN GOAL — a reward card that promises nothing unbacked. */}
       <FuelBonusCard
@@ -168,7 +168,7 @@ export default function FuelScreen() {
 
       {/* THE CONVERTER — type either side, the other answers. */}
       <GlowCard>
-        <SectionLabel>KJ ⇄ KCAL</SectionLabel>
+        <SectionLabel size="lg">KJ ⇄ KCAL CONVERTER</SectionLabel>
         <View className="flex-row items-center gap-s2">
           <View className="flex-1 items-center">
             <Text

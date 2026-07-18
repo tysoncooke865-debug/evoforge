@@ -3,7 +3,6 @@ import { Pressable, Text, View } from 'react-native';
 
 import {
   useDeleteEntry,
-  useLogCalories,
   type NutritionEntry,
 } from '@/data/nutrition';
 import {
@@ -13,12 +12,9 @@ import {
   mealMacroTotals,
   mealSlotName,
 } from '@/domain/nutrition';
-import { pyFloat } from '@/domain/py';
 import { mealCountOf, useFuelStore } from '@/state/fuel-store';
-import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { Field } from '@/ui/core/field';
 import {
   PixelApple,
   PixelBloom,
@@ -31,52 +27,33 @@ import {
  * FUEL_REDESIGN — TODAY'S MEALS: the numbered slots wearing their day names
  * (position IS meaning — slot 1 is breakfast). Collapsed rows stay compact
  * (icon · name/time · summary · one control); tapping expands the slot's
- * entries and the same per-slot logger as before. The ＋/− MEAL footer keeps
- * the 8-slot day — slots past SNACKS number themselves.
+ * entries. DISPLAY-ONLY since 2026-07-19 (Tyson): the per-slot logger is
+ * gone — entries arrive via the main input's ASSIGN picker, and delete is
+ * the only action here. The ＋/− MEAL footer keeps the 8-slot day — slots
+ * past SNACKS number themselves.
  */
 
 const SLOT_ICONS = [PixelSun, PixelBloom, PixelMoon, PixelApple] as const;
 
 export function MealsSection({
-  date,
   entries,
   consumed,
 }: {
-  date: string;
   entries: NutritionEntry[];
   /** The whole day's kcal — the heading's right-hand "N KCAL LOGGED". */
   consumed: number;
 }) {
   const colors = useThemeColors();
-  const logCalories = useLogCalories();
   const deleteEntry = useDeleteEntry();
   const storedMealCount = useFuelStore(mealCountOf);
   const setMealCount = useFuelStore((s) => s.setMealCount);
   const mealCount = effectiveMealCount(storedMealCount, entries);
   const slotTotals = mealMacroTotals(entries, mealCount);
   const [openMeal, setOpenMeal] = useState<number | null>(null);
-  const [mealAmount, setMealAmount] = useState('');
 
   const timeOf = (ts: string): string => {
     const d = new Date(ts);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  };
-
-  // Same validation and toast as the quick log — one rulebook.
-  const logMeal = (slot: number) => {
-    const v = pyFloat(mealAmount);
-    // Round first, THEN judge: 0.4 rounds to 0 and 0 violates kcal > 0.
-    const kcal = v === null || Math.round(v) < 1 ? null : Math.round(v);
-    if (kcal === null || kcal > 6000) {
-      useToastStore.getState().push({
-        kind: 'error',
-        title: 'NOT A MEAL',
-        subtitle: kcal === null ? 'Enter an amount above zero.' : 'Entries cap at 6,000 kcal.',
-      });
-      return;
-    }
-    logCalories.mutate({ date, kcal, label: null, mealNo: slot });
-    setMealAmount('');
   };
 
   return (
@@ -127,10 +104,7 @@ export function MealsSection({
               }}
             >
               <Pressable
-                onPress={() => {
-                  setOpenMeal(open ? null : slot);
-                  setMealAmount('');
-                }}
+                onPress={() => setOpenMeal(open ? null : slot)}
                 accessibilityRole="button"
                 accessibilityLabel={`${mealSlotName(slot)}: ${totals.kcal} kilocalories, ${totals.protein} grams protein. ${open ? 'Collapse' : 'Expand'}.`}
                 testID={`fuel-meal-${slot}`}
@@ -179,12 +153,23 @@ export function MealsSection({
                   className="items-center justify-center rounded-md border"
                   style={{ width: 34, height: 34, borderColor: colors.border }}
                 >
-                  <Text className="text-sm text-accent">{open ? '▾' : logged ? '▸' : '＋'}</Text>
+                  {/* No ＋ any more (Tyson 2026-07-19): slots DISPLAY what the
+                      main input filed into them; logging lives up there. */}
+                  <Text className="text-sm text-accent">{open ? '▾' : '▸'}</Text>
                 </View>
               </Pressable>
 
               {open ? (
                 <View className="px-s3 pb-s3">
+                  {/* Display-only (Tyson 2026-07-19): the per-slot logger is
+                      gone — every entry arrives via the main input's ASSIGN
+                      picker. Delete stays; a wrong entry must be removable. */}
+                  {slotEntries.length === 0 ? (
+                    <Text className="text-2xs text-text-mute">
+                      Nothing filed here yet — log from SCAN A MEAL or QUICK LOG above and assign
+                      it to {mealSlotName(slot)}.
+                    </Text>
+                  ) : null}
                   {slotEntries.map((e) => (
                     <View key={e.id} className="flex-row items-center">
                       <View className="flex-1">
@@ -213,33 +198,6 @@ export function MealsSection({
                       </Pressable>
                     </View>
                   ))}
-                  <View className="flex-row items-end gap-s2">
-                    <View className="flex-1">
-                      <Field
-                        label="KCAL"
-                        value={mealAmount}
-                        onChange={setMealAmount}
-                        integer
-                        testID={`fuel-meal-${slot}-kcal`}
-                      />
-                    </View>
-                    <Pressable
-                      onPress={() => logMeal(slot)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`log to ${mealSlotName(slot)}`}
-                      className="items-center justify-center rounded-md border px-s3"
-                      style={{ minHeight: 44, borderColor: `${colors.accent}59` }}
-                      testID={`fuel-meal-${slot}-log`}
-                    >
-                      <Text
-                        className="text-accent"
-                        allowFontScaling={false}
-                        style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
-                      >
-                        LOG
-                      </Text>
-                    </Pressable>
-                  </View>
                 </View>
               ) : null}
             </View>

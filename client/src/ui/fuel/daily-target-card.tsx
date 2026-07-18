@@ -33,7 +33,9 @@ export function DailyTargetCard({
     <GlowCard>
       <View className="flex-row items-start justify-between">
         <View style={{ flex: 1, minWidth: 0 }}>
-          <SectionLabel>DAILY TARGET</SectionLabel>
+          {/* "ESTIMATED" — the number is an AI/formula estimate, and saying
+              so is the honest label (Tyson 2026-07-19). */}
+          <SectionLabel size="lg">ESTIMATED DAILY TARGET</SectionLabel>
           <Text
             className="text-text"
             allowFontScaling={false}
@@ -55,22 +57,7 @@ export function DailyTargetCard({
             {GOAL_BASIS[target.goal]} · since {target.effective_from}
           </Text>
         </View>
-        {/* The target ring — pure decoration, echoing the reference mock. */}
-        <View
-          className="items-center justify-center rounded-pill border"
-          style={{ width: 56, height: 56, borderColor: `${colors.accent}40` }}
-          pointerEvents="none"
-        >
-          <View
-            className="items-center justify-center rounded-pill border"
-            style={{ width: 38, height: 38, borderColor: `${colors.accent}8c` }}
-          >
-            <View
-              className="rounded-pill"
-              style={{ width: 14, height: 14, backgroundColor: colors.accent }}
-            />
-          </View>
-        </View>
+        {/* (The decorative target rings were removed 2026-07-19 — Tyson.) */}
       </View>
       <View className="mt-s2 flex-row items-center border-t border-border-soft pt-s2">
         <Pressable

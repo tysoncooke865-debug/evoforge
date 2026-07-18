@@ -19,6 +19,7 @@ import { GlowCard } from '@/ui/core/shell';
 import { BarcodeScanModal } from '@/ui/fuel/barcode-scan';
 import { DescribeMealModal } from '@/ui/fuel/describe-meal';
 import { FoodSearchModal } from '@/ui/fuel/food-search';
+import { MealSlotPicker } from '@/ui/fuel/meal-slot-picker';
 
 /**
  * FUEL_REDESIGN — the AI meal scan, promoted to the page's hero action with
@@ -35,6 +36,7 @@ export function AIMealScanCard({ date }: { date: string }) {
   const [title, setTitle] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gramsFor, setGramsFor] = useState<number | null>(null);
+  const [mealSlot, setMealSlot] = useState<number | null>(null);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [describeOpen, setDescribeOpen] = useState(false);
@@ -243,16 +245,18 @@ export function AIMealScanCard({ date }: { date: string }) {
               </View>
             );
           })()}
+          <MealSlotPicker value={mealSlot} onChange={setMealSlot} testIDPrefix="meal-assign" />
           <NeonButton
             title="SAVE MEAL"
             variant="epic"
             onPress={() =>
               saveMeal.mutate(
-                { date, items },
+                { date, items, mealNo: mealSlot },
                 {
                   onSuccess: () => {
                     setItems(null);
                     setTitle(null);
+                    setMealSlot(null);
                   },
                 }
               )
@@ -268,6 +272,7 @@ export function AIMealScanCard({ date }: { date: string }) {
               onPress={() => {
                 setItems(null);
                 setTitle(null);
+                setMealSlot(null);
               }}
               testID="meal-discard"
             />

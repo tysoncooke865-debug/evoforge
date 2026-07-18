@@ -11,6 +11,7 @@ import { NumberField } from '@/ui/core/number-field';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { GlowCard } from '@/ui/core/shell';
 import { SectionLabel } from '@/ui/core/screen-header';
+import { MealSlotPicker } from '@/ui/fuel/meal-slot-picker';
 
 /**
  * FUEL_REDESIGN — the quick log: either unit, one confirm. The +N chips ADD
@@ -24,6 +25,7 @@ export function QuickLogCard({ date }: { date: string }) {
   const [unit, setUnit] = useState<0 | 1>(0); // 0 = KCAL, 1 = KJ
   const [amount, setAmount] = useState('');
   const [label, setLabel] = useState('');
+  const [mealSlot, setMealSlot] = useState<number | null>(null);
 
   const enteredKcal = (): number | null => {
     const v = pyFloat(amount);
@@ -45,9 +47,10 @@ export function QuickLogCard({ date }: { date: string }) {
       return;
     }
     const trimmed = label.trim();
-    logCalories.mutate({ date, kcal, label: trimmed === '' ? null : trimmed });
+    logCalories.mutate({ date, kcal, label: trimmed === '' ? null : trimmed, mealNo: mealSlot });
     setAmount('');
     setLabel('');
+    setMealSlot(null);
   };
 
   const bump = (n: number) => {
@@ -59,7 +62,7 @@ export function QuickLogCard({ date }: { date: string }) {
 
   return (
     <GlowCard>
-      <SectionLabel>QUICK LOG</SectionLabel>
+      <SectionLabel size="lg">QUICK LOG</SectionLabel>
       <SegmentedTabs left="KCAL" right="KJ" active={unit} onChange={setUnit} testIDPrefix="fuel-unit" pixelLabels />
       <View className="mt-s3 flex-row flex-wrap gap-s2">
         {QUICK_ADDS.map((n) => (
@@ -106,6 +109,7 @@ export function QuickLogCard({ date }: { date: string }) {
         testID="fuel-label"
       />
       <View className="mt-s3">
+        <MealSlotPicker value={mealSlot} onChange={setMealSlot} testIDPrefix="quick-assign" />
         <NeonButton title="LOG IT" onPress={logNow} busy={logCalories.isPending} testID="fuel-log" />
       </View>
     </GlowCard>
