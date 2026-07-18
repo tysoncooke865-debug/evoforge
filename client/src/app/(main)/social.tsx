@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { useFriends } from '@/data/social';
 import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
+import { useUnreadCount } from '@/data/social-notifications';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { PixelPeople } from '@/ui/core/pixel-icons';
@@ -13,6 +14,7 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { socialFeatures } from '@/ui/social/social-features';
 import { CommentsModal } from '@/ui/social/comments';
 import { CreatePostModal } from '@/ui/social/create-post';
+import { NotificationsModal } from '@/ui/social/notifications';
 import { SocialPostCard } from '@/ui/social/post-cards';
 
 /**
@@ -42,6 +44,8 @@ function SocialFeed() {
   const [nowMs] = useState(() => Date.now());
   const [composerOpen, setComposerOpen] = useState(false);
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const unread = useUnreadCount().data ?? 0;
   const feed = useSocialFeed(scope);
   const react = useToggleReaction();
   const del = useDeletePost();
@@ -54,6 +58,21 @@ function SocialFeed() {
         title="SOCIAL"
         right={
           <View className="flex-row" style={{ gap: 8 }}>
+            <Pressable
+              onPress={() => setNotifOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`notifications${unread > 0 ? `, ${unread} unread` : ''}`}
+              testID="social-notifications"
+              className="items-center justify-center rounded-lg border p-s2"
+              style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}
+            >
+              <Text style={{ fontSize: 18, color: colors.accent }}>🔔</Text>
+              {unread > 0 ? (
+                <View className="absolute items-center justify-center rounded-pill" style={{ top: 2, right: 2, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.danger }} testID="notif-badge">
+                  <Text allowFontScaling={false} style={{ fontSize: 9, color: '#fff', fontWeight: '900' }}>{unread > 9 ? '9+' : unread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
             <Pressable
               onPress={() => setComposerOpen(true)}
               accessibilityRole="button"
@@ -138,6 +157,9 @@ function SocialFeed() {
 
       {composerOpen ? <CreatePostModal onClose={() => setComposerOpen(false)} /> : null}
       {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
+      {notifOpen ? (
+        <NotificationsModal onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); router.push('/friends' as never); }} />
+      ) : null}
     </ScreenShell>
   );
 }
