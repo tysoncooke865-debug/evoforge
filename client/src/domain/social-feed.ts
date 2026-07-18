@@ -19,7 +19,8 @@ export type PostType =
   | 'evo_rating'
   | 'evolution'
   | 'rivalry'
-  | 'photo';
+  | 'photo'
+  | 'status';
 
 export type Visibility = 'public' | 'friends' | 'private';
 
@@ -107,6 +108,12 @@ export interface PhotoPost extends PostBase {
   sets: number | null;
 }
 
+/** A plain text update — the caption IS the content (the composer's general
+ *  update). No payload body; the shell renders the caption large. */
+export interface StatusPost extends PostBase {
+  type: 'status';
+}
+
 export type SocialPost =
   | PRPost
   | WorkoutPost
@@ -114,7 +121,8 @@ export type SocialPost =
   | EvoRatingPost
   | EvolutionPost
   | RivalryPost
-  | PhotoPost;
+  | PhotoPost
+  | StatusPost;
 
 /** The raw row shape the feed RPC returns (payload is per-type JSONB). */
 export interface RawPostRow {
@@ -147,7 +155,7 @@ const isReaction = (v: unknown): v is ReactionKind =>
   v === 'hype' || v === 'respect' || v === 'beast' || v === 'inspired';
 const isPostType = (v: unknown): v is PostType =>
   v === 'pr' || v === 'workout' || v === 'level_up' || v === 'evo_rating' ||
-  v === 'evolution' || v === 'rivalry' || v === 'photo';
+  v === 'evolution' || v === 'rivalry' || v === 'photo' || v === 'status';
 
 function reactionsByKind(v: unknown): Record<ReactionKind, number> {
   const out: Record<ReactionKind, number> = { hype: 0, respect: 0, beast: 0, inspired: 0 };
@@ -252,7 +260,35 @@ export function toPost(row: RawPostRow): SocialPost | null {
         minutes: p.minutes == null ? null : Math.max(0, Math.trunc(numOr(p.minutes, 0))),
         sets: p.sets == null ? null : Math.max(0, Math.trunc(numOr(p.sets, 0))),
       };
+    case 'status':
+      return { ...base, type };
   }
+}
+
+/**
+ * Build a WORKOUT post payload from the athlete's own confirmed workout_log
+ * rows for one date + workout — real counts only (sets, volume, distinct
+ * exercises); XP mirrors the ledger's flat 10/set. Pure; no wall-clock.
+ */
+export function workoutPostPayload(
+  rows: readonly { date?: unknown; workout?: unknown; exercise?: unknown; weight?: unknown; reps?: unknown }[],
+  date: string,
+  workout: string
+): { workout_name: string; sets: number; volume_kg: number; xp: number; exercises: string[] } {
+  let sets = 0;
+  let volume = 0;
+  const seen: string[] = [];
+  for (const r of rows) {
+    if (String(r.date).slice(0, 10) !== date || String(r.workout) !== workout) continue;
+    const w = Number(r.weight);
+    const reps = Number(r.reps);
+    if (!(Number.isFinite(w) && w > 0 && Number.isFinite(reps) && reps > 0)) continue;
+    sets += 1;
+    volume += w * reps;
+    const ex = String(r.exercise ?? '');
+    if (ex && !seen.includes(ex)) seen.push(ex);
+  }
+  return { workout_name: workout, sets, volume_kg: Math.round(volume), xp: sets * 10, exercises: seen };
 }
 
 /** Rows → posts, dropping any that fail validation (never throws on a bad row). */

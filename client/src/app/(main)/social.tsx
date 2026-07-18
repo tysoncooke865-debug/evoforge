@@ -2,14 +2,17 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useAuth } from '@/data/auth-context';
 import { useFriends } from '@/data/social';
-import { useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
+import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { PixelPeople } from '@/ui/core/pixel-icons';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { socialFeatures } from '@/ui/social/social-features';
+import { CommentsModal } from '@/ui/social/comments';
+import { CreatePostModal } from '@/ui/social/create-post';
 import { SocialPostCard } from '@/ui/social/post-cards';
 
 /**
@@ -33,10 +36,15 @@ export default function SocialScreen() {
 
 function SocialFeed() {
   const colors = useThemeColors();
+  const { session } = useAuth();
+  const myId = session?.user?.id ?? null;
   const [scope, setScope] = useState<FeedScope>('following');
   const [nowMs] = useState(() => Date.now());
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const feed = useSocialFeed(scope);
   const react = useToggleReaction();
+  const del = useDeletePost();
   const posts = feed.data?.pages.flat() ?? [];
 
   return (
@@ -45,16 +53,28 @@ function SocialFeed() {
         kicker="THE GUILD"
         title="SOCIAL"
         right={
-          <Pressable
-            onPress={() => router.push('/friends' as never)}
-            accessibilityRole="button"
-            accessibilityLabel="friends and requests"
-            testID="social-friends"
-            className="items-center justify-center rounded-lg border p-s2"
-            style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}
-          >
-            <PixelPeople size={18} color={colors.accent} />
-          </Pressable>
+          <View className="flex-row" style={{ gap: 8 }}>
+            <Pressable
+              onPress={() => setComposerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="create a post"
+              testID="social-create"
+              className="items-center justify-center rounded-lg border p-s2"
+              style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.epic}8c`, backgroundColor: 'rgba(168,85,247,0.1)' }}
+            >
+              <Text style={{ fontSize: 20, color: colors.epic, lineHeight: 22 }}>＋</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/friends' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="friends and requests"
+              testID="social-friends"
+              className="items-center justify-center rounded-lg border p-s2"
+              style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}
+            >
+              <PixelPeople size={18} color={colors.accent} />
+            </Pressable>
+          </View>
         }
       />
 
@@ -90,7 +110,15 @@ function SocialFeed() {
       ) : (
         <View style={{ gap: 14 }}>
           {posts.map((p) => (
-            <SocialPostCard key={p.id} post={p} nowMs={nowMs} onReact={(kind) => react.mutate({ postId: p.id, kind })} />
+            <SocialPostCard
+              key={p.id}
+              post={p}
+              nowMs={nowMs}
+              onReact={(kind) => react.mutate({ postId: p.id, kind })}
+              onComment={() => setCommentsFor(p.id)}
+              canDelete={p.authorId === myId}
+              onDelete={() => del.mutate(p.id)}
+            />
           ))}
           {feed.hasNextPage ? (
             <Pressable
@@ -107,6 +135,9 @@ function SocialFeed() {
           ) : null}
         </View>
       )}
+
+      {composerOpen ? <CreatePostModal onClose={() => setComposerOpen(false)} /> : null}
+      {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
     </ScreenShell>
   );
 }

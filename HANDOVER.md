@@ -67,9 +67,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
   author_stage` (cards use the author initial, never a faked sprite). **THE
   GAP: nothing writes social_posts yet → real feeds are EMPTY (the polished
   YOUR-FORGE-IS-QUIET state).** Two demo posts seeded on ALPHA (friends-only,
-  invisible to real users), removable. DEFERRED: post-CREATION — per the spec
-  it MUST be user-initiated (a composer + share prompts, NEVER silent
-  auto-publish) + photo
+  invisible to real users), removable. **POST CREATION + COMMENTS SHIPPED
+  (050 applied):** the feed is now a full loop — CreatePostModal (`＋` in the
+  header) shares an UPDATE (text `status` post), the latest WORKOUT (real
+  sets/volume via `workoutPostPayload` from workout_log), or the latest PR
+  (recentPr) with a visibility choice; CommentsModal reads via the 050
+  `post_comments` definer RPC + inserts under RLS; own posts delete via the
+  `⋯` (soft delete). All verified LIVE vs prod as ALPHA: create→201,
+  post_comments→200, comment→201, delete→204. `status` is the 8th post type
+  (migration 050 widened the CHECK). STILL DEFERRED: photo upload, privacy
+  granularity beyond visibility, notifications, event-driven share prompts,
+  contextual-action deep links, discover/public infra. + photo
   upload); comments UI; privacy composer; notifications; pagination polish;
   contextual-action deep links. The nav list in Tyson's spec (Home/Train/
   Social/Forge/Arena) is STALE — it would drop Fuel + re-add Forge; kept the

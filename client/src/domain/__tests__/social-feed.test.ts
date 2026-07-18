@@ -5,6 +5,7 @@ import {
   relativeTime,
   toPost,
   toPosts,
+  workoutPostPayload,
   type PostBase,
   type RawPostRow,
 } from '../social-feed';
@@ -42,11 +43,17 @@ describe('toPost — narrowing the envelope', () => {
   });
 
   it('narrows every post type', () => {
-    const types = ['workout', 'level_up', 'evo_rating', 'evolution', 'rivalry', 'photo'] as const;
+    const types = ['workout', 'level_up', 'evo_rating', 'evolution', 'rivalry', 'photo', 'status'] as const;
     for (const t of types) {
       const p = toPost(baseRow({ post_type: t, payload: {} }));
       expect(p?.type).toBe(t);
     }
+  });
+
+  it('a status post is just the caption (no body payload needed)', () => {
+    const p = toPost(baseRow({ post_type: 'status', payload: {}, caption: 'back day done 💪' }));
+    expect(p?.type).toBe('status');
+    expect(p?.caption).toBe('back day done 💪');
   });
 
   it('reads workout stats and evo pillars', () => {
@@ -108,6 +115,29 @@ describe('applyReaction — optimistic toggle', () => {
     expect(next.myReaction).toBe('respect');
     expect(next.reactionCount).toBe(6);
     expect(next.reactionsByKind.respect).toBe(3);
+  });
+});
+
+describe('workoutPostPayload — real counts from the log', () => {
+  const rows = [
+    { date: '2026-07-18', workout: 'Push', exercise: 'Bench', weight: 100, reps: 5 },
+    { date: '2026-07-18', workout: 'Push', exercise: 'Bench', weight: 100, reps: 5 },
+    { date: '2026-07-18', workout: 'Push', exercise: 'OHP', weight: 60, reps: 8 },
+    { date: '2026-07-18', workout: 'Pull', exercise: 'Row', weight: 80, reps: 8 }, // other workout
+    { date: '2026-07-17', workout: 'Push', exercise: 'Bench', weight: 100, reps: 5 }, // other day
+    { date: '2026-07-18', workout: 'Push', exercise: 'Warmup', weight: 0, reps: 10 }, // no load
+  ];
+  it('aggregates sets, volume, exercises and XP for one date+workout', () => {
+    expect(workoutPostPayload(rows, '2026-07-18', 'Push')).toEqual({
+      workout_name: 'Push',
+      sets: 3,
+      volume_kg: 100 * 5 + 100 * 5 + 60 * 8, // 1480
+      xp: 30,
+      exercises: ['Bench', 'OHP'],
+    });
+  });
+  it('empty when nothing matches', () => {
+    expect(workoutPostPayload(rows, '2026-07-18', 'Legs').sets).toBe(0);
   });
 });
 

@@ -1,11 +1,14 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   applyReaction,
   toPosts,
+  type PostType,
   type ReactionKind,
   type SocialPost,
+  type Visibility,
 } from '@/domain/social-feed';
+import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -80,5 +83,95 @@ export function useToggleReaction() {
       // Roll back by refetching the affected scope's pages.
       void queryClient.invalidateQueries({ queryKey: ['social_feed', userId] });
     },
+  });
+}
+
+export interface CreatePostInput {
+  postType: PostType;
+  visibility: Visibility;
+  caption: string | null;
+  payload: Record<string, unknown>;
+}
+
+/** Publish a post (author_id defaults to auth.uid() under 049's RLS). A caption
+ *  is required for a bare status; every other type carries a real payload. */
+export function useCreatePost() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (input: CreatePostInput) => {
+      const { error } = await supabase.from('social_posts').insert({
+        post_type: input.postType,
+        visibility: input.visibility,
+        caption: input.caption,
+        payload: input.payload,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['social_feed', userId] });
+      useToastStore.getState().push({ kind: 'info', title: 'POSTED', subtitle: 'Shared with your feed' });
+    },
+    onError: (e: Error) =>
+      useToastStore.getState().push({ kind: 'error', title: 'NOT POSTED', subtitle: e.message }),
+  });
+}
+
+/** Soft-delete your own post (RLS: author only). */
+export function useDeletePost() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase.from('social_posts').update({ deleted_at: new Date().toISOString() }).eq('id', postId);
+      if (error) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['social_feed', userId] }),
+  });
+}
+
+export interface CommentRow {
+  id: string;
+  user_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+  mine: boolean;
+}
+
+/** A post's comments (via the 050 definer RPC — visibility-checked). */
+export function usePostComments(postId: string | null) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['post_comments', userId, postId],
+    enabled: userId !== null && postId !== null,
+    queryFn: async (): Promise<CommentRow[]> => {
+      try {
+        const { data, error } = await supabase.rpc('post_comments', { p_post: postId });
+        if (error) return [];
+        const d = data as { ok?: boolean; comments?: CommentRow[] } | null;
+        return d?.ok && Array.isArray(d.comments) ? d.comments : [];
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+/** Add a comment (RLS: author of the comment). Refreshes the thread + counts. */
+export function useAddComment() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (input: { postId: string; body: string }) => {
+      const { error } = await supabase.from('social_comments').insert({ post_id: input.postId, body: input.body });
+      if (error) throw error;
+    },
+    onSuccess: (_d, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['post_comments', userId, input.postId] });
+      void queryClient.invalidateQueries({ queryKey: ['social_feed', userId] });
+    },
+    onError: (e: Error) =>
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SENT', subtitle: e.message }),
   });
 }

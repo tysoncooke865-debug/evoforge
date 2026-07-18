@@ -6,10 +6,10 @@ import { useThemeColors } from '@/theme/use-theme';
 
 /**
  * The post action bar — HYPE is the one-tap primary; the other three
- * reactions (RESPECT / BEAST / INSPIRED) sit compact beside it, then the
- * comment count and the post's contextual action. Restrained by design — a
- * game HUD, not an emoji wall. Reactions communicate state by BOTH fill and
- * label, never colour alone (the accessibility rule).
+ * reactions (RESPECT / BEAST / INSPIRED) sit compact beside it, then a
+ * working COMMENT button with its count. Restrained by design — a game HUD,
+ * not an emoji wall. Reaction state reads by BOTH fill and label, never
+ * colour alone (the accessibility rule).
  */
 const LABEL: Record<ReactionKind, string> = {
   hype: 'HYPE',
@@ -21,11 +21,11 @@ const LABEL: Record<ReactionKind, string> = {
 export function SocialReactionBar({
   post,
   onReact,
-  contextLabel,
+  onComment,
 }: {
   post: PostBase;
   onReact: (kind: ReactionKind) => void;
-  contextLabel: string;
+  onComment: () => void;
 }) {
   const colors = useThemeColors();
   const active = post.myReaction;
@@ -76,12 +76,18 @@ export function SocialReactionBar({
 
       <View style={{ flex: 1 }} />
 
-      {post.commentCount > 0 ? (
-        <Text className="text-2xs text-text-mute">💬 {post.commentCount}</Text>
-      ) : null}
-      <Text allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 0.5, color: colors.accent, ...pixelFont(false) }}>
-        {contextLabel}
-      </Text>
+      <Pressable
+        onPress={onComment}
+        accessibilityRole="button"
+        accessibilityLabel={`comment${post.commentCount > 0 ? `, ${post.commentCount}` : ''}`}
+        testID={`comment-${post.id}`}
+        hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+        className="flex-row items-center"
+        style={{ minHeight: 34, gap: 5 }}
+      >
+        <Text allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 0.5, color: colors.accent, ...pixelFont(false) }}>💬 COMMENT</Text>
+        {post.commentCount > 0 ? <Text className="text-2xs text-text-mute">{post.commentCount}</Text> : null}
+      </Pressable>
     </View>
   );
 }

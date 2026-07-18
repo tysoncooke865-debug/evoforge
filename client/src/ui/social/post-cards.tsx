@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import {
   relativeTime,
@@ -28,10 +28,16 @@ export function SocialPostCard({
   post,
   nowMs,
   onReact,
+  onComment,
+  canDelete = false,
+  onDelete,
 }: {
   post: SocialPost;
   nowMs: number;
   onReact: (kind: ReactionKind) => void;
+  onComment: () => void;
+  canDelete?: boolean;
+  onDelete?: () => void;
 }) {
   const colors = useThemeColors();
   const glow =
@@ -56,15 +62,34 @@ export function SocialPostCard({
             {post.visibility !== 'friends' ? ` · ${post.visibility}` : ''}
           </Text>
         </View>
+        {canDelete ? (
+          <Pressable
+            onPress={onDelete}
+            accessibilityRole="button"
+            accessibilityLabel="delete this post"
+            testID={`post-delete-${post.id}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="items-center justify-center"
+            style={{ minWidth: 32, minHeight: 32 }}
+          >
+            <Text className="text-sm text-text-mute">⋯</Text>
+          </Pressable>
+        ) : null}
       </View>
 
-      <View className="mt-s3">
-        <PostBody post={post} />
-      </View>
+      {post.type === 'status' ? null : (
+        <View className="mt-s3">
+          <PostBody post={post} />
+        </View>
+      )}
 
-      {post.caption ? <Text className="mt-s2 text-sm text-text-dim">{post.caption}</Text> : null}
+      {post.caption ? (
+        <Text className={post.type === 'status' ? 'mt-s3 text-base text-text' : 'mt-s2 text-sm text-text-dim'}>
+          {post.caption}
+        </Text>
+      ) : null}
 
-      <SocialReactionBar post={post} onReact={onReact} contextLabel={contextAction(post)} />
+      <SocialReactionBar post={post} onReact={onReact} onComment={onComment} />
     </GlowCard>
   );
 }
@@ -95,18 +120,7 @@ function actionVerb(post: SocialPost): string {
     case 'evolution': return 'evolved';
     case 'rivalry': return 'rivalry update';
     case 'photo': return 'posted';
-  }
-}
-
-function contextAction(post: SocialPost): string {
-  switch (post.type) {
-    case 'pr': return 'CHALLENGE PR';
-    case 'workout': return 'TRAIN THIS';
-    case 'level_up': return 'VIEW PROFILE';
-    case 'evo_rating': return 'VIEW BREAKDOWN';
-    case 'evolution': return 'VIEW EVOLUTION';
-    case 'rivalry': return 'VIEW RIVALRY';
-    case 'photo': return 'VIEW WORKOUT';
+    case 'status': return 'posted an update';
   }
 }
 
@@ -119,6 +133,7 @@ function PostBody({ post }: { post: SocialPost }) {
     case 'evolution': return <EvolutionBody p={post} />;
     case 'rivalry': return <RivalryBody p={post} />;
     case 'photo': return <PhotoBody p={post} />;
+    case 'status': return null; // the caption is the content (rendered by the shell)
   }
 }
 
