@@ -82,7 +82,9 @@ begin
     select jsonb_agg(row_to_json(t)) from (
       select sp.id, sp.author_id,
              coalesce(pp.display_name, 'Athlete') as author_name,
-             ap.avatar_stage as author_stage,
+             -- stage isn't stored (avatar_progression has no stage column) and
+             -- the card uses the author's initial, never a faked sprite → null.
+             null::int as author_stage,
              sp.post_type, sp.visibility, sp.caption, sp.payload, sp.created_at,
              (select count(*) from social_reactions r where r.post_id = sp.id) as reaction_count,
              (select count(*) from social_comments c where c.post_id = sp.id and c.deleted_at is null) as comment_count,
@@ -91,7 +93,6 @@ begin
                 from (select kind k, count(*) n from social_reactions r where r.post_id = sp.id group by kind) x) as reactions_by_kind
       from social_posts sp
       left join public_profile pp on pp.user_id = sp.author_id
-      left join avatar_progression ap on ap.user_id = sp.author_id
       where sp.deleted_at is null
         and (p_before is null or sp.created_at < p_before)
         and (

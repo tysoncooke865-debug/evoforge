@@ -59,12 +59,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
   12 tests), `data/social-feed.ts` (useSocialFeed infinite query + optimistic
   useToggleReaction, degrade-to-empty), `ui/social/*` (post-cards for all 7
   types + shared shell + reaction-bar + the Social screen: FOLLOWING/RIVALS/
-  DISCOVER tabs, friends activity row, empty/loading states). **GATED BY
-  `ui/social/social-features.ts::feedEnabled` (FALSE) — the tab ships the
-  honest COMING SOON; flip ON only AFTER applying 049 (the no-mocked-systems
-  rule).** Toured with the flag on + RPC-seeded (all 7 cards, reactions,
-  empty, 320px). DEFERRED (next session): apply 049; post-CREATION (write
-  posts on real PR/workout/level-up/evo/evolution events + a composer + photo
+  DISCOVER tabs, friends activity row, empty/loading states). **049 APPLIED to
+  production + `feedEnabled` FLIPPED ON 2026-07-18 (Tyson).** Migrations applied
+  through **049**; next free **050**. Verified LIVE vs prod as ALPHA:
+  social_feed→200, cards render, toggle_reaction→200. Apply-time fix:
+  avatar_progression has NO stage column → the RPC returns `null::int as
+  author_stage` (cards use the author initial, never a faked sprite). **THE
+  GAP: nothing writes social_posts yet → real feeds are EMPTY (the polished
+  YOUR-FORGE-IS-QUIET state).** Two demo posts seeded on ALPHA (friends-only,
+  invisible to real users), removable. DEFERRED: post-CREATION — per the spec
+  it MUST be user-initiated (a composer + share prompts, NEVER silent
+  auto-publish) + photo
   upload); comments UI; privacy composer; notifications; pagination polish;
   contextual-action deep links. The nav list in Tyson's spec (Home/Train/
   Social/Forge/Arena) is STALE — it would drop Fuel + re-add Forge; kept the

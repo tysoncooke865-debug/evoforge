@@ -5,5 +5,5 @@
  * and posts are being written, so the feed shows real data, never placeholders.
  */
 export const socialFeatures = {
-  feedEnabled: false,
+  feedEnabled: true,
 } as const;
