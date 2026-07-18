@@ -28,7 +28,8 @@ import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
 import { useThemeColors } from '@/theme/use-theme';
-import { CardioCard, cardioAnim } from '@/ui/train/cardio-logger';
+import { CardioDashboard } from '@/ui/train/cardio/cardio-dashboard';
+import { cardioAnim } from '@/ui/train/cardio/activities';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/train/daily-workout-carousel';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
@@ -777,7 +778,7 @@ export default function TodayScreen() {
       </View>
 
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
-        <CardioCard type={cardioType} setType={setCardioType} />
+        <CardioDashboard type={cardioType} setType={setCardioType} />
       </View>
 
       {/* CHANGE WORKOUT — the one source switcher, plus every plan door. */}

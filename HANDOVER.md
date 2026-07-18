@@ -47,6 +47,34 @@ Owner: Tyson. He works through other Claude sessions too — **always
   superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
   macros), both applied. See §875ff for the numbering note.
 
+- **CARDIO_REDESIGN — EXECUTED 2026-07-18** (Tyson's brief + reference mock):
+  the CARDIO mode of Train (today.tsx mode===1) is now `CardioDashboard`
+  (`ui/train/cardio/*`), replacing the old `CardioCard` (cardio-logger.tsx
+  DELETED; `cardioAnim` moved to `ui/train/cardio/activities.ts`). Composition:
+  DailyCardioSummary (today's minutes vs a DEFAULT goal, mission bar, streak,
+  week sessions) · CONDITIONING SESSION card = ActivityTypeSelector (7
+  pixel-iconed activity cards, no emoji) + CardioSessionForm (adaptive fields
+  per activity — the cardio-logger field map verbatim — duration presets,
+  optional INTENSITY, expandable notes, LOG SESSION) · CardioRewardPreview ·
+  WeeklyCardioProgress (Mon→Sun strip) · RecentCardioSessions (empty state).
+  **THE HONESTY LINE:** cardio-score.ts's rule is that logging sessions earns
+  Forge XP, NEVER Cardio Score — the Conditioning pillar is measured from
+  fitness TESTS at the scheduled Evo Review. So the reward preview shows ONLY
+  the real +Forge XP (floor(minutes×2) = cardioEventAmount, the migration-002
+  literal the save actually grants) and a truthful "Conditioning pillar is
+  measured from fitness tests at your next Evo Review" — NO fabricated
+  +conditioning/+cardio-rating/+recovery numbers (the reference mock's chips
+  have no backend). `DEFAULT_CARDIO_TARGETS` (daily 30 min / weekly 4 sessions
+  / 120 min) is a labelled suggested goal, not stored user data (the Fuel
+  DEFAULT_MACRO_TARGETS precedent). Save contract + every testID preserved
+  (cardio-minutes/distance/incline/speed/calories/rounds/notes/save/speed-unit;
+  boxing minutes=rounds×len, mph→km/h on save, mins≤0 refused, XP grant
+  unchanged). New pure `domain/cardio-stats.ts` (todayMinutes/weekStart/
+  weekStrip/weekTotals/cardioStreak/dailyMission, 16 tests, all take todayIso —
+  the no-wall-clock rule). Intensity + boxing rounds ride in `notes` (no schema
+  column). Toured (ALPHA): empty + rich (READ-intercepted) states, boxing↔run
+  field adapt, presets/intensity, XP preview +60 @30min; 320/390 clean.
+
 - **ORACLE_REDESIGN — EXECUTED 2026-07-18** (Tyson's brief + reference mock):
   ai.tsx (THE ORACLE) rebuilt as a composition over `ui/oracle/*` — OracleHeader
   (hero title over ScanBackdrop — one useAmbient-gated sweep + static motes —

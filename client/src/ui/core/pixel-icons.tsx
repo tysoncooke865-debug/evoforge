@@ -432,9 +432,100 @@ export const PixelBolt = ({ size = 14, color, testID }: IconProps) => (
 export const PixelDrop = ({ size = 14, color, testID }: IconProps) => (
   <PixelGlyph rows={DROP} size={size} color={color} testID={testID ?? 'pixel-drop'} />
 );
+// CARDIO_REDESIGN — the conditioning activity set.
+
+const TREADMILL = [
+  '.......##',
+  '......###',
+  '..#..###.',
+  '.###.....',
+  '..#......',
+  '.###.....',
+  '#########',
+  '#.......#',
+  '##.....##',
+] as const;
+
+const WALK = [
+  '..##..',
+  '..##..',
+  '......',
+  '.###..',
+  '####..',
+  '.###.#',
+  '.#.##.',
+  '##..#.',
+  '#...##',
+] as const;
+
+const RUN = [
+  '...##..',
+  '...##..',
+  '.......',
+  '..####.',
+  '####.#.',
+  '..###..',
+  '.##.##.',
+  '##...##',
+  '#.....#',
+] as const;
+
+const BIKE = [
+  '.....##..',
+  '.........',
+  '..#####..',
+  '.#..#..#.',
+  '###.#.###',
+  '#.#.#.#.#',
+  '#.#####.#',
+  '.#.....#.',
+  '..#####..',
+] as const;
+
+const STAIRS = [
+  '......###',
+  '......#.#',
+  '...####.#',
+  '...#..#.#',
+  '####..#.#',
+  '#..#..#.#',
+  '#..#..#.#',
+  '#########',
+] as const;
+
+const GLOVE = [
+  '.####..',
+  '######.',
+  '#######',
+  '#######',
+  '#######',
+  '.######',
+  '.#####.',
+  '.#####.',
+  '..###..',
+] as const;
+
 /** The scanner kit. */
 export const PixelCamera = ({ size = 16, color, testID }: IconProps) => (
   <PixelGlyph rows={CAMERA} size={size} color={color} testID={testID ?? 'pixel-camera'} />
+);
+export const PixelTreadmill = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={TREADMILL} size={size} color={color} testID={testID ?? 'pixel-treadmill'} />
+);
+export const PixelWalk = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={WALK} size={size} color={color} testID={testID ?? 'pixel-walk'} />
+);
+export const PixelRun = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={RUN} size={size} color={color} testID={testID ?? 'pixel-run'} />
+);
+export const PixelBike = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={BIKE} size={size} color={color} testID={testID ?? 'pixel-bike'} />
+);
+export const PixelStairs = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={STAIRS} size={size} color={color} testID={testID ?? 'pixel-stairs'} />
+);
+export const PixelGlove = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={GLOVE} size={size} color={color} testID={testID ?? 'pixel-glove'} />
 );
 export const PixelBarcode = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={BARCODE} size={size} color={color} testID={testID ?? 'pixel-barcode'} />

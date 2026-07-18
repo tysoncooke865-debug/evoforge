@@ -6,6 +6,7 @@ import { userMuscleFor, type UserExercise } from '@/domain/exercise-search';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
+import { localIso } from '@/domain/today';
 import { kgToLb } from '@/domain/units';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
@@ -221,9 +222,14 @@ export function useLogCardio() {
 
   return useMutation({
     mutationFn: async (input: CardioInput) => {
-      const timestamp = new Date().toISOString().slice(0, 19);
+      // The CALENDAR day is local (domain/today's rule — a session happens on
+      // the day the athlete says); the timestamp stays UTC. cardio_log.date
+      // was the odd one out writing the UTC day, so an evening session west of
+      // Greenwich filed under tomorrow and every day-boundary stat missed it.
+      const now = new Date();
+      const timestamp = now.toISOString().slice(0, 19);
       const row = {
-        date: timestamp.slice(0, 10),
+        date: localIso(now),
         type: input.type,
         minutes: safeNum(input.minutes, 0),
         distance_km: safeNum(input.distanceKm, 0),
