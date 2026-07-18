@@ -114,7 +114,19 @@ async function askServer(
   }
 }
 
-export function NutritionIntake({ onClose, onManual }: { onClose: () => void; onManual: () => void }) {
+export function NutritionIntake({
+  onClose,
+  onManual,
+  previous = null,
+}: {
+  onClose: () => void;
+  onManual: () => void;
+  /** RECALCULATE (2026-07-19): the current target's saved intake answers.
+   *  Seeded under the profile facts so a re-run mostly (often entirely)
+   *  short-circuits to the review card instead of re-asking everything —
+   *  the athlete edits what changed rather than re-answering what didn't. */
+  previous?: Partial<Known> | null;
+}) {
   const colors = useThemeColors();
   const todayIso = calendarToday();
   const profile = useProfile();
@@ -173,7 +185,9 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
     if (seededRef.current || profile.data === undefined) return;
     seededRef.current = true;
     const p = profile.data;
-    const seeded: Known = {};
+    // Previous intake answers first, fresh profile facts on top — the body
+    // facts the profile tracks win over what was true last time.
+    const seeded: Known = { ...(previous ?? {}) };
     if (p?.sex === 'male' || p?.sex === 'female') seeded.sex = p.sex;
     if (p?.bodyweight_kg && p.bodyweight_kg > 0) seeded.weightKg = p.bodyweight_kg;
     if (p?.height_cm && p.height_cm > 0) seeded.heightCm = p.height_cm;
@@ -181,7 +195,8 @@ export function NutritionIntake({ onClose, onManual }: { onClose: () => void; on
     if (goal) seeded.goal = goal;
     setKnown(seeded);
     void ask(seeded, []);
-  }, [profile.data]);
+    // One-shot seed: seededRef gates the body, so extra dep firings no-op.
+  }, [profile.data, previous]);
 
   const answerWith = (field: string, value: string | number, spoken: string) => {
     const k = { ...known, [field]: value };

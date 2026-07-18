@@ -251,7 +251,11 @@ export default function FuelScreen() {
       ) : null}
 
       {intakeOpen ? (
-        <NutritionIntake onClose={() => setIntakeOpen(false)} onManual={() => setTargetOpen(true)} />
+        <NutritionIntake
+          onClose={() => setIntakeOpen(false)}
+          onManual={() => setTargetOpen(true)}
+          previous={target?.inputs ?? null}
+        />
       ) : null}
 
       {targetOpen ? (

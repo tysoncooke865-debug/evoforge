@@ -157,6 +157,10 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const image = String(body.image ?? '');
   const text = String(body.text ?? '').trim();
+  // Optional athlete hint for the PHOTO path (2026-07-19): "it's turkey not
+  // chicken", "the sauce is sugar-free". Bounded server-side; identification
+  // only — the deterministic table still owns every number.
+  const hint = String(body.hint ?? '').trim().slice(0, 200);
   const isRecipe = body.mode === 'recipe';
   const hasImage = image.startsWith('data:image/');
   // Two input modes, one output: a PHOTO, or a free-text meal description /
@@ -170,7 +174,14 @@ Identify the foods in this meal photo for a calorie tracker. For EACH distinct
 food, estimate the VISIBLE quantity in grams (edible portion, as served —
 consider plate size and typical servings). Do not identify people. If unsure of
 a food, give your best common-food name. For foods that are unusual or branded,
-also include your best per-100g estimate. Return ONLY valid JSON:
+also include your best per-100g estimate.${
+    hint
+      ? `
+The user adds this context about their meal — trust it for IDENTIFYING foods
+(it corrects what the photo alone can't show), never for inventing foods that
+are not visible: """${hint}"""`
+      : ''
+  } Return ONLY valid JSON:
 {
   "items": [
     { "name": "grilled chicken breast", "grams": 180,

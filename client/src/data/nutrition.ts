@@ -396,6 +396,10 @@ export interface MealItem {
   per100: { kcal: number; p: number; c: number; f: number };
   source: 'db' | 'ai';
   matched: string | null;
+  /** 2026-07-19: the athlete RENAMED this item in the confirm sheet without
+   *  re-estimating — its macros still describe the original guess. Honest
+   *  provenance; rides into the stored items jsonb. */
+  edited?: boolean;
 }
 
 export interface MealTotals {
@@ -422,7 +426,7 @@ export function scanTotals(items: MealItem[]): MealTotals {
 
 /** Invoke meal-scan with either a photo or a text description — one contract. */
 async function invokeMealScan(
-  payload: { image: string } | { text: string; mode?: 'describe' | 'recipe' }
+  payload: { image: string; hint?: string } | { text: string; mode?: 'describe' | 'recipe' }
 ): Promise<{ items: MealItem[]; notes: string } | { error: string }> {
   try {
     const { data, error } = await supabase.functions.invoke('meal-scan', { body: payload });
@@ -443,8 +447,10 @@ async function invokeMealScan(
   }
 }
 
-export function scanMeal(image: string) {
-  return invokeMealScan({ image });
+/** `hint` (2026-07-19): optional athlete context riding with the photo —
+ *  identification help only; the server clamps it to 200 chars. */
+export function scanMeal(image: string, hint?: string) {
+  return invokeMealScan(hint && hint.trim() ? { image, hint: hint.trim() } : { image });
 }
 
 /** Describe a meal or paste a recipe → the AI extracts foods + grams, the

@@ -25,7 +25,14 @@ const LIMITS: Record<string, { min: number; max: number }> = {
   ratePerWeekKg: { min: 0, max: 1 },
 };
 
-const MAX_TURNS = 12;
+/** History window sent to the model — BOTH roles, so this must be roomy.
+ *  The old cap (12, both-roles, >= refusal) died at the 6th exchange: a
+ *  seven-field intake with free-text answers hit it mid-conversation and
+ *  RECALCULATE always failed for athletes with sparse profiles (Tyson,
+ *  2026-07-19: "answers all the questions then says too many questions"). */
+const MAX_TURNS = 24;
+/** The refusal now counts what it means to count: the athlete's ANSWERS. */
+const MAX_QUESTIONS = 10;
 
 interface Known {
   age?: number;
@@ -125,7 +132,8 @@ Deno.serve(async (req) => {
       role: m.role === 'assistant' ? 'assistant' : 'user',
       text: String(m.text ?? '').slice(0, 300),
     }));
-  if (messages.length >= MAX_TURNS) {
+  const userTurns = messages.filter((m: { role: string }) => m.role === 'user').length;
+  if (userTurns >= MAX_QUESTIONS) {
     return json({ error: 'That is a lot of questions — set the target manually instead.' }, 422);
   }
 
