@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from './auth-context';
@@ -27,10 +28,16 @@ function useUserId(): string | null {
 
 export function useUnreadCount() {
   const userId = useUserId();
+  // PERF: only poll while the Social tab is FOCUSED — the idle preload keeps
+  // this screen mounted, so an ungated interval would fire every 60s on every
+  // other tab too. The badge only shows on the Social header anyway; switching
+  // back refetches on focus. (Native push replaces the poll later.)
+  const focused = useIsFocused();
   return useQuery({
     queryKey: ['notif_unread', userId],
     enabled: userId !== null,
-    refetchInterval: 60_000, // a quiet poll; native push replaces this later
+    refetchInterval: focused ? 60_000 : false,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<number> => {
       try {
         const { data, error } = await supabase.rpc('unread_notification_count');

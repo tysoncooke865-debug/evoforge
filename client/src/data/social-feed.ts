@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -33,9 +34,13 @@ function useUserId(): string | null {
 /** One page of the feed for a scope, keyset by the oldest createdAt seen. */
 export function useSocialFeed(scope: FeedScope) {
   const userId = useUserId();
+  // PERF: the Social tab is idle-preloaded, so without this the feed RPC would
+  // fire on boot for everyone — even users who never open Social. Load it only
+  // once the tab is focused (a brief skeleton on first open, nothing lost).
+  const focused = useIsFocused();
   return useInfiniteQuery({
     queryKey: ['social_feed', userId, scope],
-    enabled: userId !== null,
+    enabled: userId !== null && focused,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }): Promise<SocialPost[]> => {
       try {
