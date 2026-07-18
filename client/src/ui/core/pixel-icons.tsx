@@ -527,6 +527,19 @@ export const PixelStairs = ({ size = 16, color, testID }: IconProps) => (
 export const PixelGlove = ({ size = 16, color, testID }: IconProps) => (
   <PixelGlyph rows={GLOVE} size={size} color={color} testID={testID ?? 'pixel-glove'} />
 );
+
+// The Social tab — two figures.
+const PEOPLE = [
+  '.##...##.',
+  '.##...##.',
+  '.........',
+  '###...###',
+  '####.####',
+  '####.####',
+] as const;
+export const PixelPeople = ({ size = 19, color, testID }: IconProps) => (
+  <PixelGlyph rows={PEOPLE} size={size} color={color} testID={testID ?? 'pixel-people'} />
+);
 export const PixelBarcode = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={BARCODE} size={size} color={color} testID={testID ?? 'pixel-barcode'} />
 );

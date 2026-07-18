@@ -18,7 +18,7 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
-import { PixelDumbbell, PixelFork } from '@/ui/core/pixel-icons';
+import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
@@ -127,7 +127,7 @@ export default function MainLayout() {
     if (prefetchedRef.current || !session || profile.data === undefined) return;
     prefetchedRef.current = true;
     const warm = () => {
-      for (const href of ['/today', '/ai', '/avatar', '/arena', '/fuel']) {
+      for (const href of ['/today', '/ai', '/social', '/arena', '/fuel']) {
         try {
           router.prefetch(href as never);
         } catch {
@@ -231,7 +231,12 @@ export default function MainLayout() {
         options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
       />
       <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />
-      <Tabs.Screen name="avatar" options={{ title: 'Forge', tabBarIcon: makeIcon('◈') }} />
+      {/* Forge moved off the bar (Tyson 2026-07-18): the Forge/avatar screen
+          now opens by tapping the champion on Home. Social takes its slot. */}
+      <Tabs.Screen
+        name="social"
+        options={{ title: 'Social', tabBarIcon: ({ color }) => <PixelPeople size={19} color={color as string} /> }}
+      />
       <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
       {/* FUEL: the calorie tracker wears the pixel fork, like Train's dumbbell. */}
       <Tabs.Screen
@@ -241,6 +246,7 @@ export default function MainLayout() {
       {/* Routable, not in the bar — reached from the profile menu. */}
       {/* TRAIN_PAGE_V2: the workout is a PAGE, pushed over Train. Routable,
           hidden from the bar (the bar stays visible on it). */}
+      <Tabs.Screen name="avatar" options={{ href: null }} />
       <Tabs.Screen name="workout" options={{ href: null }} />
       {/* CUSTOMISE: the champion-select page, pushed over Home. */}
       <Tabs.Screen name="customise" options={{ href: null }} />

@@ -47,6 +47,14 @@ Owner: Tyson. He works through other Claude sessions too — **always
   superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
   macros), both applied. See §875ff for the numbering note.
 
+- **TABS — Forge → Social 2026-07-18** (Tyson's call): the bottom bar dropped
+  Forge and gained **Social** (`app/(main)/social.tsx` — an HONEST "COMING SOON"
+  placeholder, not a mocked feature; awaits Tyson's spec). The Forge/avatar
+  screen is unchanged and now opens by tapping the champion on Home
+  (`AvatarHero.openCharacter → /avatar`, already wired); `avatar` is `href:null`
+  (routable, off the bar). Idle prefetch swapped `/avatar`→`/social`. New
+  `PixelPeople` tab icon. Bar is now Home·Train·Oracle·Social·Arena·Fuel.
+
 - **FUEL BATCH — EXECUTED 2026-07-18** (Tyson's follow-up asks): (1) the
   QuickLog label input moved to its own full-width row so it fits at 320px;
   (2) **calories BURNED** (cardio_log.calories, `useCaloriesBurned`) fold into
