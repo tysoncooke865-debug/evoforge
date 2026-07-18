@@ -121,8 +121,10 @@ function SocialFeed() {
 
       <FriendsRow />
 
-      {/* The feed. */}
-      {feed.isPending ? (
+      {/* RIVALS is its own view (the head-to-head records), not a post feed. */}
+      {scope === 'rivals' ? (
+        <RivalriesView />
+      ) : feed.isPending ? (
         <FeedSkeleton />
       ) : posts.length === 0 ? (
         <EmptyState scope={scope} />
@@ -202,6 +204,63 @@ function FriendsRow() {
         <Text className="mt-s1 text-2xs text-text-mute" numberOfLines={1}>Find</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+/** RIVALS — the head-to-head records with friends (migration 036). Active
+ *  rivalries (any contest) rise to the top; a friend with no contests yet is a
+ *  rivalry waiting to happen. Contests are recorded server-side by the Arena. */
+function RivalriesView() {
+  const colors = useThemeColors();
+  const friends = useFriends();
+  if (friends.isPending) return <FeedSkeleton />;
+  const list = [...(friends.data ?? [])].sort(
+    (a, b) => b.my_wins + b.their_wins + b.draws - (a.my_wins + a.their_wins + a.draws)
+  );
+  if (list.length === 0) return <EmptyState scope="rivals" />;
+  const anyContest = list.some((f) => f.my_wins + f.their_wins + f.draws > 0);
+
+  return (
+    <View style={{ gap: 10 }}>
+      {!anyContest ? (
+        <Text className="text-2xs text-text-mute">
+          No contests yet — battle a friend in the Arena and your head-to-head record starts here.
+        </Text>
+      ) : null}
+      {list.map((f) => {
+        const total = f.my_wins + f.their_wins + f.draws;
+        const lead = f.my_wins > f.their_wins ? 'up' : f.my_wins < f.their_wins ? 'down' : 'even';
+        const col = lead === 'up' ? colors.success : lead === 'down' ? colors.danger : colors['text-dim'];
+        return (
+          <View
+            key={f.id}
+            className="flex-row items-center rounded-lg border p-s3"
+            style={{ borderColor: total > 0 ? `${col}45` : colors.border, backgroundColor: 'rgba(13,21,36,0.5)', gap: 10 }}
+            testID={`rival-${f.id}`}
+          >
+            <View className="items-center justify-center rounded-lg border" style={{ width: 40, height: 40, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}>
+              <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.accent, ...pixelFont() }}>{(f.display_name[0] ?? 'A').toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text className="text-sm font-bold text-text" numberOfLines={1}>{f.display_name}</Text>
+              <Text className="text-2xs text-text-mute">{total > 0 ? `${total} contest${total > 1 ? 's' : ''}` : 'No contests yet'}</Text>
+            </View>
+            <Text allowFontScaling={false} style={{ fontSize: 16, color: col, ...pixelFont() }}>
+              {f.my_wins}–{f.their_wins}{f.draws > 0 ? `–${f.draws}` : ''}
+            </Text>
+          </View>
+        );
+      })}
+      <Pressable
+        onPress={() => router.push('/friends' as never)}
+        accessibilityRole="button"
+        testID="rivals-challenge"
+        className="items-center justify-center rounded-lg border py-s3"
+        style={{ borderColor: `${colors.accent}8c`, minHeight: 44 }}
+      >
+        <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 11, letterSpacing: 1, ...pixelFont(false) }}>CHALLENGE A FRIEND ›</Text>
+      </Pressable>
+    </View>
   );
 }
 
