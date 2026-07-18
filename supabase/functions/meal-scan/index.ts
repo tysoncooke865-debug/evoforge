@@ -156,9 +156,16 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const image = String(body.image ?? '');
-  if (!image.startsWith('data:image/')) return json({ error: 'A meal photo (data URI) is required.' }, 400);
+  const text = String(body.text ?? '').trim();
+  const isRecipe = body.mode === 'recipe';
+  const hasImage = image.startsWith('data:image/');
+  // Two input modes, one output: a PHOTO, or a free-text meal description /
+  // recipe. Either way the AI only identifies foods + estimates grams; the
+  // deterministic table + multiplication below own the numbers.
+  if (!hasImage && text.length < 3)
+    return json({ error: 'A meal photo or a text description is required.' }, 400);
 
-  const userText = `
+  const photoPrompt = `
 Identify the foods in this meal photo for a calorie tracker. For EACH distinct
 food, estimate the VISIBLE quantity in grams (edible portion, as served —
 consider plate size and typical servings). Do not identify people. If unsure of
@@ -172,9 +179,46 @@ also include your best per-100g estimate. Return ONLY valid JSON:
   "is_food": true,      // false if the photo clearly shows no food
   "notes": "one short sentence"
 }`;
-  const { data, error } = await callOpenAiJson(userText, [image], ['items', 'is_food']);
+
+  // The text path covers "describe my meal" and "paste a recipe" — the client
+  // sends mode:'recipe' for the latter. Recipe mode ALWAYS returns one
+  // serving: divide by the stated serving count, or assume 1 when none given.
+  const recipeRule = isRecipe
+    ? `This is a RECIPE. Output ONE SERVING: if a serving count is stated, divide
+every gram amount by it; if NO serving count is given, assume the recipe makes
+1 serving and return it whole. Always state the assumed servings in notes.`
+    : `This is a described meal (already one portion). Do not divide by servings.`;
+  const textPrompt = `
+A user entered this for a calorie tracker:
+"""
+${text.slice(0, 1500)}
+"""
+${recipeRule}
+Extract EACH distinct food and its quantity in grams. Convert household
+measures to grams (e.g. "2 eggs" -> 100 g, "1 cup cooked rice" -> 200 g,
+"a tbsp olive oil" -> 14 g). For unusual or branded foods include your best
+per-100g estimate. Set is_food=false only if the text describes no food at all.
+Return ONLY valid JSON:
+{
+  "items": [
+    { "name": "egg", "grams": 100,
+      "per100_kcal": 155, "per100_protein": 13, "per100_carbs": 1.1, "per100_fat": 11 }
+  ],
+  "is_food": true,
+  "notes": "one short sentence (state assumed servings for a recipe)"
+}`;
+
+  const { data, error } = await callOpenAiJson(
+    hasImage ? photoPrompt : textPrompt,
+    hasImage ? [image] : [],
+    ['items', 'is_food']
+  );
   if (error || !data) return json({ error: error ?? 'The scanner returned nothing.' }, 502);
-  if (!data.is_food) return json({ error: "That doesn't look like food — try a clearer photo of the meal." }, 422);
+  if (!data.is_food)
+    return json(
+      { error: hasImage ? "That doesn't look like food — try a clearer photo of the meal." : "That doesn't read as food — describe what you ate." },
+      422
+    );
 
   const rawItems = Array.isArray(data.items) ? (data.items as Record<string, unknown>[]) : [];
   const items = rawItems.slice(0, 12).map((it) => {
@@ -199,7 +243,8 @@ also include your best per-100g estimate. Return ONLY valid JSON:
       matched: hit?.key ?? null,
     };
   });
-  if (items.length === 0) return json({ error: 'No foods identified — try a closer, clearer photo.' }, 422);
+  if (items.length === 0)
+    return json({ error: hasImage ? 'No foods identified — try a closer, clearer photo.' : 'No foods identified — add more detail.' }, 422);
 
   // Pure multiplication — the client mirrors this exactly during corrections.
   const totals = items.reduce(

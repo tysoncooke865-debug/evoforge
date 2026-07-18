@@ -3,6 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 
 import {
   targetInForce,
+  useCaloriesBurned,
   useDeleteEntry,
   useNutritionDates,
   useNutritionLog,
@@ -69,8 +70,11 @@ export default function FuelScreen() {
 
   const entries = log.data ?? [];
   const target = targetInForce(targets.data ?? [], todayIso);
-  const progress = intakeProgress(entries, target?.daily_kcal ?? 0);
-  const state = target ? meterState(progress.consumed, target.daily_kcal, target.goal) : 'under';
+  // Calories burned in cardio raise the day's ceiling — you can eat them back.
+  const burned = useCaloriesBurned(todayIso).data ?? 0;
+  const effectiveTarget = target ? target.daily_kcal + burned : 0;
+  const progress = intakeProgress(entries, effectiveTarget);
+  const state = target ? meterState(progress.consumed, effectiveTarget, target.goal) : 'under';
   const colour = colors[METER_COLOUR[state]];
   const macros = macroProgress(entries);
   const macroTargets = macroTargetsFor(target);
@@ -104,7 +108,9 @@ export default function FuelScreen() {
       {target ? (
         <NutritionSummaryCard
           progress={progress}
-          targetKcal={target.daily_kcal}
+          targetKcal={effectiveTarget}
+          baseTarget={target.daily_kcal}
+          burned={burned}
           state={state}
           colour={colour}
           goal={target.goal}

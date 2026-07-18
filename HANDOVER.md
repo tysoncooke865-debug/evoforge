@@ -47,6 +47,26 @@ Owner: Tyson. He works through other Claude sessions too — **always
   superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
   macros), both applied. See §875ff for the numbering note.
 
+- **FUEL BATCH — EXECUTED 2026-07-18** (Tyson's follow-up asks): (1) the
+  QuickLog label input moved to its own full-width row so it fits at 320px;
+  (2) **calories BURNED** (cardio_log.calories, `useCaloriesBurned`) fold into
+  the day's ceiling — `effectiveTarget = daily_kcal + burned`, meter + macros
+  computed against it, summary shows a "1,994 +320 burned" line (real data,
+  invalidated when cardio logs); (3) **food SEARCH** — `searchFoods` via OFF
+  **v2 `/api/v2/search`** (the legacy cgi/search.pl is throttled → HTML error
+  page; v2 returns clean JSON), a debounced `FoodSearchModal` that appends
+  MealItems; (4) **DESCRIBE / RECIPE** — a text modal (`describe-meal.tsx`) →
+  `describeMeal` → the meal-scan edge fn's NEW **text mode** ({text} OR
+  {image}; recipe with a serving count → ONE serving; the deterministic food
+  table still prices, the AI only names foods+grams — the photo doctrine).
+  All four doors (scan/search/barcode/describe) on the meal card land in the
+  SAME confirm sheet and save via useLogMeal (which refuses over-CHECK totals).
+  Also: `useLogCardio` now writes cardio_log.date as the LOCAL day (localIso).
+  **The edge fn change deploys on push** (supabase/** in client.yml). Toured
+  live: burned math (remaining 1,894 = 1994+320−420), search 13 live hits →
+  confirm 159 kcal, 320px label fit, no overflow. Tabs-removal ask deferred to
+  Tyson (which of the 6 is ambiguous + destructive).
+
 - **CARDIO_REDESIGN — EXECUTED 2026-07-18** (Tyson's brief + reference mock):
   the CARDIO mode of Train (today.tsx mode===1) is now `CardioDashboard`
   (`ui/train/cardio/*`), replacing the old `CardioCard` (cardio-logger.tsx

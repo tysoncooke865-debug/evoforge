@@ -72,6 +72,8 @@ export function MacroProgressRow({
 export function NutritionSummaryCard({
   progress,
   targetKcal,
+  baseTarget,
+  burned = 0,
   state,
   colour,
   goal,
@@ -81,7 +83,12 @@ export function NutritionSummaryCard({
   streakCapped = false,
 }: {
   progress: IntakeProgress;
+  /** The effective ceiling shown after the "/" — base target + burned. */
   targetKcal: number;
+  /** The daily target before cardio burn (for the "eaten back" line). */
+  baseTarget?: number;
+  /** Calories burned in cardio today — folded into the budget. */
+  burned?: number;
   state: MeterState;
   /** The meter colour, already resolved through the theme. */
   colour: string;
@@ -130,6 +137,14 @@ export function NutritionSummaryCard({
       >
         {progress.consumed.toLocaleString()} / {targetKcal.toLocaleString()} KCAL
       </Text>
+      {burned > 0 ? (
+        <View className="mt-s1 flex-row items-center" style={{ gap: 5 }}>
+          <PixelFlame size={11} color={colors.warn} />
+          <Text className="text-2xs text-text-dim" testID="fuel-burned">
+            {baseTarget?.toLocaleString() ?? ''} +{burned.toLocaleString()} burned
+          </Text>
+        </View>
+      ) : null}
       <View className="mt-s2 flex-row items-center" style={{ gap: 8 }}>
         <View style={{ flex: 1 }}>
           <ThinBar pct={progress.barPct} color={colour} height={8} />

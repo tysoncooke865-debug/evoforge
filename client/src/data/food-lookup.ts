@@ -84,6 +84,92 @@ function per100From(
   };
 }
 
+export interface FoodHit {
+  /** Stable key for the list. */
+  key: string;
+  name: string;
+  brand: string | null;
+  per100: MealItem['per100'];
+  /** The declared serving in grams, else null. */
+  servingQ: number | null;
+}
+
+/**
+ * Free-text food SEARCH against Open Food Facts. Keyless, CORS-open — a direct
+ * browser fetch, same rule as the barcode lookup. Returns only products with a
+ * recoverable per-100g kcal so every hit can be logged; caps the page so the
+ * list stays light. A picked hit becomes a MealItem (default portion = its
+ * serving, else 100 g) and rides the SAME confirm sheet as scan/barcode.
+ */
+export async function searchFoods(query: string): Promise<FoodHit[] | { error: string }> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    // THE ENDPOINT CHOICE (verified live): only cgi/search.pl both honours the
+    // query AND sends CORS headers for a browser fetch. api/v2/search IGNORES
+    // search_terms (returns the whole catalog in fixed order); the newer
+    // search.openfoodfacts.org honours the query but sends NO
+    // Access-Control-Allow-Origin, so a browser fetch is blocked. cgi is
+    // occasionally throttled to an HTML page — that degrades to the error
+    // string below (res.json() throws on HTML → caught), never a crash.
+    const url =
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}` +
+      `&search_simple=1&action=process&json=1&page_size=24` +
+      `&fields=code,product_name,brands,serving_quantity,nutrition_data_per,nutriments`;
+    const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) return { error: 'Food search is unreachable. Try again.' };
+    const body = (await res.json()) as {
+      products?: {
+        code?: string;
+        product_name?: string;
+        brands?: string | string[];
+        serving_quantity?: unknown;
+        nutrition_data_per?: string;
+        nutriments?: OffNutriments;
+      }[];
+    };
+    const hits: FoodHit[] = [];
+    for (const p of body.products ?? []) {
+      const name = (p.product_name ?? '').trim();
+      if (!name) continue;
+      const serving = num(p.serving_quantity);
+      const per100 = per100From(p.nutriments ?? {}, p.nutrition_data_per, serving);
+      if (per100 === null || per100.kcal <= 0) continue;
+      // Search-a-licious returns brands as an array; the product endpoint as a
+      // comma string — accept either.
+      const brandsRaw = Array.isArray(p.brands) ? p.brands[0] : (p.brands ?? '').split(',')[0];
+      const brand = (brandsRaw ?? '').trim() || null;
+      hits.push({
+        key: `${p.code ?? name}:${hits.length}`,
+        name: name.slice(0, 60),
+        brand,
+        per100,
+        servingQ: serving && serving > 0 ? Math.round(serving) : null,
+      });
+      if (hits.length >= 15) break;
+    }
+    return hits;
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') return { error: 'Search timed out. Try again.' };
+    return { error: 'Food search is unreachable. Try again.' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A search hit → a MealItem prefill (default portion = serving, else 100 g). */
+export function hitToItem(hit: FoodHit): MealItem {
+  return {
+    name: hit.name,
+    grams: clamp(hit.servingQ ?? 100, 1, 2000),
+    per100: hit.per100,
+    source: 'db',
+    matched: `off-search:${hit.name}`,
+  };
+}
+
 export async function lookupBarcode(
   code: string
 ): Promise<BarcodeProduct | { error: string }> {

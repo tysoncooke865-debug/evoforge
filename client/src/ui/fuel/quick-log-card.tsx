@@ -73,7 +73,9 @@ export function QuickLogCard({ date }: { date: string }) {
           />
         ))}
       </View>
-      <View className="mt-s3 flex-row items-center gap-s2">
+      {/* Amount on its own row (the fused steppers need the width), then the
+          label full-width below so it always fits — even at 320px. */}
+      <View className="mt-s3 flex-row items-center justify-between gap-s2">
         <NumberField
           value={amount}
           onChange={setAmount}
@@ -84,25 +86,25 @@ export function QuickLogCard({ date }: { date: string }) {
           width={96}
           testID="fuel-amount"
         />
-        <TextInput
-          className="min-h-[58px] flex-1 rounded-md border border-border bg-surface-2 px-s3 text-base text-text"
-          placeholder="Label (optional)"
-          placeholderTextColor="#64758f"
-          value={label}
-          onChangeText={setLabel}
-          maxLength={60}
-          testID="fuel-label"
-        />
+        {kcalPreview !== null ? (
+          <Text
+            className="text-text-dim"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
+            ≈ {kcalPreview.toLocaleString()} KCAL
+          </Text>
+        ) : null}
       </View>
-      {kcalPreview !== null ? (
-        <Text
-          className="mt-s1 text-text-dim"
-          allowFontScaling={false}
-          style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-        >
-          ≈ {kcalPreview.toLocaleString()} KCAL
-        </Text>
-      ) : null}
+      <TextInput
+        className="mt-s2 min-h-[52px] w-full rounded-md border border-border bg-surface-2 px-s3 text-base text-text"
+        placeholder="Label (optional)"
+        placeholderTextColor="#64758f"
+        value={label}
+        onChangeText={setLabel}
+        maxLength={60}
+        testID="fuel-label"
+      />
       <View className="mt-s3">
         <NeonButton title="LOG IT" onPress={logNow} busy={logCalories.isPending} testID="fuel-log" />
       </View>

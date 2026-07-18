@@ -14,9 +14,11 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { KeyPad } from '@/ui/core/number-field';
-import { PixelBarcode, PixelCamera } from '@/ui/core/pixel-icons';
+import { PixelBarcode, PixelCamera, PixelPencil } from '@/ui/core/pixel-icons';
 import { GlowCard } from '@/ui/core/shell';
 import { BarcodeScanModal } from '@/ui/fuel/barcode-scan';
+import { DescribeMealModal } from '@/ui/fuel/describe-meal';
+import { FoodSearchModal } from '@/ui/fuel/food-search';
 
 /**
  * FUEL_REDESIGN — the AI meal scan, promoted to the page's hero action with
@@ -34,7 +36,23 @@ export function AIMealScanCard({ date }: { date: string }) {
   const [error, setError] = useState<string | null>(null);
   const [gramsFor, setGramsFor] = useState<number | null>(null);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [describeOpen, setDescribeOpen] = useState(false);
   const saveMeal = useLogMeal();
+
+  // Search appends one food at a time to the meal being built.
+  const addFood = (item: MealItem) => {
+    setError(null);
+    setTitle(null);
+    setItems((cur) => [...(cur ?? []), item]);
+  };
+  // Describe/recipe returns a whole item list at once.
+  const onDescribed = (list: MealItem[], notes: string) => {
+    setDescribeOpen(false);
+    setError(null);
+    setTitle(notes ? notes.slice(0, 40) : null);
+    setItems(list);
+  };
 
   const runScan = async () => {
     setError(null);
@@ -131,13 +149,33 @@ export function AIMealScanCard({ date }: { date: string }) {
               testID="meal-scan"
             />
           </View>
+          {/* The other doors — all land in the same confirm sheet. */}
+          <View className="mt-s2 flex-row" style={{ gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <NeonButton
+                title="SEARCH"
+                variant="ghost"
+                onPress={() => setSearchOpen(true)}
+                testID="food-search-open"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NeonButton
+                title="BARCODE"
+                variant="ghost"
+                icon={<PixelBarcode size={14} color={colors.accent} />}
+                onPress={() => setBarcodeOpen(true)}
+                testID="barcode-open"
+              />
+            </View>
+          </View>
           <View className="mt-s2">
             <NeonButton
-              title="SCAN A BARCODE"
+              title="DESCRIBE A MEAL / RECIPE"
               variant="ghost"
-              icon={<PixelBarcode size={15} color={colors.accent} />}
-              onPress={() => setBarcodeOpen(true)}
-              testID="barcode-open"
+              icon={<PixelPencil size={13} color={colors.accent} />}
+              onPress={() => setDescribeOpen(true)}
+              testID="describe-open"
             />
           </View>
           {error ? <Text className="mt-s2 text-2xs text-danger">{error}</Text> : null}
@@ -256,6 +294,14 @@ export function AIMealScanCard({ date }: { date: string }) {
 
       {barcodeOpen ? (
         <BarcodeScanModal onClose={() => setBarcodeOpen(false)} onProduct={onProduct} />
+      ) : null}
+
+      {searchOpen ? (
+        <FoodSearchModal onClose={() => setSearchOpen(false)} onPick={addFood} />
+      ) : null}
+
+      {describeOpen ? (
+        <DescribeMealModal onClose={() => setDescribeOpen(false)} onItems={onDescribed} />
       ) : null}
     </GlowCard>
   );

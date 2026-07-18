@@ -268,6 +268,7 @@ export function useLogCardio() {
     },
     onSuccess: ({ amount }) => {
       queryClient.invalidateQueries({ queryKey: ['cardio_log', userId] });
+      queryClient.invalidateQueries({ queryKey: ['cardio_calories', userId] });
       queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
       if (amount > 0) {
         announceXp(amount, 'CARDIO COMPLETE', 'Session logged');

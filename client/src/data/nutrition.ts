@@ -168,6 +168,35 @@ export function useNutritionDates(today: string, windowDays = 45) {
   });
 }
 
+/**
+ * Calories BURNED today, from cardio_log.calories (the sessions the athlete
+ * logged with a calorie figure). Fuel eats these back: the day's budget is
+ * target + burned. Degrades to 0 on any error — a missing burn never blocks
+ * the meter. cardio_log.date is the LOCAL day (mutations.ts), same as Fuel's
+ * todayIso, so an equality match is correct.
+ */
+export function useCaloriesBurned(date: string) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['cardio_calories', userId, date],
+    enabled: userId !== null,
+    queryFn: async (): Promise<number> => {
+      try {
+        const { data, error } = await supabase.from('cardio_log').select('calories').eq('date', date);
+        if (error) return 0;
+        let sum = 0;
+        for (const r of data ?? []) {
+          const n = Number((r as { calories: unknown }).calories);
+          if (Number.isFinite(n) && n > 0) sum += n;
+        }
+        return Math.round(sum);
+      } catch {
+        return 0;
+      }
+    },
+  });
+}
+
 export function useLogCalories() {
   const queryClient = useQueryClient();
   const userId = useUserId();
@@ -391,9 +420,12 @@ export function scanTotals(items: MealItem[]): MealTotals {
   );
 }
 
-export async function scanMeal(image: string): Promise<{ items: MealItem[]; notes: string } | { error: string }> {
+/** Invoke meal-scan with either a photo or a text description — one contract. */
+async function invokeMealScan(
+  payload: { image: string } | { text: string; mode?: 'describe' | 'recipe' }
+): Promise<{ items: MealItem[]; notes: string } | { error: string }> {
   try {
-    const { data, error } = await supabase.functions.invoke('meal-scan', { body: { image } });
+    const { data, error } = await supabase.functions.invoke('meal-scan', { body: payload });
     if (error) {
       const ctx = (error as { context?: Response }).context;
       if (ctx && typeof ctx.json === 'function') {
@@ -409,6 +441,17 @@ export async function scanMeal(image: string): Promise<{ items: MealItem[]; note
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'The scan failed.' };
   }
+}
+
+export function scanMeal(image: string) {
+  return invokeMealScan({ image });
+}
+
+/** Describe a meal or paste a recipe → the AI extracts foods + grams, the
+ *  deterministic table prices them. `mode` drives recipe serving-scaling on
+ *  the server. Same confirm sheet, same save. */
+export function describeMeal(text: string, mode: 'describe' | 'recipe' = 'describe') {
+  return invokeMealScan({ text, mode });
 }
 
 /** Save a corrected, confirmed meal — kcal + macros + full item provenance. */
