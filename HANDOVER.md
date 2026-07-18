@@ -1042,6 +1042,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
   the cap held; ordinary messages do NOT match (reload loops on real
   bugs would be worse than the blank screen).
 
+- **HOME REWORK (Tyson's improvement doc §1, 2026-07-19):** CUSTOMISE is the
+  hero action now — `QuickAction size='hero'` (~112px, icon 32, pixel-16
+  label; the overlay action column widened 100→140, and on <380px it owns a
+  full wrap-row) with the FORGE-COIN balance riding beneath it
+  (`hero-coins`): CoinIcon + `formatCompact()` from NEW `domain/format.ts`
+  (13120→13.1K, ≤3 significant digits, display-only, vitest-pinned; null
+  wallet renders NOTHING, never 0). The hero TIER badge is GONE (form/next-
+  evolution moved up) and so is the status-grid TIER fallback (with Rival
+  Rank off the grid is 3 cards). The build section always shows the RADAR
+  (BARS view + toggle deleted; StatBar itself lives on — evo.tsx and the
+  customise preview still use it) and the "Weak point focus" line is gone
+  (`weakPointFocus` still computed in avatar-stats-calc for the Oracle).
+  Toured at 390+320 via origin READ-interception (ALPHA's origin is reset;
+  the FORGE YOUR ORIGIN state hides hero actions — intercept
+  `profile*origin_path*` to tour the real hero).
+
 **Migrations applied through `048`. Next free number: `049`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with

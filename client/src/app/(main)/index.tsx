@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
@@ -51,7 +51,6 @@ import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
-import { StatBar } from '@/ui/character/stat-bar';
 import { StatRadar } from '@/ui/character/stat-radar';
 
 /**
@@ -94,7 +93,6 @@ export default function HomeScreen() {
   const { summary, stats, bfMid, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
-  const [showRadar, setShowRadar] = useState(false);
 
   // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
   // athlete claims it once; the unique index makes reloads a no-op.
@@ -282,7 +280,6 @@ export default function HomeScreen() {
         stillSource={identity.stillSource}
         silhouette={!identity.hasArt}
         tierName={slug.toUpperCase()}
-        tierColour={auraColour}
         formName={formName}
         evolutionPercent={readiness.percent}
         features={homeFeatures}
@@ -314,8 +311,6 @@ export default function HomeScreen() {
         streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
         coins={coins.data}
         totalXp={summary.xp}
-        tierName={slug.toUpperCase()}
-        tierColour={auraColour}
         rank={
           progressionFeatures.rivalRankEnabled
             ? {
@@ -349,43 +344,21 @@ export default function HomeScreen() {
 
       <DividerGlow />
 
-      {/* 8. Character build — RPG stat rows; radar on demand. */}
+      {/* 8. Character build — the radar, always (Tyson 2026-07-19: the five
+          stat bars, their toggle, and the weak-point line are gone). */}
       <View>
-        <EdgeLabel
-          right={
-            <Pressable onPress={() => setShowRadar((v) => !v)} accessibilityRole="button" accessibilityLabel="Toggle radar view">
-              <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
-                {showRadar ? 'BARS' : 'RADAR'}
-              </Text>
-            </Pressable>
-          }
-        >
-          {`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}
-        </EdgeLabel>
+        <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
         <View className="mt-s3">
-          {showRadar ? (
-            <StatRadar
-              stats={[
-                { label: 'STR', value: stats.strengthScore },
-                { label: 'SIZE', value: stats.sizeScore },
-                { label: 'LEAN', value: stats.leannessScore },
-                { label: 'COND', value: stats.conditioningScore },
-                { label: 'AES', value: stats.aestheticScore },
-              ]}
-            />
-          ) : (
-            <>
-              <StatBar abbr="STR" name="Strength" value={stats.strengthScore} colour={colors.accent} />
-              <StatBar abbr="SIZE" name="Mass" value={stats.sizeScore} colour={colors.epic} />
-              <StatBar abbr="LEAN" name="Leanness" value={stats.leannessScore} colour={colors.success} />
-              <StatBar abbr="COND" name="Engine" value={stats.conditioningScore} colour={colors.rare} />
-              <StatBar abbr="AES" name="Aesthetic" value={stats.aestheticScore} colour={colors.mythic} />
-            </>
-          )}
+          <StatRadar
+            stats={[
+              { label: 'STR', value: stats.strengthScore },
+              { label: 'SIZE', value: stats.sizeScore },
+              { label: 'LEAN', value: stats.leannessScore },
+              { label: 'COND', value: stats.conditioningScore },
+              { label: 'AES', value: stats.aestheticScore },
+            ]}
+          />
         </View>
-        <Text className="text-2xs text-text-mute">
-          Weak point focus: <Text className="text-text-dim">{stats.weakPointFocus}</Text>
-        </Text>
       </View>
 
       {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}

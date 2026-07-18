@@ -8,10 +8,13 @@ import type { ReactNode } from 'react';
 import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
+import { useCoinTotal } from '@/data/coins';
 import type { Branch } from '@/domain/avatar-stats';
+import { formatCompact } from '@/domain/format';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { HeroStage } from '@/ui/character/hero-stage';
+import { CoinIcon } from '@/ui/core/coin-icon';
 import { PixelHelmet, PixelShirt } from '@/ui/core/pixel-icons';
 
 import type { HomeFeatures } from './home-features';
@@ -39,7 +42,6 @@ export function AvatarHero({
   stillSource,
   silhouette,
   tierName,
-  tierColour,
   formName,
   evolutionPercent,
   features,
@@ -53,8 +55,9 @@ export function AvatarHero({
   animatedSource?: import('react-native').ImageSourcePropType;
   stillSource?: import('react-native').ImageSourcePropType;
   silhouette: boolean;
+  /** Kept for the hero's accessibility label; the visual TIER badge was
+   *  removed from Home 2026-07-19 (Tyson). */
   tierName: string;
-  tierColour: string;
   formName: string;
   evolutionPercent: number;
   features: HomeFeatures;
@@ -113,8 +116,10 @@ export function AvatarHero({
   }
 
   const badges = (
+    // Tyson 2026-07-19: the TIER badge is gone from Home — FORM and NEXT
+    // EVOLUTION moved up into its place. (Tier still lives on /rank and the
+    // hero's accessibility label.)
     <>
-      <StatusBadge icon={<Text style={{ fontSize: 14, color: tierColour }}>◆</Text>} value={tierName} label="TIER" tint={tierColour} testID="hero-tier" onPress={() => router.push('/rank' as never)} />
       <StatusBadge icon={<Text style={{ fontSize: 14 }}>🔥</Text>} value={formName} label="CURRENT FORM" tint={colors.accent} testID="hero-form" onPress={openCharacter} />
       <StatusBadge
         icon={<Text style={{ fontSize: 14, color: colors.epic }}>▲</Text>}
@@ -138,14 +143,19 @@ export function AvatarHero({
         />
       ) : null}
       {features.showCustomise ? (
+        // Tyson 2026-07-19: "make the customise tab bigger and more
+        // prominent — approximately 4x" → the hero size (same design,
+        // scaled) + the coin balance riding beneath it.
         <QuickAction
-          icon={<PixelShirt size={18} color={colors.accent} />}
+          icon={<PixelShirt size={32} color={colors.accent} />}
           label="CUSTOMISE"
+          size="hero"
           testID="hero-customise"
           onPress={() => router.push('/customise' as never)}
           accessibilityHint="Opens the champion select and customiser"
         />
       ) : null}
+      {features.showCustomise ? <CoinRow /> : null}
     </>
   );
 
@@ -189,18 +199,22 @@ export function AvatarHero({
 
       {overlay ? (
         <>
-          {/* Side columns float over the stage's dead corners. */}
+          {/* Side columns float over the stage's dead corners. The action
+              column is 140 wide since the CUSTOMISE hero size (2026-07-19);
+              the stage keeps clear of it at ≥380 — verified 390/320 shots. */}
           <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, left: 0, gap: 8, width: Math.min(128, Math.round(width * 0.3)) }}>
             {badges}
           </View>
-          <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, right: 0, gap: 8, width: 100, alignItems: 'stretch' }}>
+          <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, right: 0, gap: 8, width: 140, alignItems: 'stretch' }}>
             {actions}
           </View>
         </>
       ) : (
         <View className="mt-s2 flex-row flex-wrap justify-center" style={{ gap: 8 }}>
           {badges}
-          {actions}
+          {/* Narrow screens: the hero CUSTOMISE owns a full row under the
+              badges so its 4x size never squeezes the badge wrap. */}
+          <View style={{ flexBasis: '100%', alignItems: 'stretch', gap: 8 }}>{actions}</View>
         </View>
       )}
     </View>
@@ -258,21 +272,25 @@ function StatusBadge({
   );
 }
 
-/** The hero's right-hand door: icon over a pixel label. */
+/** The hero's right-hand door: icon over a pixel label. `size="hero"` is the
+ *  ~4x CUSTOMISE treatment (Tyson 2026-07-19) — same design, scaled. */
 function QuickAction({
   icon,
   label,
   onPress,
   testID,
   accessibilityHint,
+  size = 'default',
 }: {
   icon: ReactNode;
   label: string;
   onPress: () => void;
   testID: string;
   accessibilityHint?: string;
+  size?: 'default' | 'hero';
 }) {
   const colors = useThemeColors();
+  const hero = size === 'hero';
   return (
     <Pressable
       onPress={onPress}
@@ -281,16 +299,54 @@ function QuickAction({
       accessibilityHint={accessibilityHint}
       testID={testID}
       className="items-center rounded-md border px-s2 py-s2"
-      style={{ minHeight: 56, minWidth: 96, justifyContent: 'center', gap: 4, borderColor: `${colors.accent}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+      style={{
+        minHeight: hero ? 112 : 56,
+        minWidth: hero ? 132 : 96,
+        justifyContent: 'center',
+        gap: hero ? 8 : 4,
+        borderColor: `${colors.accent}45`,
+        backgroundColor: 'rgba(13,21,36,0.72)',
+        ...(hero
+          ? { borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 14 }
+          : null),
+      }}
     >
       {icon}
       <Text
         className="text-accent"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 9, letterSpacing: 0, ...pixelFont() }}
+        style={{ fontSize: hero ? 16 : 9, letterSpacing: 0, ...pixelFont() }}
       >
         {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** The forge-coin balance riding under CUSTOMISE. Null total (offline,
+ *  signed-out race) renders NOTHING — never a fake 0 (the ledger doctrine).
+ *  The compact 13.1K form is display-only; spending uses exact numbers. */
+function CoinRow() {
+  const colors = useThemeColors();
+  const total = useCoinTotal();
+  if (total.data == null) return null;
+  return (
+    <Pressable
+      onPress={() => router.push('/coins' as never)}
+      accessibilityRole="button"
+      accessibilityLabel={`${total.data} forge coins — view rewards`}
+      testID="hero-coins"
+      className="flex-row items-center justify-center rounded-md border px-s2 py-s2"
+      style={{ minHeight: 40, gap: 8, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+    >
+      <CoinIcon size={20} />
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontSize: 14, color: colors.legendary, letterSpacing: 0.5, ...pixelFont() }}
+      >
+        {formatCompact(total.data)}
       </Text>
     </Pressable>
   );

@@ -23,8 +23,6 @@ export function StatusGrid({
   streakLabel,
   coins,
   totalXp,
-  tierName,
-  tierColour,
   rank,
   features,
 }: {
@@ -33,8 +31,6 @@ export function StatusGrid({
   streakLabel: string;
   coins: number | null | undefined;
   totalXp: number;
-  tierName: string;
-  tierColour: string;
   /** The Rival Rank standing — label like "OBSIDIAN I", or provisional. */
   rank: { label: string; provisional: boolean; placements: string } | null;
   features: HomeFeatures;
@@ -95,18 +91,8 @@ export function StatusGrid({
           testID="status-rank"
           basis={basis}
         />
-      ) : (
-        <StatusCard
-          icon={<Text style={{ fontSize: 13, color: tierColour }}>◆</Text>}
-          label="TIER"
-          value={tierName}
-          sub="Rank standing ›"
-          tint={tierColour}
-          onPress={() => router.push('/rank' as never)}
-          testID="status-tier"
-          basis={basis}
-        />
-      )}
+      ) : null /* the TIER fallback card was removed 2026-07-19 (Tyson) —
+        with Rival Rank off the grid is three cards and reflows naturally */}
     </View>
   );
 }
