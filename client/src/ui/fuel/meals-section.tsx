@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import {
   useDeleteEntry,
+  useMealNames,
+  useSaveMealNames,
   type NutritionEntry,
 } from '@/data/nutrition';
 import {
@@ -50,6 +52,23 @@ export function MealsSection({
   const mealCount = effectiveMealCount(storedMealCount, entries);
   const slotTotals = mealMacroTotals(entries, mealCount);
   const [openMeal, setOpenMeal] = useState<number | null>(null);
+  // 8.5 (056): the athlete's own slot names + the rename affordance.
+  const customNames = useMealNames().data ?? [];
+  const saveNames = useSaveMealNames();
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
+
+  const commitRename = () => {
+    if (renaming === null) return;
+    const clean = nameDraft.trim().slice(0, 24);
+    const next = [...customNames];
+    while (next.length < renaming) next.push(null);
+    // An emptied field restores the default name for that slot.
+    next[renaming - 1] = clean === '' ? null : clean;
+    saveNames.mutate(next);
+    setRenaming(null);
+    setNameDraft('');
+  };
 
   const timeOf = (ts: string): string => {
     const d = new Date(ts);
@@ -106,7 +125,7 @@ export function MealsSection({
               <Pressable
                 onPress={() => setOpenMeal(open ? null : slot)}
                 accessibilityRole="button"
-                accessibilityLabel={`${mealSlotName(slot)}: ${totals.kcal} kilocalories, ${totals.protein} grams protein. ${open ? 'Collapse' : 'Expand'}.`}
+                accessibilityLabel={`${mealSlotName(slot, customNames)}: ${totals.kcal} kilocalories, ${totals.protein} grams protein. ${open ? 'Collapse' : 'Expand'}.`}
                 testID={`fuel-meal-${slot}`}
                 className="flex-row items-center p-s3"
                 style={{ minHeight: 60, gap: 12 }}
@@ -126,9 +145,10 @@ export function MealsSection({
                   <Text
                     className="text-text"
                     allowFontScaling={false}
+                    numberOfLines={1}
                     style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
                   >
-                    {mealSlotName(slot)}
+                    {mealSlotName(slot, customNames)}
                   </Text>
                   <Text className="mt-s1 text-2xs text-text-mute">
                     {logged ? timeOf(slotEntries[0].timestamp) : '--:--'}
@@ -167,9 +187,55 @@ export function MealsSection({
                   {slotEntries.length === 0 ? (
                     <Text className="text-2xs text-text-mute">
                       Nothing filed here yet — log from SCAN A MEAL or QUICK LOG above and assign
-                      it to {mealSlotName(slot)}.
+                      it to {mealSlotName(slot, customNames)}.
                     </Text>
                   ) : null}
+                  {/* 8.5: rename the slot — the athlete's own meal types. */}
+                  {renaming === slot ? (
+                    <View className="mt-s2 flex-row items-center gap-s2">
+                      <TextInput
+                        className="min-h-[40px] flex-1 rounded-md border border-border bg-surface-2 px-s2 text-sm text-text"
+                        value={nameDraft}
+                        onChangeText={setNameDraft}
+                        onSubmitEditing={commitRename}
+                        placeholder={mealSlotName(slot)}
+                        placeholderTextColor="#64758f"
+                        autoFocus
+                        maxLength={24}
+                        testID={`fuel-meal-${slot}-name-input`}
+                      />
+                      <Pressable
+                        onPress={commitRename}
+                        accessibilityRole="button"
+                        accessibilityLabel="save the meal name"
+                        className="items-center justify-center rounded-md border px-s3"
+                        style={{ minHeight: 40, borderColor: `${colors.accent}59` }}
+                        testID={`fuel-meal-${slot}-name-save`}
+                      >
+                        <Text className="text-2xs text-accent" style={{ letterSpacing: 1 }}>
+                          SAVE
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => {
+                        setRenaming(slot);
+                        setNameDraft(
+                          typeof customNames[slot - 1] === 'string' ? (customNames[slot - 1] as string) : ''
+                        );
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`rename ${mealSlotName(slot, customNames)}`}
+                      className="mt-s1 self-start"
+                      style={{ minHeight: 32, justifyContent: 'center' }}
+                      testID={`fuel-meal-${slot}-rename`}
+                    >
+                      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+                        ✎ RENAME
+                      </Text>
+                    </Pressable>
+                  )}
                   {slotEntries.map((e) => (
                     <View key={e.id} className="flex-row items-center">
                       <View className="flex-1">

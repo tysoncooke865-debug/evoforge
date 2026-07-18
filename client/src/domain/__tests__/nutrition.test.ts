@@ -224,7 +224,7 @@ describe('meals — the day structured like Train structures sets', () => {
 
 describe('mealSlotName — position IS meaning', () => {
   it('names the first four slots, numbers the rest', () => {
-    expect([1, 2, 3, 4, 5, 8].map(mealSlotName)).toEqual([
+    expect([1, 2, 3, 4, 5, 8].map((n) => mealSlotName(n))).toEqual([
       'BREAKFAST',
       'LUNCH',
       'DINNER',
@@ -232,6 +232,21 @@ describe('mealSlotName — position IS meaning', () => {
       'MEAL 5',
       'MEAL 8',
     ]);
+  });
+
+  it('custom names win, blanks and nulls fall back (056)', () => {
+    const names = ['Morning Fuel', null, '  ', 'Post-Workout'];
+    expect(mealSlotName(1, names)).toBe('MORNING FUEL');
+    expect(mealSlotName(2, names)).toBe('LUNCH');
+    expect(mealSlotName(3, names)).toBe('DINNER');
+    expect(mealSlotName(4, names)).toBe('POST-WORKOUT');
+    expect(mealSlotName(5, names)).toBe('MEAL 5');
+  });
+
+  it('clamps a custom name to 24 chars and never throws on garbage', () => {
+    expect(mealSlotName(1, ['x'.repeat(40)])).toBe('X'.repeat(24));
+    expect(mealSlotName(1, null)).toBe('BREAKFAST');
+    expect(mealSlotName(1, undefined)).toBe('BREAKFAST');
   });
 });
 

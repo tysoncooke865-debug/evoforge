@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import { useMealNames } from '@/data/nutrition';
 import { mealSlotName } from '@/domain/nutrition';
 import { mealCountOf, useFuelStore } from '@/state/fuel-store';
 import { pixelFont } from '@/theme/fonts';
@@ -23,7 +24,10 @@ export function MealSlotPicker({
   testIDPrefix?: string;
 }) {
   const storedMealCount = useFuelStore(mealCountOf);
-  const count = Math.max(4, storedMealCount ?? 4);
+  const customNames = useMealNames().data ?? [];
+  // A named slot must always be offerable, even on a device whose local
+  // meal count hasn't caught up (names are server truth, count is local).
+  const count = Math.max(4, storedMealCount ?? 4, customNames.length);
   return (
     <View className="mb-s3">
       <Text
@@ -37,7 +41,7 @@ export function MealSlotPicker({
         {Array.from({ length: count }, (_, i) => i + 1).map((slot) => (
           <Chip
             key={slot}
-            label={mealSlotName(slot)}
+            label={mealSlotName(slot, customNames)}
             active={value === slot}
             onPress={() => onChange(value === slot ? null : slot)}
             testID={`${testIDPrefix}-${slot}`}

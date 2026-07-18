@@ -197,6 +197,46 @@ export function useCaloriesBurned(date: string) {
   });
 }
 
+/**
+ * Custom meal-slot names (056, 2026-07-19): nutrition_prefs.meal_names,
+ * index = slot-1. Degrades to [] (all defaults) on any failure — a missing
+ * prefs row is the normal state, never an error surface.
+ */
+export function useMealNames() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['nutrition_prefs', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<(string | null)[]> => {
+      try {
+        const { data, error } = await supabase.from('nutrition_prefs').select('meal_names').limit(1);
+        if (error) return [];
+        const names = data?.[0]?.meal_names;
+        return Array.isArray(names) ? names.map((n) => (typeof n === 'string' ? n : null)) : [];
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+/** Upsert the whole names array (the row is tiny; partial writes would race). */
+export function useSaveMealNames() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (mealNames: (string | null)[]) => {
+      const { error } = await supabase
+        .from('nutrition_prefs')
+        .upsert({ user_id: userId, meal_names: mealNames, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['nutrition_prefs', userId] });
+    },
+  });
+}
+
 export function useLogCalories() {
   const queryClient = useQueryClient();
   const userId = useUserId();

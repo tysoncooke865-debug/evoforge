@@ -227,7 +227,12 @@ export function mealTotals(entries: readonly MealEntryLike[], count: number): nu
  */
 export const MEAL_SLOT_NAMES = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACKS'] as const;
 
-export function mealSlotName(slot: number): string {
+/** Custom names (056, 2026-07-19): the athlete's own list from
+ *  nutrition_prefs.meal_names, index = slot-1. A missing/null/blank entry
+ *  falls back to the built-in name for that slot; garbage never throws. */
+export function mealSlotName(slot: number, customNames?: readonly (string | null)[] | null): string {
+  const custom = customNames?.[slot - 1];
+  if (typeof custom === 'string' && custom.trim() !== '') return custom.trim().toUpperCase().slice(0, 24);
   return MEAL_SLOT_NAMES[slot - 1] ?? `MEAL ${slot}`;
 }
 

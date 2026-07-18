@@ -1058,7 +1058,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
   the FORGE YOUR ORIGIN state hides hero actions — intercept
   `profile*origin_path*` to tour the real hero).
 
-**Migrations applied through `048`. Next free number: `049`.**
+- **CUSTOM MEAL TYPES (improvement doc §8.5, migration 056, 2026-07-19):**
+  `nutrition_prefs` (one row/athlete, owner-only RLS, jsonb `meal_names`
+  CHECKed by `nutrition_meal_names_ok` — array ≤12, strings 1..24 chars or
+  null) carries the athlete's own slot names; `mealSlotName(slot, names)`
+  consults them first (uppercased, clamped, garbage-safe — vitest-pinned).
+  `useMealNames`/`useSaveMealNames` in data/nutrition.ts; ✎ RENAME lives in
+  the expanded slot (empty = restore default), and the ASSIGN picker offers
+  every named slot even when the device's local meal count lags (count =
+  max(4, local, names.length) — names are server truth, count is local).
+  Applied + falsified 6/6 (13 names / 25 chars / non-string / cross-user /
+  forged user_id all rejected); toured live: rename → reload survival →
+  picker chip → default restored.
+
+**Migrations applied through `056`. Next free number: `057`.**
+(The line above previously said 048/049 — stale: the social program took
+049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `037_workout_ghosts.sql`; both are applied, the number is just shared.)
