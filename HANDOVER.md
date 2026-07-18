@@ -1071,7 +1071,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
   forged user_id all rejected); toured live: rename → reload survival →
   picker chip → default restored.
 
-**Migrations applied through `056`. Next free number: `057`.**
+- **CARDIO CALORIES (improvement doc §4, migration 057, 2026-07-19):**
+  `cardio_log.count_toward_budget boolean default true` — after LOG with
+  calories > 0 the form asks "add ~N kcal back to today's fuel budget?";
+  NO stores the burn with the flag false (writing calories=0 would have
+  destroyed the record), YES/no-dialog keep today's behaviour.
+  `useCaloriesBurned` filters on the flag client-side. NEW pure
+  `domain/cardio-estimate.ts::estimateCardioKcal` (Compendium METs keyed on
+  the activity catalogue types, kcal = MET×3.5×bw/200×min, vitest-pinned)
+  drives an EST. pill beside the CALORIES field — REAL bodyweight only
+  (profile → latest log; without one the pill is disabled with the reason,
+  never a fake number); the fill stays editable. Falsified live: two 1-min
+  sessions landed flags [false,true], read back as ALPHA, deleted after.
+
+**Migrations applied through `057`. Next free number: `058`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —

@@ -205,6 +205,9 @@ export interface CardioInput {
   speed: number;
   calories: number;
   notes: string;
+  /** 057 (2026-07-19): whether Fuel eats these calories back into the day's
+   *  budget. Omitted = true (every pre-dialog path keeps old behaviour). */
+  countTowardBudget?: boolean;
 }
 
 /**
@@ -236,6 +239,7 @@ export function useLogCardio() {
         incline: safeNum(input.incline, 0),
         speed: safeNum(input.speed, 0),
         calories: safeNum(input.calories, 0),
+        count_toward_budget: input.countTowardBudget ?? true,
         notes: input.notes || '',
         timestamp,
       };

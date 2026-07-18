@@ -182,11 +182,18 @@ export function useCaloriesBurned(date: string) {
     enabled: userId !== null,
     queryFn: async (): Promise<number> => {
       try {
-        const { data, error } = await supabase.from('cardio_log').select('calories').eq('date', date);
+        const { data, error } = await supabase
+          .from('cardio_log')
+          .select('calories,count_toward_budget')
+          .eq('date', date);
         if (error) return 0;
         let sum = 0;
         for (const r of data ?? []) {
-          const n = Number((r as { calories: unknown }).calories);
+          const row = r as { calories: unknown; count_toward_budget?: unknown };
+          // 057's opt-out: only rows the athlete kept in the budget count.
+          // Missing column (pre-057 cache shape) reads as counted.
+          if (row.count_toward_budget === false) continue;
+          const n = Number(row.calories);
           if (Number.isFinite(n) && n > 0) sum += n;
         }
         return Math.round(sum);
