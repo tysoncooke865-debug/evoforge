@@ -478,7 +478,18 @@ export default function TodayScreen() {
               title={buttonTitle}
               pixel
               onPress={() => open(date, data.workout)}
-              rightIcon={<Text style={{ color: colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+              rightIcon={
+                // The › is system-font beside a pixel-font title; their line
+                // boxes differ and the row's center put the glyph visibly low
+                // (Tyson 2026-07-19). Pin its line box and lift it onto the
+                // title's optical centerline.
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors['accent-ink'], fontSize: 16, lineHeight: 16, marginTop: -2, fontWeight: '800' }}
+                >
+                  ›
+                </Text>
+              }
               testID={isToday ? 'hero-start' : `hero-start-${date}`}
             />
           </View>

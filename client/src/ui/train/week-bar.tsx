@@ -155,11 +155,8 @@ export function WeekBarRow({
               EDIT
             </Text>
           </Pressable>
-        ) : !rest ? (
-          <Text className="text-sm" style={{ color: colors['text-mute'] }}>
-            ›
-          </Text>
-        ) : null}
+        ) : null /* the trailing › implied the row opened a page it doesn't —
+          rows only FOCUS the carousel. Removed 2026-07-19 (Tyson). */}
       </Pressable>
     </View>
   );
