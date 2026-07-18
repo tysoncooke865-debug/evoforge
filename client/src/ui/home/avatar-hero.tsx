@@ -171,7 +171,21 @@ export function AvatarHero({
         <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
           FORM NOT YET FORGED — ART INCOMING
         </Text>
-      ) : null}
+      ) : (
+        // Make the Forge door discoverable — the champion IS the button.
+        <Pressable
+          onPress={openCharacter}
+          accessibilityRole="button"
+          accessibilityLabel="open the Forge"
+          testID="hero-forge-hint"
+          className="-mt-s1 self-center"
+          style={{ minHeight: 28, justifyContent: 'center' }}
+        >
+          <Text className="text-center text-2xs" style={{ letterSpacing: 2, color: colors.accent }}>
+            ◈ TAP YOUR CHAMPION TO ENTER THE FORGE ›
+          </Text>
+        </Pressable>
+      )}
 
       {overlay ? (
         <>

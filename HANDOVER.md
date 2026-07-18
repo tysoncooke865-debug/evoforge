@@ -47,6 +47,30 @@ Owner: Tyson. He works through other Claude sessions too — **always
   superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
   macros), both applied. See §875ff for the numbering note.
 
+- **SOCIAL FEED — FOUNDATION + FLAGGED SLICE 2026-07-18** (Tyson's spec):
+  built on the existing friends/rivalry backend (036 — friend_codes/requests/
+  friendships/rivalries + definer RPCs, already live). NEW this pass:
+  `migrations/049_social_feed.sql` (social_posts[typed envelope + payload
+  jsonb], social_reactions[1/user/post], social_comments; owner RLS; the
+  `social_feed(scope,before,limit)` definer RPC enforcing own+friends-visible+
+  public; `toggle_reaction`; `are_friends` helper revoked from clients) —
+  **WRITTEN, NOT YET APPLIED**. Client: `domain/social-feed.ts` (the 7-type
+  discriminated union + `toPost` validator + `applyReaction` + `relativeTime`,
+  12 tests), `data/social-feed.ts` (useSocialFeed infinite query + optimistic
+  useToggleReaction, degrade-to-empty), `ui/social/*` (post-cards for all 7
+  types + shared shell + reaction-bar + the Social screen: FOLLOWING/RIVALS/
+  DISCOVER tabs, friends activity row, empty/loading states). **GATED BY
+  `ui/social/social-features.ts::feedEnabled` (FALSE) — the tab ships the
+  honest COMING SOON; flip ON only AFTER applying 049 (the no-mocked-systems
+  rule).** Toured with the flag on + RPC-seeded (all 7 cards, reactions,
+  empty, 320px). DEFERRED (next session): apply 049; post-CREATION (write
+  posts on real PR/workout/level-up/evo/evolution events + a composer + photo
+  upload); comments UI; privacy composer; notifications; pagination polish;
+  contextual-action deep links. The nav list in Tyson's spec (Home/Train/
+  Social/Forge/Arena) is STALE — it would drop Fuel + re-add Forge; kept the
+  current bar. Home avatar now shows a "TAP YOUR CHAMPION TO ENTER THE FORGE"
+  hint (avatar-hero.tsx).
+
 - **TABS — Forge → Social 2026-07-18** (Tyson's call): the bottom bar dropped
   Forge and gained **Social** (`app/(main)/social.tsx` — an HONEST "COMING SOON"
   placeholder, not a mocked feature; awaits Tyson's spec). The Forge/avatar
