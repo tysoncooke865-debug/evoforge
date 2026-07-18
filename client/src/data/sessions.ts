@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { SessionMarker } from '@/domain/week-status';
+import { useSharePromptStore } from '@/state/share-prompt-store';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -112,6 +113,9 @@ export function useFinishWorkout() {
 
     onSuccess: (_d, input) => {
       claimCoins.mutate({ kind: 'workout_complete', sourceId: input.date });
+      // Offer to share the finished workout (no-op if "don't ask again" is set;
+      // the overlay gates on the social flag). Never auto-publishes.
+      useSharePromptStore.getState().offer({ workout: input.workout, date: input.date });
     },
 
     onSettled: () => {

@@ -69,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     useToastStore.getState().reset();
     useSettingsStore.getState().reset();
+    // A pending post-workout share offer belongs to the athlete who signed out.
+    void import('@/state/share-prompt-store').then(({ useSharePromptStore }) => useSharePromptStore.getState().reset());
     // Stage 1: today's skips/adds/ad-hoc workout belong to the athlete who
     // signed out. It is PERSISTED, so clearing the in-memory store is not
     // enough — the persisted copy must go too, or the next athlete on this

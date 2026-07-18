@@ -21,6 +21,7 @@ import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
 import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
+import { SharePrompt } from '@/ui/social/share-prompt';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -282,6 +283,9 @@ export default function MainLayout() {
     <TutorialOverlay />
     {/* ORIGIN (Tyson 2026-07-17): every sign-in without an origin asks for a scan. */}
     <OriginScanPrompt />
+    {/* Post-workout "share it?" offer (Social) — self-hides unless a finish
+        raised it and the feed is on. Never auto-publishes. */}
+    <SharePrompt />
     </>
   );
 }

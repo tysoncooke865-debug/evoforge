@@ -24,26 +24,39 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
 type Mode = 'update' | 'workout' | 'pr';
 const VIS: readonly Visibility[] = ['friends', 'public', 'private'];
 
-export function CreatePostModal({ onClose }: { onClose: () => void }) {
+export function CreatePostModal({
+  onClose,
+  initialWorkout,
+}: {
+  onClose: () => void;
+  /** Share this specific finished workout (from the post-workout prompt). */
+  initialWorkout?: { workout: string; date: string };
+}) {
   const colors = useThemeColors();
   const workouts = useWorkoutLog();
   const sessions = useWorkoutSessions();
   const prefs = useExercisePrefs();
   const create = useCreatePost();
 
-  const [mode, setMode] = useState<Mode>('update');
+  const [mode, setMode] = useState<Mode>(initialWorkout ? 'workout' : 'update');
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('friends');
 
-  // Latest finished session → a real workout payload.
+  // The workout payload: the specific one the prompt handed us, else the latest
+  // finished session.
   const workout = useMemo(() => {
     const rows = normaliseWorkoutLog(workouts.data ?? []);
-    const finished = [...(sessions.data ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
-    if (!finished) return null;
-    const p = workoutPostPayload(rows, String(finished.date).slice(0, 10), String(finished.workout));
+    const target = initialWorkout
+      ? { date: initialWorkout.date, workout: initialWorkout.workout }
+      : (() => {
+          const finished = [...(sessions.data ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+          return finished ? { date: String(finished.date), workout: String(finished.workout) } : null;
+        })();
+    if (!target) return null;
+    const p = workoutPostPayload(rows, target.date.slice(0, 10), target.workout);
     if (p.sets === 0) return null;
     return { ...p, minutes: estimateMinutes(p.sets), pr_count: 0 };
-  }, [workouts.data, sessions.data]);
+  }, [workouts.data, sessions.data, initialWorkout]);
 
   // Latest PR → a real PR payload (in the athlete's display unit).
   const pr = useMemo(() => {
