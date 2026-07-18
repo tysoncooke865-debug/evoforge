@@ -1084,7 +1084,38 @@ Owner: Tyson. He works through other Claude sessions too — **always
   never a fake number); the fill stays editable. Falsified live: two 1-min
   sessions landed flags [false,true], read back as ALPHA, deleted after.
 
-**Migrations applied through `057`. Next free number: `058`.**
+- **SOCIAL ROUND 2 (improvement doc §6, migrations 058/059/060, 2026-07-19):**
+  * **058 comment interactions** — comments carry the SAME four reactions as
+    posts (`social_comment_reactions`, 049's exact posture; definer
+    `toggle_comment_reaction` re-checks PARENT-POST visibility) and take
+    ONE-level replies (`social_comments.parent_id`, depth guard rejects
+    reply-to-reply). The notifications type CHECK was widened FIRST (the 054
+    rollback lesson) with `comment_reaction`/`comment_reply`; a reply
+    notifies the parent comment's author (052 already tells the post
+    author). `post_comments` returns parent_id + reaction_count +
+    my_reaction. Client: `groupCommentThreads` (orphaned replies surface
+    top-level, never vanish; pinned), optimistic `useToggleCommentReaction`,
+    `CommentReactionRow` + reply-targeting composer in the comments modal.
+  * **059 reports** — `social_reports` (reason CHECK, ≤300 note,
+    unique(reporter,post)), INSERT-only RLS, **NO client select** (service-
+    role review only). Record-only v1 ON PURPOSE: auto-hide without review
+    tooling would be a mocked moderation system. The ⋯ on OTHERS' posts
+    opens the report sheet; duplicates read "already reported".
+  * **060 username search** — `search_athletes(q)` mirrors
+    discover_athletes' exposure (is_public AND discoverable, the
+    request_friend gate — search can never surface an athlete ADD then
+    refuses), prefix-ranked. ADD BY USERNAME card on the friends screen.
+  * **Username mandatory (Tyson's call):** onboarding's name field is
+    always-on + required and saves BEFORE the profile insert — a taken name
+    (004's case-insensitive unique index, falsified) blocks with an inline
+    re-prompt instead of the old silent catch. GO PUBLIC stays visibility-
+    only. Legacy no-name accounts get a CLAIM YOUR NAME card on Social
+    (browse open, posting waits; claims save PRIVATE).
+  * The 🔔 emoji became `PixelBell` (the PixelGlyph set).
+  All falsified live (18/18 server checks + duplicate-name clash + a full
+  post→comment→hype→reply tour as ALPHA; every seed deleted/purged).
+
+**Migrations applied through `060`. Next free number: `061`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —

@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { useFriendCode, useFriends, useFriendRequests, useRespondRequest, useSendFriendRequest } from '@/data/social';
+import { useSearchAthletes } from '@/data/social-profile';
 import { pixelFont } from '@/theme/fonts';
+import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -23,6 +25,8 @@ export default function FriendsScreen() {
   const send = useSendFriendRequest();
   const respond = useRespondRequest();
   const [entry, setEntry] = useState('');
+  const [search, setSearch] = useState('');
+  const hits = useSearchAthletes(search);
   // §7.1: this screen is reachable from Arena AND Social; router.back() pops
   // the TAB history (→ Home), so the pusher says where back goes. Default is
   // Social — every un-tagged door here is social's.
@@ -67,6 +71,62 @@ export default function FriendsScreen() {
             testID="friend-add"
           />
         </View>
+      </GlowCard>
+
+      {/* §6.3 (060): add by USERNAME — the searchable half of add-a-friend.
+          Only public+discoverable athletes surface (the request_friend gate),
+          so a hit is always addable. */}
+      <GlowCard>
+        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.epic, letterSpacing: 1.5, ...pixelFont(false) }}>
+          ADD BY USERNAME
+        </Text>
+        <TextInput
+          className="mt-s2 min-h-[48px] rounded-md border bg-surface-2 px-s3 text-base text-text"
+          style={{ borderColor: search.trim().length >= 2 ? `${colors.epic}8c` : colors.border }}
+          placeholder="Search usernames…"
+          placeholderTextColor="#64758f"
+          autoCapitalize="none"
+          value={search}
+          onChangeText={setSearch}
+          maxLength={24}
+          testID="friend-search-input"
+        />
+        {search.trim().length >= 2 ? (
+          hits.isPending ? (
+            <Text className="mt-s2 text-2xs text-text-mute">Searching…</Text>
+          ) : (hits.data ?? []).length === 0 ? (
+            <Text className="mt-s2 text-2xs text-text-mute" testID="friend-search-empty">
+              No discoverable athletes match — private athletes are added by code.
+            </Text>
+          ) : (
+            <View className="mt-s2 gap-s2">
+              {(hits.data ?? []).map((a) => (
+                <View
+                  key={a.user_id}
+                  className="flex-row items-center justify-between rounded-xl border p-s3"
+                  style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.6)' }}
+                  testID={`friend-hit-${a.user_id}`}
+                >
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text className="text-sm font-bold text-text" numberOfLines={1}>
+                      {a.display_name}
+                    </Text>
+                    {a.forge_level != null ? (
+                      <Text className="text-2xs text-text-mute">LV. {a.forge_level}</Text>
+                    ) : null}
+                  </View>
+                  {a.is_friend ? (
+                    <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+                      ✓ FRIENDS
+                    </Text>
+                  ) : (
+                    <AddFriendButton athleteId={a.user_id} testID={`friend-search-add-${a.user_id}`} />
+                  )}
+                </View>
+              ))}
+            </View>
+          )
+        ) : null}
       </GlowCard>
 
       {/* Pending incoming requests. */}

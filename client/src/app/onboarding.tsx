@@ -238,8 +238,26 @@ export default function OnboardingScreen() {
       setError('Check the highlighted numbers.');
       return;
     }
+    // §6.3 (2026-07-19): the username is MANDATORY and must be unique. It
+    // saves BEFORE the profile insert — the profile row is the onboarded
+    // flag, and a taken name must re-prompt, not slip past the gate. The
+    // 004 unique index is the arbiter (no pre-check RPC to race against).
+    const nameProblem = nameError(publicName);
+    if (nameProblem !== null) {
+      setError(`Username: ${nameProblem}`);
+      return;
+    }
     setBusy(true);
     setError(null);
+    try {
+      await savePublic.mutateAsync({ displayName: publicName.trim(), isPublic: goPublic });
+    } catch (e) {
+      // 'That display name is already taken.' from useSavePublicIdentity —
+      // block and re-prompt until they pick a free one.
+      setError(e instanceof Error ? e.message : 'That username is taken — choose another.');
+      setBusy(false);
+      return;
+    }
     track('initial_assessment_started', {
       flow_version: 2, calibration_version: 5, user_type: 'new',
       has_scan: aiPhysique !== null, split_chosen: splitKey !== null,
@@ -269,15 +287,8 @@ export default function OnboardingScreen() {
       return;
     }
     track('initial_assessment_completed', { flow_version: 2, calibration_version: 5, user_type: 'new' });
-    // P2 C7: optional public identity, AFTER the profile insert and BEFORE
-    // the invalidation that triggers the redirect. Never blocks onboarding.
-    if (publicName.trim() && !nameError(publicName)) {
-      try {
-        await savePublic.mutateAsync({ displayName: publicName, isPublic: goPublic });
-      } catch {
-        /* never block onboarding; the athlete recovers via Profile/Rank */
-      }
-    }
+    // (The public identity saved BEFORE the profile insert — see above. The
+    // old optional/swallowed save let a name collision vanish silently.)
 
     // STAGE 1: seed the chosen split — the plan AND the week it implies. Same
     // "never blocks" rule as GO PUBLIC: the profile row is the onboarded flag,
@@ -561,10 +572,30 @@ export default function OnboardingScreen() {
           ) : null}
         </Section>
 
-        {/* 7 · GO PUBLIC (P2 C7). Optional and NEVER gating: the profile
-            row IS the onboarded flag, and a failure here must not block
-            the redirect — the athlete recovers via Profile/Rank. */}
+        {/* 7 · YOUR PROFILE. §6.3 (2026-07-19): the USERNAME is mandatory
+            and unique — social identifies athletes by it. It saves before
+            the profile insert (forge()), and a taken name re-prompts. The
+            PUBLIC/PRIVATE switch is visibility only. */}
         <Section n="7" title="YOUR PROFILE">
+          <Text
+            className="mb-s1 text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+          >
+            USERNAME (3–24 CHARS) · REQUIRED
+          </Text>
+          <TextInput
+            className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
+            value={publicName}
+            onChangeText={setPublicName}
+            autoCapitalize="none"
+            placeholder="Unique — friends find you by it"
+            placeholderTextColor="#64758f"
+            testID="onboard-public-name"
+          />
+          {publicName.trim() && nameError(publicName) ? (
+            <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
+          ) : null}
           {/* Tyson 2026-07-14: the privacy choice is now an EXPLICIT two-way
               switch, made BEFORE the name field. It was a toggle underneath a
               blank input — which reads as "off by default" whichever way it is
@@ -600,37 +631,14 @@ export default function OnboardingScreen() {
           </View>
 
           {goPublic ? (
-            <>
-              <Text className="mb-s2 text-2xs text-text-mute">
-                The leaderboard shows a display name, level and XP — NEVER body data. You can
-                leave or rejoin any time from Rank.
-              </Text>
-              <Text
-                className="mb-s1 text-text-mute"
-                allowFontScaling={false}
-                style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-              >
-                DISPLAY NAME (3–24 CHARS)
-              </Text>
-              <TextInput
-                className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
-                value={publicName}
-                onChangeText={setPublicName}
-                autoCapitalize="none"
-                testID="onboard-public-name"
-              />
-              {publicName.trim() && nameError(publicName) ? (
-                <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
-              ) : null}
-              {!publicName.trim() ? (
-                <Text className="text-2xs text-text-mute">
-                  Pick a name to appear — no name, no listing.
-                </Text>
-              ) : null}
-            </>
+            <Text className="text-2xs text-text-mute">
+              The leaderboard shows your username, level and XP — NEVER body data. You can leave
+              or rejoin any time from Rank.
+            </Text>
           ) : (
             <Text className="text-2xs text-text-mute">
-              Your character, lifts and body data stay yours alone.
+              Your username exists so friends can find you; your character, lifts and body data
+              stay yours alone until you go public.
             </Text>
           )}
         </Section>

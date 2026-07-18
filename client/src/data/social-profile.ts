@@ -109,6 +109,27 @@ export function useDiscoverAthletes() {
   });
 }
 
+/** Username search (060): same exposure rule and row shape as discover —
+ *  is_public AND discoverable only, so search never surfaces an athlete the
+ *  ADD button then refuses. [] on any failure or a sub-2-char query. */
+export function useSearchAthletes(query: string) {
+  const userId = useUserId();
+  const q = query.trim();
+  return useQuery({
+    queryKey: ['search_athletes', userId, q.toLowerCase()],
+    enabled: userId !== null && q.length >= 2,
+    staleTime: 30_000,
+    queryFn: async (): Promise<(DiscoverAthlete & { is_friend?: boolean })[]> => {
+      try {
+        const { data, error } = await supabase.rpc('search_athletes', { p_query: q, p_limit: 20 });
+        return error || !Array.isArray(data) ? [] : (data as (DiscoverAthlete & { is_friend?: boolean })[]);
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
 const REQUEST_REASON: Record<string, string> = {
   self: "That's you.",
   already_friends: "You're already friends.",
