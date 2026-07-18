@@ -91,6 +91,12 @@ export function SocialPostCard({
         </Text>
       ) : null}
 
+      {post.tagged.length > 0 ? (
+        <Text className="mt-s2 text-2xs" style={{ color: colors.accent }} numberOfLines={2} testID="post-tagged">
+          🏷 with {post.tagged.map((t) => t.name).join(', ')}
+        </Text>
+      ) : null}
+
       <SocialReactionBar post={post} onReact={onReact} onComment={onComment} />
     </GlowCard>
   );

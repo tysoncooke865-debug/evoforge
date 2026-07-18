@@ -79,6 +79,15 @@ describe('toPost — narrowing the envelope', () => {
     expect(p?.type).toBe('pr');
     if (p?.type === 'pr') expect(p.newValue).toBe(0);
   });
+
+  it('reads tagged friends from the payload, dropping id-less entries', () => {
+    const p = toPost(baseRow({ payload: { tagged: [{ id: 'u2', name: 'Dana' }, { name: 'noid' }, { id: 'u3', name: 'Mia' }] } }));
+    expect(p?.tagged).toEqual([{ id: 'u2', name: 'Dana' }, { id: 'u3', name: 'Mia' }]);
+  });
+
+  it('defaults tagged to [] when absent', () => {
+    expect(toPost(baseRow())?.tagged).toEqual([]);
+  });
 });
 
 describe('toPosts — drops bad rows, keeps good', () => {
@@ -92,7 +101,7 @@ describe('applyReaction — optimistic toggle', () => {
   const post: PostBase = {
     id: 'p', authorId: 'u', authorName: 'A', authorStage: 1, visibility: 'friends',
     caption: null, createdAt: '', reactionCount: 5, commentCount: 0,
-    myReaction: 'hype', reactionsByKind: { hype: 3, respect: 2, beast: 0, inspired: 0 },
+    myReaction: 'hype', reactionsByKind: { hype: 3, respect: 2, beast: 0, inspired: 0 }, tagged: [],
   };
 
   it('removing my current reaction decrements count and clears it', () => {

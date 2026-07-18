@@ -18,6 +18,7 @@ const VERB: Record<NotificationRow['type'], string> = {
   comment: 'commented on your post',
   friend_request: 'sent you a friend request',
   friend_accepted: 'accepted your friend request',
+  mention: 'tagged you in a post',
 };
 
 export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => void; onOpenFriends: () => void }) {
@@ -45,7 +46,6 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
   // if granted elsewhere). Idempotent; silent.
   useEffect(() => {
     if (pushPermission() === 'granted') void enablePush().then(setPush);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

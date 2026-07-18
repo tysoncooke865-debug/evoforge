@@ -44,6 +44,8 @@ export interface PostBase {
   myReaction: ReactionKind | null;
   /** Reaction totals by kind (0-filled). */
   reactionsByKind: Record<ReactionKind, number>;
+  /** Friends tagged in the post (id + name snapshot at tag time). */
+  tagged: { id: string; name: string }[];
 }
 
 export interface PRPost extends PostBase {
@@ -187,6 +189,12 @@ export function toPost(row: RawPostRow): SocialPost | null {
     commentCount: Math.max(0, Math.trunc(numOr(row.comment_count, 0))),
     myReaction: isReaction(row.my_reaction) ? row.my_reaction : null,
     reactionsByKind: reactionsByKind(row.reactions_by_kind),
+    tagged: Array.isArray(p.tagged)
+      ? (p.tagged as Record<string, unknown>[])
+          .map((x) => ({ id: str(x.id), name: str(x.name, 'Athlete') || 'Athlete' }))
+          .filter((x) => x.id !== '')
+          .slice(0, 20)
+      : [],
   };
   if (base.id === '') return null;
 

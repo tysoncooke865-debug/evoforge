@@ -4,6 +4,8 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 
 import { pickPhoto } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
+import { pushNotify } from '@/data/push';
+import { useFriends } from '@/data/social';
 import { useCreatePost, type CreatePostInput } from '@/data/social-feed';
 import { uploadSocialPhotos } from '@/data/social-photos';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
@@ -43,6 +45,7 @@ export function CreatePostModal({
   const workouts = useWorkoutLog();
   const sessions = useWorkoutSessions();
   const prefs = useExercisePrefs();
+  const friends = useFriends();
   const create = useCreatePost();
 
   const [mode, setMode] = useState<Mode>(initialWorkout ? 'workout' : 'update');
@@ -50,6 +53,9 @@ export function CreatePostModal({
   const [visibility, setVisibility] = useState<Visibility>('friends');
   const [photos, setPhotos] = useState<string[]>([]); // local data URLs, uploaded on POST
   const [uploading, setUploading] = useState(false);
+  const [tagged, setTagged] = useState<{ id: string; name: string }[]>([]);
+  const toggleTag = (id: string, name: string) =>
+    setTagged((cur) => (cur.some((t) => t.id === id) ? cur.filter((t) => t.id !== id) : [...cur, { id, name }]));
 
   // The workout payload: the specific one the prompt handed us, else the latest
   // finished session.
@@ -115,13 +121,21 @@ export function CreatePostModal({
         ...(workout ? { workout_name: workout.workout_name, minutes: workout.minutes, sets: workout.sets } : {}),
       };
     }
+    if (tagged.length > 0) payload.tagged = tagged;
     const input: CreatePostInput = {
       postType: type,
       visibility,
       caption: caption.trim() === '' ? null : caption.trim(),
       payload,
     };
-    create.mutate(input, { onSuccess: onClose });
+    create.mutate(input, {
+      onSuccess: () => {
+        // The DB trigger creates the in-app mention notifications; fire the push
+        // twin per tagged friend.
+        for (const t of tagged) pushNotify({ type: 'mention', toUser: t.id });
+        onClose();
+      },
+    });
   };
 
   return (
@@ -209,6 +223,26 @@ export function CreatePostModal({
               maxLength={500}
               testID="create-caption"
             />
+
+            {/* Tag friends — they get a mention notification + push. */}
+            {(friends.data ?? []).length > 0 ? (
+              <>
+                <Text className="mb-s1 mt-s3 text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+                  TAG FRIENDS{tagged.length > 0 ? ` · ${tagged.length}` : ''}
+                </Text>
+                <View className="flex-row flex-wrap gap-s2">
+                  {(friends.data ?? []).map((f) => (
+                    <Chip
+                      key={f.id}
+                      label={`@${f.display_name}`}
+                      active={tagged.some((t) => t.id === f.id)}
+                      onPress={() => toggleTag(f.id, f.display_name)}
+                      testID={`create-tag-${f.id}`}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
 
             <Text className="mb-s1 mt-s3 text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>VISIBILITY</Text>
             <View className="flex-row flex-wrap gap-s2">

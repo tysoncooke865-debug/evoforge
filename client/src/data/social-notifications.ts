@@ -9,7 +9,7 @@ import { supabase } from './supabase';
  * empty / zero while the RPCs are absent (the sessions.ts pattern). Marking
  * read clears the badge and refreshes both the count and the list.
  */
-export type NotificationType = 'reaction' | 'comment' | 'friend_request' | 'friend_accepted';
+export type NotificationType = 'reaction' | 'comment' | 'friend_request' | 'friend_accepted' | 'mention';
 
 export interface NotificationRow {
   id: string;
