@@ -593,7 +593,9 @@ const stripsFor = (sex: Sex, line: Line) => (sex === 'female' ? STRIPS_F : line 
 const framesFor = (sex: Sex, line: Line) => (sex === 'female' ? FRAMES_F : line === 'mass' ? FRAMES_M : FRAMES);
 const aspectFor = (sex: Sex, line: Line) => (sex === 'female' ? ASPECT_F : line === 'mass' ? ASPECT_M : ASPECT);
 
-const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 10, victory: 5 };
+// punch 10→7 (Tyson 2026-07-19: the Arena's top-right jab looked erratic) —
+// male 3-frame loop 0.30s→0.43s, female 6-frame 0.60s→0.86s.
+const FPS: Record<Anim, number> = { idle: 5, run: 14, punch: 7, victory: 5 };
 
 /** Victory reads better bouncing; the rest are full forward cycles. */
 const ALTERNATE: Record<Anim, boolean> = { idle: false, run: false, punch: false, victory: true };

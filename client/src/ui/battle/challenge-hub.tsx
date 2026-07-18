@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CHAMPIONS } from '@/domain/battle-rpg/champions';
 import type { ChampionId } from '@/domain/battle-rpg/types';
@@ -16,13 +16,14 @@ import { ChampionPicker } from '@/ui/battle/champion-picker';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
-import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 
 /**
- * VERSUS BY CODE (Tyson) — create a challenge from your champion (get a code
- * to share) or join a friend's by code and battle their champion. Async,
- * cross-device, no real-time. A "same device" pass-and-play link is kept for
- * two people on one phone.
+ * VERSUS BY CODE (Tyson) — CREATE-ONLY since 2026-07-19 (improvement doc
+ * §7.3): games MINT codes; every code is ENTERED in exactly one place, the
+ * Arena hub's universal JOIN BATTLE box, which probes the code's kind and
+ * routes here with ?code=… for the auto-join. The old in-hub JOIN tab
+ * duplicated that box and is gone. A "same device" pass-and-play link is
+ * kept for two people on one phone.
  */
 export function ChallengeHub({
   champion,
@@ -41,21 +42,19 @@ export function ChallengeHub({
   requirementFor: (id: ChampionId) => string;
   onPick: (id: ChampionId) => void;
   onJoined: (snap: ChallengeSnapshot) => void;
-  /** A code handed over by the Arena's universal join box — lands on the
-   *  JOIN tab prefilled and joins without a second button press. */
+  /** A code handed over by the Arena's universal join box — auto-joins on
+   *  mount. The ONLY join path into a challenge (§7.3). */
   initialCode?: string;
 }) {
   const colors = useThemeColors();
-  const [tab, setTab] = useState<0 | 1>(initialCode ? 1 : 0);
-  const [code, setCode] = useState(initialCode ?? '');
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const create = useCreateChallenge();
   const join = useJoinChallenge();
 
   // Arrived via the universal code box — the arena already verified the
   // challenge exists, so join it without a second press. Once only: if it
-  // fails (deleted between probe and join), the hub sits on the JOIN tab,
-  // code prefilled, with the existing inline error explaining why.
+  // fails (deleted between probe and join), the inline error below explains
+  // and points back at the one join box.
   const autoRef = useRef(false);
   useEffect(() => {
     if (!initialCode || autoRef.current) return;
@@ -70,79 +69,54 @@ export function ChallengeHub({
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="ARENA" title="VERSUS" onBack={() => router.back()} />
-      <Text className="text-2xs text-text-mute">Battle a friend by code — build a champion for them to beat, or take on theirs.</Text>
+      {/* §7.1: explicit — router.back() pops the TAB history and lands on
+          Home, not the Arena that pushed this screen. */}
+      <ScreenHeader kicker="ARENA" title="VERSUS" onBack={() => router.replace('/arena' as never)} />
+      <Text className="text-2xs text-text-mute">
+        Build a champion, mint a code, share it. Friends join from the Arena&apos;s JOIN BATTLE box.
+      </Text>
 
-      <View className="mt-s2">
-        <SegmentedTabs left="⚔ CREATE" right="🔑 JOIN CODE" active={tab} onChange={(i) => setTab(i)} testIDPrefix="challenge-tab" />
-      </View>
+      {join.data === null ? (
+        <View
+          className="mt-s3 rounded-xl border p-s3"
+          style={{ borderColor: `${colors.danger}59`, backgroundColor: 'rgba(244,63,94,0.06)' }}
+        >
+          <Text className="text-2xs text-danger">
+            That code didn&apos;t match a challenge any more. Codes are entered in the Arena&apos;s
+            JOIN BATTLE box — ask your friend for a fresh one.
+          </Text>
+        </View>
+      ) : null}
 
-      {tab === 0 ? (
-        <View className="mt-s3">
-          {createdCode ? (
-            <View className="rounded-xl border p-s5 items-center" style={{ borderColor: `${colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.06)' }}>
-              <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>YOUR CHALLENGE CODE</Text>
-              <Text selectable style={{ marginTop: 8, fontSize: 40, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="challenge-code">{createdCode}</Text>
-              <Text className="mt-s2 text-center text-2xs text-text-mute">Share it with a friend. They join by code and fight your {CHAMPIONS[champion].name}. Come back to see how it holds up.</Text>
-              <View className="mt-s4 w-full">
-                <NeonButton title="DONE · BACK TO ARENA" variant="ghost" onPress={() => router.replace('/arena')} pixel testID="challenge-done" />
-              </View>
+      <View className="mt-s3">
+        {createdCode ? (
+          <View className="rounded-xl border p-s5 items-center" style={{ borderColor: `${colors.accent}66`, backgroundColor: 'rgba(34,211,238,0.06)' }}>
+            <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>YOUR CHALLENGE CODE</Text>
+            <Text selectable style={{ marginTop: 8, fontSize: 40, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="challenge-code">{createdCode}</Text>
+            <Text className="mt-s2 text-center text-2xs text-text-mute">Share it with a friend. They enter it in the Arena&apos;s JOIN BATTLE box and fight your {CHAMPIONS[champion].name}. Come back to see how it holds up.</Text>
+            <View className="mt-s4 w-full">
+              <NeonButton title="DONE · BACK TO ARENA" variant="ghost" onPress={() => router.replace('/arena')} pixel testID="challenge-done" />
             </View>
-          ) : (
-            <>
-              <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>CHOOSE YOUR CHALLENGER</Text>
-              <View className="mt-s2">
-                <ChampionPicker picked={champion} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
-              </View>
-              <View className="mt-s4">
-                <NeonButton
-                  title="CREATE CHALLENGE · GET CODE"
-                  onPress={() => create.mutate({ champion, ownerName, input }, { onSuccess: setCreatedCode })}
-                  busy={create.isPending}
-                  pixel
-                  size="hero"
-                  testID="challenge-create"
-                />
-              </View>
-            </>
-          )}
-        </View>
-      ) : (
-        <View className="mt-s3">
-          <Text style={{ fontSize: 10, color: colors.epic, fontFamily: PIXEL, letterSpacing: 1.5 }}>ENTER A FRIEND&apos;S CODE</Text>
-          <TextInput
-            className="mt-s2 min-h-[54px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
-            style={{ letterSpacing: 10, borderColor: code.trim().length === 6 ? `${colors.epic}8c` : colors.border }}
-            placeholder="——————"
-            placeholderTextColor="#64758f"
-            autoCapitalize="characters"
-            maxLength={6}
-            value={code}
-            onChangeText={(v) => setCode(v.toUpperCase())}
-            testID="challenge-code-input"
-          />
-          <View className="mt-s4">
-            <NeonButton
-              title="JOIN BATTLE"
-              onPress={() =>
-                join.mutate(code, {
-                  onSuccess: (snap) => {
-                    if (snap) onJoined(snap);
-                  },
-                })
-              }
-              busy={join.isPending}
-              disabled={code.trim().length !== 6}
-              pixel
-              size="hero"
-              testID="challenge-join"
-            />
           </View>
-          {join.data === null ? (
-            <Text className="mt-s2 text-center text-2xs text-danger">No challenge with that code.</Text>
-          ) : null}
-        </View>
-      )}
+        ) : (
+          <>
+            <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>CHOOSE YOUR CHALLENGER</Text>
+            <View className="mt-s2">
+              <ChampionPicker picked={champion} unlocked={unlocked} requirementFor={requirementFor} testPrefix="champion" onPick={onPick} />
+            </View>
+            <View className="mt-s4">
+              <NeonButton
+                title="CREATE CHALLENGE · GET CODE"
+                onPress={() => create.mutate({ champion, ownerName, input }, { onSuccess: setCreatedCode })}
+                busy={create.isPending}
+                pixel
+                size="hero"
+                testID="challenge-create"
+              />
+            </View>
+          </>
+        )}
+      </View>
 
       {/* Same-device fallback. */}
       <Pressable

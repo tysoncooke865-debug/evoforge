@@ -100,7 +100,7 @@ export default function ArenaScreen() {
       ) : null}
       {/* FRIENDS & RIVALS door (migration 036) — the social hub. */}
       <Pressable
-        onPress={() => router.push('/friends' as never)}
+        onPress={() => router.push('/friends?from=arena' as never)}
         accessibilityRole="button"
         accessibilityLabel="Open friends and rivals"
         testID="arena-friends-door"
@@ -223,6 +223,11 @@ export default function ArenaScreen() {
         </GlowCard>
       )}
 
+      {/* §7.2 (2026-07-19): the JOIN tab is ONLY the box — every section
+          below renders on the CREATE tab alone. The fragment closes just
+          before BATTLE HISTORY's sibling below. */}
+      {tab === 0 ? (
+        <>
       {/* The queue modes — still coming-soon, promoted to the old rules
           strip's slot (the strip is gone; the rules live on the battle page). */}
       <View className="flex-row gap-s3">
@@ -423,6 +428,8 @@ export default function ArenaScreen() {
           </>
         )}
       </View>
+        </>
+      ) : null}
     </ScreenShell>
   );
 }

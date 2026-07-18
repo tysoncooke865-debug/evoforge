@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
@@ -23,10 +23,19 @@ export default function FriendsScreen() {
   const send = useSendFriendRequest();
   const respond = useRespondRequest();
   const [entry, setEntry] = useState('');
+  // §7.1: this screen is reachable from Arena AND Social; router.back() pops
+  // the TAB history (→ Home), so the pusher says where back goes. Default is
+  // Social — every un-tagged door here is social's.
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const backTarget = from === 'arena' ? '/arena' : '/social';
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="ARENA" title="FRIENDS & RIVALS" onBack={() => router.back()} />
+      <ScreenHeader
+        kicker={from === 'arena' ? 'ARENA' : 'SOCIAL'}
+        title="FRIENDS & RIVALS"
+        onBack={() => router.replace(backTarget as never)}
+      />
 
       {/* Your code + add by code. */}
       <GlowCard>

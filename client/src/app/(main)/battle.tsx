@@ -159,7 +159,7 @@ export default function BattleScreen() {
   if (!ready) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="ARENA" title="BATTLE" onBack={() => router.back()} />
+        <ScreenHeader kicker="ARENA" title="BATTLE" onBack={() => router.replace('/arena' as never)} />
         <View style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: colors['text-mute'] }}>Loading your champion…</Text>
         </View>
@@ -207,7 +207,7 @@ export default function BattleScreen() {
     if (ghostMissing || !ghostId) {
       return (
         <ScreenShell>
-          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
+          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.replace('/arena' as never)} />
           <Text style={{ color: colors['text-mute'] }}>
             That ghost is gone — or its owner isn&apos;t your friend yet.
           </Text>
@@ -217,7 +217,7 @@ export default function BattleScreen() {
     if (!ghost) {
       return (
         <ScreenShell>
-          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.back()} />
+          <ScreenHeader kicker="ARENA" title="GHOST BATTLE" onBack={() => router.replace('/arena' as never)} />
           <View style={{ minHeight: 200, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: colors['text-mute'] }}>Summoning the ghost…</Text>
           </View>
@@ -309,7 +309,7 @@ function PreviewScreen({
   const oppBranch = CHAMPIONS[setup.opponentChampion].spriteBranch;
   return (
     <ScreenShell>
-      <ScreenHeader kicker="ARENA" title={title} onBack={() => router.back()} />
+      <ScreenHeader kicker="ARENA" title={title} onBack={() => router.replace('/arena' as never)} />
 
       {versus ? (
         <>
@@ -472,7 +472,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
       {/* Slim top bar: back · turn · condition · speed · run. */}
       <View className="flex-row items-center" style={{ gap: 8, minHeight: 30 }}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.replace('/arena' as never)}
           accessibilityRole="button"
           accessibilityLabel="back"
           hitSlop={10}
@@ -502,7 +502,7 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
         </Pressable>
         {setup.mode === 'training' && !state.winner ? (
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.replace('/arena' as never)}
             accessibilityRole="button"
             accessibilityLabel="run from this training battle"
             testID="battle-run"

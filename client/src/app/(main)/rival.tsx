@@ -36,7 +36,7 @@ export default function RivalRankScreen() {
   if (!progressionFeatures.rivalRankEnabled) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="COMPETITIVE" title="RIVAL RANK" onBack={() => router.back()} />
+        <ScreenHeader kicker="COMPETITIVE" title="RIVAL RANK" onBack={() => router.replace('/arena' as never)} />
         <Text className="text-sm text-text-dim">Rival Rank is not enabled yet.</Text>
       </ScreenShell>
     );
@@ -52,7 +52,7 @@ export default function RivalRankScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="COMPETITIVE" title="RIVAL RANK" onBack={() => router.back()} />
+      <ScreenHeader kicker="COMPETITIVE" title="RIVAL RANK" onBack={() => router.replace('/arena' as never)} />
 
       <GlowCard glow={colors.accent} padding={16}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>

@@ -50,7 +50,7 @@ export default function DamageScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="ARENA" title="DAMAGE ASSESSMENT" onBack={() => router.back()} />
+      <ScreenHeader kicker="ARENA" title="DAMAGE ASSESSMENT" onBack={() => router.replace('/arena' as never)} />
       <Text className="text-2xs text-text-mute">
         PRE photo → train → POST photo. The AI judges whose physique changed the most. Photos are
         judged then deleted — only the scores survive.

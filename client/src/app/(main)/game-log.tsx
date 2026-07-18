@@ -24,7 +24,7 @@ export default function GameLogScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="EVERY MATCH ON RECORD" title="GAME LOG" onBack={() => router.back()} />
+      <ScreenHeader kicker="EVERY MATCH ON RECORD" title="GAME LOG" onBack={() => router.replace('/arena' as never)} />
       {rows.length === 0 ? (
         <Text className="text-center text-2xs text-text-mute">
           No battles yet. Mint a code and call someone out.

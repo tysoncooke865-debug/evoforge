@@ -45,7 +45,7 @@ export default function AthleteProfileScreen() {
         kicker="THE GUILD"
         title={title}
         right={
-          <Pressable onPress={() => router.back()} accessibilityRole="button" testID="athlete-back" className="items-center justify-center rounded-lg border p-s2" style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}>
+          <Pressable onPress={() => router.replace('/social' as never)} accessibilityRole="button" testID="athlete-back" className="items-center justify-center rounded-lg border p-s2" style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}>
             <Text style={{ fontSize: 16, color: colors.accent }}>‹</Text>
           </Pressable>
         }
