@@ -1,5 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useSignedPhotoUrls } from '@/data/social-photos';
 import {
   relativeTime,
   type EvoRatingPost,
@@ -279,13 +281,29 @@ function PhotoBody({ p }: { p: PhotoPost }) {
   );
 }
 
-/** A simple photo row (carousel-ready; single-frame this slice). */
+/** The photo carousel — resolves storage paths to short-lived signed URLs and
+ *  renders them; a single photo fills the width, several scroll horizontally. */
 function PhotoStrip({ urls }: { urls: string[] }) {
   const colors = useThemeColors();
+  const signed = useSignedPhotoUrls(urls);
   if (urls.length === 0) return null;
+  const resolved = urls.map((p) => signed.data?.[p]).filter((u): u is string => typeof u === 'string');
+
+  if (resolved.length === 0) {
+    return (
+      <View className="mt-s2 w-full items-center justify-center overflow-hidden rounded-lg" style={{ height: 180, backgroundColor: colors['surface-2'], borderWidth: 1, borderColor: colors.border }}>
+        <Text className="text-2xs text-text-mute">{signed.isPending ? 'Loading photos…' : '📷 photo unavailable'}</Text>
+      </View>
+    );
+  }
+  if (resolved.length === 1) {
+    return <Image source={{ uri: resolved[0] }} style={{ marginTop: 8, width: '100%', height: 220, borderRadius: 10 }} contentFit="cover" testID="post-photo" />;
+  }
   return (
-    <View className="mt-s2 w-full overflow-hidden rounded-lg" style={{ height: 180, backgroundColor: colors['surface-2'], alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
-      <Text className="text-2xs text-text-mute">📷 {urls.length} photo{urls.length > 1 ? 's' : ''}</Text>
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }} contentContainerStyle={{ gap: 8 }}>
+      {resolved.map((u, i) => (
+        <Image key={i} source={{ uri: u }} style={{ width: 220, height: 220, borderRadius: 10 }} contentFit="cover" testID={`post-photo-${i}`} />
+      ))}
+    </ScrollView>
   );
 }

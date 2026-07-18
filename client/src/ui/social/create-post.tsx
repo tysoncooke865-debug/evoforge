@@ -1,7 +1,11 @@
+import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { pickPhoto } from '@/data/ai';
+import { useAuth } from '@/data/auth-context';
 import { useCreatePost, type CreatePostInput } from '@/data/social-feed';
+import { uploadSocialPhotos } from '@/data/social-photos';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
 import { useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSessions } from '@/data/sessions';
@@ -21,8 +25,9 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
  * latest PR (recentPr). Visibility is chosen here; a preview shows exactly what
  * lands before POST.
  */
-type Mode = 'update' | 'workout' | 'pr';
+type Mode = 'update' | 'workout' | 'pr' | 'photo';
 const VIS: readonly Visibility[] = ['friends', 'public', 'private'];
+const MAX_PHOTOS = 4;
 
 export function CreatePostModal({
   onClose,
@@ -33,6 +38,8 @@ export function CreatePostModal({
   initialWorkout?: { workout: string; date: string };
 }) {
   const colors = useThemeColors();
+  const { session } = useAuth();
+  const uid = session?.user?.id ?? null;
   const workouts = useWorkoutLog();
   const sessions = useWorkoutSessions();
   const prefs = useExercisePrefs();
@@ -41,6 +48,8 @@ export function CreatePostModal({
   const [mode, setMode] = useState<Mode>(initialWorkout ? 'workout' : 'update');
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('friends');
+  const [photos, setPhotos] = useState<string[]>([]); // local data URLs, uploaded on POST
+  const [uploading, setUploading] = useState(false);
 
   // The workout payload: the specific one the prompt handed us, else the latest
   // finished session.
@@ -67,21 +76,50 @@ export function CreatePostModal({
     return { exercise: r.exercise, new_value: value, unit };
   }, [workouts.data, prefs.data]);
 
-  const build = (): { type: PostType; payload: Record<string, unknown> } | null => {
-    if (mode === 'update') return caption.trim() ? { type: 'status', payload: {} } : null;
-    if (mode === 'workout') return workout ? { type: 'workout', payload: workout } : null;
-    if (mode === 'pr') return pr ? { type: 'pr', payload: { ...pr, prev_value: null } } : null;
-    return null;
-  };
-  const built = build();
+  const canPost =
+    mode === 'update' ? caption.trim() !== ''
+    : mode === 'workout' ? !!workout
+    : mode === 'pr' ? !!pr
+    : photos.length > 0; // photo
+  const showPhotos = mode === 'photo' || mode === 'workout';
 
-  const post = () => {
-    if (!built) return;
+  const addPhoto = async () => {
+    if (photos.length >= MAX_PHOTOS) return;
+    const uri = await pickPhoto();
+    if (uri) setPhotos((p) => [...p, uri]);
+  };
+
+  const post = async () => {
+    if (!canPost) return;
+    let paths: string[] = [];
+    if (showPhotos && photos.length > 0 && uid) {
+      setUploading(true);
+      paths = await uploadSocialPhotos(uid, photos);
+      setUploading(false);
+    }
+    let type: PostType;
+    let payload: Record<string, unknown>;
+    if (mode === 'update') {
+      type = 'status';
+      payload = {};
+    } else if (mode === 'workout' && workout) {
+      type = 'workout';
+      payload = { ...workout, ...(paths.length ? { photo_urls: paths } : {}) };
+    } else if (mode === 'pr' && pr) {
+      type = 'pr';
+      payload = { ...pr, prev_value: null };
+    } else {
+      type = 'photo';
+      payload = {
+        photo_urls: paths,
+        ...(workout ? { workout_name: workout.workout_name, minutes: workout.minutes, sets: workout.sets } : {}),
+      };
+    }
     const input: CreatePostInput = {
-      postType: built.type,
+      postType: type,
       visibility,
       caption: caption.trim() === '' ? null : caption.trim(),
-      payload: built.payload,
+      payload,
     };
     create.mutate(input, { onSuccess: onClose });
   };
@@ -95,10 +133,11 @@ export function CreatePostModal({
               SHARE TO YOUR FEED
             </Text>
 
-            <View className="flex-row" style={{ gap: 8 }}>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               <ModeTab label="UPDATE" active={mode === 'update'} onPress={() => setMode('update')} />
               <ModeTab label="WORKOUT" active={mode === 'workout'} onPress={() => setMode('workout')} disabled={!workout} />
               <ModeTab label="PR" active={mode === 'pr'} onPress={() => setMode('pr')} disabled={!pr} />
+              <ModeTab label="PHOTO" active={mode === 'photo'} onPress={() => setMode('photo')} />
             </View>
 
             {/* Preview of what will attach. */}
@@ -115,10 +154,49 @@ export function CreatePostModal({
                   <Text className="text-sm font-bold text-text">{pr.exercise.toUpperCase()}</Text>
                   <Text className="mt-s1 text-2xs text-legendary">{pr.new_value} {pr.unit} — new personal record</Text>
                 </>
+              ) : mode === 'photo' ? (
+                <Text className="text-2xs text-text-mute">
+                  {photos.length > 0 ? `${photos.length} photo${photos.length > 1 ? 's' : ''} attached.` : 'Add up to 4 photos to share.'}
+                </Text>
               ) : (
                 <Text className="text-2xs text-text-mute">Log a {mode} first and it will appear here to share.</Text>
               )}
             </View>
+
+            {/* Photo attach — photo mode, or extra photos on a workout post. */}
+            {showPhotos ? (
+              <View className="mt-s3">
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {photos.map((uri, i) => (
+                    <View key={`${uri}:${i}`} style={{ width: 66, height: 66 }}>
+                      <Image source={{ uri }} style={{ width: 66, height: 66, borderRadius: 8 }} contentFit="cover" />
+                      <Pressable
+                        onPress={() => setPhotos((p) => p.filter((_, j) => j !== i))}
+                        accessibilityRole="button"
+                        accessibilityLabel="remove photo"
+                        testID={`create-photo-remove-${i}`}
+                        className="absolute items-center justify-center rounded-pill"
+                        style={{ top: -6, right: -6, width: 22, height: 22, backgroundColor: colors.danger }}
+                      >
+                        <Text style={{ fontSize: 11, color: '#fff', fontWeight: '900' }}>✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                  {photos.length < MAX_PHOTOS ? (
+                    <Pressable
+                      onPress={() => void addPhoto()}
+                      accessibilityRole="button"
+                      accessibilityLabel="add a photo"
+                      testID="create-add-photo"
+                      className="items-center justify-center rounded-lg border"
+                      style={{ width: 66, height: 66, borderStyle: 'dashed', borderColor: `${colors.accent}8c` }}
+                    >
+                      <Text style={{ fontSize: 22, color: colors.accent }}>＋</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
 
             <TextInput
               multiline
@@ -140,7 +218,7 @@ export function CreatePostModal({
             </View>
 
             <View className="mt-s4">
-              <NeonButton title="POST" variant="epic" onPress={post} busy={create.isPending} disabled={!built} testID="create-post" />
+              <NeonButton title={uploading ? 'UPLOADING…' : 'POST'} variant="epic" onPress={() => void post()} busy={create.isPending || uploading} disabled={!canPost} testID="create-post" />
             </View>
             <View className="mt-s2">
               <NeonButton title="CANCEL" variant="ghost" onPress={onClose} testID="create-cancel" />
