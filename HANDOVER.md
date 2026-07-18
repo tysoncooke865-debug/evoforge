@@ -1025,6 +1025,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
   `record_path_progress` had exactly one call site. Docs updated:
   EXISTING_USER_ORIGIN_MIGRATION §4, ORIGIN_DATA_MODEL §5.
 
+- **ROUTE ERROR BOUNDARY (2026-07-19, Tyson: "screen is all background
+  colour" entering a workout / edit week):** with web asyncRoutes every
+  route is a lazy chunk and NOTHING caught a failed load or a render throw
+  — the screen stayed bare background. Now `ui/core/route-error-boundary`
+  is exported as `ErrorBoundary` from BOTH `app/_layout.tsx` and
+  `app/(main)/_layout.tsx` (the (main) copy recovers without unmounting
+  query/auth/theme providers). `domain/chunk-error.ts` recognises chunk
+  failures — Metro's REAL message is `AsyncRequireError: Loading module …
+  failed` (captured live by deleting a route chunk from a served dist; the
+  webpack shapes are kept for other surfaces) — and `ui/core/error-screen`
+  auto-reloads ONCE for those (localStorage `evoforge-chunk-reload-at`,
+  5-min cap, its own key — NOT version-guard's), renders UPDATING…; any
+  other error renders SOMETHING BROKE + RETRY (no animation on purpose).
+  Falsified: chunk deleted → boundary caught it, reload fired once and
+  the cap held; ordinary messages do NOT match (reload loops on real
+  bugs would be worse than the blank screen).
+
 **Migrations applied through `048`. Next free number: `049`.**
 (Historical: `022` was reserved for the nutrition branch and never used —
 nutrition landed as `037_nutrition.sql`, which COLLIDES with

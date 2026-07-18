@@ -20,6 +20,12 @@ import '@/global.css';
  *  character to the next. */
 export const QUERY_CACHE_KEY = 'evoforge-query-cache-v1';
 
+/** Route-error surface (2026-07-19): expo-router renders this named export
+ *  when any route below throws. Before it existed, a throw inside a lazy
+ *  route left the bare background colour on screen. The (main) layout
+ *  exports its own copy so recovery keeps the auth providers mounted. */
+export { ErrorBoundary } from '@/ui/core/route-error-boundary';
+
 /** The Stack needs the ACTIVE palette's bg behind route transitions, so it
  *  reads the theme hook — its own component keeps RootLayout's providers
  *  above the subscription. */

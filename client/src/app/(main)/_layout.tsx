@@ -26,6 +26,12 @@ import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
+/** Route-error surface (2026-07-19): catches throws from the tab screens and
+ *  the lazily-loaded pushed routes (workout, schedule, …) WITHOUT unmounting
+ *  the providers above this layout. Chunk-load failures auto-reload once —
+ *  see ui/core/error-screen.tsx. */
+export { ErrorBoundary } from '@/ui/core/route-error-boundary';
+
 /**
  * The signed-in shell. Gate order mirrors app.py: no session -> sign-in;
  * session without a profile row -> onboarding (A SAVED PROFILE ROW IS THE
