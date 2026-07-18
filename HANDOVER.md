@@ -47,6 +47,36 @@ Owner: Tyson. He works through other Claude sessions too — **always
   superseded; its SQL landed as `037_nutrition.sql` (+ `043_meal_scan.sql`
   macros), both applied. See §875ff for the numbering note.
 
+- **ORACLE_REDESIGN — EXECUTED 2026-07-18** (Tyson's brief + reference mock):
+  ai.tsx (THE ORACLE) rebuilt as a composition over `ui/oracle/*` — OracleHeader
+  (hero title over ScanBackdrop — one useAmbient-gated sweep + static motes —
+  framed champion + Forge LV) · PhysiqueScanCard (premium BodyScanner FRONT/
+  SIDE/BACK slots that glow when filled, RUN ANALYSIS, animated reveal
+  SCANNING→✓→tiered /100 face + count-up + three filling AttributeBars +
+  Top-Strength/Main-Weakness/Recommended-Priority) · EvolutionImpactCard
+  (**HONEST** — reads REAL `evo_rating_current`; shows the rating + the
+  Aesthetics/Size pillars the verdict feeds + WHEN it applies at the next
+  scheduled review; renders a "run first review" pointer, NEVER invented
+  numbers, when no rating exists) · BodyfatScanCard (FRONT/BACK, count-up %,
+  four-band BodyfatScale marker, lean/fat MassTiles only when a real
+  bodyweight is known) · RoutineForgeCard (six goal CARDS — free goal strings
+  to the same ai-plan fn — with a REAL Oracle Summary naming the weakest
+  attribute) · OracleHistoryCard (timeline of STORED VERDICTS, never photos;
+  PROGRESS-SINCE-FIRST-SCAN deltas + score sparkline + tap-to-expand
+  sub-scores). THE REAL FLOW IS UNCHANGED: estimate save:false → confirm
+  conditions → finalize save:true; photos live in state only and DROP on save
+  (the house privacy rule). Pure domain `domain/oracle.ts` (tier/scoreOutOf100/
+  attributeLines/top+weakness/bodyfatScale/massSplit/scanProgress, 16 tests);
+  history hooks `data/oracle-history.ts` (usePhysiqueHistory/useBodyfatHistory,
+  invalidated on save). Reveal hooks `ui/oracle/oracle-anim.ts` derive the
+  non-animating case in render (no setState-in-effect) and reduced-motion →
+  final immediately; light success haptic on save (native only). Toured
+  (ALPHA): empty states, goal selection, and rich history/impact via READ
+  interception; 320/390 clean, no overflow. NOTE: the photo before/after
+  SLIDER from the brief is deliberately NOT built — solo photos are never
+  persisted, so the honest substitute is the ratings-based
+  PROGRESS-SINCE-FIRST-SCAN comparison.
+
 - **FUEL_REDESIGN — EXECUTED 2026-07-18** (Tyson's reference mock): fuel.tsx
   is now a composition over `ui/fuel/*` — FuelHeader (framed champion + Forge
   LV, the Train pattern) · NutritionSummaryCard (remaining kcal loud + three

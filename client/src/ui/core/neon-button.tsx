@@ -207,6 +207,8 @@ export function Chip({
         onPressIn={() => (scale.value = withSpring(0.95, { damping: 20, stiffness: 400 }))}
         onPressOut={() => (scale.value = withSpring(1, { damping: 16, stiffness: 300 }))}
         testID={testID}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
         hitSlop={hitSlop}
         style={{
           borderRadius: 999,
