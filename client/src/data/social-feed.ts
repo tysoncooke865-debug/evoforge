@@ -12,6 +12,7 @@ import {
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
+import { pushNotify } from './push';
 import { supabase } from './supabase';
 
 /**
@@ -78,8 +79,10 @@ export function useToggleReaction() {
 
   return useMutation({
     mutationFn: async (input: { postId: string; kind: ReactionKind }) => {
-      const { error } = await supabase.rpc('toggle_reaction', { p_post: input.postId, p_kind: input.kind });
+      const { data, error } = await supabase.rpc('toggle_reaction', { p_post: input.postId, p_kind: input.kind });
       if (error) throw error;
+      // Push only when a reaction was ADDED (not toggled off).
+      if ((data as { reaction?: string | null } | null)?.reaction) pushNotify({ type: 'reaction', postId: input.postId });
     },
     onMutate: (input) => {
       patch(input.postId, input.kind);
@@ -171,6 +174,7 @@ export function useAddComment() {
     mutationFn: async (input: { postId: string; body: string }) => {
       const { error } = await supabase.from('social_comments').insert({ post_id: input.postId, body: input.body });
       if (error) throw error;
+      pushNotify({ type: 'comment', postId: input.postId });
     },
     onSuccess: (_d, input) => {
       void queryClient.invalidateQueries({ queryKey: ['post_comments', userId, input.postId] });
