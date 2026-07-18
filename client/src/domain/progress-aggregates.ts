@@ -61,7 +61,7 @@ export function periodTotals(
   for (const r of rows) {
     const w = pyFloat(r.weight) ?? 0;
     const rp = pyFloat(r.reps) ?? 0;
-    if (w <= 0 || rp <= 0) continue;
+    if (r.weight == null || w < 0 || rp <= 0) continue; // 061: bodyweight sets count
     sets += 1;
     reps += Math.trunc(rp);
     volumeKg += w * rp;
@@ -128,6 +128,9 @@ export function exerciseSeries(
     if (from !== null && date < from) continue;
     const w = pyFloat(r.weight) ?? 0;
     const reps = pyFloat(r.reps) ?? 0;
+    // Charts are LIFT metrics — a 0 kg set has no e1RM and no load to
+    // plot, so weight > 0 stays ON PURPOSE here (061 changes counting,
+    // not lift math).
     if (w <= 0 || reps <= 0) continue;
 
     const prev = byDay.get(date) ?? 0;

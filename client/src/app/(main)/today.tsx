@@ -23,7 +23,7 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
-import { inferMuscleGroup } from '@/domain/workouts';
+import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
@@ -146,8 +146,7 @@ export default function TodayScreen() {
       (r) =>
         String(r.date) === date &&
         String(r.workout) === workout &&
-        (pyFloat(r.weight) ?? 0) > 0 &&
-        (pyFloat(r.reps) ?? 0) > 0
+        isCountedSet(r.weight, r.reps)
     );
     const entries = resolveDay(workout, source).entries;
     const target = entries.reduce((n, [, sets]) => n + sets, 0);

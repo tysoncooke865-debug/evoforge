@@ -50,15 +50,16 @@ describe('workoutSummary', () => {
     });
   });
 
-  it('counts only valid sets (weight > 0 AND reps > 0)', () => {
+  it('counts sets by the 061 rule (weight >= 0 AND reps > 0)', () => {
     const s = workoutSummary(
       [set(), set({ set: 2, weight: 0 }), set({ set: 3, reps: 0 })],
       [],
       null,
       1
     );
-    expect(s.totalSets).toBe(1);
-    expect(s.xpDerived).toBe(10); // one set, XP_PER_SET
+    // 061: the 0 kg (bodyweight) set counts; the 0-rep one never does.
+    expect(s.totalSets).toBe(2);
+    expect(s.xpDerived).toBe(20); // two sets × XP_PER_SET
   });
 
   it('a duplicated set earns XP once — the double-grant bug class', () => {

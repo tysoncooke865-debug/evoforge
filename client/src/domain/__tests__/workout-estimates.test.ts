@@ -62,7 +62,7 @@ describe('lastSessionWork — the latest COMPLETED session strictly before today
     { date: '2026-07-13', workout: PUSH, exercise: 'Bench', weight: '60', reps: '7' }, // wire strings coerce
     { date: '2026-07-13', workout: PUSH, exercise: 'OHP', weight: 40, reps: 10 },
     { date: '2026-07-06', workout: PUSH, exercise: 'Bench', weight: 55, reps: 12 }, // older session loses
-    { date: '2026-07-13', workout: PUSH, exercise: 'Fly', weight: 0, reps: 12 }, // invalid: no weight
+    { date: '2026-07-13', workout: PUSH, exercise: 'Fly', weight: 0, reps: 12 }, // bodyweight: COUNTS (061)
     { date: '2026-07-13', workout: 'Pull 1 - Strength', exercise: 'Row', weight: 50, reps: 10 },
     { date: '2026-07-15', workout: PUSH, exercise: 'Bench', weight: 62, reps: 8 }, // today: in progress
   ];
@@ -71,8 +71,8 @@ describe('lastSessionWork — the latest COMPLETED session strictly before today
     expect(rows.length).toBeGreaterThan(0);
   });
 
-  it('picks 2026-07-13: 3 valid sets, 25 total reps — not today, not the older one', () => {
-    expect(lastSessionWork(rows, PUSH, '2026-07-15')).toEqual({ sets: 3, totalReps: 25 });
+  it('picks 2026-07-13: 4 counted sets (incl. the 0 kg one, 061), 37 reps', () => {
+    expect(lastSessionWork(rows, PUSH, '2026-07-15')).toEqual({ sets: 4, totalReps: 37 });
   });
 
   it('with the 13th excluded (beforeDate earlier), the older session surfaces', () => {

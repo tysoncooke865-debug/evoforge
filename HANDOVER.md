@@ -1115,7 +1115,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
   All falsified live (18/18 server checks + duplicate-name clash + a full
   post→comment→hype→reply tour as ALPHA; every seed deleted/purged).
 
-**Migrations applied through `060`. Next free number: `061`.**
+- **BODYWEIGHT SETS — 0 kg IS A SET (improvement doc §3.1, migration 061,
+  2026-07-19):** THE RULE, everywhere at once — a COUNTED set is
+  `weight >= 0 (non-null) AND reps > 0`; PR/e1RM/lift-chart paths keep
+  `weight > 0` (a 0 kg set earns its flat 10 XP but can never be a PR, and
+  battle_events_guard is UNCHANGED on purpose — 0 kg moves no weight in a
+  lift battle). 061 recreated SIX live functions with only the predicate
+  edited (xp_events_guard set-branch, coin_events_guard workout_complete
+  [PR sites untouched], leaderboard_top's derived oracle, forge_claim_weekly,
+  scheduled_streak, claim_free_reforge) — guard and oracle move in ONE
+  transaction or honest accounts read as drift. NO BACKFILL: zero historic
+  weight=0 rows existed (both sides refused them until now). Client:
+  `isCountedSet(weight, reps)` in domain/workouts.ts is THE predicate
+  (null/garbage weight is NOT zero — pyFloat semantics; vitest-pinned) and
+  every counting surface routes through it (summary, setsFor, validRowsFor,
+  week-status, session-plan via the screens, scheduled-streak,
+  workout-estimates, exercise-history, digestHistory, progress
+  periodTotals, muscleHeatMap, workoutPostPayload, decideSetSave, the
+  logger guards). Charts and recent-pr deliberately keep weight>0. History
+  labels read "Last: BW × 12" for 0 kg. The retired Python reference
+  (domain/workouts.py) swept to match. Falsified: server suite (0kg mint
+  lands at amount 10; 0-rep refused; PR refused; ALPHA's drift UNCHANGED
+  by the set+mint pair — oracle moved with the guard) + a real UI log on
+  production (1/3 SETS, +10 XP, rest timer fired); seeds deleted (each
+  deleted granted set leaves its append-only mint — ALPHA's permanent
+  smoke drift grew by design, the drift gate is its own falsification).
+
+**Migrations applied through `061`. Next free number: `062`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —

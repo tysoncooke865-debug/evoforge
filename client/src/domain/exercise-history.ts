@@ -54,7 +54,7 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
     if (name === '') continue;
     const weight = pyFloat(r.weight) ?? 0;
     const reps = pyInt(r.reps) ?? 0;
-    if (weight <= 0 || reps <= 0) continue; // an invalid set is not a performance
+    if (r.weight == null || weight < 0 || reps <= 0) continue; // 061: 0 kg counts; no-reps never
 
     const key = name.toLowerCase();
     performed.add(key);
@@ -85,5 +85,8 @@ export function lastPerformanceLabel(
 ): string | null {
   const p = history.last.get(exercise.toLowerCase());
   if (!p) return null;
+  // 061: a 0 kg set is bodyweight work — "BW × 12" reads honest, "0 kg × 12"
+  // reads like a data error.
+  if (p.weight === 0) return `Last: BW × ${p.reps}`;
   return `Last: ${displayWeight(p.weight, unit)} ${unit} × ${p.reps}`;
 }

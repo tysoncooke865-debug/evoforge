@@ -14,7 +14,7 @@
  * lockstep (both files carry this comment).
  */
 
-import { pyFloat } from './py';
+import { isCountedSet } from './workouts';
 import type { WorkoutRow } from './summary';
 
 export interface ScheduleRow {
@@ -61,9 +61,7 @@ export function computeScheduledStreak(
 
   const trained = new Set<string>();
   for (const r of workoutRows) {
-    const w = pyFloat(r.weight) ?? 0;
-    const reps = pyFloat(r.reps) ?? 0;
-    if (w > 0 && reps > 0) trained.add(String(r.date));
+    if (isCountedSet(r.weight, r.reps)) trained.add(String(r.date));
   }
 
   const days = new Map<string, DayState>();
@@ -168,9 +166,7 @@ export function weeklyContract(
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
   const trained = new Set<string>();
   for (const r of workoutRows) {
-    const w = pyFloat(r.weight) ?? 0;
-    const reps = pyFloat(r.reps) ?? 0;
-    if (w > 0 && reps > 0) trained.add(String(r.date));
+    if (isCountedSet(r.weight, r.reps)) trained.add(String(r.date));
   }
 
   const monday = addDays(todayIso, -((Number(dowOf(todayIso)) + 6) % 7));

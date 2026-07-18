@@ -40,13 +40,15 @@ describe('lastPerformance', () => {
     expect(lastPerformance(rows, 'Bench', TODAY)).toBeNull();
   });
 
-  it('other exercises and invalid (zero) sets never leak in', () => {
+  it('other exercises and no-rep sets never leak in; 0 kg counts (061)', () => {
     const rows = [
       row('2026-07-08', 'Squat', 1, 120, 5),
-      row('2026-07-08', 'Bench', 1, 0, 5), // invalid: no weight
       row('2026-07-08', 'Bench', 2, 60, 0), // invalid: no reps
     ];
     expect(lastPerformance(rows, 'Bench', TODAY)).toBeNull();
+    // 061: a bodyweight (0 kg) set IS a performance for that exercise.
+    const bw = [row('2026-07-08', 'Push-Up', 1, 0, 12)];
+    expect(lastPerformance(bw, 'Push-Up', TODAY)).not.toBeNull();
   });
 });
 

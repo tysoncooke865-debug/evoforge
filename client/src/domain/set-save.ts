@@ -73,7 +73,10 @@ export function previousBest1rm(
 }
 
 export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
-  if (input.weight <= 0 || input.reps <= 0) {
+  // 061: 0 kg is a valid (bodyweight) set — reps still gate. A 0 kg set's
+  // e1RM is 0, so the PR comparison below can never crown it (previousBest
+  // must be strictly positive AND beaten).
+  if (input.weight < 0 || input.reps <= 0) {
     return { action: 'reject' };
   }
 

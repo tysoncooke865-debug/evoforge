@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { isCountedSet } from '@/domain/workouts';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +19,7 @@ import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
-import { pyFloat, pyInt } from '@/domain/py';
+import { pyInt } from '@/domain/py';
 import type { SourceIndex } from '@/domain/plan-sources';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
 import {
@@ -160,8 +161,7 @@ export default function WorkoutScreen() {
     dayRows.filter(
       (r) =>
         String(r.exercise) === exercise &&
-        (pyFloat(r.weight) ?? 0) > 0 &&
-        (pyFloat(r.reps) ?? 0) > 0
+        isCountedSet(r.weight, r.reps)
     );
 
   const loggedFacts = (exercise: string): LoggedFacts => {

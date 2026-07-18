@@ -5,10 +5,29 @@
  */
 
 import { MUSCLE_MAP } from './catalogs';
+import { pyFloat } from './py';
 
 /** Epley estimated 1RM. Zero reps is zero, never a divide, never a phantom PR. */
 export function estimated1rm(weight: number, reps: number): number {
   return reps > 0 ? weight * (1 + reps / 30) : 0;
+}
+
+/**
+ * THE COUNTED-SET PREDICATE (061, 2026-07-19): a set counts when
+ * `weight >= 0 (present and numeric) AND reps > 0` — 0 kg is bodyweight
+ * work and earns its flat XP. Missing/garbage weight is NOT zero (the
+ * pyFloat raise-vs-default rule): the server guard rejects null weight and
+ * the client must agree or drift appears. PR/e1RM paths keep `weight > 0`
+ * (a 0 kg set can never be a PR) — deliberately NOT this function.
+ *
+ * Every surface that counts sets goes through here; summary.ts, the hub's
+ * setsFor, the workout page's validRowsFor, week-status, session-plan,
+ * scheduled-streak and the estimates all agree by construction.
+ */
+export function isCountedSet(weight: unknown, reps: unknown): boolean {
+  const w = pyFloat(weight);
+  const r = pyFloat(reps);
+  return w !== null && w >= 0 && r !== null && r > 0;
 }
 
 const UPPER_CHEST_HINTS = ['incline', 'upper chest', 'low-to-high'];

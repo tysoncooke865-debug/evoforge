@@ -13,7 +13,7 @@
 import { determineAvatarBranch, type Branch } from './avatar-stats';
 import { safeNum, score0100 } from './physique-ratings';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
-import { estimated1rm, inferMuscleGroup } from './workouts';
+import { estimated1rm, inferMuscleGroup, isCountedSet } from './workouts';
 import { pyFloat } from './py';
 
 export interface PhysiqueValues {
@@ -71,9 +71,7 @@ export function bestE1rmFor(rows: WorkoutRow[], exerciseName: string): number {
 export function muscleHeatMap(rows: WorkoutRow[]): Map<string, number> {
   const heat = new Map<string, number>();
   for (const r of normaliseWorkoutLog(rows)) {
-    const weight = pyFloat(r.weight) ?? 0;
-    const reps = pyFloat(r.reps) ?? 0;
-    if (weight > 0 && reps > 0) {
+    if (isCountedSet(r.weight, r.reps)) {
       const muscle = inferMuscleGroup(r.exercise);
       heat.set(muscle, (heat.get(muscle) ?? 0) + 1);
     }

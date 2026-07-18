@@ -26,10 +26,16 @@ const input = (over: Partial<Parameters<typeof decideSetSave>[1]> = {}) => ({
 });
 
 describe('decideSetSave', () => {
-  it('rejects non-positive weight or reps', () => {
-    expect(decideSetSave([], input({ weight: 0 })).action).toBe('reject');
+  it('rejects negative weight and non-positive reps; 0 kg saves (061)', () => {
+    expect(decideSetSave([], input({ weight: 0 })).action).toBe('insert');
     expect(decideSetSave([], input({ reps: 0 })).action).toBe('reject');
     expect(decideSetSave([], input({ weight: -5 })).action).toBe('reject');
+  });
+
+  it('a 0 kg set is never a PR (e1RM 0 beats nothing)', () => {
+    const v = decideSetSave([stored()], input({ weight: 0, setNo: 2 }));
+    expect(v.action).toBe('insert');
+    expect(v.action !== 'reject' && v.is_pr).toBe(false);
   });
 
   it('identical stored values are a no-op — no write, no grant, no toast', () => {

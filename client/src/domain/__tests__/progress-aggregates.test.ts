@@ -73,12 +73,16 @@ describe('periodTotals', () => {
     expect(t.xp).toBe(3 * 10 + 30 * 2); // XP_PER_SET / XP_PER_CARDIO_MINUTE
   });
 
-  it('a zero-weight or zero-rep row is not a set', () => {
-    const junk = [set('2026-07-06', 'Barbell Bench Press (Strength)', 0, 5, 1)];
-    const t = periodTotals(junk, [], '2026-07-06', '2026-07-12');
-    expect(t.sets).toBe(0);
-    expect(t.sessions).toBe(0);
-    expect(t.xp).toBe(0);
+  it('a 0 kg row is a set with no volume (061); a zero-rep row is nothing', () => {
+    const bw = [set('2026-07-06', 'Push-Up (Bodyweight)', 0, 12, 1)];
+    const t = periodTotals(bw, [], '2026-07-06', '2026-07-12');
+    expect(t.sets).toBe(1);
+    expect(t.volumeKg).toBe(0);
+    expect(t.xp).toBe(10);
+    const junk = [set('2026-07-06', 'Barbell Bench Press (Strength)', 50, 0, 1)];
+    const t2 = periodTotals(junk, [], '2026-07-06', '2026-07-12');
+    expect(t2.sets).toBe(0);
+    expect(t2.xp).toBe(0);
   });
 
   it('an empty period is honest zeros, not a crash', () => {

@@ -15,6 +15,7 @@
  */
 
 import type { ScheduleRow } from './scheduled-streak';
+import { isCountedSet } from './workouts';
 
 export type WorkoutStatus = 'completed' | 'partial' | 'missed' | 'in_progress' | 'upcoming' | 'rest';
 
@@ -230,9 +231,7 @@ export function extraBarsForToday(
     if (String(r.date ?? '') !== todayIso) continue;
     const w = String(r.workout ?? '');
     if (w === '' || w === scheduledToday) continue;
-    const weight = Number(r.weight ?? 0);
-    const reps = Number(r.reps ?? 0);
-    if (!(weight > 0 && reps > 0)) continue;
+    if (!isCountedSet(r.weight, r.reps)) continue;
     names.add(w);
   }
   // Anything FINISHED today that is not the scheduled day (a finish with no

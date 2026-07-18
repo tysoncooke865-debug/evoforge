@@ -1,4 +1,5 @@
 import { pyFloat } from './py';
+import { isCountedSet } from './workouts';
 import type { WorkoutRow } from './summary';
 
 /**
@@ -66,7 +67,7 @@ export function estimateNetKcal(
 /**
  * The athlete's most recent completed session of `workout` STRICTLY BEFORE
  * `beforeDate` — an in-progress session today is not "last workout", and using
- * it would shrink the briefing mid-session. Valid set = weight > 0 AND
+ * it would shrink the briefing mid-session. Counted set = weight >= 0 AND
  * reps > 0 after coercion, the same predicate summary.ts and the hub's
  * setsFor apply.
  */
@@ -83,7 +84,7 @@ export function lastSessionWork(
     const date = String(r.date ?? '');
     if (date === '' || date >= beforeDate) continue;
     const reps = pyFloat(r.reps) ?? 0;
-    if (!((pyFloat(r.weight) ?? 0) > 0) || !(reps > 0)) continue;
+    if (!isCountedSet(r.weight, r.reps)) continue;
     if (date > bestDate) {
       bestDate = date;
       sets = 0;

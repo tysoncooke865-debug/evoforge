@@ -190,7 +190,7 @@ export function ExerciseCard({
       const r = loggedRows.find((x) => (pyInt(x.set) ?? 0) === setNo);
       const w = r ? (pyFloat(r.weight) ?? 0) : 0;
       const reps = r ? (pyInt(r.reps) ?? 0) : 0;
-      return { setNo, w, reps, done: w > 0 && reps > 0 };
+      return { setNo, w, reps, done: Boolean(r) && w >= 0 && reps > 0 };
     });
     return (
       <GlowCard glow={done ? colors.success : undefined}>
@@ -460,7 +460,8 @@ function SetRow({
     setDrops(next);
     const w = pyFloat(weight);
     const r = pyFloat(reps);
-    if (w === null || r === null || w <= 0 || r <= 0) return;
+    // 061: 0 kg is a valid (bodyweight) set — only reps still gate.
+    if (w === null || r === null || w < 0 || r <= 0) return;
     save.mutate({
       workoutDate: date,
       workout,
@@ -476,7 +477,8 @@ function SetRow({
   const onSave = () => {
     const w = pyFloat(weight);
     const r = pyFloat(reps);
-    if (w === null || r === null || w <= 0 || r <= 0) return;
+    // 061: 0 kg is a valid (bodyweight) set — only reps still gate.
+    if (w === null || r === null || w < 0 || r <= 0) return;
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Logging a prefill as-is whitens both fields immediately (before the
     // refetch flips `logged`).

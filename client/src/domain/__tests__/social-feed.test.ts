@@ -135,15 +135,15 @@ describe('workoutPostPayload — real counts from the log', () => {
     { date: '2026-07-18', workout: 'Push', exercise: 'OHP', weight: 60, reps: 8 },
     { date: '2026-07-18', workout: 'Pull', exercise: 'Row', weight: 80, reps: 8 }, // other workout
     { date: '2026-07-17', workout: 'Push', exercise: 'Bench', weight: 100, reps: 5 }, // other day
-    { date: '2026-07-18', workout: 'Push', exercise: 'Warmup', weight: 0, reps: 10 }, // no load
+    { date: '2026-07-18', workout: 'Push', exercise: 'Warmup', weight: 0, reps: 10 }, // bodyweight: counts, adds no volume (061)
   ];
   it('aggregates sets, volume, exercises and XP for one date+workout', () => {
     expect(workoutPostPayload(rows, '2026-07-18', 'Push')).toEqual({
       workout_name: 'Push',
-      sets: 3,
-      volume_kg: 100 * 5 + 100 * 5 + 60 * 8, // 1480
-      xp: 30,
-      exercises: ['Bench', 'OHP'],
+      sets: 4, // incl. the 0 kg warm-up (061)
+      volume_kg: 100 * 5 + 100 * 5 + 60 * 8, // 1480 — 0 kg adds nothing
+      xp: 40,
+      exercises: ['Bench', 'OHP', 'Warmup'],
     });
   });
   it('empty when nothing matches', () => {

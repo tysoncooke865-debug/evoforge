@@ -271,8 +271,11 @@ describe('extraBarsForToday — an off-schedule workout must have a HOME', () =>
     expect(bars.map((b) => b.workout)).toEqual(['Beach Day']);
   });
 
-  it('an INVALID set does not conjure a bar', () => {
-    expect(extraBarsForToday([set('Beach Day', TODAY, 0, 8)], [], null, 'Legs', TODAY)).toEqual([]);
+  it('a 0-rep set does not conjure a bar; a bodyweight (0 kg) one does (061)', () => {
+    expect(extraBarsForToday([set('Beach Day', TODAY, 50, 0)], [], null, 'Legs', TODAY)).toEqual([]);
+    expect(
+      extraBarsForToday([set('Beach Day', TODAY, 0, 8)], [], null, 'Legs', TODAY).length
+    ).toBe(1);
   });
 
   it('YESTERDAY is history — the extra bars are only for today', () => {

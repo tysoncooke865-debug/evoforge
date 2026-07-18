@@ -125,7 +125,7 @@ def completed_sets_for_day(df, workout_date, workout):
     today["weight"] = pd.to_numeric(today["weight"], errors="coerce").fillna(0)
     today["reps"] = pd.to_numeric(today["reps"], errors="coerce").fillna(0)
 
-    today = today[(today["set"] > 0) & (today["weight"] > 0) & (today["reps"] > 0)]
+    today = today[(today["set"] > 0) & (today["weight"] >= 0) & (today["reps"] > 0)]
     today = today.drop_duplicates(subset=["date", "workout", "exercise", "set"], keep="last")
     return int(len(today))
 
@@ -269,7 +269,7 @@ def workout_summary(df):
     df["weight"] = pd.to_numeric(df["weight"], errors="coerce").fillna(0)
     df["reps"] = pd.to_numeric(df["reps"], errors="coerce").fillna(0)
 
-    valid_sets = df[(df["weight"] > 0) & (df["reps"] > 0)].copy()
+    valid_sets = df[(df["weight"] >= 0) & (df["reps"] > 0)].copy()
     valid_sets = valid_sets.drop_duplicates(subset=["date", "workout", "exercise", "set"], keep="last")
 
     total_sets = len(valid_sets)
@@ -388,7 +388,7 @@ def muscle_heat_map(df):
         return pd.DataFrame(columns=["muscle", "sets"])
     df["weight"] = pd.to_numeric(df["weight"], errors="coerce").fillna(0)
     df["reps"] = pd.to_numeric(df["reps"], errors="coerce").fillna(0)
-    df = df[(df["weight"] > 0) & (df["reps"] > 0)]
+    df = df[(df["weight"] >= 0) & (df["reps"] > 0)]
     if df.empty:
         return pd.DataFrame(columns=["muscle", "sets"])
     df = df.drop_duplicates(subset=["date", "workout", "exercise", "set"], keep="last")

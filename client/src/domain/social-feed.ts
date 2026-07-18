@@ -290,7 +290,7 @@ export function workoutPostPayload(
     if (String(r.date).slice(0, 10) !== date || String(r.workout) !== workout) continue;
     const w = Number(r.weight);
     const reps = Number(r.reps);
-    if (!(Number.isFinite(w) && w > 0 && Number.isFinite(reps) && reps > 0)) continue;
+    if (!(Number.isFinite(w) && w >= 0 && r.weight != null && Number.isFinite(reps) && reps > 0)) continue;
     sets += 1;
     volume += w * reps;
     const ex = String(r.exercise ?? '');

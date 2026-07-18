@@ -1,4 +1,5 @@
 import { pyFloat, pyInt } from './py';
+import { isCountedSet } from './workouts';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
 
 /**
@@ -20,10 +21,8 @@ export function lastPerformance(
   let lastDate: string | null = null;
   const valid = normaliseWorkoutLog(rows).filter((r) => {
     if (String(r.exercise) !== exercise) return false;
-    const w = pyFloat(r.weight) ?? 0;
-    const reps = pyFloat(r.reps) ?? 0;
     const d = String(r.date);
-    return w > 0 && reps > 0 && d < todayIso;
+    return isCountedSet(r.weight, r.reps) && d < todayIso;
   });
   for (const r of valid) {
     const d = String(r.date);

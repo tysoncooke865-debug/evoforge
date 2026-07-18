@@ -30,12 +30,15 @@ describe('digestHistory', () => {
     row('Barbell Bench Press', '2026-07-01', 80, 5),
     row('Barbell Bench Press', '2026-07-10', 85, 5, 2),
     row('Lat Pulldown', '2026-07-05', 60, 10),
-    row('Face Pull', '2026-07-12', 0, 10), // invalid: never performed
+    row('Face Pull', '2026-07-12', 0, 10), // bodyweight: performed (061)
+    row('Ghost Row', '2026-07-11', 50, 0), // invalid: no reps
   ];
 
-  it('an invalid set is not a performance', () => {
+  it('a no-rep set is not a performance; a 0 kg one is (061)', () => {
     const h = digestHistory(rows);
-    expect(h.performed.has('face pull')).toBe(false);
+    expect(h.performed.has('ghost row')).toBe(false);
+    expect(h.performed.has('face pull')).toBe(true);
+    expect(lastPerformanceLabel(h, 'Face Pull')).toBe('Last: BW × 10');
   });
 
   it('remembers the LAST performance, not the first', () => {
@@ -46,7 +49,8 @@ describe('digestHistory', () => {
 
   it('orders RECENT by the newest set, not by frequency', () => {
     const h = digestHistory(rows);
-    expect(h.recent[0]).toBe('Barbell Bench Press'); // 07-10 beats 07-05
+    expect(h.recent[0]).toBe('Face Pull'); // 07-12 (bodyweight) is newest
+    expect(h.recent[1]).toBe('Barbell Bench Press'); // 07-10 beats 07-05
     expect(h.recent).toContain('Lat Pulldown');
   });
 
