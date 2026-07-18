@@ -94,6 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-battle-rpg').catch(() => undefined)
     );
+    // The floating rest timer's collapsed flag (in-memory only) + the rest
+    // clock itself — a running countdown must not greet the next athlete.
+    void import('@/state/rest-ui-store').then(({ useRestUiStore }) => useRestUiStore.getState().reset());
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
+    );
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

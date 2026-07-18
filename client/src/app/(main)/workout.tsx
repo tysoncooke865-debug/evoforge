@@ -44,7 +44,7 @@ import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { NeonButton } from '@/ui/core/neon-button';
-import { RestTimerBar } from '@/ui/train/rest-timer';
+import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet';
@@ -302,6 +302,7 @@ export default function WorkoutScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <ScreenShell>
       <ScreenHeader
         kicker={`${isToday ? 'TODAY' : date} · ${totalDone}/${totalTarget} SETS`}
@@ -679,5 +680,10 @@ export default function WorkoutScreen() {
         </Modal>
       ) : null}
     </ScreenShell>
+    {/* §3.2: the countdown stays on screen however deep the page scrolls.
+        Outside the ScreenShell scroll on purpose; renders nothing when no
+        rest is live, when collapsed via ▴, or on a locked (read-only) day. */}
+    {editable ? <FloatingRestTimer /> : null}
+    </View>
   );
 }
