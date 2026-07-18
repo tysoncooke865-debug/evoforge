@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, Switch, Text, TextInput, View } from 'react-native';
 
 import { useLeaderboardTop, usePublicIdentity, useServerGrantedXp } from '@/data/hooks';
 import { useSavePublicIdentity } from '@/data/mutations';
@@ -75,7 +75,17 @@ export default function RankScreen() {
   const ranked = rankLeaderboard(board.data ?? []);
 
   return (
-    <Shell>
+    <Shell
+      refreshControl={
+        // Freshness (2026-07-19): the query already polls at 60s while
+        // focused; the pull is the athlete's "now" button.
+        <RefreshControl
+          refreshing={board.isRefetching}
+          onRefresh={() => void board.refetch()}
+          tintColor={colors.accent}
+        />
+      }
+    >
       <GlowCard>
         <Text
           className="mb-s4 text-text-mute"
@@ -158,9 +168,15 @@ function OptInCard({ current }: { current: string | null }) {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  refreshControl,
+}: {
+  children: React.ReactNode;
+  refreshControl?: React.ComponentProps<typeof ScreenShell>['refreshControl'];
+}) {
   return (
-    <ScreenShell>
+    <ScreenShell refreshControl={refreshControl}>
       <ScreenHeader kicker="OPT IN TO COMPETE" title="RANK" />
       {children}
     </ScreenShell>

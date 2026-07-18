@@ -24,7 +24,15 @@ import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registr
  * always bottom-pads past the tab bar so nothing hides behind it -- on iOS
  * Safari the browser chrome + home indicator make this the #1 layout bug.
  */
-export function ScreenShell({ children }: { children: ReactNode }) {
+export function ScreenShell({
+  children,
+  refreshControl,
+}: {
+  children: ReactNode;
+  /** Optional pull-to-refresh element, passed straight to the ScrollView
+   *  (first consumer: /rank, 2026-07-19). */
+  refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl'];
+}) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   // P2 C4: the FOCUSED shell owns the scroll-to-top registration; blur
@@ -78,6 +86,7 @@ export function ScreenShell({ children }: { children: ReactNode }) {
           paddingBottom: Math.max(insets.bottom, 12) + 96,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         <Animated.View style={[{ width: '100%', alignItems: 'center' }, enterStyle]}>
           <View className="w-full max-w-[560px] gap-s3">{children}</View>

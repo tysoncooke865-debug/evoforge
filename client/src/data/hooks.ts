@@ -324,12 +324,19 @@ export function usePublicIdentity() {
   });
 }
 
-/** The ONE cross-user read surface: leaderboard_top() RPC, [] on any failure. */
+/** The ONE cross-user read surface: leaderboard_top() RPC, [] on any failure.
+ *  FRESHNESS (Tyson 2026-07-19, "updating as new members roll in"): other
+ *  athletes' XP changes without any local invalidation, so this query alone
+ *  polls — 60s while an observer is FOCUSED (refetchIntervalInBackground
+ *  stays default-false; an idle tab costs nothing). staleTime 30s keeps tab
+ *  hops instant without refetch spam. */
 export function useLeaderboardTop(n = 50) {
   const userId = useUserId();
   return useQuery({
     queryKey: ['leaderboard_top', userId, n],
     enabled: userId !== null,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
     queryFn: async (): Promise<import('@/domain/leaderboard').LeaderboardRow[]> => {
       try {
         const { data, error } = await supabase.rpc('leaderboard_top', { n });
