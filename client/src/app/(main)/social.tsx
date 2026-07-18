@@ -5,7 +5,9 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { useFriends } from '@/data/social';
 import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
+import { useDiscoverAthletes } from '@/data/social-profile';
 import { useUnreadCount } from '@/data/social-notifications';
+import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { PixelPeople } from '@/ui/core/pixel-icons';
@@ -121,6 +123,8 @@ function SocialFeed() {
 
       <FriendsRow />
 
+      {scope === 'discover' ? <DiscoverAthletes /> : null}
+
       {/* RIVALS is its own view (the head-to-head records), not a post feed. */}
       {scope === 'rivals' ? (
         <RivalriesView />
@@ -137,8 +141,9 @@ function SocialFeed() {
               nowMs={nowMs}
               onReact={(kind) => react.mutate({ postId: p.id, kind })}
               onComment={() => setCommentsFor(p.id)}
+              onOpenProfile={(uid) => router.push(`/athlete/${uid}` as never)}
               canDelete={p.authorId === myId}
-              onDelete={() => del.mutate(p.id)}
+              onDelete={() => del.mutate(p)}
             />
           ))}
           {feed.hasNextPage ? (
@@ -176,7 +181,7 @@ function FriendsRow() {
       {list.map((f) => (
         <Pressable
           key={f.id}
-          onPress={() => router.push('/friends' as never)}
+          onPress={() => router.push(`/athlete/${f.id}` as never)}
           accessibilityRole="button"
           accessibilityLabel={`${f.display_name}, rival record ${f.my_wins}-${f.their_wins}`}
           testID={`social-friend-${f.id}`}
@@ -207,6 +212,48 @@ function FriendsRow() {
   );
 }
 
+/** DISCOVER — public, discoverable athletes to add (migration 055). Each row
+ *  taps through to the athlete's profile; the chip sends an id-based request. */
+function DiscoverAthletes() {
+  const colors = useThemeColors();
+  const discover = useDiscoverAthletes();
+  const list = discover.data ?? [];
+  if (discover.isPending) return null;
+  if (list.length === 0) {
+    return (
+      <View className="rounded-lg border p-s3" style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}>
+        <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>ATHLETES TO DISCOVER</Text>
+        <Text className="mt-s2 text-2xs text-text-dim">No public athletes yet. Make your own profile discoverable in Settings to appear here.</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>ATHLETES TO DISCOVER</Text>
+      {list.map((a) => (
+        <Pressable
+          key={a.user_id}
+          onPress={() => router.push(`/athlete/${a.user_id}` as never)}
+          accessibilityRole="button"
+          accessibilityLabel={`${a.display_name}'s profile`}
+          testID={`discover-${a.user_id}`}
+          className="flex-row items-center rounded-lg border p-s3"
+          style={{ borderColor: `${colors.epic}33`, backgroundColor: 'rgba(13,21,36,0.5)', gap: 10 }}
+        >
+          <View className="items-center justify-center rounded-lg border" style={{ width: 40, height: 40, borderColor: `${colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
+            <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.epic, ...pixelFont() }}>{(a.display_name[0] ?? 'A').toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text className="text-sm font-bold text-text" numberOfLines={1}>{a.display_name}</Text>
+            <Text className="text-2xs text-text-mute">{a.forge_level != null ? `Forge Lv. ${a.forge_level}` : 'Athlete'}{a.rank != null ? ` · Rank ${a.rank}` : ''}</Text>
+          </View>
+          <AddFriendButton athleteId={a.user_id} testID={`discover-add-${a.user_id}`} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 /** RIVALS — the head-to-head records with friends (migration 036). Active
  *  rivalries (any contest) rise to the top; a friend with no contests yet is a
  *  rivalry waiting to happen. Contests are recorded server-side by the Arena. */
@@ -232,8 +279,10 @@ function RivalriesView() {
         const lead = f.my_wins > f.their_wins ? 'up' : f.my_wins < f.their_wins ? 'down' : 'even';
         const col = lead === 'up' ? colors.success : lead === 'down' ? colors.danger : colors['text-dim'];
         return (
-          <View
+          <Pressable
             key={f.id}
+            onPress={() => router.push(`/athlete/${f.id}` as never)}
+            accessibilityRole="button"
             className="flex-row items-center rounded-lg border p-s3"
             style={{ borderColor: total > 0 ? `${col}45` : colors.border, backgroundColor: 'rgba(13,21,36,0.5)', gap: 10 }}
             testID={`rival-${f.id}`}
@@ -248,7 +297,7 @@ function RivalriesView() {
             <Text allowFontScaling={false} style={{ fontSize: 16, color: col, ...pixelFont() }}>
               {f.my_wins}–{f.their_wins}{f.draws > 0 ? `–${f.draws}` : ''}
             </Text>
-          </View>
+          </Pressable>
         );
       })}
       <Pressable

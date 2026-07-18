@@ -27,17 +27,23 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
  * latest PR (recentPr). Visibility is chosen here; a preview shows exactly what
  * lands before POST.
  */
-type Mode = 'update' | 'workout' | 'pr' | 'photo';
+type Mode = 'update' | 'workout' | 'pr' | 'photo' | 'level_up';
 const VIS: readonly Visibility[] = ['friends', 'public', 'private'];
 const MAX_PHOTOS = 4;
 
 export function CreatePostModal({
   onClose,
   initialWorkout,
+  initialLevelUp,
+  initialMode,
 }: {
   onClose: () => void;
   /** Share this specific finished workout (from the post-workout prompt). */
   initialWorkout?: { workout: string; date: string };
+  /** Share a level-up (from the level-up ceremony). Adds a level_up mode. */
+  initialLevelUp?: { from: number; to: number };
+  /** Open directly in a given mode (e.g. 'pr' from a PR celebration). */
+  initialMode?: Mode;
 }) {
   const colors = useThemeColors();
   const { session } = useAuth();
@@ -48,7 +54,9 @@ export function CreatePostModal({
   const friends = useFriends();
   const create = useCreatePost();
 
-  const [mode, setMode] = useState<Mode>(initialWorkout ? 'workout' : 'update');
+  const [mode, setMode] = useState<Mode>(
+    initialMode ?? (initialLevelUp ? 'level_up' : initialWorkout ? 'workout' : 'update')
+  );
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('friends');
   const [photos, setPhotos] = useState<string[]>([]); // local data URLs, uploaded on POST
@@ -86,6 +94,7 @@ export function CreatePostModal({
     mode === 'update' ? caption.trim() !== ''
     : mode === 'workout' ? !!workout
     : mode === 'pr' ? !!pr
+    : mode === 'level_up' ? !!initialLevelUp
     : photos.length > 0; // photo
   const showPhotos = mode === 'photo' || mode === 'workout';
 
@@ -114,6 +123,9 @@ export function CreatePostModal({
     } else if (mode === 'pr' && pr) {
       type = 'pr';
       payload = { ...pr, prev_value: null };
+    } else if (mode === 'level_up' && initialLevelUp) {
+      type = 'level_up';
+      payload = { prev_level: initialLevelUp.from, new_level: initialLevelUp.to };
     } else {
       type = 'photo';
       payload = {
@@ -148,6 +160,7 @@ export function CreatePostModal({
             </Text>
 
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {initialLevelUp ? <ModeTab label="LEVEL UP" active={mode === 'level_up'} onPress={() => setMode('level_up')} /> : null}
               <ModeTab label="UPDATE" active={mode === 'update'} onPress={() => setMode('update')} />
               <ModeTab label="WORKOUT" active={mode === 'workout'} onPress={() => setMode('workout')} disabled={!workout} />
               <ModeTab label="PR" active={mode === 'pr'} onPress={() => setMode('pr')} disabled={!pr} />
@@ -156,7 +169,12 @@ export function CreatePostModal({
 
             {/* Preview of what will attach. */}
             <View className="mt-s3 rounded-lg border p-s3" style={{ borderColor: colors.border, backgroundColor: 'rgba(6,12,24,0.5)' }}>
-              {mode === 'update' ? (
+              {mode === 'level_up' && initialLevelUp ? (
+                <>
+                  <Text className="text-sm font-bold text-text">REACHED FORGE LEVEL {initialLevelUp.to}</Text>
+                  <Text className="mt-s1 text-2xs text-text-mute">Lv. {initialLevelUp.from} → {initialLevelUp.to}</Text>
+                </>
+              ) : mode === 'update' ? (
                 <Text className="text-2xs text-text-mute">A text update — your caption is the post.</Text>
               ) : mode === 'workout' && workout ? (
                 <>

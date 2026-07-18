@@ -31,6 +31,7 @@ export function SocialPostCard({
   nowMs,
   onReact,
   onComment,
+  onOpenProfile,
   canDelete = false,
   onDelete,
 }: {
@@ -38,6 +39,8 @@ export function SocialPostCard({
   nowMs: number;
   onReact: (kind: ReactionKind) => void;
   onComment: () => void;
+  /** Tap the author's portrait/name → open their profile (id passed through). */
+  onOpenProfile?: (authorId: string) => void;
   canDelete?: boolean;
   onDelete?: () => void;
 }) {
@@ -54,16 +57,26 @@ export function SocialPostCard({
   return (
     <GlowCard glow={glow} padding={16}>
       <View className="flex-row items-center" style={{ gap: 10 }}>
-        <Portrait name={post.authorName} tint={glow ?? colors.accent} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text className="text-sm font-bold text-text" numberOfLines={1}>
-            {post.authorName}
-          </Text>
-          <Text className="text-2xs text-text-mute" numberOfLines={1}>
-            {actionVerb(post)} · {relativeTime(post.createdAt, nowMs)}
-            {post.visibility !== 'friends' ? ` · ${post.visibility}` : ''}
-          </Text>
-        </View>
+        <Pressable
+          onPress={onOpenProfile ? () => onOpenProfile(post.authorId) : undefined}
+          accessibilityRole={onOpenProfile ? 'button' : undefined}
+          accessibilityLabel={onOpenProfile ? `${post.authorName}'s profile` : undefined}
+          disabled={!onOpenProfile}
+          testID={`post-author-${post.id}`}
+          className="flex-row items-center"
+          style={{ gap: 10, flex: 1, minWidth: 0 }}
+        >
+          <Portrait name={post.authorName} tint={glow ?? colors.accent} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text className="text-sm font-bold text-text" numberOfLines={1}>
+              {post.authorName}
+            </Text>
+            <Text className="text-2xs text-text-mute" numberOfLines={1}>
+              {actionVerb(post)} · {relativeTime(post.createdAt, nowMs)}
+              {post.visibility !== 'friends' ? ` · ${post.visibility}` : ''}
+            </Text>
+          </View>
+        </Pressable>
         {canDelete ? (
           <Pressable
             onPress={onDelete}

@@ -4,6 +4,7 @@ import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
 import { useLogBodyweight, useSavePublicIdentity, useUpdateTrainingNumbers } from '@/data/mutations';
+import { useAthleteProfile, useSetPrivacy, type PrivacyFlags } from '@/data/social-profile';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
@@ -411,7 +412,69 @@ function PrivacyCard() {
           </Pressable>
         </View>
       ) : null}
+
+      {hasName ? <ProfileFieldPrivacy /> : null}
     </GlowCard>
+  );
+}
+
+/**
+ * FIELD PRIVACY (migration 055) — what a profile viewer sees. Discoverability
+ * lists you in Social ▸ Discover; the three field toggles gate the stat blocks
+ * on your public profile card (Evo pillars, exact lift e1RMs, bodyweight). Your
+ * own profile always shows everything; these govern OTHER athletes' view.
+ */
+function ProfileFieldPrivacy() {
+  const { session } = useAuth();
+  const myId = session?.user?.id ?? null;
+  const profile = useAthleteProfile(myId);
+  const setPrivacy = useSetPrivacy();
+  const flags = profile.data?.privacy ?? null;
+
+  const rows: { key: keyof PrivacyFlags; title: string; sub: string }[] = [
+    { key: 'discoverable', title: 'Discoverable', sub: 'List me in Social ▸ Discover (requires a public profile).' },
+    { key: 'show_evo', title: 'Show Evo stats', sub: 'Forge Level, rank and the five Evo pillar scores.' },
+    { key: 'show_lifts', title: 'Show exact lifts', sub: 'Bench / squat / deadlift estimated 1RM.' },
+    { key: 'show_bodyweight', title: 'Show bodyweight', sub: 'Your current bodyweight on your profile.' },
+  ];
+
+  return (
+    <View className="mt-s3 border-t border-border-soft pt-s3">
+      <Text className="mb-s2 text-text-mute" allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}>
+        WHAT OTHERS SEE ON YOUR PROFILE
+      </Text>
+      {rows.map((r) => (
+        <PrivacyRow
+          key={r.key}
+          title={r.title}
+          sub={r.sub}
+          value={Boolean(flags?.[r.key])}
+          disabled={profile.isPending || setPrivacy.isPending}
+          onChange={(v) => setPrivacy.mutate({ [r.key]: v } as Partial<PrivacyFlags>)}
+          testID={`fieldpriv-${r.key}`}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PrivacyRow({ title, sub, value, disabled, onChange, testID }: { title: string; sub: string; value: boolean; disabled: boolean; onChange: (v: boolean) => void; testID: string }) {
+  const colors = useThemeColors();
+  return (
+    <View className="mb-s2 flex-row items-center justify-between">
+      <View className="flex-1 pr-s3">
+        <Text className="text-sm font-bold text-text">{title}</Text>
+        <Text className="text-2xs text-text-mute">{sub}</Text>
+      </View>
+      <Switch
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
+        trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+        thumbColor={colors.accent}
+        testID={testID}
+      />
+    </View>
   );
 }
 

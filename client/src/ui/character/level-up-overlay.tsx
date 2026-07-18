@@ -16,6 +16,8 @@ import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
 import { playLevelUp } from '@/ui/core/sound';
+import { CreatePostModal } from '@/ui/social/create-post';
+import { socialFeatures } from '@/ui/social/social-features';
 
 /**
  * The level-up ceremony: world dims, the number counts old → new, the aura
@@ -35,6 +37,7 @@ export function LevelUpOverlay({
   const colors = useThemeColors();
   const reducedMotion = useReducedMotion();
   const [shown, setShown] = useState(reducedMotion ? to : from);
+  const [sharing, setSharing] = useState(false);
   const burst = useSharedValue(0);
   const scale = useSharedValue(0.8);
 
@@ -68,6 +71,12 @@ export function LevelUpOverlay({
     transform: [{ scale: 1 + burst.value * 0.6 }],
   }));
   const numberStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  // Sharing outlives the ceremony: the composer replaces the overlay, and
+  // closing it returns to the app (the level-up is done). Nothing auto-posts.
+  if (sharing) {
+    return <CreatePostModal initialLevelUp={{ from, to }} onClose={onClose} />;
+  }
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -107,8 +116,11 @@ export function LevelUpOverlay({
         <Text className="mb-s6 text-sm text-text-dim">
           {from} → {to}
         </Text>
-        <View className="w-full max-w-[280px]">
-          <NeonButton title="KEEP CLIMBING" onPress={onClose} testID="levelup-close" />
+        <View className="w-full max-w-[280px]" style={{ gap: 8 }}>
+          {socialFeatures.feedEnabled ? (
+            <NeonButton title="SHARE IT" variant="epic" onPress={() => setSharing(true)} testID="levelup-share" />
+          ) : null}
+          <NeonButton title="KEEP CLIMBING" variant={socialFeatures.feedEnabled ? 'ghost' : 'primary'} onPress={onClose} testID="levelup-close" />
         </View>
       </View>
     </Modal>

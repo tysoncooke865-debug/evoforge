@@ -125,14 +125,32 @@ export function useCreatePost() {
   });
 }
 
-/** Soft-delete your own post (RLS: author only). */
+/** Soft-delete your own post (RLS: author only). Accepts either a bare id or a
+ *  post carrying its photo paths — when photos are present they're removed from
+ *  the private bucket so a deleted post leaves no orphaned storage objects. */
 export function useDeletePost() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (postId: string) => {
+    mutationFn: async (arg: string | SocialPost) => {
+      const postId = typeof arg === 'string' ? arg : arg.id;
+      const paths =
+        typeof arg === 'string'
+          ? []
+          : arg.type === 'photo' || arg.type === 'workout'
+            ? arg.photoUrls
+            : [];
       const { error } = await supabase.from('social_posts').update({ deleted_at: new Date().toISOString() }).eq('id', postId);
       if (error) throw error;
+      // Best-effort storage cleanup — the post is already gone from the feed;
+      // a failed object removal must not surface as a failed delete.
+      if (paths.length > 0) {
+        try {
+          await supabase.storage.from('social-media').remove(paths);
+        } catch {
+          /* orphaned objects are inert (private bucket); ignore. */
+        }
+      }
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['social_feed', userId] }),
   });
