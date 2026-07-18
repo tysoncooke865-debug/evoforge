@@ -329,6 +329,30 @@ export function applyReaction(post: PostBase, kind: ReactionKind): PostBase {
   return { ...post, myReaction: kind, reactionsByKind: byKind, reactionCount: count };
 }
 
+/**
+ * ONE-LEVEL comment threads (058, 2026-07-19): parents in their original
+ * (chronological) order, each carrying its replies in theirs. An orphaned
+ * reply — parent soft-deleted between reads — surfaces as top-level rather
+ * than vanishing: losing someone's words is worse than a flat row.
+ */
+export function groupCommentThreads<T extends { id: string; parent_id?: string | null }>(
+  rows: readonly T[]
+): { top: T; replies: T[] }[] {
+  const byParent = new Map<string, T[]>();
+  const tops: T[] = [];
+  const topIds = new Set(rows.filter((r) => !r.parent_id).map((r) => r.id));
+  for (const r of rows) {
+    if (r.parent_id && topIds.has(r.parent_id)) {
+      const list = byParent.get(r.parent_id) ?? [];
+      list.push(r);
+      byParent.set(r.parent_id, list);
+    } else {
+      tops.push(r);
+    }
+  }
+  return tops.map((top) => ({ top, replies: byParent.get(top.id) ?? [] }));
+}
+
 /** A short relative time from an ISO string and a caller-supplied "now" ms
  *  (no wall-clock in the domain — the screen passes Date.now via a stamp). */
 export function relativeTime(iso: string, nowMs: number): string {

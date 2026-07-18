@@ -163,6 +163,10 @@ export interface CommentRow {
   body: string;
   created_at: string;
   mine: boolean;
+  /** 058: one-level threading + comment reactions. */
+  parent_id: string | null;
+  reaction_count: number;
+  my_reaction: ReactionKind | null;
 }
 
 /** A post's comments (via the 050 definer RPC — visibility-checked). */
@@ -184,13 +188,16 @@ export function usePostComments(postId: string | null) {
   });
 }
 
-/** Add a comment (RLS: author of the comment). Refreshes the thread + counts. */
+/** Add a comment or a one-level reply (RLS: author of the comment; the 058
+ *  depth guard rejects reply-to-reply server-side). Refreshes thread+counts. */
 export function useAddComment() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (input: { postId: string; body: string }) => {
-      const { error } = await supabase.from('social_comments').insert({ post_id: input.postId, body: input.body });
+    mutationFn: async (input: { postId: string; body: string; parentId?: string | null }) => {
+      const { error } = await supabase
+        .from('social_comments')
+        .insert({ post_id: input.postId, body: input.body, parent_id: input.parentId ?? null });
       if (error) throw error;
       pushNotify({ type: 'comment', postId: input.postId });
     },
@@ -200,5 +207,74 @@ export function useAddComment() {
     },
     onError: (e: Error) =>
       useToastStore.getState().push({ kind: 'error', title: 'NOT SENT', subtitle: e.message }),
+  });
+}
+
+/** React to a COMMENT (058's toggle_comment_reaction — post-visibility
+ *  re-checked server-side). Optimistic on the thread cache; the server
+ *  answer settles it via invalidation. */
+export function useToggleCommentReaction() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (input: { postId: string; commentId: string; kind: ReactionKind }) => {
+      const { data, error } = await supabase.rpc('toggle_comment_reaction', {
+        p_comment: input.commentId,
+        p_kind: input.kind,
+      });
+      if (error) throw error;
+      if (!(data as { ok?: boolean })?.ok) throw new Error('That comment is not visible any more.');
+    },
+    onMutate: async (input) => {
+      const key = ['post_comments', userId, input.postId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<CommentRow[]>(key);
+      queryClient.setQueryData<CommentRow[]>(key, (rows) =>
+        (rows ?? []).map((c) => {
+          if (c.id !== input.commentId) return c;
+          if (c.my_reaction === input.kind)
+            return { ...c, my_reaction: null, reaction_count: Math.max(0, c.reaction_count - 1) };
+          return {
+            ...c,
+            my_reaction: input.kind,
+            reaction_count: c.my_reaction ? c.reaction_count : c.reaction_count + 1,
+          };
+        })
+      );
+      return { prev, key };
+    },
+    onError: (e: Error, _input, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(ctx.key, ctx.prev);
+      useToastStore.getState().push({ kind: 'error', title: 'NO REACTION', subtitle: e.message });
+    },
+    onSettled: (_d, _e, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['post_comments', userId, input.postId] });
+    },
+  });
+}
+
+/** Report a post (059 — record-only; INSERT is the only client verb, reads
+ *  are service-role). A duplicate unique-violation reads as already done. */
+export function useReportPost() {
+  return useMutation({
+    mutationFn: async (input: { postId: string; reason: 'spam' | 'abuse' | 'nsfw' | 'other'; note?: string }) => {
+      const { error } = await supabase.from('social_reports').insert({
+        post_id: input.postId,
+        reason: input.reason,
+        note: input.note?.trim() ? input.note.trim().slice(0, 300) : null,
+      });
+      if (error) {
+        if (/duplicate|unique/i.test(error.message)) throw new Error('You already reported this post.');
+        throw error;
+      }
+    },
+    onSuccess: () =>
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'REPORTED',
+        subtitle: 'Thanks — the team reviews reports.',
+      }),
+    onError: (e: Error) =>
+      useToastStore.getState().push({ kind: 'error', title: 'NOT REPORTED', subtitle: e.message }),
   });
 }

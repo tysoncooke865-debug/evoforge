@@ -1,8 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
+import { usePublicIdentity } from '@/data/hooks';
+import { useSavePublicIdentity } from '@/data/mutations';
+import { nameError } from '@/domain/leaderboard';
 import { useFriends } from '@/data/social';
 import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
 import { useDiscoverAthletes } from '@/data/social-profile';
@@ -10,7 +13,9 @@ import { useUnreadCount } from '@/data/social-notifications';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { PixelPeople } from '@/ui/core/pixel-icons';
+import { NeonButton } from '@/ui/core/neon-button';
+import { PixelBell, PixelPeople } from '@/ui/core/pixel-icons';
+import { ReportSheet } from '@/ui/social/report-sheet';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { socialFeatures } from '@/ui/social/social-features';
@@ -46,11 +51,16 @@ function SocialFeed() {
   const [nowMs] = useState(() => Date.now());
   const [composerOpen, setComposerOpen] = useState(false);
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
+  const [reportFor, setReportFor] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const unread = useUnreadCount().data ?? 0;
   const feed = useSocialFeed(scope);
   const react = useToggleReaction();
   const del = useDeletePost();
+  // §6.3: usernames are mandatory for NEW accounts (onboarding); accounts
+  // from before claim theirs here — browsing stays open, posting waits.
+  const identity = usePublicIdentity();
+  const needsName = identity.data !== undefined && !identity.data?.displayName;
   const posts = feed.data?.pages.flat() ?? [];
 
   return (
@@ -68,7 +78,9 @@ function SocialFeed() {
               className="items-center justify-center rounded-lg border p-s2"
               style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.accent}59` }}
             >
-              <Text style={{ fontSize: 18, color: colors.accent }}>🔔</Text>
+              {/* §6.4: the pixel bell, in the PixelGlyph language the other
+                  header icons already speak (the emoji broke the set). */}
+              <PixelBell size={18} color={colors.accent} />
               {unread > 0 ? (
                 <View className="absolute items-center justify-center rounded-pill" style={{ top: 2, right: 2, minWidth: 16, height: 16, paddingHorizontal: 3, backgroundColor: colors.danger }} testID="notif-badge">
                   <Text allowFontScaling={false} style={{ fontSize: 9, color: '#fff', fontWeight: '900' }}>{unread > 9 ? '9+' : unread}</Text>
@@ -76,9 +88,12 @@ function SocialFeed() {
               ) : null}
             </Pressable>
             <Pressable
-              onPress={() => setComposerOpen(true)}
+              onPress={() => {
+                if (needsName) return; // the claim card below explains
+                setComposerOpen(true);
+              }}
               accessibilityRole="button"
-              accessibilityLabel="create a post"
+              accessibilityLabel={needsName ? 'claim a username to post' : 'create a post'}
               testID="social-create"
               className="items-center justify-center rounded-lg border p-s2"
               style={{ minHeight: 44, minWidth: 44, borderColor: `${colors.epic}8c`, backgroundColor: 'rgba(168,85,247,0.1)' }}
@@ -121,6 +136,8 @@ function SocialFeed() {
         })}
       </View>
 
+      {needsName ? <ClaimNameCard /> : null}
+
       <FriendsRow />
 
       {scope === 'discover' ? <DiscoverAthletes /> : null}
@@ -144,6 +161,7 @@ function SocialFeed() {
               onOpenProfile={(uid) => router.push(`/athlete/${uid}` as never)}
               canDelete={p.authorId === myId}
               onDelete={() => del.mutate(p)}
+              onReport={p.authorId === myId ? undefined : () => setReportFor(p.id)}
             />
           ))}
           {feed.hasNextPage ? (
@@ -164,6 +182,7 @@ function SocialFeed() {
 
       {composerOpen ? <CreatePostModal onClose={() => setComposerOpen(false)} /> : null}
       {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
+      {reportFor ? <ReportSheet postId={reportFor} onClose={() => setReportFor(null)} /> : null}
       {notifOpen ? (
         <NotificationsModal onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); router.push('/friends' as never); }} />
       ) : null}
@@ -172,6 +191,45 @@ function SocialFeed() {
 }
 
 /** The horizontal friends activity row + a Find Friends tile. */
+/** §6.3: pre-username accounts claim theirs here — browsing stays open,
+ *  posting waits until a unique name exists. Saved PRIVATE (name only);
+ *  going public stays a separate choice on Rank. */
+function ClaimNameCard() {
+  const colors = useThemeColors();
+  const [name, setName] = useState('');
+  const save = useSavePublicIdentity();
+  const problem = name.trim() ? nameError(name) : null;
+  return (
+    <GlowCard glow={colors.legendary}>
+      <Text className="mb-s1 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+        CLAIM YOUR NAME
+      </Text>
+      <Text className="mb-s2 text-2xs text-text-mute">
+        Social runs on usernames now. Pick a unique one to post, comment and be found — it does
+        NOT put you on the leaderboard.
+      </Text>
+      <TextInput
+        className="mb-s2 min-h-[48px] rounded-md border border-border bg-surface-2 px-s3 text-base text-text"
+        placeholder="3–24 characters, unique"
+        placeholderTextColor="#64758f"
+        autoCapitalize="none"
+        value={name}
+        onChangeText={setName}
+        maxLength={24}
+        testID="claim-name-input"
+      />
+      {problem ? <Text className="mb-s2 text-2xs text-warn">{problem}</Text> : null}
+      <NeonButton
+        title="CLAIM"
+        onPress={() => save.mutate({ displayName: name.trim(), isPublic: false })}
+        disabled={name.trim() === '' || problem !== null}
+        busy={save.isPending}
+        testID="claim-name-save"
+      />
+    </GlowCard>
+  );
+}
+
 function FriendsRow() {
   const colors = useThemeColors();
   const friends = useFriends();

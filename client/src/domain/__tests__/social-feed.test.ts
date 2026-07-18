@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  groupCommentThreads,
   applyReaction,
   relativeTime,
   toPost,
@@ -161,5 +162,23 @@ describe('relativeTime — no wall-clock in the domain', () => {
   });
   it('empty on a bad date', () => {
     expect(relativeTime('nonsense', now)).toBe('');
+  });
+});
+
+describe('groupCommentThreads — one level, nothing lost', () => {
+  const row = (id: string, parent: string | null = null) => ({ id, parent_id: parent });
+  it('groups replies under their parents in order', () => {
+    const rows = [row('a'), row('b'), row('r1', 'a'), row('r2', 'a'), row('r3', 'b')];
+    const t = groupCommentThreads(rows);
+    expect(t.map((x) => x.top.id)).toEqual(['a', 'b']);
+    expect(t[0].replies.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(t[1].replies.map((r) => r.id)).toEqual(['r3']);
+  });
+  it('an orphaned reply surfaces as top-level rather than vanishing', () => {
+    const t = groupCommentThreads([row('r1', 'ghost'), row('a')]);
+    expect(t.map((x) => x.top.id)).toEqual(['r1', 'a']);
+  });
+  it('empty input, empty output', () => {
+    expect(groupCommentThreads([])).toEqual([]);
   });
 });

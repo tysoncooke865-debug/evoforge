@@ -34,6 +34,7 @@ export function SocialPostCard({
   onOpenProfile,
   canDelete = false,
   onDelete,
+  onReport,
 }: {
   post: SocialPost;
   nowMs: number;
@@ -43,6 +44,9 @@ export function SocialPostCard({
   onOpenProfile?: (authorId: string) => void;
   canDelete?: boolean;
   onDelete?: () => void;
+  /** §6.2 (059): the ⋯ on OTHERS' posts — opens the report sheet. Own posts
+   *  keep delete; the two never render together. */
+  onReport?: () => void;
 }) {
   const colors = useThemeColors();
   const glow =
@@ -83,6 +87,18 @@ export function SocialPostCard({
             accessibilityRole="button"
             accessibilityLabel="delete this post"
             testID={`post-delete-${post.id}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="items-center justify-center"
+            style={{ minWidth: 32, minHeight: 32 }}
+          >
+            <Text className="text-sm text-text-mute">⋯</Text>
+          </Pressable>
+        ) : onReport ? (
+          <Pressable
+            onPress={onReport}
+            accessibilityRole="button"
+            accessibilityLabel="report this post"
+            testID={`post-report-${post.id}`}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             className="items-center justify-center"
             style={{ minWidth: 32, minHeight: 32 }}

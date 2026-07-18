@@ -540,6 +540,21 @@ const PEOPLE = [
 export const PixelPeople = ({ size = 19, color, testID }: IconProps) => (
   <PixelGlyph rows={PEOPLE} size={size} color={color} testID={testID ?? 'pixel-people'} />
 );
+
+// The notification bell (§6.4, 2026-07-19) — dome, mouth, clapper.
+const BELL = [
+  '....##....',
+  '...####...',
+  '..######..',
+  '..######..',
+  '..######..',
+  '.########.',
+  '##########',
+  '....##....',
+] as const;
+export const PixelBell = ({ size = 18, color, testID }: IconProps) => (
+  <PixelGlyph rows={BELL} size={size} color={color} testID={testID ?? 'pixel-bell'} />
+);
 export const PixelBarcode = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={BARCODE} size={size} color={color} testID={testID ?? 'pixel-barcode'} />
 );
