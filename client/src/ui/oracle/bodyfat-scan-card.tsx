@@ -97,8 +97,8 @@ export function BodyfatScanCard() {
   const state: ScanState = confirming && !busy ? 'confirm' : bodyfatScanState(busy, error, result !== null, anyPhoto);
 
   return (
-    <GlowCard glow={state === 'complete' ? colors.success : anyPhoto ? colors.accent : undefined}>
-      <SectionLabel>AI BODY FAT ESTIMATE</SectionLabel>
+    <GlowCard glow={state === 'complete' ? colors.success : colors.accent}>
+      <SectionLabel size='lg'>AI BODY FAT ESTIMATE</SectionLabel>
       <Text className="mb-s3 text-2xs text-text-mute">
         Front and back photos in similar conditions. Optional — it sharpens your Size and Aesthetics
         evidence.

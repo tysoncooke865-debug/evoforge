@@ -78,8 +78,8 @@ export function RoutineForgeCard() {
       : null;
 
   return (
-    <GlowCard glow={preview ? colors.epic : undefined}>
-      <SectionLabel>AI CUSTOM ROUTINE</SectionLabel>
+    <GlowCard glow={preview ? colors.epic : colors.accent}>
+      <SectionLabel size='lg'>AI CUSTOM ROUTINE</SectionLabel>
       {!preview ? (
         <>
           <View className="flex-row flex-wrap" style={{ gap: 8 }}>

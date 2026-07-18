@@ -91,8 +91,29 @@ export function ScreenHeader({
   );
 }
 
-/** A section label inside a card: small, spaced, quiet. */
-export function SectionLabel({ children }: { children: string }) {
+/** A section label inside a card: small, spaced, quiet — or, as
+ *  `size="lg"` (2026-07-19, Tyson: "make the titles more prominent"), a
+ *  card-owning pixel title with a soft cyan bloom. Default is unchanged for
+ *  every existing call site. */
+export function SectionLabel({ children, size = 'md' }: { children: string; size?: 'md' | 'lg' }) {
+  if (size === 'lg') {
+    return (
+      <Text
+        className="mb-s3 text-text"
+        allowFontScaling={false}
+        style={{
+          fontSize: 17,
+          lineHeight: 22,
+          letterSpacing: 0.5,
+          textShadowColor: 'rgba(34, 211, 238, 0.4)',
+          textShadowRadius: 12,
+          ...pixelFont(),
+        }}
+      >
+        {children}
+      </Text>
+    );
+  }
   return (
     <Text
       className="mb-s3 text-text-mute"

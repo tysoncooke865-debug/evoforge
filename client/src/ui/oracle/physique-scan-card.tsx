@@ -101,8 +101,8 @@ export function PhysiqueScanCard() {
 
   return (
     <>
-      <GlowCard glow={state === 'complete' ? colors.success : anyPhoto ? colors.accent : undefined}>
-        <SectionLabel>AI PHYSIQUE ANALYSIS</SectionLabel>
+      <GlowCard glow={state === 'complete' ? colors.success : colors.accent}>
+        <SectionLabel size='lg'>AI PHYSIQUE ANALYSIS</SectionLabel>
         <Text className="mb-s3 text-2xs text-text-mute">
           Upload three clear photos in good lighting — shirtless, relaxed pose. The Oracle rates
           your frame and never stores the images.

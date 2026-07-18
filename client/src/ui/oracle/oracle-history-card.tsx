@@ -27,8 +27,8 @@ export function OracleHistoryCard() {
 
   if (rows.length === 0) {
     return (
-      <GlowCard>
-        <SectionLabel>ORACLE HISTORY</SectionLabel>
+      <GlowCard glow={colors.accent}>
+        <SectionLabel size='lg'>ORACLE HISTORY</SectionLabel>
         <Text className="text-2xs text-text-mute">
           No scans yet. Run your first physique analysis and your timeline begins here.
         </Text>
@@ -53,8 +53,8 @@ export function OracleHistoryCard() {
     v === null || v === 0 ? colors['text-mute'] : v > 0 ? colors.success : colors.danger;
 
   return (
-    <GlowCard>
-      <SectionLabel>ORACLE HISTORY</SectionLabel>
+    <GlowCard glow={colors.accent}>
+      <SectionLabel size='lg'>ORACLE HISTORY</SectionLabel>
 
       {/* Progress since the first scan — the honest before/current read. */}
       {progress.scans >= 2 ? (
