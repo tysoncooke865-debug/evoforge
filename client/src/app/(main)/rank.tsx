@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, Switch, Text, TextInput, View } from 'react-native';
 
-import { useLeaderboardTop, usePublicIdentity, useServerGrantedXp } from '@/data/hooks';
+import { useLeaderboardByMetric, usePublicIdentity, useServerGrantedXp } from '@/data/hooks';
 import { useSavePublicIdentity } from '@/data/mutations';
 import { useAvatarData } from '@/data/use-avatar-data';
-import { rankLeaderboard } from '@/domain/leaderboard';
+import { METRIC_LABEL, rankByMetric, type LeaderboardMetric } from '@/domain/leaderboard';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { Chip } from '@/ui/core/neon-button';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+
+const METRIC_ORDER: readonly LeaderboardMetric[] = ['evo', 'forge', 'consistency', 'xp'];
 
 /**
  * The leaderboard. Three gates before any ranking renders, same as the
@@ -22,7 +25,10 @@ export default function RankScreen() {
   const colors = useThemeColors();
   const { summary } = useAvatarData();
   const identity = usePublicIdentity();
-  const board = useLeaderboardTop(50);
+  // MULTI-METRIC (2026-07-19): default to EVO RATING — the number the board was
+  // asked to reflect — with FORGE LEVEL / CONSISTENCY / TOTAL XP tabs.
+  const [metric, setMetric] = useState<LeaderboardMetric>('evo');
+  const board = useLeaderboardByMetric(metric, 50);
   const serverGranted = useServerGrantedXp();
 
   // Migration 014's rule, applied to the CLIENT gate too: drift is only a
@@ -72,7 +78,7 @@ export default function RankScreen() {
     );
   }
 
-  const ranked = rankLeaderboard(board.data ?? []);
+  const ranked = rankByMetric(board.data ?? []);
 
   return (
     <Shell
@@ -86,13 +92,26 @@ export default function RankScreen() {
         />
       }
     >
+      {/* Metric picker: which ladder to climb. */}
+      <View className="flex-row flex-wrap gap-s2">
+        {METRIC_ORDER.map((m) => (
+          <Chip
+            key={m}
+            label={METRIC_LABEL[m]}
+            active={m === metric}
+            onPress={() => setMetric(m)}
+            testID={`rank-metric-${m}`}
+          />
+        ))}
+      </View>
+
       <GlowCard>
         <Text
           className="mb-s4 text-text-mute"
           allowFontScaling={false}
           style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
         >
-          TOP ATHLETES · BY LEVEL
+          TOP ATHLETES · BY {METRIC_LABEL[metric]}
         </Text>
         {ranked.length === 0 ? (
           <Text className="text-sm text-text-dim">
@@ -104,6 +123,7 @@ export default function RankScreen() {
               key={`${e.position}-${e.displayName}`}
               entry={e}
               self={e.displayName === identity.data?.displayName}
+              metric={metric}
             />
           ))
         )}

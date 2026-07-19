@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { useLeaderboardTop, usePublicIdentity } from '@/data/hooks';
-import { rankLeaderboard } from '@/domain/leaderboard';
+import { useLeaderboardByMetric, usePublicIdentity } from '@/data/hooks';
+import { rankByMetric } from '@/domain/leaderboard';
 import { durations } from '@/theme/animations';
 import { useThemeColors } from '@/theme/use-theme';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -81,14 +81,15 @@ export function LeaderboardTeaser() {
 
 function TeaserBody() {
   const identity = usePublicIdentity();
-  const board = useLeaderboardTop(10);
+  // Home's teaser reflects the EVO RATING board (2026-07-19).
+  const board = useLeaderboardByMetric('evo', 10);
 
   const optedIn = Boolean(identity.data?.displayName && identity.data.isPublic);
   if (!optedIn) {
     return (
       <View className="px-s4 pb-s4">
         <Text className="mb-s2 text-2xs text-text-mute">
-          Only a display name, level and XP — never body data.
+          Only a display name and game stats — never body data.
         </Text>
         <Link href={'/rank' as never} asChild>
           <Pressable accessibilityRole="button" testID="teaser-join">
@@ -101,7 +102,7 @@ function TeaserBody() {
     );
   }
 
-  const ranked = rankLeaderboard(board.data ?? []);
+  const ranked = rankByMetric(board.data ?? []);
   return (
     <View className="px-s4 pb-s4">
       {ranked.length === 0 ? (
@@ -112,6 +113,7 @@ function TeaserBody() {
             key={`${e.position}-${e.displayName}`}
             entry={e}
             self={e.displayName === identity.data?.displayName}
+            metric="evo"
           />
         ))
       )}

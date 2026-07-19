@@ -20,6 +20,7 @@ export const TABLE_READERS: Record<string, readonly string[]> = {
   public_profile: [
     'public_profile',
     'leaderboard_top',
+    'leaderboard_metric',
     'athlete_profile',
     'discover_athletes',
     'search_athletes',
@@ -27,7 +28,7 @@ export const TABLE_READERS: Record<string, readonly string[]> = {
   coin_events: ['coin_total', 'coin_events'],
   xp_events: ['xp_total', 'xp_ledger', 'xp_server_granted'],
   xp_ledger: ['xp_ledger', 'user_progression'],
-  user_progression: ['user_progression'],
+  user_progression: ['user_progression', 'leaderboard_metric'],
   physique_ratings: ['physique_ratings', 'physique_history'],
   bodyfat_log: ['bodyfat_series', 'bodyfat_history'],
   player_stats: ['player_stats'],

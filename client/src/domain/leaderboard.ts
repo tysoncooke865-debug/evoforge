@@ -30,6 +30,10 @@ export interface RankedEntry {
   level: number;
   xp: number;
   rank: string;
+  /** Multi-metric board extras (migration 065); absent on the legacy XP board. */
+  forgeLevel?: number;
+  evoRating?: number | null;
+  momentumWeeks?: number;
 }
 
 export function rankLeaderboard(rows: LeaderboardRow[]): RankedEntry[] {
@@ -47,6 +51,50 @@ export function rankLeaderboard(rows: LeaderboardRow[]): RankedEntry[] {
     xp: e.xp,
     rank: rankName(e.level),
   }));
+}
+
+/**
+ * MULTI-METRIC BOARD (2026-07-19, migration 065). The `leaderboard_by_metric`
+ * RPC already ORDERS and NUMBERS the rows server-side by the requested metric
+ * (Evo Rating / Forge Level / Consistency / XP) and returns every metric per
+ * row, so the client just carries them through in that order — it never
+ * re-sorts (the server holds the integrity gate and the honest sources).
+ */
+export type LeaderboardMetric = 'evo' | 'forge' | 'consistency' | 'xp';
+
+export const METRIC_LABEL: Record<LeaderboardMetric, string> = {
+  evo: 'EVO RATING',
+  forge: 'FORGE LEVEL',
+  consistency: 'CONSISTENCY',
+  xp: 'TOTAL XP',
+};
+
+export interface MetricRow extends LeaderboardRow {
+  forge_level?: unknown;
+  evo_rating?: unknown;
+  momentum_weeks?: unknown;
+  rank_position?: unknown;
+}
+
+export function rankByMetric(rows: MetricRow[]): RankedEntry[] {
+  return rows.map((row, i) => {
+    const xp = pyInt(row.xp) ?? 0;
+    const baseLevel = pyInt(row.base_level) ?? 1;
+    const { level } = levelAndProgress(baseLevel, xp);
+    const evoRaw = row.evo_rating;
+    return {
+      // The RPC's window-numbered position; fall back to array order.
+      position: pyInt(row.rank_position) ?? i + 1,
+      displayName: String(row.display_name ?? ''),
+      level,
+      xp,
+      rank: rankName(level),
+      forgeLevel: pyInt(row.forge_level) ?? level,
+      // Null = the athlete keeps their Evo Rating private (or has none yet).
+      evoRating: evoRaw === null || evoRaw === undefined ? null : pyInt(evoRaw),
+      momentumWeeks: pyInt(row.momentum_weeks) ?? 0,
+    };
+  });
 }
 
 /** Why a display name is invalid, or null if fine. Clearing (null/empty) is allowed. */

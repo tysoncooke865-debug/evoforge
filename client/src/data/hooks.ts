@@ -351,6 +351,29 @@ export function useLeaderboardTop(n = 50) {
   });
 }
 
+/** MULTI-METRIC board (migration 065): leaderboard_by_metric(p_metric, n).
+ *  Same freshness discipline as leaderboard_top; [] on any failure. The RPC
+ *  orders + numbers rows server-side by `metric` and returns every metric per
+ *  row, so the client renders whichever column the active tab wants. */
+export function useLeaderboardByMetric(metric: string, n = 50) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['leaderboard_metric', userId, metric, n],
+    enabled: userId !== null,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    queryFn: async (): Promise<import('@/domain/leaderboard').MetricRow[]> => {
+      try {
+        const { data, error } = await supabase.rpc('leaderboard_by_metric', { p_metric: metric, n });
+        if (error || !Array.isArray(data)) return [];
+        return data;
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
 export interface TargetRow {
   id: string;
   target_type: string;

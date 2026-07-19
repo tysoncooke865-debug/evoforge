@@ -26,6 +26,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **MULTI-METRIC LEADERBOARD (2026-07-19, migration 065 APPLIED)** —
+  `leaderboard_by_metric(p_metric, n)` (additive; `leaderboard_top` untouched)
+  ranks by EVO RATING / FORGE LEVEL / CONSISTENCY / TOTAL XP, server-ordered +
+  numbered, returning every metric per row. It reuses 014's exact
+  mintable-drift integrity gate for ALL metrics, and the honest live sources:
+  `forge_level_for_xp(lifetime_xp)` (never the ratcheted column),
+  `evo_rating_current.displayed_rating` (only when `show_evo`, null otherwise —
+  Evo is a DISPLAY metric here, not yet defended competitive authority),
+  `current_momentum_weeks`. Client: `useLeaderboardByMetric` + `rankByMetric`;
+  `/rank` gained a metric chip row (default EVO); the Home teaser now shows the
+  Evo board; `LeaderboardRowView` renders the active metric's tail. Falsified
+  in prod (all four orderings, null-evo sorts last) + verified on web via the
+  teaser (both smoke accounts are drift-gated out of `/rank` itself — a
+  pre-existing self-gate, unrelated).
 - **HOME RADAR = EVO PILLARS + PROJECTION (2026-07-19)** —
   `client/src/ui/home/evo-radar.tsx` now sources Home's stat wheel from the
   SAME four scores that build the Evo Rating
