@@ -26,6 +26,28 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FIND-A-FRIEND-BY-NAME + WHOLE-WEEK SCHEDULE (2026-07-20, migration 071
+  APPLIED + falsified)** — two UX fixes Tyson asked for:
+  - **Add a friend by display name.** The 060 search + friends typeahead existed
+    but its gate was `is_public AND discoverable`; `discoverable` defaults OFF
+    (055) — production had **only 1 of 14 public athletes discoverable**, so
+    search found nobody and read as broken. **071** drops `discoverable` from BOTH
+    `search_athletes` and the `request_friend` add gate — `is_public` (the
+    leaderboard/profile-view opt-in) is now the "findable + addable" gate;
+    `discoverable` means only "also show me in passive Discover/Suggested". Also
+    modernised search's forge_level/rank off the retired `avatar_progression`
+    onto `user_progression`/`evo_rating_current` (matches 067). Falsified with a
+    simulated JWT: a public non-discoverable athlete now hits search AND is
+    addable; a private athlete still returns [] / not_addressable; 1-char → [];
+    caller excluded. `friends.tsx` reworked so name-search is the PRIMARY card
+    (code demoted to "ADD BY CODE" for private adds).
+  - **Whole-week schedule source.** `schedule.tsx` replaced the per-day SOURCE
+    dropdown (066) with ONE picker at the top — MY PLAN / AI PLAN / EVOFORGE PLAN
+    for the whole week. Save writes `active_plan_source` (035) AND a UNIFORM
+    `sources` map (every trained day → the chosen source), so Train's existing
+    per-date reader renders each day from that plan with no remap and no
+    today.tsx change. Per-day cards keep REST/TRAIN + a SPLIT dropdown from the
+    one chosen plan. No migration needed (sources column already exists).
 - **FULL GYM BATTLES + more Supabase hardening (2026-07-19, migration 070)** —
   gym battles now run the REAL RPG combat engine member-vs-member, not an Evo
   sum. `gym_battle_prepare()` hands the client both rosters' combat inputs

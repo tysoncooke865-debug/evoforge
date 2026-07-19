@@ -139,9 +139,10 @@ export function useRecommendedAthletes() {
   });
 }
 
-/** Username search (060): same exposure rule and row shape as discover —
- *  is_public AND discoverable only, so search never surfaces an athlete the
- *  ADD button then refuses. [] on any failure or a sub-2-char query. */
+/** Search athletes by display name (060, gate widened in 071): any PUBLIC
+ *  athlete (is_public) surfaces — the same opt-in the leaderboard uses, and the
+ *  same gate request_friend enforces, so a hit is always addable. `discoverable`
+ *  no longer required. [] on any failure or a sub-2-char query. */
 export function useSearchAthletes(query: string) {
   const userId = useUserId();
   const q = query.trim();
@@ -163,7 +164,7 @@ export function useSearchAthletes(query: string) {
 const REQUEST_REASON: Record<string, string> = {
   self: "That's you.",
   already_friends: "You're already friends.",
-  not_addressable: 'This athlete is private — add them by code.',
+  not_addressable: "This athlete isn't public — add them by code instead.",
 };
 
 /** Send a friend request by user id (discovery/profile path — migration 055). */

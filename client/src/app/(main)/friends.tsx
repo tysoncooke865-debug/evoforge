@@ -53,51 +53,22 @@ export default function FriendsScreen() {
         onBack={() => router.replace(backTarget as never)}
       />
 
-      {/* Your code + add by code. */}
-      <GlowCard>
-        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.accent, letterSpacing: 1.5, ...pixelFont(false) }}>
-          YOUR ADD CODE
-        </Text>
-        <Text selectable allowFontScaling={false} style={{ marginTop: 4, fontSize: 34, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="my-friend-code">
-          {code.data ?? '······'}
-        </Text>
-        <Text className="mt-s1 text-2xs text-text-mute">Share it so friends can add you. Enter theirs below.</Text>
-
-        <TextInput
-          className="mt-s3 min-h-[50px] rounded-xl border bg-surface-2 px-s3 text-center text-xl font-bold text-text"
-          style={{ letterSpacing: 8, borderColor: entry.trim().length === 6 ? `${colors.accent}8c` : colors.border }}
-          placeholder="——————"
-          placeholderTextColor="#64758f"
-          autoCapitalize="characters"
-          maxLength={6}
-          value={entry}
-          onChangeText={(v) => setEntry(v.toUpperCase())}
-          testID="friend-code-input"
-        />
-        <View className="mt-s2">
-          <NeonButton
-            title="ADD FRIEND"
-            onPress={() => send.mutate(entry, { onSuccess: (r) => { if (r.ok) setEntry(''); } })}
-            busy={send.isPending}
-            disabled={entry.trim().length !== 6}
-            testID="friend-add"
-          />
-        </View>
-      </GlowCard>
-
-      {/* §6.3 (060): add by USERNAME — the searchable half of add-a-friend.
-          Only public+discoverable athletes surface (the request_friend gate),
-          so a hit is always addable. */}
+      {/* PRIMARY add path (060 + 071): type a display name, matching athletes
+          pop up, tap ADD. Any PUBLIC athlete surfaces — the same opt-in the
+          leaderboard uses and the same gate request_friend enforces, so a hit is
+          always addable. */}
       <GlowCard>
         <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.epic, letterSpacing: 1.5, ...pixelFont(false) }}>
-          ADD BY USERNAME
+          ADD A FRIEND
         </Text>
+        <Text className="mt-s1 text-2xs text-text-mute">Type their display name — matches pop up as you go.</Text>
         <TextInput
           className="mt-s2 min-h-[48px] rounded-md border bg-surface-2 px-s3 text-base text-text"
           style={{ borderColor: search.trim().length >= 2 ? `${colors.epic}8c` : colors.border }}
-          placeholder="Search usernames…"
+          placeholder="Search by name…"
           placeholderTextColor="#64758f"
           autoCapitalize="none"
+          autoCorrect={false}
           value={search}
           onChangeText={setSearch}
           maxLength={24}
@@ -108,7 +79,7 @@ export default function FriendsScreen() {
             <Text className="mt-s2 text-2xs text-text-mute">Searching…</Text>
           ) : (hits.data ?? []).length === 0 ? (
             <Text className="mt-s2 text-2xs text-text-mute" testID="friend-search-empty">
-              No discoverable athletes match — private athletes are added by code.
+              No one by that name yet. If they’re private, add them by code below.
             </Text>
           ) : (
             <View className="mt-s2 gap-s2">
@@ -125,6 +96,38 @@ export default function FriendsScreen() {
             </View>
           )
         ) : null}
+      </GlowCard>
+
+      {/* Secondary: share your code, or add a private friend by theirs. */}
+      <GlowCard>
+        <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.accent, letterSpacing: 1.5, ...pixelFont(false) }}>
+          YOUR ADD CODE
+        </Text>
+        <Text selectable allowFontScaling={false} style={{ marginTop: 4, fontSize: 34, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="my-friend-code">
+          {code.data ?? '······'}
+        </Text>
+        <Text className="mt-s1 text-2xs text-text-mute">Share it so friends can add you. Have a code? Enter it below.</Text>
+
+        <TextInput
+          className="mt-s3 min-h-[50px] rounded-xl border bg-surface-2 px-s3 text-center text-xl font-bold text-text"
+          style={{ letterSpacing: 8, borderColor: entry.trim().length === 6 ? `${colors.accent}8c` : colors.border }}
+          placeholder="——————"
+          placeholderTextColor="#64758f"
+          autoCapitalize="characters"
+          maxLength={6}
+          value={entry}
+          onChangeText={(v) => setEntry(v.toUpperCase())}
+          testID="friend-code-input"
+        />
+        <View className="mt-s2">
+          <NeonButton
+            title="ADD BY CODE"
+            onPress={() => send.mutate(entry, { onSuccess: (r) => { if (r.ok) setEntry(''); } })}
+            busy={send.isPending}
+            disabled={entry.trim().length !== 6}
+            testID="friend-add"
+          />
+        </View>
       </GlowCard>
 
       {/* SUGGESTED FRIENDS (067) — discoverable athletes ranked by shared
