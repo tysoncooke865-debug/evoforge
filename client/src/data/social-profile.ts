@@ -27,7 +27,15 @@ export interface AthleteProfile {
   forge_level?: number | null;
   rival?: { my_wins: number; their_wins: number; draws: number };
   post_count?: number;
-  evo?: { rank: number | null; class: string | null; path: string | null; pillars: EvoPillar[] } | null;
+  evo?: {
+    rank: number | null;
+    class: string | null;
+    path: string | null;
+    // 067: the two fields the avatar renderer needs (show_evo-gated with path).
+    stage?: number | null;
+    sex?: string | null;
+    pillars: EvoPillar[];
+  } | null;
   lifts?: { bench: number | null; squat: number | null; deadlift: number | null; unit: string } | null;
   bodyweight?: number | null;
   privacy?: PrivacyFlags | null;
@@ -46,6 +54,8 @@ export interface DiscoverAthlete {
   display_name: string;
   forge_level: number | null;
   rank: number | null;
+  /** recommended_athletes only (067): shared-friend count driving the ranking. */
+  mutual_count?: number;
 }
 
 function useUserId(): string | null {
@@ -102,6 +112,25 @@ export function useDiscoverAthletes() {
     queryFn: async (): Promise<DiscoverAthlete[]> => {
       try {
         const { data, error } = await supabase.rpc('discover_athletes', { p_limit: 40 });
+        return error || !Array.isArray(data) ? [] : (data as DiscoverAthlete[]);
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+/** Suggested friends (067): discoverable athletes ranked by MUTUAL FRIEND
+ *  count, then recency. Same row shape as discover, plus mutual_count. */
+export function useRecommendedAthletes() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['recommended_athletes', userId],
+    enabled: userId !== null,
+    staleTime: 60_000,
+    queryFn: async (): Promise<DiscoverAthlete[]> => {
+      try {
+        const { data, error } = await supabase.rpc('recommended_athletes', { p_limit: 20 });
         return error || !Array.isArray(data) ? [] : (data as DiscoverAthlete[]);
       } catch {
         return [];

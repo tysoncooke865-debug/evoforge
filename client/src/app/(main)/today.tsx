@@ -4,6 +4,9 @@ import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 
 import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
 import { useUserExercises } from '@/data/exercises';
+import { useExercisePrefs } from '@/data/exercise-prefs';
+import { buildCorpus } from '@/data/exercise-corpus';
+import { buildSections } from '@/domain/exercise-sections';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
@@ -97,6 +100,7 @@ export default function TodayScreen() {
   const todayIso = calendarToday();
 
   const workouts = useWorkoutLog();
+  const exercisePrefs = useExercisePrefs();
   const schedule = useWorkoutSchedule();
   const sessions = useWorkoutSessions();
   const reopenWorkout = useReopenWorkout();
@@ -543,6 +547,46 @@ export default function TodayScreen() {
     open(todayIso, name);
   };
 
+  /** PREFILL RECOMMENDED (Tyson, 2026-07-19): one tap seeds the QUICK WORKOUT
+   *  with the exercises the athlete would most likely pick — the SAME corpus +
+   *  ranking engine the search bar runs on. If they typed a name we can read a
+   *  muscle from (e.g. "Chest Day"), it drives SUGGESTED FOR TODAY; otherwise it
+   *  falls back to POPULAR staples. Only ADDS — never eats a pick already made. */
+  const prefillAdhoc = () => {
+    const corpus = buildCorpus(
+      {
+        userExercises: userExercises.data,
+        prefRows: exercisePrefs.data,
+        workoutRows: workouts.data,
+      },
+      { programExercises: [], excludeNames: adhocPicks.map((p) => p.exercise) }
+    );
+    const guessed = adhocName.trim() ? inferMuscleGroup(adhocName.trim()) : null;
+    const sections = buildSections({
+      library: corpus.library,
+      program: [],
+      history: corpus.history,
+      favourites: corpus.context.favourites,
+      hidden: corpus.context.hidden,
+      targetMuscles: new Set(guessed ? [guessed] : []),
+      alreadyAdded: new Set(adhocPicks.map((p) => p.exercise.toLowerCase())),
+    });
+    const names: string[] = [];
+    for (const key of ['suggested', 'popular']) {
+      const sec = sections.find((s) => s.key === key);
+      if (sec) for (const e of sec.exercises) if (!names.includes(e.name)) names.push(e.name);
+    }
+    const add = names.slice(0, 6);
+    if (add.length === 0) {
+      useToastStore.getState().push({ kind: 'info', title: 'NOTHING TO SUGGEST', subtitle: 'Type a name or search instead.' });
+      return;
+    }
+    setAdhocPicks((cur) => {
+      const have = new Set(cur.map((x) => x.exercise));
+      return [...cur, ...add.filter((n) => !have.has(n)).map((n) => ({ exercise: n, sets: 3, reps: '8-12' }))];
+    });
+  };
+
   const startRoutine = (routineName: string, exercises: SessionExercise[]) => {
     const name =
       adhocNameError(routineName, planDays) === null ? routineName : `${routineName} (today)`;
@@ -928,6 +972,23 @@ export default function TodayScreen() {
                 maxLength={40}
                 testID="adhoc-name"
               />
+              {/* One tap fills it with recommended exercises (name it first for a
+                  muscle-matched set; otherwise popular staples). */}
+              <Pressable
+                onPress={prefillAdhoc}
+                accessibilityRole="button"
+                testID="adhoc-prefill"
+                className="mt-s3 items-center rounded-md border"
+                style={{ minHeight: 44, justifyContent: 'center', borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+              >
+                <Text
+                  className="text-accent"
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+                >
+                  ⚡ PREFILL WITH RECOMMENDED EXERCISES
+                </Text>
+              </Pressable>
               {/* Seed exercises before you even start — optional; the workout
                   page can add more. Type a letter, tap a box. */}
               <View className="mt-s3">

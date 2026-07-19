@@ -1,9 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
-import { useAthleteProfile, useAthletePosts, type EvoPillar } from '@/data/social-profile';
+import { useAthleteProfile, useAthletePosts, type AthleteProfile, type EvoPillar } from '@/data/social-profile';
+import { useBattleSnapshot, useCreateInvite } from '@/data/battle/mutations';
+import { useToastStore } from '@/state/toast-store';
+import type { BranchV2 } from '@/domain/branches-v2';
+import type { Sex } from '@/domain/nutrition';
+import { avatarArtV2 } from '@/ui/character/avatar-art';
+import { NeonButton } from '@/ui/core/neon-button';
 import { useDeletePost, useToggleReaction } from '@/data/social-feed';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -36,6 +42,31 @@ export default function AthleteProfileScreen() {
   const react = useToggleReaction();
   const del = useDeletePost();
   const list = posts.data?.pages.flat() ?? [];
+
+  // CHALLENGE (2026-07-19): mint a battle from the profile using the same
+  // invite flow the Arena uses, then open the match — its code is what you send
+  // this athlete to accept (the battle system is code-based).
+  const snapshot = useBattleSnapshot();
+  const invite = useCreateInvite();
+  const challenge = () => {
+    invite.mutate(
+      { snapshot, format: 'blitz' },
+      {
+        onSuccess: (data) => {
+          const code = (data as { invite_code?: string }).invite_code;
+          useToastStore.getState().push({
+            kind: 'info',
+            title: 'CHALLENGE READY',
+            subtitle: code
+              ? `Send code ${code} to ${p?.display_name ?? 'them'} to battle`
+              : `Share your battle code with ${p?.display_name ?? 'them'}`,
+          });
+          const matchId = (data as { match_id?: string }).match_id;
+          if (matchId) router.push(`/arena/battle/${String(matchId)}` as never);
+        },
+      }
+    );
+  };
 
   const title = (p?.display_name ?? 'ATHLETE').toUpperCase();
 
@@ -79,9 +110,7 @@ export default function AthleteProfileScreen() {
           {/* Identity + head-to-head. */}
           <GlowCard glow={colors.accent}>
             <View className="flex-row items-center" style={{ gap: 12 }}>
-              <View className="items-center justify-center rounded-xl border" style={{ width: 60, height: 60, borderColor: `${colors.accent}8c`, backgroundColor: 'rgba(34,211,238,0.1)' }}>
-                <Text allowFontScaling={false} style={{ fontSize: 26, color: colors.accent, ...pixelFont() }}>{(p.display_name[0] ?? 'A').toUpperCase()}</Text>
-              </View>
+              <AthleteAvatar profile={p} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text className="text-base font-bold text-text" numberOfLines={1}>{p.display_name}</Text>
                 <Text className="text-2xs text-text-mute">
@@ -101,6 +130,17 @@ export default function AthleteProfileScreen() {
               </View>
             ) : null}
           </GlowCard>
+
+          {/* Challenge them to a battle (code-based; the toast carries the code). */}
+          {!p.is_self && athleteId ? (
+            <NeonButton
+              title={invite.isPending ? 'CREATING…' : '⚔ CHALLENGE TO A BATTLE'}
+              variant="ghost"
+              busy={invite.isPending}
+              onPress={challenge}
+              testID="athlete-challenge"
+            />
+          ) : null}
 
           {/* Evo pillars — only if the athlete shows them. */}
           {p.evo ? (
@@ -162,6 +202,39 @@ export default function AthleteProfileScreen() {
 
       {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
     </ScreenShell>
+  );
+}
+
+/** Their champion (2026-07-19, migration 067): the athlete's actual avatar art
+ *  when they share their Evo profile (path + stage + sex), else the letter tile
+ *  — a private athlete exposes no branch/stage, so no avatar can be drawn. */
+function AthleteAvatar({ profile }: { profile: AthleteProfile }) {
+  const colors = useThemeColors();
+  const evo = profile.evo;
+  const path = evo?.path ?? null;
+  const art =
+    path != null && evo?.stage != null
+      ? avatarArtV2(path as BranchV2, evo.stage, (evo.sex ?? 'male') as Sex)
+      : null;
+  if (art) {
+    return (
+      <View
+        className="items-center justify-center overflow-hidden rounded-xl border"
+        style={{ width: 60, height: 60, borderColor: `${colors.accent}8c`, backgroundColor: 'rgba(34,211,238,0.1)' }}
+      >
+        <Image source={art.source} resizeMode="contain" style={{ width: 58, height: 58 }} />
+      </View>
+    );
+  }
+  return (
+    <View
+      className="items-center justify-center rounded-xl border"
+      style={{ width: 60, height: 60, borderColor: `${colors.accent}8c`, backgroundColor: 'rgba(34,211,238,0.1)' }}
+    >
+      <Text allowFontScaling={false} style={{ fontSize: 26, color: colors.accent, ...pixelFont() }}>
+        {(profile.display_name[0] ?? 'A').toUpperCase()}
+      </Text>
+    </View>
   );
 }
 

@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { useFriendCode, useFriends, useFriendRequests, useRespondRequest, useSendFriendRequest } from '@/data/social';
-import { useSearchAthletes } from '@/data/social-profile';
+import { useRecommendedAthletes, useSearchAthletes } from '@/data/social-profile';
 import { pixelFont } from '@/theme/fonts';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { useThemeColors } from '@/theme/use-theme';
@@ -26,7 +26,17 @@ export default function FriendsScreen() {
   const respond = useRespondRequest();
   const [entry, setEntry] = useState('');
   const [search, setSearch] = useState('');
-  const hits = useSearchAthletes(search);
+  // Typeahead: 150ms after the last keystroke drives the query (below "laggy",
+  // above the character rate) — suggestions pop up as you type, unthrottled
+  // keystrokes no longer fire one RPC each.
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 150);
+    return () => clearTimeout(t);
+  }, [search]);
+  const hits = useSearchAthletes(debounced);
+  const searching = search.trim().length >= 2;
+  const recommended = useRecommendedAthletes();
   // §7.1: this screen is reachable from Arena AND Social; router.back() pops
   // the TAB history (→ Home), so the pusher says where back goes. Default is
   // Social — every un-tagged door here is social's.
@@ -91,7 +101,7 @@ export default function FriendsScreen() {
           maxLength={24}
           testID="friend-search-input"
         />
-        {search.trim().length >= 2 ? (
+        {searching ? (
           hits.isPending ? (
             <Text className="mt-s2 text-2xs text-text-mute">Searching…</Text>
           ) : (hits.data ?? []).length === 0 ? (
@@ -101,33 +111,41 @@ export default function FriendsScreen() {
           ) : (
             <View className="mt-s2 gap-s2">
               {(hits.data ?? []).map((a) => (
-                <View
+                <AthleteHit
                   key={a.user_id}
-                  className="flex-row items-center justify-between rounded-xl border p-s3"
-                  style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.6)' }}
+                  id={a.user_id}
+                  name={a.display_name}
+                  forge={a.forge_level}
+                  isFriend={a.is_friend}
                   testID={`friend-hit-${a.user_id}`}
-                >
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text className="text-sm font-bold text-text" numberOfLines={1}>
-                      {a.display_name}
-                    </Text>
-                    {a.forge_level != null ? (
-                      <Text className="text-2xs text-text-mute">LV. {a.forge_level}</Text>
-                    ) : null}
-                  </View>
-                  {a.is_friend ? (
-                    <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
-                      ✓ FRIENDS
-                    </Text>
-                  ) : (
-                    <AddFriendButton athleteId={a.user_id} testID={`friend-search-add-${a.user_id}`} />
-                  )}
-                </View>
+                />
               ))}
             </View>
           )
         ) : null}
       </GlowCard>
+
+      {/* SUGGESTED FRIENDS (067) — discoverable athletes ranked by shared
+          friends. Hidden while a search is active. */}
+      {!searching && (recommended.data ?? []).length > 0 ? (
+        <GlowCard>
+          <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.accent, letterSpacing: 1.5, ...pixelFont(false) }}>
+            SUGGESTED FRIENDS
+          </Text>
+          <View className="mt-s2 gap-s2">
+            {(recommended.data ?? []).map((a) => (
+              <AthleteHit
+                key={a.user_id}
+                id={a.user_id}
+                name={a.display_name}
+                forge={a.forge_level}
+                mutual={a.mutual_count}
+                testID={`friend-suggested-${a.user_id}`}
+              />
+            ))}
+          </View>
+        </GlowCard>
+      ) : null}
 
       {/* Pending incoming requests. */}
       {requests.data && requests.data.length > 0 ? (
@@ -172,5 +190,51 @@ export default function FriendsScreen() {
         <Text className="py-s3 text-center text-2xs text-text-mute">No rivals yet — share your code and add a friend.</Text>
       )}
     </ScreenShell>
+  );
+}
+
+/** One found/suggested athlete: tap the row to open their profile; the ADD
+ *  button (or a mutual-friend hint) sits on the right. */
+function AthleteHit({
+  id,
+  name,
+  forge,
+  isFriend,
+  mutual,
+  testID,
+}: {
+  id: string;
+  name: string;
+  forge: number | null;
+  isFriend?: boolean;
+  mutual?: number;
+  testID?: string;
+}) {
+  const colors = useThemeColors();
+  return (
+    <Pressable
+      onPress={() => router.push(`/athlete/${id}` as never)}
+      accessibilityRole="button"
+      testID={testID}
+      className="flex-row items-center justify-between rounded-xl border p-s3"
+      style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.6)' }}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text className="text-sm font-bold text-text" numberOfLines={1}>
+          {name}
+        </Text>
+        <Text className="text-2xs text-text-mute" numberOfLines={1}>
+          {forge != null ? `LV. ${forge}` : 'Athlete'}
+          {mutual && mutual > 0 ? ` · ${mutual} mutual friend${mutual === 1 ? '' : 's'}` : ''}
+        </Text>
+      </View>
+      {isFriend ? (
+        <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+          ✓ FRIENDS
+        </Text>
+      ) : (
+        <AddFriendButton athleteId={id} testID={`friend-add-${id}`} />
+      )}
+    </Pressable>
   );
 }
