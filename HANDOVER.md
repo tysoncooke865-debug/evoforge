@@ -26,6 +26,25 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FULL GYM BATTLES + more Supabase hardening (2026-07-19, migration 070)** —
+  gym battles now run the REAL RPG combat engine member-vs-member, not an Evo
+  sum. `gym_battle_prepare()` hands the client both rosters' combat inputs
+  (champion path + the four pillars, show_evo-gated → neutral 40s when hidden)
+  + a server seed; `domain/battle-rpg/gym-battle.ts::runGymBattle` pairs seats
+  by rating and runs each duel through `createBattle`/`resolveTurn`/
+  `chooseAiMove` DETERMINISTICALLY from the seed (deeper roster gets byes);
+  `record_gym_battle()` stores the tally + per-duel HP log in
+  `gym_battles.detail`. Both RPCs membership-gated + rate-limited. Gym battles
+  grant NOTHING farmable, so the client-run engine has no exploit surface — the
+  deliberate trade for not mirroring the client-only RPG engine into Deno. The
+  gym screen shows a VICTORY/DEFEAT/DRAW modal with the duel breakdown.
+  Security also: **M1 fixed** — the `social-media` bucket read is now gated by
+  post visibility via the definer `can_read_social_object()` helper (images
+  still render — they're caller-signed and the predicate mirrors `social_feed`);
+  and **Auth config hardened** via the management API (password_min_length 6→10,
+  require-reauth-on-password-change ON; HIBP leaked-password needs a Pro plan —
+  not settable on the current plan; OTP expiry/MFA-TOTP/refresh-rotation already
+  good). All falsified with a simulated session; test data purged.
 - **SECURITY OVERHAUL (2026-07-19, migration 069 APPLIED + 2 edge fns)** — the
   audit found the data-security posture already STRONG (no secrets, full RLS,
   correct definer revokes); the gaps were App-Store *compliance features*:

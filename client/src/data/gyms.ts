@@ -4,6 +4,7 @@ import { useIsFocused } from 'expo-router';
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
 import { useToastStore } from '@/state/toast-store';
+import { runGymBattle, type GymBattleResult, type GymCombatMember } from '@/domain/battle-rpg/gym-battle';
 
 /**
  * GYMS (Tyson, 2026-07-19, migration 068) — player groups your friends and
@@ -216,36 +217,74 @@ export function usePostGymMessage() {
   });
 }
 
+export interface GymBattleOutcome extends GymBattleResult {
+  result: 'win' | 'loss' | 'draw';
+  opponent_name: string;
+  my_name: string;
+}
+
+interface PrepareResult {
+  ok: boolean;
+  reason?: string;
+  opponent_gym?: string;
+  opponent_name?: string;
+  my_name?: string;
+  seed?: number;
+  my_roster?: GymCombatMember[];
+  opp_roster?: GymCombatMember[];
+}
+
+/**
+ * FULL GYM BATTLE (migration 070): the server hands over both rosters' combat
+ * inputs + a seed (gym_battle_prepare); the RPG engine runs each member-vs-
+ * member duel deterministically on the client; record_gym_battle stores the
+ * tally + per-duel log. Cosmetic (no farmable rewards), so the client-run
+ * engine is safe.
+ */
 export function useGymBattle() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (input: { gymId: string; opponentCode: string }) => {
-      const { data, error } = await supabase.rpc('gym_battle', {
+    mutationFn: async (input: { gymId: string; opponentCode: string }): Promise<GymBattleOutcome> => {
+      const prep = await supabase.rpc('gym_battle_prepare', {
         p_my_gym: input.gymId,
         p_opponent_code: input.opponentCode,
       });
-      if (error) throw new Error(error.message);
-      const r = data as { ok: boolean; reason?: string; result?: string; my_score?: number; their_score?: number; opponent_name?: string };
-      if (!r.ok) {
+      if (prep.error) throw new Error(prep.error.message);
+      const p = prep.data as PrepareResult;
+      if (!p.ok) {
         throw new Error(
-          r.reason === 'opponent_not_found'
+          p.reason === 'opponent_not_found'
             ? 'No gym with that code.'
-            : r.reason === 'same_gym'
+            : p.reason === 'same_gym'
               ? "That's your own gym."
-              : 'Could not run the battle.'
+              : p.reason === 'rate_limited'
+                ? 'Too many battles — wait a moment.'
+                : 'Could not start the battle.'
         );
       }
-      return r;
+      // Run the real engine, member-vs-member, from the server seed.
+      const outcome = runGymBattle(p.my_roster ?? [], p.opp_roster ?? [], p.seed ?? 1);
+      const result: 'win' | 'loss' | 'draw' =
+        outcome.a_score > outcome.b_score ? 'win' : outcome.b_score > outcome.a_score ? 'loss' : 'draw';
+      // Record it (winner derived server-side from the scores).
+      const rec = await supabase.rpc('record_gym_battle', {
+        p_my_gym: input.gymId,
+        p_opponent: p.opponent_gym,
+        p_a_score: outcome.a_score,
+        p_b_score: outcome.b_score,
+        p_detail: { seed: p.seed, duels: outcome.duels },
+      });
+      if (rec.error) throw new Error(rec.error.message);
+      return {
+        ...outcome,
+        result,
+        opponent_name: p.opponent_name ?? 'Rival Gym',
+        my_name: p.my_name ?? 'Your Gym',
+      };
     },
     onSuccess: (r, input) => {
       void queryClient.invalidateQueries({ queryKey: ['gym_detail', userId, input.gymId] });
-      const title = r.result === 'win' ? 'VICTORY' : r.result === 'loss' ? 'DEFEAT' : 'DRAW';
-      useToastStore.getState().push({
-        kind: 'info',
-        title: `${title} vs ${r.opponent_name}`,
-        subtitle: `${r.my_score} — ${r.their_score} (roster Evo)`,
-      });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'NO BATTLE', subtitle: e.message });

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import {
@@ -9,6 +9,7 @@ import {
   useGymMessages,
   useLeaveGym,
   usePostGymMessage,
+  type GymBattleOutcome,
 } from '@/data/gyms';
 import { useBlockedSet, useReportContent } from '@/data/moderation';
 import { pixelFont } from '@/theme/fonts';
@@ -39,6 +40,7 @@ export default function GymScreen() {
 
   const [msg, setMsg] = useState('');
   const [oppCode, setOppCode] = useState('');
+  const [result, setResult] = useState<GymBattleOutcome | null>(null);
 
   const d = detail.data;
   const gym = d?.gym;
@@ -117,7 +119,8 @@ export default function GymScreen() {
               BATTLE ANOTHER GYM
             </Text>
             <Text className="mt-s1 text-2xs text-text-dim">
-              Enter a rival gym&apos;s code — the bigger total roster Evo Rating wins.
+              Enter a rival gym&apos;s code — your rosters fight member-vs-member in the combat
+              engine; most duels won takes it.
             </Text>
             <TextInput
               className="mt-s2 min-h-[46px] rounded-md border bg-surface-2 px-s3 text-center text-base font-bold text-text"
@@ -132,8 +135,14 @@ export default function GymScreen() {
             />
             <View className="mt-s2">
               <NeonButton
-                title="⚔ BATTLE"
-                onPress={() => gymId && battle.mutate({ gymId, opponentCode: oppCode }, { onSuccess: () => setOppCode('') })}
+                title={battle.isPending ? 'FIGHTING…' : '⚔ BATTLE'}
+                onPress={() =>
+                  gymId &&
+                  battle.mutate(
+                    { gymId, opponentCode: oppCode },
+                    { onSuccess: (r) => { setOppCode(''); setResult(r); } }
+                  )
+                }
                 busy={battle.isPending}
                 disabled={oppCode.trim().length !== 6}
                 testID="gym-battle"
@@ -256,6 +265,45 @@ export default function GymScreen() {
           </Pressable>
         </>
       )}
+
+      {result ? <GymBattleResultModal result={result} onClose={() => setResult(null)} /> : null}
     </ScreenShell>
+  );
+}
+
+/** The engine battle's outcome: overall verdict + the per-member duel card
+ *  (champion combat, not a stat sum). */
+function GymBattleResultModal({ result, onClose }: { result: GymBattleOutcome; onClose: () => void }) {
+  const colors = useThemeColors();
+  const tint = result.result === 'win' ? colors.success : result.result === 'loss' ? colors.danger : colors['text-dim'];
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable className="flex-1 items-center justify-center px-s4" style={{ backgroundColor: 'rgba(2,5,11,0.82)' }} onPress={onClose}>
+        <Pressable onPress={() => undefined} className="w-full max-w-[440px] rounded-xl border p-s4" style={{ borderColor: `${tint}66`, backgroundColor: colors.surface }}>
+          <Text className="text-center" allowFontScaling={false} style={{ fontSize: 22, color: tint, letterSpacing: 1, ...pixelFont() }}>
+            {result.result === 'win' ? 'VICTORY' : result.result === 'loss' ? 'DEFEAT' : 'DRAW'}
+          </Text>
+          <Text className="mt-s1 text-center text-2xs text-text-mute" numberOfLines={1}>
+            {result.my_name} {result.a_score} — {result.b_score} {result.opponent_name}
+          </Text>
+          <View className="mt-s3 gap-s1">
+            {result.duels.map((d, i) => (
+              <View key={i} className="flex-row items-center justify-between rounded-md border border-border px-s2" style={{ minHeight: 34, backgroundColor: 'rgba(13,21,36,0.5)' }}>
+                <Text className={`flex-1 text-2xs ${d.winner === 'a' ? 'text-success' : 'text-text-mute'}`} numberOfLines={1}>
+                  {d.winner === 'a' ? '▶ ' : ''}{d.a_name} ({d.a_hp_pct}%)
+                </Text>
+                <Text className="text-2xs text-text-mute px-s2">vs</Text>
+                <Text className={`flex-1 text-right text-2xs ${d.winner === 'b' ? 'text-danger' : 'text-text-mute'}`} numberOfLines={1}>
+                  {d.b_name} ({d.b_hp_pct}%){d.winner === 'b' ? ' ◀' : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View className="mt-s3">
+            <NeonButton title="DONE" onPress={onClose} testID="gym-battle-done" />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
