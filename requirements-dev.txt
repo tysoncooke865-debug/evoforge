@@ -1,5 +1,5 @@
 # Development / verification only. NOT installed on Streamlit Cloud.
-# Runtime deps live in requirements.txt.
+# The goldens-contract runtime lives in requirements.txt (slim, post-Streamlit).
 -r requirements.txt
 
 # Real-browser rendering for tools/shot.py.

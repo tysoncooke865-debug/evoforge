@@ -1,0 +1,17 @@
+# THE GOLDENS CONTRACT'S RUNTIME (2026-07-19). The Streamlit app is deleted
+# from this branch — what survives is the import chain under
+# tools/gen_fixtures.py --check (domain/*.py -> data.sb_ops -> streamlit;
+# ui.avatar_images -> PIL). CI's fixtures job installs requirements-dev.txt,
+# which includes this file; setup-python's pip cache also keys off it.
+# Pins carried over from the Streamlit era (Python 3.13 wheels — the 3.14
+# segfault lesson lives in main's history).
+
+streamlit==1.49.1
+
+# Native, ABI-coupled trio — must agree with each other.
+pandas==2.3.3
+numpy==2.2.6
+pyarrow==18.1.0
+
+pillow==11.3.0
+supabase==2.31.0
