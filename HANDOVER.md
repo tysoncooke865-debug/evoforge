@@ -1481,7 +1481,10 @@ Owner: Tyson. He works through other Claude sessions too — **always
     LOCAL calendar date — Playwright must use `getDay()`, not
     `getUTCDay()`, when computing the app's weekday.
 
-**Migrations applied through `065`. Next free number: `066`.**
+**Migrations applied through `070`. Next free number: `071`.**
+(`065` is a SHARED number, like `037`: `065_leaderboard_metrics.sql` and
+`065_schedule_extra_workouts.sql` were written by parallel sessions the same
+weekend — both applied.)
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —
