@@ -5,6 +5,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { useAthleteProfile, useAthletePosts, type AthleteProfile, type EvoPillar } from '@/data/social-profile';
 import { useBattleSnapshot, useCreateInvite } from '@/data/battle/mutations';
+import { useBlockUser, useMyBlocks, useReportContent, useUnblockUser } from '@/data/moderation';
 import { useToastStore } from '@/state/toast-store';
 import type { BranchV2 } from '@/domain/branches-v2';
 import type { Sex } from '@/domain/nutrition';
@@ -142,6 +143,9 @@ export default function AthleteProfileScreen() {
             />
           ) : null}
 
+          {/* Safety: block or report (App-Store moderation). */}
+          {!p.is_self && athleteId ? <SafetyRow athleteId={athleteId} name={p.display_name} /> : null}
+
           {/* Evo pillars — only if the athlete shows them. */}
           {p.evo ? (
             <GlowCard glow={colors.epic}>
@@ -234,6 +238,40 @@ function AthleteAvatar({ profile }: { profile: AthleteProfile }) {
       <Text allowFontScaling={false} style={{ fontSize: 26, color: colors.accent, ...pixelFont() }}>
         {(profile.display_name[0] ?? 'A').toUpperCase()}
       </Text>
+    </View>
+  );
+}
+
+/** Block/unblock + report — the App-Store safety controls on a profile. */
+function SafetyRow({ athleteId, name }: { athleteId: string; name: string }) {
+  const colors = useThemeColors();
+  const blocks = useMyBlocks();
+  const block = useBlockUser();
+  const unblock = useUnblockUser();
+  const report = useReportContent();
+  const isBlocked = (blocks.data ?? []).includes(athleteId);
+  return (
+    <View className="flex-row justify-center gap-s4" style={{ marginTop: 2 }}>
+      <Pressable
+        onPress={() =>
+          isBlocked ? unblock.mutate(athleteId) : block.mutate(athleteId)
+        }
+        accessibilityRole="button"
+        testID="athlete-block"
+        style={{ minHeight: 40, justifyContent: 'center' }}
+      >
+        <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}>
+          {isBlocked ? `UNBLOCK ${name.toUpperCase()}` : '⃠ BLOCK'}
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() => report.mutate({ type: 'profile', id: athleteId, reason: 'inappropriate' })}
+        accessibilityRole="button"
+        testID="athlete-report"
+        style={{ minHeight: 40, justifyContent: 'center' }}
+      >
+        <Text style={{ fontSize: 10, letterSpacing: 1, color: colors.warn, ...pixelFont(false) }}>⚑ REPORT</Text>
+      </Pressable>
     </View>
   );
 }

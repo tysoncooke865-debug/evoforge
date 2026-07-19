@@ -5,6 +5,8 @@ import { useAuth } from '@/data/auth-context';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
 import { useLogBodyweight, useSavePublicIdentity, useUpdateTrainingNumbers } from '@/data/mutations';
 import { useAthleteProfile, useSetPrivacy, type PrivacyFlags } from '@/data/social-profile';
+import { useDeleteAccount } from '@/data/moderation';
+import { useToastStore } from '@/state/toast-store';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
@@ -123,7 +125,90 @@ export default function ProfileScreen() {
             SIGN OUT
           </Text>
         </Pressable>
+
+        <DeleteAccountCard />
     </ScreenShell>
+  );
+}
+
+/** ACCOUNT DELETION (Apple 5.1.1(v), 2026-07-19): a two-step confirm — the
+ *  athlete types DELETE, then the edge function removes the auth user and every
+ *  owned row cascades. On success we sign out into the clean slate. */
+function DeleteAccountCard() {
+  const colors = useThemeColors();
+  const { signOut } = useAuth();
+  const del = useDeleteAccount();
+  const [arming, setArming] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const ready = confirm.trim().toUpperCase() === 'DELETE';
+
+  return (
+    <GlowCard glow={colors.danger}>
+      <Text className="text-2xs font-bold text-danger" style={{ letterSpacing: 1.5 }}>
+        DANGER ZONE
+      </Text>
+      {!arming ? (
+        <Pressable
+          onPress={() => setArming(true)}
+          accessibilityRole="button"
+          testID="delete-account-open"
+          className="mt-s2 items-center rounded-md border p-s3"
+          style={{ borderColor: `${colors.danger}66`, backgroundColor: 'rgba(248,113,113,0.06)' }}
+        >
+          <Text className="text-danger" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>
+            DELETE MY ACCOUNT
+          </Text>
+        </Pressable>
+      ) : (
+        <View className="mt-s2 gap-s2">
+          <Text className="text-2xs text-text-dim">
+            This permanently deletes your account and all your data — workouts, stats, social, gyms.
+            It cannot be undone. Type DELETE to confirm.
+          </Text>
+          <TextInput
+            className="min-h-[46px] rounded-md border bg-surface-2 px-s3 text-center text-base font-bold text-text"
+            style={{ letterSpacing: 3, borderColor: ready ? `${colors.danger}8c` : colors.border }}
+            placeholder="DELETE"
+            placeholderTextColor="#64758f"
+            autoCapitalize="characters"
+            value={confirm}
+            onChangeText={setConfirm}
+            testID="delete-account-confirm"
+          />
+          <View className="flex-row gap-s2">
+            <Pressable
+              onPress={() => { setArming(false); setConfirm(''); }}
+              accessibilityRole="button"
+              className="flex-1 items-center justify-center rounded-md border border-border p-s3"
+              style={{ minHeight: 46 }}
+            >
+              <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>CANCEL</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                del.mutate(undefined, {
+                  onSuccess: () => {
+                    useToastStore.getState().push({ kind: 'info', title: 'ACCOUNT DELETED', subtitle: '' });
+                    void signOut();
+                  },
+                  onError: (e) =>
+                    useToastStore.getState().push({ kind: 'error', title: 'NOT DELETED', subtitle: e.message }),
+                })
+              }
+              accessibilityRole="button"
+              disabled={!ready || del.isPending}
+              testID="delete-account-confirm-btn"
+              className="flex-1 items-center justify-center rounded-md p-s3"
+              style={{ minHeight: 46, backgroundColor: colors.danger, opacity: ready && !del.isPending ? 1 : 0.5 }}
+            >
+              <Text style={{ fontSize: 12, color: '#0b0f16', ...pixelFont() }}>
+                {del.isPending ? 'DELETING…' : 'DELETE FOREVER'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </GlowCard>
   );
 }
 

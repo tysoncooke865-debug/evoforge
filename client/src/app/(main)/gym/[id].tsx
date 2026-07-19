@@ -10,6 +10,7 @@ import {
   useLeaveGym,
   usePostGymMessage,
 } from '@/data/gyms';
+import { useBlockedSet, useReportContent } from '@/data/moderation';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -33,6 +34,8 @@ export default function GymScreen() {
   const post = usePostGymMessage();
   const battle = useGymBattle();
   const leave = useLeaveGym();
+  const report = useReportContent();
+  const blocked = useBlockedSet();
 
   const [msg, setMsg] = useState('');
   const [oppCode, setOppCode] = useState('');
@@ -174,7 +177,9 @@ export default function GymScreen() {
               {(messages.data ?? []).length === 0 ? (
                 <Text className="py-s3 text-center text-2xs text-text-mute">No messages yet — say hello.</Text>
               ) : (
-                (messages.data ?? []).map((m) => {
+                (messages.data ?? [])
+                  .filter((m) => !blocked.has(m.author_id)) // hide blocked members' messages
+                  .map((m) => {
                   const mine = m.author_id === myId;
                   return (
                     <View
@@ -188,9 +193,20 @@ export default function GymScreen() {
                       }}
                     >
                       {!mine ? (
-                        <Text className="text-2xs font-bold text-text-mute" numberOfLines={1}>
-                          {m.author_name}
-                        </Text>
+                        <View className="flex-row items-center justify-between gap-s2">
+                          <Text className="text-2xs font-bold text-text-mute" numberOfLines={1}>
+                            {m.author_name}
+                          </Text>
+                          <Pressable
+                            onPress={() => report.mutate({ type: 'gym_message', id: m.id, reason: 'inappropriate' })}
+                            accessibilityRole="button"
+                            accessibilityLabel="report message"
+                            testID={`gym-msg-report-${m.id}`}
+                            hitSlop={8}
+                          >
+                            <Text style={{ fontSize: 11, color: colors.warn }}>⚑</Text>
+                          </Pressable>
+                        </View>
                       ) : null}
                       <Text className="text-sm text-text">{m.body}</Text>
                     </View>

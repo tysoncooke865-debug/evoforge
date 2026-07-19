@@ -49,10 +49,46 @@ Deno.serve(async (req) => {
     if (!postId) return json({ error: 'post_id required' }, 400);
     const { data: post } = await admin.from('social_posts').select('author_id').eq('id', postId).maybeSingle();
     recipient = post?.author_id ?? null;
+  } else if (type === 'friend_request') {
+    // M2 (2026-07-19): don't trust body.to_user — a client could spoof a
+    // "sent you a friend request" push to anyone. Only push if a REAL pending
+    // request from the actor to the target exists.
+    const target = body.to_user ? String(body.to_user) : null;
+    if (target) {
+      const { data: fr } = await admin
+        .from('friend_requests')
+        .select('to_id')
+        .eq('from_id', actor)
+        .eq('to_id', target)
+        .eq('status', 'pending')
+        .maybeSingle();
+      recipient = fr?.to_id ?? null;
+    }
   } else {
-    recipient = body.to_user ? String(body.to_user) : null;
+    // mention: only push if the actor really authored a post mentioning the
+    // target (the post carries the mention). Requires a post_id authored by the
+    // actor; without it we refuse rather than trust body.to_user.
+    const postId = String(body.post_id ?? '');
+    const target = body.to_user ? String(body.to_user) : null;
+    if (postId && target) {
+      const { data: post } = await admin
+        .from('social_posts')
+        .select('author_id')
+        .eq('id', postId)
+        .eq('author_id', actor)
+        .maybeSingle();
+      recipient = post ? target : null;
+    }
   }
   if (!recipient || recipient === actor) return json({ ok: true, sent: 0 });
+  // Never push to someone who blocked the actor (or whom the actor blocked).
+  {
+    const { data: blocks } = await admin
+      .from('blocked_users')
+      .select('blocker_id')
+      .or(`and(blocker_id.eq.${recipient},blocked_id.eq.${actor}),and(blocker_id.eq.${actor},blocked_id.eq.${recipient})`);
+    if (blocks && blocks.length > 0) return json({ ok: true, sent: 0 });
+  }
 
   const { data: prof } = await admin.from('public_profile').select('display_name').eq('user_id', actor).maybeSingle();
   const actorName = prof?.display_name ?? 'Someone';

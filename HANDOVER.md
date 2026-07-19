@@ -26,6 +26,29 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **SECURITY OVERHAUL (2026-07-19, migration 069 APPLIED + 2 edge fns)** — the
+  audit found the data-security posture already STRONG (no secrets, full RLS,
+  correct definer revokes); the gaps were App-Store *compliance features*:
+  - **Account deletion** (Apple 5.1.1(v)): new `delete-account` edge fn
+    (JWT-derived uid → `admin.deleteUser`, cascades everything), + a type-DELETE
+    DANGER ZONE in `profile.tsx`. `useDeleteAccount` in `data/moderation.ts`.
+  - **Block users** (1.2): `blocked_users` + `block_user`/`unblock_user`/
+    `my_blocks` RPCs + an internal `is_blocked()` (revoked); a `friend_requests`
+    BEFORE-INSERT trigger rejects requests across a block; blocking severs the
+    friendship. Client hides blocked users (`useBlockedSet`) in friends
+    search/suggested + gym chat; BLOCK/UNBLOCK on the athlete profile.
+  - **Report coverage** (1.2): generic `content_reports` + `report_content`
+    RPC for comments / gym messages / profiles (posts keep `social_reports`);
+    ⚑ report on the athlete profile + each gym-chat message.
+  - **M2**: `send-push` no longer trusts `body.to_user` — friend_request/mention
+    pushes require a real pending request / actor-authored post, and never push
+    across a block.
+  - **M3**: rate-limit triggers on `friend_requests` (30/hr) + `gym_messages`
+    (8/10s); `report_content` capped 30/hr.
+  All RPCs falsified with a simulated session (block registers, friend-request
+  trigger raises, unblock clears). NOT done (documented, low-risk): M1 storage
+  bucket read gated by post visibility; L2/L3 are Supabase-dashboard/store-listing
+  config, not code. Edge fns deploy via `client.yml` on push.
 - **GYMS (2026-07-19, migration 068 APPLIED)** — player groups on the Social
   page (a 4th non-feed scope, branched like RIVALS): create/join-by-code, a
   private group chat (`gym_messages`, 5s poll), and GYM-vs-GYM battles decided

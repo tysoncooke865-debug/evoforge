@@ -4,6 +4,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { useFriendCode, useFriends, useFriendRequests, useRespondRequest, useSendFriendRequest } from '@/data/social';
 import { useRecommendedAthletes, useSearchAthletes } from '@/data/social-profile';
+import { useBlockedSet } from '@/data/moderation';
 import { pixelFont } from '@/theme/fonts';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { useThemeColors } from '@/theme/use-theme';
@@ -37,6 +38,7 @@ export default function FriendsScreen() {
   const hits = useSearchAthletes(debounced);
   const searching = search.trim().length >= 2;
   const recommended = useRecommendedAthletes();
+  const blocked = useBlockedSet();
   // §7.1: this screen is reachable from Arena AND Social; router.back() pops
   // the TAB history (→ Home), so the pusher says where back goes. Default is
   // Social — every un-tagged door here is social's.
@@ -110,7 +112,7 @@ export default function FriendsScreen() {
             </Text>
           ) : (
             <View className="mt-s2 gap-s2">
-              {(hits.data ?? []).map((a) => (
+              {(hits.data ?? []).filter((a) => !blocked.has(a.user_id)).map((a) => (
                 <AthleteHit
                   key={a.user_id}
                   id={a.user_id}
@@ -127,13 +129,13 @@ export default function FriendsScreen() {
 
       {/* SUGGESTED FRIENDS (067) — discoverable athletes ranked by shared
           friends. Hidden while a search is active. */}
-      {!searching && (recommended.data ?? []).length > 0 ? (
+      {!searching && (recommended.data ?? []).filter((a) => !blocked.has(a.user_id)).length > 0 ? (
         <GlowCard>
           <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.accent, letterSpacing: 1.5, ...pixelFont(false) }}>
             SUGGESTED FRIENDS
           </Text>
           <View className="mt-s2 gap-s2">
-            {(recommended.data ?? []).map((a) => (
+            {(recommended.data ?? []).filter((a) => !blocked.has(a.user_id)).map((a) => (
               <AthleteHit
                 key={a.user_id}
                 id={a.user_id}
