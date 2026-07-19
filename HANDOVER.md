@@ -26,6 +26,25 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **GYMS (2026-07-19, migration 068 APPLIED)** — player groups on the Social
+  page (a 4th non-feed scope, branched like RIVALS): create/join-by-code, a
+  private group chat (`gym_messages`, 5s poll), and GYM-vs-GYM battles decided
+  by aggregate roster Evo Rating (`gym_battle` → `gym_battles`). Tables
+  (`gyms`/`gym_members`/`gym_messages`/`gym_battles`) are RLS-locked with NO
+  client policies — ALL access is through security-definer RPCs, each
+  membership-gated via internal `is_gym_member()` (revoked from clients). Owner
+  leaving hands off to the earliest member, or disbands if empty. Hooks in
+  `data/gyms.ts`; UI in `ui/social/gyms-view.tsx` + `app/(main)/gym/[id].tsx`.
+  NOTE unrelated to 032's PvE `gym_progress` / mode 'gym' (single-player boss
+  clear). Verified on web (create → roster → chat → battle DRAW); test data purged.
+- **PROFILE AVATAR + CHALLENGE + SUGGESTED FRIENDS (2026-07-19, migration 067)**
+  — `public_athlete_profile` returns `active_stage`+`sex` (show_evo-gated) so
+  `athlete/[id]` draws the champion via `avatarArtV2`; a "⚔ CHALLENGE" button
+  mints a code-based invite; `recommended_athletes()` ranks suggested friends by
+  mutual-friend count; friends search is debounced (150ms) + tappable. The
+  QUICK WORKOUT sheet regained a "PREFILL WITH RECOMMENDED EXERCISES" button
+  (corpus/ranking engine). Radar projection recut to realistic gains. Schedule
+  uses SOURCE/SPLIT dropdown boxes.
 - **PER-DAY SCHEDULE SOURCE (2026-07-19, migration 066 APPLIED)** — the weekly
   schedule can pin a SOURCE (my plan / AI plan / EvoForge) to each day and a
   SPLIT from that source, so a week can mix AI push / my-plan legs / built-in

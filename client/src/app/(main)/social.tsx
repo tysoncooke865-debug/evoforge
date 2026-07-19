@@ -11,6 +11,7 @@ import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from 
 import { useDiscoverAthletes } from '@/data/social-profile';
 import { useUnreadCount } from '@/data/social-notifications';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
+import { GymsView } from '@/ui/social/gyms-view';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -32,10 +33,14 @@ import { SocialPostCard } from '@/ui/social/post-cards';
  * never a mocked feed. When live: Following / Rivals / Discover, a friends
  * activity row, and the typed post cards.
  */
-const TABS: readonly { key: FeedScope; label: string }[] = [
-  { key: 'following', label: 'FOLLOWING' },
+// GYMS (068) is a non-feed scope, branched like RIVALS — FeedScope stays
+// feed-only so the feed backend is untouched.
+type SocialTab = FeedScope | 'gyms';
+const TABS: readonly { key: SocialTab; label: string }[] = [
+  { key: 'following', label: 'FEED' },
   { key: 'rivals', label: 'RIVALS' },
   { key: 'discover', label: 'DISCOVER' },
+  { key: 'gyms', label: 'GYMS' },
 ];
 
 export default function SocialScreen() {
@@ -47,14 +52,15 @@ function SocialFeed() {
   const colors = useThemeColors();
   const { session } = useAuth();
   const myId = session?.user?.id ?? null;
-  const [scope, setScope] = useState<FeedScope>('following');
+  const [scope, setScope] = useState<SocialTab>('following');
   const [nowMs] = useState(() => Date.now());
   const [composerOpen, setComposerOpen] = useState(false);
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const [reportFor, setReportFor] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const unread = useUnreadCount().data ?? 0;
-  const feed = useSocialFeed(scope);
+  // The feed backend only knows FeedScope; GYMS/RIVALS render their own views.
+  const feed = useSocialFeed(scope === 'gyms' ? 'discover' : scope);
   const react = useToggleReaction();
   const del = useDeletePost();
   // §6.3: usernames are mandatory for NEW accounts (onboarding); accounts
@@ -65,7 +71,7 @@ function SocialFeed() {
 
   // B6: the feed is a virtualised list now — everything above the posts is
   // the list header; non-feed scopes render with an empty data array.
-  const feedPosts = scope === 'rivals' ? [] : posts;
+  const feedPosts = scope === 'rivals' || scope === 'gyms' ? [] : posts;
   const headerContent = (
     <>
       <ScreenHeader
@@ -145,10 +151,13 @@ function SocialFeed() {
 
       {scope === 'discover' ? <DiscoverAthletes /> : null}
 
-      {/* RIVALS is its own view (the head-to-head records), not a post feed. */}
+      {/* RIVALS + GYMS are their own views (records / groups), not a post feed. */}
       {scope === 'rivals' ? <RivalriesView /> : null}
-      {scope !== 'rivals' && feed.isPending ? <FeedSkeleton /> : null}
-      {scope !== 'rivals' && !feed.isPending && posts.length === 0 ? <EmptyState scope={scope} /> : null}
+      {scope === 'gyms' ? <GymsView /> : null}
+      {scope !== 'rivals' && scope !== 'gyms' && feed.isPending ? <FeedSkeleton /> : null}
+      {scope !== 'rivals' && scope !== 'gyms' && !feed.isPending && posts.length === 0 ? (
+        <EmptyState scope={scope} />
+      ) : null}
     </>
   );
 
