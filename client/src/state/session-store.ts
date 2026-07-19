@@ -57,6 +57,8 @@ interface SessionState {
   bumpSets: (day: string, exercise: string, delta: number) => void;
   /** Pair a and b as a superset (symmetric); calling again on a pair unlinks. */
   toggleSuperset: (day: string, a: string, b: string) => void;
+  /** REORDER (2026-07-19): set today's exercise order for a day (list of names). */
+  reorderExercises: (day: string, order: string[]) => void;
 
   /** Adding to an ad-hoc day goes through addExercise like any other day —
    *  the override layer keys on the day NAME, and an ad-hoc workout's name is
@@ -198,6 +200,9 @@ export const useSessionStore = create<SessionState>()(
           d.superset = sup;
           return { days: { ...s.days, [day]: d } };
         }),
+      reorderExercises: (day, order) =>
+        set((s) => edit(s, day, (d) => ({ ...d, order: [...order] }))),
+
       clearActive: () => set({ activeDay: null, activeSource: null }),
 
       reset: () =>

@@ -26,6 +26,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **DRAG-TO-REORDER (2026-07-19)** — `client/src/ui/train/reorderable-list.tsx`
+  (fixed-row-height, grip-handle pan on gesture-handler+Reanimated; `_layout.tsx`
+  now wraps the app in `GestureHandlerRootView`). Used in the Routine Builder
+  (reorders `plan[day]`, which SAVE persists) and DURING a workout via a
+  "⇅ REORDER EXERCISES" toggle (persists to a new today-scoped `order` override
+  in the session store; applied by `applyOrder()` in `session-plan.ts` AFTER
+  `buildEffectivePlan`, so add/remove/skip/substitute are untouched). The
+  Routine Builder's full exercise library is now COLLAPSED by default behind a
+  "BROWSE THE FULL LIBRARY" toggle so SAVE MY PLAN is no longer buried; the
+  search bar stays the always-visible fast path. Today's "CHOOSE WORKOUT"
+  utility is now "CHOOSE/UPLOAD MY WORKOUT" (testID `change-workout` unchanged).
+  Verified end-to-end on web (Playwright, ALPHA).
 - The 8-phase product transform (`EVOFORGE_TRANSFORM.md`) — P1–P8 complete.
 - `PHASE_3_PLAN.md` (Stage 1: flexible workout logging) — complete.
 - `TRAIN_IMPROVEMENTS.md` (finish marker + week bars) — complete.

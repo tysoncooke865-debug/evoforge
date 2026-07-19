@@ -23,6 +23,7 @@ import { pyInt } from '@/domain/py';
 import type { SourceIndex } from '@/domain/plan-sources';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
 import {
+  applyOrder,
   buildEffectivePlan,
   canAddSet,
   canRemoveSet,
@@ -44,6 +45,7 @@ import { playComplete } from '@/ui/core/sound';
 import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
+import { ReorderableList } from '@/ui/train/reorderable-list';
 import { NeonButton } from '@/ui/core/neon-button';
 import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -120,8 +122,10 @@ export default function WorkoutScreen() {
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
   const toggleSuperset = useSessionStore((s) => s.toggleSuperset);
   const bumpSets = useSessionStore((s) => s.bumpSets);
+  const reorderExercises = useSessionStore((s) => s.reorderExercises);
 
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
@@ -188,7 +192,10 @@ export default function WorkoutScreen() {
     ([ex, sets, scheme]) => [subs[`${workoutName}:${ex}`] ?? ex, sets, scheme] as const
   );
 
-  const plan = buildEffectivePlan(substituted, overrides, loggedFacts);
+  // REORDER (2026-07-19): the athlete's chosen order is a presentation layer
+  // over the effective plan — applied after buildEffectivePlan so add/remove/
+  // skip/substitute all still work, and a stale name never drops an exercise.
+  const plan = applyOrder(buildEffectivePlan(substituted, overrides, loggedFacts), overrides.order);
   const totals = planTotals(plan, loggedFacts);
   const { done: totalDone, target: totalTarget, complete, nextExercise } = totals;
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
@@ -241,6 +248,7 @@ export default function WorkoutScreen() {
     setSubFor(null);
     setPairFor(null);
     setPickerOpen(false);
+    setReordering(false);
   }, [date, workoutName]);
 
   useEffect(() => {
@@ -414,7 +422,55 @@ export default function WorkoutScreen() {
         </Text>
       ) : null}
 
-      {plan.map((entry, i) => {
+      {/* REORDER MODE (2026-07-19): drag the ⣿ grip to change the order the
+          workout runs in. A compact list stands in for the tall logging cards
+          while reordering — dragging full cards mid-session is impractical.
+          The new order persists in today's session overrides. */}
+      {editable && plan.length > 1 ? (
+        <Pressable
+          onPress={() => setReordering((v) => !v)}
+          accessibilityRole="button"
+          testID="toggle-reorder"
+          className="flex-row items-center justify-center rounded-md border"
+          style={{
+            minHeight: 40,
+            borderColor: reordering ? `${colors.accent}80` : colors.border,
+            backgroundColor: reordering ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
+          }}
+        >
+          <Text
+            className={reordering ? 'text-accent' : 'text-text-mute'}
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+          >
+            {reordering ? '✓ DONE — DRAG ⣿ TO REORDER' : '⇅ REORDER EXERCISES'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {reordering && editable ? (
+        <ReorderableList
+          items={plan}
+          keyOf={(e) => e.exercise}
+          rowHeight={52}
+          onReorder={(next) => reorderExercises(workoutName, next.map((e) => e.exercise))}
+          renderRow={(e) => (
+            <View
+              className="flex-row items-center gap-s2 rounded-md border border-border px-s3"
+              style={{ height: 52, backgroundColor: 'rgba(13,21,36,0.7)' }}
+            >
+              <Text className="flex-1 text-xs font-bold text-text" numberOfLines={1}>
+                {e.exercise}
+              </Text>
+              <Text className="text-2xs text-text-mute" allowFontScaling={false}>
+                {e.sets} × {e.reps}
+              </Text>
+            </View>
+          )}
+        />
+      ) : null}
+
+      {reordering ? null : plan.map((entry, i) => {
         const { exercise, sets, reps, skipped } = entry;
         const facts = loggedFacts(exercise);
         return (

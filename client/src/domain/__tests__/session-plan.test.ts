@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   adhocNameError,
+  applyOrder,
   buildEffectivePlan,
   canAddSet,
   canRemoveSet,
@@ -226,5 +227,35 @@ describe('adhocNameError', () => {
   it('REJECTS A DAY-CHIP COLLISION — workout is the grouping key in the log', () => {
     expect(adhocNameError('legs', DAYS)).toMatch(/already a day/);
     expect(adhocNameError('  Push 1 - Strength ', DAYS)).toMatch(/already a day/);
+  });
+});
+
+describe('applyOrder', () => {
+  const items = [
+    { exercise: 'A', sets: 3 },
+    { exercise: 'B', sets: 3 },
+    { exercise: 'C', sets: 3 },
+  ];
+
+  it('returns a copy unchanged when no order is given', () => {
+    expect(applyOrder(items, undefined).map((e) => e.exercise)).toEqual(['A', 'B', 'C']);
+    expect(applyOrder(items, []).map((e) => e.exercise)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('reorders by the given names', () => {
+    expect(applyOrder(items, ['C', 'A', 'B']).map((e) => e.exercise)).toEqual(['C', 'A', 'B']);
+  });
+
+  it('appends unranked entries after ranked ones, keeping their relative order', () => {
+    // D and E are not in the order list (added after the reorder).
+    const more = [...items, { exercise: 'D', sets: 3 }, { exercise: 'E', sets: 3 }];
+    expect(applyOrder(more, ['C', 'A']).map((e) => e.exercise)).toEqual(['C', 'A', 'B', 'D', 'E']);
+  });
+
+  it('never drops an entry when the order names something absent', () => {
+    // 'Z' was removed since the order was saved; the rest still all appear.
+    const out = applyOrder(items, ['Z', 'B', 'A', 'C']);
+    expect(out.map((e) => e.exercise).sort()).toEqual(['A', 'B', 'C']);
+    expect(out.map((e) => e.exercise)).toEqual(['B', 'A', 'C']);
   });
 });

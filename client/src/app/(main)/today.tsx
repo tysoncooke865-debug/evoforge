@@ -670,8 +670,8 @@ export default function TodayScreen() {
           <View className="flex-row gap-s2">
             {utilityButton(
               <PixelSwap size={17} color={colors['text-dim']} />,
-              'CHOOSE WORKOUT',
-              'Switch today\u2019s session',
+              'CHOOSE/UPLOAD MY WORKOUT',
+              'Switch or scan today\u2019s session',
               () => setChangeOpen(true),
               'change-workout'
             )}
@@ -790,7 +790,7 @@ export default function TodayScreen() {
               style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 560 }}
             >
               <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                CHOOSE WORKOUT
+                CHOOSE OR UPLOAD MY WORKOUT
               </Text>
               {([0, 1, 2] as SourceIndex[]).map((i) => {
                 const label = SOURCE_LABEL[i];

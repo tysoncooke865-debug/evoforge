@@ -42,6 +42,11 @@ export interface DayOverrides {
   /** SUPERSETS (2026-07-18): exercise -> partner, stored SYMMETRICALLY
    *  (both directions). Presentation-level pairing — sets log normally. */
   superset?: Record<string, string>;
+  /** REORDER (2026-07-19): the athlete's chosen exercise ORDER for today, as a
+   *  list of exercise names. Presentation-only, today-scoped like every other
+   *  override — applied by applyOrder() after buildEffectivePlan. A stale entry
+   *  never drops an exercise (see applyOrder). */
+  order?: string[];
 }
 
 export const EMPTY_OVERRIDES: DayOverrides = { added: [], removed: [], skipped: [], setDelta: {} };
@@ -122,6 +127,32 @@ export function buildEffectivePlan(
     out.push(entry(a.exercise, a.sets, a.reps, true));
   }
   return out;
+}
+
+/**
+ * REORDER (2026-07-19): reorder the effective plan by the athlete's chosen
+ * order. `order` is a list of exercise NAMES. Entries whose name appears are
+ * emitted in that order; anything NOT named (added or substituted after the
+ * reorder) keeps its relative position and is appended after the ordered ones.
+ * A stable, forgiving sort — a stale order can never drop or duplicate an entry.
+ */
+export function applyOrder<T extends { exercise: string }>(
+  entries: readonly T[],
+  order: readonly string[] | undefined
+): T[] {
+  if (!order || order.length === 0) return [...entries];
+  const rank = new Map(order.map((name, i) => [name, i] as const));
+  return entries
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => {
+      const ra = rank.get(a.e.exercise);
+      const rb = rank.get(b.e.exercise);
+      if (ra === undefined && rb === undefined) return a.i - b.i; // both unranked: keep original order
+      if (ra === undefined) return 1; // unranked sort AFTER ranked
+      if (rb === undefined) return -1;
+      return ra - rb;
+    })
+    .map(({ e }) => e);
 }
 
 export interface PlanTotals {

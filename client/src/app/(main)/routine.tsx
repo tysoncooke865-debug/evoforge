@@ -25,6 +25,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { PlanImportSheet } from '@/ui/train/plan-import';
+import { ReorderableList } from '@/ui/train/reorderable-list';
 import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -49,6 +50,10 @@ export default function RoutineBuilderScreen() {
   const [splitKey, setSplitKey] = useState<string | null>(null);
   const [dayIx, setDayIx] = useState(0);
   const [section, setSection] = useState(0);
+  // The full exercise library is COLLAPSED by default (Tyson, 2026-07-19): it
+  // ran hundreds of chips tall and buried SAVE MY PLAN below the fold. The
+  // search bar stays the always-visible fast path; this opens the browse grid.
+  const [browseOpen, setBrowseOpen] = useState(false);
   const [plan, setPlan] = useState<Record<string, PlanExercise[]>>({});
   // STAGE 1: the section chips show the library; the picker also SEARCHES it
   // and can create what the library doesn't have.
@@ -249,6 +254,64 @@ export default function RoutineBuilderScreen() {
     );
   };
 
+  /** One picked-exercise row's content (the grip is supplied by
+   *  ReorderableList when there is more than one). Fixed 56px tall so the
+   *  drag maths stay exact — name and the import badge each clamp to a line. */
+  const renderPicked = (e: PlanExercise) => {
+    const meta = day ? importMeta[`${day}:${e.exercise}`] : undefined;
+    return (
+      <View className="flex-row items-center gap-s2" style={{ height: 56 }}>
+        <View className="flex-1">
+          <Text className="text-xs font-bold text-text" numberOfLines={1}>
+            {e.exercise}
+          </Text>
+          {/* PLAN SCAN confidence: the page's words, kept honest. */}
+          {meta ? (
+            <Text
+              className="text-2xs"
+              style={{ color: meta.confidence === 'unmatched' ? colors.warn : colors['text-mute'] }}
+              numberOfLines={1}
+              testID={`import-badge-${e.exercise}`}
+            >
+              {meta.confidence === 'unmatched'
+                ? `⚠ not in the library — ✕ and re-add`
+                : `≈ read as “${meta.raw}”`}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={() => cycleSets(e.exercise)}
+          accessibilityRole="button"
+          className="items-center justify-center rounded-pill border px-s2"
+          style={{ minHeight: 44, borderColor: `${colors.accent}59` }}
+        >
+          <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 10, ...pixelFont() }}>
+            {e.sets} SETS
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => cycleReps(e.exercise)}
+          accessibilityRole="button"
+          className="items-center justify-center rounded-pill border px-s2"
+          style={{ minHeight: 44, borderColor: `${colors.epic}59` }}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.epic, ...pixelFont() }}>
+            {e.reps}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => removeExercise(e.exercise)}
+          accessibilityRole="button"
+          accessibilityLabel={`remove ${e.exercise}`}
+          className="items-center justify-center rounded-md border border-border"
+          style={{ width: 32, minHeight: 44 }}
+        >
+          <Text className="text-xs font-bold text-danger">✕</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   return (
     <ScreenShell>
       <ScreenHeader kicker="BUILD YOUR OWN" title="MY ROUTINE" />
@@ -406,69 +469,22 @@ export default function RoutineBuilderScreen() {
             </View>
             {dayList.length === 0 ? (
               <Text className="text-2xs text-text-mute">Nothing yet — tap exercises below to add them.</Text>
+            ) : dayList.length === 1 ? (
+              // One exercise: nothing to reorder — render it flush (no grip).
+              <View>{renderPicked(dayList[0])}</View>
             ) : (
-              dayList.map((e) => {
-                const meta = day ? importMeta[`${day}:${e.exercise}`] : undefined;
-                return (
-                <View key={e.exercise} className="mb-s2 flex-row items-center gap-s2">
-                  <Pressable
-                    onPress={() => removeExercise(e.exercise)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`remove ${e.exercise}`}
-                    className="items-center justify-center rounded-md border border-border"
-                    style={{ width: 32, minHeight: 44 }}
-                  >
-                    <Text className="text-xs font-bold text-danger">✕</Text>
-                  </Pressable>
-                  <View className="flex-1">
-                    <Text className="text-xs font-bold text-text" numberOfLines={2}>
-                      {e.exercise}
-                    </Text>
-                    {/* PLAN SCAN confidence: the page's words, kept honest. */}
-                    {meta ? (
-                      <Text
-                        className="text-2xs"
-                        style={{
-                          color:
-                            meta.confidence === 'unmatched'
-                              ? colors.warn
-                              : colors['text-mute'],
-                        }}
-                        numberOfLines={1}
-                        testID={`import-badge-${e.exercise}`}
-                      >
-                        {meta.confidence === 'unmatched'
-                          ? `⚠ not in the library — ✕ and re-add, or keep as written`
-                          : `≈ read as “${meta.raw}”`}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    onPress={() => cycleSets(e.exercise)}
-                    accessibilityRole="button"
-                    className="items-center justify-center rounded-pill border px-s2"
-                    style={{ minHeight: 44, borderColor: `${colors.accent}59` }}
-                  >
-                    <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 10, ...pixelFont() }}>
-                      {e.sets} SETS
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => cycleReps(e.exercise)}
-                    accessibilityRole="button"
-                    className="items-center justify-center rounded-pill border px-s2"
-                    style={{ minHeight: 44, borderColor: `${colors.epic}59` }}
-                  >
-                    <Text
-                      allowFontScaling={false}
-                      style={{ fontSize: 10, color: colors.epic, ...pixelFont() }}
-                    >
-                      {e.reps}
-                    </Text>
-                  </Pressable>
-                </View>
-                );
-              })
+              // DRAG TO REORDER (2026-07-19): grab the ⣿ grip to change the order
+              // the day trains in. Persists straight into plan[day], which SAVE
+              // writes, so the saved split remembers the order.
+              <ReorderableList
+                items={dayList}
+                keyOf={(e) => e.exercise}
+                rowHeight={56}
+                onReorder={(next) => {
+                  if (day) setPlan((p) => ({ ...p, [day]: next }));
+                }}
+                renderRow={(e) => renderPicked(e)}
+              />
             )}
           </GlowCard>
 
@@ -484,36 +500,59 @@ export default function RoutineBuilderScreen() {
                 testIDPrefix="routine-search"
               />
             </View>
-            <View className="flex-row flex-wrap gap-s2">
-              {LIBRARY_SECTIONS.map((s, i) => (
-                <Chip key={s.label} label={s.label} active={i === section} onPress={() => setSection(i)} />
-              ))}
-              <Chip label="🔍 SEARCH / CUSTOM" active={false} onPress={() => setPickerOpen(true)} />
-            </View>
-            <View className="mt-s3 flex-row flex-wrap gap-s2">
-              {exercisesFor(LIBRARY_SECTIONS[section]).map((e) => {
-                const added = dayList.some((x) => x.exercise === e.name);
-                return (
-                  <Pressable
-                    key={e.name}
-                    onPress={() => (added ? removeExercise(e.name) : addExercise(e.name))}
-                    accessibilityRole="button"
-                    className="rounded-md border px-s3 py-s2"
-                    style={{
-                      minHeight: 44,
-                      justifyContent: 'center',
-                      borderColor: added ? `${colors.success}8c` : colors.border,
-                      backgroundColor: added ? 'rgba(52,211,153,0.08)' : 'rgba(13,21,36,0.6)',
-                    }}
-                  >
-                    <Text className={`text-2xs font-bold ${added ? 'text-success' : 'text-text-dim'}`}>
-                      {added ? '✓ ' : '＋ '}
-                      {e.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {/* COLLAPSED BY DEFAULT (2026-07-19): the full library is hundreds
+                of chips tall and used to bury SAVE MY PLAN below the fold. The
+                search bar above stays the fast path; this reveals the browse
+                grid only when you want to scroll it. */}
+            <Pressable
+              onPress={() => setBrowseOpen((v) => !v)}
+              accessibilityRole="button"
+              testID="toggle-library"
+              className="flex-row items-center justify-center rounded-md border border-border"
+              style={{ minHeight: 44, backgroundColor: 'rgba(13,21,36,0.6)' }}
+            >
+              <Text
+                className="text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+              >
+                {browseOpen ? '▾ HIDE THE FULL LIBRARY' : '▸ BROWSE THE FULL LIBRARY'}
+              </Text>
+            </Pressable>
+            {browseOpen ? (
+              <>
+                <View className="mt-s3 flex-row flex-wrap gap-s2">
+                  {LIBRARY_SECTIONS.map((s, i) => (
+                    <Chip key={s.label} label={s.label} active={i === section} onPress={() => setSection(i)} />
+                  ))}
+                  <Chip label="🔍 SEARCH / CUSTOM" active={false} onPress={() => setPickerOpen(true)} />
+                </View>
+                <View className="mt-s3 flex-row flex-wrap gap-s2">
+                  {exercisesFor(LIBRARY_SECTIONS[section]).map((e) => {
+                    const added = dayList.some((x) => x.exercise === e.name);
+                    return (
+                      <Pressable
+                        key={e.name}
+                        onPress={() => (added ? removeExercise(e.name) : addExercise(e.name))}
+                        accessibilityRole="button"
+                        className="rounded-md border px-s3 py-s2"
+                        style={{
+                          minHeight: 44,
+                          justifyContent: 'center',
+                          borderColor: added ? `${colors.success}8c` : colors.border,
+                          backgroundColor: added ? 'rgba(52,211,153,0.08)' : 'rgba(13,21,36,0.6)',
+                        }}
+                      >
+                        <Text className={`text-2xs font-bold ${added ? 'text-success' : 'text-text-dim'}`}>
+                          {added ? '✓ ' : '＋ '}
+                          {e.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
           </View>
 
           {/* Step 3 — save. */}

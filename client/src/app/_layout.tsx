@@ -5,6 +5,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/data/auth-context';
 import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/version-guard';
@@ -98,19 +99,24 @@ export default function RootLayout() {
   // never depend on an animation firing; the CSS fade rests at opacity 1 and
   // is skipped entirely under reduced motion.
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v1' }}
-    >
-      <AuthProvider>
-        {/* ThemeRoot applies the equipped/previewed palette (CSS vars +
-            themed background); its View replaces the old hardcoded #070b14
-            wrapper. ToastHost rides inside so toasts theme too. */}
-        <ThemeRoot>
-          <ThemedStack />
-          <ToastHost />
-        </ThemeRoot>
-      </AuthProvider>
-    </PersistQueryClientProvider>
+    // GestureHandlerRootView (2026-07-19): required for drag-to-reorder
+    // (react-native-gesture-handler) to receive pointer/touch events — on web
+    // it also sets touch-action on detectors so a drag never scrolls the page.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v1' }}
+      >
+        <AuthProvider>
+          {/* ThemeRoot applies the equipped/previewed palette (CSS vars +
+              themed background); its View replaces the old hardcoded #070b14
+              wrapper. ToastHost rides inside so toasts theme too. */}
+          <ThemeRoot>
+            <ThemedStack />
+            <ToastHost />
+          </ThemeRoot>
+        </AuthProvider>
+      </PersistQueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
