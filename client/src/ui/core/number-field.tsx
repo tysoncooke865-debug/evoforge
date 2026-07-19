@@ -88,6 +88,14 @@ const KEYS: readonly (readonly string[])[] = [
 const OPERATOR_KEYS = ['+', '−', '×', '÷'] as const;
 const isOperator = (ch: string): boolean => (OPERATOR_KEYS as readonly string[]).includes(ch);
 
+/** "435×5" → "2175": the RESULT replaces the equation once entry is done
+ *  (keypad DONE / desktop blur). Null = not evaluable, leave the text alone. */
+const collapseExpression = (v: string): string | null => {
+  const n = evalEnergyExpression(v);
+  if (n === null) return null;
+  return String(Math.round(n * 100) / 100);
+};
+
 /** A single quick-adjust plate chip (e.g. "+10" / "−2.5") on the keypad. */
 function QuickChip({ label, onPress, tint, testID }: { label: string; onPress: () => void; tint: string; testID?: string }) {
   return (
@@ -257,7 +265,9 @@ export function KeyPad({
           ))}
           <Pressable
             onPress={() => {
-              onDone(draft);
+              // Calculator: DONE hands back the RESULT, not the equation —
+              // the field (and anything logged from it) carries the number.
+              onDone(calculator ? (collapseExpression(draft) ?? draft) : draft);
               onClose();
             }}
             className="mt-s1 items-center justify-center rounded-md"
@@ -288,6 +298,7 @@ export function NumberField({
   dim = false,
   narrow = false,
   calculator = false,
+  big = false,
   testID,
 }: {
   value: string;
@@ -310,6 +321,8 @@ export function NumberField({
   /** Expression entry (the fuel converter) — see KeyPad. Steppers act on the
    *  EVALUATED result, collapsing the expression (calculator convention). */
   calculator?: boolean;
+  /** The card's ONE number (the quick log's energy): taller box, bigger face. */
+  big?: boolean;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -342,15 +355,24 @@ export function NumberField({
           // 8888 from wobbling the fixed-width column (item 10).
           style={{
             width,
-            minHeight: 54,
+            minHeight: big ? 62 : 54,
             // A clear, confident number — larger than the steppers beside it,
             // but NOT oversized (Tyson 2026-07-16: 800/20px read as amateur).
-            fontSize: narrow ? 16 : 18,
+            fontSize: big ? 24 : narrow ? 16 : 18,
             fontWeight: '700',
             color: dim ? colors['text-dim'] : colors.text,
             fontVariant: ['tabular-nums'],
           }}
           inputMode={USE_CUSTOM_PAD ? 'none' : calculator ? 'text' : integer ? 'numeric' : 'decimal'}
+          onBlur={
+            calculator
+              ? () => {
+                  // Entry finished: the RESULT replaces the equation.
+                  const collapsed = collapseExpression(value);
+                  if (collapsed !== null && collapsed !== value) onChange(collapsed);
+                }
+              : undefined
+          }
           // The native placeholder inherits the big value font and reads like a
           // value; render a small, quiet hint of our own instead (below).
           placeholder=""

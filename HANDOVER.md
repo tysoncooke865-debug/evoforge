@@ -1525,9 +1525,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   touch keypad grows a + − × ÷ row and a live `= total` line, the
   first-keystroke-replaces rule is suspended for operators ("×5" over a
   seeded 435 means 435×5), and the steppers act on the EVALUATED result
-  (collapsing the expression — calculator convention). Only the two
-  converter fields opt in; every other NumberField is unchanged. Toured
-  on desktop (typed) and touch (keypad) against the real build.
+  (collapsing the expression — calculator convention). Toured on desktop
+  (typed) and touch (keypad) against the real build.
+  **Second pass (same day): the QUICK LOG amount field opted in too**, and
+  entry now COLLAPSES to the result — keypad DONE and desktop blur both
+  replace "435×5" with "2175" (`collapseExpression` in number-field), so
+  the box, the logged row, and the day's history all carry the NUMBER
+  (falsified live: the seeded nutrition_log row read kcal=520 from a kJ
+  expression, then deleted). `enteredKcal`/`bump` evaluate expressions, so
+  +N chips and LOG IT work mid-equation. The quick-log card was reordered
+  around prominence: the energy field is first, centered and `big` (62px,
+  24px face, "maths ok" hint); label + meal slot sit quieter beneath.
+  Calculator fields now: the two converter fields + fuel-amount; every
+  other NumberField is unchanged.
 
 **Migrations applied through `070`. Next free number: `071`.**
 (`065` is a SHARED number, like `037`: `065_leaderboard_metrics.sql` and
