@@ -272,7 +272,10 @@ export function useReforgeOrigin() {
  * split ROTATED so today is training day 1. An athlete who chose a split
  * keeps theirs — this does nothing.
  */
-export async function seedFirstMissionIfNeeded(originId: string): Promise<void> {
+export async function seedFirstMissionIfNeeded(
+  originId: string,
+  queryClient?: import('@tanstack/react-query').QueryClient
+): Promise<void> {
   try {
     const { data: existing, error } = await supabase
       .from('workout_schedule')
@@ -293,6 +296,13 @@ export async function seedFirstMissionIfNeeded(originId: string): Promise<void> 
       await supabase
         .from('workout_schedule')
         .upsert({ effective_from: todayIso(), plan: week }, { onConflict: 'user_id,effective_from' });
+    }
+    // AUDIT A4 (2026-07-19): the seed wrote straight past the cache — Train
+    // kept showing the built-in routine until an unrelated refetch. Tell
+    // the readers what just landed.
+    if (queryClient) {
+      void queryClient.invalidateQueries({ queryKey: ['user_plans'] });
+      void queryClient.invalidateQueries({ queryKey: ['workout_schedule'] });
     }
   } catch {
     /* a system without a backend is hidden, never mocked — mission derives

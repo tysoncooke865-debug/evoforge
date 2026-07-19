@@ -115,6 +115,13 @@ export function useSubmitDaPhoto() {
     },
     onSuccess: (r, { kind }) => {
       void queryClient.invalidateQueries({ queryKey: ['damage_assessments'] });
+      if (r.judged) {
+        // AUDIT A5: a verdict awards XP server-side — refresh its readers
+        // or the winner's level/XP display sits stale until a refocus.
+        void queryClient.invalidateQueries({ queryKey: ['xp_ledger'] });
+        void queryClient.invalidateQueries({ queryKey: ['user_progression'] });
+        void queryClient.invalidateQueries({ queryKey: ['xp_total'] });
+      }
       const push = useToastStore.getState().push;
       if (r.judged) {
         push({ kind: 'achievement', title: 'VERDICT IS IN', subtitle: 'The damage has been assessed.' });

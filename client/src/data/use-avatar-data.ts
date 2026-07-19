@@ -1,3 +1,4 @@
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import {
   useBodyweightLog,
   useEarliestBodyfat,
@@ -58,12 +59,10 @@ export function useAvatarData(): AvatarData {
     baseLevel
   );
 
-  // latest_bodyweight_value(): last positive reading, else null (the calc
-  // applies Python's 77kg default itself).
-  const positiveBw = (bodyweights.data ?? [])
-    .map((r) => pyFloat(r.bodyweight) ?? 0)
-    .filter((v) => v > 0);
-  const latestBodyweight = positiveBw.length > 0 ? positiveBw[positiveBw.length - 1] : null;
+  // A6: the one bodyweight chain. Previously log-only; the profile weight
+  // now backs an empty log (the athlete DID tell us at onboarding), and the
+  // calc's Python 77kg default remains the true last resort.
+  const latestBodyweight = currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg);
 
   const cardioDistanceKm = (cardio.data ?? []).reduce(
     (acc, r) => acc + (pyFloat((r as Record<string, unknown>).distance_km) ?? 0),

@@ -1,4 +1,5 @@
 import { useBodyweightLog, useLatestBodyfatMid, useProfile, useWorkoutLog } from './hooks';
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { bestE1rmFor } from '@/domain/avatar-stats-calc';
 import { pyFloat } from '@/domain/py';
 
@@ -33,12 +34,10 @@ export function useCurrentStats(): CurrentStats {
   const workouts = useWorkoutLog();
   const bf = useLatestBodyfatMid();
 
-  const positiveBw = (bodyweights.data ?? [])
-    .map((r) => pyFloat(r.bodyweight) ?? 0)
-    .filter((v) => v > 0);
-  const loggedBw = positiveBw.length > 0 ? positiveBw[positiveBw.length - 1] : null;
-  const snapshotBw = pyFloat(profile.data?.bodyweight_kg) ?? null;
-  const bodyweightKg = loggedBw ?? (snapshotBw && snapshotBw > 0 ? snapshotBw : null);
+  // A6: the one bodyweight chain (this file already had the canonical order).
+  // loggedBw (log-only) survives for the provenance label below.
+  const loggedBw = currentBodyweightKg(bodyweights.data, null);
+  const bodyweightKg = loggedBw ?? currentBodyweightKg([], profile.data?.bodyweight_kg);
 
   const heightRaw = pyFloat(profile.data?.height_cm) ?? null;
   const heightCm = heightRaw && heightRaw > 0 ? heightRaw : null;

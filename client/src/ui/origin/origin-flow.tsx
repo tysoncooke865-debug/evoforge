@@ -182,8 +182,9 @@ export function OriginFlow({
         origin_id: selected,
         followed_recommendation: r.followed_recommendation ?? null,
       });
-      // First-mission rider: real data, never blocking (spec §6).
-      void seedFirstMissionIfNeeded(selected);
+      // First-mission rider: real data, never blocking (spec §6). Passing
+      // the queryClient lets a landed seed refresh Train immediately (A4).
+      void seedFirstMissionIfNeeded(selected, queryClient);
       setStep('awakening');
     } catch {
       track('origin_binding_failed', { ...FLOW_PROPS, user_type: userType, reason: 'network' });

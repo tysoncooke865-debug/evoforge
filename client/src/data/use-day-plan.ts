@@ -1,4 +1,3 @@
-import { useCustomPlan } from './hooks';
 import { usePlanSourcePref } from './plan-source-pref';
 import { useUserPlans } from './user-plans';
 
@@ -51,14 +50,15 @@ const builtInEntries = (workout: string): PlanEntry[] | null => {
 };
 
 export function useDayPlan(): DayPlan {
-  const legacyPlan = useCustomPlan(); // custom_workout_plan — the pre-018 slot
+  // 062 (2026-07-19): user_plans is THE home. The pre-018 legacy slot
+  // (custom_workout_plan) was one-shot-copied into it server-side and is
+  // retired — no client reads or writes it any more.
   const userPlans = useUserPlans();
   const pref = usePlanSourcePref(); // the saved choice (035); null = never chosen
 
   const sources = resolvePlanSources({
     customPlan: userPlans.data?.custom ?? null,
     aiPlan: userPlans.data?.ai ?? null,
-    legacyPlan: legacyPlan.data ?? null,
     builtInDays: BUILT_IN_DAYS,
   });
 
@@ -70,7 +70,7 @@ export function useDayPlan(): DayPlan {
     sources,
     resolveDay,
     preferredSource: resolveActiveSource(pref.data ?? null, sources),
-    loading: userPlans.isPending || legacyPlan.isPending || pref.isPending,
+    loading: userPlans.isPending || pref.isPending,
   };
 }
 

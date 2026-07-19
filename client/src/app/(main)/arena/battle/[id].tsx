@@ -24,7 +24,8 @@ import {
   useReadyUp,
   useSettleBattle,
 } from '@/data/battle/mutations';
-import { useCustomPlan, useWorkoutLog } from '@/data/hooks';
+import { useWorkoutLog } from '@/data/hooks';
+import { useUserPlans } from '@/data/user-plans';
 import { useLogCardio, useSaveSet } from '@/data/mutations';
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
 import { normaliseWorkoutLog } from '@/domain/summary';
@@ -640,12 +641,14 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
   const secondsLeft = useCountdown(round.ends_at ?? null);
   const settle = useSettleBattle(matchId);
   const workouts = useWorkoutLog();
-  const aiPlan = useCustomPlan();
+  // 062: the AI plan lives in user_plans now (single home).
+  const userPlans = useUserPlans();
+  const aiPlanData = userPlans.data?.ai ?? null;
   const todayIso = calendarToday();
   const days = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
   const [day, setDay] = useState(days[0]);
   const [source, setSource] = useState<0 | 1>(0);
-  const useAi = source === 1 && aiPlan.data !== null && aiPlan.data !== undefined;
+  const useAi = source === 1 && aiPlanData !== null;
   const prNoop = useRef(0);
 
   const roundNo = round.round_no;
@@ -676,7 +679,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
     ).length;
 
   const builtIn = ROUTINE[day];
-  const aiDay = useAi ? aiPlan.data?.days.find((d) => d.day === day) : null;
+  const aiDay = useAi ? aiPlanData?.days.find((d) => d.day === day) : null;
   const plan: readonly (readonly [string, number, string])[] = aiDay
     ? aiDay.exercises.map((e) => [e.exercise, e.sets, e.reps] as const)
     : builtIn;
@@ -735,7 +738,7 @@ function VolumeDuelRound({ matchId, data, round, me, them, userId }: RoundProps)
               <Chip key={d} label={d.split(' - ')[0]} active={d === day} onPress={() => setDay(d)} />
             ))}
           </View>
-          {aiPlan.data ? (
+          {aiPlanData ? (
             <View className="flex-row gap-s2">
               <Chip label="BUILT-IN" active={source === 0} onPress={() => setSource(0)} />
               <Chip label="AI PLAN" active={source === 1} onPress={() => setSource(1)} />

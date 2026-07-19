@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { toPosts, type SocialPost } from '@/domain/social-feed';
 import { useToastStore } from '@/state/toast-store';
 
+import { invalidateTable } from './keys';
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
 
@@ -169,7 +170,6 @@ export function useRequestFriend() {
 /** Update the caller's own privacy flags. Any omitted field is left unchanged. */
 export function useSetPrivacy() {
   const queryClient = useQueryClient();
-  const userId = useUserId();
   return useMutation({
     mutationFn: async (patch: Partial<PrivacyFlags>): Promise<PrivacyFlags> => {
       const { data, error } = await supabase.rpc('set_privacy', {
@@ -183,8 +183,9 @@ export function useSetPrivacy() {
       return data as PrivacyFlags;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['athlete_profile', userId] });
-      void queryClient.invalidateQueries({ queryKey: ['discover_athletes', userId] });
+      // AUDIT A5: privacy flags live on public_profile — refresh EVERY reader
+      // (the identity screen, search, leaderboard), not just this page's two.
+      invalidateTable(queryClient, 'public_profile');
     },
     onError: (e: Error) => useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message }),
   });

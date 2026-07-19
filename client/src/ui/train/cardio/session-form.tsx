@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useBodyweightLog, useProfile } from '@/data/hooks';
 import { useLogCardio } from '@/data/mutations';
 import { cardioEventAmount } from '@/domain/cardio';
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { estimateCardioKcal } from '@/domain/cardio-estimate';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
@@ -53,15 +54,8 @@ export function CardioSessionForm({ type }: { type: string }) {
   // reason; a number from a fabricated bodyweight would be a mock.
   const profile = useProfile();
   const bodyweights = useBodyweightLog();
-  const loggedBw = (bodyweights.data ?? [])
-    .map((r) => pyFloat((r as { bodyweight?: unknown }).bodyweight) ?? 0)
-    .filter((v) => v > 0);
-  const realBw =
-    (pyFloat(profile.data?.bodyweight_kg) ?? 0) > 0
-      ? (pyFloat(profile.data?.bodyweight_kg) as number)
-      : loggedBw.length > 0
-        ? loggedBw[loggedBw.length - 1]
-        : null;
+  // A6: the one bodyweight chain (latest log → profile → null).
+  const realBw = currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg);
 
   const toggleSpeedUnit = () => {
     const v = pyFloat(speed);

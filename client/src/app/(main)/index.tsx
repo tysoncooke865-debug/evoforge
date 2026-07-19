@@ -17,6 +17,7 @@ import { useDisplayIdentity } from '@/data/use-display-identity';
 import { BUILT_IN_DAYS, useDayPlan } from '@/data/use-day-plan';
 import { raritySlug } from '@/domain/avatar-stats';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { nextEvolutionV2 } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { deriveMission } from '@/domain/home-mission';
@@ -26,7 +27,6 @@ import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
 import { daysForSource } from '@/domain/plan-sources';
 import { rankStandingFor } from '@/domain/progression/rank-tiers';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
-import { pyFloat } from '@/domain/py';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
@@ -34,7 +34,7 @@ import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
-import { inferMuscleGroup } from '@/domain/workouts';
+import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
@@ -144,8 +144,9 @@ export default function HomeScreen() {
     (r) =>
       String(r.date) === todayIso &&
       String(r.workout) === missionWorkout &&
-      (pyFloat(r.weight) ?? 0) > 0 &&
-      (pyFloat(r.reps) ?? 0) > 0
+      // 061: the same counted-set predicate as Train's setsFor — the two
+      // screens must never disagree about today's progress.
+      isCountedSet(r.weight, r.reps)
   );
   const targetSets = entries.reduce((n, [, s]) => n + s, 0);
   const doneSets = entries.reduce((n, [exercise, s]) => {
@@ -166,14 +167,12 @@ export default function HomeScreen() {
     loggedSets: dayRows.length,
   });
 
-  // Estimates — the Train hero's own math (bodyweight fallback included).
-  const positiveBw = (bodyweights.data ?? []).map((r) => pyFloat(r.bodyweight) ?? 0).filter((v) => v > 0);
+  // A6: ONE bodyweight chain app-wide (latest log → profile → caller's
+  // default). This screen previously checked the ONBOARDING snapshot
+  // before fresher logged readings.
   const bodyweightKg =
-    (pyFloat(profile.data?.bodyweight_kg) ?? 0) > 0
-      ? (pyFloat(profile.data?.bodyweight_kg) as number)
-      : positiveBw.length > 0
-        ? positiveBw[positiveBw.length - 1]
-        : (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
+    currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg) ??
+    (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
   const lastWork = missionWorkout ? lastSessionWork(allRows, missionWorkout, todayIso) : null;
   const kcalSets = targetSets > 0 ? targetSets : (lastWork?.sets ?? 0);
   const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;

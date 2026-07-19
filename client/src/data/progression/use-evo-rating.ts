@@ -90,6 +90,8 @@ export function useRunEvoReview() {
       void queryClient.invalidateQueries({ queryKey: ['evo_rating_current', userId] });
       void queryClient.invalidateQueries({ queryKey: ['evo_rating_snapshots', userId] });
       void queryClient.invalidateQueries({ queryKey: ['pending_evo_evidence', userId] });
+      // AUDIT A5: the review also rewrites player stats/class/traits.
+      void queryClient.invalidateQueries({ queryKey: ['player_stats', userId] });
     },
   });
 }

@@ -1141,7 +1141,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
   deleted granted set leaves its append-only mint — ALPHA's permanent
   smoke drift grew by design, the drift gate is its own falsification).
 
-**Migrations applied through `061`. Next free number: `062`.**
+- **AUDIT FIX BATCH — PHASE 1: the six bugs (migrations 062+063, 2026-07-19):**
+  * **A2** the ONLINE finish path now awards the Forge workout_completed XP
+    (sessions.ts onSuccess → the idempotent awardForFinish; only the offline
+    queue flush did before — lifetime XP depended on wifi).
+  * **A3/C2 (062)** ONE HOME FOR PLANS: user_plans is the only plan store.
+    062 one-shot-copied every surviving legacy custom_workout_plan into the
+    slot the client would have resolved (groupPlanRows + looksLikeAiPlan
+    ported to SQL; idempotent; falsified — canonical 6-day → 'ai' in week
+    order, personal splits → 'custom'). Client: resolvePlanSources lost its
+    legacyPlan input, useCustomPlan deleted, DISCARD deletes the real home
+    (the audit's half-delete bug), the blitz page reads user_plans.ai.
+    custom_workout_plan is RETIRED — never write it again.
+  * **A4** origin first-mission seeding invalidates user_plans +
+    workout_schedule (Train updates immediately, no reload).
+  * **A5/C3/C4** NEW data/keys.ts — TABLE_READERS + invalidateTable(): the
+    map of every query key reading a table, so a mutation can't miss a
+    reader (register new hooks' keys there!). Wired: identity+privacy saves
+    refresh ALL five public_profile readers; the PR coin claim refreshes
+    /coins history; the Evo review refreshes player_stats; a damage verdict
+    refreshes XP readers. profile keeps its documented bind-ceremony
+    exception.
+  * **A6** NEW domain/bodyweight-current.ts::currentBodyweightKg — THE one
+    chain (latest log → profile → null; callers own defaults), wired into
+    Home, Train, cardio EST, current-stats, avatar-data. Home/Train
+    previously trusted the ONBOARDING snapshot over fresher logged
+    readings. En route: Home's mission counter got the missed 061
+    counted-set predicate (it disagreed with Train about 0 kg sets).
+  * **A1 (063)** LIVE LEVELS: public_athlete_profile / discover_athletes /
+    search_athletes now serve forge_level_for_xp(user_progression
+    .lifetime_xp) computed AT READ TIME, and the profile evo block reads
+    evo_rating_current (4 live pillars). avatar_progression (written by
+    nothing, frozen) is out of every social read. FALSIFICATION CATCH: the
+    forge_level COLUMN is a greatest()-ratcheted cache still holding
+    pre-033-exploit inflation (ALPHA: column 38, honest level 2) — NEVER
+    serve that column; compute from lifetime_xp.
+
+**Migrations applied through `063`. Next free number: `064`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —

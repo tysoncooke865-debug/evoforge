@@ -13,11 +13,11 @@ import { useSavePlanSourcePref } from '@/data/plan-source-pref';
 import { useUserPlans } from '@/data/user-plans';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
-import { pyFloat } from '@/domain/py';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
@@ -182,15 +182,10 @@ export default function TodayScreen() {
 
   const userPlans = useUserPlans();
   const [mapViewChoice, setMapViewChoice] = useState<MuscleView | null>(null);
-  // Bodyweight for the kcal estimate: profile snapshot → latest logged reading
-  // → the sex-calibrated default (the avatar-stats fallback pattern).
-  const positiveBw = (bodyweights.data ?? []).map((r) => pyFloat(r.bodyweight) ?? 0).filter((v) => v > 0);
+  // A6: the one bodyweight chain (latest log → profile → caller default).
   const bodyweightKg =
-    (pyFloat(profile.data?.bodyweight_kg) ?? 0) > 0
-      ? (pyFloat(profile.data?.bodyweight_kg) as number)
-      : positiveBw.length > 0
-        ? positiveBw[positiveBw.length - 1]
-        : (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
+    currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg) ??
+    (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
 
   /** EVERYTHING one day's card needs, computed from ITS date — progress is
    *  keyed (date, workout), so a set completed on one day can never appear on

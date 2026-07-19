@@ -14,7 +14,7 @@ import { supabase } from './supabase';
  * each kind its own row, and Train can finally offer all three sources:
  * MY PLAN · AI PLAN · BUILT-IN.
  *
- * custom_workout_plan is still written by the AI path — STREAMLIT READS IT.
+ * 062: custom_workout_plan is fully retired (one-shot copied here).
  *
  * BACK-COMPAT: an athlete who built a split BEFORE 018 has it in
  * custom_workout_plan and nothing in user_plans. today.tsx handles that: a

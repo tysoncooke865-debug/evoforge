@@ -29,8 +29,6 @@ export interface PlanSourceInputs {
   customPlan: CustomPlan | null;
   /** user_plans kind='ai' (post-018). */
   aiPlan: CustomPlan | null;
-  /** custom_workout_plan — the pre-018 single slot, still written by the AI. */
-  legacyPlan: CustomPlan | null;
   /** The built-in six day names (PPPPLA_DAYS). */
   builtInDays: readonly string[];
 }
@@ -43,26 +41,16 @@ export interface PlanSources {
   has: { myPlan: boolean; aiPlan: boolean };
 }
 
-/** Every day of this plan is one of the built-in six → it can only be the AI's
- *  (that shape is the ai-plan function's validated contract). */
-export function looksLikeAiPlan(plan: CustomPlan, builtInDays: readonly string[]): boolean {
-  if (plan.days.length === 0) return false;
-  return plan.days.every((d) => builtInDays.includes(d.day));
-}
-
 export function resolvePlanSources(input: PlanSourceInputs): PlanSources {
-  const { customPlan, aiPlan, legacyPlan, builtInDays } = input;
-
-  // The legacy plan can only claim a slot that is otherwise EMPTY.
-  const legacyIsAi = legacyPlan !== null && looksLikeAiPlan(legacyPlan, builtInDays);
-
-  const myPlan = customPlan ?? (legacyPlan !== null && !legacyIsAi ? legacyPlan : null);
-  const ai = aiPlan ?? (legacyIsAi ? legacyPlan : null);
-
+  // 062 (2026-07-19): the legacy custom_workout_plan slot is retired — the
+  // one-shot server copy moved every surviving legacy plan into user_plans,
+  // classified by the same every-day-is-built-in rule this function used to
+  // apply at read time (looksLikeAiPlan — now ported into the migration).
+  const { customPlan, aiPlan } = input;
   return {
-    myPlan,
-    aiPlan: ai,
-    has: { myPlan: myPlan !== null, aiPlan: ai !== null },
+    myPlan: customPlan,
+    aiPlan,
+    has: { myPlan: customPlan !== null, aiPlan: aiPlan !== null },
   };
 }
 

@@ -26,7 +26,7 @@ const builtIn: Record<string, PlanEntry[]> = {
 const builtInFor = (w: string): PlanEntry[] | null => builtIn[w] ?? null;
 
 const sourcesOf = (myPlan: CustomPlan | null, aiPlan: CustomPlan | null) =>
-  resolvePlanSources({ customPlan: myPlan, aiPlan, legacyPlan: null, builtInDays: BUILT_IN_DAYS });
+  resolvePlanSources({ customPlan: myPlan, aiPlan, builtInDays: BUILT_IN_DAYS });
 
 const ALL = sourcesOf(plan('My Split', 'Legs', 'Bulgarian Split Squat'), plan('Oracle', 'Legs', 'Leg Press'));
 

@@ -15,6 +15,7 @@ import { announceXp, useToastStore } from '@/state/toast-store';
 import * as Crypto from 'expo-crypto';
 
 import { runAchievementSweep } from './achievement-sweep';
+import { invalidateTable } from './keys';
 import { useAuth } from './auth-context';
 import { fetchWorkoutLog } from './hooks';
 import { enqueueSet } from './set-queue';
@@ -179,7 +180,7 @@ export function useSaveSet() {
           void import('./coins').then(({ claimCoin }) =>
             claimCoin('pr', prRowId).then((landed) => {
               if (landed) {
-                queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
+                invalidateTable(queryClient, 'coin_events'); // total AND /coins history (A5)
                 useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
               }
             })
@@ -355,53 +356,23 @@ export function useUpdateTrainingNumbers() {
 }
 
 /**
- * Accept an AI plan (IMPROVEMENT_PLAN #10): plans are user-owned CONFIG,
- * not history, so accept = delete-all-then-insert (the Streamlit
- * precedent; no XP is keyed to plan rows, so delete is safe here — unlike
- * sets, where delete-and-insert is forbidden).
+ * Accept an AI plan: plans are user-owned CONFIG, not history — the
+ * user_plans upsert replaces the 'ai' slot whole (018's unique(user_id,
+ * kind)). 062 retired the legacy custom_workout_plan double-write.
  */
-/**
- * STAGE 1: the plan write itself, extracted so ONBOARDING can seed a split
- * without a React hook (it runs inside forge()'s async flow, not a component
- * event). The hook below is now a thin wrapper — one code path, one behaviour.
- * Replaces the whole plan: custom_workout_plan is a single-slot store.
- */
-export async function acceptPlanDirect(
-  plan: import('@/domain/custom-plan').CustomPlan,
-  userExercises: UserExercise[] = []
-): Promise<void> {
-  const { flattenPlan } = await import('@/domain/custom-plan');
-  const timestamp = new Date().toISOString().slice(0, 19);
-  // .not('id','is',null): the match-everything filter that works on every
-  // table (the neq-sentinel gotcha in root CLAUDE.md).
-  const { error: delErr } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
-  if (delErr) throw delErr;
-  const { error } = await supabase
-    .from('custom_workout_plan')
-    .insert(flattenPlan(plan, timestamp, userExercises));
-  if (error) throw error;
-}
-
 export function useAcceptPlan() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async (plan: import('@/domain/custom-plan').CustomPlan) => {
-      // A routine can contain the athlete's OWN exercises, so the stored
-      // muscle must be the one they chose — not an inference over a name
-      // inferMuscleGroup has never seen.
-      const userExercises =
-        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
-      await acceptPlanDirect(plan, userExercises);
-      // TYSON 2026-07-14: the AI plan also lands in its OWN slot (018), so a
-      // hand-built split can coexist with it instead of being destroyed by it.
-      // custom_workout_plan is still written above — Streamlit reads it.
+      // 062 (2026-07-19): user_plans kind='ai' is THE home. The legacy
+      // custom_workout_plan double-write is retired (Streamlit, its only
+      // reader, is gone; the migration one-shot-copied surviving plans).
       const { saveUserPlanDirect } = await import('./user-plans');
       await saveUserPlanDirect('ai', plan);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
       queryClient.invalidateQueries({ queryKey: ['user_plans', userId] });
       useToastStore.getState().push({ kind: 'info', title: 'ROUTINE FORGED', subtitle: 'Find it on Train under AI PLAN' });
     },
@@ -411,18 +382,26 @@ export function useAcceptPlan() {
   });
 }
 
-/** Drop the active AI plan; Today falls back to the built-in routine. */
+/** Drop the active AI plan; Today falls back to the built-in routine.
+ *  062: deletes the ONE home (user_plans 'ai') — the old version deleted
+ *  only the legacy table, so a "discarded" AI plan kept showing on Train
+ *  (audit bug A3). Legacy rows are swept too, belt-and-braces. */
 export function useDiscardPlan() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('custom_workout_plan').delete().not('id', 'is', null);
+      const { error } = await supabase.from('user_plans').delete().eq('kind', 'ai');
       if (error) throw error;
+      // Legacy sweep — harmless if already empty; never blocks the discard.
+      await supabase.from('custom_workout_plan').delete().not('id', 'is', null).then(
+        () => undefined,
+        () => undefined
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['custom_workout_plan', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user_plans', userId] });
       useToastStore.getState().push({ kind: 'info', title: 'AI PLAN REMOVED' });
     },
     onError: (e: Error) => {
@@ -434,8 +413,6 @@ export function useDiscardPlan() {
 /** Upsert the caller's opt-in public identity. Mirrors save_public_profile(). */
 export function useSavePublicIdentity() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
-  const userId = session?.user?.id ?? null;
 
   return useMutation({
     mutationFn: async ({ displayName, isPublic }: { displayName: string | null; isPublic: boolean }) => {
@@ -457,8 +434,9 @@ export function useSavePublicIdentity() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public_profile', userId] });
-      queryClient.invalidateQueries({ queryKey: ['leaderboard_top', userId] });
+      // AUDIT A5: the display name feeds EVERY social read surface, not just
+      // the two this screen shows. One helper, every reader (keys.ts).
+      invalidateTable(queryClient, 'public_profile');
       useToastStore.getState().push({ kind: 'info', title: 'PUBLIC IDENTITY SAVED' });
     },
     onError: (e: Error) => {

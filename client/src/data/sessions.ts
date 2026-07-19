@@ -7,6 +7,7 @@ import { useToastStore } from '@/state/toast-store';
 import { useAuth } from './auth-context';
 import { useClaimCoin } from './coins';
 import { dequeueFinish, enqueueFinish } from './finish-queue';
+import { awardForFinish } from './progression/award-xp';
 import { supabase } from './supabase';
 
 /**
@@ -113,6 +114,15 @@ export function useFinishWorkout() {
 
     onSuccess: (_d, input) => {
       claimCoins.mutate({ kind: 'workout_complete', sourceId: input.date });
+      // AUDIT A2 (2026-07-19): the ONLINE path never awarded the Forge
+      // workout_completed XP — only the offline queue's flush did
+      // (finish-queue.ts), so lifetime XP depended on the athlete's wifi.
+      // awardForFinish is idempotent by event key, so the queue path and
+      // this one can never double-grant. Fire-and-forget like the queue's.
+      void awardForFinish(supabase, input.date, input.workout, null).then(() => {
+        void queryClient.invalidateQueries({ queryKey: ['user_progression', userId] });
+        void queryClient.invalidateQueries({ queryKey: ['xp_ledger', userId] });
+      });
       // Offer to share the finished workout (no-op if "don't ask again" is set;
       // the overlay gates on the social flag). Never auto-publishes.
       useSharePromptStore.getState().offer({ workout: input.workout, date: input.date });

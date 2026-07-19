@@ -4,7 +4,6 @@ import type { CustomPlan } from '../custom-plan';
 import {
   daysForSource,
   defaultSource,
-  looksLikeAiPlan,
   resolveActiveSource,
   resolvePlanSources,
 } from '../plan-sources';
@@ -23,19 +22,10 @@ const plan = (name: string, days: string[]): CustomPlan => ({
 const AI_SHAPED = plan('Oracle Forge', BUILT_IN);
 const BUILDER_SHAPED = plan('My Split', ['Chest & Back', 'Arms', 'Legs & Core']);
 
-const EMPTY = { customPlan: null, aiPlan: null, legacyPlan: null, builtInDays: BUILT_IN };
+const EMPTY = { customPlan: null, aiPlan: null, builtInDays: BUILT_IN };
 
-describe('looksLikeAiPlan', () => {
-  it('a plan made ONLY of built-in day names is the AI’s (that is its contract)', () => {
-    expect(looksLikeAiPlan(AI_SHAPED, BUILT_IN)).toBe(true);
-  });
-  it('a plan that names its own days came from the builder', () => {
-    expect(looksLikeAiPlan(BUILDER_SHAPED, BUILT_IN)).toBe(false);
-  });
-  it('a day-less plan claims nothing', () => {
-    expect(looksLikeAiPlan(plan('Nothing', []), BUILT_IN)).toBe(false);
-  });
-});
+// 062: looksLikeAiPlan moved into the migration (the legacy slot was
+// classified once, server-side, at copy time). The resolver is plain now.
 
 describe('resolvePlanSources', () => {
   it('nothing anywhere → both slots empty, built-in still available', () => {
@@ -52,27 +42,13 @@ describe('resolvePlanSources', () => {
     expect(s.has).toEqual({ myPlan: true, aiPlan: true });
   });
 
-  it('BACK-COMPAT: a legacy plan with its OWN day names shows as MY PLAN', () => {
-    const s = resolvePlanSources({ ...EMPTY, legacyPlan: BUILDER_SHAPED });
+  it('062: each user_plans slot maps 1:1 — no legacy shadow input exists', () => {
+    const s = resolvePlanSources({ ...EMPTY, customPlan: BUILDER_SHAPED });
     expect(s.myPlan?.plan_name).toBe('My Split');
     expect(s.aiPlan).toBeNull();
-  });
-
-  it('BACK-COMPAT: a legacy plan shaped like the AI’s shows as AI PLAN', () => {
-    const s = resolvePlanSources({ ...EMPTY, legacyPlan: AI_SHAPED });
-    expect(s.aiPlan?.plan_name).toBe('Oracle Forge');
-    expect(s.myPlan).toBeNull();
-  });
-
-  it('an explicit post-018 plan BEATS the legacy one in the same slot', () => {
-    const newer = plan('Rebuilt', ['Upper', 'Lower']);
-    const s = resolvePlanSources({ ...EMPTY, customPlan: newer, legacyPlan: BUILDER_SHAPED });
-    expect(s.myPlan?.plan_name).toBe('Rebuilt');
-  });
-
-  it('a legacy plan claims ONE slot, never both', () => {
-    const s = resolvePlanSources({ ...EMPTY, legacyPlan: BUILDER_SHAPED });
-    expect([s.myPlan, s.aiPlan].filter(Boolean)).toHaveLength(1);
+    const s2 = resolvePlanSources({ ...EMPTY, aiPlan: AI_SHAPED });
+    expect(s2.aiPlan?.plan_name).toBe('Oracle Forge');
+    expect(s2.myPlan).toBeNull();
   });
 });
 
