@@ -187,6 +187,11 @@ export default function OnboardingScreen() {
     nums.deadlift >= 0 && nums.deadlift <= 450 &&
     nums.years >= 0 && nums.years <= 30;
 
+  // The USERNAME is the real hard gate (mandatory + unique). Fold it into the
+  // button's disabled state so an empty/invalid name can't sail past the tap
+  // and fail silently at the bottom of a long scroll (2026-07-19).
+  const nameOk = publicName.trim().length >= 3 && nameError(publicName) === null;
+
   const clamp15 = (v: unknown) => Math.max(0, Math.min(15, Math.round(Number(v) || 0)));
 
   const previewLevel = valid
@@ -396,7 +401,7 @@ export default function OnboardingScreen() {
         {/* 4 · DRIVE (047): who you want to become + how you like to fight.
             These feed the Destined and Anomaly candidates in Act II —
             skipped, the nutrition phase infers the goal instead. */}
-        <Section n="4" title="YOUR DRIVE">
+        <Section n="4" title="YOUR DRIVE (OPTIONAL)">
           <Text
             className="mb-s2 text-text-mute"
             allowFontScaling={false}
@@ -436,7 +441,7 @@ export default function OnboardingScreen() {
         </Section>
 
         {/* 5 · SCAN */}
-        <Section n="4" title="THE SCAN (OPTIONAL BUT HONEST)">
+        <Section n="5" title="THE SCAN (OPTIONAL BUT HONEST)">
           <Text className="mb-s3 text-2xs text-text-mute">
             One physique photo: the AI rates physique and leanness and saves your first body-fat
             reading. Skip it and conservative defaults from your lifts and eating phase apply —
@@ -678,7 +683,12 @@ export default function OnboardingScreen() {
 
         {error ? <Text className="mb-s3 text-sm text-danger">{error}</Text> : null}
 
-        <NeonButton title="FORGE CHARACTER" onPress={forge} busy={busy} disabled={!valid} testID="forge" />
+        {!nameOk ? (
+          <Text className="mb-s1 text-center text-2xs text-warn">
+            {publicName.trim().length === 0 ? 'Pick a username in step 7 to forge your character.' : 'Choose a valid username to continue.'}
+          </Text>
+        ) : null}
+        <NeonButton title="FORGE CHARACTER" onPress={forge} busy={busy} disabled={!valid || !nameOk} testID="forge" />
       </View>
     </ScrollView>
     </View>

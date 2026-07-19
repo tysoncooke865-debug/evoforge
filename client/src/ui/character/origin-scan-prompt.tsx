@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Text, View } from 'react-native';
 
@@ -48,6 +48,12 @@ export function OriginScanPrompt() {
   const colors = useThemeColors();
   const status = useOriginStatus();
   const [open, setOpen] = useState(false);
+  // HOME ONLY (Tyson, 2026-07-19): it's mounted globally, so it used to fade in
+  // over WHATEVER tab you were on. Confine it to Home — the one place the
+  // always-visible "FORGE YOUR ORIGIN" button also lives — so it never
+  // interrupts Train/Social/Arena mid-task.
+  const pathname = usePathname();
+  const onHome = pathname === '/';
 
   const eligible =
     ORIGIN_FLAGS.originRevealEnabled && status.data != null && status.data.origin_path == null;
@@ -58,7 +64,7 @@ export function OriginScanPrompt() {
   const choiceReady = classification.data?.ok === true;
 
   useEffect(() => {
-    if (!eligible || promptedThisLaunch) return;
+    if (!eligible || !onHome || promptedThisLaunch) return;
     // Give the tutorial overlay / boot moment the first few seconds.
     if (alreadyPromptedToday(statusKey)) return;
     // NEVER stack on the tutorial (Tyson's phone, 2026-07-18): the two modals
@@ -79,9 +85,9 @@ export function OriginScanPrompt() {
       live = false;
       clearTimeout(t);
     };
-  }, [eligible, statusKey]);
+  }, [eligible, onHome, statusKey]);
 
-  if (!open) return null;
+  if (!open || !onHome) return null;
   return (
     <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <View className="flex-1 items-center justify-center px-s5" style={{ backgroundColor: 'rgba(2,5,11,0.82)' }}>

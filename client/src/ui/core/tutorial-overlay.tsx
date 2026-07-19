@@ -18,11 +18,11 @@ const KEY = 'evoforge-tutorial-done-v1';
 const STEPS: readonly { icon: string; title: string; body: string }[] = [
   {
     icon: '⌂',
-    title: 'YOUR SIX WORLDS',
+    title: 'YOUR SIX TABS',
     body:
-      'Home is your character. Train logs your workouts. The Oracle judges your ' +
-      'physique with AI. Forge is where you evolve. Arena is where you fight. ' +
-      'Fuel tracks your calories.',
+      'Home is your champion — tap it to enter the Forge and evolve. Train logs your ' +
+      'workouts. The Oracle scans your physique with AI. Social is friends, rivals, ' +
+      'gyms and the feed. Arena is where you battle. Fuel tracks your calories.',
   },
   {
     icon: '🕹',
@@ -36,15 +36,16 @@ const STEPS: readonly { icon: string; title: string; body: string }[] = [
     title: 'TRAIN, YOUR WAY',
     body:
       'On Train: log sets with one tap (they save even offline), the rest timer starts ' +
-      'itself, ⇄ swaps any exercise for a same-muscle alternative, and BUILD MY OWN ' +
-      'ROUTINE lets you forge your own split.',
+      'itself, ⇄ swaps any exercise for a same-muscle alternative, drag the ⣿ grip to ' +
+      'reorder, and CHOOSE/UPLOAD MY WORKOUT builds or scans your own split.',
   },
   {
     icon: '⚔',
-    title: 'EVERY SET COUNTS',
+    title: 'START HERE: SET YOUR WEEK',
     body:
-      'Sets earn XP, level your character and evolve your form. Fight friends in the ' +
-      'Arena — Volume Duels and Heads or Tails — where real training decides the winner.',
+      'On Train, tap EDIT SCHEDULE to pick a split for each day, then log your first set. ' +
+      'Every set earns XP, levels your champion, evolves your form — and can win you ' +
+      'Arena battles against friends. That is the whole loop.',
   },
 ];
 
