@@ -1261,6 +1261,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
     dynamic); helpers consolidated — ONE addDaysIso (domain/today) and
     ONE Epley (e1rmFor delegates to estimated1rm, keeping its reps≤10
     evidence guard).
+  * **Two post-push corrections the deletion forced:** tools/hooks/
+    pre-push's Python gate is now `gen_fixtures.py --check` (it still
+    enumerated the 11 deleted verify scripts and blocked its own push),
+    and **requirements.txt is back as a SLIM file** — the goldens
+    import-chain pins only. Two things need the FILE to exist:
+    requirements-dev.txt `-r`-includes it, and the fixtures job's
+    setup-python `cache: pip` HARD-FAILS the job when its default glob
+    (**/requirements.txt|pyproject.toml) matches nothing — that skipped
+    a deploy once (run 29677670014). Don't delete it again; a workflow
+    fix was not pushable (git/gh tokens here lack `workflow` scope —
+    remember that before editing .github/workflows/*).
 
 **Migrations applied through `064`. Next free number: `065`.**
 (The line above previously said 048/049 — stale: the social program took

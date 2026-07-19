@@ -13,7 +13,8 @@
     "fix is native builds / splitting, tracked in EVOFORGE_TRANSFORM.md.",
     "Raise a floor whenever the build clears it comfortably \u2014 never lower one",
     "to make a red run green.",
-    "2026-07-18: URL changed /index.html -> / \u2014 expo-router treats the literal '/index.html' path as an UNMATCHED ROUTE, so the gate was auditing the 404 page (its image ratio, tiny text and hydration error), not the sign-in shell users load."
+    "2026-07-18: URL changed /index.html -> / \u2014 expo-router treats the literal '/index.html' path as an UNMATCHED ROUTE, so the gate was auditing the 404 page (its image ratio, tiny text and hydration error), not the sign-in shell users load.",
+    "2026-07-19 (audit batch): measured on the post-leaning export \u2014 perf 49-51, FCP ~0.79-0.86s, LCP ~7.2-7.7s, TBT 1.17-1.38s (local 3-run + CI's 7232ms LCP). Ratcheted FCP 2000->1500 and TBT warn 1800->1700; perf/a11y floors unchanged \u2014 no fresh CI category measurements to justify raising them (CI prints only failed assertions, and the reports artifact upload has a path bug fixable only with workflow scope). LCP still warns \u2014 the ~2.6MB __common is the fix, tracked as route-level splitting."
   ],
   "ci": {
     "collect": {
@@ -60,7 +61,7 @@
         "first-contentful-paint": [
           "error",
           {
-            "maxNumericValue": 2000
+            "maxNumericValue": 1500
           }
         ],
         "largest-contentful-paint": [
@@ -72,7 +73,7 @@
         "total-blocking-time": [
           "warn",
           {
-            "maxNumericValue": 1800
+            "maxNumericValue": 1700
           }
         ]
       }
