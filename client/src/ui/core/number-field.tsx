@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
+import { evalEnergyExpression } from '@/domain/nutrition';
 import { pyFloat } from '@/domain/py';
 import { useThemeColors } from '@/theme/use-theme';
 import { USE_CUSTOM_PAD } from '@/ui/core/pad-env';
@@ -82,6 +83,11 @@ const KEYS: readonly (readonly string[])[] = [
   ['.', '0', '⌫'],
 ];
 
+/** Calculator mode (the fuel converter): the four operators as pad keys.
+ *  Display glyphs — evalEnergyExpression normalizes them when evaluating. */
+const OPERATOR_KEYS = ['+', '−', '×', '÷'] as const;
+const isOperator = (ch: string): boolean => (OPERATOR_KEYS as readonly string[]).includes(ch);
+
 /** A single quick-adjust plate chip (e.g. "+10" / "−2.5") on the keypad. */
 function QuickChip({ label, onPress, tint, testID }: { label: string; onPress: () => void; tint: string; testID?: string }) {
   return (
@@ -106,6 +112,7 @@ export function KeyPad({
   integer,
   tint,
   quickSteps,
+  calculator = false,
   onDone,
   onClose,
 }: {
@@ -115,6 +122,9 @@ export function KeyPad({
   tint: string;
   /** Quick +/− plate buttons (weight only), e.g. [2.5, 5, 10, 20]. */
   quickSteps?: number[];
+  /** Expression entry (the fuel converter): adds + − × ÷ keys and lets the
+   *  draft hold "435×5"-style arithmetic instead of one number. */
+  calculator?: boolean;
   onDone: (v: string) => void;
   onClose: () => void;
 }) {
@@ -124,16 +134,29 @@ export function KeyPad({
   const [draft, setDraft] = useState(initial);
   // Calculator convention: the FIRST keystroke replaces the seeded value
   // (typing 82.5 over a 70 must give 82.5, not 7082.5); backspace edits it.
+  // An OPERATOR as the first keystroke keeps the seed instead — "×5" after
+  // opening on 435 means 435×5, not ×5.
   const [touched, setTouched] = useState(false);
   const press = (k: string) => {
-    const base = touched ? draft : k === '⌫' ? draft : '';
+    const base = touched || (calculator && isOperator(k)) ? draft : k === '⌫' ? draft : '';
     setTouched(true);
     if (k === '⌫') return setDraft(draft.slice(0, -1));
-    if (k === '.') {
-      if (integer || base.includes('.')) return;
-      return setDraft(base === '' ? '0.' : `${base}.`);
+    if (calculator && isOperator(k)) {
+      if (base === '') return;
+      const last = base[base.length - 1];
+      // No double operators: a second operator replaces the first.
+      if (isOperator(last) || last === '.') return setDraft(`${base.slice(0, -1)}${k}`);
+      return setDraft(base.length >= 18 ? base : `${base}${k}`);
     }
-    setDraft(base === '0' ? k : base.length >= 6 ? base : `${base}${k}`);
+    if (k === '.') {
+      if (integer) return;
+      // The dot rule applies to the CURRENT number — the segment after the
+      // last operator, not the whole expression.
+      const segment = calculator ? base.split(/[+−×÷]/).pop() ?? '' : base;
+      if (segment.includes('.')) return;
+      return setDraft(base === '' || (calculator && isOperator(base[base.length - 1] ?? '')) ? `${base}0.` : `${base}.`);
+    }
+    setDraft(base === '0' ? k : base.length >= (calculator ? 18 : 6) ? base : `${base}${k}`);
   };
   // Quick plate adjust: bump the CURRENT draft by ±delta (clamped ≥ 0).
   const adjust = (delta: number) => {
@@ -163,10 +186,43 @@ export function KeyPad({
             <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
               {label}
             </Text>
-            <Text className="text-3xl font-bold text-text" style={{ textShadowColor: `${tint}88`, textShadowRadius: 12 }}>
+            <Text
+              className={calculator ? 'text-xl font-bold text-text' : 'text-3xl font-bold text-text'}
+              numberOfLines={1}
+              style={{ textShadowColor: `${tint}88`, textShadowRadius: 12, flexShrink: 1, marginLeft: 8 }}
+            >
               {draft === '' ? '·' : draft}
             </Text>
           </View>
+
+          {/* Calculator mode: the running total, so the athlete sees the label
+              maths resolve before pressing DONE. */}
+          {calculator && /[+−×÷]/.test(draft) ? (
+            <Text className="mb-s2 text-right text-sm font-bold" style={{ color: tint }} testID="keypad-result">
+              = {(() => { const r = evalEnergyExpression(draft); return r === null ? '·' : String(Math.round(r * 10) / 10); })()}
+            </Text>
+          ) : null}
+
+          {/* Calculator mode: the four operators. */}
+          {calculator ? (
+            <View className="mb-s2 flex-row gap-s2">
+              {OPERATOR_KEYS.map((k) => (
+                <Pressable
+                  key={k}
+                  onPress={() => press(k)}
+                  className="flex-1 items-center justify-center rounded-md border"
+                  style={{ minHeight: 44, borderColor: `${tint}55`, backgroundColor: `${tint}14` }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`operator ${k}`}
+                  testID={`keypad-op-${k}`}
+                >
+                  <Text className="text-xl font-bold" style={{ color: tint }}>
+                    {k}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
           {/* Quick plate adjust (weight only) — a −row and a +row. */}
           {quickSteps && quickSteps.length > 0 ? (
@@ -231,6 +287,7 @@ export function NumberField({
   quickSteps,
   dim = false,
   narrow = false,
+  calculator = false,
   testID,
 }: {
   value: string;
@@ -250,6 +307,9 @@ export function NumberField({
   dim?: boolean;
   /** Sub-360px screens: slimmer steppers (P2 sweep, iPhone SE1/5s). */
   narrow?: boolean;
+  /** Expression entry (the fuel converter) — see KeyPad. Steppers act on the
+   *  EVALUATED result, collapsing the expression (calculator convention). */
+  calculator?: boolean;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -259,7 +319,7 @@ export function NumberField({
 
   const bump = (dir: 1 | -1, fromHold = false) => {
     const now = Date.now();
-    const current = pyFloat(value) ?? 0;
+    const current = (calculator ? evalEnergyExpression(value) : pyFloat(value)) ?? 0;
     const g = gesture.current;
     if (!fromHold && bigStep && g && g.dir === dir && now - g.at < DOUBLE_MS) {
       // Double-press: the gesture becomes plate jumps from where it started.
@@ -290,7 +350,7 @@ export function NumberField({
             color: dim ? colors['text-dim'] : colors.text,
             fontVariant: ['tabular-nums'],
           }}
-          inputMode={USE_CUSTOM_PAD ? 'none' : integer ? 'numeric' : 'decimal'}
+          inputMode={USE_CUSTOM_PAD ? 'none' : calculator ? 'text' : integer ? 'numeric' : 'decimal'}
           // The native placeholder inherits the big value font and reads like a
           // value; render a small, quiet hint of our own instead (below).
           placeholder=""
@@ -346,7 +406,7 @@ export function NumberField({
         />
       </View>
       {USE_CUSTOM_PAD && padOpen ? (
-        <KeyPad label={label} initial={value} integer={integer} tint={tint} quickSteps={quickSteps} onDone={onChange} onClose={() => setPadOpen(false)} />
+        <KeyPad label={label} initial={value} integer={integer} tint={tint} quickSteps={quickSteps} calculator={calculator} onDone={onChange} onClose={() => setPadOpen(false)} />
       ) : null}
     </View>
   );

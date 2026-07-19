@@ -6,6 +6,7 @@ import {
   FLOOR_KCAL,
   KJ_PER_KCAL,
   canAddMeal,
+  evalEnergyExpression,
   canRemoveMeal,
   dailyTarget,
   effectiveMealCount,
@@ -349,5 +350,65 @@ describe('meterState — the colour must not lie about the goal', () => {
   it('a bulk/maintain target REACHED is the success state — eating enough is the win', () => {
     expect(meterState(2300, 2300, 'gain')).toBe('reached');
     expect(meterState(2400, 2300, 'maintain')).toBe('reached');
+  });
+});
+
+describe('evalEnergyExpression — the label calculator', () => {
+  it('the headline case: 435*5 is the five-serving total', () => {
+    expect(evalEnergyExpression('435*5')).toBe(2175);
+  });
+
+  it('all four operators, with normal precedence', () => {
+    expect(evalEnergyExpression('100+50')).toBe(150);
+    expect(evalEnergyExpression('100-30')).toBe(70);
+    expect(evalEnergyExpression('1650/4')).toBe(412.5);
+    expect(evalEnergyExpression('2+3*4')).toBe(14); // never 20
+    expect(evalEnergyExpression('1650/4+300')).toBe(712.5);
+    expect(evalEnergyExpression('10-2*3')).toBe(4);
+  });
+
+  it('decimals in any position', () => {
+    expect(evalEnergyExpression('12.5*4')).toBe(50);
+    expect(evalEnergyExpression('.5*10')).toBe(5);
+    expect(evalEnergyExpression('435*2.')).toBe(870); // mid-typing decimal
+  });
+
+  it('the keypad glyphs (× ÷ −) and x/X mean the same operators', () => {
+    expect(evalEnergyExpression('435×5')).toBe(2175);
+    expect(evalEnergyExpression('1650÷4')).toBe(412.5);
+    expect(evalEnergyExpression('100−30')).toBe(70);
+    expect(evalEnergyExpression('435x5')).toBe(2175);
+    expect(evalEnergyExpression('435X5')).toBe(2175);
+  });
+
+  it('LENIENT WHILE TYPING: a trailing operator evaluates what is complete', () => {
+    expect(evalEnergyExpression('435*')).toBe(435);
+    expect(evalEnergyExpression('435*5+')).toBe(2175);
+  });
+
+  it('a plain number keeps pyFloat semantics (the pre-calculator contract)', () => {
+    expect(evalEnergyExpression('435')).toBe(435);
+    expect(evalEnergyExpression('  435 ')).toBe(435);
+    expect(evalEnergyExpression('-5')).toBe(-5);
+    expect(evalEnergyExpression('')).toBeNull();
+  });
+
+  it('unary minus inside an expression', () => {
+    expect(evalEnergyExpression('10*-2')).toBe(-20);
+    expect(evalEnergyExpression('-5+10')).toBe(5);
+  });
+
+  it('malformed input is null, never NaN/Infinity', () => {
+    expect(evalEnergyExpression('abc')).toBeNull();
+    expect(evalEnergyExpression('4a5*5')).toBeNull();
+    expect(evalEnergyExpression('435**5')).toBeNull(); // * is not a unary op
+    expect(evalEnergyExpression('10/0')).toBeNull(); // division by zero
+    expect(evalEnergyExpression('1.2.3*2')).toBeNull();
+    expect(evalEnergyExpression('*5')).toBeNull(); // leading binary operator
+  });
+
+  it('whitespace anywhere is tolerated', () => {
+    expect(evalEnergyExpression('435 * 5')).toBe(2175);
+    expect(evalEnergyExpression(' 100 + 50 ')).toBe(150);
   });
 });

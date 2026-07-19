@@ -1514,6 +1514,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
     LOCAL calendar date — Playwright must use `getDay()`, not
     `getUTCDay()`, when computing the app's weekday.
 
+- **FUEL CONVERTER CALCULATOR (2026-07-20):** both sides of the KJ⇄KCAL
+  converter take label arithmetic — "435*5" converts the five-serving
+  total; + − × ÷ with normal precedence, decimals, unary minus.
+  `evalEnergyExpression` (`domain/nutrition.ts`, pure, tested) is the ONE
+  evaluator: keypad glyphs (× ÷ −) and x/X normalize to * and /; a
+  TRAILING operator evaluates the complete prefix (no mid-typing flicker
+  on the other side); malformed input / division-by-zero → null, never
+  NaN. `NumberField`/`KeyPad` gained an opt-in `calculator` prop: the
+  touch keypad grows a + − × ÷ row and a live `= total` line, the
+  first-keystroke-replaces rule is suspended for operators ("×5" over a
+  seeded 435 means 435×5), and the steppers act on the EVALUATED result
+  (collapsing the expression — calculator convention). Only the two
+  converter fields opt in; every other NumberField is unchanged. Toured
+  on desktop (typed) and touch (keypad) against the real build.
+
 **Migrations applied through `070`. Next free number: `071`.**
 (`065` is a SHARED number, like `037`: `065_leaderboard_metrics.sql` and
 `065_schedule_extra_workouts.sql` were written by parallel sessions the same

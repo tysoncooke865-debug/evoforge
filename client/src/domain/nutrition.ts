@@ -12,6 +12,8 @@
  * is what makes the safety floor a TESTED rule instead of a hope.
  */
 
+import { pyFloat } from './py';
+
 export type Sex = 'male' | 'female';
 export type Activity = 'sedentary' | 'light' | 'moderate' | 'active' | 'very';
 export type Goal = 'lose' | 'maintain' | 'gain';
@@ -25,6 +27,69 @@ export function kjToKcal(kj: number): number {
 
 export function kcalToKj(kcal: number): number {
   return kcal * KJ_PER_KCAL;
+}
+
+/**
+ * THE LABEL CALCULATOR — evaluate a small arithmetic expression ("435*5",
+ * "1650/4+300") so the converter can total a nutrition label without a
+ * separate calculator app. Supports + − × ÷ with normal precedence, decimals,
+ * and unary minus. Display glyphs (× ÷ −, the keypad's) and x/X are accepted
+ * alongside * and /.
+ *
+ * LENIENT WHILE TYPING: trailing operators are ignored ("435*" reads as 435),
+ * so the other side of the converter never flickers empty mid-expression.
+ * Anything else malformed — stray characters, consecutive operators, division
+ * by zero — is null, never NaN/Infinity. A plain number keeps pyFloat's exact
+ * semantics (the pre-calculator contract of every caller).
+ */
+export function evalEnergyExpression(input: string): number | null {
+  const s = input
+    .replace(/[×xX]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/\s+/g, '')
+    .replace(/[+\-*/]+$/, ''); // trailing operator(s): evaluate what's complete
+  if (s === '') return null;
+  // A plain number (optional leading sign) keeps pyFloat's exact semantics.
+  if (/^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(s)) return pyFloat(s);
+
+  // `12.` (a decimal mid-typing) tokenizes whole so the join check passes.
+  const tokens = s.match(/\d+\.?\d*|\.\d+|[+\-*/]/g);
+  if (tokens === null || tokens.join('') !== s) return null; // stray characters
+
+  let i = 0;
+  const number = (): number | null => {
+    let sign = 1;
+    while (tokens[i] === '+' || tokens[i] === '-') {
+      if (tokens[i] === '-') sign = -sign;
+      i += 1;
+    }
+    const t = tokens[i];
+    if (t === undefined || /^[+\-*/]$/.test(t)) return null;
+    i += 1;
+    return sign * Number(t);
+  };
+  const term = (): number | null => {
+    let acc = number();
+    while (acc !== null && (tokens[i] === '*' || tokens[i] === '/')) {
+      const op = tokens[i];
+      i += 1;
+      const rhs = number();
+      if (rhs === null) return null;
+      acc = op === '*' ? acc * rhs : acc / rhs;
+    }
+    return acc;
+  };
+  let acc = term();
+  while (acc !== null && (tokens[i] === '+' || tokens[i] === '-')) {
+    const op = tokens[i];
+    i += 1;
+    const rhs = term();
+    if (rhs === null) return null;
+    acc = op === '+' ? acc + rhs : acc - rhs;
+  }
+  if (acc === null || i !== tokens.length || !Number.isFinite(acc)) return null;
+  return acc;
 }
 
 /** Standard TDEE multipliers over BMR. Keys double as the intake chips. */

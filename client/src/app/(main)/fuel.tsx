@@ -13,6 +13,7 @@ import {
 import { NumberField } from '@/ui/core/number-field';
 import {
   GOAL_LABEL,
+  evalEnergyExpression,
   intakeProgress,
   kjToKcal,
   macroProgress,
@@ -166,7 +167,10 @@ export default function FuelScreen() {
         />
       ) : null}
 
-      {/* THE CONVERTER — type either side, the other answers. */}
+      {/* THE CONVERTER — type either side, the other answers. Either side
+          also takes label ARITHMETIC ("435×5", "1650/4+300"): the expression
+          evaluates and the other side converts the total — no separate
+          calculator app for a 5-serving box. */}
       <GlowCard>
         <SectionLabel size="lg">KJ ⇄ KCAL CONVERTER</SectionLabel>
         <View className="flex-row items-center gap-s2">
@@ -182,13 +186,14 @@ export default function FuelScreen() {
               value={convKj}
               onChange={(v) => {
                 setConvKj(v);
-                const n = pyFloat(v);
+                const n = evalEnergyExpression(v);
                 setConvKcal(n === null ? '' : fmt1(kjToKcal(n)));
               }}
               step={100}
               placeholder="kJ"
               label="KILOJOULES"
               width={96}
+              calculator
               testID="fuel-conv-kj"
             />
           </View>
@@ -205,17 +210,21 @@ export default function FuelScreen() {
               value={convKcal}
               onChange={(v) => {
                 setConvKcal(v);
-                const n = pyFloat(v);
+                const n = evalEnergyExpression(v);
                 setConvKj(n === null ? '' : fmt1(n * 4.184));
               }}
               step={50}
               placeholder="kcal"
               label="KILOCALORIES"
               width={96}
+              calculator
               testID="fuel-conv-kcal"
             />
           </View>
         </View>
+        <Text className="mt-s2 text-2xs text-text-mute">
+          Maths works: 435×5 converts the five-serving total. + − × ÷ all do.
+        </Text>
       </GlowCard>
 
       {/* TODAY — the quick-adds. Meal entries live (and delete) inside their
