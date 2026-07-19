@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useWorkoutSchedule, useSaveSchedule } from '@/data/schedule';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
@@ -12,9 +12,9 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
  * IMPROVEMENT_PLAN #11 + PER-DAY SOURCE (2026-07-19, migration 066): map each
- * weekday to REST, or to a SOURCE (my plan / AI plan / EvoForge) and a SPLIT
- * from that source. Effective today onward; past days keep the plan that
- * governed them.
+ * weekday to REST, or to a SOURCE (my plan / AI plan / EvoForge) picked from a
+ * DROPDOWN and a SPLIT from that source. Effective today onward; past days keep
+ * the plan that governed them.
  *
  * The store stays two parallel maps: `plan` ('0'..'6' → day name | 'Rest', the
  * streak SQL still reads this untouched) and `sources` ('0'..'6' → SourceIndex).
@@ -25,13 +25,104 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SOURCES: readonly SourceIndex[] = [0, 1, 2];
 
+interface Opt {
+  value: string;
+  label: string;
+}
+
+/** A compact dropdown box: a labelled Pressable that expands an inline option
+ *  list. Only one dropdown on the screen is open at a time (openKey). */
+function Dropdown({
+  boxLabel,
+  value,
+  options,
+  isOpen,
+  onToggle,
+  onPick,
+  testID,
+}: {
+  boxLabel: string;
+  value: string;
+  options: readonly Opt[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onPick: (value: string) => void;
+  testID?: string;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View style={{ flex: 1 }}>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+      >
+        {boxLabel}
+      </Text>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        testID={testID}
+        className="flex-row items-center justify-between rounded-md border px-s3"
+        style={{
+          minHeight: 44,
+          borderColor: isOpen ? `${colors.accent}99` : colors.border,
+          backgroundColor: 'rgba(13,21,36,0.6)',
+        }}
+      >
+        <Text className="text-text" numberOfLines={1} allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>
+          {value}
+        </Text>
+        <Text className="text-accent" style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
+          ⌄
+        </Text>
+      </Pressable>
+      {isOpen ? (
+        <View
+          className="mt-s1 overflow-hidden rounded-md border"
+          style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface }}
+        >
+          {options.map((o) => {
+            const active = o.value === value;
+            return (
+              <Pressable
+                key={o.value}
+                onPress={() => onPick(o.value)}
+                accessibilityRole="button"
+                testID={testID ? `${testID}-opt-${o.value}` : undefined}
+                className="px-s3"
+                style={{
+                  minHeight: 42,
+                  justifyContent: 'center',
+                  backgroundColor: active ? 'rgba(34,211,238,0.10)' : 'transparent',
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                }}
+              >
+                <Text
+                  className={active ? 'text-accent' : 'text-text-dim'}
+                  numberOfLines={1}
+                  allowFontScaling={false}
+                  style={{ fontSize: 12, ...pixelFont() }}
+                >
+                  {active ? '✓ ' : ''}
+                  {o.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function ScheduleScreen() {
   const colors = useThemeColors();
   const schedule = useWorkoutSchedule();
   const save = useSaveSchedule();
   const { sources: planSources, preferredSource } = useDayPlan();
 
-  // Which sources actually have days to offer (built-in always does).
   const daysOf = (s: SourceIndex): readonly string[] => daysForSource(s, planSources, BUILT_IN_DAYS);
   const sourceHasDays = (s: SourceIndex): boolean => daysOf(s).length > 0;
   /** The source a stored name belongs to — my plan wins, then AI, then built-in. */
@@ -48,9 +139,9 @@ export default function ScheduleScreen() {
     return seed;
   });
   const [daySources, setDaySources] = useState<Record<string, number>>({});
+  // Which single dropdown is open (e.g. "1-source", "1-split"), or null.
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
-  // Seed from the latest saved schedule once it loads. A legacy row has no
-  // sources map → derive each non-rest day's source from the name it stored.
   const rows = schedule.data;
   useEffect(() => {
     if (!rows || rows.length === 0) return;
@@ -69,13 +160,12 @@ export default function ScheduleScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  const setRest = (dow: string) => setPlan((p) => ({ ...p, [dow]: 'Rest' }));
+  const toggle = (key: string) => setOpenKey((k) => (k === key ? null : key));
 
   const pickSource = (dow: string, s: SourceIndex) => {
+    setOpenKey(null);
     if (!sourceHasDays(s)) return;
     setDaySources((m) => ({ ...m, [dow]: s }));
-    // Keep the current day if it belongs to the new source; otherwise adopt the
-    // source's first day (leaving 'Rest' as a real choice the user re-picks).
     setPlan((p) => {
       const cur = p[dow];
       if (cur && cur !== 'Rest' && daysOf(s).includes(cur)) return p;
@@ -96,62 +186,61 @@ export default function ScheduleScreen() {
         const isRest = !plan[key] || plan[key] === 'Rest';
         const activeSource: SourceIndex = (daySources[key] as SourceIndex) ?? preferredSource;
         const dayList = daysOf(activeSource);
+        const sourceOpts: Opt[] = SOURCES.filter(sourceHasDays).map((s) => ({
+          value: String(s),
+          label: SOURCE_LABEL[s],
+        }));
+        const splitOpts: Opt[] = dayList.map((d) => ({ value: d, label: d.split(' - ')[0] }));
         return (
           <GlowCard key={name}>
-            <Text
-              className="mb-s2 text-text"
-              allowFontScaling={false}
-              style={{ fontSize: 14, letterSpacing: 0.5, ...pixelFont() }}
-            >
-              {name.toUpperCase()}
-            </Text>
-
-            {/* Rest, or which source this day trains from. */}
-            <View className="flex-row flex-wrap gap-s2">
-              <Chip label="REST" active={isRest} onPress={() => setRest(key)} />
-              {SOURCES.filter(sourceHasDays).map((s) => (
-                <Chip
-                  key={s}
-                  label={SOURCE_LABEL[s]}
-                  active={!isRest && activeSource === s}
-                  onPress={() => pickSource(key, s)}
-                  testID={`sched-src-${dow}-${s}`}
-                />
-              ))}
+            <View className="mb-s2 flex-row items-center justify-between">
+              <Text
+                className="text-text"
+                allowFontScaling={false}
+                style={{ fontSize: 14, letterSpacing: 0.5, ...pixelFont() }}
+              >
+                {name.toUpperCase()}
+              </Text>
+              <Chip
+                label={isRest ? 'REST' : 'TRAIN'}
+                active={isRest}
+                onPress={() => {
+                  setOpenKey(null);
+                  if (isRest) pickSource(key, sourceHasDays(activeSource) ? activeSource : 2);
+                  else setPlan((p) => ({ ...p, [key]: 'Rest' }));
+                }}
+              />
             </View>
 
-            {/* The split, from the chosen source's day list. */}
             {!isRest ? (
-              <>
-                <Text
-                  className="mb-s1 mt-s3 text-text-mute"
-                  allowFontScaling={false}
-                  style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-                >
-                  {`SPLIT · ${SOURCE_LABEL[activeSource]}`}
-                </Text>
-                {dayList.length === 0 ? (
-                  <Text className="text-2xs text-warn">
-                    No splits in this plan yet — build it on Train first.
-                  </Text>
-                ) : (
-                  <View className="flex-row flex-wrap gap-s2">
-                    {dayList.map((d) => (
-                      <Chip
-                        key={d}
-                        label={d.split(' - ')[0].toUpperCase()}
-                        active={plan[key] === d}
-                        onPress={() => setPlan((p) => ({ ...p, [key]: d }))}
-                      />
-                    ))}
-                  </View>
-                )}
-                {plan[key] && plan[key] !== 'Rest' ? (
-                  <Text className="mt-s1 text-2xs" style={{ color: colors.accent }}>
-                    {plan[key]}
-                  </Text>
-                ) : null}
-              </>
+              <View className="flex-row gap-s3">
+                <Dropdown
+                  boxLabel="SOURCE"
+                  value={SOURCE_LABEL[activeSource]}
+                  options={sourceOpts}
+                  isOpen={openKey === `${key}-source`}
+                  onToggle={() => toggle(`${key}-source`)}
+                  onPick={(v) => pickSource(key, Number(v) as SourceIndex)}
+                  testID={`sched-src-${dow}`}
+                />
+                <Dropdown
+                  boxLabel="SPLIT"
+                  value={plan[key] ? plan[key].split(' - ')[0] : '—'}
+                  options={splitOpts}
+                  isOpen={openKey === `${key}-split`}
+                  onToggle={() => toggle(`${key}-split`)}
+                  onPick={(v) => {
+                    setOpenKey(null);
+                    setPlan((p) => ({ ...p, [key]: v }));
+                  }}
+                  testID={`sched-split-${dow}`}
+                />
+              </View>
+            ) : null}
+            {!isRest && dayList.length === 0 ? (
+              <Text className="mt-s2 text-2xs text-warn">
+                No splits in this plan yet — build it on Train first.
+              </Text>
             ) : null}
           </GlowCard>
         );

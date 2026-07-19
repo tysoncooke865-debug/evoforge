@@ -19,14 +19,20 @@ export interface PillarScores {
 
 /**
  * Per-pillar responsiveness: the fraction of the remaining gap to 100 a single
- * fully-consistent week closes. Strength and size answer consistent lifting
- * fastest; aesthetics (body composition) and cardio move more slowly.
+ * fully-consistent week closes. DELIBERATELY SMALL (Tyson, 2026-07-19: the
+ * first pass predicted absurd jumps — +25 in 12 weeks). Calibrated so a
+ * mid-level pillar (score ~50) gains only a few points over a 12-week block:
+ * at full consistency, ~+6 strength, ~+4 size, ~+3 cardio/aesthetics. The
+ * headroom shape still gives novices (low scores, big gap) faster progress and
+ * advanced athletes (near 100) almost none — the honest curve of real training.
+ * Strength and size answer consistent lifting fastest; body-composition
+ * (aesthetics) and cardio move more slowly.
  */
 export const PILLAR_RESPONSIVENESS: PillarScores = {
-  strength: 0.045,
-  size: 0.038,
-  cardio: 0.032,
-  aesthetics: 0.028,
+  strength: 0.011,
+  size: 0.008,
+  cardio: 0.006,
+  aesthetics: 0.005,
 };
 
 const clamp100 = (n: number): number => Math.max(0, Math.min(100, n));
