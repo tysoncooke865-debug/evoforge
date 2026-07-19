@@ -140,7 +140,7 @@ export function AvatarHero({
         // prominent — approximately 4x" → the hero size (same design,
         // scaled) + the coin balance riding beneath it.
         <QuickAction
-          icon={<PixelShirt size={32} color={colors.accent} />}
+          icon={<PixelShirt size={27} color={colors.accent} />}
           label="CUSTOMISE"
           size="hero"
           testID="hero-customise"
@@ -293,14 +293,15 @@ function QuickAction({
       testID={testID}
       className="items-center rounded-md border px-s2 py-s2"
       style={{
-        minHeight: hero ? 112 : 56,
-        minWidth: hero ? 132 : 96,
+        // Both hero dims trimmed 15% (Tyson 2026-07-19): 112→95, 132→112.
+        minHeight: hero ? 95 : 56,
+        minWidth: hero ? 112 : 96,
         justifyContent: 'center',
-        gap: hero ? 8 : 4,
+        gap: hero ? 7 : 4,
         borderColor: `${colors.accent}45`,
         backgroundColor: 'rgba(13,21,36,0.72)',
         ...(hero
-          ? { borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 14 }
+          ? { borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 12 }
           : null),
       }}
     >
@@ -309,7 +310,7 @@ function QuickAction({
         className="text-accent"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: hero ? 16 : 9, letterSpacing: 0, ...pixelFont() }}
+        style={{ fontSize: hero ? 14 : 9, letterSpacing: 0, ...pixelFont() }}
       >
         {label}
       </Text>
@@ -331,13 +332,13 @@ function CoinRow() {
       accessibilityLabel={`${total.data} forge coins — view rewards`}
       testID="hero-coins"
       className="flex-row items-center justify-center rounded-md border px-s2 py-s2"
-      style={{ minHeight: 40, gap: 8, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+      style={{ minHeight: 34, gap: 7, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
     >
-      <CoinIcon size={20} />
+      <CoinIcon size={17} />
       <Text
         allowFontScaling={false}
         numberOfLines={1}
-        style={{ fontSize: 14, color: colors.legendary, letterSpacing: 0.5, ...pixelFont() }}
+        style={{ fontSize: 12, color: colors.legendary, letterSpacing: 0.5, ...pixelFont() }}
       >
         {formatCompact(total.data)}
       </Text>
