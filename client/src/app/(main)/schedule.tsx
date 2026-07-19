@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useRoutines } from '@/data/routines';
@@ -6,7 +7,8 @@ import { useWorkoutSchedule, useSaveSchedule } from '@/data/schedule';
 import { useSavePlanSourcePref } from '@/data/plan-source-pref';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
-import { type PlanDayValue } from '@/domain/scheduled-streak';
+import { dayWorkouts, type PlanDayValue } from '@/domain/scheduled-streak';
+import { todayIso } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -209,30 +211,54 @@ export default function ScheduleScreen() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   /** Which day the ADD WORKOUT picker is open for; null = closed. */
   const [pickerDow, setPickerDow] = useState<number | null>(null);
+  /** The day the ?add= routine landed on — its card glows until saved. */
+  const [addedDow, setAddedDow] = useState<number | null>(null);
+  const addApplied = useRef(false);
+  const params = useLocalSearchParams<{ add?: string }>();
+
+  const todayDow = String(new Date(`${todayIso()}T00:00:00Z`).getUTCDay());
 
   const source: SourceIndex = weekSource ?? preferredSource;
   const dayList = daysOf(source);
 
   // Seed from the latest saved schedule once it loads — full 065 values
-  // (extras ride along with their day).
+  // (extras ride along with their day). ?add= (the quick-workout save flow)
+  // applies in the SAME pass: a separate add effect raced the deferred seed,
+  // which overwrote the appended extra. The append lands on TODAY's weekday,
+  // still unsaved (the athlete presses SAVE; nothing writes silently).
   const rows = schedule.data;
   useEffect(() => {
-    if (!rows || rows.length === 0) return;
-    const last = rows[rows.length - 1];
+    if (!rows) return;
     const t = setTimeout(() => {
-      setPlan({ ...last.plan });
-      // Seed the week source from the saved row's uniform source (the most-used
-      // value in its per-day map), else leave null → falls back to preferredSource.
-      const vals = Object.values(last.sources ?? {}).filter((v) => v === 0 || v === 1 || v === 2) as SourceIndex[];
-      if (vals.length > 0) {
-        const tally = new Map<SourceIndex, number>();
-        for (const v of vals) tally.set(v, (tally.get(v) ?? 0) + 1);
-        const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
-        setWeekSource(top);
+      const last = rows.length > 0 ? rows[rows.length - 1] : null;
+      const next: Record<string, PlanDayValue> = last ? { ...last.plan } : { ...plan };
+      const name = typeof params.add === 'string' ? params.add.trim() : '';
+      if (name && !addApplied.current) {
+        addApplied.current = true;
+        const v = next[todayDow];
+        const have = dayWorkouts(v).map((w) => w.toLowerCase());
+        if (!have.includes(name.toLowerCase())) {
+          next[todayDow] = [primaryOf(v), ...extrasOf(v), name];
+          setAddedDow(Number(todayDow));
+        }
+      }
+      setPlan(next);
+      if (last) {
+        // Seed the week source from the saved row's uniform source (the
+        // most-used value in its per-day map), else leave null → falls back
+        // to preferredSource.
+        const vals = Object.values(last.sources ?? {}).filter((v) => v === 0 || v === 1 || v === 2) as SourceIndex[];
+        if (vals.length > 0) {
+          const tally = new Map<SourceIndex, number>();
+          for (const v of vals) tally.set(v, (tally.get(v) ?? 0) + 1);
+          const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+          setWeekSource(top);
+        }
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, params.add, todayDow]);
 
   const toggle = (key: string) => setOpenKey((k) => (k === key ? null : key));
 
@@ -302,6 +328,7 @@ export default function ScheduleScreen() {
   };
 
   const onSave = () => {
+    setAddedDow(null); // the ?add= glow has served its purpose
     // UNIFORM sources: every trained day follows the one chosen plan. Train's
     // per-date reader then renders each day from that source with no remap.
     const uniform: Record<string, number> = {};
@@ -347,7 +374,7 @@ export default function ScheduleScreen() {
         const isRest = primary === 'Rest';
         const splitOpts: Opt[] = dayList.map((d) => ({ value: d, label: d.split(' - ')[0] }));
         return (
-          <GlowCard key={name}>
+          <GlowCard key={name} glow={addedDow === dow ? colors.accent : undefined}>
             <View className="flex-row items-center justify-between">
               <Text
                 className="text-text"

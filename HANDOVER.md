@@ -1457,6 +1457,29 @@ Owner: Tyson. He works through other Claude sessions too — **always
     weekday unsaved and glows the card — the athlete still presses SAVE.
     Streak strictness note added to the page copy. Extras never inflate
     weeklyContract (one pip per day, deliberate).
+  * **Quick-workout save prompt:** finishing an AD-HOC workout offers to
+    keep it — `state/save-routine-prompt-store.ts` (ephemeral, reset on
+    sign-out) + `ui/train/save-routine-prompt.tsx` (three steps: save? →
+    name it [defaults to the ad-hoc name; duplicate keeps the step open]
+    → add to schedule? → `/schedule?add=<name>`), mounted in
+    `(main)/_layout`. Offered from `workout.tsx finish()` only when
+    something was performed, the ceremony's own SAVE AS ROUTINE didn't
+    already fire (`savedInCeremonyRef`), and no routine already owns the
+    name (strip a `" (today)"` suffix first — restarted routines never
+    re-prompt). NOTE: the SHARE prompt's modal mounts after ours (its
+    offer lands async from the finish mutation) so it stacks ON TOP —
+    dismissing it reveals the save prompt beneath; accepted, not a bug.
+  * **The `?add=` seed race (fixed during the tour):** schedule.tsx's
+    seed effect and the add-append MUST be one effect — as two, the
+    deferred seed overwrote the appended extra. Toured LIVE vs prod as
+    ALPHA (quick workout → prompt → save → pre-added on /schedule → SAVE
+    → extra bar beneath Monday's, FROM MY ROUTINES on open → remove →
+    SAVE → scalar wire shape restored). Every seeded row deleted; ALPHA
+    restored (2 schedule rows, streak 0/null). Tour gotchas for next
+    time: the ORIGIN sheet re-prompts EVERY sign-in and eats clicks
+    (dismiss `origin-scan-later` before interacting); `todayIso()` is the
+    LOCAL calendar date — Playwright must use `getDay()`, not
+    `getUTCDay()`, when computing the app's weekday.
 
 **Migrations applied through `065`. Next free number: `066`.**
 (The line above previously said 048/049 — stale: the social program took

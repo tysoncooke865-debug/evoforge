@@ -22,6 +22,7 @@ import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { SharePrompt } from '@/ui/social/share-prompt';
+import { SaveRoutinePrompt } from '@/ui/train/save-routine-prompt';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
 import { PIXEL } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -298,6 +299,9 @@ export default function MainLayout() {
     {/* Post-workout "share it?" offer (Social) — self-hides unless a finish
         raised it and the feed is on. Never auto-publishes. */}
     <SharePrompt />
+    {/* 065: post-QUICK-workout "save it as a routine?" offer — mounted after
+        SharePrompt so it stacks above; dismissing reveals the share offer. */}
+    <SaveRoutinePrompt />
     </>
   );
 }

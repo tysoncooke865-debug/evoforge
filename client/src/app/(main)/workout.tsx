@@ -10,7 +10,7 @@ import { useOriginStatus } from '@/data/origin';
 import { originAsBranch } from '@/domain/customise';
 import { usePublishGhost } from '@/data/ghosts';
 import { useWorkoutLog } from '@/data/hooks';
-import { useSaveRoutine } from '@/data/routines';
+import { useRoutines, useSaveRoutine } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -22,6 +22,7 @@ import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { pyInt } from '@/domain/py';
 import type { SourceIndex } from '@/domain/plan-sources';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
+import { useSaveRoutinePromptStore } from '@/state/save-routine-prompt-store';
 import {
   applyOrder,
   buildEffectivePlan,
@@ -127,6 +128,9 @@ export default function WorkoutScreen() {
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const [reordering, setReordering] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // 065: the ceremony's own SAVE AS ROUTINE suppresses the post-finish prompt.
+  const savedInCeremonyRef = useRef(false);
+  const routines = useRoutines();
   const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
   // SUPERSET (2026-07-18): which exercise is picking a partner.
@@ -295,7 +299,21 @@ export default function WorkoutScreen() {
     clearActive();
     // An ad-hoc workout is DONE — releasing it restores START AN EMPTY WORKOUT.
     // It used to survive forever, capping the athlete at one ad-hoc per day.
-    if (isAdhoc) endAdhoc();
+    if (isAdhoc) {
+      endAdhoc();
+      // 065: offer to keep what they just invented. Skipped when the ceremony
+      // already saved it, when nothing was performed, and when a routine with
+      // this name exists (a routine STARTED from the list re-finishing —
+      // startRoutine may have suffixed " (today)", so match the base name).
+      const done = performed();
+      const baseName = workoutName.replace(/ \(today\)$/, '').trim();
+      const exists = (routines.data ?? []).some(
+        (r) => r.name.trim().toLowerCase() === baseName.toLowerCase()
+      );
+      if (done.length > 0 && !savedInCeremonyRef.current && !exists) {
+        useSaveRoutinePromptStore.getState().offer({ name: baseName, exercises: done });
+      }
+    }
     // Back to Train, where the bar is already green from the optimistic write.
     back();
   };
@@ -592,7 +610,10 @@ export default function WorkoutScreen() {
         onFinish={finish}
         onSaveRoutine={
           performed().length > 0
-            ? (name) => saveRoutine.mutate({ name, exercises: performed() })
+            ? (name) => {
+                savedInCeremonyRef.current = true; // 065: no double offer
+                saveRoutine.mutate({ name, exercises: performed() });
+              }
             : undefined
         }
         defaultRoutineName={workoutName}
