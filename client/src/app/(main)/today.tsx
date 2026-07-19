@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
@@ -24,7 +24,7 @@ import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
-import { buildWeekBars, extraBarsForToday, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
+import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
@@ -184,7 +184,9 @@ export default function TodayScreen() {
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
-  // 065: today's EXTRA scheduled workouts (their bars render beneath the week's).
+  // 065: the week's EXTRA scheduled workouts — each renders beneath its
+  // day's primary bar; today's are in_progress so BOTH of today's bars light.
+  const scheduledExtras = extraScheduledBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso);
   const todaysExtras = scheduledExtrasFor(todayIso, schedule.data ?? []);
   // Ad-hoc and off-schedule workouts get their own bar — otherwise finishing one
   // leaves it with no home on Train: green nowhere, reachable nowhere. The
@@ -536,6 +538,7 @@ export default function TodayScreen() {
       ...daysForSource(1, sources, BUILT_IN_DAYS),
       ...BUILT_IN_DAYS,
       ...(scheduledToday ? [scheduledToday] : []),
+      ...todaysExtras, // 065: a scheduled extra owns its name today too
       ...extraBars.map((b) => b.workout ?? ''),
     ];
     const err = adhocNameError(adhocName, taken);
@@ -788,22 +791,44 @@ export default function TodayScreen() {
               </Pressable>
             </View>
             {weekBars.map((bar) => (
-              <WeekBarRow
-                key={bar.date}
-                bar={bar}
-                // A week row FOCUSES the carousel on its date (Tyson's
-                // carousel spec) — the card's own button is the door in.
-                onOpen={() => carouselRef.current?.scrollToDate(bar.date)}
-                // Only TODAY's workout can be edited — the cards log to today.
-                // EDIT on a past bar used to delete the marker and land the
-                // athlete on a read-only page: nothing edited, the lock gone,
-                // and no way to restore it.
-                onEdit={
-                  bar.locked && bar.workout && bar.date === todayIso
-                    ? () => editLocked(bar.date, bar.workout as string)
-                    : undefined
-                }
-              />
+              <Fragment key={bar.date}>
+                <WeekBarRow
+                  bar={bar}
+                  // A week row FOCUSES the carousel on its date (Tyson's
+                  // carousel spec) — the card's own button is the door in.
+                  onOpen={() => carouselRef.current?.scrollToDate(bar.date)}
+                  // Only TODAY's workout can be edited — the cards log to today.
+                  // EDIT on a past bar used to delete the marker and land the
+                  // athlete on a read-only page: nothing edited, the lock gone,
+                  // and no way to restore it.
+                  onEdit={
+                    bar.locked && bar.workout && bar.date === todayIso
+                      ? () => editLocked(bar.date, bar.workout as string)
+                      : undefined
+                  }
+                />
+                {/* 065: the day's extra scheduled workouts, directly beneath.
+                    No carousel card exists for an extra, so TODAY's bar is
+                    its own door in; other days focus the carousel like any
+                    week row. */}
+                {(scheduledExtras.get(bar.date) ?? []).map((extra) => (
+                  <WeekBarRow
+                    key={`${extra.date}:${extra.workout}`}
+                    bar={extra}
+                    showDay={false}
+                    onOpen={() =>
+                      extra.date === todayIso && extra.workout
+                        ? open(extra.date, extra.workout)
+                        : carouselRef.current?.scrollToDate(extra.date)
+                    }
+                    onEdit={
+                      extra.locked && extra.workout && extra.date === todayIso
+                        ? () => editLocked(extra.date, extra.workout as string)
+                        : undefined
+                    }
+                  />
+                ))}
+              </Fragment>
             ))}
             {extraBars.map((bar) => (
               <WeekBarRow

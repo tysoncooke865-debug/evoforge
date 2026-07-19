@@ -1436,6 +1436,27 @@ Owner: Tyson. He works through other Claude sessions too — **always
     scalar 'Rest' inside a mixed plan bridges; seed deleted, ALPHA
     restored (2 rows, 0/null). Client (editor add/remove, week extra
     bars, quick-workout save prompt) lands in the following commits.
+  * **Client (same program, later commits):** `dayWorkouts()` in
+    `domain/scheduled-streak.ts` is THE normalizer — every plan reader
+    goes through it. `scheduledDayFor` PROMOTES the first non-Rest entry
+    (a ['Rest','Core'] Sunday is a Core day on every primary surface);
+    `scheduledExtrasFor`/`extraScheduledBars` carry the rest as bars
+    beneath the day's primary (today's extras are `in_progress` — that
+    status alone is the blue highlight, `week-bar.tsx` unchanged).
+    `extraBarsForToday` now takes an exclusion LIST (primary + extras) so
+    a trained scheduled extra never doubles as an ad-hoc bar; a
+    swapped-AWAY stored name deliberately stays eligible. `resolveDayIn`
+    falls back to SAVED ROUTINES last (case-insensitive; plan sources WIN
+    over a same-named routine — equal names are one workout_log grouping
+    key); the workout page labels that case FROM MY ROUTINES.
+    `serializePlan` (data/schedule.ts) keeps extra-less days as plain
+    strings on the wire. Editor (`schedule.tsx`): chips = primary slot;
+    extras listed with ✕ remove + "+ ADD WORKOUT" bottom-sheet picker
+    (BUILT-IN DAYS + MY ROUTINES, day's names excluded, deleted-routine
+    refs flagged ⚠ but removable); `?add=<name>` appends to TODAY's
+    weekday unsaved and glows the card — the athlete still presses SAVE.
+    Streak strictness note added to the page copy. Extras never inflate
+    weeklyContract (one pip per day, deliberate).
 
 **Migrations applied through `065`. Next free number: `066`.**
 (The line above previously said 048/049 — stale: the social program took

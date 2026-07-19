@@ -1,4 +1,5 @@
 import { usePlanSourcePref } from './plan-source-pref';
+import { useRoutines } from './routines';
 import { useUserPlans } from './user-plans';
 
 import { ROUTINE, ROUTINE_ORDER } from '@/domain/catalogs';
@@ -55,6 +56,9 @@ export function useDayPlan(): DayPlan {
   // retired — no client reads or writes it any more.
   const userPlans = useUserPlans();
   const pref = usePlanSourcePref(); // the saved choice (035); null = never chosen
+  // 065: saved routines are the resolver's LAST fallback — a scheduled extra
+  // is usually a routine's name, which no plan source holds.
+  const routines = useRoutines();
 
   const sources = resolvePlanSources({
     customPlan: userPlans.data?.custom ?? null,
@@ -64,7 +68,7 @@ export function useDayPlan(): DayPlan {
 
   // The RULE lives in the pure domain (resolveDayIn) — this is only wiring.
   const resolveDay = (workout: string, preferred: SourceIndex): ResolvedDay =>
-    resolveDayIn(sources, builtInEntries, workout, preferred);
+    resolveDayIn(sources, builtInEntries, workout, preferred, routines.data ?? []);
 
   return {
     sources,

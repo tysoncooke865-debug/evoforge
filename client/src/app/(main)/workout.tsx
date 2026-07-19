@@ -324,7 +324,7 @@ export default function WorkoutScreen() {
       {/* Whose workout is this? The tab said one thing; if the day only exists
           in another plan we show that one, and we SAY so rather than quietly
           passing it off as theirs. */}
-      {!isAdhoc && resolved.from !== null ? (
+      {!isAdhoc && (resolved.from !== null || resolved.routine !== undefined) ? (
         <Text
           className="text-2xs font-bold"
           style={{
@@ -333,9 +333,11 @@ export default function WorkoutScreen() {
           }}
           testID="workout-source"
         >
-          {borrowedFrom !== null
-            ? `NOT IN ${SOURCE_LABEL[preferredSource]} — SHOWING ${SOURCE_LABEL[borrowedFrom]}`
-            : `FROM ${SOURCE_LABEL[preferredSource]}`}
+          {resolved.from === null
+            ? 'FROM MY ROUTINES' // 065: a scheduled extra resolved by name
+            : borrowedFrom !== null
+              ? `NOT IN ${SOURCE_LABEL[preferredSource]} — SHOWING ${SOURCE_LABEL[borrowedFrom]}`
+              : `FROM ${SOURCE_LABEL[preferredSource]}`}
         </Text>
       ) : null}
 

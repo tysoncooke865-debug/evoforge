@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { ScheduleRow } from '@/domain/scheduled-streak';
+import type { PlanDayValue, ScheduleRow } from '@/domain/scheduled-streak';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -25,6 +25,17 @@ export function useWorkoutSchedule() {
   });
 }
 
+/** 065's wire rule: a day with no extras serializes as a PLAIN STRING —
+ *  byte-identical to pre-065 rows; only days carrying extras become arrays. */
+export function serializePlan(plan: Record<string, PlanDayValue>): Record<string, PlanDayValue> {
+  return Object.fromEntries(
+    Object.entries(plan).map(([dow, v]) => [
+      dow,
+      Array.isArray(v) ? (v.length <= 1 ? (v[0] ?? 'Rest') : v) : v,
+    ])
+  );
+}
+
 /** Save today's-onward plan: upsert on (user, effective_from=today). RLS
  *  forbids backdating, so history is judged against what was in force. */
 export function useSaveSchedule() {
@@ -32,12 +43,15 @@ export function useSaveSchedule() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: async (input: { plan: Record<string, string>; sources?: Record<string, number> }) => {
+    mutationFn: async (input: {
+      plan: Record<string, PlanDayValue>;
+      sources?: Record<string, number>;
+    }) => {
       const today = todayIso();
       const { error } = await supabase
         .from('workout_schedule')
         .upsert(
-          { effective_from: today, plan: input.plan, sources: input.sources ?? null },
+          { effective_from: today, plan: serializePlan(input.plan), sources: input.sources ?? null },
           { onConflict: 'user_id,effective_from' }
         );
       if (error) throw error;
