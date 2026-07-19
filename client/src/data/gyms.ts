@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsFocused } from 'expo-router';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -108,10 +109,13 @@ export function useGymDetail(gymId: string | null) {
  *  precedent; there is no realtime channel for chat). */
 export function useGymMessages(gymId: string | null) {
   const userId = useUserId();
+  // Only poll while the gym screen is FOCUSED — the notifications precedent, so
+  // a backgrounded gym tab doesn't churn a 5s RPC (battery/network on the PWA).
+  const focused = useIsFocused();
   return useQuery({
     queryKey: ['gym_messages', userId, gymId],
     enabled: userId !== null && gymId !== null,
-    refetchInterval: 5000,
+    refetchInterval: focused ? 5000 : false,
     queryFn: async (): Promise<GymMessage[]> => {
       try {
         const { data, error } = await supabase.rpc('gym_messages', { p_gym: gymId, p_limit: 50 });

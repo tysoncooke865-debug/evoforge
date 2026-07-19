@@ -32,9 +32,9 @@ import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/
 import { computeStreak } from '@/domain/streak';
 import { todayIso as calendarToday } from '@/domain/today';
 import { sourceDayFor } from '@/domain/week-status';
-import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
+import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
-import { dwKey } from '@/domain/workout-index';
+import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
@@ -130,7 +130,6 @@ export default function HomeScreen() {
   // B3 (2026-07-19): the shared index — Home used to re-normalise the same
   // 2500 rows ~5× per render across mission/PR/totals/streak derivations.
   const workoutIndex = useWorkoutIndex();
-  const allRows = workoutIndex.data?.rows ?? [];
   const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
   const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
 
@@ -174,7 +173,7 @@ export default function HomeScreen() {
   const bodyweightKg =
     currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg) ??
     (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
-  const lastWork = missionWorkout ? lastSessionWork(allRows, missionWorkout, todayIso) : null;
+  const lastWork = missionWorkout ? lastSessionForWorkout(workoutIndex.data, missionWorkout, todayIso) : null;
   const kcalSets = targetSets > 0 ? targetSets : (lastWork?.sets ?? 0);
   const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
   const pills =

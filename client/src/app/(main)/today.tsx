@@ -22,10 +22,10 @@ import { userMuscleFor } from '@/domain/exercise-search';
 import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
-import { dwKey } from '@/domain/workout-index';
+import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, scheduledDayFor, sourceDayFor } from '@/domain/week-status';
-import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
+import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
@@ -153,7 +153,6 @@ export default function TodayScreen() {
   // the carousel cards and week bars used to re-filter the full 2500-row
   // log each, every render.
   const workoutIndex = useWorkoutIndex();
-  const allRows = workoutIndex.data?.rows ?? [];
 
   /** How much of a day is done: sets logged vs sets the plan asks for. The plan
    *  is read from the SAME source the door will open, so the hub and the page
@@ -240,7 +239,7 @@ export default function TodayScreen() {
     const sets = entries.reduce((n, [, s]) => n + s, 0);
     // KCAL is NET — the surplus over resting — sized by the athlete's own
     // last session of this workout before this date.
-    const lastWork = lastSessionWork(allRows, workout, date);
+    const lastWork = lastSessionForWorkout(workoutIndex.data, workout, date);
     const kcalSets = sets > 0 ? sets : (lastWork?.sets ?? 0);
     const kcalRepsPerSet = lastWork && lastWork.sets > 0 ? lastWork.totalReps / lastWork.sets : null;
     const progress = setsFor(date, workout);

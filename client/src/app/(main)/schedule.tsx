@@ -118,7 +118,6 @@ function Dropdown({
 }
 
 export default function ScheduleScreen() {
-  const colors = useThemeColors();
   const schedule = useWorkoutSchedule();
   const save = useSaveSchedule();
   const { sources: planSources, preferredSource } = useDayPlan();
