@@ -9,7 +9,6 @@
 export const homeFeatures = {
   /** No cosmetic inventory exists yet — the hero's LOADOUT action stays
    *  hidden until one does (never a dead button). */
-  showLoadout: false,
   /** Routes to /customise — the champion select + skin/aura/emote
    *  customiser (real since 2026-07-16). */
   showCustomise: true,

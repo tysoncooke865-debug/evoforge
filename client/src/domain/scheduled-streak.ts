@@ -15,6 +15,7 @@
  */
 
 import { isCountedSet } from './workouts';
+import { addDaysIso } from './today';
 import type { WorkoutRow } from './summary';
 
 export interface ScheduleRow {
@@ -31,11 +32,7 @@ export interface ScheduledStreak {
   days: Map<string, DayState>;
 }
 
-const addDays = (iso: string, n: number): string => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
+const addDays = addDaysIso; // D6: the shared helper
 
 const dowOf = (iso: string): string => String(new Date(`${iso}T00:00:00Z`).getUTCDay());
 

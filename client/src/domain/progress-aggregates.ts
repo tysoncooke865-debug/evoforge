@@ -12,6 +12,7 @@
  */
 
 import { pyFloat } from './py';
+import { addDaysIso } from './today';
 import { normaliseWorkoutLog, type CardioRow, type WorkoutRow } from './summary';
 import { estimated1rm } from './workouts';
 import { activityXp } from './xp';
@@ -28,11 +29,7 @@ export interface PeriodTotals {
   xp: number;
 }
 
-const addDays = (iso: string, n: number): string => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
+const addDays = addDaysIso; // D6: the shared helper
 
 const dow = (iso: string): number => new Date(`${iso}T00:00:00Z`).getUTCDay();
 

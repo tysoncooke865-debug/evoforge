@@ -23,38 +23,21 @@ MSG_FILE="$1"
 
 # Paths carrying security, money, identity, or ranking integrity.
 PROTECTED_PATTERNS=(
+    # 2026-07-19: the Streamlit app + its CI were retired and deleted; this
+    # list dropped their entries. What remains guarded is the live client's
+    # security/economy surface + the goldens contract.
+    '^tools/gen_fixtures\.py$'    # the goldens generator IS the contract
+    '^contracts/'                 # the goldens themselves
     '^data/'                      # Supabase access layer + RLS assumptions
     '^auth/'                      # authentication
-    '^views/auth\.py$'            # the login gate
-    '^views/onboarding\.py$'      # runs before the gate closes
     '^config/constants\.py$'      # SUPABASE_TABLE_SCHEMAS is the schema contract
     '^migrations/'                # database migrations
-    '^services/payments'          # future: billing
     '^domain/xp\.py$'             # THE XP contract -> leaderboard integrity
     '^domain/xp_leveling\.py$'    # its UI shim
     '^domain/xp_ledger\.py$'      # mints XP into the append-only ledger
     '^domain/avatar_stats\.py$'   # evolution contract
-    '^\.streamlit/'               # secrets + runtime config
     '^tools/hooks/'               # the guard must not disable itself
     '^\.github/'                  # CI is the only real enforcement; gutting it is deliberate
-    # The checks themselves. On 2026-07-10 four of them passed while testing
-    # nothing, and only verify_rls.py was guarded -- a weakened check could be
-    # written and self-merged in the same afternoon. Weakening a test is a change
-    # to the safety of this project, so it costs an [architect] marker like any
-    # other. See CLAUDE.md: a guard is not accepted until it has been falsified.
-    '^tools/verify_rls\.py$'      # the security test must not be weakened
-    '^tools/verify_ui\.py$'
-    '^tools/verify_deep\.py$'
-    '^tools/verify_ordering\.py$'
-    '^tools/verify_xp\.py$'
-    '^tools/verify_goals\.py$'
-    '^tools/verify_isolation\.py$'
-    '^tools/verify_css\.py$'
-    '^tools/verify_perf\.py$'
-    '^tools/verify_escape\.py$'
-    '^tools/verify_session\.py$'
-    '^tools/verify_leaderboard\.py$'  # the only cross-user read surface's guard
-    '^ui/escape\.py$'            # the XSS boundary; a readable auth cookie sits behind it
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR || true)

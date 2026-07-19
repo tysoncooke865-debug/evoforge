@@ -14,10 +14,8 @@ export const progressionFeatures = {
   monthlyScansEnabled: true,
   /** Rival Rank placements + rated matches (P7) — ON at P7 ship. */
   rivalRankEnabled: true,
-  /** Ghost matches (P7). */
-  ghostMatchesEnabled: false,
-  /** Player Stats affecting gameplay simulation (P8). */
-  playerStatsGameplayEnabled: false,
+  // (ghostMatchesEnabled / playerStatsGameplayEnabled deleted 2026-07-19 —
+  //  zero references anywhere; D4.)
 } as const;
 
 export type ProgressionFeatures = typeof progressionFeatures;

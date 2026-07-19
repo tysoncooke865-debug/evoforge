@@ -20,7 +20,7 @@ import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { dwKey } from '@/domain/workout-index';
-import { todayIso as calendarToday } from '@/domain/today';
+import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
@@ -54,11 +54,6 @@ import { WeekBarRow } from '@/ui/train/week-bar';
  * The logging UI stays its own page (`/workout`) — Train briefs, it never logs.
  */
 
-const addDaysIso = (iso: string, n: number): string => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 const WEEKDAYS_LONG = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const WEEKDAYS_SHORT = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];

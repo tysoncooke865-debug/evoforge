@@ -48,3 +48,12 @@ export function localIso(d: Date): string {
  * means by "today", and a timestamp is an instant. They are different things
  * and only one of them was wrong.
  */
+
+/** ISO date + n days (UTC arithmetic on the calendar string — no wall
+ *  clock, no timezone drift). D6 (2026-07-19): was written inline three
+ *  times (today.tsx, progress-aggregates, scheduled-streak). */
+export function addDaysIso(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}

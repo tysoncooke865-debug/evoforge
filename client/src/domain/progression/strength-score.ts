@@ -13,6 +13,7 @@
  */
 
 import { daysBetween, evidenceConfidence, recencyWeight } from './confidence';
+import { estimated1rm } from '../workouts';
 import { clampScore, confidenceLabelFor, type PillarResult } from './types';
 import { scoreFromAnchors } from './size-score';
 
@@ -55,7 +56,7 @@ export function movementCategoryFor(exercise: string): MovementCategory | null {
  *  above 10 reps are NOT e1RM evidence (spec §11). */
 export function e1rmFor(weightKg: number, reps: number): number | null {
   if (!(weightKg > 0) || !(reps > 0) || reps > 10) return null;
-  return weightKg * (1 + reps / 30);
+  return estimated1rm(weightKg, reps); // D6: ONE Epley implementation app-wide
 }
 
 export type EquipmentClass =

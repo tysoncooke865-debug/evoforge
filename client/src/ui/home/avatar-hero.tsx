@@ -15,7 +15,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { HeroStage } from '@/ui/character/hero-stage';
 import { CoinIcon } from '@/ui/core/coin-icon';
-import { PixelHelmet, PixelShirt } from '@/ui/core/pixel-icons';
+import { PixelShirt } from '@/ui/core/pixel-icons';
 
 import type { HomeFeatures } from './home-features';
 
@@ -134,14 +134,7 @@ export function AvatarHero({
 
   const actions = (
     <>
-      {features.showLoadout ? (
-        <QuickAction
-          icon={<PixelHelmet size={18} color={colors.accent} />}
-          label="LOADOUT"
-          testID="hero-loadout"
-          onPress={openCharacter}
-        />
-      ) : null}
+      {/* (LOADOUT deleted 2026-07-19 — its flag was permanently false; D4.) */}
       {features.showCustomise ? (
         // Tyson 2026-07-19: "make the customise tab bigger and more
         // prominent — approximately 4x" → the hero size (same design,

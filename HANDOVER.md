@@ -1235,6 +1235,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
   * **DEFERRED to the battle session:** B10 (battle select('*') +
     interval gates), battle-file memos, battle-pov lazy-loading.
 
+- **AUDIT FIX BATCH — PHASE 4: repo leaning (2026-07-19, Tyson's D1 call):**
+  * **THE STREAMLIT APP IS DELETED from this branch** (history lives on
+    main): verify.yml + its 13 verify_*.py + shot.py, app.py, views/,
+    services/, .streamlit/, sprite_test/ (5.4M), avatar_assets/ (4.8M),
+    sprites.png (1.8M), requirements.txt — ~12.7MB and eleven CI checks
+    per push gone. **KEPT, load-bearing:** domain/*.py + config/
+    constants.py + contracts/ + tools/gen_fixtures.py (the goldens
+    contract — verified 4,832 cases green after the deletion), root
+    data/ + auth/ + ui/ (gen_fixtures' import chain; auth is a lazy
+    function-scope import), assets/styles.css (verify-tokens parity),
+    requirements-dev.txt (the fixtures job installs it), tools/hooks/
+    (protected-path list rewritten for the new world). CLAUDE.md
+    rewritten around the surviving contracts.
+  * Executed plan docs (15 files, ~250KB incl. HANDOFF.md and the 68K
+    IMPROVEMENT_PLAN) → docs/archive/. Six one-shot tools →
+    tools/archive/. reset-project.js + Expo/React template images gone.
+  * Six unused npm deps removed (@expo/ui, expo-blur, expo-device,
+    expo-glass-effect, expo-symbols, expo-web-browser).
+  * Dead flags deleted: ghostMatchesEnabled/playerStatsGameplayEnabled
+    (zero refs) and showLoadout + the LOADOUT branch. ORIGIN_FLAGS stay
+    (all-true but their conditions guard live ceremony logic — collapsing
+    them is riskier than the win; deliberate deviation from D4).
+  * The 4 orphaned aesthetic_stage_N.png removed (zero refs incl.
+    dynamic); helpers consolidated — ONE addDaysIso (domain/today) and
+    ONE Epley (e1rmFor delegates to estimated1rm, keeping its reps≤10
+    evidence guard).
+
 **Migrations applied through `064`. Next free number: `065`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)

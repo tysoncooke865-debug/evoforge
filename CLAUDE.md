@@ -1,350 +1,56 @@
 # EvoForge — project memory
 
-> ⚠️ **THE STREAMLIT APP IS RETIRED (Tyson, 2026-07-16).** Everything below
-> this banner describes the Python/Streamlit app, which no longer ships and
-> needs no support. **The real product is the Expo client on branch
-> `expo-rewrite` — read `HANDOVER.md` at the repo root and work there.**
-> This file remains as reference for the retired code and the database
-> contracts that outlived it (RLS, the XP ledger, the migrations).
+> **THE PRODUCT is the Expo client in `client/` on branch `expo-rewrite`**
+> (auto-deploys to https://expo-rewrite.evoforge.pages.dev). Read
+> `HANDOVER.md` at the repo root and work there.
+>
+> **The Python/Streamlit app was retired (Tyson, 2026-07-16) and DELETED
+> from this branch (2026-07-19)** along with its CI (`verify.yml`), its 13
+> verify scripts, `views/`, `services/`, `.streamlit/`, `app.py` and its
+> test art. `main` keeps the full history. What remains of the Python side
+> is LOAD-BEARING for the client and must not be treated as dead:
 
-> This file is auto-loaded into every session. It is the token budget.
-> Keep it under 200 lines. Detail belongs in the linked docs, read on demand.
+## The surviving Python contract
+- **`domain/*.py` + `config/constants.py` are the goldens contract.**
+  `tools/gen_fixtures.py --check` (run by `client.yml` on every push)
+  regenerates `contracts/fixtures/` from them and fails CI on drift — they
+  are the arbiter of the client's ported math (XP curve, avatar stats,
+  summary shaping, catalogs). Change the Python FIRST, regenerate, then
+  re-port. The import chain keeps root `data/`, `auth/`, `ui/` alive
+  (module imports only — nothing executes Streamlit).
+- **`assets/styles.css`** is parity-checked by
+  `client/scripts/verify-tokens.mjs` (tokens.js ⟷ :root). Retiring that
+  parity is a deliberate guard change, not a cleanup.
+- **`tools/hooks/`** — the commit-msg hook enforcing `[architect]` on
+  protected paths. Install once: `git config core.hooksPath tools/hooks`.
 
-**Start command:** `Read HANDOVER.md and continue development.`
-
-## What it is
-A fitness tracker with an RPG layer: your character's stats, level, rarity and
-evolution branch are derived from real lift data plus AI photo analysis of physique.
-Live: https://evoforge.streamlit.app · Repo: `tysoncooke865-debug/evoforge` (public)
-
-**Ambition: a real public product.** Strangers will sign up. Auth, RLS and per-user
-isolation are non-negotiable, not polish.
-
-## Stack
-Streamlit (UI) · Supabase/Postgres (data) · OpenAI Responses API (vision) · Pillow (avatars)
-Deployed on Streamlit Community Cloud from `main`.
-
-## Layout
-```
-app.py            entrypoint: page_config, styles, restore_session, auth gate, router
-auth/             session.py (identity) · persistence.py (stay-logged-in cookie)
-migrations/       numbered .sql (001–006), run by hand in the Supabase SQL editor
-config/           constants.py -> SUPABASE_TABLE_SCHEMAS is the schema contract
-data/             supabase_client · sb_ops (CRUD+cache+rpc). Supabase is the ONLY store.
-domain/           pure business logic. ~80% of a portable service layer.
-                  xp.py is THE XP contract: one curve, no streamlit, no pandas.
-                  xp_ledger.py · public_profile.py are the DB seams for those.
-services/         openai_client + ai_avatar / ai_bodyfat / ai_physique
-ui/               nav · components · avatar_cards · avatar_images · styles ·
-                  render_memo (avatar-stats memo) · escape (esc() for unsafe_allow_html)
-views/            16 page modules, each exposing render() (incl. leaderboard)
-assets/styles.css single design system, ~1.5k lines
-tools/            verification harness (11 checks) — RUN BEFORE EVERY COMMIT
-avatar_assets/    10 PNGs: aesthetic 1-4, mass 1-3, hybrid 1-3
-```
-
-> `views/` is **not** named `pages/` on purpose. A top-level `pages/` dir makes
-> Streamlit build its own multipage sidebar nav on top of ours. Do not rename it.
-
-## Database — 13 tables (all migrations 001–006 applied)
-The 11 originals: `workout_log` `bodyweight_log` `cardio_log` `bodyfat_log`
-`measurements` `physique_ratings` `custom_workout_plan` `achievements` `targets`
-`profile` `avatar_progression`. Every one is owner-only RLS (`user_id = auth.uid()`).
-
-Plus two:
-- **`xp_events`** (`002`) — the append-only XP ledger: owner `select`+`insert`, no
-  `update`/`delete`. A `before insert` trigger (`006`) recomputes `amount` from a real
-  owned source row and rejects server-only kinds, so XP cannot be minted by a raw POST.
-  Summed server-side by `public.xp_total()` (`003`).
-- **`public_profile`** (`004`) — opt-in `display_name` + `is_public`, kept OFF `profile`
-  so the cross-user leaderboard read can never sit beside body data.
-
-**Cross-user reads go through `security definer` functions only** — `leaderboard_top()`
-(`005`) returns four columns and nothing else. Every base table denies cross-user SELECT.
-
-Column lists live in one place: `config/constants.py :: SUPABASE_TABLE_SCHEMAS`. That
-dict is the **write** contract — `clean_supabase_row()` filters inserts down to it.
-Never add `user_id` to it: Postgres fills that from `DEFAULT auth.uid()`, and listing
-it would send an explicit `NULL` against a `NOT NULL` column.
-
-Real column types (read from `pg_catalog`, not assumed):
-- **Every table has an `id` primary key.** `uuid default gen_random_uuid()` on all
-  except `avatar_progression`, which is `bigint generated by default as identity`.
-  Use `id` to identify a row for delete; never a natural key.
-- Most tables carry `"timestamp" timestamptz not null default now()`.
-  `achievements` and `targets` carry `created_at` instead. `profile` has **both**.
-- `date` columns are real `date`. `achievements.date_unlocked` is a `date` too, so
-  the ISO datetime the app writes is **truncated to the day**.
-- `physique_ratings.weak_points` / `.improvements` are `jsonb`.
-- `workout_log."set"` is unquoted-legal (`SET` is an UNRESERVED keyword) but
-  `"timestamp"` must be quoted in raw SQL — it is a type-name keyword.
-- `cardio_log` has `type`, **not** `cardio_type`, despite the retry path in
-  `domain/cardio.py`.
-
-⚠️ **A `neq(col, "sentinel")` match-everything filter breaks on 8 of 11 tables** —
-their first schema column is `date` or `numeric`, so the sentinel string raises
-`invalid input syntax for type date`. Use `.not_.is_("id", "null")`.
-
-**Every table has a `user_id`**, `not null default auth.uid()`, with RLS enabled and
-owner-only policies. Applied by `migrations/001` on 2026-07-10 and verified —
-see **Auth**. Before that the database was one shared global bucket, which is the
-hidden premise behind several old bugs and one broken test harness.
-
-## Auth
-Supabase Auth, email + password. `auth/session.py` is the only entry point.
-
-- `app.py` gates: signed out → `views/auth.py` + `st.stop()`. No sidebar renders.
-- Then: no `profile` row → `views/onboarding.py` (3-step wizard) + `st.stop()`.
-  **A saved profile row IS the onboarded flag.** No extra table or column.
-- The JWT lives **on the Supabase client instance**. `get_supabase_client()`
-  returns one client per browser session from `st.session_state["_sb_client"]`.
-  **Never `@st.cache_resource` an authenticated client** — that cache is
-  process-global and would hand one user's JWT to the next visitor.
-- `cached_sb_select(_sb, table, user_id)` — `_sb` is excluded from the hash by
-  its underscore; `user_id` must stay in the key or `@st.cache_data` (also
-  process-global) serves one user's rows to another.
-- **A page refresh no longer signs the user out.** `auth/persistence.py` stores the
-  Supabase **refresh token** (never the access token) in a cookie written by
-  `extra-streamlit-components`, and `restore_session()` exchanges it for a fresh
-  session in `app.py` **before** the gate. Do **not** put the token in a query param —
-  it leaks into history and `Referer`.
-  - **Supabase ROTATES the refresh token on every use.** Every successful auth —
-    `sign_in`, `sign_up`, `restore_session` — must rewrite the cookie via
-    `persist_session()`. Miss it and sign-outs are *intermittent*: the first reopen
-    works, the second fails. `tools/verify_session.py` pins this.
-  - The cookie is **JS-readable**; Streamlit components cannot set `HttpOnly`. That is
-    why `ui/escape.py` exists. An HTML injection reads the token.
-  - `get_all()` returns `{}` for the first ~2 script runs. An empty dict means "the
-    iframe has not reported"; a cookie-less browser still returns `_streamlit_xsrf`.
-    That distinction is what makes the wait terminate instead of looping.
-  - Every failure — no component, no cookie, revoked, expired — leaves `_auth_user`
-    unset, so the gate shows the login screen. Persistence can only add, never break.
-
-`migrations/001_add_user_id_and_rls.sql` adds `user_id` + RLS to all 11 tables.
-**Applied 2026-07-10.** The old project (646 rows, RLS off) was abandoned rather
-than migrated: the staging project, which already had `001` applied and had passed
-the full `verify_rls.py`, was adopted as the new production. The old one is
-**paused, not deleted** — it holds the only copy of those 646 rows.
-
-- `verify_rls.py --anon-only` now **refuses to conclude without a positive control.**
-  Reaching a pass means every table read empty, and "the stranger saw nothing" is
-  the same observation as "there was nothing to see". Only a key that bypasses RLS
-  can tell them apart. Pass `SUPABASE_SECRET_KEY` **as an env var for the run** — it
-  does not belong in `secrets.toml` (T4). Without it: exit 2, `INCONCLUSIVE`.
-- *An error is not a denial; zero rows is not a denial either, when there are zero
-  rows.* Every exception in the anon loop is now inconclusive. It used to `continue`
-  — silently passing — whenever the message merely mentioned `jwt`, `401` or `403`.
-- User-vs-user isolation comes from the full `verify_rls.py` run against this same
-  project (two users, neither reading the other's rows, forged `user_id` rejected).
-  The policies have not changed since. **Do not run the full test now** — it writes
-  to all 11 tables and this project is production.
-
-## The XP / evolution contract
-**`domain/xp.py` is the single source of truth. It is pure — no streamlit, no
-pandas, no database. Never compute a level or a progress bar anywhere else.**
-
-- **Earning:** a set is `XP_PER_SET` (10). A cardio minute is 2. `activity_xp()`
-  is the only place XP is minted.
-- **The curve:** advancing *from* level `L` costs `500 + (L-1)*25`.
-  L1→2 = 500. L42→43 = 1525. Levels get dearer, as an RPG should.
-- `level_and_progress(base_level, total_xp)` returns `(level, xp_into_level,
-  xp_needed)`. The bar divides by the same number that grants the level, so it
-  reaches exactly 100% at level-up. Use `progress_percent()`, never `/` by hand.
-- `base_level` comes from `profile`. A character starts *at* `base_level` with 0
-  XP toward the next, not at level 1.
-- **Two sources, one curve.** `resolve_xp(derived, ledger)` picks what to *display*.
-  The ledger (`xp_events`, `migrations/002`) wins **only when it is at or ahead of
-  the derived recount**. It floors at derived and can never drag a user below what
-  they earned — a single failed grant once turned a real 10 XP into a displayed 0,
-  and RLS makes the ledger append-only so the app cannot repair it. The derived
-  recount runs every render because it is the **only oracle that can detect drift**.
-- `ledger_xp()` returns `None` — never `0` — when the table is absent, so the app is
-  correct on both sides of the migration, in either deploy order. `0` means "the
-  ledger is readable and empty", which is a *different* and much worse condition.
-- **Display is not ranking.** A leaderboard must read the ledger directly and refuse
-  any account with non-zero `xp_drift`. Never rank on `summary["xp"]`.
-- `migrations/002` is **written and wired, not yet applied.** Until it runs,
-  `xp_events` does not exist, `ledger_xp()` is `None`, and XP is derived exactly as
-  before. Apply it before leaderboards, seasons or PvP — not before.
-- **A set is a flat `XP_PER_SET`, independent of weight and reps.** This is load-
-  bearing: editing a set must not re-grant XP, because RLS makes the ledger
-  append-only and the old grant cannot be revoked. Hence `save_set_auto()` **updates
-  in place** rather than delete-and-insert — a new `workout_log.id` would either
-  double the grant or strand it. Never reintroduce delete-and-insert there.
-- `workout_summary()` returns `xp_source` (`"ledger"` / `"derived"`), `xp_derived`
-  and `xp_drift`. **A leaderboard must refuse to rank an account with non-zero
-  drift.** Drift means an edit double-granted, a granted row was deleted, or the
-  backfill is stale. `002` STEP 4 says which.
-- Rarity by level: COMMON <25 · RARE <50 · EPIC <75 · LEGENDARY <100 · MYTHIC 100
-- Branch (`determine_avatar_branch`): mass / hybrid / aesthetic, from stat mix.
-- Stage → which PNG renders. 4 aesthetic stages, 3 each for mass/hybrid.
-
-`tools/verify_xp.py` pins all of it, including that `002`'s hard-coded backfill
-literals still match `XP_PER_SET` / `XP_PER_CARDIO_MINUTE`.
-
-## Known problems
-Ordered by what blocks what. Full detail: ARCHITECTURE.md.
-
-| # | Problem | Status |
-|---|---|---|
-| 1 | ~~No authentication at all~~ | ✅ Supabase Auth; see **Auth** above |
-| 2 | ~~No `user_id` on any of the 11 tables~~ | ✅ `migrations/001` applied 2026-07-10 |
-| 3 | ~~**RLS is OFF on production.** An unauthenticated publishable-key client read all 11 tables, 646 rows~~ | ✅ staging (with `001`) adopted as production; `--anon-only` prints `ANON LOCKED OUT`. Old project paused, holds the 646 rows |
-| 4 | ~~`data/csv_store.py` mirrored writes to local disk~~ | ✅ deleted. Supabase is the only store; never reintroduce a disk fallback |
-| 5 | ~~`cached_sb_select` keyed only on `table_name`~~ | ✅ keyed on `user_id` too |
-| 6 | ~~Three XP formulas; the progress bar could never fill~~ | ✅ one curve in `domain/xp.py`, pinned by `tools/verify_xp.py` |
-| 7 | ~~No XP event ledger — no "when earned", no anti-cheat~~ | ✅ `002` (ledger) + `003` (server-side sum) + `006` (anti-cheat trigger) all applied. **Remaining gap:** `workout_log` is user-writable, so fabricated sets earn real XP — validate workout *writes* before PvP/seasons. Streaks on the ledger (roadmap 13) not yet built |
-| 13 | ~~`ledger_xp()` sums through `sb_select`, capped at 2500 rows — a heavy user loses levels~~ | ✅ `ledger_xp()` calls `public.xp_total()` (`migrations/003`), summed in Postgres. Row count is now irrelevant |
-| 8 | `df_from_supabase` pulls up to 2500 rows/table/render | **partially closed**: `load_log()` now projects (drops `muscle`/`volume`/`estimated_1rm`/`notes` off the wire; keeps `id`). Still row-capped — a server-side `activity_totals()` RPC is the follow-up if a user nears 2500 rows |
-| 9 | `achievements` has **no** unique key on `achievement_id` (only `pkey (id)`), so the same achievement can be stored twice per user. `load_achievements()` hides it with `drop_duplicates()` | `migrations/001` STEP 4 dedupes, then adds `unique (user_id, achievement_id)` |
-| 10 | ~~`Delete Data` edits CSV only, never Supabase~~ | ✅ deletes from Supabase |
-| 11 | `SUPABASE_SECRET_KEY` the app never reads | ◐ removed from `secrets.toml`; **rotate it in the dashboard** (T4). Now used only as `verify_rls --anon-only`'s positive control, passed as an env var for that run |
-| 12 | Streamlit cannot do mobile apps, real-time PvP, or embedded payments | plan the seam, don't rewrite |
-
-## Coding rules
-- **Never split a `<div>` across two `st.markdown` calls.** Streamlit sanitizes each
-  call independently and auto-closes tags, producing an empty styled box plus an
-  orphaned sibling. Build the whole card in one f-string. Use
-  `ui/avatar_images.py :: avatar_img_tag()` / `avatar_stage_html()` to embed images
-  as real children.
-- **Escape every DB- or AI-sourced value that reaches `unsafe_allow_html`.** Use
-  `ui/escape.py :: esc()`. The untrusted sources are OpenAI (`custom_workout_plan`'s
-  `exercise`/`reps`, `stats["weak_point_focus"]`) and the athlete's own email, which
-  renders inside a `title="…"` attribute where a bare quote breaks *out of the
-  attribute*. Constants from `config/constants.py` are developer-controlled and need
-  no escaping. `st.caption`/`st.write`/widget labels are escaped by Streamlit.
-  `tools/verify_escape.py` renders Missions with a malicious AI exercise name and
-  **parses** the result — a regex would match `onmouseover=` sitting harmlessly
-  inside an escaped attribute value.
-- **There are FOUR caches over the same rows.** `cached_sb_select` (`st.cache_data`,
-  process-global, keyed on `user_id`) and three per-session memos in
-  `st.session_state`: `_fast_snapshot` (`get_fast_snapshot()`), `_avatar_stats_snapshot`
-  (`ui/render_memo.py`), `_df_memo` (every DataFrame `df_from_supabase` builds).
-  `clear_data_cache()` drops all four and every write calls it; `_clear_cached_data()`
-  drops them again on sign-out. **Add a fifth and you must clear it in both.** A write
-  that invalidates only some leaves the app right in the database and stale on screen;
-  a sign-out that misses one hands the last athlete's character to the next visitor.
-- **Per-render memos go in `st.session_state`, never in `st.cache_data`.** That cache
-  is process-global and Cloud multiplexes users into one process. `verify_isolation.py`
-  and `verify_deep.py` §6 both guard this.
-- **`tools/verify_perf.py` budgets the cost of one render** — an interaction reruns the
-  whole script, so a render's cost *is* the app's responsiveness. `calculate_avatar_stats`
-  must run **exactly once** per render.
-- **Never set `font-family` on `.stApp span`** — it clobbers Material Symbols and
-  icons render as the literal word `keyboard_double_arrow_left`.
-- **Never hide `header[data-testid="stHeader"]`** — on mobile it hosts the sidebar
-  toggle, and the sidebar is the only navigation.
-- **Never globally squash `animation-duration`** — one-shot toasts end at
-  `opacity: 0`; fast-forwarding them makes them invisible. Disable ambient loops
-  by name instead.
-- **`overflow-x: hidden` still allows programmatic sideways scroll.** Use `clip`.
-- **Form submit buttons are not `.stButton` children** and their `kind` is
-  `primaryFormSubmit`, not `primary`. Style `.stFormSubmitButton > button` too,
-  and let the label `<p>` inherit its colour or it renders `--text-dim` on the
-  cyan fill.
-- Business logic goes in `domain/` and stays free of `streamlit` imports where
-  possible — that is the seam a future FastAPI backend reuses.
-- Streamlit Cloud renders the app inside an `<iframe>`. Its viewer badge and profile
-  icons live in the **host page** — no app CSS can reach them. Don't try.
-- **Never health-check Supabase on `/rest/v1/`.** That route serves the OpenAPI
-  schema to **secret keys only**; a publishable key gets `401 Secret API key
-  required`. Probe `/auth/v1/health`, which accepts any valid key and does not
-  depend on RLS or table GRANTs. Probe on the credential the app actually uses.
-- **`.streamlit/secrets.toml.example` is tracked and the repo is public.**
-  `secrets.toml` is gitignored; the example is not, and the names differ by eight
-  characters. Never paste a live key or project ref into it.
-- **Scan `git diff origin/main..HEAD` before every push.** `git status` describes the
-  working tree and says nothing about what your commits already contain. Live keys
-  once sat in `95fc37d` for a whole session; `git checkout -- <file>` "fixed" the
-  working copy by restoring the poisoned blob out of HEAD. A restore from HEAD is
-  not a fix when HEAD is the problem.
-- **Any AppTest harness must call `stub_onboarded()`.** `app.py` gates twice —
-  auth, then onboarding — and seeding `_auth_user` fakes identity without a JWT,
-  so under RLS the profile read returns 0 rows and the wizard swallows every page.
-
-## Protected paths — require `[architect]` in the commit message
-`data/` · `auth/` · `views/auth.py` · `views/onboarding.py` · `config/constants.py` ·
-`migrations/` · `services/payments*` · `domain/xp.py` · `domain/xp_leveling.py` ·
-`domain/xp_ledger.py` · `domain/avatar_stats.py` · `.streamlit/` · `tools/hooks/` ·
-`tools/verify_rls.py`
-
-Enforced by `tools/hooks/commit-msg`. Install once: `git config core.hooksPath tools/hooks`
-The junior AI must never touch these. See LOCAL_AI.md.
+## The database contract (outlived the app that created it)
+- 13 original tables + everything migrations `001`–`064` added. Every
+  table is owner-only RLS (`user_id = auth.uid()`, `DEFAULT auth.uid()`).
+- **Cross-user reads go through `security definer` RPCs only.**
+- **`xp_events` is append-only** (owner select+insert; the 006/033 guard
+  trigger recomputes amounts server-side). A set is flat 10 XP; the curve
+  is `500 + (L-1)*25`; `domain/xp.py` ⟷ `client/src/domain/xp.ts` via
+  goldens.
+- **Never gate a SECURITY DEFINER trigger on `current_user`** — use a
+  txn-local GUC (`evoforge.spend_authorized` / `evoforge.xp_authorized`)
+  or service_role (the 030/033 lesson).
+- Migrations are numbered `.sql` files in `migrations/`, applied by hand
+  via the management API and falsified with the smoke accounts before the
+  client commit that depends on them (see HANDOVER §5).
+- `migrations/037` is a SHARED number (nutrition + workout_ghosts — both
+  applied). `custom_workout_plan` is retired (062) — never write it.
 
 ## Session protocol
-1. This file is already loaded. **Do not scan the tree.**
-2. Read `TASKS.md` for the queue. Open other docs only if the task needs them.
-3. Make targeted edits. Never re-read unchanged files.
-4. Before committing, run all eleven:
-   `verify_ui` · `verify_deep` · `verify_ordering` · `verify_xp` · `verify_goals` ·
-   `verify_css` · `verify_isolation` · `verify_perf` · `verify_escape` · `verify_session` ·
-   `verify_leaderboard`
-   For anything visual, also `python tools/shot.py`.
-5. Update the affected doc **in the same commit**.
-
-**CI is authoritative.** `.github/workflows/verify.yml` runs the eight on every push
-and PR, over Python 3.11 and 3.13. The `commit-msg` hook guards *which files* you
-touch; `pre-push` is convenience and only runs where `core.hooksPath` is set.
-
-`tools/verify_perf.py --report` prints the render cost without enforcing a budget.
-Use it when tuning; CI enforces.
-
-## The doctrine: a guard that cannot fail is not a guard
-On 2026-07-10 four checks passed while testing nothing. Three shared one cause.
-
-- **Every check that enumerates bad things over a collection must assert the
-  collection is non-empty.** `any([])` is `False`. A page that renders nothing has
-  no unbalanced `<div>`; an empty table leaks no rows; an empty class set is fully
-  styled.
-- **Pair every negative with a positive** that proves the thing under test ran.
-- **Execute the code; do not grep its source.** A substring check matched a
-  *docstring*. `ast.unparse` still preserves string literals.
-- **Falsify before you accept.** Delete the fix, watch it go red, restore it. Two
-  of the "positive controls" written that same day were themselves vacuous — one
-  measured the sidebar, one measured the mobile brand bar — and only falsification
-  caught them.
-
-> Streamlit returns HTTP 200 even when a page renders a traceback. Never verify
-> with `curl` alone. And `tools/shot.py` only ever reaches the **signed-out gate**:
-> it cannot see a single page behind the login. It proves the app boots, nothing more.
-
-## Deploying to Streamlit Cloud
-
-**Cloud must run Python 3.13.** Manage app → Settings → Advanced → Python version.
-It defaulted to **3.14**, and that cost two outages on 2026-07-10:
-
-1. `requirements.txt` pinned nothing. A redeploy re-resolved the stack and the app
-   **segfaulted** right after `Uvicorn server started`, before running a line of its
-   own code. A segfault at import is a **native ABI mismatch** — `pandas`, `numpy`
-   and `pyarrow` all ship compiled C and must agree. No Python exception, nothing to
-   catch, and it happens on *any* redeploy. The commit that triggered it was
-   innocent; reverting it did not help.
-2. Pinned conservatively, still on 3.14: `numpy 2.2.6` has no cp314 wheel, so pip
-   tried to compile it and Cloud has no compiler — `error: command 'cmake' failed`.
-   The only versions installable on 3.14 are the bleeding-edge ones from (1).
-
-**Every dependency is pinned, including `pyarrow`** — nothing imports it directly,
-but Streamlit needs it and only says `>=7.0`. Bump pins one at a time. **A green CI
-is the pre-flight check for a reboot**: it installs `requirements.txt` on Linux for
-3.11 and 3.13 and executes `app.py`, which is the import path that segfaulted.
-
-**Reboot the app after every push.** Cloud pulls new code and re-runs the script
-*without restarting Python*, so modules already in `sys.modules` keep their old
-code. A brand-new package (`auth/`) imports fresh while an edited one (`data/`)
-does not — producing `ImportError: cannot import name X` for a name that plainly
-exists on `main`. Manage app → ⋮ → Reboot app. If a reboot reuses a poisoned
-environment, **Delete and redeploy** instead.
-
-Then verify: `python tools/shot.py https://evoforge.streamlit.app/ live`.
-It knows the app runs inside an `<iframe>` at `<host>/~/+/` and measures that
-frame. The main frame is the Cloud wrapper, where every selector returns 0 and
-every check passes vacuously — that is how a dead deploy once reported
-"NO PROBLEMS DETECTED".
+1. Read `HANDOVER.md`. Work in `client/` unless the task says otherwise.
+2. The verify loop, per commit (HANDOVER §5): cold lint, tsc, vitest,
+   verify-tokens / verify-battle-engine / verify-motion, `expo export`,
+   then a Playwright tour against production as the smoke accounts.
+3. `[architect]` in the commit message for protected paths (the hook
+   lists them).
+4. Update HANDOVER.md in the same commit as the change it describes.
 
 ## Docs
-- `migrations/001_add_user_id_and_rls.sql` — tenancy + RLS. Read before touching schema.
-- `ARCHITECTURE.md` — structure, data flow, security model, scale plan (10 → 100k users)
-- `ROADMAP.md` — NOW / NEXT / LATER with dependency reasoning
-- `TASKS.md` — the live work queue
-- `LOCAL_AI.md` — junior-AI capability boundary and PR workflow
-- `tools/README.md` — what each check catches, and the trap it encodes
+- `HANDOVER.md` — the live handbook (state, rules that cost real bugs).
+- `ARCHITECTURE.md` · `ROADMAP.md` · `PARITY.md` · `docs/` (specs).
+- `docs/archive/` — executed plan docs, kept for history.
