@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useBodyweightLog, useLatestBodyfatMid, useTargets } from '@/data/hooks';
@@ -32,13 +32,9 @@ export default function GoalsScreen() {
   const bwTarget = find('Bodyweight', 'Bodyweight kg');
   const benchTarget = find('1RM', 'Barbell Bench Press (Strength)');
 
-  const bwReadings = useMemo(
-    () =>
-      (bodyweights.data ?? [])
+  const bwReadings = (bodyweights.data ?? [])
         .map((r) => ({ t: String(r.timestamp ?? ''), v: pyFloat(r.bodyweight) ?? 0 }))
-        .filter((r) => r.v > 0),
-    [bodyweights.data]
-  );
+        .filter((r) => r.v > 0);
 
   const baselineFor = (createdAt: string | null): number | null => {
     if (!createdAt || bwReadings.length === 0) return bwReadings[0]?.v ?? null;

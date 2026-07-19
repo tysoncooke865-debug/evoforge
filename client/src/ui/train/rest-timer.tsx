@@ -49,6 +49,30 @@ async function readEndAt(): Promise<number | null> {
  *  twice. The module-level latch keys on the endAt timestamp. */
 let buzzedForEndAt: number | null = null;
 
+/** B9 (2026-07-19): ONE module tick for however many surfaces subscribe.
+ *  Two components each owning a 1s interval meant two timers and two
+ *  re-render trains per second while resting; now a single interval runs
+ *  while at least one clock observes a LIVE rest, and stops when the last
+ *  one unmounts or the rest ends. */
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+let liveClocks = 0;
+const acquireTick = () => {
+  liveClocks += 1;
+  if (tickTimer === null) {
+    tickTimer = setInterval(() => {
+      for (const l of listeners) l();
+    }, 1000);
+  }
+};
+const releaseTick = () => {
+  liveClocks -= 1;
+  if (liveClocks <= 0 && tickTimer !== null) {
+    clearInterval(tickTimer);
+    tickTimer = null;
+    liveClocks = 0;
+  }
+};
+
 /** The shared rest clock: both timer surfaces subscribe to the SAME module
  *  state — the overlay is a second subscriber, never a second timer. */
 function useRestClock(): { remaining: number; over: boolean; mm: number; ss: string } | null {
@@ -56,7 +80,10 @@ function useRestClock(): { remaining: number; over: boolean; mm: number; ss: str
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const sync = () => void readEndAt().then(setEndAt);
+    const sync = () => {
+      setNow(Date.now());
+      void readEndAt().then(setEndAt);
+    };
     sync();
     listeners.push(sync);
     return () => {
@@ -66,8 +93,8 @@ function useRestClock(): { remaining: number; over: boolean; mm: number; ss: str
 
   useEffect(() => {
     if (endAt === null) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    acquireTick();
+    return releaseTick;
   }, [endAt]);
 
   const remaining = endAt === null ? null : Math.ceil((endAt - now) / 1000);

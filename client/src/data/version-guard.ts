@@ -100,15 +100,23 @@ export function initNavFreezeBeacon(): void {
   let lastNavAt = Date.now();
   let lastPath = location.pathname;
   let sent = 0;
-  setInterval(() => {
+  const startedAt = Date.now();
+  // AUDIT B5 (2026-07-19): this heartbeat used to run 4×/sec FOREVER. The
+  // diagnostic served its purpose (the iOS-18 freeze hunt); it now stops
+  // after its 3 reports or 10 minutes of clean running, whichever first.
+  const timer = setInterval(() => {
     const now = Date.now();
     const gap = now - lastBeat;
     lastBeat = now;
+    if (sent >= 3 || now - startedAt > 10 * 60 * 1000) {
+      clearInterval(timer);
+      return;
+    }
     if (location.pathname !== lastPath) {
       lastPath = location.pathname;
       lastNavAt = now;
     }
-    if (gap >= 700 && sent < 3) {
+    if (gap >= 700) {
       sent += 1;
       void supabase.from('analytics_events').insert({
         event_name: 'pwa_nav_diag',
@@ -160,6 +168,33 @@ export function initSceneJanitor(): void {
       hiddenByUs.add(el);
     });
   };
-  setInterval(tick, 250);
+  // AUDIT B5 (2026-07-19): the 250ms forever-poll (querySelectorAll +
+  // getComputedStyle 4×/sec) becomes EVENT-DRIVEN — react-navigation flips
+  // aria-hidden when scenes change focus, and a MutationObserver fires the
+  // same tick only then (debounced a frame). A slow 5s sweep stays as the
+  // safety net for anything the observer misses.
+  let scheduled = false;
+  const schedule = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      tick();
+    });
+  };
+  const observer = new MutationObserver((muts) => {
+    for (const m of muts) {
+      if (m.type === 'attributes' && m.attributeName === 'aria-hidden') {
+        schedule();
+        return;
+      }
+      if (m.type === 'childList') {
+        schedule();
+        return;
+      }
+    }
+  });
+  observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['aria-hidden'], childList: true });
+  setInterval(tick, 5000);
   tick();
 }

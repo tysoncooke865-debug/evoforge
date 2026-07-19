@@ -9,7 +9,7 @@ import type { DerivedIdentity, ResolvedDisplay } from '@/domain/customise';
 import { resolveDisplay, skinKey } from '@/domain/customise';
 import { useLoadoutStore } from '@/state/loadout-store';
 import { animatedAvatar, avatarArtV2, stillAvatar, type Sex } from '@/ui/character/avatar-art';
-import { skinnedAnimated, skinnedFemalePainted, skinnedStill } from '@/ui/character/avatar-skins';
+import { skinnedAnimated, skinnedFemalePainted, skinnedStill, useSkinsReady } from '@/ui/character/avatar-skins';
 import { gymericaAnimated, gymericaStill } from '@/ui/character/gymerica-art';
 
 /**
@@ -33,6 +33,8 @@ export interface DisplayIdentity {
 }
 
 export function useDisplayIdentity(): DisplayIdentity {
+  // B4: repaint when a lazy skin chunk lands (base art shows meanwhile).
+  useSkinsReady();
   const { ready, branchV2, sex, summary, stats, bfMid, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
   const loadout = useLoadoutStore((s) => s.loadout);

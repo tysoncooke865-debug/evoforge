@@ -56,6 +56,13 @@ export default function RootLayout() {
             // usable before Supabase answers (a cold start previously
             // rendered defaults until the network came back).
             gcTime: 24 * 60 * 60 * 1000,
+            // AUDIT B2 (2026-07-19): with six tabs mounted, staleTime 0 made
+            // EVERY query refetch on EVERY window refocus — a storm that also
+            // re-ran the heavy per-render derivations. 45s keeps refocus
+            // instant from cache; every mutation invalidates its readers
+            // (keys.ts), so writes still repaint immediately. Hooks needing
+            // faster/slower freshness keep their own staleTime overrides.
+            staleTime: 45_000,
           },
         },
       })

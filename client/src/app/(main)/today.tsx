@@ -2,7 +2,7 @@ import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { useBodyweightLog, useProfile, useWorkoutLog } from '@/data/hooks';
+import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
 import { useUserExercises } from '@/data/exercises';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
 import { useWorkoutSchedule } from '@/data/schedule';
@@ -19,11 +19,11 @@ import { userMuscleFor } from '@/domain/exercise-search';
 import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
-import { normaliseWorkoutLog } from '@/domain/summary';
+import { dwKey } from '@/domain/workout-index';
 import { todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
-import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
+import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
@@ -133,7 +133,11 @@ export default function TodayScreen() {
   const source: SourceIndex = sourceChoice ?? preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
 
-  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  // B1 (2026-07-19): ONE shared index per data change (TanStack select) —
+  // the carousel cards and week bars used to re-filter the full 2500-row
+  // log each, every render.
+  const workoutIndex = useWorkoutIndex();
+  const allRows = workoutIndex.data?.rows ?? [];
 
   /** How much of a day is done: sets logged vs sets the plan asks for. The plan
    *  is read from the SAME source the door will open, so the hub and the page
@@ -142,12 +146,7 @@ export default function TodayScreen() {
    *  swapped every exercise has done=0 against the plan but still trained. */
   const setsFor = (date: string, workout: string | null): { done: number; target: number; trained: boolean } => {
     if (!workout) return { done: 0, target: 0, trained: false };
-    const dayRows = allRows.filter(
-      (r) =>
-        String(r.date) === date &&
-        String(r.workout) === workout &&
-        isCountedSet(r.weight, r.reps)
-    );
+    const dayRows = workoutIndex.data?.countedByDateWorkout.get(dwKey(date, workout)) ?? [];
     const entries = resolveDay(workout, source).entries;
     const target = entries.reduce((n, [, sets]) => n + sets, 0);
     const done = entries.reduce((n, [exercise, sets]) => {

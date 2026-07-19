@@ -1,0 +1,35 @@
+import type { ImageSourcePropType } from 'react-native';
+
+// GENERATED skin require-table (split per line for lazy loading — B4,
+// 2026-07-19). Regenerate with the base art; never hand-edit entries.
+
+export const FEMALE_AESTHETIC_SKINS: Record<string, ImageSourcePropType> = {
+  'red-1': require('../../../assets/avatars/skins/female-aesthetic-red-stage1.png'),
+  'red-2': require('../../../assets/avatars/skins/female-aesthetic-red-stage2.png'),
+  'red-3': require('../../../assets/avatars/skins/female-aesthetic-red-stage3.png'),
+  'red-4': require('../../../assets/avatars/skins/female-aesthetic-red-stage4.png'),
+  'green-1': require('../../../assets/avatars/skins/female-aesthetic-green-stage1.png'),
+  'green-2': require('../../../assets/avatars/skins/female-aesthetic-green-stage2.png'),
+  'green-3': require('../../../assets/avatars/skins/female-aesthetic-green-stage3.png'),
+  'green-4': require('../../../assets/avatars/skins/female-aesthetic-green-stage4.png'),
+  'yellow-1': require('../../../assets/avatars/skins/female-aesthetic-yellow-stage1.png'),
+  'yellow-2': require('../../../assets/avatars/skins/female-aesthetic-yellow-stage2.png'),
+  'yellow-3': require('../../../assets/avatars/skins/female-aesthetic-yellow-stage3.png'),
+  'yellow-4': require('../../../assets/avatars/skins/female-aesthetic-yellow-stage4.png'),
+  'orange-1': require('../../../assets/avatars/skins/female-aesthetic-orange-stage1.png'),
+  'orange-2': require('../../../assets/avatars/skins/female-aesthetic-orange-stage2.png'),
+  'orange-3': require('../../../assets/avatars/skins/female-aesthetic-orange-stage3.png'),
+  'orange-4': require('../../../assets/avatars/skins/female-aesthetic-orange-stage4.png'),
+  'white-1': require('../../../assets/avatars/skins/female-aesthetic-white-stage1.png'),
+  'white-2': require('../../../assets/avatars/skins/female-aesthetic-white-stage2.png'),
+  'white-3': require('../../../assets/avatars/skins/female-aesthetic-white-stage3.png'),
+  'white-4': require('../../../assets/avatars/skins/female-aesthetic-white-stage4.png'),
+  'black-1': require('../../../assets/avatars/skins/female-aesthetic-black-stage1.png'),
+  'black-2': require('../../../assets/avatars/skins/female-aesthetic-black-stage2.png'),
+  'black-3': require('../../../assets/avatars/skins/female-aesthetic-black-stage3.png'),
+  'black-4': require('../../../assets/avatars/skins/female-aesthetic-black-stage4.png'),
+  'adam-1': require('../../../assets/avatars/skins/female-aesthetic-adam-stage1.png'),
+  'adam-2': require('../../../assets/avatars/skins/female-aesthetic-adam-stage2.png'),
+  'adam-3': require('../../../assets/avatars/skins/female-aesthetic-adam-stage3.png'),
+  'adam-4': require('../../../assets/avatars/skins/female-aesthetic-adam-stage4.png'),
+};

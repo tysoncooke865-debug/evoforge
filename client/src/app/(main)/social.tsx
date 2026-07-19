@@ -17,7 +17,7 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { PixelBell, PixelPeople } from '@/ui/core/pixel-icons';
 import { ReportSheet } from '@/ui/social/report-sheet';
 import { ScreenHeader } from '@/ui/core/screen-header';
-import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { FlatListShell, GlowCard, ScreenShell } from '@/ui/core/shell';
 import { socialFeatures } from '@/ui/social/social-features';
 import { CommentsModal } from '@/ui/social/comments';
 import { CreatePostModal } from '@/ui/social/create-post';
@@ -63,8 +63,11 @@ function SocialFeed() {
   const needsName = identity.data !== undefined && !identity.data?.displayName;
   const posts = feed.data?.pages.flat() ?? [];
 
-  return (
-    <ScreenShell>
+  // B6: the feed is a virtualised list now — everything above the posts is
+  // the list header; non-feed scopes render with an empty data array.
+  const feedPosts = scope === 'rivals' ? [] : posts;
+  const headerContent = (
+    <>
       <ScreenHeader
         kicker="THE GUILD"
         title="SOCIAL"
@@ -143,42 +146,43 @@ function SocialFeed() {
       {scope === 'discover' ? <DiscoverAthletes /> : null}
 
       {/* RIVALS is its own view (the head-to-head records), not a post feed. */}
-      {scope === 'rivals' ? (
-        <RivalriesView />
-      ) : feed.isPending ? (
-        <FeedSkeleton />
-      ) : posts.length === 0 ? (
-        <EmptyState scope={scope} />
-      ) : (
-        <View style={{ gap: 14 }}>
-          {posts.map((p) => (
-            <SocialPostCard
-              key={p.id}
-              post={p}
-              nowMs={nowMs}
-              onReact={(kind) => react.mutate({ postId: p.id, kind })}
-              onComment={() => setCommentsFor(p.id)}
-              onOpenProfile={(uid) => router.push(`/athlete/${uid}` as never)}
-              canDelete={p.authorId === myId}
-              onDelete={() => del.mutate(p)}
-              onReport={p.authorId === myId ? undefined : () => setReportFor(p.id)}
-            />
-          ))}
-          {feed.hasNextPage ? (
-            <Pressable
-              onPress={() => void feed.fetchNextPage()}
-              accessibilityRole="button"
-              testID="social-more"
-              className="items-center justify-center rounded-lg border py-s3"
-              style={{ borderColor: colors.border, minHeight: 44 }}
-            >
-              <Text className="text-2xs text-text-dim" style={{ letterSpacing: 1 }}>
-                {feed.isFetchingNextPage ? 'LOADING…' : 'LOAD MORE'}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      )}
+      {scope === 'rivals' ? <RivalriesView /> : null}
+      {scope !== 'rivals' && feed.isPending ? <FeedSkeleton /> : null}
+      {scope !== 'rivals' && !feed.isPending && posts.length === 0 ? <EmptyState scope={scope} /> : null}
+    </>
+  );
+
+  return (
+    <>
+      <FlatListShell
+        data={feedPosts}
+        keyExtractor={(p) => p.id}
+        header={headerContent}
+        onEndReached={() => {
+          // B6: LOAD MORE became infinite scroll — the button was a manual
+          // stand-in for pagination the list can drive itself.
+          if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();
+        }}
+        footer={
+          feed.isFetchingNextPage ? (
+            <Text className="py-s3 text-center text-2xs text-text-dim" style={{ letterSpacing: 1 }} testID="social-more">
+              LOADING…
+            </Text>
+          ) : null
+        }
+        renderItem={(p) => (
+          <SocialPostCard
+            post={p}
+            nowMs={nowMs}
+            onReact={(kind) => react.mutate({ postId: p.id, kind })}
+            onComment={() => setCommentsFor(p.id)}
+            onOpenProfile={(uid) => router.push(`/athlete/${uid}` as never)}
+            canDelete={p.authorId === myId}
+            onDelete={() => del.mutate(p)}
+            onReport={p.authorId === myId ? undefined : () => setReportFor(p.id)}
+          />
+        )}
+      />
 
       {composerOpen ? <CreatePostModal onClose={() => setComposerOpen(false)} /> : null}
       {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
@@ -186,7 +190,7 @@ function SocialFeed() {
       {notifOpen ? (
         <NotificationsModal onClose={() => setNotifOpen(false)} onOpenFriends={() => { setNotifOpen(false); router.push('/friends' as never); }} />
       ) : null}
-    </ScreenShell>
+    </>
   );
 }
 

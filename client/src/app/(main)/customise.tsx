@@ -1,4 +1,5 @@
 import { router, useIsFocused } from 'expo-router';
+import { useSkinsReady } from '@/ui/character/avatar-skins';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 
@@ -54,6 +55,8 @@ import { SpriteCompanion } from '@/ui/character/sprite-avatar';
  * re-validates that loadout against live state on every read.
  */
 export default function CustomiseScreen() {
+  // B4: the roster/preview repaint when a lazy skin chunk lands.
+  useSkinsReady();
   const colors = useThemeColors();
   const { ready, branchV2, sex, summary, stats, bfMid, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();

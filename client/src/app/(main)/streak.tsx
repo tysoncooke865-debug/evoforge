@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useClaimCoin } from '@/data/coins';
@@ -28,10 +28,7 @@ export default function StreakScreen() {
   const claim = useClaimCoin();
   const [monthOffset, setMonthOffset] = useState(0);
 
-  const streak = useMemo(
-    () => computeScheduledStreak(schedule.data ?? [], workouts.data ?? [], todayIso),
-    [schedule.data, workouts.data, todayIso]
-  );
+  const streak = computeScheduledStreak(schedule.data ?? [], workouts.data ?? [], todayIso);
 
   // Milestone claims: fire-and-forget; the unique index absorbs repeats.
   const keys = crossedMilestones(streak).join(',');

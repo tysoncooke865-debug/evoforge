@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, type ReactNode } from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { FlatList, Platform, ScrollView, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -92,6 +92,75 @@ export function ScreenShell({
           <View className="w-full max-w-[560px] gap-s3">{children}</View>
         </Animated.View>
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * B6 (2026-07-19): the LIST shell — ScreenShell's exact frame (bg, ambient
+ * blobs, insets, scroll-to-top registry, tab-bar clearance) around a
+ * VIRTUALISED FlatList instead of a ScrollView. Built for the social feed,
+ * which grew unbounded across LOAD MORE with every photo card mounted.
+ * Header content rides ListHeaderComponent; the entrance animation is
+ * deliberately absent (web pins visible anyway — the iOS-18 doctrine).
+ */
+export function FlatListShell<T>({
+  data,
+  renderItem,
+  keyExtractor,
+  header,
+  footer,
+  onEndReached,
+}: {
+  data: readonly T[];
+  renderItem: (item: T) => React.ReactElement | null;
+  keyExtractor: (item: T) => string;
+  header?: ReactNode;
+  footer?: ReactNode;
+  onEndReached?: () => void;
+}) {
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<T>>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const toTop = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      setActiveScroller(toTop);
+      return () => clearActiveScroller(toTop);
+    }, [])
+  );
+  return (
+    <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
+      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+      <FlatList
+        ref={listRef}
+        data={data as T[]}
+        keyExtractor={keyExtractor}
+        renderItem={({ item }) => (
+          <View className="w-full max-w-[560px] self-center" style={{ marginBottom: 14 }}>
+            {renderItem(item)}
+          </View>
+        )}
+        ListHeaderComponent={
+          header ? <View className="w-full max-w-[560px] gap-s3 self-center pb-s3">{header}</View> : null
+        }
+        ListFooterComponent={
+          footer ? <View className="w-full max-w-[560px] self-center">{footer}</View> : null
+        }
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.6}
+        className="flex-1"
+        contentContainerClassName="px-s4"
+        contentContainerStyle={{
+          paddingTop: Math.max(insets.top, 14),
+          paddingBottom: Math.max(insets.bottom, 12) + 96,
+        }}
+        showsVerticalScrollIndicator={false}
+        windowSize={7}
+        maxToRenderPerBatch={4}
+        removeClippedSubviews
+      />
     </View>
   );
 }

@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import type { PhysiqueValues } from '@/domain/avatar-stats-calc';
 import type { CardioRow, WorkoutRow } from '@/domain/summary';
+import { buildWorkoutIndex } from '@/domain/workout-index';
 
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -84,6 +85,20 @@ export async function fetchWorkoutLog(): Promise<WorkoutRow[]> {
     .limit(ROW_CAP);
   if (error) throw error;
   return data as WorkoutRow[];
+}
+
+/** B1/B3: the SHARED workout index — same ['workout_log'] cache entry,
+ *  shaped once per data change by TanStack's select (structural sharing
+ *  memoises it per observer; no component-side useMemo needed). Train and
+ *  Home consume this instead of re-scanning 2,500 rows per render. */
+export function useWorkoutIndex() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['workout_log', userId],
+    enabled: userId !== null,
+    queryFn: fetchWorkoutLog,
+    select: buildWorkoutIndex,
+  });
 }
 
 export function useWorkoutLog() {

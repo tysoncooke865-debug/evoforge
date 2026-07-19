@@ -9,7 +9,7 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { useRivalRating } from '@/data/progression/use-rival-rank';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
 import { useUserExercises } from '@/data/exercises';
-import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutLog, useCardioLog } from '@/data/hooks';
+import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutIndex, useWorkoutLog, useCardioLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
 import { useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -30,11 +30,11 @@ import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
-import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
-import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
+import { inferMuscleGroup } from '@/domain/workouts';
+import { dwKey } from '@/domain/workout-index';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
@@ -127,7 +127,10 @@ export default function HomeScreen() {
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
   const source = preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
-  const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  // B3 (2026-07-19): the shared index — Home used to re-normalise the same
+  // 2500 rows ~5× per render across mission/PR/totals/streak derivations.
+  const workoutIndex = useWorkoutIndex();
+  const allRows = workoutIndex.data?.rows ?? [];
   const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
   const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
 
@@ -140,14 +143,12 @@ export default function HomeScreen() {
         ? resolveDay(missionWorkout, source).entries.map(([e, s]) => [e, s] as [string, number])
         : (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]);
 
-  const dayRows = allRows.filter(
-    (r) =>
-      String(r.date) === todayIso &&
-      String(r.workout) === missionWorkout &&
-      // 061: the same counted-set predicate as Train's setsFor — the two
-      // screens must never disagree about today's progress.
-      isCountedSet(r.weight, r.reps)
-  );
+  // 061 + B3: the same counted lookup Train's setsFor uses — the two
+  // screens share ONE index and can never disagree about today's progress.
+  const dayRows =
+    missionWorkout === null
+      ? []
+      : (workoutIndex.data?.countedByDateWorkout.get(dwKey(todayIso, missionWorkout)) ?? []);
   const targetSets = entries.reduce((n, [, s]) => n + s, 0);
   const doneSets = entries.reduce((n, [exercise, s]) => {
     const logged = dayRows.filter((r) => String(r.exercise) === exercise).length;

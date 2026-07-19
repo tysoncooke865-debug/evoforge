@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { isCountedSet } from '@/domain/workouts';
 import { Pressable, Text, View } from 'react-native';
 
 import { useBodyweightLog, useCardioLog, useWorkoutLog } from '@/data/hooks';
@@ -42,60 +43,48 @@ export default function ProgressScreen() {
   const [metric, setMetric] = useState<MetricKey>('E1RM');
   const [selected, setSelected] = useState<string | null>(null);
 
-  const workoutRows = useMemo(() => workouts.data ?? [], [workouts.data]);
-  const cardioRows = useMemo(() => cardio.data ?? [], [cardio.data]);
+  // B8 (2026-07-19): plain derivations — the React Compiler memoizes what
+  // it can prove; hand-written useMemo here risked disqualifying the whole
+  // component (the HANDOVER rule). Identity memos were pure overhead.
+  const workoutRows = workouts.data ?? [];
+  const cardioRows = cardio.data ?? [];
 
   // THIS WEEK — the same window Home's weekly contract judges.
-  const week = useMemo(
-    () => periodTotals(workoutRows, cardioRows, weekStart(todayIso), todayIso),
-    [workoutRows, cardioRows, todayIso]
-  );
-  const contract = useMemo(
-    () => weeklyContract(schedule.data ?? [], workoutRows, todayIso),
-    [schedule.data, workoutRows, todayIso]
-  );
+  const week = periodTotals(workoutRows, cardioRows, weekStart(todayIso), todayIso);
+  const contract = weeklyContract(schedule.data ?? [], workoutRows, todayIso);
   const hasSchedule = (schedule.data ?? []).length > 0;
 
-  const validRows = useMemo(
-    () =>
-      normaliseWorkoutLog(workoutRows).filter(
-        (r) => (pyFloat(r.weight) ?? 0) > 0 && (pyFloat(r.reps) ?? 0) > 0
-      ),
-    [workoutRows]
-  );
+  // 061: counted sets (0 kg bodyweight work included) drive the exercise
+  // list — a push-up-only athlete must still see their exercises here.
+  const validRows = normaliseWorkoutLog(workoutRows).filter((r) => isCountedSet(r.weight, r.reps));
 
   // Exercises you actually train, most-logged first.
-  const exercises = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const r of validRows) {
-      const ex = String(r.exercise);
-      counts.set(ex, (counts.get(ex) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ex]) => ex);
-  }, [validRows]);
+  const counts = new Map<string, number>();
+  for (const r of validRows) {
+    const ex = String(r.exercise);
+    counts.set(ex, (counts.get(ex) ?? 0) + 1);
+  }
+  const exercises = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ex]) => ex);
 
   const exercise = selected ?? exercises[0] ?? null;
   const from = timeframeStart(timeframe, todayIso);
 
-  const exercisePoints = useMemo<ChartPoint[]>(() => {
-    if (!exercise) return [];
-    return exerciseSeries(workoutRows, exercise, metric, from, todayIso)
-      .map((p) => ({
-        x: Date.parse(p.date),
-        y: p.value,
-        label: `${p.date} · ${fmtMetric(p.value, metric)}`,
-      }))
-      .filter((p) => Number.isFinite(p.x));
-  }, [workoutRows, exercise, metric, from, todayIso]);
+  const exercisePoints: ChartPoint[] = !exercise
+    ? []
+    : exerciseSeries(workoutRows, exercise, metric, from, todayIso)
+        .map((p) => ({
+          x: Date.parse(p.date),
+          y: p.value,
+          label: `${p.date} · ${fmtMetric(p.value, metric)}`,
+        }))
+        .filter((p) => Number.isFinite(p.x));
 
-  const bwPoints = useMemo<ChartPoint[]>(() => {
-    return (bodyweights.data ?? [])
-      .map((r) => ({ date: String(r.date), kg: pyFloat(r.bodyweight) ?? 0 }))
-      .filter((r) => r.kg > 0 && (from === null || r.date >= from))
-      .map((r) => ({ x: Date.parse(r.date), y: r.kg, label: `${r.date} · ${r.kg.toFixed(1)}kg` }))
-      .filter((p) => Number.isFinite(p.x))
-      .sort((a, b) => a.x - b.x);
-  }, [bodyweights.data, from]);
+  const bwPoints: ChartPoint[] = (bodyweights.data ?? [])
+    .map((r) => ({ date: String(r.date), kg: pyFloat(r.bodyweight) ?? 0 }))
+    .filter((r) => r.kg > 0 && (from === null || r.date >= from))
+    .map((r) => ({ x: Date.parse(r.date), y: r.kg, label: `${r.date} · ${r.kg.toFixed(1)}kg` }))
+    .filter((p) => Number.isFinite(p.x))
+    .sort((a, b) => a.x - b.x);
 
   return (
     <ScreenShell>

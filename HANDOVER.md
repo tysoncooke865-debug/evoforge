@@ -1197,6 +1197,44 @@ Owner: Tyson. He works through other Claude sessions too — **always
     the RPC is pure persistence. Falsified: clean commit, malformed rider
     never loses the core, peak-ratchet fires inside the RPC.
 
+- **AUDIT FIX BATCH — PHASE 3: performance (2026-07-19):**
+  * **B2** global `staleTime: 45s` (QueryClient defaults) — the six mounted
+    tabs no longer refetch everything on every window refocus; mutations
+    still repaint instantly via keys.ts invalidation. Per-hook overrides
+    survive.
+  * **B1/B3/B11** NEW `domain/workout-index.ts` (buildWorkoutIndex —
+    rows/byDate/byDateWorkout/countedByDateWorkout, vitest-pinned) exposed
+    as `useWorkoutIndex()` via TanStack `select` on the SAME
+    ['workout_log'] cache entry: Train's carousel cards + week bars and
+    Home's mission counter are O(1) lookups now (was ~12 full 2500-row
+    scans per Train render, ~5 re-normalisations per Home render). The
+    061 counted-set rule lives in the index, so Home and Train literally
+    share one source.
+  * **B4** the 308-entry skin require tables split into per-line LAZY
+    modules (`ui/character/skins/*`, dynamic import + module cache;
+    resolvers stay synchronous and fall back to base art for in-flight
+    frames — the seam the skin system already had). `useSkinsReady()`
+    repaints Home/Forge/customise when a chunk lands. __common: 2.72MB →
+    2.65MB (−68KB) + six on-demand chunks; the skins' asset registrations
+    left the boot path entirely.
+  * **B5** the scene janitor is EVENT-DRIVEN (MutationObserver on
+    aria-hidden + 5s safety sweep — was a 250ms forever-poll of
+    querySelectorAll+getComputedStyle); the nav-freeze beacon stops after
+    its 3 reports or 10 minutes.
+  * **B6** the social feed is a virtualised FlatList (`FlatListShell` in
+    ui/core/shell — ScreenShell's exact frame around a FlatList; header
+    content rides ListHeaderComponent; LOAD MORE became infinite scroll).
+  * **B8** hand-written useMemos removed from progress/goals/streak/
+    create-post (the compiler rule); line-chart's geometry memo and
+    shell's useFocusEffect callback stay deliberately. En route:
+    progress.tsx's exercise list got the missed 061 predicate (bodyweight
+    exercises now appear).
+  * **B9** ONE rest-timer tick (module interval, acquire/release on live
+    clocks) — the inline bar and floating pill are subscribers, not
+    timers.
+  * **DEFERRED to the battle session:** B10 (battle select('*') +
+    interval gates), battle-file memos, battle-pov lazy-loading.
+
 **Migrations applied through `064`. Next free number: `065`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)

@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { pickPhoto } from '@/data/ai';
@@ -67,7 +67,7 @@ export function CreatePostModal({
 
   // The workout payload: the specific one the prompt handed us, else the latest
   // finished session.
-  const workout = useMemo(() => {
+  const workout = (() => {
     const rows = normaliseWorkoutLog(workouts.data ?? []);
     const target = initialWorkout
       ? { date: initialWorkout.date, workout: initialWorkout.workout }
@@ -79,16 +79,16 @@ export function CreatePostModal({
     const p = workoutPostPayload(rows, target.date.slice(0, 10), target.workout);
     if (p.sets === 0) return null;
     return { ...p, minutes: estimateMinutes(p.sets), pr_count: 0 };
-  }, [workouts.data, sessions.data, initialWorkout]);
+  })();
 
   // Latest PR → a real PR payload (in the athlete's display unit).
-  const pr = useMemo(() => {
+  const pr = (() => {
     const r = recentPr(workouts.data);
     if (!r) return null;
     const unit = unitFor(prefs.data, r.exercise);
     const value = unit === 'lb' ? Math.round(kgToLb(r.weightKg)) : Math.round(r.weightKg);
     return { exercise: r.exercise, new_value: value, unit };
-  }, [workouts.data, prefs.data]);
+  })();
 
   const canPost =
     mode === 'update' ? caption.trim() !== ''
