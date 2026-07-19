@@ -1410,7 +1410,34 @@ Owner: Tyson. He works through other Claude sessions too — **always
     fix was not pushable (git/gh tokens here lack `workflow` scope —
     remember that before editing .github/workflows/*).
 
-**Migrations applied through `064`. Next free number: `065`.**
+- **MULTI-WORKOUT SCHEDULE — MIGRATION 065 (applied 2026-07-20):**
+  * **The wire shape**: `workout_schedule.plan` values widen from a single
+    string to `string | string[]` — `[primary, ...extras]`, slot 0 may be
+    `'Rest'`, extras never are (built-in day names or `routines` names). A
+    day with NO extras still serializes as a plain string, byte-identical
+    to every pre-065 row: no backfill, no table DDL, no RLS change.
+  * **Semantics (TS lockstep: `client/src/domain/scheduled-streak.ts`)**:
+    a date is SCHEDULED iff it has ≥1 non-Rest entry ('Rest'+extra IS a
+    training day — stricter streak, the schedule page says so); TRAINED
+    stays day-granular (any counted set that date preserves the streak).
+    `scheduled_streak()` redefined on **061's** body (`weight >= 0` — NOT
+    012's, which would revert the bodyweight fix): array values yield
+    their first non-Rest entry, scalars read as before.
+  * **En-route find: 012's revoke never worked.** `revoke ... from
+    authenticated, anon` left the default PUBLIC execute grant
+    (`=X/postgres`) — clients could call scheduled_streak since 012. 065
+    revokes from `public` too; falsified live (has_function_privilege
+    true→false; postgres/service_role keep execute, the 013 coin guard is
+    definer-owned and unaffected).
+  * Falsified as ALPHA: streak before/after identical on scalar rows
+    (0/null); seeded backdated array row over ALPHA's real 07-11..13
+    history → extra-only trained days extend, primary+extra counts ONCE,
+    extra-only untrained breaks (probe: length 3, run_start 07-11),
+    scalar 'Rest' inside a mixed plan bridges; seed deleted, ALPHA
+    restored (2 rows, 0/null). Client (editor add/remove, week extra
+    bars, quick-workout save prompt) lands in the following commits.
+
+**Migrations applied through `065`. Next free number: `066`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —
