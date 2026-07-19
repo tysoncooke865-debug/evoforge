@@ -182,6 +182,11 @@ export function useSaveSet() {
           title: 'NEW PR',
           subtitle: `${input.exercise} — e1RM ${fmt(verdict.current1rm)} (prev ${fmt(verdict.previousBest)})`,
         });
+        // RIVALRY (072): if this PR passes a friend's best for the lift, they get
+        // a "reclaim your status" alert. Fire-and-forget; never blocks the save.
+        void import('./social-notifications').then(({ reportPrCrossings }) =>
+          reportPrCrossings(input.exercise, verdict.current1rm, verdict.previousBest)
+        );
         // Coin claim (IMPROVEMENT_PLAN #12): fire-and-forget; the 013 guard
         // re-proves the PR server-side and the unique index absorbs repeats.
         const prRowId = verdict.action === 'insert' ? verdict.rowId : verdict.rowId ?? undefined;

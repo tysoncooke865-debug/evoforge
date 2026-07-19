@@ -26,6 +26,39 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **RIVALRY "PR BEATEN" NOTIFICATIONS + AVATAR SHADOW + GHOST AUDIT (2026-07-20,
+  migration 072 APPLIED + falsified)**:
+  - **PR-beaten notifications.** Log a set whose e1RM passes a FRIEND's best for
+    that lift and they get "USERNAME just destroyed your <lift> PR — reclaim your
+    status" (in-app bell + push twin). 072 widens the `social_notifications` type
+    CHECK to add `pr_beaten` (FIRST — the 054/058 rollback rule), adds a `detail`
+    jsonb column, re-creates `my_notifications` to return it, and adds
+    `report_pr_crossings(exercise,new_e1rm,prev_e1rm)`. **Detection is a client-
+    called RPC, NOT a workout_log trigger** — fires only on an actual PR (is_pr),
+    and a bad insert can't roll back the set save. Fires once per friend per lift
+    (crossing guard `friend_best in [prev,new)` + 12h dedup). Wired from
+    `mutations.ts` is_pr branch → `reportPrCrossings` → in-app rows + `pushNotify`
+    per crossed friend. `send-push` gained a friend-verified `pr_beaten` branch.
+    Client learned `pr_beaten` (+ the two 058 comment types that were missing):
+    `social-notifications.ts` union/detail, `notifications.tsx` VERB + ⚔ red row
+    deep-linking to Friends&Rivals. Falsified via simulated JWT (crosses both of
+    a user's friends, inbox shows the lift, dedup + already-beaten guard both []);
+    test rows purged. **A NEW notification type = widen the CHECK in the same
+    migration, add to send-push VERB + a recipient branch, add to the client
+    union + the VERB Record (compile-forcing).**
+  - **Avatar contact shadow** (`avatar-stage.tsx`). Replaced the flat dark
+    rounded-rect under the champion with a soft radial SVG ellipse — dark core +
+    a faint rim in the champion's OWN aura colour, footprint scaled by the stage
+    growth. It's DRIVEN by the float (no separate groundPulse loop): tightens and
+    lightens as the champion rises. Layout footprint pinned to ~14px (the taller
+    SVG overflows via absolute centring) so it never lifts the champion off the
+    podium.
+  - **Ghost audit.** Confirmed **Workout Ghost Battles (037) are FULLY WIRED** end
+    to end (publish from summary → Arena GHOST BATTLES → `/battle?mode=ghost` →
+    rivalry); all 4 RPCs + `workout_ghosts` present in prod. RPG Challenges (034)
+    also complete. The ONLY unbuilt ghost is the **deferred real-time arena ghost
+    race** (`ghost_snapshots`, migrations 009/028) — an orphan table with no
+    writer/reader/edge fn/UI; still deferred (a real Phase-3 build if wanted).
 - **FIND-A-FRIEND-BY-NAME + WHOLE-WEEK SCHEDULE (2026-07-20, migration 071
   APPLIED + falsified)** — two UX fixes Tyson asked for:
   - **Add a friend by display name.** The 060 search + friends typeahead existed

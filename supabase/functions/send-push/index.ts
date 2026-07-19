@@ -25,6 +25,7 @@ const VERB: Record<string, string> = {
   comment: 'commented on your post',
   friend_request: 'sent you a friend request',
   mention: 'mentioned you in a post',
+  pr_beaten: 'just destroyed your PR — reclaim your status',
 };
 
 Deno.serve(async (req) => {
@@ -49,6 +50,21 @@ Deno.serve(async (req) => {
     if (!postId) return json({ error: 'post_id required' }, 400);
     const { data: post } = await admin.from('social_posts').select('author_id').eq('id', postId).maybeSingle();
     recipient = post?.author_id ?? null;
+  } else if (type === 'pr_beaten') {
+    // Rivalry alert (072): recipient is the friend whose PR the actor beat.
+    // Don't trust body.to_user blindly — only push if they're really friends
+    // (the canonical friendships pair, user_a < user_b).
+    const target = body.to_user ? String(body.to_user) : null;
+    if (target && target !== actor) {
+      const [a, b] = actor < target ? [actor, target] : [target, actor];
+      const { data: fr } = await admin
+        .from('friendships')
+        .select('user_a')
+        .eq('user_a', a)
+        .eq('user_b', b)
+        .maybeSingle();
+      recipient = fr ? target : null;
+    }
   } else if (type === 'friend_request') {
     // M2 (2026-07-19): don't trust body.to_user — a client could spoof a
     // "sent you a friend request" push to anyone. Only push if a REAL pending
@@ -95,7 +111,12 @@ Deno.serve(async (req) => {
   const { data: subs } = await admin.from('push_subscriptions').select('endpoint,p256dh,auth').eq('user_id', recipient);
   if (!subs || subs.length === 0) return json({ ok: true, sent: 0 });
 
-  const payload = JSON.stringify({ title: 'EvoForge', body: `${actorName} ${VERB[type]}`, url: '/social', tag: `evo-${type}` });
+  const exercise = body.exercise ? String(body.exercise) : '';
+  const verbText =
+    type === 'pr_beaten' && exercise
+      ? `just destroyed your ${exercise} PR — reclaim your status`
+      : VERB[type];
+  const payload = JSON.stringify({ title: 'EvoForge', body: `${actorName} ${verbText}`, url: '/social', tag: `evo-${type}` });
   let sent = 0;
   for (const s of subs) {
     try {

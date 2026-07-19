@@ -10,6 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+
 import type { ImageSourcePropType } from 'react-native';
 
 import type { Branch } from '@/domain/avatar-stats';
@@ -73,8 +75,6 @@ export function AvatarStage({
   const breatheY = useSharedValue(1);
   const auraOpacity = useSharedValue(0.42);
   const auraScale = useSharedValue(0.97);
-  const groundOpacity = useSharedValue(0.5);
-  const groundScale = useSharedValue(1);
 
   useEffect(() => {
     if (!animate) {
@@ -83,8 +83,6 @@ export function AvatarStage({
       breatheY.value = 1;
       auraOpacity.value = 0.42;
       auraScale.value = 0.97;
-      groundOpacity.value = 0.5;
-      groundScale.value = 1;
       return;
     }
     const ease = Easing.bezier(...(animations.idleFloat.easing as readonly [number, number, number, number]));
@@ -110,15 +108,9 @@ export function AvatarStage({
       withSequence(withTiming(1.06, { duration: auraHalf, easing: ease }), withTiming(0.97, { duration: auraHalf, easing: ease })),
       -1
     );
-    const groundHalf = animations.groundPulse.duration / 2;
-    groundOpacity.value = withRepeat(
-      withSequence(withTiming(0.28, { duration: groundHalf, easing: ease }), withTiming(0.5, { duration: groundHalf, easing: ease })),
-      -1
-    );
-    groundScale.value = withRepeat(
-      withSequence(withTiming(0.86, { duration: groundHalf, easing: ease }), withTiming(1, { duration: groundHalf, easing: ease })),
-      -1
-    );
+    // The ground shadow is no longer an independent pulse — it is DRIVEN by the
+    // float below (groundStyle), so it tightens and lightens as the champion
+    // rises and spreads as it lands. A real cast shadow, not a loose loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate]);
 
@@ -129,15 +121,26 @@ export function AvatarStage({
     opacity: auraOpacity.value,
     transform: [{ scale: auraScale.value }],
   }));
-  const groundStyle = useAnimatedStyle(() => ({
-    opacity: groundOpacity.value,
-    transform: [{ scaleX: groundScale.value }],
-  }));
+  // Contact shadow physics: t = how high the champion floats (0 grounded → 1 at
+  // the -8px peak). Higher = a smaller, softer, lighter patch — light falls off
+  // as the feet leave the deck. Grounded (or motion-gated) → full, dark, wide.
+  const groundStyle = useAnimatedStyle(() => {
+    const t = Math.min(1, Math.max(0, -floatY.value / 8));
+    return {
+      opacity: 0.62 - 0.34 * t,
+      transform: [{ scaleX: 1 - 0.14 * t }, { scaleY: 1 - 0.24 * t }],
+    };
+  });
 
   const auraSize = size * 1.12;
   // Tyson (2026-07-16): each stage GROWS the avatar by 5% — evolution is
   // visible in stature, not just art. Stage 1 = base, stage 4 = +15%.
   const growth = 1 + 0.05 * (Math.max(1, Math.min(4, Math.trunc(stage))) - 1);
+  // The shadow's footprint tracks the champion's actual size (bigger evolved
+  // forms cast a bigger shadow). Width scales with growth; the ellipse is
+  // squashed to ~1/3 height for a floor-plane read.
+  const shadowW = Math.round(size * 0.66 * growth);
+  const shadowH = Math.round(shadowW * 0.34);
 
   return (
     <View style={{ width: auraSize, height: auraSize + 18 }} className="items-center justify-end">
@@ -184,18 +187,34 @@ export function AvatarStage({
           accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}
         />
       </Animated.View>
-      {/* Ground shadow counter-pulsing under the float. */}
+      {/* Contact shadow: a soft radial ellipse (feathered, not a flat blob),
+          cored in bg-deep with a faint rim in the champion's OWN aura colour —
+          unique per avatar. Layout footprint pinned to ~14px (the SVG overflows
+          symmetrically via absolute centring) so a taller shadow never lifts the
+          champion off the podium; the transform in groundStyle animates it. */}
       <Animated.View
-        style={[
-          {
-            width: size * 0.55,
-            height: 10,
-            borderRadius: 8,
-            backgroundColor: colors['bg-deep'],
-          },
-          groundStyle,
-        ]}
-      />
+        pointerEvents="none"
+        style={[{ width: shadowW, height: 14, alignItems: 'center', justifyContent: 'center' }, groundStyle]}
+      >
+        <View style={{ position: 'absolute' }}>
+          <Svg width={shadowW} height={shadowH}>
+            <Defs>
+              <RadialGradient id="groundcore" cx="50%" cy="50%" rx="50%" ry="50%">
+                <Stop offset="0%" stopColor={colors['bg-deep']} stopOpacity={0.9} />
+                <Stop offset="52%" stopColor={colors['bg-deep']} stopOpacity={0.5} />
+                <Stop offset="100%" stopColor={colors['bg-deep']} stopOpacity={0} />
+              </RadialGradient>
+              <RadialGradient id="groundrim" cx="50%" cy="50%" rx="50%" ry="50%">
+                <Stop offset="55%" stopColor={auraColour} stopOpacity={0} />
+                <Stop offset="86%" stopColor={auraColour} stopOpacity={0.3} />
+                <Stop offset="100%" stopColor={auraColour} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Ellipse cx={shadowW / 2} cy={shadowH / 2} rx={shadowW / 2} ry={shadowH / 2} fill="url(#groundcore)" />
+            <Ellipse cx={shadowW / 2} cy={shadowH / 2} rx={shadowW / 2} ry={shadowH / 2} fill="url(#groundrim)" />
+          </Svg>
+        </View>
+      </Animated.View>
     </View>
   );
 }

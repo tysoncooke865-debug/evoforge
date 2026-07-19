@@ -92,9 +92,17 @@ export async function disablePush(): Promise<void> {
  * never blocks the action. `type` picks the recipient server-side (a post's
  * author, or the friend-request target).
  */
-export function pushNotify(input: { type: 'reaction' | 'comment' | 'friend_request' | 'mention'; postId?: string; toUser?: string }): void {
+export function pushNotify(input: {
+  type: 'reaction' | 'comment' | 'friend_request' | 'mention' | 'pr_beaten';
+  postId?: string;
+  toUser?: string;
+  /** pr_beaten (072): the lift name, for the push copy. */
+  exercise?: string;
+}): void {
   if (Platform.OS !== 'web') return;
   void supabase.functions
-    .invoke('send-push', { body: { type: input.type, post_id: input.postId ?? null, to_user: input.toUser ?? null } })
+    .invoke('send-push', {
+      body: { type: input.type, post_id: input.postId ?? null, to_user: input.toUser ?? null, exercise: input.exercise ?? null },
+    })
     .catch(() => undefined);
 }

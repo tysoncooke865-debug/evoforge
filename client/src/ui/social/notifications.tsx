@@ -19,7 +19,18 @@ const VERB: Record<NotificationRow['type'], string> = {
   friend_request: 'sent you a friend request',
   friend_accepted: 'accepted your friend request',
   mention: 'tagged you in a post',
+  comment_reaction: 'reacted to your comment',
+  comment_reply: 'replied to your comment',
+  // pr_beaten copy is built inline (it interpolates the lift name); this is the fallback.
+  pr_beaten: 'just destroyed your PR — reclaim your status',
 };
+
+/** The rivalry alert reads with the lift name when we have it: "ALEX just
+ *  destroyed your Bench Press PR — reclaim your status." */
+function prBeatenText(n: NotificationRow): string {
+  const lift = n.detail?.exercise;
+  return lift ? `just destroyed your ${lift} PR — reclaim your status` : VERB.pr_beaten;
+}
 
 export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => void; onOpenFriends: () => void }) {
   const colors = useThemeColors();
@@ -87,27 +98,31 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
               ) : (
                 list.map((n) => {
                   const isFriend = n.type === 'friend_request' || n.type === 'friend_accepted';
-                  const tint = isFriend ? colors.epic : colors.accent;
+                  const isPr = n.type === 'pr_beaten';
+                  // Rivalry alerts burn red; friend actions are epic-purple; the rest accent.
+                  const tint = isPr ? colors.danger : isFriend ? colors.epic : colors.accent;
+                  // pr_beaten and friend rows deep-link to FRIENDS & RIVALS (where you reclaim).
+                  const tappable = isFriend || isPr;
                   return (
                     <Pressable
                       key={n.id}
-                      onPress={isFriend ? onOpenFriends : undefined}
-                      accessibilityRole={isFriend ? 'button' : undefined}
+                      onPress={tappable ? onOpenFriends : undefined}
+                      accessibilityRole={tappable ? 'button' : undefined}
                       testID={`notif-${n.id}`}
                       className="mb-s2 flex-row items-center rounded-lg border p-s3"
                       style={{ gap: 10, borderColor: n.read_at ? colors.border : `${tint}59`, backgroundColor: n.read_at ? 'rgba(13,21,36,0.4)' : `${tint}0f` }}
                     >
                       <View className="items-center justify-center rounded-lg border" style={{ width: 34, height: 34, borderColor: `${tint}59`, backgroundColor: `${tint}14` }}>
-                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{(n.actor_name[0] ?? 'A').toUpperCase()}</Text>
+                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{isPr ? '⚔' : (n.actor_name[0] ?? 'A').toUpperCase()}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text className="text-2xs text-text-dim" numberOfLines={2}>
-                          <Text className="font-bold text-text">{n.actor_name}</Text> {VERB[n.type]}
-                          {n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
+                          <Text className="font-bold text-text">{n.actor_name}</Text> {isPr ? prBeatenText(n) : VERB[n.type]}
+                          {!isPr && n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
                         </Text>
                         <Text className="mt-s1 text-2xs text-text-mute">{relativeTime(n.created_at, nowMs)}</Text>
                       </View>
-                      {isFriend ? <Text className="text-sm text-accent">›</Text> : null}
+                      {tappable ? <Text className="text-sm" style={{ color: tint }}>›</Text> : null}
                     </Pressable>
                   );
                 })
