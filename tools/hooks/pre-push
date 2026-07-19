@@ -40,57 +40,27 @@ if [ -n "$OUTGOING" ] && ! printf '%s\n' "$OUTGOING" | grep -qvE '^(client/|[^/]
     exit 0
 fi
 
-# The suite that needs neither a database nor a browser. verify_rls.py wants a
-# live project; shot.py wants a real browser and a running app. Run those by hand.
-CHECKS=(
-    tools/verify_ui.py
-    tools/verify_deep.py
-    tools/verify_ordering.py
-    tools/verify_xp.py
-    tools/verify_goals.py
-    tools/verify_css.py
-    tools/verify_isolation.py
-    tools/verify_perf.py
-    tools/verify_escape.py
-    tools/verify_session.py
-    tools/verify_leaderboard.py
-)
-
+# THE GREAT LEANING (2026-07-19): the Streamlit verify suite is deleted.
+# What survives on the Python side is the goldens contract -- domain/*.py +
+# config/constants.py feeding tools/gen_fixtures.py --check. A push touching
+# any non-client path runs that single guard; client.yml remains the gate.
 echo ""
-echo "pre-push: running ${#CHECKS[@]} checks..."
-echo ""
-
-FAILED=()
-for check in "${CHECKS[@]}"; do
-    printf '  %-28s ' "$(basename "$check")"
-    if "$PYTHON" "$check" >/dev/null 2>&1; then
-        echo "PASS"
-    else
-        echo "FAIL"
-        FAILED+=("$check")
-    fi
-done
-
-if [ ${#FAILED[@]} -eq 0 ]; then
+printf '  %-28s ' "gen_fixtures --check"
+if "$PYTHON" tools/gen_fixtures.py --check >/dev/null 2>&1; then
+    echo "PASS"
     echo ""
-    echo "pre-push: suite green. Pushing."
+    echo "pre-push: goldens contract green. Pushing."
     echo ""
     exit 0
 fi
 
+echo "FAIL"
 echo ""
 echo "=============================================================="
-echo " PUSH BLOCKED: ${#FAILED[@]} check(s) failed."
+echo " PUSH BLOCKED: the goldens contract check failed."
 echo "=============================================================="
-for f in "${FAILED[@]}"; do
-    echo "  ${f}"
-done
-echo ""
 echo " Run it directly to see why:"
-echo "     python ${FAILED[0]}"
-echo ""
-echo " If the change is visual, also run:"
-echo "     python tools/shot.py"
+echo "     python tools/gen_fixtures.py --check"
 echo ""
 echo " Escape hatch: git push --no-verify"
 echo "=============================================================="
