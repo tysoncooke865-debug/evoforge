@@ -5,7 +5,9 @@ import {
   daysForSource,
   defaultSource,
   resolveActiveSource,
+  resolveDayIn,
   resolvePlanSources,
+  type RoutineLike,
 } from '../plan-sources';
 
 const BUILT_IN = ['Push 1 - Strength', 'Pull 1 - Back Thickness', 'Legs'];
@@ -104,5 +106,45 @@ describe('resolveActiveSource — the saved choice survives reloads (035)', () =
 
   it('a saved MY PLAN with no plans anywhere lands on built-in', () => {
     expect(resolveActiveSource(0, resolvePlanSources(EMPTY))).toBe(2);
+  });
+});
+
+describe('065 — resolveDayIn falls back to saved routines LAST', () => {
+  const builtInFor = (w: string) =>
+    BUILT_IN.includes(w) ? [['Barbell Bench Press', 3, '8-12'] as const] : null;
+  const ROUTINES: RoutineLike[] = [
+    { name: 'Core Blast', payload: { exercises: [{ exercise: 'Plank', sets: 3, reps: '60s' }] } },
+    { name: 'Legs', payload: { exercises: [{ exercise: 'Leg Press', sets: 4, reps: '10' }] } },
+  ];
+
+  it('a routine name no source holds resolves to its exercises, and reports itself', () => {
+    const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, 'Core Blast', 2, ROUTINES);
+    expect(r.entries).toEqual([['Plank', 3, '60s']]);
+    expect(r.from).toBeNull();
+    expect(r.routine).toBe('Core Blast');
+  });
+
+  it('match is case-insensitive on trimmed names (the routines table rule)', () => {
+    const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, '  core blast ', 2, ROUTINES);
+    expect(r.routine).toBe('Core Blast');
+  });
+
+  it('PLAN SOURCES WIN over a same-named routine — equal names are one workout', () => {
+    const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, 'Legs', 2, ROUTINES);
+    expect(r.from).toBe(2); // the built-in answered
+    expect(r.routine).toBeUndefined();
+    expect(r.entries).toEqual([['Barbell Bench Press', 3, '8-12']]);
+  });
+
+  it('nobody has it (deleted routine still referenced) → empty entries, no crash', () => {
+    const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, 'Gone Routine', 2, ROUTINES);
+    expect(r).toEqual({ entries: [], from: null });
+  });
+
+  it('a routine with a malformed payload degrades to empty entries', () => {
+    const bare: RoutineLike[] = [{ name: 'Husk' }];
+    const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, 'Husk', 2, bare);
+    expect(r.entries).toEqual([]);
+    expect(r.routine).toBe('Husk');
   });
 });

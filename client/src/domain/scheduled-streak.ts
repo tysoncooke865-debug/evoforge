@@ -10,20 +10,36 @@
  * coin guard tolerates ±1 day of skew. Day-of-week derives from the same
  * UTC reading.
  *
- * The SQL mirror is migrations/012's scheduled_streak() — keep them in
- * lockstep (both files carry this comment).
+ * The SQL mirror is scheduled_streak() (migrations/012, redefined by 065) —
+ * keep them in lockstep (both files carry this comment).
+ *
+ * 065: a plan value may be an ARRAY — [primary, ...extras], slot 0 possibly
+ * 'Rest', extras never. A date is SCHEDULED iff it holds at least one
+ * non-Rest entry (so 'Rest' + an extra IS a training day); TRAINED stays
+ * day-granular — any counted set on the date preserves the streak, whichever
+ * of the day's workouts it belonged to.
  */
 
 import { isCountedSet } from './workouts';
 import { addDaysIso } from './today';
 import type { WorkoutRow } from './summary';
 
+/** One weekday slot: a single name (pre-065 rows and extra-less days) or
+ *  [primary, ...extras]. Days with no extras SERIALIZE as plain strings —
+ *  the wire stays byte-identical to pre-065 rows. */
+export type PlanDayValue = string | string[];
+
+/** All non-Rest workouts a slot holds, in stored order. [] = rest day. */
+export const dayWorkouts = (v: PlanDayValue | null | undefined): string[] =>
+  (Array.isArray(v) ? v : v ? [v] : []).filter((w) => w !== '' && w !== 'Rest');
+
 export interface ScheduleRow {
   effective_from: string; // YYYY-MM-DD
-  plan: Record<string, string>; // keys '0'..'6' (getUTCDay), values day name | 'Rest'
+  plan: Record<string, PlanDayValue>; // keys '0'..'6' (getUTCDay), values day name(s) | 'Rest'
   // PER-DAY SOURCE (migration 066): keys '0'..'6' → SourceIndex (0 my / 1 ai /
-  // 2 built-in). A PARALLEL map so `plan` stays a plain string→string map and
-  // the streak SQL/domain that read `plan->>dow` are untouched. Absent/null =
+  // 2 built-in). A PARALLEL map, applying to the day's PRIMARY workout only —
+  // 065 extras keep their literal names. Every reader goes through
+  // dayWorkouts(); the streak SQL is 065's array-aware body. Absent/null =
   // every day follows the global plan source, exactly as before.
   sources?: Record<string, number> | null;
 }
@@ -43,8 +59,8 @@ const dowOf = (iso: string): string => String(new Date(`${iso}T00:00:00Z`).getUT
 
 /** The plan in force on a given day: the latest row effective on or before
  *  it. `sorted` must be ascending by effective_from. */
-const planInForce = (sorted: ScheduleRow[], iso: string): Record<string, string> | null => {
-  let found: Record<string, string> | null = null;
+const planInForce = (sorted: ScheduleRow[], iso: string): Record<string, PlanDayValue> | null => {
+  let found: Record<string, PlanDayValue> | null = null;
   for (const s of sorted) {
     if (s.effective_from <= iso) found = s.plan;
     else break;
@@ -59,7 +75,7 @@ export function computeScheduledStreak(
   windowDays = 180
 ): ScheduledStreak {
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
-  const planFor = (iso: string): Record<string, string> | null => planInForce(sorted, iso);
+  const planFor = (iso: string): Record<string, PlanDayValue> | null => planInForce(sorted, iso);
 
   const trained = new Set<string>();
   for (const r of workoutRows) {
@@ -70,8 +86,8 @@ export function computeScheduledStreak(
   const start = addDays(todayIso, -windowDays);
   for (let iso = start; iso <= todayIso; iso = addDays(iso, 1)) {
     const plan = planFor(iso);
-    const assigned = plan?.[dowOf(iso)];
-    if (!plan || !assigned || assigned === 'Rest') {
+    const assigned = dayWorkouts(plan?.[dowOf(iso)]);
+    if (!plan || assigned.length === 0) {
       days.set(iso, 'rest');
     } else if (trained.has(iso)) {
       days.set(iso, 'completed');
@@ -135,8 +151,8 @@ export function nextScheduledSession(
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
   for (let i = 1; i <= horizonDays; i++) {
     const iso = addDays(todayIso, i);
-    const assigned = planInForce(sorted, iso)?.[dowOf(iso)];
-    if (assigned && assigned !== 'Rest') return { date: iso, day: assigned, inDays: i };
+    const assigned = dayWorkouts(planInForce(sorted, iso)?.[dowOf(iso)])[0];
+    if (assigned) return { date: iso, day: assigned, inDays: i };
   }
   return null;
 }
@@ -177,8 +193,10 @@ export function weeklyContract(
   let target = 0;
   for (let i = 0; i < 7; i++) {
     const iso = addDays(monday, i);
-    const raw = planInForce(sorted, iso)?.[dowOf(iso)];
-    const assigned = raw && raw !== 'Rest' ? raw : null;
+    // Day-granular on purpose: a day with extras is still ONE pip and ONE
+    // session toward the weekly target — per-workout honesty lives in the
+    // Train bars, not the contract.
+    const assigned = dayWorkouts(planInForce(sorted, iso)?.[dowOf(iso)])[0] ?? null;
     let state: DayState;
     if (trained.has(iso)) {
       state = 'completed';

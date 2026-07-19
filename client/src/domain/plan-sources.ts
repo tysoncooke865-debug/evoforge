@@ -98,6 +98,15 @@ export interface ResolvedDay {
   entries: PlanEntry[];
   /** Which source these exercises actually came from — null when nobody has it. */
   from: SourceIndex | null;
+  /** 065: set (to the routine's stored name) when no plan source had the day
+   *  and a saved routine answered instead — the workout page labels it. */
+  routine?: string;
+}
+
+/** The slice of a saved routine the resolver needs (data/routines.ts rows fit). */
+export interface RoutineLike {
+  name: string;
+  payload?: { exercises?: readonly { exercise: string; sets: number; reps: string }[] };
 }
 
 /**
@@ -113,12 +122,19 @@ export interface ResolvedDay {
  * The fallback exists only so that a day the chosen plan lacks is not a blank
  * screen — and it REPORTS ITSELF (`from`), so the screen can say whose workout it
  * is actually showing instead of quietly passing it off as theirs.
+ *
+ * 065: `routines` is the LAST fallback — a scheduled extra is usually a saved
+ * routine's name, which no plan source holds. Sources win over a same-named
+ * routine on purpose: `workout` is the grouping key in workout_log, so equal
+ * names ARE the same workout. Match is case-insensitive on trimmed names
+ * (the routines table's own uniqueness rule).
  */
 export function resolveDayIn(
   sources: PlanSources,
   builtInFor: (workout: string) => PlanEntry[] | null,
   workout: string,
-  preferred: SourceIndex
+  preferred: SourceIndex,
+  routines: readonly RoutineLike[] = []
 ): ResolvedDay {
   const inSource = (s: SourceIndex): PlanEntry[] | null => {
     if (s === 2) return builtInFor(workout);
@@ -135,5 +151,15 @@ export function resolveDayIn(
     const found = inSource(s);
     if (found && found.length > 0) return { entries: found, from: s };
   }
+
+  const key = workout.trim().toLowerCase();
+  const routine = routines.find((r) => r.name.trim().toLowerCase() === key);
+  if (routine) {
+    const entries = (routine.payload?.exercises ?? []).map(
+      (e) => [e.exercise, e.sets, e.reps] as const
+    );
+    return { entries: [...entries], from: null, routine: routine.name };
+  }
+
   return { entries: [], from: null };
 }

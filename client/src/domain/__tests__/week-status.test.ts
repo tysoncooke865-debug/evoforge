@@ -4,7 +4,9 @@ import type { ScheduleRow } from '../scheduled-streak';
 import {
   buildWeekBars,
   extraBarsForToday,
+  extraScheduledBars,
   scheduledDayFor,
+  scheduledExtrasFor,
   sourceDayFor,
   todayBar,
   type SessionMarker,
@@ -244,11 +246,11 @@ describe('extraBarsForToday — an off-schedule workout must have a HOME', () =>
   });
 
   it('nothing off-schedule → no extra bars', () => {
-    expect(extraBarsForToday([set('Legs')], [], null, 'Legs', TODAY)).toEqual([]);
+    expect(extraBarsForToday([set('Legs')], [], null, ['Legs'], TODAY)).toEqual([]);
   });
 
   it('a workout TRAINED today that is not the scheduled day gets a bar', () => {
-    const bars = extraBarsForToday([set('Beach Day')], [], null, 'Legs', TODAY);
+    const bars = extraBarsForToday([set('Beach Day')], [], null, ['Legs'], TODAY);
     expect(bars.map((b) => b.workout)).toEqual(['Beach Day']);
     expect(bars[0].status).toBe('in_progress');
     expect(bars[0].date).toBe(TODAY);
@@ -256,35 +258,35 @@ describe('extraBarsForToday — an off-schedule workout must have a HOME', () =>
 
   it('a workout FINISHED today off-schedule gets a bar, and it is COMPLETED + locked', () => {
     const marker: SessionMarker = { id: 'm1', date: TODAY, workout: 'Beach Day' };
-    const bars = extraBarsForToday([], [marker], null, 'Legs', TODAY);
+    const bars = extraBarsForToday([], [marker], null, ['Legs'], TODAY);
     expect(bars[0]).toMatchObject({ workout: 'Beach Day', status: 'completed', locked: true, sessionId: 'm1' });
   });
 
   it('a FINISHED extra that fell short of its plan is PARTIAL, same rule as the week', () => {
     const marker: SessionMarker = { id: 'm2', date: TODAY, workout: 'Beach Day' };
-    const bars = extraBarsForToday([], [marker], null, 'Legs', TODAY, progressOf(2, 9));
+    const bars = extraBarsForToday([], [marker], null, ['Legs'], TODAY, progressOf(2, 9));
     expect(bars[0]).toMatchObject({ workout: 'Beach Day', status: 'partial', locked: true, done: 2, target: 9 });
   });
 
   it('the ad-hoc workout IN PROGRESS gets a bar before its first set lands', () => {
-    const bars = extraBarsForToday([], [], 'Beach Day', 'Legs', TODAY);
+    const bars = extraBarsForToday([], [], 'Beach Day', ['Legs'], TODAY);
     expect(bars.map((b) => b.workout)).toEqual(['Beach Day']);
   });
 
   it('a 0-rep set does not conjure a bar; a bodyweight (0 kg) one does (061)', () => {
-    expect(extraBarsForToday([set('Beach Day', TODAY, 50, 0)], [], null, 'Legs', TODAY)).toEqual([]);
+    expect(extraBarsForToday([set('Beach Day', TODAY, 50, 0)], [], null, ['Legs'], TODAY)).toEqual([]);
     expect(
-      extraBarsForToday([set('Beach Day', TODAY, 0, 8)], [], null, 'Legs', TODAY).length
+      extraBarsForToday([set('Beach Day', TODAY, 0, 8)], [], null, ['Legs'], TODAY).length
     ).toBe(1);
   });
 
   it('YESTERDAY is history — the extra bars are only for today', () => {
-    expect(extraBarsForToday([set('Beach Day', MONDAY)], [], null, 'Legs', TODAY)).toEqual([]);
+    expect(extraBarsForToday([set('Beach Day', MONDAY)], [], null, ['Legs'], TODAY)).toEqual([]);
   });
 
   it('the scheduled day never doubles up', () => {
     const marker: SessionMarker = { id: 'm', date: TODAY, workout: 'Legs' };
-    expect(extraBarsForToday([set('Legs')], [marker], 'Legs', 'Legs', TODAY)).toEqual([]);
+    expect(extraBarsForToday([set('Legs')], [marker], 'Legs', ['Legs'], TODAY)).toEqual([]);
   });
 
   it('two off-schedule workouts each get their own bar, deduped', () => {
@@ -292,9 +294,96 @@ describe('extraBarsForToday — an off-schedule workout must have a HOME', () =>
       [set('Beach Day'), set('Beach Day'), set('Arms Blast')],
       [],
       null,
-      'Legs',
+      ['Legs'],
       TODAY
     );
     expect(bars.map((b) => b.workout).sort()).toEqual(['Arms Blast', 'Beach Day']);
+  });
+
+  it('065 NO-DOUBLE-BAR PIN: a trained scheduled EXTRA never grows an ad-hoc bar', () => {
+    // 'Core Blast' is a scheduled extra today — it owns a bar via
+    // extraScheduledBars, so extraBarsForToday must skip it entirely:
+    // sets, marker, and even the in-progress ad-hoc name.
+    const marker: SessionMarker = { id: 'm', date: TODAY, workout: 'Core Blast' };
+    expect(extraBarsForToday([set('Core Blast')], [marker], 'Core Blast', ['Legs', 'Core Blast'], TODAY)).toEqual([]);
+  });
+});
+
+// ─── 065: multiple workouts per scheduled day ───────────────────────────────
+
+// Same week, but Wednesday carries an extra and Sunday is Rest + extra.
+const MULTI: ScheduleRow = {
+  effective_from: '2026-01-01',
+  plan: {
+    '0': ['Rest', 'Core Blast'],
+    '1': 'Push',
+    '2': 'Pull',
+    '3': ['Legs', 'Abs Attack'],
+    '4': 'Upper',
+    '5': 'Lower',
+    '6': 'Rest',
+  },
+};
+const SUNDAY = '2026-07-19';
+
+describe('065 — array plan slots', () => {
+  it('scheduledDayFor promotes the FIRST non-Rest entry', () => {
+    expect(scheduledDayFor(TODAY, [MULTI])).toBe('Legs'); // [Legs, Abs Attack]
+    expect(scheduledDayFor(SUNDAY, [MULTI])).toBe('Core Blast'); // [Rest, Core] → Core
+    expect(scheduledDayFor('2026-07-18', [MULTI])).toBeNull(); // scalar Rest
+  });
+
+  it('scheduledExtrasFor returns everything after the promoted primary', () => {
+    expect(scheduledExtrasFor(TODAY, [MULTI])).toEqual(['Abs Attack']);
+    expect(scheduledExtrasFor(SUNDAY, [MULTI])).toEqual([]); // Core WAS promoted
+    expect(scheduledExtrasFor(MONDAY, [MULTI])).toEqual([]); // scalar day
+    expect(scheduledExtrasFor(TODAY, [])).toEqual([]);
+  });
+
+  it('sourceDayFor remaps ONLY the primary — extras keep their literal names', () => {
+    const DAYS = ['Alpha', 'Beta', 'Gamma'];
+    expect(sourceDayFor(TODAY, [MULTI], DAYS, TODAY)).not.toBe('Abs Attack');
+    expect(scheduledExtrasFor(TODAY, [MULTI])).toEqual(['Abs Attack']); // untouched
+  });
+});
+
+describe('extraScheduledBars — the week\'s extras, beneath their day', () => {
+  it('no extras anywhere → empty map (and no schedule → empty map)', () => {
+    expect(extraScheduledBars([WEEK], [], noSets, TODAY).size).toBe(0);
+    expect(extraScheduledBars([], [], noSets, TODAY).size).toBe(0);
+  });
+
+  it('TODAY\'s extra is IN PROGRESS — both of today\'s bars light up', () => {
+    const map = extraScheduledBars([MULTI], [], noSets, TODAY);
+    const bars = map.get(TODAY)!;
+    expect(bars.map((b) => b.workout)).toEqual(['Abs Attack']);
+    expect(bars[0].status).toBe('in_progress'); // the blue-highlight status
+    // the primary bar is ALSO in_progress via buildWeekBars — both lit:
+    expect(todayBar(buildWeekBars([MULTI], [], noSets, TODAY), TODAY)!.status).toBe('in_progress');
+  });
+
+  it('a FUTURE extra is UPCOMING; a PAST untrained extra is MISSED; trained is COMPLETED', () => {
+    const thuExtra: ScheduleRow = {
+      effective_from: '2026-01-01',
+      plan: { ...MULTI.plan, '1': ['Push', 'Arms'], '4': ['Upper', 'Neck'] },
+    };
+    const map = extraScheduledBars([thuExtra], [], setsOn(MONDAY), TODAY);
+    expect(map.get(THURSDAY)![0]).toMatchObject({ workout: 'Neck', status: 'upcoming' });
+    expect(map.get(MONDAY)![0]).toMatchObject({ workout: 'Arms', status: 'completed' }); // trained day
+    const none = extraScheduledBars([thuExtra], [], noSets, TODAY);
+    expect(none.get(MONDAY)![0].status).toBe('missed');
+  });
+
+  it('a marker decides: finished extra is COMPLETED/PARTIAL and LOCKED, same rules as the week', () => {
+    const marker: SessionMarker = { id: 'e1', date: TODAY, workout: 'Abs Attack' };
+    const done = extraScheduledBars([MULTI], [marker], progressOf(5, 5), TODAY).get(TODAY)![0];
+    expect(done).toMatchObject({ status: 'completed', locked: true, sessionId: 'e1' });
+    const short = extraScheduledBars([MULTI], [marker], progressOf(2, 9), TODAY).get(TODAY)![0];
+    expect(short).toMatchObject({ status: 'partial', locked: true, done: 2, target: 9 });
+  });
+
+  it('a Rest+extra day: the extra IS the primary (promoted), so no extra bar doubles it', () => {
+    const map = extraScheduledBars([MULTI], [], noSets, TODAY);
+    expect(map.has(SUNDAY)).toBe(false); // Core Blast lives in the main bar
   });
 });

@@ -24,7 +24,7 @@ import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
-import { buildWeekBars, extraBarsForToday, scheduledDayFor, sourceDayFor } from '@/domain/week-status';
+import { buildWeekBars, extraBarsForToday, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
@@ -184,13 +184,18 @@ export default function TodayScreen() {
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
+  // 065: today's EXTRA scheduled workouts (their bars render beneath the week's).
+  const todaysExtras = scheduledExtrasFor(todayIso, schedule.data ?? []);
   // Ad-hoc and off-schedule workouts get their own bar — otherwise finishing one
-  // leaves it with no home on Train: green nowhere, reachable nowhere.
+  // leaves it with no home on Train: green nowhere, reachable nowhere. The
+  // exclusion list is every name that already owns a bar today: the remapped
+  // primary + the extras (a swapped-AWAY stored name stays eligible — that's
+  // the off-schedule case this exists for).
   const extraBars = extraBarsForToday(
     workouts.data ?? [],
     sessions.data ?? [],
     adhoc?.name ?? null,
-    scheduledToday,
+    [...(scheduledToday ? [scheduledToday] : []), ...todaysExtras],
     todayIso,
     setsFor
   );

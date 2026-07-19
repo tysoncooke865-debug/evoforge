@@ -14,7 +14,7 @@
  * you show every pre-feature workout as MISSED. Both are lies about the past.
  */
 
-import type { ScheduleRow } from './scheduled-streak';
+import { dayWorkouts, type PlanDayValue, type ScheduleRow } from './scheduled-streak';
 import { isCountedSet } from './workouts';
 
 export type WorkoutStatus = 'completed' | 'partial' | 'missed' | 'in_progress' | 'upcoming' | 'rest';
@@ -75,16 +75,35 @@ const addDays = (iso: string, n: number): string => {
 
 const dowOf = (iso: string): number => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
-/** The schedule row in force ON a date: the last one effective on or before it. */
-export function scheduledDayFor(date: string, rows: readonly ScheduleRow[]): string | null {
-  let plan: Record<string, string> | null = null;
+const planInForceOn = (
+  date: string,
+  rows: readonly ScheduleRow[]
+): Record<string, PlanDayValue> | null => {
+  let plan: Record<string, PlanDayValue> | null = null;
   for (const r of [...rows].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1))) {
     if (r.effective_from <= date) plan = r.plan;
     else break;
   }
+  return plan;
+};
+
+/** The schedule row in force ON a date: the last one effective on or before
+ *  it. 065: a slot may hold [primary, ...extras] — this returns the FIRST
+ *  non-Rest entry (a ['Rest','Core'] Sunday IS a Core day everywhere the
+ *  primary shows); scheduledExtrasFor returns the rest. */
+export function scheduledDayFor(date: string, rows: readonly ScheduleRow[]): string | null {
+  const plan = planInForceOn(date, rows);
   if (!plan) return null;
-  const assigned = plan[String(dowOf(date))];
-  return assigned && assigned !== 'Rest' ? assigned : null;
+  return dayWorkouts(plan[String(dowOf(date))])[0] ?? null;
+}
+
+/** The date's EXTRA scheduled workouts — everything after the promoted
+ *  primary. Literal names on purpose: extras are explicit picks (often
+ *  routines) and must never be renamed by a plan-source switch. */
+export function scheduledExtrasFor(date: string, rows: readonly ScheduleRow[]): string[] {
+  const plan = planInForceOn(date, rows);
+  if (!plan) return [];
+  return dayWorkouts(plan[String(dowOf(date))]).slice(1);
 }
 
 /**
@@ -197,6 +216,60 @@ export function todayBar(bars: WeekBar[] | null, todayIso: string): WeekBar | nu
   return bars?.find((b) => b.date === todayIso) ?? null;
 }
 
+/**
+ * 065 — the week's EXTRA scheduled workouts, as bars keyed by date.
+ *
+ * Rendered directly beneath each day's primary bar. Status follows
+ * buildWeekBars' exact rules — in particular TODAY's extras are
+ * `in_progress`, which is what lights them accent-blue alongside the
+ * primary (WeekBarRow keys the highlight on that status alone). The
+ * 7-bar contract of buildWeekBars itself is untouched.
+ */
+export function extraScheduledBars(
+  scheduleRows: readonly ScheduleRow[],
+  sessions: readonly SessionMarker[],
+  progressFor: (date: string, workout: string) => DayProgress,
+  todayIso: string
+): Map<string, WeekBar[]> {
+  const out = new Map<string, WeekBar[]>();
+  if (scheduleRows.length === 0) return out;
+
+  const monday = addDays(todayIso, -((dowOf(todayIso) + 6) % 7));
+  const markers = new Map<string, SessionMarker>();
+  for (const s of sessions) markers.set(`${s.date}|${s.workout}`, s);
+
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(monday, i);
+    const extras = scheduledExtrasFor(date, scheduleRows);
+    if (extras.length === 0) continue;
+
+    const bars: WeekBar[] = extras.map((workout) => {
+      const marker = markers.get(`${date}|${workout}`) ?? null;
+      const progress = progressFor(date, workout);
+
+      let status: WorkoutStatus;
+      if (marker) status = statusForMarked(progress);
+      else if (date > todayIso) status = 'upcoming';
+      else if (date === todayIso) status = 'in_progress';
+      else if (progress.trained) status = 'completed';
+      else status = 'missed';
+
+      return {
+        date,
+        dow: dowOf(date),
+        workout,
+        status,
+        sessionId: marker?.id ?? null,
+        locked: marker !== null,
+        done: progress.done,
+        target: progress.target,
+      };
+    });
+    out.set(date, bars);
+  }
+  return out;
+}
+
 export const STATUS_LABEL: Readonly<Record<WorkoutStatus, string>> = {
   completed: 'COMPLETED',
   partial: 'PARTIAL',
@@ -215,32 +288,37 @@ export const STATUS_LABEL: Readonly<Record<WorkoutStatus, string>> = {
  *
  * Only TODAY: a past off-schedule workout is history, and the week bars are
  * about what the athlete is doing now. Rendered after the seven.
+ *
+ * `scheduledNames` is EVERY name that already owns a bar today — the primary,
+ * its source-remapped alias, and the 065 extras — so a scheduled extra that
+ * was trained never grows a duplicate ad-hoc bar.
  */
 export function extraBarsForToday(
   rows: readonly { date?: unknown; workout?: unknown; weight?: unknown; reps?: unknown }[],
   sessions: readonly SessionMarker[],
   adhocName: string | null,
-  scheduledToday: string | null,
+  scheduledNames: readonly string[],
   todayIso: string,
   progressFor: (date: string, workout: string) => DayProgress = () => ({ done: 0, target: 0, trained: false })
 ): WeekBar[] {
   const names = new Set<string>();
+  const scheduled = new Set(scheduledNames);
 
-  // Anything trained today that is not the scheduled day.
+  // Anything trained today that is not a scheduled workout.
   for (const r of rows) {
     if (String(r.date ?? '') !== todayIso) continue;
     const w = String(r.workout ?? '');
-    if (w === '' || w === scheduledToday) continue;
+    if (w === '' || scheduled.has(w)) continue;
     if (!isCountedSet(r.weight, r.reps)) continue;
     names.add(w);
   }
-  // Anything FINISHED today that is not the scheduled day (a finish with no
+  // Anything FINISHED today that is not a scheduled workout (a finish with no
   // sets cannot happen, but a marker is the decision and outranks inference).
   for (const m of sessions) {
-    if (m.date === todayIso && m.workout !== scheduledToday) names.add(m.workout);
+    if (m.date === todayIso && !scheduled.has(m.workout)) names.add(m.workout);
   }
   // The workout in progress right now, even before its first set lands.
-  if (adhocName !== null && adhocName !== scheduledToday) names.add(adhocName);
+  if (adhocName !== null && !scheduled.has(adhocName)) names.add(adhocName);
 
   const dow = new Date(`${todayIso}T00:00:00Z`).getUTCDay();
   return [...names].map((workout) => {

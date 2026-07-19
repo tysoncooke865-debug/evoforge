@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeScheduledStreak, crossedMilestones, nextScheduledSession, weeklyContract, type ScheduleRow } from '../scheduled-streak';
+import { computeScheduledStreak, crossedMilestones, dayWorkouts, nextScheduledSession, weeklyContract, type ScheduleRow } from '../scheduled-streak';
 import type { WorkoutRow } from '../summary';
 
 const set = (date: string): WorkoutRow => ({
@@ -149,6 +149,87 @@ describe('weeklyContract', () => {
     expect(c.pips[6].state).toBe('completed');
     expect(c.done).toBe(0);
     expect(c.target).toBe(6);
+  });
+});
+
+// ─── 065: array plan slots — [primary, ...extras] ───────────────────────────
+
+describe('065 — dayWorkouts', () => {
+  it('normalizes every slot shape to the non-Rest names it holds', () => {
+    expect(dayWorkouts('Push')).toEqual(['Push']);
+    expect(dayWorkouts('Rest')).toEqual([]);
+    expect(dayWorkouts(['Rest', 'Core Blast'])).toEqual(['Core Blast']);
+    expect(dayWorkouts(['Push', 'Core Blast'])).toEqual(['Push', 'Core Blast']);
+    expect(dayWorkouts(['Rest'])).toEqual([]);
+    expect(dayWorkouts(undefined)).toEqual([]);
+    expect(dayWorkouts(null)).toEqual([]);
+    expect(dayWorkouts('')).toEqual([]);
+  });
+});
+
+describe('065 — streak semantics with array slots', () => {
+  // Sunday 'Rest' becomes ['Rest','Core Blast'] — an extra-only training day.
+  const MULTI: ScheduleRow = {
+    effective_from: '2026-01-01',
+    plan: { ...WEEK.plan, '0': ['Rest', 'Core Blast'], '6': ['Aesthetics', 'Arms'] },
+  };
+
+  it("'Rest' + extra IS a scheduled day: trained extends, untrained breaks", () => {
+    // Fri+Sat trained; Sunday (extra-only) trained too → streak 3.
+    const s = computeScheduledStreak(
+      [MULTI],
+      [set('2026-07-10'), set('2026-07-11'), set('2026-07-12')],
+      TODAY,
+      10
+    );
+    expect(s.days.get(TODAY)).toBe('completed');
+    expect(s.current).toBe(3);
+
+    // Same schedule, Sunday NOT trained, judged from Monday: Sunday is a
+    // missed scheduled day now — it breaks the run that Saturday started.
+    const broken = computeScheduledStreak(
+      [MULTI],
+      [set('2026-07-10'), set('2026-07-11'), set('2026-07-13')],
+      '2026-07-13',
+      10
+    );
+    expect(broken.days.get('2026-07-12')).toBe('missed');
+    expect(broken.current).toBe(1); // Monday only
+  });
+
+  it('primary + extra on one date counts ONCE — trained is day-granular', () => {
+    // Saturday holds ['Aesthetics','Arms']; one set that day → one streak day.
+    const s = computeScheduledStreak([MULTI], [set('2026-07-11')], TODAY, 5);
+    expect(s.current).toBe(1);
+  });
+
+  it('mixed scalar/array rows coexist through effective dating', () => {
+    // WEEK (all scalars) governs until 07-10; MULTI (arrays) from 07-11.
+    const later: ScheduleRow = { ...MULTI, effective_from: '2026-07-11' };
+    const s = computeScheduledStreak(
+      [WEEK, later],
+      [set('2026-07-10'), set('2026-07-11'), set('2026-07-12')],
+      TODAY,
+      10
+    );
+    expect(s.current).toBe(3); // scalar Fri + array Sat + extra-only Sun
+  });
+
+  it('nextScheduledSession names the FIRST non-Rest entry of an array day', () => {
+    // From Saturday 07-11: Sunday is ['Rest','Core Blast'] → Core Blast.
+    expect(nextScheduledSession([MULTI], '2026-07-11')).toEqual({
+      date: '2026-07-12',
+      day: 'Core Blast',
+      inDays: 1,
+    });
+  });
+
+  it('weeklyContract: extras never inflate the weekly target — one pip per day', () => {
+    const c = weeklyContract([MULTI], [], TODAY);
+    // WEEK targeted 6 (Mon-Sat); MULTI adds Sunday as extra-only → 7 days,
+    // but Saturday's second workout adds NOTHING.
+    expect(c.target).toBe(7);
+    expect(c.pips[6].assigned).toBe('Core Blast'); // promoted, not 'Rest'
   });
 });
 

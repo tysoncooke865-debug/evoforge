@@ -193,12 +193,18 @@ export default function ScheduleScreen() {
   const source: SourceIndex = weekSource ?? preferredSource;
   const dayList = daysOf(source);
 
+  // Seed from the latest saved schedule once it loads. 065 (interim): a slot
+  // may be [primary, ...extras] — seed the primary; the extras editor lands
+  // in the next change.
   const rows = schedule.data;
   useEffect(() => {
     if (!rows || rows.length === 0) return;
     const last = rows[rows.length - 1];
     const t = setTimeout(() => {
-      setPlan(last.plan);
+      const primaries = Object.fromEntries(
+        Object.entries(last.plan).map(([dow, v]) => [dow, Array.isArray(v) ? (v[0] ?? 'Rest') : v])
+      );
+      setPlan(primaries);
       // Seed the week source from the saved row's uniform source (the most-used
       // value in its per-day map), else leave null → falls back to preferredSource.
       const vals = Object.values(last.sources ?? {}).filter((v) => v === 0 || v === 1 || v === 2) as SourceIndex[];
