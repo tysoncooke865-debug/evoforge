@@ -1177,7 +1177,27 @@ Owner: Tyson. He works through other Claude sessions too — **always
     pre-033-exploit inflation (ALPHA: column 38, honest level 2) — NEVER
     serve that column; compute from lifetime_xp.
 
-**Migrations applied through `063`. Next free number: `064`.**
+- **AUDIT FIX BATCH — PHASE 2: Supabase efficiency (064, 2026-07-19):**
+  * **B7** latest-value reads bounded: measurements (newest-first 120-row
+    window, per-column-latest preserved), physique ratings (desc limit 1),
+    bodyfat series (newest 90, reversed — ascending contract holds; note:
+    the Shredder STARTING reading is now earliest-in-window), bodyweight
+    (newest 180, reversed). No more 2500-row pulls for one number.
+  * **C8** the achievement sweep reuses the workout_log CACHE — the
+    just-saved row rides along explicitly (the fresh-row rule its header
+    demands survives); the Evo review accepts cachedWorkoutRows from its
+    two callers instead of an unbounded refetch.
+  * **C6** rival-settle accepts battleIds[] (≤10, single-id compat kept) —
+    reconciliation is ONE call, not one per battle. **commit_evo_review()
+    (064):** the review persists in ONE definer RPC — core (snapshot +
+    current + evidence) unguarded, riders (chapters/stats/traits/audit/
+    analytics) exception-guarded server-side, evo_class written once in
+    the txn (C1's drift window closed), maintainChapters ported verbatim
+    into plpgsql. ALL RULE MATH stays in the pinned client domain fns —
+    the RPC is pure persistence. Falsified: clean commit, malformed rider
+    never loses the core, peak-ratchet fires inside the RPC.
+
+**Migrations applied through `064`. Next free number: `065`.**
 (The line above previously said 048/049 — stale: the social program took
 049–055. See the social blocks above.)
 (Historical: `022` was reserved for the nutrition branch and never used —

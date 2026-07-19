@@ -107,7 +107,11 @@ export default function MainLayout() {
       }
       if (progressionFeatures.evoReviewsEnabled) {
         try {
-          const result = await runDueEvoReview(supabase);
+          const result = await runDueEvoReview(supabase, {
+            cachedWorkoutRows: queryClient.getQueryData(['workout_log', session?.user?.id ?? null]) as
+              | Record<string, unknown>[]
+              | undefined,
+          });
           if (result.ran) {
             // The reads may already be cached as null/stale — tell them.
             void queryClient.invalidateQueries({ queryKey: ['evo_rating_current'] });

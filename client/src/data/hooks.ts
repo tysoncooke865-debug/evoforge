@@ -123,13 +123,15 @@ export function useLatestMeasurements() {
       const { data, error } = await supabase
         .from('measurements')
         .select('neck_cm,shoulders_cm,chest_cm,bicep_cm,waist_cm,hips_cm,thigh_cm,calf_cm,bodyweight,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
+        // B7: newest-first window instead of the whole table — the scan
+        // below keeps per-COLUMN-latest semantics (first positive wins).
+        .order('timestamp', { ascending: false })
+        .limit(120);
       if (error) throw error;
       const latest: Record<string, number> = {};
       for (const row of (data ?? []) as Record<string, unknown>[]) {
         for (const [key, value] of Object.entries(row)) {
-          if (key === 'timestamp') continue;
+          if (key === 'timestamp' || key in latest) continue; // newest-first: first hit wins
           const n = Number(value);
           if (Number.isFinite(n) && n > 0) latest[key] = n;
         }
@@ -171,10 +173,12 @@ export function useBodyweightLog() {
       const { data, error } = await supabase
         .from('bodyweight_log')
         .select('id,date,bodyweight,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
+        // B7: the newest 180 readings cover every chart/streak window; the
+        // reverse keeps the ascending contract every consumer assumes.
+        .order('timestamp', { ascending: false })
+        .limit(180);
       if (error) throw error;
-      return data as { date: string; bodyweight: number; timestamp: string }[];
+      return (data as { date: string; bodyweight: number; timestamp: string }[]).reverse();
     },
   });
 }
@@ -194,10 +198,12 @@ function useBodyfatSeries<T>(select: (valid: number[]) => T) {
       const { data, error } = await supabase
         .from('bodyfat_log')
         .select('id,bf_mid,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
+        // B7: newest 90 estimates, reversed — ascending contract preserved
+        // (earliest-in-window still backs the Shredder entry reading).
+        .order('timestamp', { ascending: false })
+        .limit(90);
       if (error) throw error;
-      return data.map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
+      return data.reverse().map((r) => Number(r.bf_mid)).filter((v) => Number.isFinite(v) && v > 0);
     },
     select,
   });
@@ -226,14 +232,14 @@ export function usePhysiqueRatings() {
       const { data, error } = await supabase
         .from('physique_ratings')
         .select('id,physique_score,leanness_score,symmetry_score,muscularity_score,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(ROW_CAP);
+        .order('timestamp', { ascending: false })
+        .limit(1) // B7: one latest verdict, not 2500 rows;
       if (error) throw error;
       const num = (v: unknown) => {
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
       };
-      const row = (data.length > 0 ? data[data.length - 1] : {}) as Record<string, unknown>;
+      const row = (data.length > 0 ? data[0] : {}) as Record<string, unknown>; // desc limit 1
       return {
         physique_score: num(row.physique_score),
         leanness_score: num(row.leanness_score),

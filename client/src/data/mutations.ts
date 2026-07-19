@@ -147,9 +147,18 @@ export function useSaveSet() {
 
       if (verdict.action === 'insert' || verdict.action === 'update') {
         // Fire-and-forget, like Python running the sweep inside the save: a
-        // sweep failure must never fail the save. It reads fresh and toasts
-        // any unlocks itself.
-        void runAchievementSweep(queryClient, userId);
+        // sweep failure must never fail the save. C8: the cache supplies the
+        // history; the just-saved row rides along explicitly (the fresh-row
+        // guarantee the sweep's header demands).
+        void runAchievementSweep(queryClient, userId, {
+          id: verdict.action === 'insert' || verdict.action === 'update' ? verdict.rowId : undefined,
+          date: input.workoutDate,
+          workout: input.workout,
+          exercise: input.exercise,
+          set: input.setNo,
+          weight: input.weight,
+          reps: input.reps,
+        });
       }
 
       if (verdict.action === 'insert') {

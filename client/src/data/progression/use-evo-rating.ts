@@ -84,7 +84,13 @@ export function useRunEvoReview() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: (opts: { force?: boolean } = {}) => runDueEvoReview(supabase, opts),
+    mutationFn: (opts: { force?: boolean } = {}) =>
+      runDueEvoReview(supabase, {
+        ...opts,
+        cachedWorkoutRows: queryClient.getQueryData(['workout_log', userId]) as
+          | Record<string, unknown>[]
+          | undefined,
+      }),
     onSuccess: (result) => {
       if (!result.ran) return;
       void queryClient.invalidateQueries({ queryKey: ['evo_rating_current', userId] });

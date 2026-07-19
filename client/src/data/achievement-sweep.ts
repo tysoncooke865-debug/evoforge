@@ -16,15 +16,28 @@ import { supabase } from './supabase';
  * the Query cache: the sweep must see the row that was just written, and the
  * invalidated caches may not have refetched yet.
  */
-export async function runAchievementSweep(queryClient: QueryClient, userId: string | null) {
+export async function runAchievementSweep(
+  queryClient: QueryClient,
+  userId: string | null,
+  /** C8: the row the caller JUST wrote — appended when the cache hasn't
+   *  refetched yet, so the fresh-row guarantee survives the cache reuse. */
+  justSaved?: WorkoutRow
+) {
   try {
+    // C8 (2026-07-19): the 2500-row workout read was the sweep's heavy hit
+    // and the cache already holds those rows. The header's fresh-row rule
+    // is preserved by appending `justSaved` when absent (the direct insert
+    // path doesn't optimistically patch the cache).
+    const cachedRows = queryClient.getQueryData(['workout_log', userId]) as WorkoutRow[] | undefined;
     const [ach, workouts, bws, bfs, cardio, targets, profile, ledger] = await Promise.all([
       supabase.from('achievements').select('achievement_id').limit(2500),
-      supabase
-        .from('workout_log')
-        .select('id,date,workout,exercise,set,weight,reps,timestamp')
-        .order('timestamp', { ascending: true })
-        .limit(2500),
+      cachedRows !== undefined
+        ? Promise.resolve({ data: cachedRows, error: null })
+        : supabase
+            .from('workout_log')
+            .select('id,date,workout,exercise,set,weight,reps,timestamp')
+            .order('timestamp', { ascending: true })
+            .limit(2500),
       supabase.from('bodyweight_log').select('id,bodyweight,timestamp').order('timestamp', { ascending: true }).limit(2500),
       supabase.from('bodyfat_log').select('id,bf_mid,timestamp').order('timestamp', { ascending: true }).limit(2500),
       supabase.from('cardio_log').select('id,date,type,minutes,distance_km,timestamp').order('timestamp', { ascending: true }).limit(2500),
@@ -35,7 +48,10 @@ export async function runAchievementSweep(queryClient: QueryClient, userId: stri
     if (ach.error || workouts.error) return; // no data, no sweep — never guess
 
     const held = new Set((ach.data ?? []).map((r) => String(r.achievement_id)));
-    const rows = (workouts.data ?? []) as WorkoutRow[];
+    let rows = (workouts.data ?? []) as WorkoutRow[];
+    if (justSaved && !rows.some((r) => r.id !== undefined && r.id === justSaved.id)) {
+      rows = [...rows, justSaved];
+    }
     const cardioRows = (cardio.data ?? []) as CardioRow[];
 
     const baseLevel =

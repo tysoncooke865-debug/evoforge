@@ -25,11 +25,15 @@ Deno.serve(async (req) => {
   if (!uid) return json({ error: 'Not signed in.' }, 401);
 
   const body = await req.json().catch(() => ({}));
-  const battleId = String(body?.battleId ?? '');
-  if (!battleId) return json({ error: 'battleId is required.' }, 400);
+  // C6 (2026-07-19): BATCH — one call settles up to 10 battles instead of
+  // one round trip each. `battleId` (singular) stays accepted for compat.
+  const rawIds: unknown[] = Array.isArray(body?.battleIds) ? body.battleIds : body?.battleId ? [body.battleId] : [];
+  const battleIds = rawIds.map(String).filter(Boolean).slice(0, 10);
+  if (battleIds.length === 0) return json({ error: 'battleId or battleIds is required.' }, 400);
 
   const svc = serviceClient();
 
+  const settleOne = async (battleId: string): Promise<Record<string, unknown>> => {
   // The battle must be genuinely settled, and the caller a participant.
   const { data: matches } = await svc
     .from('battle_matches')
@@ -38,17 +42,17 @@ Deno.serve(async (req) => {
     .limit(1);
   const match = matches?.[0];
   if (!match || match.status !== 'settled') {
-    return json({ error: 'That battle is not settled.' }, 409);
+    return { battleId, error: 'That battle is not settled.' };
   }
   const { data: parts } = await svc
     .from('battle_participants')
     .select('user_id,seat')
     .eq('match_id', battleId)
     .order('seat');
-  if (!parts || parts.length !== 2) return json({ error: 'Malformed battle.' }, 409);
+  if (!parts || parts.length !== 2) return { battleId, error: 'Malformed battle.' };
   const [a, b] = parts;
   if (uid !== a.user_id && uid !== b.user_id) {
-    return json({ error: 'Only a participant can settle a battle.' }, 403);
+    return { battleId, error: 'Only a participant can settle a battle.' };
   }
 
   const outcome: 'a' | 'b' | 'draw' =
@@ -95,9 +99,9 @@ Deno.serve(async (req) => {
   });
   if (lockErr) {
     if (/duplicate|unique/i.test(lockErr.message)) {
-      return json({ settled: true, already: true });
+      return { battleId, settled: true, already: true };
     }
-    return json({ error: `Could not lock the settle: ${lockErr.message}` }, 500);
+    return { battleId, error: `Could not lock the settle: ${lockErr.message}` };
   }
 
   const writeRating = async (
@@ -125,9 +129,23 @@ Deno.serve(async (req) => {
   await writeRating(b.user_id, newB, rb);
 
   const mine = uid === a.user_id ? { before: ra.rating, after: newA.rating } : { before: rb.rating, after: newB.rating };
-  return json({
+  return {
+    battleId,
     settled: true,
     outcome,
     yourRating: { before: Math.round(mine.before), after: Math.round(mine.after) },
-  });
+  };
+  };
+
+  const results: Record<string, unknown>[] = [];
+  for (const id of battleIds) {
+    try {
+      results.push(await settleOne(id));
+    } catch (e) {
+      results.push({ battleId: id, error: String(e) });
+    }
+  }
+  // Single-id calls keep the old response shape; batch calls get the array.
+  if (!Array.isArray(body?.battleIds) && results.length === 1) return json(results[0]);
+  return json({ results });
 });

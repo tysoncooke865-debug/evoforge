@@ -215,7 +215,7 @@ export interface ReviewRunResult {
 /** Run the official review when due (or forced), persist everything. */
 export async function runDueEvoReview(
   supabase: SupabaseClient,
-  opts: { force?: boolean } = {}
+  opts: { force?: boolean; cachedWorkoutRows?: readonly Record<string, unknown>[] } = {}
 ): Promise<ReviewRunResult> {
   const today = calendarToday();
 
@@ -230,7 +230,11 @@ export async function runDueEvoReview(
   const [profileQ, workoutsQ, bodyweightQ, bodyfatQ, physiqueQ, cardioTestsQ, cardioLogQ, assessQ] =
     await Promise.all([
       supabase.from('profile').select('sex,height_cm,bodyweight_kg').limit(1),
-      supabase.from('workout_log').select('date,workout,exercise,set,weight,reps,timestamp'),
+      // C8: the query cache usually holds these rows already — an unbounded
+      // re-fetch of the whole log per review was pure duplication.
+      opts.cachedWorkoutRows !== undefined
+        ? Promise.resolve({ data: opts.cachedWorkoutRows as never[], error: null })
+        : supabase.from('workout_log').select('date,workout,exercise,set,weight,reps,timestamp').limit(2500),
       supabase.from('bodyweight_log').select('bodyweight,date').order('date', { ascending: false }).limit(1),
       supabase.from('bodyfat_log').select('bf_low,bf_high,date').order('date', { ascending: false }).limit(1),
       supabase.from('physique_ratings').select('physique_score,leanness_score,symmetry_score,muscularity_score').order('date', { ascending: false }).limit(1),
@@ -296,202 +300,120 @@ export async function runDueEvoReview(
     });
   }
 
-  const { data: snap, error: snapErr } = await supabase
-    .from('evo_rating_snapshots')
-    .insert({
-      raw_rating: r.rawRating,
-      displayed_rating: r.displayedRating,
-      evolution_progress: r.evolutionProgress,
-      size_score: p.size.score,
-      aesthetics_score: p.aesthetics.score,
-      strength_score: p.strength.score,
-      cardio_score: p.cardio.score,
-      confidence: r.overallConfidence,
-      descriptor: r.descriptor,
-      trigger_type: isFirst ? 'initial' : 'weekly_review',
-      changes: outcome.changes,
-      recommendations: outcome.recommendations,
-      model_version: EVO_RATING_MODEL_VERSION,
-    })
-    .select('id')
-    .limit(1);
-  if (snapErr) throw snapErr;
-
+  // C6/C1 (064): the review lands in ONE atomic RPC. All rule math stays
+  // client-side (the pinned domain fns below); the server persists —
+  // snapshot + current + evidence unguarded, riders (chapters, stats,
+  // traits, audit, analytics) exception-guarded server-side so they can
+  // never fail the review. evo_class is written once inside the txn.
   const nextReview = new Date(Date.now() + 7 * 86_400_000).toISOString();
-  const currentPayload = {
-    raw_rating: r.rawRating,
-    displayed_rating: r.displayedRating,
-    evolution_progress: r.evolutionProgress,
-    starting_raw_rating: s.startingRaw,
-    starting_displayed: s.startingDisplayed,
-    peak_raw_rating: s.peakRaw,
-    peak_displayed: s.peakDisplayed,
-    lifetime_evolution: s.lifetimeEvolution,
-    size_score: p.size.score,
-    aesthetics_score: p.aesthetics.score,
-    strength_score: p.strength.score,
-    cardio_score: p.cardio.score,
-    size_confidence: p.size.confidence,
-    aesthetics_confidence: p.aesthetics.confidence,
-    strength_confidence: p.strength.confidence,
-    cardio_confidence: p.cardio.confidence,
-    overall_confidence: r.overallConfidence,
-    confidence_label: r.confidenceLabel,
-    descriptor: r.descriptor,
-    status: r.overallConfidence >= 40 ? 'confirmed' : 'provisional',
-    limiting_pillar: r.limitingPillar,
-    last_review_at: new Date().toISOString(),
-    next_review_at: nextReview,
-    model_version: EVO_RATING_MODEL_VERSION,
+
+  // Stats / class / traits / analytics — computed exactly as before.
+  const workoutRows = workoutsQ.data ?? [];
+  const exposure = new Map<string, number>();
+  const recentDays = new Set<string>();
+  const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
+  let totalValidSets = 0;
+  for (const row of workoutRows) {
+    const w = pyFloat(row.weight) ?? 0;
+    const reps = pyFloat(row.reps) ?? 0;
+    if (!(w > 0 && reps > 0)) continue;
+    totalValidSets += 1;
+    const name = String(row.exercise ?? '');
+    exposure.set(name, (exposure.get(name) ?? 0) + 1);
+    const d = String(row.date ?? '').slice(0, 10);
+    if (d >= cutoff) recentDays.add(d);
+  }
+  const technique = {
+    totalValidSets,
+    familiarExercises: [...exposure.values()].filter((n) => n >= 3).length,
+    recentTrainingDays: recentDays.size,
   };
-  const { error: upErr } = await supabase
-    .from('evo_rating_current')
-    .upsert(currentPayload, { onConflict: 'user_id' });
-  if (upErr) throw upErr;
+  const stats = calculatePlayerStats(p, technique);
+  const cls = determineEvoClass({ pillars: p, technique: stats.technique });
+  const { data: forgeRow } = await supabase
+    .from('user_progression')
+    .select('current_momentum_weeks')
+    .limit(1);
+  const eligible = determineTraitEligibility(p, stats, Number(forgeRow?.[0]?.current_momentum_weeks ?? 0));
 
-  // Pending evidence: this review consumed everything outstanding.
-  await supabase
-    .from('pending_evo_evidence')
-    .update({ status: 'confirmed', reviewed_at: new Date().toISOString(), reason: `review ${snap?.[0]?.id ?? ''}` })
-    .eq('status', 'pending');
-
-  // Evolution Chapters (spec §15D): open the first on the first review;
-  // close + roll over every 84 days. Failures never fail the review.
-  try {
-    await maintainChapters(supabase, String(snap?.[0]?.id ?? ''), today);
-  } catch {
-    /* next review retries */
+  const events: { event_name: string; props: Record<string, unknown> }[] = [
+    { event_name: 'evo_review_completed', props: { rating: r.displayedRating, first: isFirst } },
+  ];
+  if (prior.state && r.displayedRating > prior.state.currentDisplayed) {
+    events.push({ event_name: 'evo_rating_increased', props: { to: r.displayedRating } });
+  }
+  if (prior.state && r.displayedRating < prior.state.currentDisplayed) {
+    events.push({ event_name: 'evo_rating_decreased', props: { to: r.displayedRating } });
+  }
+  if (s.peakRaw === r.rawRating && !isFirst) {
+    events.push({ event_name: 'peak_rating_reached', props: { peak: s.peakDisplayed } });
   }
 
-  // P8: Player Stats, Class, Traits refresh with every review; P9: the
-  // audit row + analytics. All best-effort — never fail the review.
-  try {
-    const workoutRows = workoutsQ.data ?? [];
-    const exposure = new Map<string, number>();
-    const recentDays = new Set<string>();
-    const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString().slice(0, 10);
-    let totalValidSets = 0;
-    for (const row of workoutRows) {
-      const w = pyFloat(row.weight) ?? 0;
-      const reps = pyFloat(row.reps) ?? 0;
-      if (!(w > 0 && reps > 0)) continue;
-      totalValidSets += 1;
-      const name = String(row.exercise ?? '');
-      exposure.set(name, (exposure.get(name) ?? 0) + 1);
-      const d = String(row.date ?? '').slice(0, 10);
-      if (d >= cutoff) recentDays.add(d);
-    }
-    const technique = {
-      totalValidSets,
-      familiarExercises: [...exposure.values()].filter((n) => n >= 3).length,
-      recentTrainingDays: recentDays.size,
-    };
-    const stats = calculatePlayerStats(p, technique);
-    const cls = determineEvoClass({ pillars: p, technique: stats.technique });
-    await supabase.from('player_stats').upsert(
-      { ...stats, evo_class: cls.evoClass, class_rule_version: cls.ruleVersion, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    );
-    await supabase
-      .from('evo_rating_current')
-      .update({ evo_class: cls.evoClass })
-      .not('user_id', 'is', null);
-
-    const { data: forgeRow } = await supabase
-      .from('user_progression')
-      .select('current_momentum_weeks')
-      .limit(1);
-    const eligible = determineTraitEligibility(p, stats, Number(forgeRow?.[0]?.current_momentum_weeks ?? 0));
-    for (const t of eligible) {
-      await supabase
-        .from('player_traits')
-        .upsert(
-          { trait_key: t.key, trait_tier: t.tier, source_pillar: t.sourcePillar, rule_version: t.ruleVersion },
-          { onConflict: 'user_id,trait_key', ignoreDuplicates: true }
-        );
-    }
-
-    await supabase.from('evo_rating_audit').insert({
-      old_rating: prior.state?.currentRaw ?? null,
-      new_rating: r.rawRating,
-      trigger_type: isFirst ? 'initial' : 'weekly_review',
-      snapshot_id: snap?.[0]?.id ?? null,
-      flags: auditFlags,
-    });
-    const events: { event_name: string; props: Record<string, unknown> }[] = [
-      { event_name: 'evo_review_completed', props: { rating: r.displayedRating, first: isFirst } },
-    ];
-    if (prior.state && r.displayedRating > prior.state.currentDisplayed) {
-      events.push({ event_name: 'evo_rating_increased', props: { to: r.displayedRating } });
-    }
-    if (prior.state && r.displayedRating < prior.state.currentDisplayed) {
-      events.push({ event_name: 'evo_rating_decreased', props: { to: r.displayedRating } });
-    }
-    if (s.peakRaw === r.rawRating && !isFirst) {
-      events.push({ event_name: 'peak_rating_reached', props: { peak: s.peakDisplayed } });
-    }
-    for (const e of events) await supabase.from('analytics_events').insert(e);
-  } catch {
-    /* stats/audit/analytics are best-effort riders */
-  }
+  const { data: committed, error: commitErr } = await supabase.rpc('commit_evo_review', {
+    p: {
+      today,
+      snapshot: {
+        raw_rating: r.rawRating,
+        displayed_rating: r.displayedRating,
+        evolution_progress: r.evolutionProgress,
+        size_score: p.size.score,
+        aesthetics_score: p.aesthetics.score,
+        strength_score: p.strength.score,
+        cardio_score: p.cardio.score,
+        confidence: r.overallConfidence,
+        descriptor: r.descriptor,
+        trigger_type: isFirst ? 'initial' : 'weekly_review',
+        changes: outcome.changes,
+        recommendations: outcome.recommendations,
+        model_version: EVO_RATING_MODEL_VERSION,
+      },
+      current: {
+        raw_rating: r.rawRating,
+        displayed_rating: r.displayedRating,
+        evolution_progress: r.evolutionProgress,
+        starting_raw_rating: s.startingRaw,
+        starting_displayed: s.startingDisplayed,
+        peak_raw_rating: s.peakRaw,
+        peak_displayed: s.peakDisplayed,
+        lifetime_evolution: s.lifetimeEvolution,
+        size_score: p.size.score,
+        aesthetics_score: p.aesthetics.score,
+        strength_score: p.strength.score,
+        cardio_score: p.cardio.score,
+        size_confidence: p.size.confidence,
+        aesthetics_confidence: p.aesthetics.confidence,
+        strength_confidence: p.strength.confidence,
+        cardio_confidence: p.cardio.confidence,
+        overall_confidence: r.overallConfidence,
+        confidence_label: r.confidenceLabel,
+        descriptor: r.descriptor,
+        status: r.overallConfidence >= 40 ? 'confirmed' : 'provisional',
+        limiting_pillar: r.limitingPillar,
+        last_review_at: new Date().toISOString(),
+        next_review_at: nextReview,
+        model_version: EVO_RATING_MODEL_VERSION,
+      },
+      evo_class: cls.evoClass,
+      stats: { ...stats, class_rule_version: cls.ruleVersion },
+      traits: eligible.map((t) => ({
+        trait_key: t.key,
+        trait_tier: t.tier,
+        source_pillar: t.sourcePillar,
+        rule_version: t.ruleVersion,
+      })),
+      audit: {
+        old_rating: prior.state?.currentRaw ?? null,
+        new_rating: r.rawRating,
+        trigger_type: isFirst ? 'initial' : 'weekly_review',
+        flags: auditFlags,
+      },
+      analytics: events,
+    },
+  });
+  if (commitErr) throw commitErr;
+  void committed;
 
   return { ran: true, outcome, reason: opts.force ? 'forced' : isFirst ? 'first' : 'due' };
 }
 
-const CHAPTER_DAYS = 84;
-
-async function maintainChapters(supabase: SupabaseClient, snapshotId: string, todayIso: string): Promise<void> {
-  if (!snapshotId) return;
-  const { data } = await supabase
-    .from('evolution_chapters')
-    .select('id,chapter_number,started_at,ended_at,starting_snapshot_id')
-    .order('chapter_number', { ascending: false })
-    .limit(1);
-  const newest = data?.[0] ?? null;
-
-  if (!newest) {
-    await supabase.from('evolution_chapters').insert({
-      chapter_number: 1,
-      started_at: todayIso,
-      starting_snapshot_id: snapshotId,
-    });
-    return;
-  }
-  if (newest.ended_at) return; // already rolled; the open chapter is elsewhere
-
-  const ageDays = Math.floor(
-    (Date.parse(`${todayIso}T00:00:00Z`) - Date.parse(`${String(newest.started_at).slice(0, 10)}T00:00:00Z`)) / 86_400_000
-  );
-  if (ageDays < CHAPTER_DAYS) return;
-
-  // Close with an honest before/after summary from the two snapshots.
-  const { data: snaps } = await supabase
-    .from('evo_rating_snapshots')
-    .select('id,displayed_rating,size_score,aesthetics_score,strength_score,cardio_score')
-    .in('id', [String(newest.starting_snapshot_id), snapshotId]);
-  const start = snaps?.find((s) => s.id === newest.starting_snapshot_id);
-  const end = snaps?.find((s) => s.id === snapshotId);
-  const summary =
-    start && end
-      ? {
-          startingRating: start.displayed_rating,
-          endingRating: end.displayed_rating,
-          change: Number(end.displayed_rating) - Number(start.displayed_rating),
-          pillars: {
-            size: [start.size_score, end.size_score],
-            aesthetics: [start.aesthetics_score, end.aesthetics_score],
-            strength: [start.strength_score, end.strength_score],
-            cardio: [start.cardio_score, end.cardio_score],
-          },
-        }
-      : {};
-  await supabase
-    .from('evolution_chapters')
-    .update({ ended_at: todayIso, ending_snapshot_id: snapshotId, summary })
-    .eq('id', newest.id);
-  await supabase.from('evolution_chapters').insert({
-    chapter_number: Number(newest.chapter_number) + 1,
-    started_at: todayIso,
-    starting_snapshot_id: snapshotId,
-  });
-}
+// (maintainChapters moved server-side into commit_evo_review — 064.)

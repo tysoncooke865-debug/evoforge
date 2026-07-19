@@ -67,13 +67,14 @@ export function useReconcileSettles() {
         .select('battle_id')
         .in('battle_id', ids);
       const done = new Set((settled ?? []).map((s) => String(s.battle_id)));
-      let count = 0;
-      for (const id of ids) {
-        if (done.has(id)) continue;
-        const { data } = await supabase.functions.invoke('rival-settle', { body: { battleId: id } });
-        if ((data as { settled?: boolean } | null)?.settled) count += 1;
-      }
-      return count;
+      const pending = ids.filter((id) => !done.has(id));
+      if (pending.length === 0) return 0;
+      // C6: ONE batched call settles them all (was one round trip each).
+      const { data } = await supabase.functions.invoke('rival-settle', {
+        body: { battleIds: pending },
+      });
+      const results = (data as { results?: { settled?: boolean }[] } | null)?.results ?? [];
+      return results.filter((r) => r?.settled).length;
     },
     onSuccess: (count) => {
       if (count === 0) return;
