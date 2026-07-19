@@ -26,6 +26,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **HOME RADAR = EVO PILLARS + PROJECTION (2026-07-19)** —
+  `client/src/ui/home/evo-radar.tsx` now sources Home's stat wheel from the
+  SAME four scores that build the Evo Rating
+  (`evo_rating_current.{size,aesthetics,strength,cardio}_score`, floored to
+  match the EVO CORE card), so the wheel finally lines up with the rating
+  beside it (it used to draw five legacy `calculateAvatarStats()` axes — a
+  different scoring system). It overlays a dashed PROJECTION of where those
+  pillars head after a chosen block (8/12/16 wk) of consistent training —
+  `domain/progression/projection.ts`, a diminishing-returns headroom model
+  scaled by momentum (`consistencyFromMomentum`), never past 100. Before the
+  first Evo review (no row) it falls back to the legacy live 5-axis radar.
+  `StatRadar` gained an optional `overlay` (dashed polygon) + legend.
 - **DRAG-TO-REORDER (2026-07-19)** — `client/src/ui/train/reorderable-list.tsx`
   (fixed-row-height, grip-handle pan on gesture-handler+Reanimated; `_layout.tsx`
   now wraps the app in `GestureHandlerRootView`). Used in the Routine Builder

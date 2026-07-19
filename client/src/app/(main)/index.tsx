@@ -51,7 +51,7 @@ import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
-import { StatRadar } from '@/ui/character/stat-radar';
+import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN). Hierarchy: identity →
@@ -344,13 +344,16 @@ export default function HomeScreen() {
 
       <DividerGlow />
 
-      {/* 8. Character build — the radar, always (Tyson 2026-07-19: the five
-          stat bars, their toggle, and the weak-point line are gone). */}
+      {/* 8. Character build — the radar. Sourced from the Evo Rating's four
+          pillars so the wheel LINES UP with the EVO CORE card (Tyson
+          2026-07-19), with a dashed projection of where they head after a
+          block of consistent training. Falls back to the legacy live stats
+          before the first Evo review. */}
       <View>
         <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
         <View className="mt-s3">
-          <StatRadar
-            stats={[
+          <EvoRadar
+            fallbackStats={[
               { label: 'STR', value: stats.strengthScore },
               { label: 'SIZE', value: stats.sizeScore },
               { label: 'LEAN', value: stats.leannessScore },
