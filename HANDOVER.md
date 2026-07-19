@@ -26,6 +26,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **PER-DAY SCHEDULE SOURCE (2026-07-19, migration 066 APPLIED)** — the weekly
+  schedule can pin a SOURCE (my plan / AI plan / EvoForge) to each day and a
+  SPLIT from that source, so a week can mix AI push / my-plan legs / built-in
+  pull. Storage is a PARALLEL `workout_schedule.sources` jsonb ('0'..'6' →
+  SourceIndex) next to the unchanged string `plan` — so `scheduled_streak()`
+  and every string-reading twin stay byte-identical (a day absent from
+  `sources`, or a null column, follows the global source exactly as before —
+  zero change for any pre-existing schedule). EDIT SCHEDULE gained a per-day
+  source selector (filtered to sources that have days) + a split picker from
+  that source; `today.tsx` resolves each day via `sourceForDate(date)` (past
+  days keep the global source; the explicit-source path skips `sourceDayFor`'s
+  positional remap since the stored name is already right for its source).
+  `week-status.ts`/`scheduled-streak.ts` untouched (they take callbacks).
+  Verified on web: editor renders/switches sources+splits (injected plans),
+  and a pinned MY-PLAN day resolves its own exercises on the Train card. Also:
+  the "CHANGE WORKOUT" utility on Today is now "CHOOSE/UPLOAD MY WORKOUT".
 - **MULTI-METRIC LEADERBOARD (2026-07-19, migration 065 APPLIED)** —
   `leaderboard_by_metric(p_metric, n)` (additive; `leaderboard_top` untouched)
   ranks by EVO RATING / FORGE LEVEL / CONSISTENCY / TOTAL XP, server-ordered +

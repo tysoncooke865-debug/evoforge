@@ -21,6 +21,11 @@ import type { WorkoutRow } from './summary';
 export interface ScheduleRow {
   effective_from: string; // YYYY-MM-DD
   plan: Record<string, string>; // keys '0'..'6' (getUTCDay), values day name | 'Rest'
+  // PER-DAY SOURCE (migration 066): keys '0'..'6' → SourceIndex (0 my / 1 ai /
+  // 2 built-in). A PARALLEL map so `plan` stays a plain string→string map and
+  // the streak SQL/domain that read `plan->>dow` are untouched. Absent/null =
+  // every day follows the global plan source, exactly as before.
+  sources?: Record<string, number> | null;
 }
 
 export type DayState = 'completed' | 'missed' | 'rest' | 'pending' | 'future';

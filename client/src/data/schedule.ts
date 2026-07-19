@@ -17,7 +17,7 @@ export function useWorkoutSchedule() {
     queryFn: async (): Promise<ScheduleRow[]> => {
       const { data, error } = await supabase
         .from('workout_schedule')
-        .select('effective_from,plan')
+        .select('effective_from,plan,sources')
         .order('effective_from', { ascending: true });
       if (error) throw error;
       return (data ?? []) as ScheduleRow[];
@@ -32,11 +32,14 @@ export function useSaveSchedule() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   return useMutation({
-    mutationFn: async (plan: Record<string, string>) => {
+    mutationFn: async (input: { plan: Record<string, string>; sources?: Record<string, number> }) => {
       const today = todayIso();
       const { error } = await supabase
         .from('workout_schedule')
-        .upsert({ effective_from: today, plan }, { onConflict: 'user_id,effective_from' });
+        .upsert(
+          { effective_from: today, plan: input.plan, sources: input.sources ?? null },
+          { onConflict: 'user_id,effective_from' }
+        );
       if (error) throw error;
     },
     onSuccess: () => {

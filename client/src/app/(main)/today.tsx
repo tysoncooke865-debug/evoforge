@@ -21,7 +21,7 @@ import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
 import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
 import { dwKey } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
-import { buildWeekBars, extraBarsForToday, sourceDayFor } from '@/domain/week-status';
+import { buildWeekBars, extraBarsForToday, scheduledDayFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, lastSessionWork, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { adhocOf, useSessionStore } from '@/state/session-store';
@@ -128,6 +128,23 @@ export default function TodayScreen() {
   const source: SourceIndex = sourceChoice ?? preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
 
+  // PER-DAY SOURCE (2026-07-19, migration 066): the schedule can pin a source
+  // to each weekday, so a week can mix MY PLAN legs, AI push, built-in pull.
+  // A day WITHOUT an explicit source follows the global `source` — so any
+  // schedule saved before this feature (sources = null) behaves exactly as it
+  // did. Read from the LATEST row; past days keep the global source (history is
+  // history, mirroring sourceDayFor).
+  const latestSchedule =
+    schedule.data && schedule.data.length > 0 ? schedule.data[schedule.data.length - 1] : null;
+  const scheduleSources: Record<string, number> = latestSchedule?.sources ?? {};
+  const explicitSourceForDate = (date: string): SourceIndex | null => {
+    if (date < todayIso) return null;
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const s = scheduleSources[String(dow)];
+    return s === 0 || s === 1 || s === 2 ? s : null;
+  };
+  const sourceForDate = (date: string): SourceIndex => explicitSourceForDate(date) ?? source;
+
   // B1 (2026-07-19): ONE shared index per data change (TanStack select) —
   // the carousel cards and week bars used to re-filter the full 2500-row
   // log each, every render.
@@ -142,7 +159,7 @@ export default function TodayScreen() {
   const setsFor = (date: string, workout: string | null): { done: number; target: number; trained: boolean } => {
     if (!workout) return { done: 0, target: 0, trained: false };
     const dayRows = workoutIndex.data?.countedByDateWorkout.get(dwKey(date, workout)) ?? [];
-    const entries = resolveDay(workout, source).entries;
+    const entries = resolveDay(workout, sourceForDate(date)).entries;
     const target = entries.reduce((n, [, sets]) => n + sets, 0);
     const done = entries.reduce((n, [exercise, sets]) => {
       const logged = dayRows.filter((r) => String(r.exercise) === exercise).length;
@@ -154,8 +171,13 @@ export default function TodayScreen() {
   /** The workout NAME a date carries, in the CHOSEN source: switching
    *  MY PLAN / AI PLAN / BUILT-IN renames today and the upcoming week onto
    *  that plan's days (past days are history and keep theirs). */
-  const dayInSource = (date: string): string | null =>
-    sourceDayFor(date, schedule.data ?? [], planDays, todayIso);
+  const dayInSource = (date: string): string | null => {
+    // A day with an EXPLICIT per-day source stores the name already correct for
+    // that source (the editor picked it from that source's day list), so the
+    // global positional remap must not touch it — return the stored name as-is.
+    if (explicitSourceForDate(date) !== null) return scheduledDayFor(date, schedule.data ?? []);
+    return sourceDayFor(date, schedule.data ?? [], planDays, todayIso);
+  };
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
@@ -189,7 +211,7 @@ export default function TodayScreen() {
     // Today's active ad-hoc fills an otherwise-empty today.
     if (!workout && date === todayIso && adhoc?.name) workout = adhoc.name;
     if (!workout) return null;
-    const resolved = resolveDay(workout, source);
+    const resolved = resolveDay(workout, sourceForDate(date));
     const entries = resolved.entries;
     const name = splitWorkoutName(workout);
     // WHOSE version of this day is on screen. Plans share day names ("Legs"
@@ -243,7 +265,7 @@ export default function TodayScreen() {
     router.push(
       `/workout?date=${encodeURIComponent(date)}&workout=${encodeURIComponent(
         workout
-      )}&source=${source}` as never
+      )}&source=${sourceForDate(date)}` as never
     );
 
   /** ONE day of the carousel — always the same card shell, five states. */
@@ -277,7 +299,7 @@ export default function TodayScreen() {
           allowFontScaling={false}
           style={{ letterSpacing: 0, flexShrink: 1, ...pixelFont() }}
         >
-          {SOURCE_LABEL[source]}
+          {SOURCE_LABEL[sourceForDate(date)]}
         </Text>
         <Text className="text-2xs font-bold text-accent">⌄</Text>
       </Pressable>
