@@ -101,12 +101,18 @@ land traps the user — signing up again just errors with "already registered".
    Twilio has no credentials. The delivered 2FA is TOTP (authenticator app)
    plus email confirmation on sign-up.
 
-### Product backlog (unchanged from 2026-07-20, not yet built)
-- Achievements is a flat 64-row dump — wants filter/group/progress/"next up".
-- Coins are a one-sided economy: no spend sink, no weekly/source breakdown.
-- Athlete Evo pillars and gym rosters render as bare numbers — should reuse the
-  existing `attribute-bar` / `stat-bar` with a "vs you" delta.
-- Gym-vs-gym battle resolves instantly — wants `VsIntro` + a staggered reveal.
+### Quality-audit backlog — ALL DONE 2026-07-21
+- ✅ Achievements: grouped + filterable, real progress bar toward each locked
+  one, a "next up" shortlist, drift-guarded against the sweep's thresholds.
+- ✅ Coins: THIS WEEK flow + a proportional source breakdown + a SPEND CTA into
+  Customise. (The "no spend sink" note was stale — skins/champions/palettes have
+  been purchasable since migrations 030/031/044; the screen just hid it.)
+- ✅ Athlete Evo pillars: StatBars with a "vs you" delta (self pulled from the
+  same RPC, so both sides are on one scale).
+- ✅ Gym roster: pecking-order bars, your row highlighted, "vs you" deltas.
+- ✅ Gym-vs-gym battle: VsIntro splash → staggered duel reveal → verdict.
+
+### Still open (not yet built)
 - Targeted friend challenge from a notification; ranked matchmaking (Glicko-2
   already exists); a real-time ghost arena race (`ghost_snapshots` is a dead
   table); delete the dead `battle-invite` / `battle-join` edge functions.
