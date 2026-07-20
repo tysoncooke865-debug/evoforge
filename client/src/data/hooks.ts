@@ -236,6 +236,15 @@ export function useEarliestBodyfat() {
   return useBodyfatSeries((valid) => (valid.length > 0 ? valid[0] : null));
 }
 
+/** Latest body-fat midpoint AND how many valid readings exist — the pair the
+ *  achievement sweep needs (bf.latest + bf.count) from one cached series. */
+export function useBodyfatStats() {
+  return useBodyfatSeries((valid) => ({
+    latest: valid.length > 0 ? valid[valid.length - 1] : null,
+    count: valid.length,
+  }));
+}
+
 /** Latest AI physique rating values, each null when absent or non-numeric.
  *  Mirrors latest_physique_rating_values(). */
 export function usePhysiqueRatings() {

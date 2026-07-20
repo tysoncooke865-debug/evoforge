@@ -77,7 +77,7 @@ export function muscleSetsCount(heat: ReadonlyMap<string, number>, names: string
   return Math.trunc(total);
 }
 
-function exerciseMaxes(rows: WorkoutRow[], exercise: string): { maxWeight: number; maxE1rm: number } {
+export function exerciseMaxes(rows: WorkoutRow[], exercise: string): { maxWeight: number; maxE1rm: number } {
   let maxWeight = 0;
   let maxE1rm = 0;
   let any = false;
