@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -52,6 +52,16 @@ export default function PvpScreen() {
   const matchId = mm.state.status === 'matched' ? mm.state.matchId : null;
   const match = usePvpMatch(matchId);
 
+  // Matchmaking can find no one (first mover / quiet hours). After a wait, surface
+  // an AI-battle fallback so the player is never stuck searching forever. The
+  // timeout sets the flag (async setState is fine); cleanup resets it on exit.
+  const [longWait, setLongWait] = useState(false);
+  useEffect(() => {
+    if (mm.state.status !== 'searching') return;
+    const t = setTimeout(() => setLongWait(true), 40000);
+    return () => { clearTimeout(t); setLongWait(false); };
+  }, [mm.state.status]);
+
   // Matched → play. Render the live runner once the match row loads.
   if (mm.state.status === 'matched') {
     if (!match.data) {
@@ -82,8 +92,21 @@ export default function PvpScreen() {
         <ScreenHeader kicker="ARENA" title="QUICK MATCH" onBack={() => { void mm.cancel(); router.replace('/arena' as never); }} />
         <View className="rounded-xl border p-s5 items-center" style={{ borderColor: `${colors.accent}45`, backgroundColor: 'rgba(10,16,30,0.55)', gap: 10, marginTop: 24 }}>
           <Text style={{ fontSize: 18, color: colors.accent, ...pixelFont() }}>SEARCHING…</Text>
-          <Text className="text-center text-2xs text-text-mute">Finding you a live opponent. Stay on this screen — you’ll drop straight into the fight.</Text>
+          <Text className="text-center text-2xs text-text-mute">
+            {longWait
+              ? 'No opponents online right now — keep waiting, or train against the AI.'
+              : 'Finding you a live opponent. Stay on this screen — you’ll drop straight into the fight.'}
+          </Text>
         </View>
+        {longWait ? (
+          <View className="mt-s3">
+            <NeonButton
+              title="⚔ BATTLE THE AI INSTEAD"
+              onPress={() => { void mm.cancel(); router.replace('/battle?mode=training' as never); }}
+              testID="pvp-fallback-ai"
+            />
+          </View>
+        ) : null}
         <View className="mt-s4">
           <NeonButton title="CANCEL" variant="ghost" onPress={() => void mm.cancel()} testID="pvp-cancel" />
         </View>

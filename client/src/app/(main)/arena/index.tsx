@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 
 import { progressionFeatures } from '@/data/progression/features';
@@ -50,6 +50,13 @@ export default function ArenaScreen() {
   const duel = useDuelMatchmaking();
   const startDuel = (format: DuelFormat) => void duel.start(format, snapshot);
   const searching = duel.state.status === 'searching';
+  // After a wait with no opponent, offer an AI-battle fallback (never stuck).
+  const [duelLongWait, setDuelLongWait] = useState(false);
+  useEffect(() => {
+    if (!searching) return;
+    const t = setTimeout(() => setDuelLongWait(true), 40000);
+    return () => { clearTimeout(t); setDuelLongWait(false); };
+  }, [searching]);
   const navigatedRef = useRef(false);
   useEffect(() => {
     if (duel.state.status === 'matched' && !navigatedRef.current) {
@@ -385,8 +392,19 @@ export default function ArenaScreen() {
           <View className="w-full items-center rounded-xl border p-s5" style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface, gap: 10, maxWidth: 360 }}>
             <Text allowFontScaling={false} style={{ fontSize: 18, color: colors.accent, ...pixelFont() }}>SEARCHING…</Text>
             <Text className="text-center text-2xs text-text-mute">
-              Finding you a live opponent. Stay here — you’ll drop into the arena the moment you’re matched.
+              {duelLongWait
+                ? 'No opponents online right now — keep waiting, or train against the AI.'
+                : 'Finding you a live opponent. Stay here — you’ll drop into the arena the moment you’re matched.'}
             </Text>
+            {duelLongWait ? (
+              <View className="w-full">
+                <NeonButton
+                  title="⚔ BATTLE THE AI INSTEAD"
+                  onPress={() => { void duel.cancel(); router.push('/battle?mode=training' as never); }}
+                  testID="duel-fallback-ai"
+                />
+              </View>
+            ) : null}
             <View className="mt-s2 w-full">
               <NeonButton title="CANCEL" variant="ghost" onPress={() => void duel.cancel()} testID="duel-cancel" />
             </View>
