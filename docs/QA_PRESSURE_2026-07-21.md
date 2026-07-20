@@ -88,11 +88,15 @@ land traps the user — signing up again just errors with "already registered".
 
 ### Operational — needs Tyson
 1. **Custom SMTP is not configured** (`smtp_host` is null) and
-   `rate_limit_email_sent` is **2 per hour**. Confirmation and reset mail now
-   goes through Supabase's shared default sender, which is explicitly not for
-   production and lands in spam often. At ~12 signups/week this is not a
-   throughput problem yet, but deliverability is a real risk. Configure SMTP
-   (Resend/Postmark/SES) on the project's Auth settings.
+   `rate_limit_email_sent` is **2 per hour**. The shared default sender is
+   explicitly not for production and lands in spam often. Because of this,
+   **email confirmation was turned back OFF** (`mailer_autoconfirm: true`,
+   Tyson 2026-07-21) as a stopgap — new signups are auto-confirmed and get a
+   session immediately, so signup is not blocked on mail delivery. The client
+   still handles the confirmation flow, so re-enabling it is a one-flag change
+   once SMTP is set up. **Password reset mail still depends on this sender**
+   regardless. Configure SMTP (Resend/Postmark/SES) on the project's Auth
+   settings, then flip `mailer_autoconfirm` back to false.
 2. **Phone/SMS 2FA is not available** — `external_phone_enabled` is false and
    Twilio has no credentials. The delivered 2FA is TOTP (authenticator app)
    plus email confirmation on sign-up.
