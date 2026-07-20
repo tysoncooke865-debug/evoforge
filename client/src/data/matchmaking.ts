@@ -16,6 +16,13 @@ import { supabase } from './supabase';
  * is the event log, callbacks refetch — reconnect-safe.
  */
 
+/** Realtime is the primary pairing signal; the interval poll is a fallback and
+ *  must NOT run while the PWA is backgrounded (battery/network with the screen
+ *  off). Skip the tick when the document is hidden. */
+const pollPaused = (): boolean => typeof document !== 'undefined' && document.hidden === true;
+/** Poll cadence: wider than the old 3s since Realtime carries the foreground case. */
+const POLL_MS = 5000;
+
 export interface PvpMatch {
   id: string;
   seat1: string;
@@ -90,6 +97,7 @@ export function useMatchmaking() {
       })
       .subscribe();
     const poll = setInterval(async () => {
+      if (pollPaused()) return;
       try {
         const { data } = await supabase.rpc('pvp_poll');
         const r = data as { matched: boolean; match_id?: string; seat?: number };
@@ -97,7 +105,7 @@ export function useMatchmaking() {
       } catch {
         /* keep waiting */
       }
-    }, 3000);
+    }, POLL_MS);
     return () => {
       live = false;
       clearInterval(poll);
@@ -207,6 +215,7 @@ export function useDuelMatchmaking() {
       })
       .subscribe();
     const poll = setInterval(async () => {
+      if (pollPaused()) return;
       try {
         const { data } = await supabase.rpc('battle_matchmake_poll');
         const r = data as { matched: boolean; match_id?: string; seat?: number };
@@ -214,7 +223,7 @@ export function useDuelMatchmaking() {
       } catch {
         /* keep waiting */
       }
-    }, 3000);
+    }, POLL_MS);
     return () => {
       live = false;
       clearInterval(poll);
