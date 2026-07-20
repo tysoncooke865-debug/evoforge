@@ -26,15 +26,22 @@ function normalizePage(p: string): string {
     .replace(/\/\d{3,}/g, '/:id');
 }
 
-export function useAnalytics(): void {
+/**
+ * @param userId the authed user, or null while auth is still restoring. Every
+ * write here is RLS-gated, so starting before the session lands loses the
+ * session_start row AND the last_login_at stamp to a 401 — pass the id and the
+ * rail arms only once it exists.
+ */
+export function useAnalytics(userId: string | null): void {
   const pathname = usePathname();
   const sessionRef = useRef('');
   const sessionStartRef = useRef(0);
   const pageStartRef = useRef(0);
   const prevPageRef = useRef('');
 
-  // Session lifecycle (once).
+  // Session lifecycle (once per signed-in user).
   useEffect(() => {
+    if (!userId) return;
     sessionRef.current = newSessionId();
     sessionStartRef.current = Date.now();
     track('session_start', { session_id: sessionRef.current });
@@ -68,16 +75,16 @@ export function useAnalytics(): void {
     }
     const sub = AppState.addEventListener('change', (s) => { if (s !== 'active') flush(); });
     return () => { clearInterval(heartbeat); sub.remove(); };
-  }, []);
+  }, [userId]);
 
   // Page-view timing: on each route change, record the PREVIOUS page's dwell.
   useEffect(() => {
-    if (!pathname) return;
+    if (!pathname || !userId) return;
     const page = normalizePage(pathname);
     if (prevPageRef.current && prevPageRef.current !== page && sessionRef.current) {
       track('page_view', { page: prevPageRef.current, duration_ms: Date.now() - pageStartRef.current, session_id: sessionRef.current });
     }
     prevPageRef.current = page;
     pageStartRef.current = Date.now();
-  }, [pathname]);
+  }, [pathname, userId]);
 }

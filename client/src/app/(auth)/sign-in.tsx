@@ -80,7 +80,13 @@ export default function SignInScreen() {
 
           <NeonButton title="SIGN IN" onPress={() => void signIn()} busy={busy} testID="sign-in" />
 
-          <Link href="/sign-up" className="mt-s4">
+          <Link href={'/reset-password' as never} className="mt-s4">
+            <Text className="text-sm text-text-dim">
+              Forgot your password? <Text className="text-accent">Reset it</Text>
+            </Text>
+          </Link>
+
+          <Link href="/sign-up" className="mt-s3">
             <Text className="text-sm text-text-dim">
               New here? <Text className="text-accent">Create your character</Text>
             </Text>

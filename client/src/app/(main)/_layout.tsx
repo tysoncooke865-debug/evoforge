@@ -62,7 +62,7 @@ export default function MainLayout() {
   // long as the app is open (the count surfaces on Arena / Quick Match).
   useOnlinePresence();
   // Product telemetry: sessions, page dwell, time-on-app (migration 080).
-  useAnalytics();
+  useAnalytics(session?.user?.id ?? null);
   // 2FA gate: an aal1 session on an account with a verified TOTP factor must
   // pass a code before ANY of the app renders (covers fresh sign-in and a
   // restored session alike). Fails open if the check errors — never a lockout.

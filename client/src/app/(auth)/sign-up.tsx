@@ -15,6 +15,16 @@ export default function SignUpScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const [resent, setResent] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+
+  // The confirmation mail is the ONLY way in, so a mail that never lands is a
+  // dead end. Offer one resend rather than making them sign up again (which
+  // errors with "already registered" and traps them completely).
+  const resend = async () => {
+    setResent('sending');
+    const { error: err } = await supabase.auth.resend({ type: 'signup', email });
+    setResent(err ? 'failed' : 'sent');
+  };
 
   const signUp = async () => {
     setBusy(true);
@@ -22,6 +32,13 @@ export default function SignUpScreen() {
     const { data, error: err } = await supabase.auth.signUp({ email, password });
     if (err) {
       setError(err.message);
+    } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      // Supabase does NOT error on a duplicate signup (that would leak which
+      // emails are registered) — it returns a user with no identities and no
+      // session, which is indistinguishable from a fresh signup. Without this
+      // branch a returning athlete is told to check an inbox no mail is ever
+      // sent to, and there is no way out of that screen.
+      setError('That email already has an account. Sign in instead — or reset your password.');
     } else if (!data.session) {
       // Confirmations are on: Supabase created the user but withholds the
       // session until the email link is clicked.
@@ -50,8 +67,24 @@ export default function SignUpScreen() {
             CHECK YOUR EMAIL
           </Text>
           <Text className="mt-s2 text-sm text-text-dim">
-            We sent a confirmation link to {email}. Open it, then sign in.
+            We sent a confirmation link to {email}. Open it, then sign in. It can take
+            a minute or two — check your spam folder if it hasn’t arrived.
           </Text>
+          <View className="mt-s4">
+            <NeonButton
+              title={resent === 'sent' ? 'LINK RESENT' : 'RESEND THE LINK'}
+              variant="ghost"
+              busy={resent === 'sending'}
+              disabled={resent === 'sent'}
+              onPress={() => void resend()}
+              testID="signup-resend"
+            />
+          </View>
+          {resent === 'failed' ? (
+            <Text className="mt-s2 text-2xs text-danger">
+              Couldn’t resend just yet — wait a minute and try again.
+            </Text>
+          ) : null}
           <Link href="/sign-in" className="mt-s4">
             <Text className="text-accent">Back to sign in</Text>
           </Link>
