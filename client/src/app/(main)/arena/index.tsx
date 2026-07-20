@@ -15,6 +15,7 @@ import { CodeCard, IconBadge, PressCard } from '@/ui/arena/battle-arena';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { NeonButton } from '@/ui/core/neon-button';
+import { OnlineBadge } from '@/ui/core/online-badge';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { HistoryRow } from '@/ui/arena/history-row';
@@ -136,7 +137,10 @@ export default function ArenaScreen() {
             >
               BATTLE ARENA
             </Text>
-            <Text className="text-xs text-text-dim">Compete. Improve. Dominate.</Text>
+            <View className="mt-s1 flex-row items-center" style={{ gap: 8 }}>
+              <Text className="text-xs text-text-dim">Compete. Improve. Dominate.</Text>
+              <OnlineBadge testID="arena-online" />
+            </View>
           </View>
           <CompanionMenuButton anim="punch" height={62} />
         </View>

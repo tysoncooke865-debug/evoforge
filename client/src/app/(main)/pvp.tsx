@@ -15,6 +15,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { ChampionPicker } from '@/ui/battle/champion-picker';
 import { OnlineBattleRunner } from '@/ui/battle/online-battle-runner';
 import { NeonButton } from '@/ui/core/neon-button';
+import { OnlineBadge } from '@/ui/core/online-badge';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
 
@@ -85,9 +86,12 @@ export default function PvpScreen() {
   return (
     <ScreenShell>
       <ScreenHeader kicker="ARENA" title="QUICK MATCH" onBack={() => router.replace('/arena' as never)} />
-      <Text className="text-2xs text-text-mute">
-        Get matched with a real athlete and fight live, turn by turn. No codes — just tap FIND MATCH.
-      </Text>
+      <View className="flex-row items-center" style={{ gap: 8 }}>
+        <Text className="flex-1 text-2xs text-text-mute">
+          Get matched with a real athlete and fight live, turn by turn. No codes — just tap FIND MATCH.
+        </Text>
+        <OnlineBadge testID="pvp-online" />
+      </View>
 
       <View className="mt-s4">
         <Text style={{ fontSize: 10, color: colors.accent, fontFamily: PIXEL, letterSpacing: 1.5 }}>YOUR CHAMPION</Text>
