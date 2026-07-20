@@ -1,14 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import {
+  shareGymInvite,
+  useDiscoverGyms,
   useGymBattle,
   useGymDetail,
   useGymMessages,
+  useJoinGym,
   useLeaveGym,
   usePostGymMessage,
+  useSetGymPublic,
   type GymBattleOutcome,
 } from '@/data/gyms';
 import { useBlockedSet, useReportContent } from '@/data/moderation';
@@ -25,8 +29,11 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
  */
 export default function GymScreen() {
   const colors = useThemeColors();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `invite` is the gym share token (076) — lets you join a PRIVATE gym via its
+  // shared link.
+  const { id, invite: inviteToken } = useLocalSearchParams<{ id: string; invite?: string }>();
   const gymId = typeof id === 'string' ? id : null;
+  const joinToken = typeof inviteToken === 'string' ? inviteToken : null;
   const { session } = useAuth();
   const myId = session?.user?.id ?? null;
 
@@ -35,11 +42,19 @@ export default function GymScreen() {
   const post = usePostGymMessage();
   const battle = useGymBattle();
   const leave = useLeaveGym();
+  const join = useJoinGym();
+  const setPublic = useSetGymPublic();
   const report = useReportContent();
   const blocked = useBlockedSet();
 
   const [msg, setMsg] = useState('');
-  const [oppCode, setOppCode] = useState('');
+  const [oppSearch, setOppSearch] = useState('');
+  const [oppDebounced, setOppDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setOppDebounced(oppSearch), 200);
+    return () => clearTimeout(t);
+  }, [oppSearch]);
+  const oppResults = useDiscoverGyms(oppDebounced);
   const [result, setResult] = useState<GymBattleOutcome | null>(null);
 
   const d = detail.data;
@@ -65,9 +80,17 @@ export default function GymScreen() {
         <Text className="py-s5 text-center text-2xs text-text-mute">Loading…</Text>
       ) : !d || d.can_view === false || !gym ? (
         <GlowCard>
-          <Text className="py-s4 text-center text-sm text-text-dim">
-            This gym is private — join it to see inside.
+          <Text className="py-s3 text-center text-sm text-text-dim">
+            Join this gym to see the roster, chat and battles.
           </Text>
+          {gymId ? (
+            <NeonButton
+              title={join.isPending ? 'JOINING…' : '+ JOIN THIS GYM'}
+              onPress={() => join.mutate({ gymId, token: joinToken }, { onSuccess: () => detail.refetch() })}
+              busy={join.isPending}
+              testID="gym-join-link"
+            />
+          ) : null}
         </GlowCard>
       ) : (
         <>
@@ -110,44 +133,82 @@ export default function GymScreen() {
             </View>
           </GlowCard>
 
-          {/* Share code + battle another gym. */}
+          {/* Invite (share link) + owner visibility toggle + battle another gym. */}
           <GlowCard glow={colors.epic}>
-            <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
-              INVITE · CODE {gym.join_code}
+            <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>INVITE</Text>
+            <Text className="mt-s1 text-2xs text-text-dim">
+              {gym.is_public ? 'Public — anyone can find and join this gym.' : 'Private — only people with your link can join.'} Share your link to recruit directly.
             </Text>
+            <View className="mt-s2">
+              <NeonButton title="SHARE GYM LINK" variant="ghost" onPress={() => gymId && void shareGymInvite(gymId)} testID="gym-share" />
+            </View>
+            {gym.my_role === 'owner' && gymId ? (
+              <Pressable
+                onPress={() => setPublic.mutate({ gymId, isPublic: !gym.is_public })}
+                accessibilityRole="button"
+                testID="gym-toggle-public"
+                className="mt-s2 flex-row items-center justify-between rounded-md border p-s2"
+                style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
+              >
+                <Text className="text-2xs text-text-dim">{gym.is_public ? 'Listed in gym discovery' : 'Hidden — link-only'}</Text>
+                <Text allowFontScaling={false} style={{ fontSize: 11, letterSpacing: 1, color: gym.is_public ? colors.success : colors['text-mute'], ...pixelFont(false) }}>
+                  {gym.is_public ? 'PUBLIC ✓' : 'PRIVATE'}
+                </Text>
+              </Pressable>
+            ) : null}
+
             <Text className="mt-s3 text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
               BATTLE ANOTHER GYM
             </Text>
             <Text className="mt-s1 text-2xs text-text-dim">
-              Enter a rival gym&apos;s code — your rosters fight member-vs-member in the combat
-              engine; most duels won takes it.
+              Find a rival gym — your rosters fight member-vs-member in the combat engine; most duels won takes it.
             </Text>
             <TextInput
-              className="mt-s2 min-h-[46px] rounded-md border bg-surface-2 px-s3 text-center text-base font-bold text-text"
-              style={{ letterSpacing: 6, borderColor: oppCode.trim().length === 6 ? `${colors.epic}8c` : colors.border }}
-              placeholder="——————"
+              className="mt-s2 min-h-[46px] rounded-md border bg-surface-2 px-s3 text-base text-text"
+              style={{ borderColor: oppSearch.trim() ? `${colors.epic}8c` : colors.border }}
+              placeholder="Search a rival gym…"
               placeholderTextColor="#64758f"
-              autoCapitalize="characters"
-              value={oppCode}
-              onChangeText={(v) => setOppCode(v.toUpperCase())}
-              maxLength={6}
-              testID="gym-battle-code"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={oppSearch}
+              onChangeText={setOppSearch}
+              maxLength={30}
+              testID="gym-battle-search"
             />
-            <View className="mt-s2">
-              <NeonButton
-                title={battle.isPending ? 'FIGHTING…' : '⚔ BATTLE'}
-                onPress={() =>
-                  gymId &&
-                  battle.mutate(
-                    { gymId, opponentCode: oppCode },
-                    { onSuccess: (r) => { setOppCode(''); setResult(r); } }
-                  )
-                }
-                busy={battle.isPending}
-                disabled={oppCode.trim().length !== 6}
-                testID="gym-battle"
-              />
-            </View>
+            {oppSearch.trim() ? (
+              <View className="mt-s2 gap-s2">
+                {(oppResults.data ?? []).filter((o) => o.gym_id !== gymId).length === 0 ? (
+                  <Text className="text-2xs text-text-mute">No public gyms match.</Text>
+                ) : (
+                  (oppResults.data ?? [])
+                    .filter((o) => o.gym_id !== gymId)
+                    .slice(0, 6)
+                    .map((o) => (
+                      <Pressable
+                        key={o.gym_id}
+                        onPress={() =>
+                          gymId &&
+                          battle.mutate(
+                            { gymId, opponentGym: o.gym_id },
+                            { onSuccess: (r) => { setOppSearch(''); setResult(r); } }
+                          )
+                        }
+                        disabled={battle.isPending}
+                        accessibilityRole="button"
+                        testID={`gym-battle-${o.gym_id}`}
+                        className="flex-row items-center justify-between rounded-lg border p-s2"
+                        style={{ borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
+                      >
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text className="text-sm font-bold text-text" numberOfLines={1}>{o.name}</Text>
+                          <Text className="text-2xs text-text-mute">{o.member_count} · ⚡ {o.roster_power}</Text>
+                        </View>
+                        <Text className="text-epic" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont() }}>{battle.isPending ? '…' : '⚔'}</Text>
+                      </Pressable>
+                    ))
+                )}
+              </View>
+            ) : null}
 
             {(d.battles ?? []).length > 0 ? (
               <View className="mt-s3 gap-s1">

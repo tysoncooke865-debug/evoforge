@@ -26,6 +26,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **GYM CODES RETIRED → online discovery (2026-07-20, migration 076 APPLIED +
+  falsified).** Gyms are no longer joined by a 6-char code — you BROWSE/SEARCH
+  public gyms and join, or use a shareable gym LINK for private crews (same
+  pattern as friends 073). 076: dropped `gyms.join_code`; added `is_public`
+  (default TRUE) + `share_token`; `discover_gyms(q,limit)` (public gyms search),
+  `join_gym_by_id(gym, token)` (public OR token-gated for private),
+  `my_gym_share_token`, `set_gym_public` (owner toggle); `my_gyms`/`gym_detail`
+  drop join_code; **`gym_battle_prepare` now takes the opponent gym id** (pick
+  from discovery), not a code; dropped `join_gym(text)` + legacy `gym_battle
+  (uuid,text)`. Client: `gyms-view.tsx` "JOIN BY CODE" → "FIND A GYM" browse; the
+  gym screen shows SHARE GYM LINK + an owner PUBLIC/PRIVATE toggle + battle-a-gym
+  by search; `gym/[id]` reads `?invite=` to join a private gym via link. Falsified
+  (public discover+join; private hidden; token-gated join; owner toggle).
 - **REAL-TIME LIVE PvP MATCHMAKING (roadmap Phase 4) — SHIPPED + two-client
   verified (2026-07-20, migrations 074 + 075 APPLIED).** Champion battles are now
   live turn-by-turn PvP vs a matched real opponent — replacing the RPG

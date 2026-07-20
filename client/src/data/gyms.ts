@@ -1,3 +1,4 @@
+import { Platform, Share } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useIsFocused } from 'expo-router';
 
@@ -7,22 +8,33 @@ import { useToastStore } from '@/state/toast-store';
 import { runGymBattle, type GymBattleResult, type GymCombatMember } from '@/domain/battle-rpg/gym-battle';
 
 /**
- * GYMS (Tyson, 2026-07-19, migration 068) — player groups your friends and
- * rivals join by code: a private group chat and gym-vs-gym battles decided by
- * aggregate roster Evo Rating. Every read/write goes through the security-
- * definer RPCs (the base tables are RLS-locked with no client policies), so
- * these hooks are thin wrappers that degrade to empty/throw like the rest of
- * the social layer.
+ * GYMS (Tyson, 2026-07-19, migration 068; codes retired → discovery 076) —
+ * player groups: a private group chat and gym-vs-gym battles decided by aggregate
+ * roster Evo Rating. Found by BROWSE/SEARCH (discover_gyms) and joined by id, or
+ * via a shareable gym LINK for private crews. Every read/write goes through the
+ * security-definer RPCs (the base tables are RLS-locked with no client policies).
  */
 
 export interface Gym {
   gym_id: string;
   name: string;
   description: string | null;
-  join_code: string;
+  is_public: boolean;
   created_at: string;
   my_role: 'owner' | 'member';
   member_count: number;
+}
+
+/** A public gym in the discovery list (discover_gyms, 076). */
+export interface DiscoverGym {
+  gym_id: string;
+  name: string;
+  description: string | null;
+  owner_name: string;
+  member_count: number;
+  is_full: boolean;
+  is_member: boolean;
+  roster_power: number;
 }
 
 export interface GymMember {
@@ -60,7 +72,7 @@ export interface GymDetail {
     id: string;
     name: string;
     description: string | null;
-    join_code: string;
+    is_public: boolean;
     my_role: 'owner' | 'member';
     roster_power: number;
   };
@@ -152,7 +164,7 @@ export function useCreateGym() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['my_gyms', userId] });
-      useToastStore.getState().push({ kind: 'info', title: 'GYM CREATED', subtitle: 'Share the code to recruit.' });
+      useToastStore.getState().push({ kind: 'info', title: 'GYM CREATED', subtitle: 'It’s public — athletes can find and join it.' });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'NOT CREATED', subtitle: e.message });
@@ -160,29 +172,105 @@ export function useCreateGym() {
   });
 }
 
+/** Browse/search PUBLIC gyms to join (discovery — replaces join-by-code). */
+export function useDiscoverGyms(query: string) {
+  const userId = useUserId();
+  const q = query.trim();
+  return useQuery({
+    queryKey: ['discover_gyms', userId, q.toLowerCase()],
+    enabled: userId !== null,
+    staleTime: 20_000,
+    queryFn: async (): Promise<DiscoverGym[]> => {
+      try {
+        const { data, error } = await supabase.rpc('discover_gyms', { p_query: q, p_limit: 30 });
+        return error || !Array.isArray(data) ? [] : (data as DiscoverGym[]);
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+/** Join a gym by id (public), or via its share token (a shared private link). */
 export function useJoinGym() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (code: string) => {
-      const { data, error } = await supabase.rpc('join_gym', { p_code: code });
+    mutationFn: async (arg: { gymId: string; token?: string | null }) => {
+      const { data, error } = await supabase.rpc('join_gym_by_id', { p_gym: arg.gymId, p_token: arg.token ?? null });
       if (error) throw new Error(error.message);
       const r = data as { ok: boolean; reason?: string; gym_id?: string };
       if (!r.ok) {
         throw new Error(
-          r.reason === 'not_found' ? 'No gym with that code.' : r.reason === 'full' ? 'That gym is full.' : 'Could not join.'
+          r.reason === 'not_found'
+            ? 'That gym no longer exists.'
+            : r.reason === 'full'
+              ? 'That gym is full.'
+              : r.reason === 'not_addressable'
+                ? 'That gym is private — open its shared link to join.'
+                : 'Could not join.'
         );
       }
       return r;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['my_gyms', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['discover_gyms', userId] });
       useToastStore.getState().push({ kind: 'info', title: 'JOINED', subtitle: 'Welcome to the gym.' });
     },
     onError: (e: Error) => {
       useToastStore.getState().push({ kind: 'error', title: 'NOT JOINED', subtitle: e.message });
     },
   });
+}
+
+/** Owner toggles whether the gym is browsable (public) or link-only (private). */
+export function useSetGymPublic() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (arg: { gymId: string; isPublic: boolean }) => {
+      const { error } = await supabase.rpc('set_gym_public', { p_gym: arg.gymId, p_public: arg.isPublic });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: (_d, arg) => {
+      void queryClient.invalidateQueries({ queryKey: ['gym_detail', userId, arg.gymId] });
+      void queryClient.invalidateQueries({ queryKey: ['my_gyms', userId] });
+    },
+    onError: (e: Error) => useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message }),
+  });
+}
+
+/** Share (native sheet) or copy (web) a gym's invite link — works even if the
+ *  gym is private (the token authorises the join, 076). Best-effort. */
+export async function shareGymInvite(gymId: string): Promise<void> {
+  let token: string | null = null;
+  try {
+    const { data } = await supabase.rpc('my_gym_share_token', { p_gym: gymId });
+    token = typeof data === 'string' ? data : null;
+  } catch {
+    /* no token */
+  }
+  const base =
+    Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://expo-rewrite.evoforge.pages.dev';
+  const url = token ? `${base}/gym/${gymId}?invite=${token}` : `${base}/gym/${gymId}`;
+  try {
+    if (Platform.OS === 'web') {
+      const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+      if (nav && 'share' in nav && typeof nav.share === 'function') {
+        await nav.share({ title: 'EvoForge', text: 'Join my gym on EvoForge', url });
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
+        useToastStore.getState().push({ kind: 'info', title: 'LINK COPIED', subtitle: 'Share it to recruit.' });
+      }
+    } else {
+      await Share.share({ message: `Join my gym on EvoForge — ${url}` });
+    }
+  } catch {
+    /* cancelled */
+  }
 }
 
 export function useLeaveGym() {
@@ -245,17 +333,17 @@ export function useGymBattle() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (input: { gymId: string; opponentCode: string }): Promise<GymBattleOutcome> => {
+    mutationFn: async (input: { gymId: string; opponentGym: string }): Promise<GymBattleOutcome> => {
       const prep = await supabase.rpc('gym_battle_prepare', {
         p_my_gym: input.gymId,
-        p_opponent_code: input.opponentCode,
+        p_opponent: input.opponentGym,
       });
       if (prep.error) throw new Error(prep.error.message);
       const p = prep.data as PrepareResult;
       if (!p.ok) {
         throw new Error(
           p.reason === 'opponent_not_found'
-            ? 'No gym with that code.'
+            ? 'That gym no longer exists.'
             : p.reason === 'same_gym'
               ? "That's your own gym."
               : p.reason === 'rate_limited'
