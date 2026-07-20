@@ -11,6 +11,8 @@ import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useOnlinePresence } from '@/data/presence';
 import { useAnalytics } from '@/data/use-analytics';
+import { useMfaGate } from '@/data/mfa';
+import { MfaChallenge } from '@/ui/auth/mfa-challenge';
 import { migrateForgeHistory } from '@/data/progression/award-xp';
 import { ORIGIN_FLAGS } from '@/data/origin';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
@@ -61,6 +63,10 @@ export default function MainLayout() {
   useOnlinePresence();
   // Product telemetry: sessions, page dwell, time-on-app (migration 080).
   useAnalytics();
+  // 2FA gate: an aal1 session on an account with a verified TOTP factor must
+  // pass a code before ANY of the app renders (covers fresh sign-in and a
+  // restored session alike). Fails open if the check errors — never a lockout.
+  const mfa = useMfaGate(session?.user?.id ?? null);
 
   /**
    * Tyson, 2026-07-14: CLOSE THE APP MID-WORKOUT, REOPEN INTO IT.
@@ -208,6 +214,11 @@ export default function MainLayout() {
     profile.data.origin_path == null
   ) {
     return <Redirect href="/onboarding" />;
+  }
+
+  // Second factor outstanding → nothing else renders until it's satisfied.
+  if (mfa.checked && mfa.required) {
+    return <MfaChallenge onVerified={mfa.recheck} />;
   }
 
   return (

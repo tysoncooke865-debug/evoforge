@@ -17,6 +17,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { TwoFactorCard } from '@/ui/settings/two-factor-card';
 
 const PHASES = ['cutting', 'maintaining', 'bulking'] as const;
 
@@ -89,6 +90,8 @@ export default function ProfileScreen() {
         </GlowCard>
 
         <PrivacyCard />
+
+        <TwoFactorCard />
 
         <BodyStatsCard />
 
