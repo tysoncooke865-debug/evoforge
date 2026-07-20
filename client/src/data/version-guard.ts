@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { VERSION_GUARD_AT_KEY } from './cache-keys';
 import { supabase } from './supabase';
 
 /**
@@ -14,7 +15,7 @@ import { supabase } from './supabase';
  */
 export function initVersionGuard(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-  const RELOADED_KEY = 'evoforge-version-guard-at';
+  const RELOADED_KEY = VERSION_GUARD_AT_KEY; // shared: the error screen re-arms it
   // Expo's client render can leave the document untitled (a11y + tab name).
   if (!document.title) document.title = 'EvoForge — The Fitness RPG';
   const check = async () => {

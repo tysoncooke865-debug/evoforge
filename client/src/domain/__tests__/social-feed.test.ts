@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   groupCommentThreads,
   applyReaction,
+  isRenderablePost,
   relativeTime,
   toPost,
   toPosts,
   workoutPostPayload,
   type PostBase,
   type RawPostRow,
+  type SocialPost,
 } from '../social-feed';
 
 const baseRow = (over: Partial<RawPostRow> = {}): RawPostRow => ({
@@ -180,5 +182,58 @@ describe('groupCommentThreads — one level, nothing lost', () => {
   });
   it('empty input, empty output', () => {
     expect(groupCommentThreads([])).toEqual([]);
+  });
+});
+
+describe('isRenderablePost — the persisted-shape guard (the lockout postmortem)', () => {
+  const post = (over: Partial<RawPostRow> = {}): SocialPost => {
+    const p = toPost(baseRow(over));
+    if (!p) throw new Error('fixture row must narrow');
+    return p;
+  };
+  /** A post as an OLDER build persisted it: fields deleted after the fact. */
+  const strip = (p: SocialPost, ...fields: string[]): SocialPost => {
+    const clone = { ...p } as Record<string, unknown>;
+    for (const f of fields) delete clone[f];
+    return clone as unknown as SocialPost;
+  };
+
+  it('every toPost output passes — the guard never drops valid posts', () => {
+    expect(isRenderablePost(post())).toBe(true);
+    expect(
+      isRenderablePost(
+        post({ post_type: 'workout', payload: { workout_name: 'Push', sets: 10, exercises: ['Bench'], photo_urls: [] } })
+      )
+    ).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'status', payload: {} }))).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'level_up', payload: { prev_level: 1, new_level: 2 } }))).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'photo', payload: { photo_urls: ['u'] } }))).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'evo_rating', payload: { prev_rating: 40, new_rating: 42, pillars: [] } }))).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'rivalry', payload: { opponent_name: 'Bo', categories: [] } }))).toBe(true);
+    expect(isRenderablePost(post({ post_type: 'evolution', payload: { path: 'titan', prev_stage: 1, new_stage: 2 } }))).toBe(true);
+  });
+
+  it('THE PRODUCTION CRASH: a pre-96a48a8 persisted post (no `tagged`) is dropped, not thrown on', () => {
+    expect(isRenderablePost(strip(post(), 'tagged'))).toBe(false);
+  });
+
+  it('per-type stale shapes are dropped', () => {
+    const workout = post({ post_type: 'workout', payload: { workout_name: 'Push', exercises: [], photo_urls: [] } });
+    expect(isRenderablePost(strip(workout, 'exercises'))).toBe(false);
+    expect(isRenderablePost(strip(workout, 'photoUrls'))).toBe(false);
+    const photo = post({ post_type: 'photo', payload: { photo_urls: ['u'] } });
+    expect(isRenderablePost(strip(photo, 'photoUrls'))).toBe(false);
+    const evo = post({ post_type: 'evo_rating', payload: { prev_rating: 1, new_rating: 2, pillars: [] } });
+    expect(isRenderablePost(strip(evo, 'pillars'))).toBe(false);
+    const rivalry = post({ post_type: 'rivalry', payload: { opponent_name: 'Bo', categories: [] } });
+    expect(isRenderablePost(strip(rivalry, 'categories'))).toBe(false);
+  });
+
+  it('junk is dropped: null, undefined, non-objects, unknown types, empty id', () => {
+    expect(isRenderablePost(null)).toBe(false);
+    expect(isRenderablePost(undefined)).toBe(false);
+    expect(isRenderablePost('post' as unknown as SocialPost)).toBe(false);
+    expect(isRenderablePost({ ...post(), type: 'hologram' } as unknown as SocialPost)).toBe(false);
+    expect(isRenderablePost({ ...post(), id: '' })).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import { useBlockUser, useMyBlocks, useReportContent, useUnblockUser } from '@/d
 import { useToastStore } from '@/state/toast-store';
 import type { BranchV2 } from '@/domain/branches-v2';
 import type { Sex } from '@/domain/nutrition';
+import { isRenderablePost } from '@/domain/social-feed';
 import { avatarArtV2 } from '@/ui/character/avatar-art';
 import { NeonButton } from '@/ui/core/neon-button';
 import { useDeletePost, useToggleReaction } from '@/data/social-feed';
@@ -42,7 +43,9 @@ export default function AthleteProfileScreen() {
   const posts = useAthletePosts(athleteId, canView);
   const react = useToggleReaction();
   const del = useDeletePost();
-  const list = posts.data?.pages.flat() ?? [];
+  // isRenderablePost: restored cache pages may predate fields the cards
+  // dereference (the lockout postmortem) — drop, never throw.
+  const list = (posts.data?.pages.flat() ?? []).filter(isRenderablePost);
 
   // CHALLENGE (2026-07-19): mint a battle from the profile using the same
   // invite flow the Arena uses, then open the match — its code is what you send
@@ -99,7 +102,7 @@ export default function AthleteProfileScreen() {
         <GlowCard glow={colors.epic}>
           <View className="items-center py-s5">
             <View className="items-center justify-center rounded-lg border" style={{ width: 56, height: 56, borderColor: `${colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
-              <Text allowFontScaling={false} style={{ fontSize: 24, color: colors.epic, ...pixelFont() }}>{(p.display_name[0] ?? 'A').toUpperCase()}</Text>
+              <Text allowFontScaling={false} style={{ fontSize: 24, color: colors.epic, ...pixelFont() }}>{(p.display_name?.[0] ?? 'A').toUpperCase()}</Text>
             </View>
             <Text className="mt-s3 text-text" allowFontScaling={false} style={{ fontSize: 16, letterSpacing: 1, ...pixelFont() }}>🔒 PRIVATE PROFILE</Text>
             <Text className="mt-s2 max-w-[280px] text-center text-2xs text-text-dim">Add {p.display_name} as a friend to see their forge, stats and posts.</Text>
@@ -236,7 +239,7 @@ function AthleteAvatar({ profile }: { profile: AthleteProfile }) {
       style={{ width: 60, height: 60, borderColor: `${colors.accent}8c`, backgroundColor: 'rgba(34,211,238,0.1)' }}
     >
       <Text allowFontScaling={false} style={{ fontSize: 26, color: colors.accent, ...pixelFont() }}>
-        {(profile.display_name[0] ?? 'A').toUpperCase()}
+        {(profile.display_name?.[0] ?? 'A').toUpperCase()}
       </Text>
     </View>
   );

@@ -8,6 +8,7 @@ import { useLoadoutStore } from '@/state/loadout-store';
 import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
 
+import { QUERY_CACHE_KEY } from './cache-keys';
 import { supabase } from './supabase';
 
 interface AuthState {
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // same invariant as the in-memory clear (never hand the last athlete's
     // character to the next visitor on a shared device).
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
-      AsyncStorage.removeItem('evoforge-query-cache-v1').catch(() => undefined)
+      AsyncStorage.removeItem(QUERY_CACHE_KEY).catch(() => undefined)
     );
     useToastStore.getState().reset();
     useSettingsStore.getState().reset();

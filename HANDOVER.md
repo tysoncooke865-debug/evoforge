@@ -1539,6 +1539,56 @@ Owner: Tyson. He works through other Claude sessions too — **always
   Calculator fields now: the two converter fields + fuel-amount; every
   other NumberField is unchanged.
 
+- **THE LOCKOUT POSTMORTEM (2026-07-20):** devices were PERMANENTLY stuck
+  on "SOMETHING BROKE / RETRY" after deploys — hard refresh useless,
+  device-scoped, socials implicated. Root cause, reproduced live before
+  fixing: the persisted query cache (`evoforge-query-cache-v1`,
+  localStorage) had a STATIC buster ('v1'), so a deploy never invalidated
+  it; the feed persists `toPost`-NORMALIZED objects, and a new build's
+  cards dereferenced fields an old build never wrote (`post.tagged.length`
+  — `tagged` postdates 96a48a8) → render throw → boundary. RETRY re-read
+  the same bytes; hard refresh clears HTTP caches, NOT localStorage; other
+  tabs' successful queries kept re-persisting the poisoned entry so maxAge
+  never expired; and the +html.tsx nuclear reset never showed because the
+  app HAD booted before the route threw. Sign-out clears the key — why
+  other devices worked. THE FIXES:
+  * **Per-build buster** (`domain/build-id.ts` → `app/_layout.tsx`): the
+    buster is the running `entry-<hash>.js` hash (the version-guard's own
+    regex; fallback 'v1' on native/dev/static render). A deploy discards
+    the persisted cache exactly once; same-build reloads keep it warm.
+    Already-stuck devices heal on their next launch of the new bundle.
+    INVARIANT: any future cache that stores NORMALIZED domain objects
+    rides this buster — never assume a persisted shape survives a deploy.
+  * **`data/cache-keys.ts`** — the localStorage keys (query cache + both
+    reload guards), zero imports, ONE source of truth for the persister,
+    sign-out, version-guard and the error screen.
+  * **Error-screen escape hatch** (`ui/core/error-screen.tsx`): web-only
+    ghost button CLEAR CACHE & RELOAD — removes the query cache + both
+    reload-guard keys (re-arming the auto-heals) and reloads. NEVER
+    touches auth (no forced sign-out) or the zustand stores/queues holding
+    unsynced work; `localStorage.clear()` stays exclusive to the +html
+    boot overlay.
+  * **`isRenderablePost`** (`domain/social-feed.ts`, vitest-pinned):
+    restored feed pages are filtered at the two `pages.flat()` choke
+    points (social.tsx, athlete/[id].tsx) — a post missing fields the
+    cards dereference is DROPPED, never thrown on. Plus `display_name?.[0]`
+    at the five avatar-initial sites.
+  * Falsified end-to-end vs the built dist: poisoned blob (tagged deleted
+    from the REAL persisted feed) locked the pre-fix build through RETRY
+    AND reload; the fix build discards it (new buster = entry hash),
+    renders clean, keeps warm cache within a build, and the real button
+    (forced via a deleted chunk) clears the guards while `sb-*` auth
+    survives.
+  * **Nutrition was suspected and EXONERATED**: fuel persists raw rows and
+    every render coerces (`Number()`, `?? []`); no conflict markers; the
+    evalEnergyExpression chain is a clean DAG. Timing coincidence.
+  * **A second, bounded lockout exists and is NOT code-fixable:** an OLD
+    cached bundle reading NEW 065 array plan values crashes at
+    `workout.trim()` (pre-065 plan-sources). Only the new bundle heals it
+    (version-guard + the SW's stale-while-revalidate do this next launch);
+    exposure = mixed-build devices whose account saved an extras day.
+    Watch iOS standalone PWAs — the surface where stale shells linger.
+
 **Migrations applied through `070`. Next free number: `071`.**
 (`065` is a SHARED number, like `037`: `065_leaderboard_metrics.sql` and
 `065_schedule_extra_workouts.sql` were written by parallel sessions the same

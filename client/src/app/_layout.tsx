@@ -8,7 +8,9 @@ import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/data/auth-context';
+import { QUERY_CACHE_KEY } from '@/data/cache-keys';
 import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/version-guard';
+import { runningBuildId } from '@/domain/build-id';
 import { PIXEL_FONTS } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ThemeRoot } from '@/ui/core/theme-root';
@@ -16,10 +18,8 @@ import { ToastHost } from '@/ui/core/toast-host';
 
 import '@/global.css';
 
-/** The persisted-cache key. Purged on sign-out (see auth-context) — the
- *  cache-hygiene invariant: a device must never hand one athlete's
- *  character to the next. */
-export const QUERY_CACHE_KEY = 'evoforge-query-cache-v1';
+// The persisted-cache key lives in data/cache-keys.ts (single source of
+// truth for sign-out, the error screen's CLEAR CACHE, and the persister).
 
 /** Route-error surface (2026-07-19): expo-router renders this named export
  *  when any route below throws. Before it existed, a throw inside a lazy
@@ -80,6 +80,13 @@ export default function RootLayout() {
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: AsyncStorage, key: QUERY_CACHE_KEY, throttleTime: 2000 })
   );
+  // THE LOCKOUT FIX (2026-07-20): the buster is the DEPLOYED BUILD's entry
+  // hash, so a new deploy discards the persisted cache exactly once at
+  // restore. A static buster let an old bundle's normalized objects
+  // rehydrate into a new bundle whose render assumed newer fields
+  // (post.tagged) — a permanent, hard-refresh-proof crash, because
+  // localStorage survives refresh and RETRY re-read the same bytes.
+  const [buster] = useState(() => runningBuildId());
 
   // BOOT SIGNAL: tell the +html.tsx safety-net script that the React app
   // successfully mounted. Expo statically pre-renders each route into #root, so
@@ -105,7 +112,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PersistQueryClientProvider
         client={queryClient}
-        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster: 'v1' }}
+        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000, buster }}
       >
         <AuthProvider>
           {/* ThemeRoot applies the equipped/previewed palette (CSS vars +

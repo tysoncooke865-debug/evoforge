@@ -310,6 +310,42 @@ export function toPosts(rows: readonly RawPostRow[]): SocialPost[] {
 }
 
 /**
+ * THE PERSISTED-SHAPE GUARD (2026-07-20, the lockout postmortem). `toPost`
+ * validates RPC rows — but the persisted query cache stores toPost's OUTPUT,
+ * and an OLDER build's output lacks fields a newer renderer assumes
+ * (`tagged` predates 96a48a8: rehydrating a pre-tagged feed made
+ * `post.tagged.length` throw on every card, permanently — localStorage
+ * survives hard refresh). The per-build cache buster (domain/build-id.ts)
+ * removes the cause; this guard is the insurance at the render choke point:
+ * a restored post missing any array/string the cards dereference is DROPPED,
+ * never rendered broken, never thrown on.
+ */
+export function isRenderablePost(p: SocialPost | null | undefined): p is SocialPost {
+  if (!p || typeof p !== 'object') return false;
+  if (typeof p.id !== 'string' || p.id === '') return false;
+  if (!Array.isArray(p.tagged)) return false;
+  switch (p.type) {
+    case 'workout':
+      return Array.isArray(p.exercises) && Array.isArray(p.photoUrls);
+    case 'photo':
+      return Array.isArray(p.photoUrls);
+    case 'evo_rating':
+      return Array.isArray(p.pillars);
+    case 'rivalry':
+      return Array.isArray(p.categories) && typeof p.opponentName === 'string';
+    case 'pr':
+      return typeof p.exercise === 'string';
+    case 'evolution':
+      return typeof p.path === 'string';
+    case 'level_up':
+    case 'status':
+      return true;
+    default:
+      return false; // a type this build doesn't know — drop, don't guess
+  }
+}
+
+/**
  * Apply a reaction toggle locally for an optimistic update: tapping your
  * current reaction removes it; a new one replaces the old. Returns the next
  * post so the mutation can roll back to the previous on failure.

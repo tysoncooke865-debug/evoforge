@@ -8,6 +8,7 @@ import { useSavePublicIdentity } from '@/data/mutations';
 import { nameError } from '@/domain/leaderboard';
 import { useFriends } from '@/data/social';
 import { useDeletePost, useSocialFeed, useToggleReaction, type FeedScope } from '@/data/social-feed';
+import { isRenderablePost } from '@/domain/social-feed';
 import { useDiscoverAthletes } from '@/data/social-profile';
 import { useUnreadCount } from '@/data/social-notifications';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
@@ -67,7 +68,9 @@ function SocialFeed() {
   // from before claim theirs here — browsing stays open, posting waits.
   const identity = usePublicIdentity();
   const needsName = identity.data !== undefined && !identity.data?.displayName;
-  const posts = feed.data?.pages.flat() ?? [];
+  // isRenderablePost: a post restored from the persisted cache may predate
+  // fields the cards dereference (the lockout postmortem) — drop, never throw.
+  const posts = (feed.data?.pages.flat() ?? []).filter(isRenderablePost);
 
   // B6: the feed is a virtualised list now — everything above the posts is
   // the list header; non-feed scopes render with an empty data array.
@@ -260,7 +263,7 @@ function FriendsRow() {
           style={{ width: 64 }}
         >
           <View className="items-center justify-center rounded-lg border" style={{ width: 52, height: 52, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}>
-            <Text allowFontScaling={false} style={{ fontSize: 20, color: colors.accent, ...pixelFont() }}>{(f.display_name[0] ?? 'A').toUpperCase()}</Text>
+            <Text allowFontScaling={false} style={{ fontSize: 20, color: colors.accent, ...pixelFont() }}>{(f.display_name?.[0] ?? 'A').toUpperCase()}</Text>
           </View>
           <Text className="mt-s1 text-2xs text-text-dim" numberOfLines={1} style={{ maxWidth: 62 }}>{f.display_name}</Text>
           <Text className="text-2xs text-text-mute">{f.my_wins}–{f.their_wins}</Text>
@@ -312,7 +315,7 @@ function DiscoverAthletes() {
           style={{ borderColor: `${colors.epic}33`, backgroundColor: 'rgba(13,21,36,0.5)', gap: 10 }}
         >
           <View className="items-center justify-center rounded-lg border" style={{ width: 40, height: 40, borderColor: `${colors.epic}59`, backgroundColor: 'rgba(168,85,247,0.08)' }}>
-            <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.epic, ...pixelFont() }}>{(a.display_name[0] ?? 'A').toUpperCase()}</Text>
+            <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.epic, ...pixelFont() }}>{(a.display_name?.[0] ?? 'A').toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text className="text-sm font-bold text-text" numberOfLines={1}>{a.display_name}</Text>
@@ -359,7 +362,7 @@ function RivalriesView() {
             testID={`rival-${f.id}`}
           >
             <View className="items-center justify-center rounded-lg border" style={{ width: 40, height: 40, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}>
-              <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.accent, ...pixelFont() }}>{(f.display_name[0] ?? 'A').toUpperCase()}</Text>
+              <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.accent, ...pixelFont() }}>{(f.display_name?.[0] ?? 'A').toUpperCase()}</Text>
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text className="text-sm font-bold text-text" numberOfLines={1}>{f.display_name}</Text>
