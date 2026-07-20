@@ -26,6 +26,37 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **REAL-TIME LIVE PvP MATCHMAKING (roadmap Phase 4) — SHIPPED + two-client
+  verified (2026-07-20, migrations 074 + 075 APPLIED).** Champion battles are now
+  live turn-by-turn PvP vs a matched real opponent — replacing the RPG
+  join-by-code. **Arena → QUICK MATCH** (`/pvp`): pick champion → `pvp_enqueue`
+  → paired → fight over Supabase Realtime.
+  - **Determinism:** `domain/battle-rpg/prng.ts` (`turnRng(seed,turn)`). Both
+    clients resolve the CANONICAL battle (seat1=player) and seat 2 swaps only the
+    VIEW — because `decideOrder` breaks speed ties on `rng()<0.5` favouring
+    "player", local-perspective resolution would desync. `prng.test.ts` proves
+    convergence.
+  - **Backend 074:** `pvp_queue`/`pvp_matches`/`pvp_moves` + `pvp_enqueue`
+    (advisory-locked matchmaker), `pvp_poll`, `pvp_submit_move` (own-seat,
+    one-per-turn), `pvp_finish` (idempotent → `record_rivalry_result`),
+    `pvp_forfeit`, `pvp_cancel_queue`. pvp_matches/pvp_moves in the realtime
+    publication. Casual = nothing farmable → client-authoritative is safe.
+  - **Client:** `data/matchmaking.ts` (enqueue/poll/realtime), `ui/battle/
+    use-online-battle.ts` (canonical resolve + seat-2 view/event swap + Realtime
+    move exchange, reuses `resolveTurn`), `ui/battle/online-battle-runner.tsx`
+    (reuses BattleArena/MoveGrid), `app/(main)/pvp.tsx` (champion pick →
+    searching → live match). Arena "COMING SOON quick match" placeholder → real.
+  - **Verified with TWO live browser clients (ALPHA+BRAVO):** they paired over
+    Realtime, both entered the match, exchanged a move, both advanced to the same
+    turn; seat-2 view-swap correct (each sees their own champion). Backend also
+    two-JWT falsified.
+  - **075 removed the RPG challenge-by-code system** (dropped rpg_challenges +
+    3 RPCs; deleted battle-rpg-challenge.ts + challenge-hub.tsx; stripped
+    `challenge` mode from battle.tsx/use-battle.ts/types BattleMode; JOIN box is
+    now fitness-duel-only). **System A `battle_matches` invite_code (real-WORKOUT
+    fitness duel) is a SEPARATE feature and was KEPT** — it still uses a code; the
+    Arena "CREATE BATTLE · GET CODE" / athlete "⚔ CHALLENGE" flows are System A.
+    Convert those to matchmaking too only if Tyson asks.
 - **FRIEND CODES RETIRED → fully online friending (2026-07-20, migration 073
   APPLIED + falsified).** Removed the 6-char friend code (dropped `friend_codes`
   table + `my_friend_code` + `send_friend_request`; deleted `useFriendCode` /

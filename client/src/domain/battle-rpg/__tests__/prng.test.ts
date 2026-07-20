@@ -44,7 +44,7 @@ describe('online turn resolution converges on two independent devices', () => {
    *  exactly what each online client does locally from the shared seed + moves. */
   function playMatch(seed: string): BattleState {
     let state = createBattle(`m_${seed}`, 'versus', combatant('titan'), combatant('aesthetic'));
-    const script: Array<[string, string]> = [
+    const script: [string, string][] = [
       ['titan_breaker', 'precision_strike'],
       ['recover', 'precision_strike'],
       ['titan_breaker', 'recover'],

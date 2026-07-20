@@ -38,11 +38,9 @@ export interface BattleSetup {
   /** VERSUS (pass-and-play): the opponent is a second HUMAN on this device,
    *  not the AI. Each turn collects P1's move then P2's move, then resolves. */
   versus?: boolean;
-  /** CHALLENGE (join-by-code): build the opponent from the CHALLENGER's real
-   *  stats (their champion as they made it), not normalised to the joiner. */
+  /** GHOST (migration 037): build the opponent from the ghost's REAL stats
+   *  (their champion as they made it), not normalised to the joiner. */
   opponentInput?: PlayerCombatInput;
-  /** The challenge code, for posting the result back. */
-  challengeCode?: string;
   /** GHOST (migration 037): the workout_ghosts id, for posting the result. */
   ghostId?: string;
 }
@@ -51,7 +49,7 @@ const EVENT_MS = 780;
 
 /** Versus uses balanced (training) scaling — both are human. */
 const scalingFor = (m: BattleMode): ScalingContext =>
-  m === 'versus' || m === 'challenge' || m === 'ghost' ? 'training' : m;
+  m === 'versus' || m === 'ghost' ? 'training' : m;
 
 /** Clamp a stat block so its combat power does not exceed `ceil` — keeps a
  *  challenger's champion tough but never impossible. */

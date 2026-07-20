@@ -58,8 +58,8 @@ export default function ArenaScreen() {
     );
   };
 
-  // ONE box, every game: a real-time battle code joins and opens the match;
-  // an RPG challenge code routes to the versus hub, which auto-joins it.
+  // Join a real-time FITNESS-DUEL by its invite code (champion battles use Quick
+  // Match matchmaking now — no code).
   const joinBattle = () => {
     const clean = normalizeCode(code);
     if (!clean) return;
@@ -68,8 +68,7 @@ export default function ArenaScreen() {
       {
         onSuccess: (r) => {
           setCode('');
-          if (r.kind === 'battle') router.push(`/arena/battle/${r.matchId}`);
-          else router.push(`/battle?mode=challenge&code=${r.code}` as never);
+          router.push(`/arena/battle/${r.matchId}`);
         },
       }
     );
@@ -231,7 +230,14 @@ export default function ArenaScreen() {
       {/* The queue modes — still coming-soon, promoted to the old rules
           strip's slot (the strip is gone; the rules live on the battle page). */}
       <View className="flex-row gap-s3">
-        <ComingCard glyph="⚡" tint={colors.accent} title="QUICK MATCH" note="Matchmaking queue" />
+        <LiveCard
+          glyph="⚡"
+          tint={colors.accent}
+          title="QUICK MATCH"
+          note="Get paired with a live rival and fight now — no code."
+          onPress={() => router.push('/pvp' as never)}
+          testID="mode-quickmatch"
+        />
         <ComingCard glyph="🏆" tint={colors.epic} title="RANKED" note="Trophies on the line" />
       </View>
 
@@ -253,9 +259,9 @@ export default function ArenaScreen() {
           glyph="👥"
           tint={colors.epic}
           title="VERSUS"
-          note="Challenge a friend by code — or pass-and-play on one device."
-          tag="ONLINE 1V1"
-          onPress={() => router.push('/battle?mode=challenge' as never)}
+          note="Pass-and-play a friend on one device."
+          tag="LOCAL 1V1"
+          onPress={() => router.push('/battle?mode=versus' as never)}
           testID="mode-versus"
         />
         <BattleModeCard
@@ -503,6 +509,25 @@ function MiniChip({ label }: { label: string }) {
         {label}
       </Text>
     </View>
+  );
+}
+
+/** A LIVE, tappable version of ComingCard — same look, but a real door (Quick
+ *  Match). Glows a touch stronger and says PLAY NOW instead of COMING SOON. */
+function LiveCard({ glyph, tint, title, note, onPress, testID }: { glyph: string; tint: string; title: string; note: string; onPress: () => void; testID: string }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      testID={testID}
+      className="flex-1 rounded-xl p-s4"
+      style={{ borderWidth: 1, borderColor: `${tint}66`, backgroundColor: 'rgba(13,21,36,0.5)', shadowColor: tint, shadowOpacity: 0.28, shadowRadius: 16, elevation: 3 }}
+    >
+      <IconBadge glyph={glyph} tint={tint} size={44} />
+      <Text className="mt-s3 text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>{title}</Text>
+      <Text className="mt-s1 text-2xs text-text-mute">{note}</Text>
+      <Text className="mt-s2" allowFontScaling={false} style={{ fontSize: 9, color: tint, letterSpacing: 1, ...pixelFont(false) }}>▶ PLAY NOW</Text>
+    </Pressable>
   );
 }
 

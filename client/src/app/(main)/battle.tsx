@@ -28,10 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MoveGrid } from '@/ui/battle/move-grid';
 import { ChampionPicker, championSprite } from '@/ui/battle/champion-picker';
 import { VsIntro } from '@/ui/battle/vs-intro';
-import { ChallengeHub } from '@/ui/battle/challenge-hub';
-import { recordChallengeResult, type ChallengeSnapshot } from '@/data/battle-rpg-challenge';
 import { fetchGhost, recordGhostResult, type GhostSnapshot } from '@/data/ghosts';
-import { useAuth } from '@/data/auth-context';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
@@ -50,14 +47,11 @@ import {
  */
 export default function BattleScreen() {
   const colors = useThemeColors();
-  const params = useLocalSearchParams<{ mode?: string; gym?: string; code?: string; ghost?: string }>();
-  const mode = (['gym', 'rival', 'versus', 'challenge', 'ghost'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
-  const isChallenge = mode === 'challenge';
+  const params = useLocalSearchParams<{ mode?: string; gym?: string; ghost?: string }>();
+  const mode = (['gym', 'rival', 'versus', 'ghost'].includes(params.mode ?? '') ? params.mode : 'training') as BattleSetup['mode'];
   const ghostId = mode === 'ghost' && typeof params.ghost === 'string' ? params.ghost : undefined;
   const gymId = params.gym;
   const versus = mode === 'versus';
-  // The Arena's universal code box hands a verified challenge code over.
-  const challengeCode = typeof params.code === 'string' && params.code.length === 6 ? params.code : undefined;
 
   const { ready, branchV2, stats, earliestBf, nutritionPhase } = useAvatarData();
   const forge = useForgeProgression();
@@ -67,7 +61,6 @@ export default function BattleScreen() {
 
   const [picked, setPicked] = useState<ChampionId | null>(storedChampion);
   const [p2Picked, setP2Picked] = useState<ChampionId>('titan');
-  const [joined, setJoined] = useState<ChallengeSnapshot | null>(null);
   // GHOST (migration 037): the loaded snapshot, fetched by id from the URL.
   const [ghost, setGhost] = useState<GhostSnapshot | null>(null);
   const [ghostMissing, setGhostMissing] = useState(false);
@@ -91,8 +84,6 @@ export default function BattleScreen() {
       live = false;
     };
   }, [ghostId]);
-  const { session } = useAuth();
-  const ownerName = (session?.user?.email ?? 'Challenger').split('@')[0];
 
   // Which champions the athlete has UNLOCKED (mirrors the CUSTOMISE roster
   // gates) — you can only battle with those.
@@ -123,7 +114,7 @@ export default function BattleScreen() {
   const [startedKey, setStartedKey] = useState<string | null>(null);
   const [runNonce, setRunNonce] = useState(0);
   const started = startedKey === paramKey;
-  useFocusEffect(useCallback(() => { setStartedKey(null); setJoined(null); }, []));
+  useFocusEffect(useCallback(() => { setStartedKey(null); }, []));
 
   // A picked-but-now-locked champion falls back to your origin champion
   // when one is assigned, else your (always-unlocked) derived class.
@@ -167,39 +158,6 @@ export default function BattleScreen() {
     );
   }
 
-  if (isChallenge) {
-    const playerInput = { size: stats.sizeScore, aes: stats.aestheticScore, str: stats.strengthScore, cnd: stats.conditioningScore };
-    if (!joined) {
-      return (
-        <ChallengeHub
-          // A second code must remount the hub — /battle stays mounted across
-          // param swaps, so useState initialisers only run on a fresh key.
-          key={challengeCode ?? 'hub'}
-          champion={playerChampion}
-          input={playerInput}
-          ownerName={ownerName}
-          unlocked={unlockedSet}
-          requirementFor={requirementFor}
-          onPick={(id) => { setPicked(id); setSelectedChampion(id); }}
-          onJoined={setJoined}
-          initialCode={challengeCode}
-        />
-      );
-    }
-    const challengeSetup: BattleSetup = {
-      mode: 'challenge',
-      playerChampion,
-      opponentChampion: joined.champion,
-      opponentName: joined.ownerName,
-      ai: 'balanced',
-      difficulty: 1,
-      player: playerInput,
-      opponentInput: joined.playerInput,
-      challengeCode: joined.code,
-      playerSprite: { branch: CHAMPIONS[playerChampion].spriteBranch, stage: 4 },
-    };
-    return <BattleRunner key={`challenge:${joined.code}`} setup={challengeSetup} />;
-  }
 
   // GHOST BATTLE (migration 037): fight the AI driven by a friend's published
   // session snapshot. Loads by id; a missing/non-friend ghost says so.
@@ -409,9 +367,8 @@ function BattleRunner({ setup }: { setup: BattleSetup }) {
     // Ghost battles bank the 'training' reward tier — the server RPC (033)
     // only vouches for training/rival/gym, and a friendly vs a snapshot IS
     // training-grade. The rivalry update rides record_ghost_result (037).
-    if (!setup.versus && setup.mode !== 'challenge')
+    if (!setup.versus)
       grantReward.mutate({ resultKey, mode: setup.mode === 'ghost' ? 'training' : setup.mode, won });
-    if (setup.mode === 'challenge' && setup.challengeCode) void recordChallengeResult(setup.challengeCode, won);
     if (setup.mode === 'ghost' && setup.ghostId) void recordGhostResult(setup.ghostId, won);
     if (won) playVictory(); else playDefeat();
     setResultOpen(true);

@@ -87,17 +87,12 @@ export function useCreateInvite() {
   });
 }
 
-export type UniversalJoinResult =
-  | { kind: 'battle'; matchId: string }
-  | { kind: 'challenge'; code: string };
+export type UniversalJoinResult = { kind: 'battle'; matchId: string };
 
 /**
- * ONE code box, TWO code namespaces. battle-join is tried first (a hit JOINS
- * the match — the same side effect the old button had); ONLY its 404 falls
- * through to the read-only RPG challenge lookup (get_rpg_challenge never
- * increments plays). A 409/403 means the code exists HERE and must surface;
- * a network error has no status and surfaces too — falling through would
- * just fail again and mask the real cause.
+ * Join a real-time FITNESS-DUEL (System A) by its invite code. Champion
+ * turn-by-turn battles moved to Quick Match matchmaking (migration 074) — there
+ * is no code namespace to fall through to any more, so this is battle-join only.
  */
 export function useUniversalJoin() {
   const queryClient = useQueryClient();
@@ -111,23 +106,11 @@ export function useUniversalJoin() {
       code: string;
       snapshot: Record<string, unknown>;
     }): Promise<UniversalJoinResult> => {
-      try {
-        const data = await invokeBattle('battle-join', { code, snapshot });
-        return { kind: 'battle', matchId: String(data.match_id) };
-      } catch (e) {
-        if (!(e instanceof BattleFnError) || e.status !== 404) throw e;
-      }
-      const { data, error } = await supabase.rpc('get_rpg_challenge', { p_code: code });
-      if (error) throw new Error('Could not check that code. Try again.');
-      if (!(data as { found?: boolean } | null)?.found) {
-        throw new BattleFnError('No battle or challenge with that code.', 404);
-      }
-      return { kind: 'challenge', code };
+      const data = await invokeBattle('battle-join', { code, snapshot });
+      return { kind: 'battle', matchId: String(data.match_id) };
     },
-    onSuccess: (r) => {
-      if (r.kind === 'battle') {
-        void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
-      }
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['battle_matches', userId] });
     },
     onError: (e: Error) => {
       const notFound = e instanceof BattleFnError && e.status === 404;
