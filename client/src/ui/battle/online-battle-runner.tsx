@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,12 +19,30 @@ import { useOnlineBattle } from '@/ui/battle/use-online-battle';
  * by useOnlineBattle (canonical resolution + Realtime move exchange). Casual —
  * banks nothing farmable; only the head-to-head record moves, via pvp_finish.
  */
-export function OnlineBattleRunner({ match, mySeat }: { match: PvpMatch; mySeat: 1 | 2 }) {
+export function OnlineBattleRunner({
+  match,
+  mySeat,
+  onLeave,
+}: {
+  match: PvpMatch;
+  mySeat: 1 | 2;
+  /** Tear the match down (clears matchmaking state so THIS runner unmounts —
+   *  which closes the result modal) and navigate. Owned by the /pvp screen. */
+  onLeave: (dest: 'arena' | 'today') => void;
+}) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [resultOpen, setResultOpen] = useState(false);
   const [introDone, setIntroDone] = useState(false);
   const finishedRef = useRef(false);
+  const leftRef = useRef(false);
+  // Guard so a double-tap (or both a forfeit + a nav) only leaves once.
+  const leave = (dest: 'arena' | 'today') => {
+    if (leftRef.current) return;
+    leftRef.current = true;
+    setResultOpen(false); // close immediately, in case unmount is deferred
+    onLeave(dest);
+  };
 
   const battle = useOnlineBattle(match, mySeat, (iWon) => {
     if (!finishedRef.current) {
@@ -75,7 +92,7 @@ export function OnlineBattleRunner({ match, mySeat }: { match: PvpMatch; mySeat:
       {/* Top bar: back(forfeit) · turn · LIVE · forfeit. */}
       <View className="flex-row items-center" style={{ gap: 8, minHeight: 30 }}>
         <Pressable
-          onPress={() => { battle.forfeit(); router.replace('/arena' as never); }}
+          onPress={() => { battle.forfeit(); leave('arena'); }}
           accessibilityRole="button"
           accessibilityLabel="leave the match (forfeit)"
           hitSlop={10}
@@ -90,7 +107,7 @@ export function OnlineBattleRunner({ match, mySeat }: { match: PvpMatch; mySeat:
         <View style={{ flex: 1 }} />
         {!state.winner ? (
           <Pressable
-            onPress={() => { battle.forfeit(); }}
+            onPress={() => { battle.forfeit(); leave('arena'); }}
             accessibilityRole="button"
             accessibilityLabel="forfeit the match"
             testID="pvp-forfeit"
@@ -150,9 +167,9 @@ export function OnlineBattleRunner({ match, mySeat }: { match: PvpMatch; mySeat:
         opponentName={opponentLeft ? `${opponentName} (left)` : opponentName}
         versus
         tip={opponentLeft ? 'Your opponent left the match.' : 'A real rival — the head-to-head is updated.'}
-        onRematch={() => router.replace('/arena')}
-        onArena={() => router.replace('/arena')}
-        onTrain={() => router.replace('/today')}
+        onRematch={() => leave('arena')}
+        onArena={() => leave('arena')}
+        onTrain={() => leave('today')}
       />
     </View>
   );

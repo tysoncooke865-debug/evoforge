@@ -64,7 +64,16 @@ export default function PvpScreen() {
         </ScreenShell>
       );
     }
-    return <OnlineBattleRunner match={match.data} mySeat={mm.state.seat} />;
+    return (
+      <OnlineBattleRunner
+        match={match.data}
+        mySeat={mm.state.seat}
+        onLeave={(dest) => {
+          mm.reset(); // clears 'matched' so this screen stops rendering the runner (and its modal)
+          router.replace(dest === 'today' ? ('/today' as never) : ('/arena' as never));
+        }}
+      />
+    );
   }
 
   if (mm.state.status === 'searching') {
