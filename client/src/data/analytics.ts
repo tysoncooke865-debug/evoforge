@@ -33,3 +33,18 @@ export function track(eventName: string, props: Record<string, unknown> = {}): v
     }
   })();
 }
+
+/**
+ * Update the caller's activity summary (migration 080): `login` marks a fresh
+ * session (bumps sessions + last_login); `ms` accrues time-on-app; every call
+ * refreshes last_seen. Fire-and-forget, same contract as track().
+ */
+export function touchActivity(login: boolean, ms = 0): void {
+  void (async () => {
+    try {
+      await supabase.rpc('touch_activity', { p_login: login, p_ms: Math.max(0, Math.round(ms)) });
+    } catch {
+      /* best-effort */
+    }
+  })();
+}

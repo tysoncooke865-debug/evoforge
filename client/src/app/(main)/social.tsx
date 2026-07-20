@@ -157,8 +157,10 @@ function SocialFeed() {
       {/* RIVALS + GYMS are their own views (records / groups), not a post feed. */}
       {scope === 'rivals' ? <RivalriesView /> : null}
       {scope === 'gyms' ? <GymsView /> : null}
-      {scope !== 'rivals' && scope !== 'gyms' && feed.isPending ? <FeedSkeleton /> : null}
-      {scope !== 'rivals' && scope !== 'gyms' && !feed.isPending && posts.length === 0 ? (
+      {scope !== 'rivals' && scope !== 'gyms' && scope !== 'discover' && feed.isPending ? <FeedSkeleton /> : null}
+      {/* DISCOVER has its own live athlete list + empty state (DiscoverAthletes);
+          don't also show the feed's "discovery is coming online" card over it. */}
+      {scope !== 'rivals' && scope !== 'gyms' && scope !== 'discover' && !feed.isPending && posts.length === 0 ? (
         <EmptyState scope={scope} />
       ) : null}
     </>

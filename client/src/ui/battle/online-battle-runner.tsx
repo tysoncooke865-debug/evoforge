@@ -27,8 +27,9 @@ export function OnlineBattleRunner({
   match: PvpMatch;
   mySeat: 1 | 2;
   /** Tear the match down (clears matchmaking state so THIS runner unmounts —
-   *  which closes the result modal) and navigate. Owned by the /pvp screen. */
-  onLeave: (dest: 'arena' | 'today') => void;
+   *  which closes the result modal) and navigate. 'pvp' re-queues for another
+   *  live match; 'arena'/'today' exit. Owned by the /pvp screen. */
+  onLeave: (dest: 'arena' | 'today' | 'pvp') => void;
 }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -37,7 +38,7 @@ export function OnlineBattleRunner({
   const finishedRef = useRef(false);
   const leftRef = useRef(false);
   // Guard so a double-tap (or both a forfeit + a nav) only leaves once.
-  const leave = (dest: 'arena' | 'today') => {
+  const leave = (dest: 'arena' | 'today' | 'pvp') => {
     if (leftRef.current) return;
     leftRef.current = true;
     setResultOpen(false); // close immediately, in case unmount is deferred
@@ -164,10 +165,9 @@ export function OnlineBattleRunner({
         visible={resultOpen}
         state={state}
         rewards={null}
-        opponentName={opponentLeft ? `${opponentName} (left)` : opponentName}
-        versus
-        tip={opponentLeft ? 'Your opponent left the match.' : 'A real rival — the head-to-head is updated.'}
-        onRematch={() => leave('arena')}
+        opponentName={opponentLeft ? `${opponentName} (bailed)` : opponentName}
+        tip={opponentLeft ? 'Your opponent bailed — the win is yours. Queue up for another?' : 'A real rival — your head-to-head just moved. Run it back?'}
+        onRematch={() => leave('pvp')}
         onArena={() => leave('arena')}
         onTrain={() => leave('today')}
       />

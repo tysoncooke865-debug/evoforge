@@ -10,6 +10,7 @@ import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useOnlinePresence } from '@/data/presence';
+import { useAnalytics } from '@/data/use-analytics';
 import { migrateForgeHistory } from '@/data/progression/award-xp';
 import { ORIGIN_FLAGS } from '@/data/origin';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
@@ -58,6 +59,8 @@ export default function MainLayout() {
   // Join the global presence channel so this player is counted as online for as
   // long as the app is open (the count surfaces on Arena / Quick Match).
   useOnlinePresence();
+  // Product telemetry: sessions, page dwell, time-on-app (migration 080).
+  useAnalytics();
 
   /**
    * Tyson, 2026-07-14: CLOSE THE APP MID-WORKOUT, REOPEN INTO IT.

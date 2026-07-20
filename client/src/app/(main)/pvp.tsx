@@ -80,7 +80,8 @@ export default function PvpScreen() {
         mySeat={mm.state.seat}
         onLeave={(dest) => {
           mm.reset(); // clears 'matched' so this screen stops rendering the runner (and its modal)
-          router.replace(dest === 'today' ? ('/today' as never) : ('/arena' as never));
+          // 'pvp' = REMATCH: stay on Quick Match (now idle) to find another live rival.
+          router.replace(dest === 'today' ? ('/today' as never) : dest === 'pvp' ? ('/pvp' as never) : ('/arena' as never));
         }}
       />
     );

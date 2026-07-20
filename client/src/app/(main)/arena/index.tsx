@@ -187,7 +187,14 @@ export default function ArenaScreen() {
           onPress={() => router.push('/pvp' as never)}
           testID="mode-quickmatch"
         />
-        <ComingCard glyph="🏆" tint={colors.epic} title="RANKED" note="Trophies on the line" />
+        <LiveCard
+          glyph="🏆"
+          tint={colors.epic}
+          title="RIVAL RANK"
+          note="Your rating, division and rated history."
+          onPress={() => router.push('/rival' as never)}
+          testID="mode-ranked"
+        />
       </View>
 
       {/* The turn-based trio — same tints, glyphs and doors as their old
@@ -506,35 +513,6 @@ function LiveCard({ glyph, tint, title, note, onPress, testID }: { glyph: string
   );
 }
 
-function ComingCard({ glyph, tint, title, note }: { glyph: string; tint: string; title: string; note: string }) {
-  return (
-    <View
-      className="flex-1 rounded-xl p-s4"
-      style={{
-        borderWidth: 1,
-        borderColor: `${tint}33`,
-        backgroundColor: 'rgba(13,21,36,0.5)',
-        shadowColor: tint,
-        shadowOpacity: 0.18,
-        shadowRadius: 16,
-        elevation: 3,
-      }}
-    >
-      <IconBadge glyph={glyph} tint={tint} size={44} />
-      <Text className="mt-s3 text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
-        {title}
-      </Text>
-      <Text className="mt-s1 text-2xs text-text-mute">{note}</Text>
-      <Text
-        className="mt-s2"
-        allowFontScaling={false}
-        style={{ fontSize: 9, color: tint, letterSpacing: 1, ...pixelFont(false) }}
-      >
-        COMING SOON
-      </Text>
-    </View>
-  );
-}
 
 /** A turn-based battle mode card for the Arena hub. `compact` is the
  *  3-across mini-tile: same tint/border/glow formula, glyph tile on top,
