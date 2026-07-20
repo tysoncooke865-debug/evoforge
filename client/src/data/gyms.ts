@@ -6,6 +6,8 @@ import { useAuth } from './auth-context';
 import { supabase } from './supabase';
 import { useToastStore } from '@/state/toast-store';
 import { runGymBattle, type GymBattleResult, type GymCombatMember } from '@/domain/battle-rpg/gym-battle';
+import { championForBranch } from '@/domain/battle-rpg/champions';
+import type { ChampionId, SpriteBranch } from '@/domain/battle-rpg/types';
 
 /**
  * GYMS (Tyson, 2026-07-19, migration 068; codes retired → discovery 076) —
@@ -309,6 +311,10 @@ export interface GymBattleOutcome extends GymBattleResult {
   result: 'win' | 'loss' | 'draw';
   opponent_name: string;
   my_name: string;
+  /** Each gym's lead champion (roster's first member's branch) — drives the
+   *  VS splash the battle theatre plays before revealing the duels. */
+  my_champion: ChampionId;
+  opp_champion: ChampionId;
 }
 
 interface PrepareResult {
@@ -364,11 +370,15 @@ export function useGymBattle() {
         p_detail: { seed: p.seed, duels: outcome.duels },
       });
       if (rec.error) throw new Error(rec.error.message);
+      const leadChampion = (roster: GymCombatMember[] | undefined): ChampionId =>
+        championForBranch(((roster?.[0]?.path ?? 'aesthetic') as SpriteBranch));
       return {
         ...outcome,
         result,
         opponent_name: p.opponent_name ?? 'Rival Gym',
         my_name: p.my_name ?? 'Your Gym',
+        my_champion: leadChampion(p.my_roster),
+        opp_champion: leadChampion(p.opp_roster),
       };
     },
     onSuccess: (r, input) => {

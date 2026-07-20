@@ -14,6 +14,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { StatBar } from '@/ui/character/stat-bar';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
 import { CommentsModal } from '@/ui/social/comments';
 import { SocialPostCard } from '@/ui/social/post-cards';
@@ -114,19 +115,15 @@ export default function AthleteProfileScreen() {
           {/* Safety: block or report (App-Store moderation). */}
           {!p.is_self && athleteId ? <SafetyRow athleteId={athleteId} name={p.display_name} /> : null}
 
-          {/* Evo pillars — only if the athlete shows them. */}
+          {/* Evo pillars — only if the athlete shows them. Bars + "vs you". */}
           {p.evo ? (
-            <GlowCard glow={colors.epic}>
-              <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>EVO PROFILE{p.evo.class ? ` · ${p.evo.class.toUpperCase()}` : ''}{p.evo.rank != null ? ` · RANK ${p.evo.rank}` : ''}</Text>
-              <View className="mt-s3 flex-row flex-wrap" style={{ gap: 14 }}>
-                {p.evo.pillars.map((pl: EvoPillar) => (
-                  <View key={pl.label} style={{ minWidth: 64 }}>
-                    <Text allowFontScaling={false} style={{ fontSize: 20, color: colors.epic, ...pixelFont() }}>{Math.round(pl.value)}</Text>
-                    <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 7, letterSpacing: 1, ...pixelFont(false) }}>{pl.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </GlowCard>
+            <PillarsCard
+              pillars={p.evo.pillars}
+              evoClass={p.evo.class}
+              rank={p.evo.rank}
+              isSelf={p.is_self}
+              myId={myId}
+            />
           ) : null}
 
           {/* Lifts + bodyweight — sensitive, shown only on opt-in. */}
@@ -174,6 +171,73 @@ export default function AthleteProfileScreen() {
 
       {commentsFor ? <CommentsModal postId={commentsFor} onClose={() => setCommentsFor(null)} /> : null}
     </ScreenShell>
+  );
+}
+
+/** Each Evo pillar's colour + short abbreviation, matching the Evo screen
+ *  (migration 067 pillars: SIZE / AESTHETICS / STRENGTH / CARDIO) so a pillar
+ *  reads the same hue and label wherever it appears. */
+const PILLAR_META: Record<string, { token: 'epic' | 'mythic' | 'accent' | 'rare'; abbr: string }> = {
+  SIZE: { token: 'epic', abbr: 'SIZE' },
+  AESTHETICS: { token: 'mythic', abbr: 'AES' },
+  STRENGTH: { token: 'accent', abbr: 'STR' },
+  CARDIO: { token: 'rare', abbr: 'CARDIO' },
+};
+
+/**
+ * The Evo pillars as bars, each with a "vs you" delta. "You" is pulled from the
+ * SAME athlete_profile RPC applied to your own id, so both sides are computed
+ * identically and the comparison is honest — never client-stats vs server-stats
+ * on different scales. Self-view drops the delta (comparing to yourself is 0).
+ */
+function PillarsCard({
+  pillars,
+  evoClass,
+  rank,
+  isSelf,
+  myId,
+}: {
+  pillars: EvoPillar[];
+  evoClass: string | null;
+  rank: number | null;
+  isSelf: boolean;
+  myId: string | null;
+}) {
+  const colors = useThemeColors();
+  // Only fetch my own pillars when they'd be used (viewing someone else).
+  const mine = useAthleteProfile(!isSelf ? myId : null);
+  const myByLabel = new Map((mine.data?.evo?.pillars ?? []).map((pl) => [pl.label, pl.value]));
+
+  return (
+    <GlowCard glow={colors.epic}>
+      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>
+        EVO PROFILE{evoClass ? ` · ${evoClass.toUpperCase()}` : ''}{rank != null ? ` · RANK ${rank}` : ''}
+      </Text>
+      <View className="mt-s3">
+        {pillars.map((pl) => {
+          const meta = PILLAR_META[pl.label];
+          const colour = meta ? colors[meta.token] : colors.epic;
+          const theirs = Math.round(pl.value);
+          const myVal = myByLabel.get(pl.label);
+          // delta from YOUR standpoint: positive = you're ahead on this pillar.
+          const delta = myVal != null ? Math.round(myVal) - theirs : null;
+          return (
+            <View key={pl.label} testID={`pillar-${pl.label}`}>
+              <StatBar abbr={meta?.abbr ?? pl.label} name={meta ? pl.label[0] + pl.label.slice(1).toLowerCase() : undefined} value={pl.value} colour={colour} />
+              {!isSelf && delta !== null ? (
+                <Text
+                  className="-mt-s2 mb-s2 text-2xs"
+                  style={{ color: delta > 0 ? colors.success : delta < 0 ? colors.danger : colors['text-mute'] }}
+                >
+                  {delta > 0 ? `you lead by ${delta}` : delta < 0 ? `you trail by ${-delta}` : 'dead even'}
+                  <Text className="text-text-mute"> · you {Math.round(myVal!)}</Text>
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    </GlowCard>
   );
 }
 

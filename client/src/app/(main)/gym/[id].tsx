@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { useAuth } from '@/data/auth-context';
 import {
@@ -21,6 +22,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { VsIntro } from '@/ui/battle/vs-intro';
 
 /**
  * A GYM (2026-07-19, migration 068): the roster, a private group chat (5s poll),
@@ -105,32 +107,62 @@ export default function GymScreen() {
               </Text>
             </View>
             {gym.description ? <Text className="mt-s1 text-2xs text-text-dim">{gym.description}</Text> : null}
-            <View className="mt-s3 gap-s2">
-              {(d.members ?? []).map((m) => (
-                <Pressable
-                  key={m.user_id}
-                  onPress={() => { if (m.user_id !== myId) router.push(`/athlete/${m.user_id}` as never); }}
-                  accessibilityRole="button"
-                  className="flex-row items-center justify-between rounded-lg border p-s2"
-                  style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
-                >
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text className="text-sm font-bold text-text" numberOfLines={1}>
-                      {m.display_name}
-                      {m.user_id === myId ? ' (you)' : ''}
-                    </Text>
-                    <Text className="text-2xs text-text-mute">
-                      {m.role === 'owner' ? 'OWNER · ' : ''}Forge {m.forge_level ?? '—'}
-                    </Text>
-                  </View>
-                  {m.evo_rating != null ? (
-                    <Text allowFontScaling={false} style={{ fontSize: 15, color: colors.epic, ...pixelFont() }}>
-                      {m.evo_rating}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
+            {(() => {
+              const members = d.members ?? [];
+              const ratings = members.map((m) => m.evo_rating ?? 0);
+              const maxRating = Math.max(1, ...ratings);
+              const myRating = members.find((m) => m.user_id === myId)?.evo_rating ?? null;
+              // Strongest first — the roster reads as a pecking order at a glance.
+              const ordered = [...members].sort((a, b) => (b.evo_rating ?? 0) - (a.evo_rating ?? 0));
+              return (
+                <View className="mt-s3 gap-s2">
+                  {ordered.map((m) => {
+                    const rating = m.evo_rating ?? null;
+                    const mine = m.user_id === myId;
+                    const delta = rating != null && myRating != null && !mine ? rating - myRating : null;
+                    return (
+                      <Pressable
+                        key={m.user_id}
+                        onPress={() => { if (!mine) router.push(`/athlete/${m.user_id}` as never); }}
+                        accessibilityRole="button"
+                        testID={`gym-member-${m.user_id}`}
+                        className="rounded-lg border p-s2"
+                        style={{ borderColor: mine ? `${colors.accent}66` : colors.border, backgroundColor: mine ? 'rgba(34,211,238,0.07)' : 'rgba(13,21,36,0.5)' }}
+                      >
+                        <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text className="text-sm font-bold text-text" numberOfLines={1}>
+                              {m.display_name}
+                              {mine ? ' (you)' : ''}
+                            </Text>
+                            <Text className="text-2xs text-text-mute">
+                              {m.role === 'owner' ? 'OWNER · ' : ''}Forge {m.forge_level ?? '—'}
+                              {delta != null ? (
+                                <Text style={{ color: delta > 0 ? colors.danger : delta < 0 ? colors.success : colors['text-mute'] }}>
+                                  {'  '}{delta > 0 ? `+${delta} vs you` : delta < 0 ? `${delta} vs you` : 'even with you'}
+                                </Text>
+                              ) : null}
+                            </Text>
+                          </View>
+                          {rating != null ? (
+                            <Text allowFontScaling={false} style={{ fontSize: 15, color: mine ? colors.accent : colors.epic, ...pixelFont() }}>
+                              {rating}
+                            </Text>
+                          ) : (
+                            <Text className="text-2xs text-text-mute">—</Text>
+                          )}
+                        </View>
+                        {rating != null ? (
+                          <View className="mt-s2 overflow-hidden rounded-pill" style={{ height: 5, backgroundColor: colors['surface-3'] }}>
+                            <View style={{ height: '100%', width: `${Math.max(0.04, rating / maxRating) * 100}%`, borderRadius: 999, backgroundColor: mine ? colors.accent : colors.epic }} />
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })()}
           </GlowCard>
 
           {/* Invite (share link) + owner visibility toggle + battle another gym. */}
@@ -327,44 +359,118 @@ export default function GymScreen() {
         </>
       )}
 
-      {result ? <GymBattleResultModal result={result} onClose={() => setResult(null)} /> : null}
+      {result ? <GymBattleTheatre result={result} onClose={() => setResult(null)} /> : null}
     </ScreenShell>
   );
 }
 
-/** The engine battle's outcome: overall verdict + the per-member duel card
- *  (champion combat, not a stat sum). */
-function GymBattleResultModal({ result, onClose }: { result: GymBattleOutcome; onClose: () => void }) {
+/**
+ * The gym battle, played out rather than dumped. A VS splash (VsIntro, the two
+ * gyms' lead champions) opens it; then the member duels reveal one at a time
+ * with the scoreline ticking up; the VICTORY/DEFEAT/DRAW verdict lands only
+ * once every duel is in. Reduced motion collapses straight to the full result.
+ */
+function GymBattleTheatre({ result, onClose }: { result: GymBattleOutcome; onClose: () => void }) {
   const colors = useThemeColors();
+  const reduced = useReducedMotion();
+  const [vsDone, setVsDone] = useState(reduced);
+  const [revealed, setRevealed] = useState(reduced ? result.duels.length : 0);
+
+  // Reveal the duels one by one once the VS splash clears.
+  useEffect(() => {
+    if (!vsDone || reduced || revealed >= result.duels.length) return;
+    const id = setInterval(
+      () => setRevealed((n) => Math.min(n + 1, result.duels.length)),
+      650
+    );
+    return () => clearInterval(id);
+  }, [vsDone, reduced, revealed, result.duels.length]);
+
+  const done = revealed >= result.duels.length;
+  const shown = result.duels.slice(0, revealed);
+  const myRunning = shown.filter((d) => d.winner === 'a').length;
+  const oppRunning = revealed - myRunning;
   const tint = result.result === 'win' ? colors.success : result.result === 'loss' ? colors.danger : colors['text-dim'];
+
   return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 items-center justify-center px-s4" style={{ backgroundColor: 'rgba(2,5,11,0.82)' }} onPress={onClose}>
-        <Pressable onPress={() => undefined} className="w-full max-w-[440px] rounded-xl border p-s4" style={{ borderColor: `${tint}66`, backgroundColor: colors.surface }}>
-          <Text className="text-center" allowFontScaling={false} style={{ fontSize: 22, color: tint, letterSpacing: 1, ...pixelFont() }}>
-            {result.result === 'win' ? 'VICTORY' : result.result === 'loss' ? 'DEFEAT' : 'DRAW'}
+    <Modal transparent animationType="fade" onRequestClose={done ? onClose : undefined}>
+      <View className="flex-1 items-center justify-center px-s4" style={{ backgroundColor: 'rgba(2,5,11,0.82)' }}>
+        <View className="w-full max-w-[440px] rounded-xl border p-s4" style={{ borderColor: `${(done ? tint : colors.legendary)}66`, backgroundColor: colors.surface }}>
+          {/* Header: a live scoreline until the last duel lands, then the verdict. */}
+          {done ? (
+            <Text className="text-center" allowFontScaling={false} style={{ fontSize: 22, color: tint, letterSpacing: 1, ...pixelFont() }}>
+              {result.result === 'win' ? 'VICTORY' : result.result === 'loss' ? 'DEFEAT' : 'DRAW'}
+            </Text>
+          ) : (
+            <Text className="text-center" allowFontScaling={false} style={{ fontSize: 16, color: colors.legendary, letterSpacing: 2, ...pixelFont() }}>
+              BATTLE!
+            </Text>
+          )}
+          <Text className="mt-s1 text-center" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>
+            <Text style={{ color: colors.success }}>{myRunning}</Text>
+            <Text className="text-text-mute"> — </Text>
+            <Text style={{ color: colors.danger }}>{oppRunning}</Text>
           </Text>
-          <Text className="mt-s1 text-center text-2xs text-text-mute" numberOfLines={1}>
-            {result.my_name} {result.a_score} — {result.b_score} {result.opponent_name}
+          <Text className="text-center text-2xs text-text-mute" numberOfLines={1}>
+            {result.my_name} vs {result.opponent_name}
           </Text>
+
           <View className="mt-s3 gap-s1">
-            {result.duels.map((d, i) => (
-              <View key={i} className="flex-row items-center justify-between rounded-md border border-border px-s2" style={{ minHeight: 34, backgroundColor: 'rgba(13,21,36,0.5)' }}>
-                <Text className={`flex-1 text-2xs ${d.winner === 'a' ? 'text-success' : 'text-text-mute'}`} numberOfLines={1}>
-                  {d.winner === 'a' ? '▶ ' : ''}{d.a_name} ({d.a_hp_pct}%)
-                </Text>
-                <Text className="text-2xs text-text-mute px-s2">vs</Text>
-                <Text className={`flex-1 text-right text-2xs ${d.winner === 'b' ? 'text-danger' : 'text-text-mute'}`} numberOfLines={1}>
-                  {d.b_name} ({d.b_hp_pct}%){d.winner === 'b' ? ' ◀' : ''}
-                </Text>
-              </View>
+            {shown.map((d, i) => (
+              <DuelRow key={i} d={d} reduced={reduced} />
+            ))}
+            {/* Placeholders keep the card from jumping as rows arrive. */}
+            {result.duels.slice(revealed).map((_, i) => (
+              <View key={`ph-${i}`} className="rounded-md border border-border-soft" style={{ minHeight: 34, backgroundColor: 'rgba(13,21,36,0.25)' }} />
             ))}
           </View>
+
           <View className="mt-s3">
-            <NeonButton title="DONE" onPress={onClose} testID="gym-battle-done" />
+            {done ? (
+              <NeonButton title="DONE" onPress={onClose} testID="gym-battle-done" />
+            ) : (
+              <Pressable onPress={() => setRevealed(result.duels.length)} accessibilityRole="button" testID="gym-battle-skip" className="items-center" style={{ minHeight: 40, justifyContent: 'center' }}>
+                <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>SKIP</Text>
+              </Pressable>
+            )}
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
+
+      {!vsDone ? (
+        <VsIntro
+          playerId={result.my_champion}
+          opponentId={result.opp_champion}
+          playerName={result.my_name}
+          opponentName={result.opponent_name}
+          onDone={() => setVsDone(true)}
+        />
+      ) : null}
     </Modal>
+  );
+}
+
+/** One member duel, fading + rising in as it's revealed. */
+function DuelRow({ d, reduced }: { d: GymBattleOutcome['duels'][number]; reduced: boolean }) {
+  const enter = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    enter.value = reduced ? 1 : withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
+  }, [enter, reduced]);
+  const style = useAnimatedStyle(() => ({ opacity: enter.value, transform: [{ translateY: (1 - enter.value) * 6 }] }));
+  return (
+    <Animated.View
+      style={style}
+      className="flex-row items-center justify-between rounded-md border border-border px-s2"
+    >
+      <View className="flex-row items-center" style={{ flex: 1, minHeight: 34, backgroundColor: 'transparent' }}>
+        <Text className={`flex-1 text-2xs ${d.winner === 'a' ? 'text-success' : 'text-text-mute'}`} numberOfLines={1}>
+          {d.winner === 'a' ? '▶ ' : ''}{d.a_name} ({d.a_hp_pct}%)
+        </Text>
+      </View>
+      <Text className="text-2xs text-text-mute px-s2">vs</Text>
+      <Text className={`flex-1 text-right text-2xs ${d.winner === 'b' ? 'text-danger' : 'text-text-mute'}`} numberOfLines={1}>
+        {d.b_name} ({d.b_hp_pct}%){d.winner === 'b' ? ' ◀' : ''}
+      </Text>
+    </Animated.View>
   );
 }
