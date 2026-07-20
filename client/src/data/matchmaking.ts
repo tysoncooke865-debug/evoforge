@@ -145,3 +145,82 @@ export async function pvpFinish(matchId: string, iWon: boolean): Promise<void> {
 export async function pvpForfeit(matchId: string): Promise<void> {
   try { await supabase.rpc('pvp_forfeit', { p_match: matchId }); } catch { /* ignore */ }
 }
+
+/**
+ * FITNESS-DUEL matchmaking (System A, migration 077). Same searching loop as the
+ * champion one, but pairs into a `battle_matches` row (the real-workout duel) by
+ * FORMAT — on match you drop into the existing /arena/battle/[id] flow. Replaces
+ * the old invite-code create/join.
+ */
+export type DuelFormat = 'blitz' | 'volume_duel' | 'heads_or_tails';
+
+export function useDuelMatchmaking() {
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const [state, setState] = useState<MatchmakingState>({ status: 'idle' });
+
+  const start = useCallback(async (format: DuelFormat, snapshot: Record<string, unknown>) => {
+    setState({ status: 'searching' });
+    try {
+      const { data, error } = await supabase.rpc('battle_matchmake', { p_format: format, p_snapshot: snapshot });
+      if (error) throw error;
+      const r = data as { ok: boolean; matched?: boolean; match_id?: string; seat?: number; reason?: string };
+      if (!r.ok) {
+        setState({ status: 'idle' });
+        useToastStore.getState().push({
+          kind: 'error',
+          title: 'CAN’T QUEUE',
+          subtitle: r.reason === 'no_name' ? 'Set a public display name first (Profile → go public).' : 'Try again.',
+        });
+        return;
+      }
+      if (r.matched && r.match_id) setState({ status: 'matched', matchId: r.match_id, seat: (r.seat ?? 2) as 1 | 2 });
+    } catch {
+      setState({ status: 'idle' });
+      useToastStore.getState().push({ kind: 'error', title: 'MATCHMAKING FAILED', subtitle: 'Could not join the queue. Try again.' });
+    }
+  }, []);
+
+  const cancel = useCallback(async () => {
+    try { await supabase.rpc('battle_matchmake_cancel'); } catch { /* ignore */ }
+    setState({ status: 'idle' });
+  }, []);
+
+  const reset = useCallback(() => setState({ status: 'idle' }), []);
+
+  useEffect(() => {
+    if (state.status !== 'searching' || !userId) return;
+    let live = true;
+    // battle_matches is in the realtime publication (009) with is_battle_participant
+    // RLS — a paired match reaches me the moment my participant row exists (same
+    // txn), so an INSERT event fires; poll then resolves the id + seat.
+    const channel = supabase
+      .channel(`duel_pair:${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'battle_matches' }, async () => {
+        try {
+          const { data } = await supabase.rpc('battle_matchmake_poll');
+          const r = data as { matched: boolean; match_id?: string; seat?: number };
+          if (live && r?.matched && r.match_id) setState({ status: 'matched', matchId: r.match_id, seat: (r.seat ?? 1) as 1 | 2 });
+        } catch {
+          /* keep waiting */
+        }
+      })
+      .subscribe();
+    const poll = setInterval(async () => {
+      try {
+        const { data } = await supabase.rpc('battle_matchmake_poll');
+        const r = data as { matched: boolean; match_id?: string; seat?: number };
+        if (live && r?.matched && r.match_id) setState({ status: 'matched', matchId: r.match_id, seat: (r.seat ?? 1) as 1 | 2 });
+      } catch {
+        /* keep waiting */
+      }
+    }, 3000);
+    return () => {
+      live = false;
+      clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [state.status, userId]);
+
+  return { state, start, cancel, reset };
+}

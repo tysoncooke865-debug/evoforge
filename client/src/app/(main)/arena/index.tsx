@@ -1,18 +1,18 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Modal, Pressable, Text, View } from 'react-native';
 
 import { progressionFeatures } from '@/data/progression/features';
 
 import { useMyBattles, useMyBattleScores, type BattleMatch } from '@/data/battle/hooks';
 import { useFriendGhosts } from '@/data/ghosts';
-import { useBattleSnapshot, useCreateInvite, useUniversalJoin } from '@/data/battle/mutations';
+import { useBattleSnapshot } from '@/data/battle/mutations';
+import { useDuelMatchmaking, type DuelFormat } from '@/data/matchmaking';
 import { totalRoundsFor } from '@/domain/battle/engine';
-import { formatGlyph, formatLabel, normalizeCode, splitBattles } from '@/domain/battle/format';
+import { formatGlyph, formatLabel, splitBattles } from '@/domain/battle/format';
 import { PIXEL, PIXEL_BOLD, pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { CodeCard, IconBadge, PressCard } from '@/ui/arena/battle-arena';
-import { SegmentedTabs } from '@/ui/core/segmented-tabs';
+import { IconBadge, PressCard } from '@/ui/arena/battle-arena';
 import { CompanionMenuButton } from '@/ui/character/companion-menu';
 import { NeonButton } from '@/ui/core/neon-button';
 import { OnlineBadge } from '@/ui/core/online-badge';
@@ -34,46 +34,31 @@ export default function ArenaScreen() {
   const colors = useThemeColors();
   const router = useRouter();
   const snapshot = useBattleSnapshot();
-  const invite = useCreateInvite();
-  const join = useUniversalJoin();
   const battles = useMyBattles();
   const results = useMyBattleScores();
-  const [tab, setTab] = useState<0 | 1>(0);
-  const [code, setCode] = useState('');
   const rivalry = useBattleRpgStore((s) => s.rivalry);
   const gymProgress = useBattleRpgStore((s) => s.gymProgress);
   const badgeCount = GYMS.filter((g) => gymProgress[g.id]?.firstClearClaimed).length;
   const friendGhosts = useFriendGhosts();
 
-  // Live matches lead; open invites keep their code card; history is what's
-  // actually over. Every match lands in exactly one bucket (pure, tested).
-  const { live, invites, history } = splitBattles(battles.data ?? []);
-  const openInvite = invites[0] ?? null;
+  // Live matches lead; history is what's actually over. Every match lands in
+  // exactly one bucket (pure, tested).
+  const { live, history } = splitBattles(battles.data ?? []);
 
-  const createBattle = (format: string) => {
-    invite.mutate(
-      { snapshot, format },
-      {
-        onSuccess: (data) => router.push(`/arena/battle/${String(data.match_id)}`),
-      }
-    );
-  };
-
-  // Join a real-time FITNESS-DUEL by its invite code (champion battles use Quick
-  // Match matchmaking now — no code).
-  const joinBattle = () => {
-    const clean = normalizeCode(code);
-    if (!clean) return;
-    join.mutate(
-      { code: clean, snapshot },
-      {
-        onSuccess: (r) => {
-          setCode('');
-          router.push(`/arena/battle/${r.matchId}`);
-        },
-      }
-    );
-  };
+  // FITNESS-DUEL matchmaking (077): pick a format → get paired → drop into the
+  // existing /arena/battle/[id] flow. Replaces the old create/join-by-code.
+  const duel = useDuelMatchmaking();
+  const startDuel = (format: DuelFormat) => void duel.start(format, snapshot);
+  const searching = duel.state.status === 'searching';
+  const navigatedRef = useRef(false);
+  useEffect(() => {
+    if (duel.state.status === 'matched' && !navigatedRef.current) {
+      navigatedRef.current = true;
+      router.push(`/arena/battle/${duel.state.matchId}`);
+    }
+    if (duel.state.status === 'idle') navigatedRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duel.state.status]);
 
   return (
     <ScreenShell>
@@ -156,80 +141,33 @@ export default function ArenaScreen() {
         </View>
       ) : null}
 
-      <SegmentedTabs left="⚔ CREATE BATTLE" right="🔍 JOIN BATTLE" active={tab} onChange={setTab} pixelLabels />
-
-      {tab === 0 ? (
-        <GlowCard glow={colors.accent}>
-          <View className="mb-s3 flex-row items-center gap-s3">
-            <IconBadge glyph="🏋" />
-            <View className="flex-1">
-              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
-                FRIENDLY BLITZ
-              </Text>
-              <View className="mt-s1 flex-row gap-s2">
-                <MiniChip label="👥 1V1" />
-                <MiniChip label="⏱ ~25 MIN" />
-              </View>
+      <GlowCard glow={colors.accent}>
+        <View className="mb-s3 flex-row items-center gap-s3">
+          <IconBadge glyph="🏋" />
+          <View className="flex-1">
+            <Text className="text-text" allowFontScaling={false} style={{ fontSize: 20, ...pixelFont() }}>
+              FRIENDLY BLITZ
+            </Text>
+            <View className="mt-s1 flex-row gap-s2">
+              <MiniChip label="👥 1V1" />
+              <MiniChip label="⏱ ~25 MIN" />
             </View>
           </View>
-          <Text className="mb-s4 text-2xs text-text-mute">
-            Three lifts a rut, twelve minutes a bell. Challenge a friend, lift the object first.
-          </Text>
-
-          {openInvite?.invite_code ? (
-            <View className="gap-s3">
-              <CodeCard code={openInvite.invite_code} />
-              <NeonButton
-                title="ENTER THE ARENA"
-                onPress={() => router.push(`/arena/battle/${openInvite.id}`)}
-                testID="arena-enter"
-              />
-              <Text className="text-center text-2xs text-text-mute">
-                Share the code — the battle starts the moment they join.
-              </Text>
-            </View>
-          ) : (
-            <NeonButton
-              title="CREATE BATTLE · GET CODE"
-              onPress={() => createBattle('blitz')}
-              busy={invite.isPending}
-              testID="arena-create"
-            />
-          )}
-        </GlowCard>
-      ) : (
-        <GlowCard glow={colors.epic}>
-          {/* JUST the box — any game's code works here, so no per-game copy. */}
-          <TextInput
-            className="min-h-[52px] rounded-xl border bg-surface-2 p-s3 text-center text-2xl font-bold text-text"
-            style={{
-              letterSpacing: 10,
-              borderColor: code.trim().length === 6 ? `${colors.epic}8c` : colors.border,
-            }}
-            placeholder="——————"
-            placeholderTextColor="#64758f"
-            autoCapitalize="characters"
-            maxLength={6}
-            value={code}
-            onChangeText={(t) => setCode(t.toUpperCase())}
-            testID="arena-code"
-          />
-          <View className="mt-s3">
-            <NeonButton
-              title="JOIN WITH CODE"
-              onPress={joinBattle}
-              disabled={code.trim().length !== 6}
-              busy={join.isPending}
-              testID="arena-join"
-            />
-          </View>
-        </GlowCard>
-      )}
+        </View>
+        <Text className="mb-s4 text-2xs text-text-mute">
+          Three lifts a rut, twelve minutes a bell. Get matched with a real opponent and lift the object first — no code.
+        </Text>
+        <NeonButton
+          title="⚔ FIND A DUEL"
+          onPress={() => startDuel('blitz')}
+          busy={searching}
+          testID="arena-create"
+        />
+      </GlowCard>
 
       {/* §7.2 (2026-07-19): the JOIN tab is ONLY the box — every section
-          below renders on the CREATE tab alone. The fragment closes just
-          before BATTLE HISTORY's sibling below. */}
-      {tab === 0 ? (
+          The fragment closes just before BATTLE HISTORY's sibling below. */}
+      {(
         <>
       {/* The queue modes — still coming-soon, promoted to the old rules
           strip's slot (the strip is gone; the rules live on the battle page). */}
@@ -348,7 +286,7 @@ export default function ArenaScreen() {
       </View>
 
       {/* MINI GAMES (design §16): single-round duels on the battle spine. */}
-      {tab === 0 && !openInvite ? (
+      {(
         <View>
           <SectionLabel>MINI GAMES</SectionLabel>
           <GlowCard glow={colors.danger}>
@@ -369,10 +307,10 @@ export default function ArenaScreen() {
               most weight moved takes the duel. Every set is a REAL set: streak, stats and XP all bank.
             </Text>
             <NeonButton
-              title="START VOLUME DUEL · GET CODE"
+              title="⚔ FIND A VOLUME DUEL"
               variant="danger"
-              onPress={() => createBattle('volume_duel')}
-              busy={invite.isPending}
+              onPress={() => startDuel('volume_duel')}
+              busy={searching}
               testID="arena-create-duel"
             />
           </GlowCard>
@@ -396,23 +334,23 @@ export default function ArenaScreen() {
                 Locked lifts, thirty minutes, most weight moved on YOUR lift wins.
               </Text>
               <NeonButton
-                title="FLIP THE COIN · GET CODE"
-                onPress={() => createBattle('heads_or_tails')}
-                busy={invite.isPending}
+                title="⚔ FIND A COIN DUEL"
+                onPress={() => startDuel('heads_or_tails')}
+                busy={searching}
                 testID="arena-create-hot"
               />
             </GlowCard>
           </View>
         </View>
-      ) : null}
+      )}
 
       <View>
         <SectionLabel>BATTLE HISTORY</SectionLabel>
         {history.length === 0 ? (
           <Text className="text-2xs text-text-mute">
-            {live.length > 0 || openInvite
+            {live.length > 0
               ? 'Nothing settled yet — finish what you started.'
-              : 'No battles yet. Mint a code and call someone out.'}
+              : 'No battles yet. Find a duel and call someone out.'}
           </Text>
         ) : (
           <>
@@ -439,7 +377,22 @@ export default function ArenaScreen() {
         )}
       </View>
         </>
-      ) : null}
+      )}
+
+      {/* Searching for a live duel opponent (System-A matchmaking). */}
+      <Modal transparent visible={searching} animationType="fade" onRequestClose={() => void duel.cancel()}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(2,5,11,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View className="w-full items-center rounded-xl border p-s5" style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface, gap: 10, maxWidth: 360 }}>
+            <Text allowFontScaling={false} style={{ fontSize: 18, color: colors.accent, ...pixelFont() }}>SEARCHING…</Text>
+            <Text className="text-center text-2xs text-text-mute">
+              Finding you a live opponent. Stay here — you’ll drop into the arena the moment you’re matched.
+            </Text>
+            <View className="mt-s2 w-full">
+              <NeonButton title="CANCEL" variant="ghost" onPress={() => void duel.cancel()} testID="duel-cancel" />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenShell>
   );
 }

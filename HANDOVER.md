@@ -26,6 +26,27 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FITNESS-DUEL MATCHMAKING + ONLINE COUNT (2026-07-20, migration 077 APPLIED +
+  two-client verified).** The System-A real-workout duel (battle_matches) no
+  longer uses an invite_code — Arena "FIND A DUEL / FIND A VOLUME DUEL / FIND A
+  COIN DUEL" queue you by FORMAT and auto-pair you into a match; you drop into the
+  EXISTING /arena/battle/[id] flow (VsPhase→ready→rounds→settle unchanged). 077:
+  `battle_duel_queue` + `battle_matchmake(format,snapshot)` (advisory-locked,
+  pairs by format, creates the match + 2 participants born at status='matched',
+  invite_code NULL) + `_poll` + `_cancel`; `clean_battle_snapshot` (SQL port of
+  the edge fn's cleanSnapshot — clamps stats, forces the public_profile name, so a
+  client can't inflate/spoof). SECURITY DEFINER is safe: matches/participants have
+  no guard triggers. Client: `useDuelMatchmaking` in data/matchmaking.ts; Arena
+  removed the CREATE/JOIN tabs + code box + CodeCard + openInvite and added a
+  SEARCHING modal; athlete "⚔ CHALLENGE" (the last code-minter) removed. Falsified
+  (pair, format isolation, poll, cancel, clamp) + two-client Playwright (both hit
+  FIND A DUEL → paired into the SAME match → FACE OFF with correct clamped
+  identities). **battle-invite/battle-join edge fns are now dead (left in place,
+  harmless). ALL join-by-code is GONE from the app.** A targeted "challenge a
+  specific friend" (direct invite via notification) is a possible follow-up.
+- **Players-online count:** `data/presence.ts` — a global Supabase Realtime
+  Presence channel (joined once in (main)/_layout) counts unique players online;
+  `OnlineBadge` (● N ONLINE) on the Arena masthead + Quick Match. Verified.
 - **GYM CODES RETIRED → online discovery (2026-07-20, migration 076 APPLIED +
   falsified).** Gyms are no longer joined by a 6-char code — you BROWSE/SEARCH
   public gyms and join, or use a shareable gym LINK for private crews (same

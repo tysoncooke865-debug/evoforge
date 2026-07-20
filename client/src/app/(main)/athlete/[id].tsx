@@ -4,14 +4,11 @@ import { Image, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { useAthleteProfile, useAthletePosts, type AthleteProfile, type EvoPillar } from '@/data/social-profile';
-import { useBattleSnapshot, useCreateInvite } from '@/data/battle/mutations';
 import { useBlockUser, useMyBlocks, useReportContent, useUnblockUser } from '@/data/moderation';
-import { useToastStore } from '@/state/toast-store';
 import type { BranchV2 } from '@/domain/branches-v2';
 import type { Sex } from '@/domain/nutrition';
 import { isRenderablePost } from '@/domain/social-feed';
 import { avatarArtV2 } from '@/ui/character/avatar-art';
-import { NeonButton } from '@/ui/core/neon-button';
 import { useDeletePost, useToggleReaction } from '@/data/social-feed';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -50,30 +47,6 @@ export default function AthleteProfileScreen() {
   // dereference (the lockout postmortem) — drop, never throw.
   const list = (posts.data?.pages.flat() ?? []).filter(isRenderablePost);
 
-  // CHALLENGE (2026-07-19): mint a battle from the profile using the same
-  // invite flow the Arena uses, then open the match — its code is what you send
-  // this athlete to accept (the battle system is code-based).
-  const snapshot = useBattleSnapshot();
-  const invite = useCreateInvite();
-  const challenge = () => {
-    invite.mutate(
-      { snapshot, format: 'blitz' },
-      {
-        onSuccess: (data) => {
-          const code = (data as { invite_code?: string }).invite_code;
-          useToastStore.getState().push({
-            kind: 'info',
-            title: 'CHALLENGE READY',
-            subtitle: code
-              ? `Send code ${code} to ${p?.display_name ?? 'them'} to battle`
-              : `Share your battle code with ${p?.display_name ?? 'them'}`,
-          });
-          const matchId = (data as { match_id?: string }).match_id;
-          if (matchId) router.push(`/arena/battle/${String(matchId)}` as never);
-        },
-      }
-    );
-  };
 
   const title = (p?.display_name ?? 'ATHLETE').toUpperCase();
 
@@ -137,17 +110,6 @@ export default function AthleteProfileScreen() {
               </View>
             ) : null}
           </GlowCard>
-
-          {/* Challenge them to a battle (code-based; the toast carries the code). */}
-          {!p.is_self && athleteId ? (
-            <NeonButton
-              title={invite.isPending ? 'CREATING…' : '⚔ CHALLENGE TO A BATTLE'}
-              variant="ghost"
-              busy={invite.isPending}
-              onPress={challenge}
-              testID="athlete-challenge"
-            />
-          ) : null}
 
           {/* Safety: block or report (App-Store moderation). */}
           {!p.is_self && athleteId ? <SafetyRow athleteId={athleteId} name={p.display_name} /> : null}
