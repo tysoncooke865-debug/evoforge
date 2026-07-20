@@ -26,6 +26,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FRIEND CODES RETIRED → fully online friending (2026-07-20, migration 073
+  APPLIED + falsified).** Removed the 6-char friend code (dropped `friend_codes`
+  table + `my_friend_code` + `send_friend_request`; deleted `useFriendCode` /
+  `useSendFriendRequest`; removed the "YOUR ADD CODE" card). Friending is now:
+  name search (071) + requests, OR a **shareable profile link**. Each athlete has
+  a stable `public_profile.share_token` (backfilled); `my_share_token()` returns
+  it; `friends.tsx` "SHARE MY PROFILE LINK" shares `…/athlete/<id>?invite=<token>`.
+  **Privacy gap closed:** `request_friend(p_user, p_token)` now admits a request
+  to a PRIVATE athlete IFF the caller presents their share token (they shared
+  their link) — so private users stay cold-addable without a manual code, and
+  cold spam is still impossible (no token + not public → not_addressable). The
+  old 1-arg `request_friend(uuid)` was dropped; the client always sends p_user
+  (+ optional p_token from `athlete/[id]`'s `?invite=`). Falsified: private target
+  refused w/o token, added with the right token, my_share_token correct.
+  **NOTE: battle/challenge codes (034) + gym join codes (068) are SEPARATE and
+  untouched here** — the live-matchmaking task removes battle codes.
 - **RIVALRY "PR BEATEN" NOTIFICATIONS + AVATAR SHADOW + GHOST AUDIT (2026-07-20,
   migration 072 APPLIED + falsified)**:
   - **PR-beaten notifications.** Log a set whose e1RM passes a FRIEND's best for

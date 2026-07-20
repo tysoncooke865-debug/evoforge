@@ -108,7 +108,7 @@ export default function ArenaScreen() {
         style={{ minHeight: 44, borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}
       >
         <Text className="text-epic" allowFontScaling={false} style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}>
-          ✦ FRIENDS &amp; RIVALS — add by code, track your head-to-head
+          ✦ FRIENDS &amp; RIVALS — add by name, track your head-to-head
         </Text>
         <Text className="text-base font-bold text-epic">›</Text>
       </Pressable>

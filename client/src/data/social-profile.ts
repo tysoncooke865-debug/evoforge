@@ -1,3 +1,4 @@
+import { Platform, Share } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { toPosts, type SocialPost } from '@/domain/social-feed';
@@ -164,16 +165,22 @@ export function useSearchAthletes(query: string) {
 const REQUEST_REASON: Record<string, string> = {
   self: "That's you.",
   already_friends: "You're already friends.",
-  not_addressable: "This athlete isn't public — add them by code instead.",
+  not_addressable: "This athlete is private — open their shared profile link to add them.",
 };
 
-/** Send a friend request by user id (discovery/profile path — migration 055). */
+/** Send a friend request by user id (071 request_friend). An optional invite
+ *  token (from a shared profile link `?invite=`) lets you add a PRIVATE athlete
+ *  who deliberately shared their link; otherwise only public athletes are addable. */
 export function useRequestFriend() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (athleteId: string): Promise<{ ok: boolean; accepted?: boolean; reason?: string }> => {
-      const { data, error } = await supabase.rpc('request_friend', { p_user: athleteId });
+    mutationFn: async (
+      arg: string | { athleteId: string; token?: string | null }
+    ): Promise<{ ok: boolean; accepted?: boolean; reason?: string }> => {
+      const athleteId = typeof arg === 'string' ? arg : arg.athleteId;
+      const token = typeof arg === 'string' ? null : (arg.token ?? null);
+      const { data, error } = await supabase.rpc('request_friend', { p_user: athleteId, p_token: token });
       if (error) throw new Error('Could not send the request. Try again.');
       return data as { ok: boolean; accepted?: boolean; reason?: string };
     },
@@ -219,4 +226,54 @@ export function useSetPrivacy() {
     },
     onError: (e: Error) => useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message }),
   });
+}
+
+/** The caller's stable invite token (073) for building a shareable profile link.
+ *  Replaces the retired 6-char friend code. Null while offline / RPC absent. */
+export function useMyShareToken() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['my_share_token', userId],
+    enabled: userId !== null,
+    staleTime: Infinity,
+    queryFn: async (): Promise<string | null> => {
+      try {
+        const { data, error } = await supabase.rpc('my_share_token');
+        return error ? null : (data as string);
+      } catch {
+        return null;
+      }
+    },
+  });
+}
+
+/** The deep link that opens the sharer's profile with an ADD that works even if
+ *  they're private (the `?invite=` token authorises the cold add — 073). */
+export function inviteLink(userId: string, token: string): string {
+  const base =
+    Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://expo-rewrite.evoforge.pages.dev';
+  return `${base}/athlete/${userId}?invite=${token}`;
+}
+
+/** Share (native sheet) or copy (web) the caller's invite link — the code
+ *  replacement. Best-effort: a cancelled share/clipboard never throws. */
+export async function shareInvite(userId: string, token: string): Promise<void> {
+  const url = inviteLink(userId, token);
+  try {
+    if (Platform.OS === 'web') {
+      const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+      if (nav && 'share' in nav && typeof nav.share === 'function') {
+        await nav.share({ title: 'EvoForge', text: 'Add me on EvoForge', url });
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
+        useToastStore.getState().push({ kind: 'info', title: 'LINK COPIED', subtitle: 'Share it so friends can add you.' });
+      }
+    } else {
+      await Share.share({ message: `Add me on EvoForge — ${url}` });
+    }
+  } catch {
+    /* user cancelled the share sheet — not an error */
+  }
 }

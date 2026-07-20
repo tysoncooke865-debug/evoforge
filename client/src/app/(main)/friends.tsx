@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { useFriendCode, useFriends, useFriendRequests, useRespondRequest, useSendFriendRequest } from '@/data/social';
-import { useRecommendedAthletes, useSearchAthletes } from '@/data/social-profile';
+import { useFriends, useFriendRequests, useRespondRequest } from '@/data/social';
+import { useMyShareToken, useRecommendedAthletes, useSearchAthletes, shareInvite } from '@/data/social-profile';
+import { useAuth } from '@/data/auth-context';
 import { useBlockedSet } from '@/data/moderation';
 import { pixelFont } from '@/theme/fonts';
 import { AddFriendButton } from '@/ui/social/add-friend-button';
@@ -13,19 +14,21 @@ import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell, GlowCard } from '@/ui/core/shell';
 
 /**
- * FRIENDS + RIVALS (Tyson, 2026-07-17) — migration 036. Add by code, share
- * yours, accept invites, see the head-to-head record with each rival. The hub
+ * FRIENDS + RIVALS (Tyson, 2026-07-17; codes retired 073). Fully online: find
+ * anyone public by display name and add them, or SHARE YOUR PROFILE LINK so a
+ * friend can open your profile and add you (the link works even if you're
+ * private). Accept invites, see the head-to-head record with each rival. The hub
  * the social game modes plug into (ghost battles, damage assessment, live
  * matchmaking — MULTIPLAYER_ROADMAP.md).
  */
 export default function FriendsScreen() {
   const colors = useThemeColors();
-  const code = useFriendCode();
+  const { session } = useAuth();
+  const myId = session?.user?.id ?? null;
+  const shareToken = useMyShareToken();
   const friends = useFriends();
   const requests = useFriendRequests();
-  const send = useSendFriendRequest();
   const respond = useRespondRequest();
-  const [entry, setEntry] = useState('');
   const [search, setSearch] = useState('');
   // Typeahead: 150ms after the last keystroke drives the query (below "laggy",
   // above the character rate) — suggestions pop up as you type, unthrottled
@@ -79,7 +82,7 @@ export default function FriendsScreen() {
             <Text className="mt-s2 text-2xs text-text-mute">Searching…</Text>
           ) : (hits.data ?? []).length === 0 ? (
             <Text className="mt-s2 text-2xs text-text-mute" testID="friend-search-empty">
-              No one by that name yet. If they’re private, add them by code below.
+              No one by that name yet. Private athletes only show up if they share their profile link with you.
             </Text>
           ) : (
             <View className="mt-s2 gap-s2">
@@ -98,34 +101,24 @@ export default function FriendsScreen() {
         ) : null}
       </GlowCard>
 
-      {/* Secondary: share your code, or add a private friend by theirs. */}
+      {/* Secondary: share YOUR profile link so a friend can open it and add you.
+          The link carries an invite token (073) so it works even if you're
+          private — no manual code to read out. */}
       <GlowCard>
         <Text allowFontScaling={false} style={{ fontSize: 10, color: colors.accent, letterSpacing: 1.5, ...pixelFont(false) }}>
-          YOUR ADD CODE
+          SHARE YOUR PROFILE
         </Text>
-        <Text selectable allowFontScaling={false} style={{ marginTop: 4, fontSize: 34, color: colors.text, letterSpacing: 8, ...pixelFont() }} testID="my-friend-code">
-          {code.data ?? '······'}
+        <Text className="mt-s1 text-2xs text-text-mute">
+          Send your link — they open your profile and tap ADD. Works even if your profile is private.
         </Text>
-        <Text className="mt-s1 text-2xs text-text-mute">Share it so friends can add you. Have a code? Enter it below.</Text>
-
-        <TextInput
-          className="mt-s3 min-h-[50px] rounded-xl border bg-surface-2 px-s3 text-center text-xl font-bold text-text"
-          style={{ letterSpacing: 8, borderColor: entry.trim().length === 6 ? `${colors.accent}8c` : colors.border }}
-          placeholder="——————"
-          placeholderTextColor="#64758f"
-          autoCapitalize="characters"
-          maxLength={6}
-          value={entry}
-          onChangeText={(v) => setEntry(v.toUpperCase())}
-          testID="friend-code-input"
-        />
         <View className="mt-s2">
           <NeonButton
-            title="ADD BY CODE"
-            onPress={() => send.mutate(entry, { onSuccess: (r) => { if (r.ok) setEntry(''); } })}
-            busy={send.isPending}
-            disabled={entry.trim().length !== 6}
-            testID="friend-add"
+            title="SHARE MY PROFILE LINK"
+            onPress={() => {
+              if (myId && shareToken.data) void shareInvite(myId, shareToken.data);
+            }}
+            disabled={!myId || !shareToken.data}
+            testID="share-profile"
           />
         </View>
       </GlowCard>
@@ -192,7 +185,7 @@ export default function FriendsScreen() {
           );
         })
       ) : (
-        <Text className="py-s3 text-center text-2xs text-text-mute">No rivals yet — share your code and add a friend.</Text>
+        <Text className="py-s3 text-center text-2xs text-text-mute">No rivals yet — search a name or share your profile link to add a friend.</Text>
       )}
     </ScreenShell>
   );

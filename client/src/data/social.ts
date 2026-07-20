@@ -26,22 +26,6 @@ export interface FriendRequest {
   display_name: string;
 }
 
-/** The caller's stable add-code (created on first read). */
-export function useFriendCode() {
-  const { session } = useAuth();
-  const userId = session?.user?.id ?? null;
-  return useQuery({
-    queryKey: ['friend_code', userId],
-    enabled: userId !== null,
-    staleTime: Infinity,
-    queryFn: async (): Promise<string> => {
-      const { data, error } = await supabase.rpc('my_friend_code');
-      if (error) throw error;
-      return data as string;
-    },
-  });
-}
-
 export function useFriends() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
@@ -67,46 +51,6 @@ export function useFriendRequests() {
       if (error) throw error;
       return (data ?? []) as FriendRequest[];
     },
-  });
-}
-
-interface SendResult {
-  ok: boolean;
-  accepted?: boolean;
-  reason?: 'self' | 'unknown_code' | 'already_friends';
-}
-
-const SEND_REASON: Record<string, string> = {
-  self: "That's your own code.",
-  unknown_code: 'No athlete has that code.',
-  already_friends: "You're already friends.",
-};
-
-export function useSendFriendRequest() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (code: string): Promise<SendResult> => {
-      const clean = code.trim().toUpperCase();
-      if (clean.length !== 6) throw new Error('A code is 6 characters.');
-      const { data, error } = await supabase.rpc('send_friend_request', { p_code: clean });
-      if (error) throw new Error('Could not send the request. Try again.');
-      return data as SendResult;
-    },
-    onSuccess: (r) => {
-      const push = useToastStore.getState().push;
-      if (!r.ok) {
-        push({ kind: 'error', title: 'NOT SENT', subtitle: SEND_REASON[r.reason ?? ''] ?? 'Try again.' });
-        return;
-      }
-      void queryClient.invalidateQueries({ queryKey: ['friends'] });
-      void queryClient.invalidateQueries({ queryKey: ['friend_requests'] });
-      push(
-        r.accepted
-          ? { kind: 'achievement', title: 'FRIEND ADDED', subtitle: 'They already invited you — you’re now rivals.' }
-          : { kind: 'info', title: 'REQUEST SENT', subtitle: 'They’ll see it next time they open EvoForge.' }
-      );
-    },
-    onError: (e: Error) => useToastStore.getState().push({ kind: 'error', title: 'NOT SENT', subtitle: e.message }),
   });
 }
 

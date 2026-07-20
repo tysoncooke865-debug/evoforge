@@ -30,8 +30,11 @@ import { SocialPostCard } from '@/ui/social/post-cards';
  */
 export default function AthleteProfileScreen() {
   const colors = useThemeColors();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `invite` is the share-link token (073): it authorises adding this athlete
+  // even if they're private (they shared their own link). Threaded to ADD.
+  const { id, invite: inviteToken } = useLocalSearchParams<{ id: string; invite?: string }>();
   const athleteId = typeof id === 'string' ? id : null;
+  const addToken = typeof inviteToken === 'string' ? inviteToken : null;
   const { session } = useAuth();
   const myId = session?.user?.id ?? null;
   const [nowMs] = useState(() => Date.now());
@@ -106,7 +109,7 @@ export default function AthleteProfileScreen() {
             </View>
             <Text className="mt-s3 text-text" allowFontScaling={false} style={{ fontSize: 16, letterSpacing: 1, ...pixelFont() }}>🔒 PRIVATE PROFILE</Text>
             <Text className="mt-s2 max-w-[280px] text-center text-2xs text-text-dim">Add {p.display_name} as a friend to see their forge, stats and posts.</Text>
-            {athleteId ? <View className="mt-s3"><AddFriendButton athleteId={athleteId} /></View> : null}
+            {athleteId ? <View className="mt-s3"><AddFriendButton athleteId={athleteId} token={addToken} /></View> : null}
           </View>
         </GlowCard>
       ) : (
@@ -122,7 +125,7 @@ export default function AthleteProfileScreen() {
                   {p.are_friends ? ' · Friend' : ''}{p.post_count != null ? ` · ${p.post_count} post${p.post_count === 1 ? '' : 's'}` : ''}
                 </Text>
               </View>
-              {!p.is_self && athleteId && !p.are_friends ? <AddFriendButton athleteId={athleteId} /> : null}
+              {!p.is_self && athleteId && !p.are_friends ? <AddFriendButton athleteId={athleteId} token={addToken} /> : null}
             </View>
 
             {p.rival && (p.rival.my_wins + p.rival.their_wins + p.rival.draws) > 0 ? (

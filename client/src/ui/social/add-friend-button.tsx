@@ -9,12 +9,12 @@ import { useThemeColors } from '@/theme/use-theme';
  * a public profile or the Discover list where the athlete's code isn't in hand.
  * A compact chip so it fits a profile header or a discovery row.
  */
-export function AddFriendButton({ athleteId, testID }: { athleteId: string; testID?: string }) {
+export function AddFriendButton({ athleteId, token, testID }: { athleteId: string; token?: string | null; testID?: string }) {
   const colors = useThemeColors();
   const request = useRequestFriend();
   return (
     <Pressable
-      onPress={() => request.mutate(athleteId)}
+      onPress={() => request.mutate({ athleteId, token })}
       accessibilityRole="button"
       accessibilityLabel="add friend"
       disabled={request.isPending}
