@@ -32,14 +32,10 @@ export function HomeHeader({
   level,
   xpIntoLevel,
   xpNeeded,
-  rank,
 }: {
   level: number;
   xpIntoLevel: number;
   xpNeeded: number;
-  /** The Rival standing ("OBSIDIAN I") — top-left, under the wordmark.
-   *  null while the flag is off. */
-  rank: { label: string; provisional: boolean } | null;
 }) {
   const colors = useThemeColors();
   const emote = useEquippedEmote(level);
@@ -53,8 +49,8 @@ export function HomeHeader({
   const brandSize = width >= 460 ? 34 : width >= 390 ? 30 : 24;
   return (
     // zIndex: the AvatarHero's oversized pressable (its 450px stage rig)
-    // reaches up under this masthead; without the lift, the rank line's
-    // taps land on the character instead.
+    // reaches up under this masthead; without the lift, the masthead's taps
+    // (the level module) land on the character instead.
     <View className="w-full flex-row items-start justify-between" style={{ gap: 10, zIndex: 10 }}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
@@ -81,32 +77,6 @@ export function HomeHeader({
           >
             RISE · TRANSFORM · CONQUER
           </Text>
-        ) : null}
-        {rank ? (
-          <Pressable
-            onPress={() => router.push('/rival' as never)}
-            accessibilityRole="button"
-            accessibilityLabel={`Arena rank: ${rank.provisional ? 'unranked' : rank.label}. Opens Rival Rank.`}
-            testID="home-arena-rank"
-            className="mt-s1 self-start"
-            style={{ minHeight: 24, justifyContent: 'center' }}
-          >
-            <Text
-              allowFontScaling={false}
-              numberOfLines={1}
-              style={{
-                fontSize: 13,
-                letterSpacing: 0.5,
-                color: rank.provisional ? colors['text-mute'] : colors.accent,
-                ...(rank.provisional
-                  ? null
-                  : { textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 10 }),
-                ...pixelFont(),
-              }}
-            >
-              ⚔ {rank.provisional ? 'UNRANKED' : rank.label}
-            </Text>
-          </Pressable>
         ) : null}
       </View>
 

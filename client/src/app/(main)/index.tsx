@@ -260,11 +260,6 @@ export default function HomeScreen() {
         level={forgeProgress.level}
         xpIntoLevel={forgeProgress.xpIntoLevel}
         xpNeeded={forgeProgress.xpForNextLevel}
-        rank={
-          progressionFeatures.rivalRankEnabled
-            ? { label: standing.label, provisional: standing.provisional }
-            : null
-        }
       />
 
       {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
