@@ -26,6 +26,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **MEAL-SCAN QUALIFIER-AWARE MATCHING (2026-07-21, no migration)**: "500g raw
+  10% beef mince" used to read 1250 kcal — the 'mince' alias hit the cooked
+  ~17%-fat `ground beef` row and DISCARDED the AI's correct raw estimate. The
+  curated table/matcher moved to `supabase/functions/meal-scan/food-match.ts`
+  (import-free, pinned by `client/src/domain/__tests__/food-match.test.ts` via
+  a cross-root import): `parseQualifiers` reads raw/cooked + fat% ("10%",
+  "90/10", "95% lean"; plain ≥50% reads as lean), `BASE_META` declares what
+  each base row assumes, `VARIANTS` carries USDA raw/cooked×fat% rows (ground
+  beef, chicken, steak, rice, pasta, oats), and a qualified food the table
+  can't model returns null → the AI's clamped per-100g (`source:'ai'`). Both
+  prompts now demand qualifiers echoed verbatim into item names; for
+  single-item results the user's own text/hint is a fallback qualifier source.
+  Unqualified matches are byte-identical to before (doctrine unchanged).
+
 - **ROUTINES AS SCHEDULE PRIMARY (2026-07-21, no migration)**: the EDIT
   SCHEDULE split dropdown now also lists saved routines (★-prefixed, after the
   plan's days) — "abs" can be a day's MAIN workout, not just an extra (multiple
