@@ -18,6 +18,7 @@ import {
 } from '@/data/progression/use-evo-rating';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard } from '@/ui/core/shell';
 import { NeonButton } from '@/ui/core/neon-button';
 
@@ -42,10 +43,8 @@ export function EvoCore() {
   if (!row) {
     return (
       <GlowCard glow={colors.epic} padding={16}>
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-          EVO RATING
-        </Text>
-        <Text className="mt-s2 text-text" allowFontScaling={false} style={{ fontSize: 19, letterSpacing: 0, ...pixelFont() }}>
+        <SectionLabel size="lg">EVO RATING</SectionLabel>
+        <Text className="text-text" allowFontScaling={false} style={{ fontSize: 19, letterSpacing: 0, ...pixelFont() }}>
           DISCOVER YOUR EVO RATING
         </Text>
         <Text className="mt-s1 text-sm text-text-dim">
@@ -88,9 +87,11 @@ export function EvoCore() {
       <GlowCard glow={colors.epic} padding={16}>
         <View className="flex-row items-start justify-between">
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-              EVO RATING{status === 'provisional' ? ' · PROVISIONAL' : ''}
-            </Text>
+            {/* The title never carries the status (HOME v2, 2026-07-22):
+                "EVO RATING · PROVISIONAL" read as a different, lesser stat.
+                The status is a quiet tag beside the descriptor instead,
+                where it pairs with the next-review countdown. */}
+            <SectionLabel size="lg">EVO RATING</SectionLabel>
             <View className="flex-row items-baseline" style={{ gap: 8 }}>
               <Text
                 allowFontScaling={false}
@@ -101,6 +102,15 @@ export function EvoCore() {
               <Text className="text-text" allowFontScaling={false} style={{ fontSize: 12, letterSpacing: 0, ...pixelFont() }}>
                 {descriptor}
               </Text>
+              {status === 'provisional' ? (
+                <Text
+                  className="text-2xs text-text-mute"
+                  allowFontScaling={false}
+                  style={{ letterSpacing: 1 }}
+                >
+                  PROVISIONAL
+                </Text>
+              ) : null}
             </View>
           </View>
           <View className="items-end">
