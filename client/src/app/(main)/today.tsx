@@ -21,7 +21,16 @@ import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
-import { adhocNameError, type SessionExercise } from '@/domain/session-plan';
+import {
+  adhocNameError,
+  dayProgress,
+  EMPTY_OVERRIDES,
+  type DayOverrides,
+  type LoggedFacts,
+  type PlanEntry,
+  type SessionExercise,
+} from '@/domain/session-plan';
+import { pyInt } from '@/domain/py';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
@@ -117,6 +126,12 @@ export default function TodayScreen() {
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
+  // Narrow selections (not the whole store): the hub re-renders on override
+  // writes only because today's bars are judged against the EDITED plan.
+  const sessionDate = useSessionStore((s) => s.date);
+  const sessionDays = useSessionStore((s) => s.days);
+  const overridesForDay = (workout: string): DayOverrides =>
+    sessionDate === todayIso ? (sessionDays[workout] ?? EMPTY_OVERRIDES) : EMPTY_OVERRIDES;
 
   const [mode, setMode] = useState<0 | 1>(0);
   const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
@@ -161,14 +176,37 @@ export default function TodayScreen() {
    *  swapped every exercise has done=0 against the plan but still trained. */
   const setsFor = (date: string, workout: string | null): { done: number; target: number; trained: boolean } => {
     if (!workout) return { done: 0, target: 0, trained: false };
-    const dayRows = workoutIndex.data?.countedByDateWorkout.get(dwKey(date, workout)) ?? [];
-    const entries = resolveDay(workout, sourceForDate(date)).entries;
+    const key = dwKey(date, workout);
+    const counted = workoutIndex.data?.countedByDateWorkout.get(key) ?? [];
+    const isAdhocDay = date === todayIso && adhoc?.name === workout;
+    const entries: readonly PlanEntry[] = isAdhocDay
+      ? (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets, e.reps] as const)
+      : resolveDay(workout, sourceForDate(date)).entries;
+    // TODAY runs through the SAME pipeline as the workout page (substitutions,
+    // ±sets, skips, add/remove) — or a swapped day reads PARTIAL here while the
+    // page says complete. Past days keep the raw plan: overrides expire daily.
+    if (date === todayIso) {
+      const allRows = workoutIndex.data?.byDateWorkout.get(key) ?? [];
+      const logged = (exercise: string): LoggedFacts => {
+        let maxSetNo = 0;
+        for (const r of allRows) {
+          if (String(r.exercise) !== exercise) continue;
+          maxSetNo = Math.max(maxSetNo, pyInt(r.set) ?? 0);
+        }
+        return {
+          validCount: counted.filter((r) => String(r.exercise) === exercise).length,
+          maxSetNo,
+        };
+      };
+      const { done, target } = dayProgress(entries, overridesForDay(workout), logged);
+      return { done, target, trained: counted.length > 0 };
+    }
     const target = entries.reduce((n, [, sets]) => n + sets, 0);
     const done = entries.reduce((n, [exercise, sets]) => {
-      const logged = dayRows.filter((r) => String(r.exercise) === exercise).length;
+      const logged = counted.filter((r) => String(r.exercise) === exercise).length;
       return n + Math.min(logged, sets);
     }, 0);
-    return { done, target, trained: dayRows.length > 0 };
+    return { done, target, trained: counted.length > 0 };
   };
 
   /** The workout NAME a date carries, in the CHOSEN source: switching

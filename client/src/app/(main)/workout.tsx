@@ -122,6 +122,8 @@ export default function WorkoutScreen() {
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const toggleSkip = useSessionStore((s) => s.toggleSkip);
   const toggleSuperset = useSessionStore((s) => s.toggleSuperset);
+  const substitute = useSessionStore((s) => s.substitute);
+  const resetSubstitution = useSessionStore((s) => s.resetSubstitution);
   const bumpSets = useSessionStore((s) => s.bumpSets);
   const reorderExercises = useSessionStore((s) => s.reorderExercises);
 
@@ -131,23 +133,16 @@ export default function WorkoutScreen() {
   // 065: the ceremony's own SAVE AS ROUTINE suppresses the post-finish prompt.
   const savedInCeremonyRef = useRef(false);
   const routines = useRoutines();
-  const [subs, setSubs] = useState<Record<string, string>>({});
   const [subFor, setSubFor] = useState<string | null>(null);
   // SUPERSET (2026-07-18): which exercise is picking a partner.
   const [pairFor, setPairFor] = useState<string | null>(null);
 
-  /** Swap the card being substituted for `altName` — keyed back to the
-   *  ORIGINAL plan exercise so RESET TO PLAN works. One path for the
-   *  same-muscle chips AND the search bar. */
+  /** Swap the card being substituted for `altName`. Lives in the session
+   *  store (persisted) — a refresh mid-workout must not quietly restore the
+   *  exercise the athlete swapped away. One path for the same-muscle chips
+   *  AND the search bar. */
   const swapTo = (altName: string) => {
-    setSubs((s) => {
-      const next = { ...s };
-      const orig = Object.keys(next).find(
-        (k) => next[k] === subFor && k.startsWith(`${workoutName}:`)
-      );
-      next[orig ?? `${workoutName}:${subFor}`] = altName;
-      return next;
-    });
+    if (subFor !== null) substitute(workoutName, subFor, altName);
     setSubFor(null);
   };
   const prCountRef = useRef(0);
@@ -192,14 +187,11 @@ export default function WorkoutScreen() {
   /** The day is not in the plan they picked — we are showing someone else's. */
   const borrowedFrom =
     !isAdhoc && resolved.from !== null && resolved.from !== preferredSource ? resolved.from : null;
-  const substituted: PlanEntry[] = basePlan.map(
-    ([ex, sets, scheme]) => [subs[`${workoutName}:${ex}`] ?? ex, sets, scheme] as const
-  );
-
   // REORDER (2026-07-19): the athlete's chosen order is a presentation layer
   // over the effective plan — applied after buildEffectivePlan so add/remove/
   // skip/substitute all still work, and a stale name never drops an exercise.
-  const plan = applyOrder(buildEffectivePlan(substituted, overrides, loggedFacts), overrides.order);
+  // Substitutions apply INSIDE buildEffectivePlan (overrides.substituted).
+  const plan = applyOrder(buildEffectivePlan(basePlan, overrides, loggedFacts), overrides.order);
   const totals = planTotals(plan, loggedFacts);
   const { done: totalDone, target: totalTarget, complete, nextExercise } = totals;
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
@@ -248,7 +240,6 @@ export default function WorkoutScreen() {
     prCountRef.current = 0;
     prNamesRef.current = [];
     setSheet(null);
-    setSubs({});
     setSubFor(null);
     setPairFor(null);
     setPickerOpen(false);
@@ -745,11 +736,7 @@ export default function WorkoutScreen() {
                   title="RESET TO PLAN"
                   variant="ghost"
                   onPress={() => {
-                    setSubs((s) => {
-                      const next = { ...s };
-                      for (const k of Object.keys(next)) if (next[k] === subFor) delete next[k];
-                      return next;
-                    });
+                    resetSubstitution(workoutName, subFor);
                     setSubFor(null);
                   }}
                 />

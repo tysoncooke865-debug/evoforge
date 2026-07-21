@@ -47,6 +47,12 @@ export interface DayOverrides {
    *  override — applied by applyOrder() after buildEffectivePlan. A stale entry
    *  never drops an exercise (see applyOrder). */
   order?: string[];
+  /** SUBSTITUTIONS (2026-07-21): ORIGINAL plan-slot name -> substitute name.
+   *  Keyed by the ORIGINAL so RESET TO PLAN is a key delete and re-substituting
+   *  rewrites one key. Every OTHER map here keys by the DISPLAYED name — a swap
+   *  migrates those keys (see applySubstitution), so a −SET tweak or a superset
+   *  pairing survives the rename. */
+  substituted?: Record<string, string>;
 }
 
 export const EMPTY_OVERRIDES: DayOverrides = { added: [], removed: [], skipped: [], setDelta: {} };
@@ -111,8 +117,13 @@ export function buildEffectivePlan(
     };
   };
 
+  const subs = overrides.substituted ?? {};
   const out: EffectiveEntry[] = [];
-  for (const [exercise, planSets, reps] of basePlan) {
+  for (const [slot, planSets, reps] of basePlan) {
+    // The swap happens HERE, not in a pre-map layer above: renaming the slot
+    // inside the pipeline means logged(), setDelta, skipped, removed — all
+    // keyed by the DISPLAYED name — and planTotals see one consistent name.
+    const exercise = subs[slot] ?? slot;
     if (removed.has(exercise)) continue;
     // AN EXERCISE APPEARS ONCE. A substitution onto something already in the day
     // used to render it TWICE — same React key, same logged rows, and planTotals
@@ -127,6 +138,71 @@ export function buildEffectivePlan(
     out.push(entry(a.exercise, a.sets, a.reps, true));
   }
   return out;
+}
+
+/** The ORIGINAL plan-slot a displayed name belongs to (itself when unswapped). */
+export function substitutionKey(subs: Record<string, string>, displayed: string): string {
+  for (const [slot, name] of Object.entries(subs)) if (name === displayed) return slot;
+  return displayed;
+}
+
+/** Rename displayed-name keys across the override maps so the athlete's
+ *  intent (−2 sets, a superset pairing, a chosen order) follows the swap. */
+const renameOverrideKeys = (d: DayOverrides, from: string, to: string): DayOverrides => {
+  const setDelta = { ...d.setDelta };
+  if (from in setDelta) {
+    setDelta[to] = setDelta[from];
+    delete setDelta[from];
+  }
+  const superset = { ...(d.superset ?? {}) };
+  const partner = superset[from];
+  if (partner) {
+    delete superset[from];
+    superset[to] = partner;
+    superset[partner] = to;
+  }
+  return {
+    ...d,
+    setDelta,
+    superset,
+    skipped: d.skipped.map((s) => (s === from ? to : s)),
+    removed: d.removed.filter((r) => r !== from && r !== to),
+    order: d.order?.map((o) => (o === from ? to : o)),
+  };
+};
+
+/**
+ * Swap the DISPLAYED exercise `from` for `to`. Chained swaps collapse to one
+ * key (orig→A then A→B stores orig→B); swapping back to the original slot IS
+ * the reset. Set-delta / skip / superset / order entries migrate to the new
+ * name; a `removed` tombstone on either name is lifted (you just asked for it).
+ */
+export function applySubstitution(d: DayOverrides, from: string, to: string): DayOverrides {
+  if (from === to) return d;
+  const subs = { ...(d.substituted ?? {}) };
+  const slot = substitutionKey(subs, from);
+  if (to === slot) delete subs[slot];
+  else subs[slot] = to;
+  return { ...renameOverrideKeys(d, from, to), substituted: subs };
+}
+
+/** RESET TO PLAN for a displayed name — restore the original slot. */
+export function clearSubstitution(d: DayOverrides, displayed: string): DayOverrides {
+  const slot = substitutionKey(d.substituted ?? {}, displayed);
+  if (slot === displayed) return d;
+  return applySubstitution(d, displayed, slot);
+}
+
+/** One pipeline for "how done is this day" — the workout page and the Train
+ *  hub must agree, or a finished day reads PARTIAL on one screen and
+ *  COMPLETED on the other. */
+export function dayProgress(
+  base: readonly PlanEntry[],
+  overrides: DayOverrides | null,
+  logged: Logged
+): { done: number; target: number } {
+  const totals = planTotals(buildEffectivePlan(base, overrides ?? EMPTY_OVERRIDES, logged), logged);
+  return { done: totals.done, target: totals.target };
 }
 
 /**

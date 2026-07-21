@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   adhocNameError,
   applyOrder,
+  applySubstitution,
   buildEffectivePlan,
   canAddSet,
   canRemoveSet,
+  clearSubstitution,
+  dayProgress,
   planTotals,
   removeAction,
+  substitutionKey,
   EMPTY_OVERRIDES,
   MAX_SETS,
   type DayOverrides,
@@ -227,6 +231,143 @@ describe('adhocNameError', () => {
   it('REJECTS A DAY-CHIP COLLISION — workout is the grouping key in the log', () => {
     expect(adhocNameError('legs', DAYS)).toMatch(/already a day/);
     expect(adhocNameError('  Push 1 - Strength ', DAYS)).toMatch(/already a day/);
+  });
+});
+
+describe('SUBSTITUTIONS — the swap is part of the plan, not a display trick', () => {
+  it('renames the slot inside buildEffectivePlan', () => {
+    const o = overrides({ substituted: { 'Barbell Bench Press': 'Machine Chest Press' } });
+    const e = buildEffectivePlan(PLAN, o, NOTHING);
+    expect(e.map((x) => x.exercise)).toEqual([
+      'Machine Chest Press',
+      'Incline Dumbbell Bench Press',
+      'Cable Triceps Pushdown',
+    ]);
+    expect(e[0].sets).toBe(4); // the slot keeps its set count
+  });
+
+  it('sets logged under the SUBSTITUTE fill the slot', () => {
+    const o = overrides({ substituted: { 'Barbell Bench Press': 'Machine Chest Press' } });
+    const logged = loggedFrom({ 'Machine Chest Press': { validCount: 4, maxSetNo: 4 } });
+    const t = planTotals(buildEffectivePlan(PLAN, o, logged), logged);
+    expect(t.done).toBe(4);
+    expect(t.nextExercise).toBe('Incline Dumbbell Bench Press');
+  });
+
+  it('THE PARTIAL-DAY BUG: swap a 5-set slot, do 3 sets of the substitute at −2 → complete', () => {
+    // Replacing 5×lat pulldown with 3×seated row must not read "5 sets missed".
+    const plan: PlanEntry[] = [['Lat Pulldown', 5, '8-12']];
+    const o = overrides({
+      substituted: { 'Lat Pulldown': 'Seated Cable Row' },
+      setDelta: { 'Seated Cable Row': -2 },
+    });
+    const logged = loggedFrom({ 'Seated Cable Row': { validCount: 3, maxSetNo: 3 } });
+    const t = planTotals(buildEffectivePlan(plan, o, logged), logged);
+    expect(t.target).toBe(3);
+    expect(t.done).toBe(3);
+    expect(t.complete).toBe(true);
+  });
+
+  it('setDelta / skip keyed by the DISPLAYED name apply to the swapped slot', () => {
+    const o = overrides({
+      substituted: { 'Barbell Bench Press': 'Machine Chest Press' },
+      skipped: ['Machine Chest Press'],
+    });
+    const e = buildEffectivePlan(PLAN, o, NOTHING);
+    expect(e[0].skipped).toBe(true);
+    expect(e[0].target).toBe(0);
+  });
+
+  it('substituting onto another plan exercise dedupes instead of doubling', () => {
+    const o = overrides({ substituted: { 'Barbell Bench Press': 'Cable Triceps Pushdown' } });
+    const logged = loggedFrom({ 'Cable Triceps Pushdown': { validCount: 3, maxSetNo: 3 } });
+    const t = planTotals(buildEffectivePlan(PLAN, o, logged), logged);
+    const e = buildEffectivePlan(PLAN, o, logged);
+    expect(e.filter((x) => x.exercise === 'Cable Triceps Pushdown')).toHaveLength(1);
+    expect(t.done).toBe(3); // counted once, not twice
+  });
+
+  it('a removed DISPLAYED name removes the swapped slot', () => {
+    const o = overrides({
+      substituted: { 'Barbell Bench Press': 'Machine Chest Press' },
+      removed: ['Machine Chest Press'],
+    });
+    const e = buildEffectivePlan(PLAN, o, NOTHING);
+    expect(e.map((x) => x.exercise)).not.toContain('Machine Chest Press');
+    expect(e.map((x) => x.exercise)).not.toContain('Barbell Bench Press');
+  });
+});
+
+describe('applySubstitution / clearSubstitution', () => {
+  it('records the swap keyed by the ORIGINAL slot', () => {
+    const d = applySubstitution(EMPTY_OVERRIDES, 'Lat Pulldown', 'Seated Cable Row');
+    expect(d.substituted).toEqual({ 'Lat Pulldown': 'Seated Cable Row' });
+  });
+
+  it('chained swaps collapse to ONE key (orig→A then A→B stores orig→B)', () => {
+    let d = applySubstitution(EMPTY_OVERRIDES, 'Lat Pulldown', 'Seated Cable Row');
+    d = applySubstitution(d, 'Seated Cable Row', 'T-Bar Row');
+    expect(d.substituted).toEqual({ 'Lat Pulldown': 'T-Bar Row' });
+  });
+
+  it('swapping back to the original slot IS the reset', () => {
+    let d = applySubstitution(EMPTY_OVERRIDES, 'Lat Pulldown', 'Seated Cable Row');
+    d = applySubstitution(d, 'Seated Cable Row', 'Lat Pulldown');
+    expect(d.substituted).toEqual({});
+  });
+
+  it('MIGRATES the athlete’s intent: setDelta, skip, superset, order follow the new name', () => {
+    const before = overrides({
+      setDelta: { 'Lat Pulldown': -2 },
+      skipped: ['Lat Pulldown'],
+      superset: { 'Lat Pulldown': 'Face Pull', 'Face Pull': 'Lat Pulldown' },
+      order: ['Face Pull', 'Lat Pulldown'],
+    });
+    const d = applySubstitution(before, 'Lat Pulldown', 'Seated Cable Row');
+    expect(d.setDelta).toEqual({ 'Seated Cable Row': -2 });
+    expect(d.skipped).toEqual(['Seated Cable Row']);
+    expect(d.superset).toEqual({ 'Seated Cable Row': 'Face Pull', 'Face Pull': 'Seated Cable Row' });
+    expect(d.order).toEqual(['Face Pull', 'Seated Cable Row']);
+  });
+
+  it('lifts a removed tombstone on the substitute — you just asked for it', () => {
+    const before = overrides({ removed: ['Seated Cable Row'] });
+    const d = applySubstitution(before, 'Lat Pulldown', 'Seated Cable Row');
+    expect(d.removed).toEqual([]);
+  });
+
+  it('clearSubstitution restores the slot and migrates keys back', () => {
+    let d = applySubstitution(EMPTY_OVERRIDES, 'Lat Pulldown', 'Seated Cable Row');
+    d = { ...d, setDelta: { 'Seated Cable Row': 1 } };
+    d = clearSubstitution(d, 'Seated Cable Row');
+    expect(d.substituted).toEqual({});
+    expect(d.setDelta).toEqual({ 'Lat Pulldown': 1 });
+  });
+
+  it('clearSubstitution on an unswapped name is a no-op', () => {
+    expect(clearSubstitution(EMPTY_OVERRIDES, 'Lat Pulldown')).toBe(EMPTY_OVERRIDES);
+  });
+
+  it('substitutionKey maps a displayed name back to its slot', () => {
+    const subs = { 'Lat Pulldown': 'Seated Cable Row' };
+    expect(substitutionKey(subs, 'Seated Cable Row')).toBe('Lat Pulldown');
+    expect(substitutionKey(subs, 'Face Pull')).toBe('Face Pull');
+  });
+});
+
+describe('dayProgress — the hub and the workout page share one pipeline', () => {
+  it('agrees with planTotals', () => {
+    const o = overrides({
+      substituted: { 'Barbell Bench Press': 'Machine Chest Press' },
+      skipped: ['Cable Triceps Pushdown'],
+    });
+    const logged = loggedFrom({ 'Machine Chest Press': { validCount: 2, maxSetNo: 2 } });
+    const t = planTotals(buildEffectivePlan(PLAN, o, logged), logged);
+    expect(dayProgress(PLAN, o, logged)).toEqual({ done: t.done, target: t.target });
+  });
+
+  it('null overrides mean the raw plan', () => {
+    expect(dayProgress(PLAN, null, NOTHING)).toEqual({ done: 0, target: 10 });
   });
 });
 

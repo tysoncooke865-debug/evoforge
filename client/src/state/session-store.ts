@@ -2,7 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { EMPTY_OVERRIDES, type DayOverrides, type SessionExercise } from '@/domain/session-plan';
+import {
+  applySubstitution,
+  clearSubstitution,
+  EMPTY_OVERRIDES,
+  type DayOverrides,
+  type SessionExercise,
+} from '@/domain/session-plan';
 import { todayIso } from '@/domain/today';
 
 /**
@@ -57,6 +63,12 @@ interface SessionState {
   bumpSets: (day: string, exercise: string, delta: number) => void;
   /** Pair a and b as a superset (symmetric); calling again on a pair unlinks. */
   toggleSuperset: (day: string, a: string, b: string) => void;
+  /** SUBSTITUTIONS (2026-07-21): swap displayed exercise `from` for `to`.
+   *  Persisted like every other override — a refresh mid-workout must not
+   *  quietly restore the exercise the athlete swapped away. */
+  substitute: (day: string, from: string, to: string) => void;
+  /** RESET TO PLAN: restore the original slot for a displayed name. */
+  resetSubstitution: (day: string, displayed: string) => void;
   /** REORDER (2026-07-19): set today's exercise order for a day (list of names). */
   reorderExercises: (day: string, order: string[]) => void;
 
@@ -74,7 +86,14 @@ interface SessionState {
 
 // The athlete's calendar day (domain/today.ts) — NOT the UTC date.
 
-const emptyDay = (): DayOverrides => ({ added: [], removed: [], skipped: [], setDelta: {}, superset: {} });
+const emptyDay = (): DayOverrides => ({
+  added: [],
+  removed: [],
+  skipped: [],
+  setDelta: {},
+  superset: {},
+  substituted: {},
+});
 
 /** Mutate one day's overrides, rolling the whole store over if the date
  *  changed. Every action goes through this — there is no other way to write. */
@@ -186,20 +205,29 @@ export const useSessionStore = create<SessionState>()(
           };
         }),
 
+      // Through edit() like every other write — it used to bypass the date
+      // guard, so a superset paired before midnight leaked into the new day.
       toggleSuperset: (day, a, b) =>
-        set((s) => {
-          const d = { ...(s.days[day] ?? emptyDay()) };
-          const sup = { ...(d.superset ?? {}) };
-          const linked = sup[a] === b;
-          // unlink anything either party is currently in, then link (or stop).
-          for (const k of [a, b, sup[a], sup[b]]) if (k) delete sup[k];
-          if (!linked) {
-            sup[a] = b;
-            sup[b] = a;
-          }
-          d.superset = sup;
-          return { days: { ...s.days, [day]: d } };
-        }),
+        set((s) =>
+          edit(s, day, (d) => {
+            const sup = { ...(d.superset ?? {}) };
+            const linked = sup[a] === b;
+            // unlink anything either party is currently in, then link (or stop).
+            for (const k of [a, b, sup[a], sup[b]]) if (k) delete sup[k];
+            if (!linked) {
+              sup[a] = b;
+              sup[b] = a;
+            }
+            return { ...d, superset: sup };
+          })
+        ),
+
+      substitute: (day, from, to) =>
+        set((s) => edit(s, day, (d) => applySubstitution(d, from, to))),
+
+      resetSubstitution: (day, displayed) =>
+        set((s) => edit(s, day, (d) => clearSubstitution(d, displayed))),
+
       reorderExercises: (day, order) =>
         set((s) => edit(s, day, (d) => ({ ...d, order: [...order] }))),
 

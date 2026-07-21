@@ -26,6 +26,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **SUBSTITUTIONS PERSIST + HONEST COMPLETION MATH (2026-07-21, no migration)**:
+  the ⇄ swap moved from `workout.tsx` component state into the session store —
+  `DayOverrides.substituted` (ORIGINAL slot → substitute; every other override
+  map keys by the DISPLAYED name, and `applySubstitution` migrates those keys so
+  a −SET tweak / superset pairing survives the rename). Applied INSIDE
+  `buildEffectivePlan`, so a mid-workout refresh keeps the swap and `planTotals`
+  judges done/target against the substituted exercise. The Train hub's `setsFor`
+  now runs TODAY through the same pipeline (`dayProgress`) with today's
+  overrides — a swapped/edited day can no longer read PARTIAL on the hub while
+  the workout page says complete (past dates keep the raw plan; overrides expire
+  daily as ever). Drive-by: `toggleSuperset` now goes through the date-guarded
+  `edit()` like every other store write.
 - **FITNESS-DUEL MATCHMAKING + ONLINE COUNT (2026-07-20, migration 077 APPLIED +
   two-client verified).** The System-A real-workout duel (battle_matches) no
   longer uses an invite_code — Arena "FIND A DUEL / FIND A VOLUME DUEL / FIND A
