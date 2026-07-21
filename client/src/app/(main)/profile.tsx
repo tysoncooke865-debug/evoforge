@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { useAuth } from '@/data/auth-context';
+import { useIsAdmin } from '@/data/analytics-admin';
 import { usePublicIdentity, useProfile } from '@/data/hooks';
 import { useLogBodyweight, useSavePublicIdentity, useUpdateTrainingNumbers } from '@/data/mutations';
 import { useAthleteProfile, useSetPrivacy, type PrivacyFlags } from '@/data/social-profile';
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
   const profile = useProfile();
   const identity = usePublicIdentity();
   const { summary } = useAvatarData();
+  const admin = useIsAdmin();
 
   const ladder = rankLadder().slice().reverse(); // top rank first
 
@@ -118,6 +121,21 @@ export default function ProfileScreen() {
             <SoundSwitch />
           </View>
         </GlowCard>
+
+        {admin.data === true ? (
+          <Pressable
+            onPress={() => router.push('/insights' as never)}
+            accessibilityRole="button"
+            testID="open-insights"
+            className="flex-row items-center justify-between rounded-lg border p-s3"
+            style={{ borderColor: 'rgba(34,211,238,0.35)', backgroundColor: 'rgba(34,211,238,0.06)' }}
+          >
+            <View className="flex-1">
+              <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>📊 INSIGHTS →</Text>
+              <Text className="mt-s1 text-2xs text-text-mute">Product metrics: active users, signups, retention, top pages.</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         <Pressable
           className="items-center rounded-md border border-border bg-surface-2 p-s3"

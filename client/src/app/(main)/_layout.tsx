@@ -295,6 +295,7 @@ export default function MainLayout() {
       <Tabs.Screen name="schedule" options={{ href: null }} />
       <Tabs.Screen name="streak" options={{ href: null }} />
       <Tabs.Screen name="coins" options={{ href: null }} />
+      <Tabs.Screen name="insights" options={{ href: null }} />
       {/* PROGRESSION P5: the Evo Rating + Forge Level detail pages. */}
       <Tabs.Screen name="evo" options={{ href: null }} />
       <Tabs.Screen name="evo-scan" options={{ href: null }} />
