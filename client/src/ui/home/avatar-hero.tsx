@@ -44,6 +44,8 @@ export function AvatarHero({
   tierName,
   formName,
   evolutionPercent,
+  streakCurrent,
+  streakLabel,
   features,
   originUnset = false,
   originChoiceReady = false,
@@ -60,6 +62,11 @@ export function AvatarHero({
   tierName: string;
   formName: string;
   evolutionPercent: number;
+  /** HOME v2 (2026-07-22): the workout streak badge rides the hero column
+   *  (the old status grid is gone). Label is FORGE STREAK when a schedule
+   *  drives the streak, DAY STREAK otherwise. */
+  streakCurrent: number;
+  streakLabel: string;
   features: HomeFeatures;
   /** ORIGIN (Tyson 2026-07-18): no Origin selected → BLANK podium, no avatar,
    *  no rating — just the gold FORGE YOUR ORIGIN button on the stage. */
@@ -120,7 +127,24 @@ export function AvatarHero({
     // EVOLUTION moved up into its place. (Tier still lives on /rank and the
     // hero's accessibility label.)
     <>
-      <StatusBadge icon={<Text style={{ fontSize: 14 }}>🔥</Text>} value={formName} label="CURRENT FORM" tint={colors.accent} testID="hero-form" onPress={openCharacter} />
+      {/* ◈ not 🔥 (HOME v2): the flame belongs to the STREAK badge below —
+          two flames in one column read as the same stat twice. */}
+      <StatusBadge
+        icon={<Text style={{ fontSize: 14, color: colors.accent }}>◈</Text>}
+        value={formName}
+        label="CURRENT FORM"
+        tint={colors.accent}
+        testID="hero-form"
+        onPress={openCharacter}
+      />
+      <StatusBadge
+        icon={<Text style={{ fontSize: 14 }}>🔥</Text>}
+        value={`${streakCurrent} DAY${streakCurrent === 1 ? '' : 'S'}`}
+        label={streakLabel}
+        tint={streakCurrent > 0 ? colors.legendary : colors['text-mute']}
+        testID="hero-streak"
+        onPress={() => router.push('/streak' as never)}
+      />
       <StatusBadge
         icon={<Text style={{ fontSize: 14, color: colors.epic }}>▲</Text>}
         value={`${evolutionPercent}%`}

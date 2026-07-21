@@ -3,10 +3,8 @@ import { Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
-import { useClaimCoin, useCoinTotal } from '@/data/coins';
-import { progressionFeatures } from '@/data/progression/features';
+import { useClaimCoin } from '@/data/coins';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
-import { useRivalRating } from '@/data/progression/use-rival-rank';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
 import { useUserExercises } from '@/data/exercises';
 import { useBodyweightLog, useProfile, useServerGrantedXp, useWorkoutIndex, useWorkoutLog, useCardioLog } from '@/data/hooks';
@@ -25,7 +23,6 @@ import { libraryMuscleFor } from '@/domain/exercise-library';
 import { userMuscleFor } from '@/domain/exercise-search';
 import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
 import { daysForSource } from '@/domain/plan-sources';
-import { rankStandingFor } from '@/domain/progression/rank-tiers';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
@@ -45,7 +42,6 @@ import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { StatusGrid } from '@/ui/home/status-grid';
 import { TrainingOverview } from '@/ui/home/training-overview';
 import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
@@ -54,11 +50,13 @@ import { ScreenShell } from '@/ui/core/shell';
 import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
- * HOME — the RPG character hub (HOME_REDESIGN_PLAN). Hierarchy: identity →
- * THE CHARACTER (hero, badges, actions) → today's mission → player status →
- * training overview → PR + next evolution → schedule door → the build →
- * leaderboard. Every value is real state; systems without backends are
- * hidden by home-features, never mocked.
+ * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22).
+ * Hierarchy: identity → THE CHARACTER (hero, badges incl. the streak,
+ * actions) → evo core → today's mission → training overview → PR + next
+ * evolution → the build → leaderboard. The status grid and schedule door
+ * are gone (their surviving values live on the hero and Train). Every value
+ * is real state; systems without backends are hidden by home-features,
+ * never mocked.
  *
  * The mission card computes its ingredients EXACTLY the way the Train hub
  * does (same source resolution, same setsFor predicate, same estimates), so
@@ -96,7 +94,6 @@ export default function HomeScreen() {
 
   // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
   // athlete claims it once; the unique index makes reloads a no-op.
-  const coins = useCoinTotal();
   const claimCoins = useClaimCoin();
   const bonusTriedRef = useRef(false);
   useEffect(() => {
@@ -235,16 +232,6 @@ export default function HomeScreen() {
   const auraColour = identity.display.auraColour ?? rarityColour;
   const formName = identity.display.formName;
 
-  // ARENA RANK — the Rival standing (Glicko → tier · division), sharing
-  // /rival's query and its exact no-row defaults. Read-only here: the
-  // reconcile mutation stays a /rival-visit concern, never a Home mount.
-  const rival = useRivalRating();
-  const standing = rankStandingFor({
-    rating: rival.data?.rating ?? 1500,
-    rd: rival.data?.rating_deviation ?? 350,
-    placementsCompleted: rival.data?.placement_matches_completed ?? 0,
-  });
-
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
   const forge = useForgeProgression();
@@ -276,6 +263,8 @@ export default function HomeScreen() {
         tierName={slug.toUpperCase()}
         formName={formName}
         evolutionPercent={readiness.percent}
+        streakCurrent={streak.current}
+        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
         features={homeFeatures}
       />
       {/* 2.5 THE EVO CORE (spec §30) — renders only when the new
@@ -298,27 +287,9 @@ export default function HomeScreen() {
         features={homeFeatures}
       />
 
-      {/* 4. Player status — streak, coins, XP, arena rank. */}
-      <StatusGrid
-        streakCurrent={streak.current}
-        streakBest={streak.best}
-        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
-        coins={coins.data}
-        totalXp={summary.xp}
-        rank={
-          progressionFeatures.rivalRankEnabled
-            ? {
-                label: standing.label,
-                provisional: standing.provisional,
-                placements: `${standing.placementsCompleted}/${standing.placementsRequired}`,
-              }
-            : null
-        }
-        features={homeFeatures}
-      />
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
 
-      {/* 5. This week. */}
+      {/* 4. This week. */}
       <TrainingOverview
         contract={contract}
         weekSets={weekTotals.sets}
@@ -327,7 +298,7 @@ export default function HomeScreen() {
         hasSchedule={hasSchedule}
       />
 
-      {/* 6. Recent PR + next evolution. Always stacked: EvolutionTeaser's
+      {/* 5. Recent PR + next evolution. Always stacked: EvolutionTeaser's
           silhouette + readiness columns need the full width — at half width
           "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
       <RecentPrCard pr={pr} unit={prUnit} />
@@ -338,7 +309,7 @@ export default function HomeScreen() {
 
       <DividerGlow />
 
-      {/* 8. Character build — the radar. Sourced from the Evo Rating's four
+      {/* 6. Character build — the radar. Sourced from the Evo Rating's four
           pillars so the wheel LINES UP with the EVO CORE card (Tyson
           2026-07-19), with a dashed projection of where they head after a
           block of consistent training. Falls back to the legacy live stats
