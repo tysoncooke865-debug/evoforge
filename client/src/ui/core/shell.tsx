@@ -176,6 +176,7 @@ export function GlowCard({
   className = '',
   padding = 20,
   fill = false,
+  testID,
 }: {
   children: ReactNode;
   glow?: string;
@@ -184,11 +185,14 @@ export function GlowCard({
   padding?: number;
   /** Stretch to the parent's fixed height (the carousel's equal cards). */
   fill?: boolean;
+  /** Optional anchor for the page-help spotlight to point at. */
+  testID?: string;
 }) {
   const colors = useThemeColors();
   const edge = glow ? `${glow}59` : colors.border;
   return (
     <View
+      testID={testID}
       className={`overflow-hidden rounded-xl ${className}`}
       style={{
         flex: fill ? 1 : undefined,

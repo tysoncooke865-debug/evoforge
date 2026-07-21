@@ -132,7 +132,7 @@ export default function EvoRatingScreen() {
       ) : (
         <>
           {/* The core numbers. */}
-          <GlowCard glow={colors.epic} padding={16}>
+          <GlowCard glow={colors.epic} padding={16} testID="evo-rating-card">
             <View className="flex-row items-end justify-between">
               <View>
                 <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
@@ -173,7 +173,7 @@ export default function EvoRatingScreen() {
           </GlowCard>
 
           {/* Pillars with confidence. */}
-          <View>
+          <View testID="evo-pillars">
             <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
               PILLARS
             </Text>

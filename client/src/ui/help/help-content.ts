@@ -12,6 +12,10 @@
 export interface HelpSection {
   heading: string;
   body: string;
+  /** testID of the on-screen element this section points at. A trailing '-'
+   *  means "prefix" (the first element whose testID starts with it). Omitted
+   *  when the section is conceptual and has no single element to spotlight. */
+  target?: string;
 }
 export interface HelpTopic {
   title: string;
@@ -34,20 +38,20 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'YOUR CHAMPION',
     tagline: 'Home is your character. Everything you do in the gym forges it.',
     sections: [
-      { heading: 'XP & Level', body: 'Every working set you log is worth 10 XP; every minute of cardio is worth 2. Levelling from one level to the next costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
-      { heading: 'Your form evolves', body: 'As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). It reflects HOW you train — heavy and big, lean and sharp, or balanced.' },
-      { heading: "Today's mission", body: 'The mission ring shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level. Tap your champion to enter the Forge and see the full evolution.' },
-      { heading: 'The menu', body: 'Tap the animated fighter in the top-right of any screen to open your bag — progress, awards, coins, schedule, profile and everything else.' },
+      { heading: 'XP & Level', target: 'home-level-module', body: 'This is your level and the bar toward the next one. Every working set is worth 10 XP; every minute of cardio is worth 2. Levelling up costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
+      { heading: 'Your champion evolves', target: 'hero-avatar', body: 'This is you. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
+      { heading: "Today's mission", target: 'mission-progress', body: 'This ring shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level.' },
+      { heading: 'Your menu lives here', target: 'profile-menu', body: 'Tap the animated fighter in the top-right of any screen to open your bag — progress, awards, coins, schedule, profile and everything else.' },
     ],
   },
   today: {
     title: 'TRAIN',
-    tagline: 'Log sets in one tap. They save even offline, and every one earns XP.',
+    tagline: 'Your training hub — plans, your week, and today’s session.',
     sections: [
-      { heading: 'One-tap logging', body: 'Tap a set to log it — it banks 10 XP immediately and syncs when you have signal, so a dropped connection never loses a set. The rest timer starts itself between sets.' },
-      { heading: 'Swap & reorder', body: 'The ⇄ button swaps any exercise for a same-muscle alternative, and the grip handle lets you drag exercises into the order you actually train them.' },
-      { heading: 'Three plans, per week', body: 'Switch the whole week between MY PLAN (yours), AI PLAN (built for you), and the EVOFORGE PLAN. Tap EDIT SCHEDULE to set which split lands on each day.' },
-      { heading: 'Your own split', body: 'CHOOSE/UPLOAD MY WORKOUT builds a session from scratch or scans a photo/screenshot of a plan you already follow. QUICK WORKOUT lets you just start logging with no plan at all.' },
+      { heading: 'Start today’s session', target: 'hero-card-', body: 'This card is today’s workout. Tap it to open the session and log sets — each set banks 10 XP the moment you tap it, and saves even offline, so a dropped signal never loses a set.' },
+      { heading: 'Three plans, one switch', target: 'plan-dropdown', body: 'This dropdown switches the whole week between MY PLAN (yours), AI PLAN (built for you) and the EVOFORGE PLAN.' },
+      { heading: 'Set your week', target: 'edit-week', body: 'EDIT SCHEDULE is where you pick which split lands on each day. Today’s pick drives your Home mission and the sets you see here.' },
+      { heading: 'Your own split', target: 'change-workout', body: 'CHOOSE/UPLOAD MY WORKOUT builds a session from scratch or scans a photo of a plan you already follow. QUICK WORKOUT just starts logging with no plan at all.' },
     ],
   },
   ai: {
@@ -63,10 +67,10 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'EVO RATING',
     tagline: 'One number for your whole physique — and why a weak spot hurts.',
     sections: [
-      { heading: 'Four weighted pillars', body: 'Your rating combines Size (30%), Strength (30%), Aesthetics (25%) and Cardio (15%). Each pillar is scored 0–100 from your logged evidence.' },
-      { heading: 'Why balance wins', body: 'The pillars combine as a weighted GEOMETRIC mean, not an average. That means one neglected pillar drags the whole rating down — you cannot rank up by maxing a single quality while ignoring the rest. Well-rounded athletes rate highest.' },
-      { heading: 'Confidence', body: 'Each pillar carries a confidence that grows as you log more evidence. A high score with low confidence is provisional; keep logging and the rating firms up. The limiting pillar is the one holding you back most.' },
-      { heading: 'Evolution & peak', body: 'Your displayed rating eases toward your true rating over time, and your peak is remembered — if you slip, RECLAIM YOUR PEAK is the target to chase back.' },
+      { heading: 'Four weighted pillars', target: 'evo-pillars', body: 'These bars are your rating’s four pillars: Size (30%), Strength (30%), Aesthetics (25%) and Cardio (15%). Each is scored 0–100 from your logged evidence.' },
+      { heading: 'Why balance wins', target: 'evo-pillars', body: 'The pillars combine as a weighted GEOMETRIC mean, not an average — so one neglected pillar (your shortest bar here) drags the whole rating down. You cannot rank up by maxing a single quality; well-rounded athletes rate highest.' },
+      { heading: 'Confidence', target: 'evo-pillars', body: 'Each pillar carries a confidence that grows as you log more evidence. A high score with low confidence is provisional; keep logging and it firms up. The pillar marked LIMITING is the one holding you back most.' },
+      { heading: 'Evolution & peak', target: 'evo-rating-card', body: 'Your displayed rating eases toward your true rating over time, and your peak is remembered — if you slip, RECLAIM YOUR PEAK is the target to chase back.' },
     ],
   },
   'forge-level': {
@@ -90,18 +94,18 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'ACHIEVEMENTS',
     tagline: '64 to unlock, each with a real target you can track toward.',
     sections: [
-      { heading: 'Seven categories', body: 'Milestones, Consistency, Strength, Physique, Volume, Cardio and Rank. Filter by category, and each shows how many you have earned.' },
-      { heading: 'Live progress', body: 'Every locked achievement shows a bar toward its exact target — 19/100 sets, 100/120 kg bench, and so on. The number is the same threshold that grants it, so the bar never lies.' },
-      { heading: 'Next up', body: 'The NEXT UP card surfaces the three achievements you are closest to earning, so you always know what is within reach.' },
+      { heading: 'Seven categories', target: 'award-filter-', body: 'These chips filter by category — Milestones, Consistency, Strength, Physique, Volume, Cardio and Rank — and each shows how many you have earned.' },
+      { heading: 'Next up', target: 'nextup-', body: 'The NEXT UP card surfaces the three achievements you are closest to earning, each with a live progress bar, so you always know what is within reach.' },
+      { heading: 'Live progress', target: 'award-', body: 'Every locked achievement shows a bar toward its exact target — 19/100 sets, 100/120 kg bench, and so on. The number is the same threshold that grants it, so the bar never lies.' },
     ],
   },
   coins: {
     title: 'COINS',
     tagline: 'Earned by training, spent on your champion.',
     sections: [
-      { heading: 'How you earn', body: 'Every coin is server-verified: a completed workout pays +25, a personal record +50, and streak milestones pay 10× the milestone day. New athletes start with a 100-coin welcome.' },
-      { heading: 'Where they come from', body: 'The breakdown on this screen shows which sources built your balance and how much you have banked this week — so you can see what is actually paying out.' },
-      { heading: 'How to spend', body: 'Coins buy champion skins, whole new champions and colour palettes in Customise. Tap SPEND YOUR COINS to go straight there.' },
+      { heading: 'How you earn', target: 'coin-balance', body: 'This is your balance. Every coin is server-verified: a completed workout pays +25, a personal record +50, and streak milestones pay 10× the milestone day. New athletes start with a 100-coin welcome.' },
+      { heading: 'Where they come from', target: 'coin-source-', body: 'This breakdown shows which sources built your balance and their share, plus what you have banked this week — so you can see what is actually paying out.' },
+      { heading: 'How to spend', target: 'coin-spend-cta', body: 'Coins buy champion skins, whole new champions and colour palettes in Customise. Tap SPEND YOUR COINS to go straight there.' },
     ],
   },
   streak: {
@@ -116,8 +120,8 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'FUEL',
     tagline: 'Calories and macros, as fast as logging a set.',
     sections: [
-      { heading: 'Log a meal', body: 'Scan a meal photo, scan a barcode, describe it in words, or search the database. Everything lands against today’s target so you always know what is left.' },
-      { heading: 'Your target', body: 'Your daily calorie and protein targets come from your stats and goal (cut, maintain or bulk). Protein remaining is called out because it is what actually protects your muscle in a cut.' },
+      { heading: 'Log a meal', target: 'meal-scan', body: 'Scan a meal photo (here), scan a barcode, describe it in words, or search the database. Everything lands against today’s target so you always know what is left.' },
+      { heading: 'Your target', target: 'fuel-set-target', body: 'Your daily calorie and protein targets come from your stats and goal (cut, maintain or bulk) — set or tune them here. Protein remaining is called out because it is what protects your muscle in a cut.' },
       { heading: 'It feeds your physique', body: 'Nutrition phase (cutting/bulking) informs how your body-composition change is read across the app — fuelling is part of the transformation, not a side app.' },
     ],
   },
@@ -125,9 +129,9 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'THE ARENA',
     tagline: 'Turn your training into a fighter and battle.',
     sections: [
-      { heading: 'Your stats are your fighter', body: 'Your champion’s combat power comes from the same Size / Strength / Aesthetics / Cardio pillars that build your Evo Rating. Train harder, hit harder.' },
-      { heading: 'Quick Match', body: 'QUICK MATCH puts you against a real athlete live, turn by turn — no codes, just tap to find a match. If no one is around, you fight a matched AI so you are never stuck waiting.' },
-      { heading: 'Rival Rank', body: 'Ranked results move your Rival Rank via a skill-rating system (wins against stronger opponents are worth more), so the ladder reflects real matchups, not just volume.' },
+      { heading: 'Quick Match', target: 'mode-quickmatch', body: 'QUICK MATCH puts you against a real athlete live, turn by turn — no codes, just tap to find a match. If no one is around, you fight a matched AI so you are never stuck waiting. Your champion’s power comes from the same pillars that build your Evo Rating.' },
+      { heading: 'Rival Rank', target: 'arena-rival-door', body: 'Ranked results move your Rival Rank via a skill-rating system (wins against stronger opponents are worth more), so the ladder reflects real matchups, not just volume.' },
+      { heading: 'Friends & history', target: 'arena-friends-door', body: 'Battle a friend directly, and review every past fight in your game log. The Arena is where your training becomes a fight.' },
     ],
   },
   pvp: {
@@ -166,8 +170,8 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'SOCIAL',
     tagline: 'Friends, rivals, gyms and the feed.',
     sections: [
-      { heading: 'Find people', body: 'Search any public athlete by display name to add them, or share your own profile link so friends can add you even if your profile is private.' },
-      { heading: 'Rivals & gyms', body: 'Rivals track your head-to-head record; gyms are player groups with a private chat and gym-vs-gym battles decided by your rosters fighting member-versus-member.' },
+      { heading: 'Feed & tabs', target: 'social-tab-', body: 'These tabs switch between Following, Rivals, Discover and Gyms. Rivals track your head-to-head record; gyms are player groups with a private chat and gym-vs-gym battles decided by your rosters fighting member-versus-member.' },
+      { heading: 'Find people', target: 'social-find-friends', body: 'Search any public athlete by display name to add them, or share your own profile link so friends can add you even if your profile is private.' },
       { heading: 'Your privacy', body: 'You control what is visible — set your profile public or private, and choose whether your Evo stats and lifts show. Nothing is shared until you opt in.' },
     ],
   },
@@ -175,15 +179,15 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'FRIENDS & RIVALS',
     tagline: 'Add athletes and track your head-to-head.',
     sections: [
-      { heading: 'Add by name', body: 'Type someone’s display name and matching public athletes appear — tap ADD. Private athletes only surface if they have shared their profile link with you.' },
-      { heading: 'Share your link', body: 'Send your profile link and a friend can open it and add you directly, even if your profile is private.' },
+      { heading: 'Add by name', target: 'friend-search-input', body: 'Type someone’s display name here and matching public athletes appear — tap ADD. Private athletes only surface if they have shared their profile link with you.' },
+      { heading: 'Share your link', target: 'share-profile', body: 'Send your profile link and a friend can open it and add you directly, even if your profile is private.' },
     ],
   },
   athlete: {
     title: 'ATHLETE PROFILE',
     tagline: 'Another athlete’s stats, measured against yours.',
     sections: [
-      { heading: 'Evo pillars vs you', body: 'Their Size / Aesthetics / Strength / Cardio pillars show as bars with a "vs you" delta — green where you lead, red where they do — computed on the same scale as your own.' },
+      { heading: 'Evo pillars vs you', target: 'pillar-', body: 'Their Size / Aesthetics / Strength / Cardio pillars show as bars with a "vs you" delta — green where you lead, red where they do — computed on the same scale as your own.' },
       { heading: 'Only what they share', body: 'Stats and lifts appear only if the athlete opted to show them. A private profile you are not friends with shows a locked card with an add path.' },
     ],
   },
@@ -191,8 +195,8 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'GYMS',
     tagline: 'Your crew — chat, roster and gym-vs-gym battles.',
     sections: [
-      { heading: 'The roster', body: 'Members are ranked by Evo Rating into a pecking order, your own row highlighted. Everyone’s "vs you" delta shows where you sit in the gym.' },
-      { heading: 'Gym battles', body: 'Challenge a rival gym and your rosters fight member-versus-member in the combat engine — most duels won takes it. The battle plays out duel by duel before the verdict.' },
+      { heading: 'The roster', target: 'gym-member-', body: 'Members are ranked by Evo Rating into a pecking order, your own row highlighted. Everyone’s "vs you" delta shows where you sit in the gym.' },
+      { heading: 'Gym battles', target: 'gym-battle-search', body: 'Search a rival gym here and your rosters fight member-versus-member in the combat engine — most duels won takes it. The battle plays out duel by duel before the verdict.' },
     ],
   },
   schedule: {
