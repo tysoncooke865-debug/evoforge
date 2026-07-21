@@ -26,6 +26,15 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **SAVED MEALS + GOAL TRIPLE (2026-07-21, migration 081 APPLIED + falsified)**:
+  `saved_meals` (name ≤60 unique per user case-insensitive, `items` jsonb 1..12
+  in the nutrition_log.items MealItem shape, denormalised kcal/macro totals,
+  owner select/insert/delete — no update, v1 has no rename) and three nullable
+  `nutrition_targets` columns `kcal_lose/kcal_maintain/kcal_gain` (1000..6000)
+  — the goal triple computed client-side at intake time so CUT/MAINTAIN/BULK
+  switching is a plain effective-dated upsert, zero AI tokens. Falsified per
+  the migration header (dup name 23505, item/kcal/macro CHECKs, BRAVO
+  isolation, 999 reject, triple accept); seeds cleaned.
 - **MEAL-SCAN QUALIFIER-AWARE MATCHING (2026-07-21, no migration)**: "500g raw
   10% beef mince" used to read 1250 kcal — the 'mince' alias hit the cooked
   ~17%-fat `ground beef` row and DISCARDED the AI's correct raw estimate. The
