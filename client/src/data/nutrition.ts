@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { Goal, TargetInputs } from '@/domain/nutrition';
+import type { Goal, GoalTargets, TargetInputs } from '@/domain/nutrition';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -42,6 +42,13 @@ export interface NutritionTargetRow {
   daily_kcal: number;
   goal: Goal;
   inputs: Partial<TargetInputs>;
+  /** THE GOAL TRIPLE (081): all three goals' targets, computed client-side at
+   *  intake time — CUT/MAINTAIN/BULK switching reads these, never the AI.
+   *  Null on legacy and manual rows (a hand-typed number has no model behind
+   *  it to derive the other goals from). */
+  kcal_lose?: number | null;
+  kcal_maintain?: number | null;
+  kcal_gain?: number | null;
 }
 
 function useUserId(): string | null {
@@ -345,7 +352,7 @@ export function useNutritionTargets() {
       try {
         const { data, error } = await supabase
           .from('nutrition_targets')
-          .select('id,effective_from,daily_kcal,goal,inputs')
+          .select('id,effective_from,daily_kcal,goal,inputs,kcal_lose,kcal_maintain,kcal_gain')
           .order('effective_from', { ascending: true });
         if (error) {
           if (tableMissing(error)) {
@@ -389,6 +396,10 @@ export function useSaveTarget() {
       dailyKcal: number;
       goal: Goal;
       inputs: Partial<TargetInputs>;
+      /** The goal triple (081). ALWAYS passed — null means "explicitly clear"
+       *  (a manual number has no model behind it), so a stale triple can never
+       *  survive an upsert to contradict the hand-typed target. */
+      triple: GoalTargets | null;
     }) => {
       const { error } = await supabase.from('nutrition_targets').upsert(
         {
@@ -396,6 +407,9 @@ export function useSaveTarget() {
           daily_kcal: input.dailyKcal,
           goal: input.goal,
           inputs: input.inputs,
+          kcal_lose: input.triple?.lose ?? null,
+          kcal_maintain: input.triple?.maintain ?? null,
+          kcal_gain: input.triple?.gain ?? null,
         },
         { onConflict: 'user_id,effective_from' }
       );
@@ -410,6 +424,9 @@ export function useSaveTarget() {
             daily_kcal: input.dailyKcal,
             goal: input.goal,
             inputs: input.inputs,
+            kcal_lose: input.triple?.lose ?? null,
+            kcal_maintain: input.triple?.maintain ?? null,
+            kcal_gain: input.triple?.gain ?? null,
           });
           await writeLocal(PREVIEW_TARGETS_KEY, next);
           announcePreview();
@@ -548,5 +565,99 @@ export function useLogMeal() {
         title: 'NOT LOGGED',
         subtitle: e.message.includes('cap') ? e.message : 'Could not save the meal. Try again.',
       }),
+  });
+}
+
+// ---- SAVED MEALS (081, 2026-07-21): a named meal, saved from the confirm
+// sheet, re-logged with one tap on other days. `items` is the same MealItem[]
+// provenance as nutrition_log.items, so logging a saved meal IS logging a
+// scanned meal (useLogMeal — the caps and totals maths already hold). ----
+
+export interface SavedMeal {
+  id: string;
+  name: string;
+  items: MealItem[];
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  created_at: string;
+}
+
+export function useSavedMeals() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['saved_meals', userId],
+    enabled: userId !== null,
+    queryFn: async (): Promise<SavedMeal[]> => {
+      try {
+        const { data, error } = await supabase
+          .from('saved_meals')
+          .select('id,name,items,kcal,protein_g,carbs_g,fat_g,created_at')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) return [];
+        return (data ?? []) as SavedMeal[];
+      } catch {
+        return [];
+      }
+    },
+  });
+}
+
+export function useSaveSavedMeal() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (input: { name: string; items: MealItem[] }) => {
+      const name = input.name.trim().slice(0, 60);
+      if (name.length === 0) throw new Error('Give the meal a name.');
+      if (input.items.length === 0) throw new Error('Nothing to save.');
+      const t = scanTotals(input.items);
+      // Same refusal as useLogMeal — a saved meal that can't be logged is a trap.
+      if (t.kcal < 1 || t.kcal > 6000 || t.p > 1000 || t.c > 1500 || t.f > 600)
+        throw new Error('Meals cap at 6,000 kcal (P 1000 · C 1500 · F 600). Split it into two meals.');
+      const { error } = await supabase.from('saved_meals').insert({
+        name,
+        items: input.items,
+        kcal: t.kcal,
+        protein_g: t.p,
+        carbs_g: t.c,
+        fat_g: t.f,
+      });
+      if (error) {
+        if (error.code === '23505' || /duplicate|unique/i.test(error.message)) {
+          throw new Error(`You already have a saved meal called "${name}".`);
+        }
+        throw error;
+      }
+      return name;
+    },
+    onSuccess: (name) => {
+      void queryClient.invalidateQueries({ queryKey: ['saved_meals', userId] });
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'MEAL SAVED',
+        subtitle: `${name} · one tap to log it any day`,
+      });
+    },
+    onError: (e: Error) =>
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message }),
+  });
+}
+
+export function useDeleteSavedMeal() {
+  const queryClient = useQueryClient();
+  const userId = useUserId();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('saved_meals').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['saved_meals', userId] });
+    },
+    onError: (e: Error) =>
+      useToastStore.getState().push({ kind: 'error', title: 'NOT DELETED', subtitle: e.message }),
   });
 }

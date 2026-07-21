@@ -8,6 +8,7 @@ import {
   ACTIVITY_LABEL,
   GOAL_LABEL,
   dailyTarget,
+  goalTargets,
   intakeError,
   type Activity,
   type Goal,
@@ -226,12 +227,18 @@ export function NutritionIntake({
   };
 
   const confirm = (fields: TargetInputs) => {
+    // THE GOAL TRIPLE (081): all three goals' targets are computed HERE, once,
+    // and stored on the row — the summary card's CUT/MAINTAIN/BULK switcher
+    // then cycles them with a plain upsert, never another intake.
+    // triple[fields.goal] === dailyTarget(fields) by construction.
+    const triple = goalTargets(fields);
     saveTarget.mutate(
       {
         effectiveFrom: todayIso,
-        dailyKcal: dailyTarget(fields),
+        dailyKcal: triple[fields.goal],
         goal: fields.goal,
         inputs: fields,
+        triple,
       },
       { onSuccess: onClose }
     );

@@ -311,8 +311,11 @@ function ManualTargetSheet({
       });
       return;
     }
+    // A manual number is the athlete overriding the model: `triple: null`
+    // EXPLICITLY clears any stored goal triple, so the switcher can never
+    // quote calories the hand-typed target contradicts.
     saveTarget.mutate(
-      { effectiveFrom: todayIso, dailyKcal: Math.round(v), goal, inputs: {} },
+      { effectiveFrom: todayIso, dailyKcal: Math.round(v), goal, inputs: {}, triple: null },
       { onSuccess: onClose }
     );
   };

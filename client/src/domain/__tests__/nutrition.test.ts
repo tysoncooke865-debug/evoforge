@@ -10,8 +10,11 @@ import {
   canRemoveMeal,
   dailyTarget,
   effectiveMealCount,
+  goalTargets,
+  goalTargetsFromInputs,
   highestMealNo,
   intakeError,
+  GOAL_SHORT,
   intakeProgress,
   kcalToKj,
   kjToKcal,
@@ -33,6 +36,50 @@ const FEMALE = { sex: 'female', weightKg: 65, heightCm: 165, age: 30 } as const;
 
 const target = (over: Partial<TargetInputs> = {}): number =>
   dailyTarget({ ...MALE, activity: 'moderate', goal: 'maintain', ratePerWeekKg: 0, ...over });
+
+describe('the GOAL TRIPLE (081) — cut/maintain/bulk without another intake', () => {
+  const INPUTS: TargetInputs = { ...MALE, activity: 'moderate', goal: 'maintain', ratePerWeekKg: 0.5 };
+
+  it('pins all three legs against the single-goal references', () => {
+    expect(goalTargets(INPUTS)).toEqual({ lose: 2248, maintain: 2798, gain: 3348 });
+  });
+
+  it('maintain ignores the rate', () => {
+    expect(goalTargets({ ...INPUTS, ratePerWeekKg: 1 }).maintain).toBe(
+      goalTargets({ ...INPUTS, ratePerWeekKg: 0 }).maintain
+    );
+  });
+
+  it('each leg keeps the safety floor independently', () => {
+    // FEMALE sedentary: TDEE 1370.25 × 1.2 = 1644; max rate subtracts 1100 →
+    // the cut leg alone crosses the floor.
+    const small: TargetInputs = {
+      ...FEMALE, activity: 'sedentary', goal: 'maintain', ratePerWeekKg: 1,
+    };
+    const t = goalTargets(small);
+    expect(t.lose).toBe(FLOOR_KCAL.female); // 1200 — the arithmetic went below it
+    expect(t.maintain).toBe(1644);
+    expect(t.maintain).toBeGreaterThan(FLOOR_KCAL.female);
+  });
+
+  it('goalTargetsFromInputs: a stored AI-intake blob derives the triple', () => {
+    expect(goalTargetsFromInputs({ ...INPUTS })).toEqual({ lose: 2248, maintain: 2798, gain: 3348 });
+  });
+
+  it('manual targets ({} inputs) and garbage derive NOTHING', () => {
+    expect(goalTargetsFromInputs({})).toBeNull();
+    expect(goalTargetsFromInputs(null)).toBeNull();
+    expect(goalTargetsFromInputs(undefined)).toBeNull();
+    expect(goalTargetsFromInputs({ ...INPUTS, ratePerWeekKg: undefined })).toBeNull(); // never invent a rate
+    expect(goalTargetsFromInputs({ ...INPUTS, age: 999 })).toBeNull();
+    expect(goalTargetsFromInputs({ ...INPUTS, activity: 'sometimes' as never })).toBeNull();
+    expect(goalTargetsFromInputs({ ...INPUTS, weightKg: 'heavy' as never })).toBeNull();
+  });
+
+  it('GOAL_SHORT speaks lifter: CUT / MAINTAIN / BULK', () => {
+    expect(GOAL_SHORT).toEqual({ lose: 'CUT', maintain: 'MAINTAIN', gain: 'BULK' });
+  });
+});
 
 describe('kJ ⇄ kcal', () => {
   it('pins the constant: 1 kcal = 4.184 kJ exactly', () => {

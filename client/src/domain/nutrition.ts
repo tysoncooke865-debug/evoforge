@@ -115,6 +115,14 @@ export const GOAL_LABEL: Readonly<Record<Goal, string>> = {
   gain: 'Gain muscle',
 };
 
+/** The lifter's names for the goals — the summary card's switcher chips.
+ *  Display only: the DB enum stays 'lose'|'maintain'|'gain'. */
+export const GOAL_SHORT: Readonly<Record<Goal, string>> = {
+  lose: 'CUT',
+  maintain: 'MAINTAIN',
+  gain: 'BULK',
+};
+
 export interface BodyInputs {
   sex: Sex;
   weightKg: number;
@@ -165,6 +173,50 @@ export function dailyTarget(i: TargetInputs): number {
   const delta = (rate * KCAL_PER_KG) / 7;
   const raw = i.goal === 'lose' ? tdee - delta : i.goal === 'gain' ? tdee + delta : tdee;
   return Math.max(Math.round(raw), FLOOR_KCAL[i.sex]);
+}
+
+/** All three goals' targets from ONE intake (081): computed once, stored on
+ *  the target row, so switching CUT/MAINTAIN/BULK never re-runs the intake.
+ *  The rate applies ± for lose/gain; maintain ignores it; each leg keeps the
+ *  sex floor independently. */
+export interface GoalTargets {
+  lose: number;
+  maintain: number;
+  gain: number;
+}
+
+export function goalTargets(i: TargetInputs): GoalTargets {
+  return {
+    lose: dailyTarget({ ...i, goal: 'lose' }),
+    maintain: dailyTarget({ ...i, goal: 'maintain' }),
+    gain: dailyTarget({ ...i, goal: 'gain' }),
+  };
+}
+
+/**
+ * The triple from a STORED inputs blob (rows saved before 081, or rows whose
+ * columns are null). Manual targets store `inputs: {}` and correctly return
+ * null — a hand-typed number carries no model to derive the other goals from.
+ * Validated through intakeError with a rated goal so the rate check runs;
+ * a missing rate is never invented.
+ */
+export function goalTargetsFromInputs(
+  inputs: Partial<TargetInputs> | null | undefined
+): GoalTargets | null {
+  if (!inputs) return null;
+  if (inputs.sex !== 'male' && inputs.sex !== 'female') return null;
+  if (typeof inputs.activity !== 'string' || !(inputs.activity in ACTIVITY_FACTORS)) return null;
+  const c: TargetInputs = {
+    sex: inputs.sex,
+    weightKg: Number(inputs.weightKg),
+    heightCm: Number(inputs.heightCm),
+    age: Number(inputs.age),
+    activity: inputs.activity,
+    ratePerWeekKg: Number(inputs.ratePerWeekKg),
+    goal: 'lose',
+  };
+  if (intakeError(c) !== null) return null;
+  return goalTargets(c);
 }
 
 /** Field ranges the intake accepts. The edge function mirrors these server-side. */
