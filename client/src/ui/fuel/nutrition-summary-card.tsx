@@ -1,8 +1,9 @@
-import { Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import {
-  GOAL_LABEL,
+  GOAL_SHORT,
   type Goal,
+  type GoalTargets,
   type IntakeProgress,
   type MacroProgress,
   type MacroTargets,
@@ -15,7 +16,7 @@ import {
   PixelDrop,
   PixelFlame,
   PixelMuscle,
-  PixelTarget,
+  PixelPencil,
 } from '@/ui/core/pixel-icons';
 import { GlowCard } from '@/ui/core/shell';
 import { ThinBar } from '@/ui/fuel/progress-bar';
@@ -25,21 +26,31 @@ import { ThinBar } from '@/ui/fuel/progress-bar';
  * (remaining kcal, loud) beside the three macro rows. Two columns on
  * regular phones, stacked under 400px so nothing crams. The meter colour
  * rules are unchanged — the colour must not lie about the goal.
+ *
+ * FUEL v2 (NUTRITION_PLAN_2, 2026-07-21): this card is now the whole
+ * command centre — the CUT/MAINTAIN/BULK switcher (each inactive chip
+ * quotes its stored kcal; switching is a plain target upsert, zero AI)
+ * and the ✦ RECALCULATE / EDIT actions that used to live in the deleted
+ * bottom ESTIMATED DAILY TARGET card. Protein renders with EMPHASIS —
+ * heavier than carbs/fat by weight and size, same colour.
  */
 
-/** One macro row: pixel icon · name · current/target · thin bar. */
+/** One macro row: pixel icon · name · current/target · thin bar.
+ *  `emphasis` (protein): bigger label/value/bar — weight, not a new colour. */
 export function MacroProgressRow({
   icon,
   label,
   current,
   target,
   color,
+  emphasis = false,
 }: {
   icon: React.ReactNode;
   label: string;
   current: number;
   target: number;
   color: string;
+  emphasis?: boolean;
 }) {
   return (
     <View className="mb-s2">
@@ -47,14 +58,17 @@ export function MacroProgressRow({
         <View className="flex-row items-center" style={{ gap: 6 }}>
           {icon}
           <Text
-            className="text-text-dim"
+            className={emphasis ? 'text-text' : 'text-text-dim'}
             allowFontScaling={false}
-            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            style={{ fontSize: emphasis ? 10 : 9, letterSpacing: 1, ...pixelFont(false) }}
           >
             {label}
           </Text>
         </View>
-        <Text allowFontScaling={false} style={{ fontSize: 12, color, ...pixelFont() }}>
+        <Text
+          allowFontScaling={false}
+          style={{ fontSize: emphasis ? 14 : 12, color, ...pixelFont() }}
+        >
           {current}
           <Text className="text-text-mute" style={{ fontSize: 10 }}>
             {' '}
@@ -63,11 +77,17 @@ export function MacroProgressRow({
         </Text>
       </View>
       <View className="mt-s1">
-        <ThinBar pct={target > 0 ? (current / target) * 100 : 0} color={color} height={4} />
+        <ThinBar
+          pct={target > 0 ? (current / target) * 100 : 0}
+          color={color}
+          height={emphasis ? 6 : 4}
+        />
       </View>
     </View>
   );
 }
+
+const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
 
 export function NutritionSummaryCard({
   progress,
@@ -81,6 +101,12 @@ export function NutritionSummaryCard({
   macroTargets,
   streak,
   streakCapped = false,
+  sinceDate,
+  triple,
+  goalBusy = false,
+  onSelectGoal,
+  onRecalculate,
+  onEdit,
 }: {
   progress: IntakeProgress;
   /** The effective ceiling shown after the "/" — base target + burned. */
@@ -98,6 +124,15 @@ export function NutritionSummaryCard({
   streak: number;
   /** True when the streak filled its query window — shown as "N+". */
   streakCapped?: boolean;
+  /** target.effective_from — the quiet provenance line by the actions. */
+  sinceDate: string;
+  /** The stored/derived goal triple; null = unknowable (manual target). */
+  triple: GoalTargets | null;
+  /** Dim the switcher while the goal write is in flight. */
+  goalBusy?: boolean;
+  onSelectGoal: (g: Goal) => void;
+  onRecalculate: () => void;
+  onEdit: () => void;
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -156,24 +191,111 @@ export function NutritionSummaryCard({
           {Math.round(progress.barPct)}%
         </Text>
       </View>
-      <View className="mt-s3 flex-row items-center" style={{ gap: 8 }}>
-        <View className="flex-row items-center" style={{ gap: 5 }}>
-          <PixelTarget size={12} color={colors.accent} />
-          <Text className="text-2xs text-text-dim">Goal: {GOAL_LABEL[goal]}</Text>
+      {streak > 0 ? (
+        <View className="mt-s3 flex-row items-center" style={{ gap: 5 }}>
+          <PixelFlame size={12} color={colors.legendary} />
+          <Text className="text-2xs text-text-dim" testID="fuel-streak">
+            Day {streak}
+            {streakCapped ? '+' : ''} streak
+          </Text>
         </View>
-        {streak > 0 ? (
-          <>
-            <View style={{ width: 1, height: 12, backgroundColor: colors['border-soft'] }} />
-            <View className="flex-row items-center" style={{ gap: 5 }}>
-              <PixelFlame size={12} color={colors.legendary} />
-              <Text className="text-2xs text-text-dim" testID="fuel-streak">
-                Day {streak}
-                {streakCapped ? '+' : ''} streak
-              </Text>
-            </View>
-          </>
-        ) : null}
-      </View>
+      ) : null}
+    </View>
+  );
+
+  // THE GOAL SWITCHER: the current goal is the filled chip; the other two
+  // quote their STORED kcal when the triple is known. Tapping writes a new
+  // effective-dated target — never an AI call. `triple === null` still shows
+  // the chips (the goal itself must stay prominent); the page-level handler
+  // explains and opens the intake.
+  const goalSwitcher = (
+    <View className="flex-row" style={{ gap: 8, opacity: goalBusy ? 0.5 : 1 }}>
+      {GOALS.map((g) => {
+        const active = g === goal;
+        return (
+          <Pressable
+            key={g}
+            onPress={() => !goalBusy && !active && onSelectGoal(g)}
+            disabled={goalBusy || active}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled: goalBusy }}
+            testID={`fuel-goal-switch-${g}`}
+            className="flex-1 items-center justify-center rounded-md border px-s1"
+            style={{
+              minHeight: 40,
+              borderColor: active ? colors.accent : colors.border,
+              backgroundColor: active ? 'rgba(34,211,238,0.12)' : 'rgba(13,21,36,0.6)',
+            }}
+          >
+            <Text
+              className={active ? 'text-accent' : 'text-text-dim'}
+              allowFontScaling={false}
+              numberOfLines={1}
+              style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+            >
+              {GOAL_SHORT[g]}
+            </Text>
+            <Text
+              className={active ? 'text-accent' : 'text-text-mute'}
+              allowFontScaling={false}
+              numberOfLines={1}
+              style={{ fontSize: 9, marginTop: 2, ...pixelFont(false) }}
+            >
+              {active
+                ? `${targetKcal.toLocaleString()} kcal`
+                : triple
+                  ? `${triple[g].toLocaleString()} kcal`
+                  : '—'}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  // The target's own controls, moved up from the deleted bottom card — the
+  // testIDs are load-bearing for the Playwright tours.
+  const targetActions = (
+    <View className="flex-row items-center">
+      <Pressable
+        onPress={onRecalculate}
+        accessibilityRole="button"
+        testID="fuel-recalculate"
+        className="flex-row items-center justify-center px-s2"
+        style={{ minHeight: 44, gap: 6 }}
+      >
+        <Text
+          className="text-epic"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
+          ✦ RECALCULATE
+        </Text>
+      </Pressable>
+      <View style={{ width: 1, height: 16, backgroundColor: colors['border-soft'] }} />
+      <Pressable
+        onPress={onEdit}
+        accessibilityRole="button"
+        testID="fuel-edit-target"
+        className="flex-row items-center justify-center px-s2"
+        style={{ minHeight: 44, gap: 6 }}
+      >
+        <PixelPencil size={11} color={colors.accent} />
+        <Text
+          className="text-accent"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
+          EDIT
+        </Text>
+      </Pressable>
+      <Text
+        className="ml-auto text-2xs text-text-mute"
+        numberOfLines={1}
+        allowFontScaling={false}
+      >
+        since {sinceDate}
+      </Text>
     </View>
   );
 
@@ -187,11 +309,12 @@ export function NutritionSummaryCard({
         MACROS
       </Text>
       <MacroProgressRow
-        icon={<PixelMuscle size={13} color={colors.accent} />}
+        icon={<PixelMuscle size={15} color={colors.accent} />}
         label="PROTEIN"
         current={macros.protein}
         target={macroTargets.protein}
         color={colors.accent}
+        emphasis
       />
       <MacroProgressRow
         icon={<PixelBolt size={12} color={colors.epic} />}
@@ -225,6 +348,8 @@ export function NutritionSummaryCard({
           {macroRows}
         </View>
       )}
+      <View className="mt-s3">{goalSwitcher}</View>
+      <View className="mt-s2 border-t border-border-soft pt-s1">{targetActions}</View>
     </GlowCard>
   );
 }

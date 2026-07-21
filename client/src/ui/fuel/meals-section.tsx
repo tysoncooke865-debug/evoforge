@@ -78,10 +78,20 @@ export function MealsSection({
   return (
     <View className="w-full">
       <View className="mb-s2 flex-row items-end justify-between">
+        {/* FUEL v2: the section reads LAST on the page now — the title
+            carries SectionLabel-lg weight (inlined: the row also holds the
+            kcal counter, which the component form can't). */}
         <Text
-          className="text-text-mute"
+          className="text-text"
           allowFontScaling={false}
-          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+          style={{
+            fontSize: 17,
+            lineHeight: 22,
+            letterSpacing: 0.5,
+            textShadowColor: 'rgba(34,211,238,0.4)',
+            textShadowRadius: 12,
+            ...pixelFont(),
+          }}
         >
           TODAY&apos;S MEALS
         </Text>

@@ -8,6 +8,7 @@ import {
   scanMeal,
   scanTotals,
   useLogMeal,
+  useSaveSavedMeal,
   type MealItem,
 } from '@/data/nutrition';
 import { pyFloat } from '@/domain/py';
@@ -51,6 +52,11 @@ export function AIMealScanCard({ date }: { date: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [describeOpen, setDescribeOpen] = useState(false);
   const saveMeal = useLogMeal();
+  // SAVE FOR LATER (081): name a meal from the confirm sheet and it joins the
+  // SAVED MEALS card for one-tap re-logging on any day.
+  const saveForLater = useSaveSavedMeal();
+  const [saveLaterOpen, setSaveLaterOpen] = useState(false);
+  const [saveLaterName, setSaveLaterName] = useState('');
 
   // Search appends one food at a time to the meal being built.
   const addFood = (item: MealItem) => {
@@ -379,6 +385,8 @@ export function AIMealScanCard({ date }: { date: string }) {
                     setItems(null);
                     setTitle(null);
                     setMealSlot(null);
+                    setSaveLaterOpen(false);
+                    setSaveLaterName('');
                   },
                 }
               )
@@ -387,6 +395,51 @@ export function AIMealScanCard({ date }: { date: string }) {
             disabled={items.length === 0}
             testID="meal-save"
           />
+          {/* SAVE FOR LATER: stores the meal by name (081) — the sheet stays
+              open, because saving for later and logging it now usually both
+              happen. On a duplicate name the input stays for a rename. */}
+          {saveLaterOpen ? (
+            <View className="mt-s2 flex-row items-center" style={{ gap: 8 }}>
+              <TextInput
+                value={saveLaterName}
+                onChangeText={setSaveLaterName}
+                placeholder="Name this meal…"
+                placeholderTextColor={colors['text-mute']}
+                maxLength={60}
+                className="flex-1 rounded-md border border-border px-s3 text-sm text-text"
+                style={{ minHeight: 44, backgroundColor: 'rgba(13,21,36,0.6)' }}
+                testID="meal-save-later-name"
+              />
+              <NeonButton
+                title="SAVE"
+                variant="ghost"
+                onPress={() =>
+                  saveForLater.mutate(
+                    { name: saveLaterName, items },
+                    { onSuccess: () => setSaveLaterOpen(false) }
+                  )
+                }
+                busy={saveForLater.isPending}
+                disabled={saveLaterName.trim().length === 0 || items.length === 0}
+                testID="meal-save-later-confirm"
+              />
+            </View>
+          ) : (
+            <View className="mt-s2">
+              <NeonButton
+                title="☆ SAVE FOR LATER"
+                variant="ghost"
+                onPress={() => {
+                  setSaveLaterName(
+                    (title ?? items.map((i) => i.name).join(', ')).slice(0, 60)
+                  );
+                  setSaveLaterOpen(true);
+                }}
+                disabled={items.length === 0}
+                testID="meal-save-later"
+              />
+            </View>
+          )}
           <View className="mt-s2">
             <NeonButton
               title="DISCARD"
@@ -395,6 +448,8 @@ export function AIMealScanCard({ date }: { date: string }) {
                 setItems(null);
                 setTitle(null);
                 setMealSlot(null);
+                setSaveLaterOpen(false);
+                setSaveLaterName('');
               }}
               testID="meal-discard"
             />

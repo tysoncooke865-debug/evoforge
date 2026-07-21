@@ -14,6 +14,7 @@ import { NumberField } from '@/ui/core/number-field';
 import {
   GOAL_LABEL,
   evalEnergyExpression,
+  goalTargetsFromInputs,
   intakeProgress,
   kjToKcal,
   macroProgress,
@@ -31,23 +32,24 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
-import { DailyTargetCard } from '@/ui/fuel/daily-target-card';
-import { FuelBonusCard } from '@/ui/fuel/fuel-bonus-card';
 import { FuelHeader } from '@/ui/fuel/fuel-header';
 import { AIMealScanCard } from '@/ui/fuel/meal-scan-card';
 import { MealsSection } from '@/ui/fuel/meals-section';
 import { NutritionSummaryCard } from '@/ui/fuel/nutrition-summary-card';
 import { QuickLogCard } from '@/ui/fuel/quick-log-card';
+import { SavedMealsCard } from '@/ui/fuel/saved-meals-card';
 
 /**
- * FUEL — the calorie day (FUEL_REDESIGN, 2026-07-18: Tyson's reference
- * layout). The page is now a composition; each card owns its own state and
- * mutations, this file owns the day's derived numbers and the two target
- * modals. Everything still moves the same meter: one query, one rulebook.
+ * FUEL — the calorie day (FUEL_REDESIGN 2026-07-18; FUEL v2 layout per
+ * NUTRITION_PLAN_2, 2026-07-21). The page is a composition; each card owns
+ * its own state and mutations, this file owns the day's derived numbers,
+ * the two target modals, and the goal switch. One query, one rulebook.
  *
- * Order (the reference, top to bottom): header · summary (remaining +
- * macros) · AI meal scan + barcode · today's meals · fuel bonus · quick
- * log · daily target · converter · quick-adds.
+ * Order (top to bottom): header · summary (remaining + macros + goal
+ * switcher + recalculate/edit) · AI meal scan + barcode · saved meals ·
+ * quick log · converter · quick-adds · today's meals (the day's record
+ * reads last). The old bottom ESTIMATED DAILY TARGET card and the PROTEIN
+ * GOAL card are gone — the summary card carries both duties.
  */
 
 const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
@@ -89,6 +91,37 @@ export default function FuelScreen() {
   const [targetOpen, setTargetOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
 
+  // THE GOAL SWITCH (081): stored columns first, else derive from the saved
+  // intake inputs (pre-081 rows). Manual targets ({} inputs) resolve to null —
+  // switching then explains and opens the intake instead of guessing.
+  const saveTarget = useSaveTarget();
+  const resolvedTriple = target
+    ? target.kcal_lose != null && target.kcal_maintain != null && target.kcal_gain != null
+      ? { lose: target.kcal_lose, maintain: target.kcal_maintain, gain: target.kcal_gain }
+      : goalTargetsFromInputs(target.inputs)
+    : null;
+  const switchGoal = (g: Goal) => {
+    if (!target || g === target.goal) return;
+    if (!resolvedTriple) {
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'RECALCULATE FIRST',
+        subtitle: 'This target predates goal switching — run the calculator once.',
+      });
+      setIntakeOpen(true);
+      return;
+    }
+    // A plain effective-dated upsert — no AI anywhere on this path. The
+    // triple rides along so every future switch stays instant.
+    saveTarget.mutate({
+      effectiveFrom: todayIso,
+      dailyKcal: resolvedTriple[g],
+      goal: g,
+      inputs: target.inputs,
+      triple: resolvedTriple,
+    });
+  };
+
   // Converter state — self-contained, persists nothing.
   const [convKj, setConvKj] = useState('');
   const [convKcal, setConvKcal] = useState('');
@@ -105,7 +138,8 @@ export default function FuelScreen() {
     <ScreenShell>
       <FuelHeader anim={state === 'reached' ? 'victory' : 'idle'} />
 
-      {/* THE SUMMARY — the page's one number beside the three macros. */}
+      {/* THE SUMMARY — the page's one number beside the three macros, plus
+          the goal switcher and the target's own controls (FUEL v2). */}
       {target ? (
         <NutritionSummaryCard
           progress={progress}
@@ -119,6 +153,12 @@ export default function FuelScreen() {
           macroTargets={macroTargets}
           streak={streakCapped ? 45 : streak}
           streakCapped={streakCapped}
+          sinceDate={target.effective_from}
+          triple={resolvedTriple}
+          goalBusy={saveTarget.isPending}
+          onSelectGoal={switchGoal}
+          onRecalculate={() => setIntakeOpen(true)}
+          onEdit={() => setTargetOpen(true)}
         />
       ) : (
         <GlowCard>
@@ -145,27 +185,11 @@ export default function FuelScreen() {
       {/* THE SCANNERS — photo AI and barcode, one confirm sheet. */}
       <AIMealScanCard date={todayIso} />
 
-      {/* THE DAY'S STRUCTURE — named slots (display-only since 2026-07-19). */}
-      <MealsSection entries={entries} consumed={progress.consumed} />
-
-      {/* THE PROTEIN GOAL — a reward card that promises nothing unbacked. */}
-      <FuelBonusCard
-        proteinTarget={macroTargets.protein}
-        proteinConsumed={macros.protein}
-        dinnerLogged={entries.some((e) => e.meal_no === 3)}
-      />
+      {/* SAVED MEALS (081) — one tap re-logs a meal saved from the sheet. */}
+      <SavedMealsCard date={todayIso} />
 
       {/* QUICK LOG — either unit, one confirm. */}
       <QuickLogCard date={todayIso} />
-
-      {/* THE TARGET — where the budget comes from. */}
-      {target ? (
-        <DailyTargetCard
-          target={target}
-          onRecalculate={() => setIntakeOpen(true)}
-          onEdit={() => setTargetOpen(true)}
-        />
-      ) : null}
 
       {/* THE CONVERTER — type either side, the other answers. Either side
           also takes label ARITHMETIC ("435×5", "1650/4+300"): the expression
@@ -222,9 +246,6 @@ export default function FuelScreen() {
             />
           </View>
         </View>
-        <Text className="mt-s2 text-2xs text-text-mute">
-          Maths works: 435×5 converts the five-serving total. + − × ÷ all do.
-        </Text>
       </GlowCard>
 
       {/* TODAY — the quick-adds. Meal entries live (and delete) inside their
@@ -258,6 +279,10 @@ export default function FuelScreen() {
           ))}
         </GlowCard>
       ) : null}
+
+      {/* TODAY'S MEALS — the day's record, reading LAST (FUEL v2): the page
+          opens on what to do next; what you already did closes it out. */}
+      <MealsSection entries={entries} consumed={progress.consumed} />
 
       {intakeOpen ? (
         <NutritionIntake

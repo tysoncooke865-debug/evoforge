@@ -26,6 +26,18 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FUEL PAGE v2 (2026-07-21, NUTRITION_PLAN_2)**: the summary card is the
+  command centre — CUT/MAINTAIN/BULK switcher chips (inactive chips quote
+  their stored kcal; tapping writes an effective-dated target upsert, ZERO AI;
+  a manual/pre-081 target with no derivable triple toasts RECALCULATE FIRST
+  and opens the intake) + the ✦RECALCULATE/EDIT actions moved up from the
+  deleted `daily-target-card.tsx` (testIDs kept verbatim). `fuel-bonus-card`
+  (protein goal box) deleted — protein renders with `emphasis` in the macro
+  rows instead (weight/size, same colour). New `saved-meals-card.tsx` beneath
+  the scanner: ☆ SAVE FOR LATER in the confirm sheet names a meal; the card
+  one-tap logs it (slot picker + delete in the expander; renders null when
+  empty). TODAY'S MEALS moved to the page bottom with a SectionLabel-lg
+  title. The converter's "Maths works…" helper line is gone (feature stays).
 - **SAVED MEALS + GOAL TRIPLE (2026-07-21, migration 081 APPLIED + falsified)**:
   `saved_meals` (name ≤60 unique per user case-insensitive, `items` jsonb 1..12
   in the nutrition_log.items MealItem shape, denormalised kcal/macro totals,
