@@ -7,6 +7,7 @@ import {
   resolveActiveSource,
   resolveDayIn,
   resolvePlanSources,
+  supersetsOf,
   type RoutineLike,
 } from '../plan-sources';
 
@@ -146,5 +147,64 @@ describe('065 — resolveDayIn falls back to saved routines LAST', () => {
     const r = resolveDayIn(resolvePlanSources(EMPTY), builtInFor, 'Husk', 2, bare);
     expect(r.entries).toEqual([]);
     expect(r.routine).toBe('Husk');
+  });
+});
+
+describe('saved supersets (supersetsOf / ResolvedDay.supersets)', () => {
+  it('builds a SYMMETRIC map from one declared direction', () => {
+    expect(
+      supersetsOf([
+        { exercise: 'A', supersetWith: 'B' },
+        { exercise: 'B' },
+        { exercise: 'C' },
+      ])
+    ).toEqual({ A: 'B', B: 'A' });
+  });
+
+  it('drops dangling and self-referencing partners; none at all → undefined', () => {
+    expect(
+      supersetsOf([
+        { exercise: 'A', supersetWith: 'Gone' },
+        { exercise: 'B', supersetWith: 'B' },
+      ])
+    ).toBeUndefined();
+    expect(supersetsOf([{ exercise: 'A' }])).toBeUndefined();
+  });
+
+  it('resolveDayIn surfaces a plan day’s supersets', () => {
+    const withPairs: CustomPlan = {
+      plan_name: 'Split',
+      days: [
+        {
+          day: 'Arms',
+          goal: '',
+          exercises: [
+            { exercise: 'Curl', sets: 3, reps: '8-12', reason: '', supersetWith: 'Pushdown' },
+            { exercise: 'Pushdown', sets: 3, reps: '8-12', reason: '' },
+          ],
+        },
+      ],
+    };
+    const s = resolvePlanSources({ customPlan: withPairs, aiPlan: null, builtInDays: BUILT_IN });
+    const r = resolveDayIn(s, () => null, 'Arms', 0);
+    expect(r.from).toBe(0);
+    expect(r.supersets).toEqual({ Curl: 'Pushdown', Pushdown: 'Curl' });
+  });
+
+  it('resolveDayIn surfaces a routine’s supersets through the name fallback', () => {
+    const routines: RoutineLike[] = [
+      {
+        name: 'Arm Blast',
+        payload: {
+          exercises: [
+            { exercise: 'Curl', sets: 3, reps: '8-12', supersetWith: 'Pushdown' },
+            { exercise: 'Pushdown', sets: 3, reps: '8-12' },
+          ],
+        },
+      },
+    ];
+    const r = resolveDayIn(resolvePlanSources(EMPTY), () => null, 'Arm Blast', 2, routines);
+    expect(r.routine).toBe('Arm Blast');
+    expect(r.supersets).toEqual({ Curl: 'Pushdown', Pushdown: 'Curl' });
   });
 });

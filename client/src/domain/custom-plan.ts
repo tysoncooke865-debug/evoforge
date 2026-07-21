@@ -19,6 +19,10 @@ export interface PlanExercise {
   sets: number;
   reps: string;
   reason: string;
+  /** SAVE CHANGES (2026-07-21): optional superset partner (another exercise in
+   *  the SAME day). Backward-compatible — older payloads simply lack it; the
+   *  ai-plan edge function never emits it. */
+  supersetWith?: string;
 }
 export interface PlanDay {
   day: string;
@@ -59,7 +63,16 @@ export function validatePlan(data: unknown): { plan: CustomPlan | null; error: s
         sets: Math.max(1, Math.min(8, pyInt(e.sets) ?? 3)),
         reps,
         reason: String(e.reason ?? '').trim(),
+        supersetWith: String((e as { supersetWith?: unknown }).supersetWith ?? '').trim() || undefined,
       });
+    }
+    // A supersetWith must name ANOTHER exercise in the same day — anything
+    // else (dangling name, self-pair) is silently dropped, not an error.
+    const dayNames = new Set(exercises.map((e) => e.exercise));
+    for (const e of exercises) {
+      if (e.supersetWith && (!dayNames.has(e.supersetWith) || e.supersetWith === e.exercise)) {
+        delete e.supersetWith;
+      }
     }
     days.push({ day, goal: String(raw.goal ?? '').trim(), exercises });
   }

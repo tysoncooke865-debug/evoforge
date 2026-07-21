@@ -165,3 +165,27 @@ describe("flattenPlan and the athlete's own exercises (STAGE 1)", () => {
     );
   });
 });
+
+describe('supersetWith (SAVE CHANGES, 2026-07-21)', () => {
+  it('round-trips a valid same-day pairing through validatePlan', () => {
+    const p = goodPlan() as ReturnType<typeof goodPlan> & {
+      days: { exercises: { supersetWith?: string }[] }[];
+    };
+    p.days[0].exercises[0].supersetWith = 'Lat Pulldown';
+    const { plan, error } = validatePlan(p);
+    expect(error).toBeNull();
+    expect(plan?.days[0].exercises[0].supersetWith).toBe('Lat Pulldown');
+  });
+
+  it('drops a dangling or self-referencing partner instead of erroring', () => {
+    const p = goodPlan() as ReturnType<typeof goodPlan> & {
+      days: { exercises: { supersetWith?: string }[] }[];
+    };
+    p.days[0].exercises[0].supersetWith = 'Not In This Day';
+    p.days[0].exercises[1].supersetWith = 'Lat Pulldown'; // itself
+    const { plan, error } = validatePlan(p);
+    expect(error).toBeNull();
+    expect(plan?.days[0].exercises[0].supersetWith).toBeUndefined();
+    expect(plan?.days[0].exercises[1].supersetWith).toBeUndefined();
+  });
+});

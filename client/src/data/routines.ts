@@ -18,9 +18,16 @@ import { supabase } from './supabase';
  * for why that is safe here and not for the ledger).
  */
 
+/** SAVE CHANGES (2026-07-21): a routine exercise may carry a superset partner
+ *  (another exercise in the same routine). SessionExercise itself stays
+ *  untouched — it is the session store's wire shape. */
+export interface RoutineExercise extends SessionExercise {
+  supersetWith?: string;
+}
+
 export interface RoutinePayload {
   version: 1;
-  exercises: SessionExercise[];
+  exercises: RoutineExercise[];
 }
 
 export interface Routine {
@@ -75,6 +82,34 @@ export function useSaveRoutine() {
         kind: 'info',
         title: 'ROUTINE SAVED',
         subtitle: `${input.name.trim()} · ${input.exercises.length} exercises`,
+      });
+    },
+    onError: (e: Error) => {
+      useToastStore.getState().push({ kind: 'error', title: 'NOT SAVED', subtitle: e.message });
+    },
+  });
+}
+
+/** Overwrite an existing routine's exercises in place (owner UPDATE policy,
+ *  migration 016). The finish-flow SAVE CHANGES path — name and id keep. */
+export function useUpdateRoutine() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string; exercises: RoutineExercise[] }) => {
+      if (input.exercises.length === 0) throw new Error('Nothing left in this routine.');
+      const payload: RoutinePayload = { version: 1, exercises: input.exercises };
+      const { error } = await supabase.from('routines').update({ payload }).eq('id', input.id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['routines', userId] });
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'ROUTINE UPDATED',
+        subtitle: `${input.name} · ${input.exercises.length} exercises`,
       });
     },
     onError: (e: Error) => {

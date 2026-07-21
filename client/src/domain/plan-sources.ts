@@ -101,12 +101,36 @@ export interface ResolvedDay {
   /** 065: set (to the routine's stored name) when no plan source had the day
    *  and a saved routine answered instead — the workout page labels it. */
   routine?: string;
+  /** SAVED SUPERSETS (2026-07-21): symmetric partner map from the template's
+   *  `supersetWith` fields (plan or routine payloads), partner-validated.
+   *  Absent when the day carries none — built-in days never do. */
+  supersets?: Record<string, string>;
 }
 
 /** The slice of a saved routine the resolver needs (data/routines.ts rows fit). */
 export interface RoutineLike {
   name: string;
-  payload?: { exercises?: readonly { exercise: string; sets: number; reps: string }[] };
+  payload?: {
+    exercises?: readonly { exercise: string; sets: number; reps: string; supersetWith?: string }[];
+  };
+}
+
+/** Symmetric, partner-validated pairing from `supersetWith` fields — a
+ *  dangling or self-referencing partner is ignored, one declared direction
+ *  pairs both. */
+export function supersetsOf(
+  exercises: readonly { exercise: string; supersetWith?: string }[]
+): Record<string, string> | undefined {
+  const names = new Set(exercises.map((e) => e.exercise));
+  const out: Record<string, string> = {};
+  for (const e of exercises) {
+    const partner = e.supersetWith;
+    if (partner && partner !== e.exercise && names.has(partner)) {
+      out[e.exercise] = partner;
+      out[partner] = e.exercise;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -136,29 +160,43 @@ export function resolveDayIn(
   preferred: SourceIndex,
   routines: readonly RoutineLike[] = []
 ): ResolvedDay {
-  const inSource = (s: SourceIndex): PlanEntry[] | null => {
-    if (s === 2) return builtInFor(workout);
+  const inSource = (
+    s: SourceIndex
+  ): { entries: PlanEntry[]; supersets?: Record<string, string> } | null => {
+    if (s === 2) {
+      const entries = builtInFor(workout);
+      return entries ? { entries } : null; // built-in days carry no supersets
+    }
     const plan = s === 0 ? sources.myPlan : sources.aiPlan;
     const day = plan?.days.find((d) => d.day === workout);
-    return day ? day.exercises.map((e) => [e.exercise, e.sets, e.reps] as const) : null;
+    return day
+      ? {
+          entries: day.exercises.map((e) => [e.exercise, e.sets, e.reps] as const),
+          supersets: supersetsOf(day.exercises),
+        }
+      : null;
   };
 
   const own = inSource(preferred);
-  if (own && own.length > 0) return { entries: own, from: preferred };
+  if (own && own.entries.length > 0) return { ...own, from: preferred };
 
   for (const s of [0, 1, 2] as SourceIndex[]) {
     if (s === preferred) continue;
     const found = inSource(s);
-    if (found && found.length > 0) return { entries: found, from: s };
+    if (found && found.entries.length > 0) return { ...found, from: s };
   }
 
   const key = workout.trim().toLowerCase();
   const routine = routines.find((r) => r.name.trim().toLowerCase() === key);
   if (routine) {
-    const entries = (routine.payload?.exercises ?? []).map(
-      (e) => [e.exercise, e.sets, e.reps] as const
-    );
-    return { entries: [...entries], from: null, routine: routine.name };
+    const exercises = routine.payload?.exercises ?? [];
+    const entries = exercises.map((e) => [e.exercise, e.sets, e.reps] as const);
+    return {
+      entries: [...entries],
+      from: null,
+      routine: routine.name,
+      supersets: supersetsOf(exercises),
+    };
   }
 
   return { entries: [], from: null };

@@ -26,6 +26,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **SAVE CHANGES AT FINISH (2026-07-21, no migration)**: finishing an edited
+  day now asks "Save changes?" (skips ad-hoc — it has its own save-routine
+  flow). `domain/plan-edits.ts` is the pure bridge: `diffDayEdits` (skip/order
+  are NEVER template changes; a swap-then-remove is a removal of the slot;
+  net-zero deltas are clean), `applyEditsToDay` (1..8 intent clamp, swapped
+  slots lose their coaching `reason`), `mergeDayIntoCustomPlan`. SAVE routes by
+  the day's source: MY/AI → whole-payload `user_plans` upsert; **BUILT-IN forks
+  into MY PLAN** and points the schedule's matching weekdays at source 0 (066
+  per-day sources) — `active_plan_source` untouched; routines → new
+  `useUpdateRoutine` (016's owner UPDATE policy, first client use). Supersets
+  persist: `PlanExercise.supersetWith` (optional, validatePlan partner-checks
+  it), `RoutineExercise`, `ResolvedDay.supersets` (symmetric via
+  `supersetsOf`), seeded into the session once per day by `seedSupersets` —
+  `emptyDay()` deliberately does NOT define `superset` so undefined means
+  "never touched" and an unlinked-to-empty map is never re-seeded. JUST TODAY
+  keeps today's behaviour (overrides expire at midnight).
 - **FINISH FLOW (2026-07-21, no migration)**: logging the last set no longer
   auto-opens the SummarySheet — the jingle/haptic celebration stays, and the
   coin claim stays IN the ceremony effect (the offline finish-queue flush never

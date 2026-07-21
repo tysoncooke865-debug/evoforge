@@ -10,8 +10,9 @@ import { useOriginStatus } from '@/data/origin';
 import { originAsBranch } from '@/domain/customise';
 import { usePublishGhost } from '@/data/ghosts';
 import { useWorkoutLog } from '@/data/hooks';
-import { useRoutines, useSaveRoutine } from '@/data/routines';
-import { useWorkoutSchedule } from '@/data/schedule';
+import { useRoutines, useSaveRoutine, useUpdateRoutine } from '@/data/routines';
+import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
+import { useSaveUserPlan, useUserPlans } from '@/data/user-plans';
 import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
@@ -19,6 +20,8 @@ import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { applyEditsToDay, diffDayEdits, mergeDayIntoCustomPlan } from '@/domain/plan-edits';
+import type { PlanDay } from '@/domain/custom-plan';
 import { pyInt } from '@/domain/py';
 import type { SourceIndex } from '@/domain/plan-sources';
 import { nextScheduledSession } from '@/domain/scheduled-streak';
@@ -100,6 +103,10 @@ export default function WorkoutScreen() {
   const reopenWorkout = useReopenWorkout();
   const claimCoins = useClaimCoin();
   const saveRoutine = useSaveRoutine();
+  const updateRoutine = useUpdateRoutine();
+  const userPlans = useUserPlans();
+  const savePlan = useSaveUserPlan();
+  const saveSchedule = useSaveSchedule();
   const { summary, stats, bfMid, branchV2 } = useAvatarData();
   // THE ORIGIN LOCK: a published ghost carries the origin champion.
   const originStatus = useOriginStatus();
@@ -124,6 +131,7 @@ export default function WorkoutScreen() {
   const toggleSuperset = useSessionStore((s) => s.toggleSuperset);
   const substitute = useSessionStore((s) => s.substitute);
   const resetSubstitution = useSessionStore((s) => s.resetSubstitution);
+  const seedSupersets = useSessionStore((s) => s.seedSupersets);
   const bumpSets = useSessionStore((s) => s.bumpSets);
   const reorderExercises = useSessionStore((s) => s.reorderExercises);
 
@@ -138,6 +146,8 @@ export default function WorkoutScreen() {
   const [pairFor, setPairFor] = useState<string | null>(null);
   // FINISH with sets remaining asks first — "you have N sets remaining".
   const [confirmRemaining, setConfirmRemaining] = useState(false);
+  // FINISH with the day edited asks whether the edits become the template.
+  const [savePrompt, setSavePrompt] = useState(false);
 
   /** Swap the card being substituted for `altName`. Lives in the session
    *  store (persisted) — a refresh mid-workout must not quietly restore the
@@ -245,6 +255,7 @@ export default function WorkoutScreen() {
     setSubFor(null);
     setPairFor(null);
     setConfirmRemaining(false);
+    setSavePrompt(false);
     setPickerOpen(false);
     setReordering(false);
   }, [date, workoutName]);
@@ -288,6 +299,22 @@ export default function WorkoutScreen() {
   /** Sets still owed when the athlete reaches for FINISH. */
   const remaining = Math.max(0, totalTarget - totalDone);
 
+  // SAVED SUPERSETS seed the session once per (day, today) — the workout page
+  // then shows them, toggling edits the seeded map, and the finish-time diff
+  // compares clean until the athlete actually changes a pairing.
+  useEffect(() => {
+    if (!editable || isAdhoc) return;
+    const pairs = resolved.supersets;
+    if (pairs && Object.keys(pairs).length > 0) seedSupersets(workoutName, pairs);
+  });
+
+  /** What the athlete changed about the day, template vs session overrides —
+   *  and whether there is anywhere to save it (an ad-hoc has its own
+   *  save-as-routine flow; a day nobody owns has no template to update). */
+  const edits = isAdhoc ? null : diffDayEdits(basePlan, resolved.supersets ?? {}, overrides);
+  const canSaveEdits =
+    !isAdhoc && (resolved.from !== null || resolved.routine !== undefined);
+
   /** The finish loop's front door: an incomplete day asks first. */
   const onFinishPress = () => {
     if (remaining > 0) {
@@ -297,8 +324,106 @@ export default function WorkoutScreen() {
     proceedToFinish();
   };
 
+  /** Second gate: an edited day asks whether the edits become the template. */
   const proceedToFinish = () => {
+    if (editable && canSaveEdits && edits?.dirty) {
+      setSavePrompt(true);
+      return;
+    }
     setSheet(buildSummary());
+  };
+
+  /** SAVE CHANGES: persist the edited day back to wherever it came from, so
+   *  the next session of this workout loads the edited version. */
+  const saveEdits = () => {
+    const sourcePlan =
+      resolved.from === 0 ? (userPlans.data?.custom ?? null)
+      : resolved.from === 1 ? (userPlans.data?.ai ?? null)
+      : null;
+    const templateDay = sourcePlan?.days.find((d) => d.day === workoutName);
+    const reasons = templateDay
+      ? new Map(templateDay.exercises.map((e) => [e.exercise, e.reason] as const))
+      : null;
+    const exercises = applyEditsToDay(
+      basePlan,
+      reasons,
+      overrides,
+      overrides.superset ?? resolved.supersets ?? {}
+    );
+    if (exercises.length === 0) return;
+
+    if (resolved.routine !== undefined) {
+      const routineRow = (routines.data ?? []).find((r) => r.name === resolved.routine);
+      if (routineRow) {
+        updateRoutine.mutate({
+          id: routineRow.id,
+          name: routineRow.name,
+          exercises: exercises.map(({ exercise, sets, reps, supersetWith }) =>
+            supersetWith ? { exercise, sets, reps, supersetWith } : { exercise, sets, reps }
+          ),
+        });
+      }
+      return;
+    }
+
+    if (resolved.from === 0 || resolved.from === 1) {
+      if (!sourcePlan) return;
+      const kind = resolved.from === 0 ? ('custom' as const) : ('ai' as const);
+      const newDay: PlanDay = {
+        day: workoutName,
+        goal: templateDay?.goal ?? '',
+        exercises,
+      };
+      const days = sourcePlan.days.some((d) => d.day === workoutName)
+        ? sourcePlan.days.map((d) => (d.day === workoutName ? newDay : d))
+        : [...sourcePlan.days, newDay];
+      savePlan.mutate(
+        { kind, plan: { ...sourcePlan, days } },
+        {
+          onSuccess: () =>
+            useToastStore.getState().push({
+              kind: 'info',
+              title: 'WORKOUT UPDATED',
+              subtitle: `${workoutName} · saved to ${kind === 'custom' ? 'MY PLAN' : 'AI PLAN'}`,
+            }),
+        }
+      );
+      return;
+    }
+
+    // BUILT-IN: the catalog cannot change, so the edited day FORKS into MY
+    // PLAN, and every scheduled weekday carrying this day is pointed at
+    // source 0 (066 per-day sources) so the fork is what opens next time.
+    // active_plan_source is deliberately untouched — flipping it would remap
+    // the athlete's whole week.
+    if (resolved.from === 2) {
+      const newDay: PlanDay = { day: workoutName, goal: '', exercises };
+      savePlan.mutate(
+        { kind: 'custom', plan: mergeDayIntoCustomPlan(userPlans.data?.custom ?? null, newDay) },
+        {
+          onSuccess: () =>
+            useToastStore.getState().push({
+              kind: 'info',
+              title: 'SAVED TO MY PLAN',
+              subtitle: `${workoutName} · your edited version opens from now on`,
+            }),
+        }
+      );
+      const latest =
+        schedule.data && schedule.data.length > 0 ? schedule.data[schedule.data.length - 1] : null;
+      if (latest) {
+        const sources: Record<string, number> = { ...(latest.sources ?? {}) };
+        let touched = false;
+        for (const [dow, v] of Object.entries(latest.plan)) {
+          const primary = Array.isArray(v) ? v[0] : v;
+          if (primary === workoutName && sources[dow] !== 0) {
+            sources[dow] = 0;
+            touched = true;
+          }
+        }
+        if (touched) saveSchedule.mutate({ plan: latest.plan, sources });
+      }
+    }
   };
 
   /** What the athlete actually DID — the only honest thing to save as a routine. */
@@ -695,6 +820,83 @@ export default function WorkoutScreen() {
                   variant="ghost"
                   onPress={() => setConfirmRemaining(false)}
                   testID="finish-cancel"
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
+      {/* SAVE CHANGES: the day was edited — does the edit become the template? */}
+      {savePrompt ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setSavePrompt(false)}>
+          <Pressable
+            className="flex-1 justify-center px-s5"
+            style={{ backgroundColor: 'rgba(2,5,11,0.72)' }}
+            onPress={() => setSavePrompt(false)}
+          >
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-xl border p-s4"
+              style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface }}
+            >
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+              >
+                YOU CHANGED THIS WORKOUT
+              </Text>
+              <Text className="mb-s3 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+                Save changes?
+              </Text>
+              <View className="mb-s3 gap-s1">
+                {(edits?.substitutions ?? []).map((s) => (
+                  <Text key={`sub-${s.from}`} className="text-2xs text-text-dim">
+                    ⇄ {s.from} → {s.to}
+                  </Text>
+                ))}
+                {(edits?.added ?? []).map((a) => (
+                  <Text key={`add-${a.exercise}`} className="text-2xs text-text-dim">
+                    ＋ {a.exercise} · {a.sets} sets
+                  </Text>
+                ))}
+                {(edits?.removed ?? []).map((r) => (
+                  <Text key={`rem-${r}`} className="text-2xs text-text-dim">
+                    ✕ {r}
+                  </Text>
+                ))}
+                {(edits?.setChanges ?? []).map((c) => (
+                  <Text key={`set-${c.exercise}`} className="text-2xs text-text-dim">
+                    {c.exercise}: {c.from} → {c.to} sets
+                  </Text>
+                ))}
+                {edits?.supersetChanged ? (
+                  <Text className="text-2xs text-text-dim">⚡ Superset pairing changed</Text>
+                ) : null}
+              </View>
+              <Text className="mb-s3 text-2xs text-text-mute">
+                Saving updates this workout for every future session. Just today keeps the plan as
+                it was — these changes expire at midnight.
+              </Text>
+              <View className="gap-s2">
+                <NeonButton
+                  title="SAVE CHANGES"
+                  onPress={() => {
+                    setSavePrompt(false);
+                    saveEdits();
+                    setSheet(buildSummary());
+                  }}
+                  testID="save-edits"
+                />
+                <NeonButton
+                  title="JUST TODAY"
+                  variant="ghost"
+                  onPress={() => {
+                    setSavePrompt(false);
+                    setSheet(buildSummary());
+                  }}
+                  testID="skip-save-edits"
                 />
               </View>
             </Pressable>

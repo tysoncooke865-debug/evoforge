@@ -69,6 +69,10 @@ interface SessionState {
   substitute: (day: string, from: string, to: string) => void;
   /** RESET TO PLAN: restore the original slot for a displayed name. */
   resetSubstitution: (day: string, displayed: string) => void;
+  /** Seed a template's SAVED superset pairs into the session, exactly once per
+   *  day: a no-op whenever the day's `superset` map is already defined (seeded
+   *  earlier, or touched by the athlete — including unlinked to empty). */
+  seedSupersets: (day: string, pairs: Record<string, string>) => void;
   /** REORDER (2026-07-19): set today's exercise order for a day (list of names). */
   reorderExercises: (day: string, order: string[]) => void;
 
@@ -86,12 +90,15 @@ interface SessionState {
 
 // The athlete's calendar day (domain/today.ts) — NOT the UTC date.
 
+// `superset` is deliberately ABSENT here: undefined means "never touched",
+// which is what lets seedSupersets seed a template's saved pairs exactly once
+// — a day whose pairs were all unlinked holds a DEFINED empty map instead,
+// and must not have them resurrected on the next mount.
 const emptyDay = (): DayOverrides => ({
   added: [],
   removed: [],
   skipped: [],
   setDelta: {},
-  superset: {},
   substituted: {},
 });
 
@@ -227,6 +234,16 @@ export const useSessionStore = create<SessionState>()(
 
       resetSubstitution: (day, displayed) =>
         set((s) => edit(s, day, (d) => clearSubstitution(d, displayed))),
+
+      seedSupersets: (day, pairs) =>
+        set((s) => {
+          // Already defined (and not stale) → nothing to do. Returning {}
+          // leaves every selected slice identical, so nothing re-renders.
+          if (s.date === todayIso() && s.days[day]?.superset !== undefined) return {};
+          return edit(s, day, (d) =>
+            d.superset !== undefined ? d : { ...d, superset: { ...pairs } }
+          );
+        }),
 
       reorderExercises: (day, order) =>
         set((s) => edit(s, day, (d) => ({ ...d, order: [...order] }))),
