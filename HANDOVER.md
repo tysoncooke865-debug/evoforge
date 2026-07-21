@@ -26,6 +26,13 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FINISH FLOW (2026-07-21, no migration)**: logging the last set no longer
+  auto-opens the SummarySheet — the jingle/haptic celebration stays, and the
+  coin claim stays IN the ceremony effect (the offline finish-queue flush never
+  claims, so that effect is the only coin path for an offline finish; claims are
+  idempotent per 013). FINISH WORKOUT is now the last thing on the page; pressing
+  it with sets still owed opens a "You have N sets remaining" confirm
+  (`finish-anyway` / `finish-cancel`) before the summary.
 - **SUBSTITUTIONS PERSIST + HONEST COMPLETION MATH (2026-07-21, no migration)**:
   the ⇄ swap moved from `workout.tsx` component state into the session store —
   `DayOverrides.substituted` (ORIGINAL slot → substitute; every other override

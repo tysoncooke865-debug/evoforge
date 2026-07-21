@@ -136,6 +136,8 @@ export default function WorkoutScreen() {
   const [subFor, setSubFor] = useState<string | null>(null);
   // SUPERSET (2026-07-18): which exercise is picking a partner.
   const [pairFor, setPairFor] = useState<string | null>(null);
+  // FINISH with sets remaining asks first — "you have N sets remaining".
+  const [confirmRemaining, setConfirmRemaining] = useState(false);
 
   /** Swap the card being substituted for `altName`. Lives in the session
    *  store (persisted) — a refresh mid-workout must not quietly restore the
@@ -242,6 +244,7 @@ export default function WorkoutScreen() {
     setSheet(null);
     setSubFor(null);
     setPairFor(null);
+    setConfirmRemaining(false);
     setPickerOpen(false);
     setReordering(false);
   }, [date, workoutName]);
@@ -259,7 +262,10 @@ export default function WorkoutScreen() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       playComplete(); // the retro workout-complete jingle (web; settings-gated)
-      setSheet(buildSummary());
+      // NO auto-opened sheet: finishing is the athlete's act (the button at the
+      // bottom), not something the last set does to them. The coin claim STAYS
+      // here — the offline finish-queue flush never claims, so this is the only
+      // coin path for an offline finish (claims are idempotent, migration 013).
       claimCoins.mutate({ kind: 'workout_complete', sourceId: date });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -277,6 +283,22 @@ export default function WorkoutScreen() {
       return;
     }
     removeExercise(workoutName, exercise);
+  };
+
+  /** Sets still owed when the athlete reaches for FINISH. */
+  const remaining = Math.max(0, totalTarget - totalDone);
+
+  /** The finish loop's front door: an incomplete day asks first. */
+  const onFinishPress = () => {
+    if (remaining > 0) {
+      setConfirmRemaining(true);
+      return;
+    }
+    proceedToFinish();
+  };
+
+  const proceedToFinish = () => {
+    setSheet(buildSummary());
   };
 
   /** What the athlete actually DID — the only honest thing to save as a routine. */
@@ -550,25 +572,6 @@ export default function WorkoutScreen() {
         </View>
       ) : null}
 
-      {/* FINISH — while the workout is open, whatever the clock says.
-          Disabled until one real set exists: a 0-set finish would paint the day
-          green with no training in it, and "past + no sets = MISSED" is
-          load-bearing.
-          NOT gated on `editable`: an athlete who starts at 23:50 and trains past
-          midnight was left with a read-only page and NO FINISH BUTTON — the
-          marker could never be written and the workout was unfinishable forever.
-          The marker's date comes from the URL, not the clock, so writing it for
-          yesterday is exactly right. */}
-      {!finished && (editable || totalDone > 0) ? (
-        <NeonButton
-          title={totalDone > 0 ? `FINISH WORKOUT · ${totalDone}/${totalTarget} SETS` : 'LOG A SET TO FINISH'}
-          onPress={() => setSheet(buildSummary())}
-          disabled={totalDone === 0}
-          busy={finishWorkout.isPending}
-          testID="finish-workout"
-        />
-      ) : null}
-
       {/* BUG 3: an ad-hoc workout used to be impossible to get rid of —
           endAdhoc() was never called, so START AN EMPTY WORKOUT stayed hidden for
           the rest of the day and a mistyped one could be neither finished (no
@@ -593,6 +596,25 @@ export default function WorkoutScreen() {
             DISCARD THIS WORKOUT
           </Text>
         </Pressable>
+      ) : null}
+
+      {/* FINISH — the LAST thing on the page, while the workout is open,
+          whatever the clock says. Disabled until one real set exists: a 0-set
+          finish would paint the day green with no training in it, and
+          "past + no sets = MISSED" is load-bearing.
+          NOT gated on `editable`: an athlete who starts at 23:50 and trains past
+          midnight was left with a read-only page and NO FINISH BUTTON — the
+          marker could never be written and the workout was unfinishable forever.
+          The marker's date comes from the URL, not the clock, so writing it for
+          yesterday is exactly right. */}
+      {!finished && (editable || totalDone > 0) ? (
+        <NeonButton
+          title={totalDone > 0 ? `FINISH WORKOUT · ${totalDone}/${totalTarget} SETS` : 'LOG A SET TO FINISH'}
+          onPress={onFinishPress}
+          disabled={totalDone === 0}
+          busy={finishWorkout.isPending}
+          testID="finish-workout"
+        />
       ) : null}
 
       <SummarySheet
@@ -632,6 +654,53 @@ export default function WorkoutScreen() {
         excludeNames={plan.map((p) => p.exercise)}
         programExercises={plan.map((p) => p.exercise)}
       />
+
+      {/* FINISH EARLY: the day still owes sets — say so, let them finish anyway. */}
+      {confirmRemaining ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setConfirmRemaining(false)}>
+          <Pressable
+            className="flex-1 justify-center px-s5"
+            style={{ backgroundColor: 'rgba(2,5,11,0.72)' }}
+            onPress={() => setConfirmRemaining(false)}
+          >
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-xl border p-s4"
+              style={{ borderColor: `${colors.warn}40`, backgroundColor: colors.surface }}
+            >
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+              >
+                FINISH WORKOUT
+              </Text>
+              <Text className="mb-s3 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
+                You have {remaining} {remaining === 1 ? 'set' : 'sets'} remaining
+              </Text>
+              <Text className="mb-s3 text-2xs text-text-mute">
+                Finishing now marks the day partial. Skip what you don’t owe, or keep lifting.
+              </Text>
+              <View className="gap-s2">
+                <NeonButton
+                  title="FINISH ANYWAY"
+                  onPress={() => {
+                    setConfirmRemaining(false);
+                    proceedToFinish();
+                  }}
+                  testID="finish-anyway"
+                />
+                <NeonButton
+                  title="KEEP TRAINING"
+                  variant="ghost"
+                  onPress={() => setConfirmRemaining(false)}
+                  testID="finish-cancel"
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
 
       {/* SUPERSET pair-picker: link this exercise with another from today. */}
       {pairFor !== null ? (
