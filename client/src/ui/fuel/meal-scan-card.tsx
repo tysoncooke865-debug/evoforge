@@ -18,6 +18,7 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { KeyPad } from '@/ui/core/number-field';
 import { PixelBarcode, PixelCamera, PixelPencil } from '@/ui/core/pixel-icons';
 import { GlowCard } from '@/ui/core/shell';
+import { AiNotice } from '@/ui/legal/ai-badge';
 import { BarcodeScanModal } from '@/ui/fuel/barcode-scan';
 import { DescribeMealModal } from '@/ui/fuel/describe-meal';
 import { FoodSearchModal } from '@/ui/fuel/food-search';
@@ -265,6 +266,9 @@ export function AIMealScanCard({ date }: { date: string }) {
               onPress={() => setDescribeOpen(true)}
               testID="describe-open"
             />
+          </View>
+          <View className="mt-s2">
+            <AiNotice text="AI estimates calories and macros — approximate, and best checked against labels." />
           </View>
           {error ? <Text className="mt-s2 text-2xs text-danger">{error}</Text> : null}
         </>

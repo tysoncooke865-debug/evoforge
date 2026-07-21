@@ -137,6 +137,14 @@ export default function ProfileScreen() {
           </Pressable>
         ) : null}
 
+        <View className="flex-row flex-wrap items-center justify-center" style={{ gap: 14, paddingVertical: 4 }}>
+          {([['Terms', 'terms'], ['Privacy', 'privacy'], ['AI & Health', 'ai']] as const).map(([label, id]) => (
+            <Pressable key={id} onPress={() => router.push(`/legal?doc=${id}` as never)} accessibilityRole="button" testID={`legal-link-${id}`} style={{ minHeight: 36, justifyContent: 'center' }}>
+              <Text className="text-2xs text-text-mute" style={{ letterSpacing: 0.5 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <Pressable
           className="items-center rounded-md border border-border bg-surface-2 p-s3"
           onPress={signOut}

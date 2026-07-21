@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 
 import { ScreenShell } from '@/ui/core/shell';
+import { AiNotice } from '@/ui/legal/ai-badge';
 import { BodyfatScanCard } from '@/ui/oracle/bodyfat-scan-card';
 import { OracleHeader } from '@/ui/oracle/oracle-header';
 import { OracleHistoryCard } from '@/ui/oracle/oracle-history-card';
@@ -23,6 +24,7 @@ export default function AiScreen() {
   return (
     <ScreenShell>
       <OracleHeader />
+      <AiNotice text="The Oracle uses AI to estimate your physique and body fat. Results are a rough guide, not medical advice." />
       <PhysiqueScanCard />
       <BodyfatScanCard />
       <RoutineForgeCard />

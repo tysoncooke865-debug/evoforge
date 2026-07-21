@@ -32,6 +32,7 @@ import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { AiNotice } from '@/ui/legal/ai-badge';
 import { FuelHeader } from '@/ui/fuel/fuel-header';
 import { AIMealScanCard } from '@/ui/fuel/meal-scan-card';
 import { MealsSection } from '@/ui/fuel/meals-section';
@@ -178,6 +179,9 @@ export default function FuelScreen() {
               onPress={() => setTargetOpen(true)}
               testID="fuel-set-target"
             />
+          </View>
+          <View className="mt-s2">
+            <AiNotice text="AI estimates your target from your stats — a starting point, not a prescription." />
           </View>
         </GlowCard>
       )}

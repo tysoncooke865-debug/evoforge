@@ -70,6 +70,13 @@ export function initVersionGuard(): void {
           live = (await res.text()).match(/entry-([a-f0-9]+)\.js/)?.[1];
         } catch { /* offline */ }
         const nav = window.navigator as Navigator & { standalone?: boolean };
+        // PRIVACY: never store the raw userAgent or exact viewport — that's a
+        // device fingerprint, and analytics props carry NO PII (analytics.ts's
+        // contract + the Privacy Policy). A coarse platform/browser label keeps
+        // the only signal this diagnostic needs (which cohort hits a boot bug).
+        const ua = String(navigator.userAgent).toLowerCase();
+        const platform = /iphone|ipad|ipod/.test(ua) ? 'ios' : /android/.test(ua) ? 'android' : /macintosh|mac os/.test(ua) ? 'mac' : /windows/.test(ua) ? 'windows' : 'other';
+        const browser = /crios/.test(ua) ? 'chrome-ios' : /fxios|firefox/.test(ua) ? 'firefox' : /edg\//.test(ua) ? 'edge' : /chrome/.test(ua) ? 'chrome' : /safari/.test(ua) ? 'safari' : 'other';
         await supabase.from('analytics_events').insert({
           event_name: 'pwa_boot_diag',
           props: {
@@ -78,9 +85,8 @@ export function initVersionGuard(): void {
             entry_live: live ?? null,
             stale: Boolean(mine && live && mine !== live),
             errors: early,
-            ua: String(navigator.userAgent).slice(0, 140),
-            vh: window.innerHeight,
-            vw: window.innerWidth,
+            platform,
+            browser,
           },
         });
       } catch { /* signed out or offline — silent */ }

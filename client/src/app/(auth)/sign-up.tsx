@@ -1,6 +1,6 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/data/supabase';
 import { pixelFont } from '@/theme/fonts';
@@ -16,6 +16,9 @@ export default function SignUpScreen() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [resent, setResent] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  // Explicit consent is required to create an account — recorded as an
+  // affirmative action (a ticked box), not a pre-ticked default.
+  const [agreed, setAgreed] = useState(false);
 
   // The confirmation mail is the ONLY way in, so a mail that never lands is a
   // dead end. Offer one resend rather than making them sign up again (which
@@ -27,6 +30,10 @@ export default function SignUpScreen() {
   };
 
   const signUp = async () => {
+    if (!agreed) {
+      setError('Please agree to the Terms and Privacy Policy to create an account.');
+      return;
+    }
     setBusy(true);
     setError(null);
     const { data, error: err } = await supabase.auth.signUp({ email, password });
@@ -133,9 +140,36 @@ export default function SignUpScreen() {
           testID="password"
         />
 
+        {/* Affirmative consent to the Terms + Privacy Policy (GDPR/App Store). */}
+        <Pressable
+          onPress={() => setAgreed((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: agreed }}
+          testID="signup-agree"
+          className="mb-s4 flex-row items-start"
+          style={{ gap: 10 }}
+        >
+          <View
+            style={{
+              width: 22, height: 22, borderRadius: 6, marginTop: 1, alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1.5, borderColor: agreed ? colors.accent : colors.border,
+              backgroundColor: agreed ? `${colors.accent}22` : 'transparent',
+            }}
+          >
+            {agreed ? <Text allowFontScaling={false} style={{ fontSize: 13, color: colors.accent }}>✓</Text> : null}
+          </View>
+          <Text className="flex-1 text-2xs text-text-dim" style={{ lineHeight: 17 }}>
+            I’m 16 or older and I agree to the{' '}
+            <Text className="text-accent" onPress={() => router.push('/legal?doc=terms' as never)}>Terms of Use</Text>,{' '}
+            <Text className="text-accent" onPress={() => router.push('/legal?doc=privacy' as never)}>Privacy Policy</Text>{' '}
+            and{' '}
+            <Text className="text-accent" onPress={() => router.push('/legal?doc=ai' as never)}>AI &amp; Health notice</Text>.
+          </Text>
+        </Pressable>
+
         {error ? <Text className="mb-s4 text-sm text-danger">{error}</Text> : null}
 
-        <NeonButton title="CREATE ACCOUNT" onPress={() => void signUp()} busy={busy} testID="sign-up" />
+        <NeonButton title="CREATE ACCOUNT" onPress={() => void signUp()} busy={busy} disabled={!agreed} testID="sign-up" />
 
         <Link href="/sign-in" className="mt-s4">
           <Text className="text-sm text-text-dim">

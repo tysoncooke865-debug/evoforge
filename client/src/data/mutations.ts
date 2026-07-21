@@ -312,9 +312,15 @@ export function useLogBodyweight() {
 
   return useMutation({
     mutationFn: async (bodyweightKg: number) => {
-      const timestamp = new Date().toISOString().slice(0, 19);
+      // The CALENDAR day is LOCAL (domain/today's rule), like the cardio path.
+      // Writing timestamp.slice(0,10) filed the UTC day, so a reading logged in
+      // the evening west of Greenwich (or early morning east of it) landed on
+      // the wrong day — and "latest bodyweight", the streak and every
+      // day-boundary stat then read the wrong value.
+      const now = new Date();
+      const timestamp = now.toISOString().slice(0, 19);
       const { error } = await supabase.from('bodyweight_log').insert({
-        date: timestamp.slice(0, 10),
+        date: localIso(now),
         bodyweight: bodyweightKg,
         timestamp,
       });

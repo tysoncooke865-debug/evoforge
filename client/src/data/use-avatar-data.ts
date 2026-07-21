@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import {
   useBodyweightLog,
@@ -51,46 +53,54 @@ export function useAvatarData(): AvatarData {
   const physique = usePhysiqueRatings();
   const ledger = useLedgerXp();
 
-  const baseLevel = profile.data?.base_level ?? 1;
-  const summary = workoutSummary(
-    workouts.data ?? [],
-    cardio.data ?? [],
-    ledger.data ?? null,
-    baseLevel
-  );
-
-  // A6: the one bodyweight chain. Previously log-only; the profile weight
-  // now backs an empty log (the athlete DID tell us at onboarding), and the
-  // calc's Python 77kg default remains the true last resort.
-  const latestBodyweight = currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg);
-
-  const cardioDistanceKm = (cardio.data ?? []).reduce(
-    (acc, r) => acc + (pyFloat((r as Record<string, unknown>).distance_km) ?? 0),
-    0
-  );
-
-  // Sex calibration: equal RELATIVE performance earns equal points — female
-  // athletes grade against female strength/leanness/frame standards, not
-  // male ones (see SexCalibration in avatar-stats-calc.ts).
   const sexValue = profile.data?.sex === 'female' ? ('female' as const) : ('male' as const);
-  const stats = calculateAvatarStats(
-    {
-      workoutRows: workouts.data ?? [],
-      level: summary.level,
-      latestBodyweight,
-      bfMid: bfMid.data ?? null,
-      physique: physique.data ?? {
-        physique_score: null,
-        leanness_score: null,
-        symmetry_score: null,
-        muscularity_score: null,
+
+  // AUDIT 2026-07-21: workoutSummary (sorts + dedupes up to 2500 rows) and
+  // calculateAvatarStats (several O(n) passes) ran on EVERY render — and this
+  // hook backs the always-mounted header companion, which re-renders many times
+  // a second. Memoised on the query data + the scalars they read, so a heavy
+  // account recomputes the digest only when its inputs actually change.
+  const { summary, stats, branchV2, cardioDistanceKm } = useMemo(() => {
+    const baseLevel = profile.data?.base_level ?? 1;
+    const sum = workoutSummary(workouts.data ?? [], cardio.data ?? [], ledger.data ?? null, baseLevel);
+
+    // A6: the one bodyweight chain. Previously log-only; the profile weight
+    // now backs an empty log (the athlete DID tell us at onboarding), and the
+    // calc's Python 77kg default remains the true last resort.
+    const latestBodyweight = currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg);
+
+    const distanceKm = (cardio.data ?? []).reduce(
+      (acc, r) => acc + (pyFloat((r as Record<string, unknown>).distance_km) ?? 0),
+      0
+    );
+
+    // Sex calibration: equal RELATIVE performance earns equal points — female
+    // athletes grade against female standards (see avatar-stats-calc.ts).
+    const st = calculateAvatarStats(
+      {
+        workoutRows: workouts.data ?? [],
+        level: sum.level,
+        latestBodyweight,
+        bfMid: bfMid.data ?? null,
+        physique: physique.data ?? {
+          physique_score: null,
+          leanness_score: null,
+          symmetry_score: null,
+          muscularity_score: null,
+        },
+        cardioMinutes: sum.cardioMinutes,
+        cardioDistanceKm: distanceKm,
+        profileDeadliftE1rm: pyFloat(profile.data?.deadlift_e1rm) ?? null,
       },
-      cardioMinutes: summary.cardioMinutes,
-      cardioDistanceKm,
-      profileDeadliftE1rm: pyFloat(profile.data?.deadlift_e1rm) ?? null,
-    },
-    sexValue === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION
-  );
+      sexValue === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION
+    );
+
+    const branch = resolveBranchV2(
+      { strength: st.strengthScore, size: st.sizeScore, leanness: st.leannessScore, conditioning: st.conditioningScore, aesthetic: st.aestheticScore },
+      { nutritionPhase: profile.data?.nutrition_phase ?? null, earliestBf: earliestBf.data ?? null }
+    );
+    return { summary: sum, stats: st, branchV2: branch, cardioDistanceKm: distanceKm };
+  }, [workouts.data, cardio.data, ledger.data, bodyweights.data, bfMid.data, earliestBf.data, physique.data, profile.data, sexValue]);
 
   const ready =
     !profile.isPending &&
@@ -98,19 +108,6 @@ export function useAvatarData(): AvatarData {
     !cardio.isPending &&
     !ledger.isPending;
 
-  const branchV2 = resolveBranchV2(
-    {
-      strength: stats.strengthScore,
-      size: stats.sizeScore,
-      leanness: stats.leannessScore,
-      conditioning: stats.conditioningScore,
-      aesthetic: stats.aestheticScore,
-    },
-    {
-      nutritionPhase: profile.data?.nutrition_phase ?? null,
-      earliestBf: earliestBf.data ?? null,
-    }
-  );
   return {
     ready,
     branchV2,
