@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pixelFont } from '@/theme/fonts';
@@ -11,15 +11,20 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { HELP, helpKeyForPath, type HelpSection, type HelpTopic } from './help-content';
 
 /**
- * PAGE HELP — a guided tour that actually POINTS at things. The first time a
- * screen opens (and any time the floating "?" is tapped) it steps through that
- * screen's features, spotlighting the real element each one lives on: the page
- * dims, the element is ringed, and a tooltip with an arrow explains it.
+ * PAGE HELP — a guided tour that POINTS at things. The first time a screen opens
+ * (and any time the floating "?" is tapped) it steps through that screen's
+ * features, spotlighting the real element each lives on: the page dims, the
+ * element is ringed, and a tooltip explains it.
  *
- * Targeting is done by testID against the live DOM (this is a web PWA), so it
- * always points at where the element ACTUALLY rendered — no hard-coded
- * coordinates to drift. A section with no target, an element that isn't on
- * screen, or a native build falls back to a centred card for that step.
+ * Targeting is by testID against the live DOM (this is a web PWA), so it points
+ * where the element ACTUALLY rendered. Two things this file guarantees, because
+ * they bit us on iPhone:
+ *   1. The ring is RE-MEASURED on an interval, so it tracks a target that
+ *      animates (the floating champion) or lays out late instead of going stale.
+ *   2. The tooltip is ALWAYS fully inside the safe viewport — clamped
+ *      horizontally, height-capped to the space above/below the target, with the
+ *      nav buttons pinned so they're never pushed off-screen. If the target
+ *      fills the screen (no room either side) it becomes a bottom sheet.
  *
  * "Seen" is one AsyncStorage set keyed by screen; auto-open waits for the
  * first-run tour so a new athlete never gets two overlays stacked on Home.
@@ -28,6 +33,7 @@ import { HELP, helpKeyForPath, type HelpSection, type HelpTopic } from './help-c
 const SEEN_KEY = 'evoforge-help-seen-v1';
 const TOUR_KEY = 'evoforge-tutorial-done-v1'; // shared with TutorialOverlay
 const isWeb = Platform.OS === 'web';
+const DIM = 'rgba(2,5,11,0.82)';
 
 export function PageHelp() {
   const pathname = usePathname();
@@ -53,8 +59,6 @@ export function PageHelp() {
     })();
   }, []);
 
-  // First visit to a screen with a topic auto-opens it (once the tour is done).
-  // Deferred a beat so the screen paints before the tour starts.
   useEffect(() => {
     if (!topic || !key || seen === null || tourDone === null) return;
     if (!tourDone || seen.has(key)) return;
@@ -102,8 +106,15 @@ function FabButton({ bottom, onPress }: { bottom: number; onPress: () => void })
 
 interface Rect { x: number; y: number; w: number; h: number }
 
-/** The largest on-screen element matching a target testID (exact, or prefix if
- *  the target ends with '-'), as a viewport rect. null if none is visible. */
+function viewport(): { vw: number; vh: number } {
+  if (typeof window === 'undefined') return { vw: 390, vh: 800 };
+  // visualViewport is the source of truth on mobile Safari (toolbars, zoom).
+  const vv = window.visualViewport;
+  return { vw: vv?.width ?? window.innerWidth, vh: vv?.height ?? window.innerHeight };
+}
+
+/** The largest on-screen element matching a testID (exact, or prefix when the
+ *  target ends with '-'), as a viewport rect. null if none is visible. */
 function measureTarget(target: string): { rect: Rect; el: HTMLElement } | null {
   if (typeof document === 'undefined') return null;
   const sel = target.endsWith('-') ? `[data-testid^="${target}"]` : `[data-testid="${target}"]`;
@@ -118,104 +129,141 @@ function measureTarget(target: string): { rect: Rect; el: HTMLElement } | null {
   return best ? { rect: best.rect, el: best.el } : null;
 }
 
-function HelpCoach({ topic, onClose }: { topic: HelpTopic; onClose: () => void }) {
-  const [step, setStep] = useState(0);
+const sameRect = (a: Rect | null, b: Rect | null): boolean =>
+  a === b || (!!a && !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.w - b.w) < 0.5 && Math.abs(a.h - b.h) < 0.5);
+
+/** Keep a live rect for the current step's target: scroll it into view once,
+ *  then re-measure on an interval so the ring follows animation / reflow. */
+function useTargetRect(target: string | undefined, stepKey: number): Rect | null {
   const [rect, setRect] = useState<Rect | null>(null);
-  const [nonce, setNonce] = useState(0); // bump to re-measure (resize)
-  const section = topic.sections[step];
-  const last = step >= topic.sections.length - 1;
-
-  // Resolve the current step's target, scrolling it into view and re-measuring.
   useEffect(() => {
-    if (!isWeb || !section?.target) return; // native / no target → centred card
-    let cancelled = false;
-    let tries = 8;
-    const tick = () => {
-      if (cancelled) return;
-      const found = measureTarget(section.target!);
-      if (!found) {
-        if (tries-- > 0) setTimeout(tick, 140);
-        else setRect(null);
-        return;
-      }
-      const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+    let alive = true;
+    const apply = (r: Rect | null) => { if (alive) setRect((prev) => (sameRect(prev, r) ? prev : r)); };
+    if (!isWeb || !target) {
+      const t = setTimeout(() => apply(null), 0);
+      return () => { alive = false; clearTimeout(t); };
+    }
+    let scrolled = false;
+    const measure = () => {
+      const found = measureTarget(target);
+      if (!found) { apply(null); return; }
+      const { vh } = viewport();
       const r = found.rect;
-      if (r.y < 72 || r.y + r.h > vh - 72) {
-        // Off-screen — bring it to the middle, then measure where it landed.
+      if (!scrolled && (r.y < 72 || r.y + r.h > vh - 72)) {
+        scrolled = true;
         try { found.el.scrollIntoView({ block: 'center' }); } catch { /* ignore */ }
-        setTimeout(() => {
-          if (cancelled) return;
-          const again = measureTarget(section.target!);
-          setRect(again ? again.rect : r);
-        }, 280);
-        return;
+        return; // the next tick reads the settled position
       }
-      setRect(r);
+      apply(r);
     };
-    // Clear the old ring first (deferred so it isn't a synchronous effect set).
-    const t = setTimeout(() => { setRect(null); tick(); }, 0);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [step, section, nonce]);
+    const t0 = setTimeout(measure, 0);
+    const iv = setInterval(measure, 250);
+    return () => { alive = false; clearTimeout(t0); clearInterval(iv); };
+  }, [target, stepKey]);
+  return rect;
+}
 
-  // A native build or a target-less step has no spotlight to keep in sync.
-  useEffect(() => {
-    if (isWeb) return;
-    const t = setTimeout(() => setRect(null), 0);
-    return () => clearTimeout(t);
-  }, [step]);
-
-  // Re-measure on resize so the ring tracks a reflow.
+/** Re-render on viewport changes so positions stay correct through rotation,
+ *  toolbar show/hide and keyboard. */
+function useViewport(): { vw: number; vh: number } {
+  const [vp, setVp] = useState(viewport);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const onResize = () => setNonce((n) => n + 1);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const on = () => setVp(viewport());
+    window.addEventListener('resize', on);
+    window.visualViewport?.addEventListener('resize', on);
+    window.visualViewport?.addEventListener('scroll', on);
+    return () => {
+      window.removeEventListener('resize', on);
+      window.visualViewport?.removeEventListener('resize', on);
+      window.visualViewport?.removeEventListener('scroll', on);
+    };
   }, []);
-
-  const goNext = () => (last ? onClose() : setStep((s) => s + 1));
-  const goBack = () => setStep((s) => Math.max(0, s - 1));
-
-  const nav = { step, total: topic.sections.length, last, onNext: goNext, onBack: goBack, onClose };
-
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      {rect && section?.target ? (
-        <Spotlight rect={rect} topic={topic} section={section} nav={nav} />
-      ) : (
-        <CentredCard topic={topic} section={section} nav={nav} />
-      )}
-    </Modal>
-  );
+  return vp;
 }
 
 interface Nav { step: number; total: number; last: boolean; onNext: () => void; onBack: () => void; onClose: () => void }
 
-const DIM = 'rgba(2,5,11,0.82)';
+function HelpCoach({ topic, onClose }: { topic: HelpTopic; onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const section = topic.sections[step];
+  const rect = useTargetRect(section?.target, step);
+  const last = step >= topic.sections.length - 1;
+  const nav: Nav = {
+    step, total: topic.sections.length, last,
+    onNext: () => (last ? onClose() : setStep((s) => s + 1)),
+    onBack: () => setStep((s) => Math.max(0, s - 1)),
+    onClose,
+  };
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 70 }}>
+      <Overlay topic={topic} section={section} nav={nav} rect={rect} />
+    </View>
+  );
+}
 
-/** The spotlight: four dim panels around a clear hole, a glowing ring on the
- *  target, and a tooltip with an arrow pointing at it. */
-function Spotlight({ rect, topic, section, nav }: { rect: Rect; topic: HelpTopic; section: HelpSection; nav: Nav }) {
+function Overlay({ topic, section, nav, rect }: { topic: HelpTopic; section: HelpSection; nav: Nav; rect: Rect | null }) {
   const colors = useThemeColors();
-  const { width: vw, height: vh } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { vw, vh } = useViewport();
+
+  const safeTop = insets.top + 8;
+  const safeBottom = vh - insets.bottom - 8;
+  const gap = 14;
+  const MIN = 150; // a tooltip needs at least this much room to sit beside a target
+  const TW = Math.min(360, vw - insets.left - insets.right - 24);
+
+  // Space reserved for the header + nav + padding, so only the body scrolls.
+  const CHROME = 132;
+  const sheetMax = safeBottom - safeTop - 8;
+
+  // No target (or off-screen / native): a bottom sheet, always readable.
+  if (!rect) {
+    return (
+      <View style={{ flex: 1, backgroundColor: DIM }}>
+        <Pressable style={{ flex: 1 }} onPress={nav.onNext} accessibilityLabel="next" />
+        <Card
+          topic={topic} section={section} nav={nav} bodyMax={Math.max(48, sheetMax - CHROME)}
+          style={{ position: 'absolute', left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12, maxHeight: sheetMax }}
+        />
+      </View>
+    );
+  }
+
   const pad = 8;
   const hole = { x: Math.max(0, rect.x - pad), y: Math.max(0, rect.y - pad), w: rect.w + pad * 2, h: rect.h + pad * 2 };
   const holeRight = hole.x + hole.w;
   const holeBottom = hole.y + hole.h;
+  // Circle small near-square targets (avatar, menu, icons); a tidy rounded
+  // rectangle for larger blocks so a tall card doesn't become an ellipse.
+  const squareish = Math.abs(hole.w - hole.h) < Math.max(hole.w, hole.h) * 0.4;
+  const small = Math.min(hole.w, hole.h) < 160;
+  const ringRadius = squareish && small ? Math.min(hole.w, hole.h) / 2 + 2 : 14;
 
-  // Tooltip: below the target if there's room, else above.
-  const TW = Math.min(340, vw - 24);
-  const gap = 14;
-  const below = vh - holeBottom > 190 || vh - holeBottom >= hole.y;
-  const tx = Math.max(12, Math.min(rect.x + rect.w / 2 - TW / 2, vw - 12 - TW));
-  const arrowLeft = Math.max(14, Math.min(rect.x + rect.w / 2 - tx - 7, TW - 28));
+  const spaceBelow = safeBottom - (holeBottom + gap);
+  const spaceAbove = hole.y - gap - safeTop;
+  const mode: 'below' | 'above' | 'sheet' =
+    spaceBelow >= MIN && spaceBelow >= spaceAbove ? 'below' : spaceAbove >= MIN ? 'above' : 'sheet';
+  const cardMax = mode === 'below' ? spaceBelow : mode === 'above' ? spaceAbove : sheetMax;
+  const bodyMax = Math.max(48, cardMax - CHROME);
+
+  const tx = clamp(rect.x + rect.w / 2 - TW / 2, insets.left + 12, vw - insets.right - 12 - TW);
+  const arrowLeft = clamp(rect.x + rect.w / 2 - tx - 7, 16, TW - 30);
 
   const panel = (s: object, k: string) => (
     <Pressable key={k} onPress={nav.onNext} style={[{ position: 'absolute', backgroundColor: DIM }, s]} />
   );
 
+  const cardPos =
+    mode === 'below'
+      ? { left: tx, width: TW, top: holeBottom + gap, maxHeight: spaceBelow }
+      : mode === 'above'
+        ? { left: tx, width: TW, bottom: vh - (hole.y - gap), maxHeight: spaceAbove }
+        : { left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12, maxHeight: safeBottom - safeTop - 8 };
+
   return (
     <View style={{ flex: 1 }}>
-      {/* Dim everything except the hole; tapping the dim advances. */}
+      {/* Dim everything but the hole. Tapping the dim advances. */}
       {panel({ left: 0, top: 0, right: 0, height: hole.y }, 'top')}
       {panel({ left: 0, top: holeBottom, right: 0, bottom: 0 }, 'bottom')}
       {panel({ left: 0, top: hole.y, width: hole.x, height: hole.h }, 'left')}
@@ -226,24 +274,29 @@ function Spotlight({ rect, topic, section, nav }: { rect: Rect; topic: HelpTopic
         pointerEvents="none"
         style={{
           position: 'absolute', left: hole.x, top: hole.y, width: hole.w, height: hole.h,
-          borderRadius: 12, borderWidth: 2, borderColor: colors.accent,
-          shadowColor: colors.accent, shadowOpacity: 0.8, shadowRadius: 14,
+          borderRadius: ringRadius, borderWidth: 2, borderColor: colors.accent,
+          shadowColor: colors.accent, shadowOpacity: 0.85, shadowRadius: 14,
         }}
       />
 
-      {/* The tooltip. */}
-      <View style={{ position: 'absolute', left: tx, width: TW, ...(below ? { top: holeBottom + gap } : { top: undefined, bottom: vh - hole.y + gap }) }}>
-        {below ? <Arrow left={arrowLeft} dir="up" colour={colors.surface} border={`${colors.accent}59`} /> : null}
-        <TooltipCard topic={topic} section={section} nav={nav} />
-        {!below ? <Arrow left={arrowLeft} dir="down" colour={colors.surface} border={`${colors.accent}59`} /> : null}
-      </View>
+      {mode !== 'sheet' ? (
+        <View style={{ position: 'absolute', ...cardPos }}>
+          {mode === 'below' ? <Arrow left={arrowLeft} dir="up" colour={colors.surface} border={`${colors.accent}59`} /> : null}
+          <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ flexShrink: 1 }} />
+          {mode === 'above' ? <Arrow left={arrowLeft} dir="down" colour={colors.surface} border={`${colors.accent}59`} /> : null}
+        </View>
+      ) : (
+        <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ position: 'absolute', ...cardPos }} />
+      )}
     </View>
   );
 }
 
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+
 function Arrow({ left, dir, colour, border }: { left: number; dir: 'up' | 'down'; colour: string; border: string }) {
   return (
-    <View style={{ height: 10, marginLeft: left, width: 16, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ height: 10, marginLeft: left, width: 16, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
       <View
         style={{
           width: 14, height: 14, backgroundColor: colour, transform: [{ rotate: '45deg' }],
@@ -256,49 +309,28 @@ function Arrow({ left, dir, colour, border }: { left: number; dir: 'up' | 'down'
   );
 }
 
-function TooltipCard({ topic, section, nav }: { topic: HelpTopic; section: HelpSection; nav: Nav }) {
+/** The explanation card. Header + nav are fixed; only the body scrolls, so the
+ *  NEXT button is reachable no matter how tall the text or how small the space. */
+function Card({ topic, section, nav, style, bodyMax }: { topic: HelpTopic; section: HelpSection; nav: Nav; style?: object; bodyMax: number }) {
   const colors = useThemeColors();
   return (
     <View
-      className="rounded-xl border p-s4"
-      style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 18 }}
+      className="rounded-2xl border p-s4"
+      style={[{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 18, overflow: 'hidden' }, style]}
       testID="page-help-overlay"
     >
       <StepHeader topic={topic} nav={nav} />
-      <Text className="mt-s1 text-accent" allowFontScaling={false} style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}>
-        {section.heading}
-      </Text>
-      <Text className="mt-s1 text-sm text-text-dim" style={{ lineHeight: 20 }}>{section.body}</Text>
+      <ScrollView style={{ flexShrink: 1, maxHeight: bodyMax }} contentContainerStyle={{ paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+        {section ? (
+          <>
+            <Text className="mt-s1 text-accent" allowFontScaling={false} style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}>
+              {section.heading}
+            </Text>
+            <Text className="mt-s1 text-sm text-text-dim" style={{ lineHeight: 20 }}>{section.body}</Text>
+          </>
+        ) : null}
+      </ScrollView>
       <StepNav nav={nav} />
-    </View>
-  );
-}
-
-/** Fallback when a step has no target, the element isn't on screen, or we're on
- *  native — the explanation, centred, still stepping through the tour. */
-function CentredCard({ topic, section, nav }: { topic: HelpTopic; section: HelpSection; nav: Nav }) {
-  const colors = useThemeColors();
-  return (
-    <View style={{ flex: 1, backgroundColor: DIM }}>
-      <Pressable style={{ flex: 1 }} onPress={nav.onNext} accessibilityLabel="next" />
-      <View className="absolute inset-x-0" style={{ top: '30%', paddingHorizontal: 20 }}>
-        <View
-          className="rounded-2xl border p-s5"
-          style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface }}
-          testID="page-help-overlay"
-        >
-          <StepHeader topic={topic} nav={nav} />
-          {section ? (
-            <>
-              <Text className="mt-s2 text-accent" allowFontScaling={false} style={{ fontSize: 13, letterSpacing: 0.5, ...pixelFont() }}>
-                {section.heading}
-              </Text>
-              <Text className="mt-s1 text-sm text-text-dim" style={{ lineHeight: 21 }}>{section.body}</Text>
-            </>
-          ) : null}
-          <StepNav nav={nav} />
-        </View>
-      </View>
     </View>
   );
 }
@@ -307,11 +339,11 @@ function StepHeader({ topic, nav }: { topic: HelpTopic; nav: Nav }) {
   const colors = useThemeColors();
   return (
     <View className="flex-row items-center justify-between">
-      <View className="flex-row items-center" style={{ gap: 7 }}>
+      <View className="flex-row items-center" style={{ gap: 7, flex: 1, minWidth: 0 }}>
         <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: `${colors.accent}80` }}>
           <Text allowFontScaling={false} style={{ fontSize: 11, color: colors.accent, ...pixelFont() }}>?</Text>
         </View>
-        <Text className="text-text" allowFontScaling={false} style={{ fontSize: 13, letterSpacing: 0.5, ...pixelFont() }}>{topic.title}</Text>
+        <Text className="text-text" numberOfLines={1} allowFontScaling={false} style={{ fontSize: 13, letterSpacing: 0.5, ...pixelFont() }}>{topic.title}</Text>
       </View>
       <View className="flex-row items-center" style={{ gap: 8 }}>
         <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>{nav.step + 1}/{nav.total}</Text>
@@ -336,32 +368,5 @@ function StepNav({ nav }: { nav: Nav }) {
         <NeonButton title={nav.last ? 'GOT IT' : 'NEXT'} onPress={nav.onNext} testID="page-help-next" />
       </View>
     </View>
-  );
-}
-
-/** Native / non-DOM fallback kept for completeness — the whole topic as a list.
- *  Currently unused on web (the coach handles native via CentredCard), but left
- *  exported-free for a future native path that wants the full sheet at once. */
-export function HelpSheet({ topic, onClose }: { topic: HelpTopic; onClose: () => void }) {
-  const colors = useThemeColors();
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 justify-end" style={{ backgroundColor: DIM }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View className="rounded-t-2xl border-t border-x p-s5" style={{ borderColor: `${colors.accent}59`, backgroundColor: colors.surface, maxHeight: '82%' }}>
-          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 18, ...pixelFont() }}>{topic.title}</Text>
-          <Text className="mb-s3 mt-s1 text-sm text-text-dim">{topic.tagline}</Text>
-          <ScrollView>
-            {topic.sections.map((s, i) => (
-              <View key={i} className="mb-s3">
-                <Text className="mb-s1 text-accent" allowFontScaling={false} style={{ fontSize: 11, ...pixelFont(false) }}>{s.heading.toUpperCase()}</Text>
-                <Text className="text-sm text-text-dim">{s.body}</Text>
-              </View>
-            ))}
-          </ScrollView>
-          <NeonButton title="GOT IT" onPress={onClose} />
-        </View>
-      </View>
-    </Modal>
   );
 }
