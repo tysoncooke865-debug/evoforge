@@ -43,7 +43,6 @@ import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { TrainingOverview } from '@/ui/home/training-overview';
-import { WeeklyScheduleCard } from '@/ui/home/weekly-schedule-card';
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
@@ -303,9 +302,6 @@ export default function HomeScreen() {
           "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
       <RecentPrCard pr={pr} unit={prUnit} />
       <EvolutionTeaser branch={stats.branch} evolution={evolution} />
-
-      {/* 7. The schedule door. */}
-      <WeeklyScheduleCard />
 
       <DividerGlow />
 
