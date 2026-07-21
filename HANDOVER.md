@@ -26,6 +26,22 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **HOME v2 CLEANUP + COIN CLAIM HONESTY (2026-07-22, no migration)**: Home
+  slimmed — header arena rank (`home-arena-rank`) gone; EVO RATING title is
+  SectionLabel-lg with NO status suffix (PROVISIONAL is a quiet tag beside
+  the descriptor); the STREAK is a hero badge under CURRENT FORM
+  (`hero-streak`, → /streak; CURRENT FORM re-iconed 🔥→◈ so the flame means
+  streak); `status-grid.tsx` and `weekly-schedule-card.tsx` DELETED (testIDs
+  `status-*`, `weekly-schedule-card` gone; XP door lives on /profile, coins
+  keep the hero CoinRow). **Coins diagnosed live**: guard/trigger/RPC all
+  correct in prod (no amount=1 rows; ledger === coin_total) — the "not
+  logging" symptom was the SILENT ≥10-set floor rejection. Fix:
+  `domain/coin-claims.ts` classifies the guard's raise strings
+  (`ClaimOutcome`), `claimCoin` returns it, `useClaimCoin` invalidates via
+  `invalidateTable` (prefix — kills the userId-null race) and toasts ONE
+  honest case: workout_complete under the floor → "NO COINS YET · Coins bank
+  at 10+ counted sets". Duplicates/non-PRs/unproven milestones stay silent.
+
 - **ANGLED FORK GLYPH (2026-07-21)**: `FORK` in `pixel-icons.tsx` redrawn —
   the fork leans up-right with a 7-row handle (was a 4-of-9 vertical stub).
   Sheared on the grid, never transform-rotated (anti-aliasing kills pixel

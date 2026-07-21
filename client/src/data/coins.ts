@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { classifyClaimError, type ClaimOutcome } from '@/domain/coin-claims';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
+import { invalidateTable } from './keys';
 import { supabase } from './supabase';
 
 /**
@@ -11,8 +13,10 @@ import { supabase } from './supabase';
  *   - the total is NULL ON ANY FAILURE, NEVER 0 — a failure rendered as 0
  *     reads as a wiped wallet;
  *   - claims are fire-and-forget: duplicates and guard rejections are
- *     silently absorbed (the server already said no, correctly), only
- *     UNEXPECTED errors toast;
+ *     absorbed (the server already said no, correctly), only UNEXPECTED
+ *     errors toast — with ONE honest exception (HOME v2, 2026-07-22): a
+ *     finished workout under the 10-set coin floor tells the athlete why
+ *     nothing banked, because that silence read as "coins are broken";
  *   - the client's amount is a placeholder — the 013 guard recomputes it.
  */
 
@@ -66,15 +70,17 @@ export function useCoinHistory() {
 
 export type CoinKind = 'workout_complete' | 'pr' | 'streak_milestone' | 'starting_bonus';
 
-/** True when the claim LANDED (a real new row — announce only then). */
-export async function claimCoin(kind: CoinKind, sourceId: string): Promise<boolean> {
+/** The classified claim result — 'landed' means a real new row (announce
+ *  only then). Refusals come back NAMED (domain/coin-claims.ts) so callers
+ *  can be honest where it matters; only 'error' toasts here. */
+export async function claimCoin(kind: CoinKind, sourceId: string): Promise<ClaimOutcome> {
   const { error } = await supabase.from('coin_events').insert({ kind, amount: 1, source_id: sourceId });
-  if (!error) return true;
-  // duplicate = already earned; check_violation = guard said not yet. Both
-  // are correct outcomes, not errors.
-  if (/duplicate|unique|check|not enough|not a PR|not proven|milestone/i.test(error.message)) return false;
-  useToastStore.getState().push({ kind: 'error', title: 'COINS NOT BANKED', subtitle: error.message });
-  return false;
+  if (!error) return { outcome: 'landed' };
+  const result = classifyClaimError(error.message);
+  if (result.outcome === 'error') {
+    useToastStore.getState().push({ kind: 'error', title: 'COINS NOT BANKED', subtitle: result.message });
+  }
+  return result;
 }
 
 export const COIN_LABELS: Record<string, string> = {
@@ -89,25 +95,42 @@ export const COIN_LABELS: Record<string, string> = {
 /** Claim + refresh + announce, from any screen. */
 export function useClaimCoin() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
-  const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async ({ kind, sourceId }: { kind: CoinKind; sourceId: string }) => claimCoin(kind, sourceId),
-    onSuccess: (landed, { kind }) => {
-      if (!landed) return;
-      void queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
-      void queryClient.invalidateQueries({ queryKey: ['coin_events', userId] });
-      const amounts: Record<CoinKind, string> = {
-        workout_complete: '+25',
-        pr: '+50',
-        streak_milestone: '+',
-        starting_bonus: '+100',
-      };
-      useToastStore.getState().push({
-        kind: 'info',
-        title: `COINS BANKED ${amounts[kind] ?? '+'}`,
-        subtitle: COIN_LABELS[kind],
-      });
+    onSuccess: (result, { kind }) => {
+      if (result.outcome === 'landed') {
+        // PREFIX invalidation via the keys doctrine (not userId-keyed): a
+        // claim landing during a token-refresh blip used to invalidate
+        // ['coin_total', null] and leave the real counter stale.
+        invalidateTable(queryClient, 'coin_events');
+        const amounts: Record<CoinKind, string> = {
+          workout_complete: '+25',
+          pr: '+50',
+          streak_milestone: '+',
+          starting_bonus: '+100',
+        };
+        useToastStore.getState().push({
+          kind: 'info',
+          title: `COINS BANKED ${amounts[kind] ?? '+'}`,
+          subtitle: COIN_LABELS[kind],
+        });
+        return;
+      }
+      // THE honest exception: a finished workout under the coin floor. The
+      // server is the authority on the number; this string just repeats it.
+      if (
+        result.outcome === 'rejected' &&
+        result.reason === 'not_enough_training' &&
+        kind === 'workout_complete'
+      ) {
+        useToastStore.getState().push({
+          kind: 'info',
+          title: 'NO COINS YET',
+          subtitle: 'Coins bank at 10+ counted sets in a day.',
+        });
+      }
+      // Everything else (duplicates, non-PRs, unproven milestones) stays
+      // silent — the athlete did nothing just now that deserves a nag.
     },
   });
 }

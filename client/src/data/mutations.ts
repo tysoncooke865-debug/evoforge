@@ -192,8 +192,8 @@ export function useSaveSet() {
         const prRowId = verdict.action === 'insert' ? verdict.rowId : verdict.rowId ?? undefined;
         if (prRowId) {
           void import('./coins').then(({ claimCoin }) =>
-            claimCoin('pr', prRowId).then((landed) => {
-              if (landed) {
+            claimCoin('pr', prRowId).then((result) => {
+              if (result.outcome === 'landed') {
                 invalidateTable(queryClient, 'coin_events'); // total AND /coins history (A5)
                 useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
               }
