@@ -995,6 +995,7 @@ export default function WorkoutScreen() {
                       key={alt.name}
                       onPress={() => swapTo(alt.name)}
                       accessibilityRole="button"
+                      testID={`swap-to-${alt.name}`}
                       className="rounded-md border border-border px-s3 py-s2"
                       style={{ minHeight: 44, justifyContent: 'center', backgroundColor: 'rgba(13,21,36,0.7)' }}
                     >
