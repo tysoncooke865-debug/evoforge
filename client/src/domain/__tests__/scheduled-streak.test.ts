@@ -233,6 +233,38 @@ describe('065 — streak semantics with array slots', () => {
   });
 });
 
+describe('a saved routine as a day PRIMARY (2026-07-21)', () => {
+  // The schedule editor can now put a routine name in the MAIN slot, not just
+  // extras. dayWorkouts treats any non-Rest string as scheduled — these pin it.
+  const ROUTINE_WEEK: ScheduleRow = {
+    effective_from: '2026-01-01',
+    plan: { ...WEEK.plan, '1': 'Abs Blast' }, // Monday's primary is a routine
+  };
+
+  it('counts as a scheduled training day for the streak — trained keeps it, missed resets', () => {
+    // Monday 2026-07-06 trained, Tuesday 07-07 trained → streak spans both.
+    const trained = computeScheduledStreak(
+      [ROUTINE_WEEK],
+      [set('2026-07-06'), set('2026-07-07')],
+      '2026-07-08',
+      10
+    );
+    expect(trained.current).toBe(2);
+    // Monday untrained → missed, not rest.
+    const missed = computeScheduledStreak([ROUTINE_WEEK], [set('2026-07-07')], '2026-07-08', 10);
+    expect(missed.days.get('2026-07-06')).toBe('missed');
+  });
+
+  it('weeklyContract assigns the routine name to its pip', () => {
+    const c = weeklyContract([ROUTINE_WEEK], [], '2026-07-06');
+    expect(c.pips[0].assigned).toBe('Abs Blast'); // Monday-start week, slot 0
+  });
+
+  it('dayWorkouts keeps a routine primary with extras behind it', () => {
+    expect(dayWorkouts(['Abs Blast', 'Core Blast'])).toEqual(['Abs Blast', 'Core Blast']);
+  });
+});
+
 describe('crossedMilestones', () => {
   it('emits one key per crossed milestone, keyed to the run start', () => {
     const streak = { current: 8, best: 8, runStart: '2026-07-01', days: new Map() };

@@ -38,6 +38,20 @@ describe('scheduledDayFor', () => {
     expect(scheduledDayFor('2026-07-18', [WEEK])).toBeNull(); // Saturday = Rest
   });
 
+  it('a saved-routine PRIMARY (2026-07-21) is returned literally', () => {
+    const withRoutine: ScheduleRow = {
+      effective_from: '2026-01-01',
+      plan: { ...WEEK.plan, '3': 'Abs Blast' },
+    };
+    expect(scheduledDayFor(TODAY, [withRoutine])).toBe('Abs Blast');
+    // HISTORY IS HISTORY: sourceDayFor never renames a past routine primary,
+    // whatever day list the current source carries.
+    expect(sourceDayFor(TUESDAY, [withRoutine], ['Push', 'Pull', 'Legs'], THURSDAY)).toBe('Pull');
+    expect(
+      sourceDayFor('2026-07-08', [withRoutine], ['Push', 'Pull', 'Legs'], THURSDAY)
+    ).toBe('Abs Blast'); // the previous Wednesday, already history
+  });
+
   it('EFFECTIVE-DATING: a reschedule governs only the days it covers', () => {
     const reschedule: ScheduleRow = { effective_from: '2026-07-15', plan: { ...WEEK.plan, '3': 'Arms' } };
     expect(scheduledDayFor(TUESDAY, [WEEK, reschedule])).toBe('Pull'); // before it

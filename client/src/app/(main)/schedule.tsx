@@ -198,6 +198,14 @@ export default function ScheduleScreen() {
   const daysOf = (s: SourceIndex): readonly string[] => daysForSource(s, planSources, BUILT_IN_DAYS);
   const sourceHasDays = (s: SourceIndex): boolean => daysOf(s).length > 0;
 
+  // Saved routines are assignable as a day's PRIMARY as well as extras: the
+  // stored name is LITERAL (never source-remapped — the uniform `sources`
+  // write plus Train's explicit-source short-circuit guarantee that), and the
+  // resolver's routine-by-name fallback opens it.
+  const routineNames = (routines.data ?? []).map((r) => r.name);
+  const routineNameSet = new Set(routineNames.map((n) => n.toLowerCase()));
+  const isRoutineName = (name: string): boolean => routineNameSet.has(name.toLowerCase());
+
   // Default: Mon–Sat the six built-in days in order, Sunday rest.
   const [plan, setPlan] = useState<Record<string, PlanDayValue>>(() => {
     const seed: Record<string, PlanDayValue> = { '0': 'Rest' };
@@ -265,7 +273,8 @@ export default function ScheduleScreen() {
   /** Pick the whole-week source. Any trained day whose PRIMARY split isn't in
    *  the new plan is remapped to that plan's first day (never left pointing at
    *  a split the chosen plan doesn't have). Extras are literal picks and are
-   *  never remapped. */
+   *  never remapped — and so is a saved-routine PRIMARY: it belongs to no
+   *  plan source, so switching plans must not clobber it. */
   const chooseSource = (s: SourceIndex) => {
     setOpenKey(null);
     if (!sourceHasDays(s)) return;
@@ -275,7 +284,7 @@ export default function ScheduleScreen() {
       const next: Record<string, PlanDayValue> = { ...p };
       for (const dow of Object.keys(next)) {
         const cur = primaryOf(next[dow]);
-        if (cur === 'Rest') continue;
+        if (cur === 'Rest' || isRoutineName(cur)) continue;
         if (!list.includes(cur)) next[dow] = dayValue(list[0], extrasOf(next[dow]));
       }
       return next;
@@ -311,7 +320,6 @@ export default function ScheduleScreen() {
       return { ...p, [String(dow)]: dayValue(primaryOf(v), extrasOf(v).filter((_, i) => i !== index)) };
     });
 
-  const routineNames = (routines.data ?? []).map((r) => r.name);
   /** An extra that is neither a plan day nor a saved routine any more —
    *  a deleted routine the schedule still references. Removable, flagged. */
   const known = new Set(
@@ -372,7 +380,14 @@ export default function ScheduleScreen() {
         const primary = primaryOf(plan[key]);
         const extras = extrasOf(plan[key]);
         const isRest = primary === 'Rest';
-        const splitOpts: Opt[] = dayList.map((d) => ({ value: d, label: d.split(' - ')[0] }));
+        // Plan splits first, then saved routines (★) — a routine can be the
+        // day's MAIN workout, not just an extra.
+        const splitOpts: Opt[] = [
+          ...dayList.map((d) => ({ value: d, label: d.split(' - ')[0] })),
+          ...routineNames
+            .filter((n) => !dayList.some((d) => d.toLowerCase() === n.toLowerCase()))
+            .map((n) => ({ value: n, label: `★ ${n}` })),
+        ];
         return (
           <GlowCard key={name} glow={addedDow === dow ? colors.accent : undefined}>
             <View className="flex-row items-center justify-between">
@@ -409,6 +424,12 @@ export default function ScheduleScreen() {
             {!isRest && dayList.length === 0 ? (
               <Text className="mt-s2 text-2xs text-warn">
                 No splits in this plan yet — build it on Train first.
+              </Text>
+            ) : null}
+            {/* A PRIMARY pointing at a routine that was deleted since. */}
+            {!isRest && primary !== 'Rest' && !known.has(primary.toLowerCase()) ? (
+              <Text className="mt-s1 text-2xs" style={{ color: colors.danger }}>
+                ⚠ DELETED ROUTINE — pick another split
               </Text>
             ) : null}
 

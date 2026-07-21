@@ -26,6 +26,15 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ROUTINES AS SCHEDULE PRIMARY (2026-07-21, no migration)**: the EDIT
+  SCHEDULE split dropdown now also lists saved routines (★-prefixed, after the
+  plan's days) — "abs" can be a day's MAIN workout, not just an extra (multiple
+  per day keep working via 065 extras). A routine-name primary is LITERAL:
+  `chooseSource` never remaps it, the uniform `sources` write + Train's
+  explicit-source short-circuit keep it verbatim, and the resolver's
+  routine-by-name fallback opens it. A deleted routine left in the primary slot
+  gets the ⚠ warning. Pinned: streak/weeklyContract count a routine primary as
+  scheduled; `sourceDayFor` history keeps the literal name.
 - **SAVE CHANGES AT FINISH (2026-07-21, no migration)**: finishing an edited
   day now asks "Save changes?" (skips ad-hoc — it has its own save-routine
   flow). `domain/plan-edits.ts` is the pure bridge: `diffDayEdits` (skip/order
