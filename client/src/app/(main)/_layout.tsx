@@ -25,6 +25,7 @@ import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
 import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
+import { PageHelp } from '@/ui/help/page-help';
 import { SharePrompt } from '@/ui/social/share-prompt';
 import { SaveRoutinePrompt } from '@/ui/train/save-routine-prompt';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
@@ -314,6 +315,9 @@ export default function MainLayout() {
       <LevelUpOverlay from={levelUp.from} to={levelUp.to} onClose={() => setLevelUp(null)} />
     ) : null}
     <TutorialOverlay />
+    {/* PER-PAGE HELP: first-open coach-mark + a floating "?" to reopen, driven
+        by the current route. Explains each screen and the calc theory. */}
+    <PageHelp />
     {/* ORIGIN (Tyson 2026-07-17): every sign-in without an origin asks for a scan. */}
     <OriginScanPrompt />
     {/* Post-workout "share it?" offer (Social) — self-hides unless a finish
