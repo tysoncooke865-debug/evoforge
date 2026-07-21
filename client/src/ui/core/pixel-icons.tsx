@@ -49,16 +49,23 @@ const DUMBBELL = [
   '.##.....##.',
 ] as const;
 
+// FUEL v2 (2026-07-21): the fork LEANS now — head up-right, sheared on the
+// grid (a full 45° dissolved the head into stray slashes at tab size), with
+// a LONGER handle (7 rows vs the old 4-of-9 stub). Drawn as pixels — never
+// transform-rotated, which would anti-alias the pixel art away.
 const FORK = [
-  '#.#.#',
-  '#.#.#',
-  '#.#.#',
-  '#####',
-  '.###.',
-  '..#..',
-  '..#..',
-  '..#..',
-  '..#..',
+  '.....#.#.#',
+  '....#.#.#.',
+  '....#.#.#.',
+  '....#####.',
+  '.....###..',
+  '.....#....',
+  '....#.....',
+  '....#.....',
+  '...#......',
+  '...#......',
+  '..#.......',
+  '..#.......',
 ] as const;
 
 const HEART = [

@@ -26,6 +26,11 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ANGLED FORK GLYPH (2026-07-21)**: `FORK` in `pixel-icons.tsx` redrawn —
+  the fork leans up-right with a 7-row handle (was a 4-of-9 vertical stub).
+  Sheared on the grid, never transform-rotated (anti-aliasing kills pixel
+  art); a full 45° draft dissolved the head into slashes at tab size, the
+  shipped shear keeps the crossbar solid. Used by the Fuel tab + meal slots.
 - **FUEL PAGE v2 (2026-07-21, NUTRITION_PLAN_2)**: the summary card is the
   command centre — CUT/MAINTAIN/BULK switcher chips (inactive chips quote
   their stored kcal; tapping writes an effective-dated target upsert, ZERO AI;
