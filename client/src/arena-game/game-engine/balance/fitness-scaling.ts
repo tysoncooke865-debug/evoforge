@@ -48,6 +48,46 @@ export const NEUTRAL_SCALING: ChampionFitnessScaling = {
   ultimateChargeMult: 1,
 };
 
+/**
+ * Engine SANITY bounds for any scaling multiplier entering a battle config —
+ * NOT the ranked fairness cap (services/progression/ranked.ts enforces that
+ * separately, and much tighter). These bounds exist so untrusted record
+ * configs cannot field champions with Infinity/NaN/negative stats: JSON can
+ * smuggle 1e999 (→ Infinity on parse), and a non-finite multiplier baked in
+ * at spawn silently corrupts the whole battle (P4 fix). Legitimate scaling
+ * stays deep inside this band (±12% fitness advantage cap).
+ */
+export const MIN_SCALING_MULT = 0.1;
+export const MAX_SCALING_MULT = 10;
+
+const SCALING_FIELDS: readonly (keyof ChampionFitnessScaling)[] = [
+  'attackDamageMult',
+  'maxHealthMult',
+  'moveSpeedMult',
+  'abilityCooldownMult',
+  'ultimateChargeMult',
+];
+
+/**
+ * True when `value` is a structurally complete ChampionFitnessScaling whose
+ * every multiplier is a finite number inside the engine sanity bounds.
+ * Shared by createBattle (throws on violation — same contract as its deck
+ * validation) and validateBattleRecordValue (rejects the record). Partial
+ * objects fail: a missing field would multiply as undefined → NaN at spawn.
+ */
+export function isValidChampionScaling(value: unknown): value is ChampionFitnessScaling {
+  if (typeof value !== 'object' || value === null) return false;
+  return SCALING_FIELDS.every((field) => {
+    const v = (value as Record<string, unknown>)[field];
+    return (
+      typeof v === 'number' &&
+      Number.isFinite(v) &&
+      v >= MIN_SCALING_MULT &&
+      v <= MAX_SCALING_MULT
+    );
+  });
+}
+
 /** Number of sub-ratings sharing the total advantage budget. */
 const RATING_COUNT = 5;
 

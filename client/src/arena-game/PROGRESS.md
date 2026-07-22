@@ -905,3 +905,71 @@ Deviations, documented: records from balance <0.6.0 become cleanly
 unplayable (existing gate; KNOWN_ISSUES); ledger-behind-derived athletes
 may briefly see an earlier stage (KNOWN_ISSUES); borrowed Cardio Lane Shift
 ping-pong deferred to P4 (audit HIGH #5).
+
+## P4 — engine reliability (2026-07-23) ✅
+
+Adversarially-verified findings (all confirmed against the working tree),
+every one fixed this phase — none deferred:
+
+- **play-card null/missing target threw instead of rejecting** (HIGH +
+  duplicate MEDIUM report): shape guard in `validateCardTarget` before the
+  `target.kind` dereference, mirrored in `applyCardEffects`;
+  `transformGhostCommands` normalizes non-object targets to
+  `{ kind: 'none' }` as defense in depth. The reject-never-throw contract
+  holds again on the live ghost path (no try/catch in the 50ms frame loop
+  — the throw was a production crash vector from stored records).
+- **Schedule entries with valid tick but null/missing command threw**
+  (MEDIUM): `prepareCommandSchedule` rejects them up front ('malformed
+  command'); `applyCommand` shape-guards the command itself for direct
+  `advanceTick` consumers. `RejectedCommand.command` widened to
+  `BattleCommand | null` (honest shape for malformed entries).
+- **championScaling from untrusted records never validated** (MEDIUM):
+  new `isValidChampionScaling` (five fields, finite, engine sanity bounds
+  [0.1, 10]) enforced by `validateBattleRecordValue` on every config slot
+  (legacy/captain/borrowed, plus minimal squad shape) AND by `createBattle`
+  (throws, like deck validation). Kills the Infinity-health-ghost vector
+  (`1e999` parses to Infinity; JSON can't carry NaN but partial objects
+  multiplied to NaN).
+- **Unbounded record.commands length** (LOW — fixed, cheap):
+  `MAX_RECORD_COMMANDS` (10,000) cap in `validateBattleRecordValue`;
+  refuses O(ticks × commands) stall padding. The per-tick schedule index
+  optimization stays deferred (documented in KNOWN_ISSUES P4 section).
+- **Borrowed Cardio Lane Shift ping-pong (audit HIGH #5, the mandated fix)
+  + the AI's lane-blind champion-ability gate** (MEDIUM): new optional
+  `autoCastValidate` on ability handlers + `validateChampionAutoCast`
+  resolver (falls back to `validate`; bit-identical for the other four
+  champions). Gate rule `laneShiftJoinsCombat`: auto-shift ONLY when the
+  current lane has no living enemy within aggro range AND the other lane
+  has one within aggro range of the champion's x — shift to JOIN combat,
+  never out of it; ping-pong structurally impossible. Wired into
+  `autoCastBorrowedAbility` and the opponent AI's `maybeUseChampion`
+  (whose enemies-near count was lane-blind — an AI Cardio captain used to
+  teleport out of its own fight every 10s). Commanded captain casts stay
+  unconditional. Audit item #5 marked RESOLVED.
+
+DIGEST-AFFECTING (no BALANCE_VERSION bump, deliberate): the Lane Shift
+gate changes outcomes for squad battles fielding a borrowed Cardio Machine
+and for AI Cardio-captain command streams. 0.6.0 shipped in this same
+overnight run with zero real player records, so the change rides the
+existing 0.6.0 gate rather than burning 0.6.1. Every other fix only turns
+former throws/nonsense into clean rejections — zero digest impact for
+well-formed battles (full suite green unchanged except new tests).
+
+New regression tests (13): engine.test.ts (malformed schedule commands
+reject with null command, applyCommand null/undefined guard);
+ghost.test.ts (play-card target null/undefined/primitive rejected without
+energy loss; poisoned record runs headless + ghost-transforms with
+target normalized; non-finite scaling record fails safely in ghost setup
+AND verify); replay.test.ts (command-count cap boundary; scaling
+validation incl. the raw-JSON 1e999→Infinity vector, partials, squad
+slots); gym-champions.test.ts (createBattle throws on bad scaling in all
+three config slots, accepts real fitness scaling; borrowed Lane Shift:
+quiet arena → zero shifts ever + cooldown never burned, never shifts out
+of an own-lane fight, shifts once to join then holds across multiple
+cooldown expiries and re-arms when the fight resolves; commanded captain
+stays unconditional); opponent-ai.test.ts (engaged Cardio captain never
+queues Lane Shift even with other-lane enemies in range; queues it when
+its lane is quiet and other-lane combat is in range).
+
+Verified: `npx tsc --noEmit` clean · `npm test` 94 files / 1,441 tests
+green · `npx expo lint` 0 errors (7 pre-existing warnings, none from P4).

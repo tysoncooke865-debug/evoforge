@@ -47,7 +47,16 @@ export function prepareCommandSchedule(
     // rather than throw (the never-throw contract of every replay consumer).
     if (!c || typeof c !== 'object') continue;
     if (!Number.isInteger(c.tick) || c.tick < 1) {
-      rejected.push({ tick: c.tick, command: c.command, reason: `invalid scheduled tick ${c.tick}` });
+      rejected.push({
+        tick: c.tick,
+        command: c.command ?? null,
+        reason: `invalid scheduled tick ${c.tick}`,
+      });
+    } else if (!c.command || typeof c.command !== 'object') {
+      // A valid tick with a null/missing command must reject up front too —
+      // applyCommand also guards this, but rejecting here keeps the schedule
+      // clean and the rejection visible (P4 fix).
+      rejected.push({ tick: c.tick, command: null, reason: 'malformed command (not an object)' });
     } else {
       valid.push({ c, index: index++ });
     }

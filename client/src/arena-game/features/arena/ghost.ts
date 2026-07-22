@@ -119,7 +119,17 @@ export function transformGhostCommands(
         };
         break;
       case 'play-card':
-        command = { type: 'play-card', team: 'opponent', cardId: c.cardId, target: c.target };
+        // Untrusted records can carry a null/missing/primitive target. The
+        // engine rejects such shapes (never throws) since the P4 hardening;
+        // normalizing to { kind: 'none' } here keeps the live command log
+        // JSON-clean as defense in depth.
+        command = {
+          type: 'play-card',
+          team: 'opponent',
+          cardId: c.cardId,
+          target:
+            c.target && typeof c.target === 'object' ? c.target : { kind: 'none' },
+        };
         break;
       case 'champion-ability':
         command = { type: 'champion-ability', team: 'opponent' };

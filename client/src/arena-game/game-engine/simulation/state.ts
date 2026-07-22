@@ -9,7 +9,10 @@
  */
 import type { BalanceConfig } from '../../content/balance';
 import { getChampionById } from '../../content/champions';
-import type { ChampionFitnessScaling } from '../balance/fitness-scaling';
+import {
+  isValidChampionScaling,
+  type ChampionFitnessScaling,
+} from '../balance/fitness-scaling';
 import { initTeamCards, TeamCardsState } from '../cards/deck';
 import { championSpawnX, spawnChampion } from '../entities/spawn';
 import { SeededRng } from '../random/rng';
@@ -402,6 +405,14 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
     if (!captainDef) {
       throw new Error(`unknown champion '${squad.captain.championId}'`);
     }
+    // Scaling from untrusted record configs must be structurally complete and
+    // finite inside the engine sanity bounds — a 1e999 (Infinity after JSON
+    // parse) or partial scaling would bake NaN/Infinity into champion stats
+    // and silently corrupt the battle (P4 fix). Throwing matches the deck /
+    // champion-id contract: untrusted-data consumers wrap createBattle.
+    if (squad.captain.scaling !== undefined && !isValidChampionScaling(squad.captain.scaling)) {
+      throw new Error(`invalid champion scaling for ${team} captain`);
+    }
     spawnChampion(state, balance, captainDef, team, squad.captainLane, squad.captain.scaling, {
       commandable: true,
     });
@@ -417,6 +428,9 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
       }
       if (borrowed.lane !== 0 && borrowed.lane !== 1) {
         throw new Error(`invalid borrowed champion lane ${String(borrowed.lane)}`);
+      }
+      if (borrowed.scaling !== undefined && !isValidChampionScaling(borrowed.scaling)) {
+        throw new Error(`invalid champion scaling for ${team} borrowed champion`);
       }
       const spawnX = Math.min(
         balance.arena.laneLength,

@@ -26,6 +26,7 @@ import {
   runOpponentAi,
 } from '../features/arena/opponent-ai';
 import { findTeamChampion } from '../game-engine/abilities/champion-abilities';
+import { spawnUnitsForCard } from '../game-engine/entities/spawn';
 import { SeededRng } from '../game-engine/random/rng';
 import type { ScheduledCommand } from '../game-engine/simulation/events';
 import { runBattle } from '../game-engine/simulation/run';
@@ -292,5 +293,55 @@ describe('training is genuinely beatable', () => {
     expect(vsTraining.state.outcome!.winner).toBe('player');
     const vsAdvanced = defendedBattle(555, 'advanced', 'champion-titan');
     expect(vsAdvanced.state.outcome!.winner).toBe('opponent');
+  });
+});
+
+describe('AI Cardio captain Lane Shift tactics (P4 — lane-blind gate fix)', () => {
+  function cardioCaptainState() {
+    const state = createBattle(
+      {
+        seed: 20260723,
+        player: { playerId: 'p1' },
+        opponent: { playerId: 'ai-advanced', championId: 'champion-cardio' },
+      },
+      BALANCE
+    );
+    state.tick = 50; // before the augment offer; decision forced below
+    return state;
+  }
+
+  function decide(state: ReturnType<typeof cardioCaptainState>): ScheduledCommand[] {
+    const log: ScheduledCommand[] = [];
+    const rng = new SeededRng(7);
+    const runtime = createOpponentAiRuntime(rng, 'advanced');
+    runtime.nextDecisionTick = state.tick; // force a decision this tick
+    runOpponentAi(state, log, rng, runtime, 'advanced');
+    return log;
+  }
+
+  it('never queues Lane Shift while engaged in its own lane (even with other-lane enemies in range)', () => {
+    const state = cardioCaptainState();
+    const cardio = findTeamChampion(state, 'opponent')!;
+    // The fight it is in (own lane) + a lane-blind temptation (other lane) —
+    // pre-fix, either enemy within aggro range triggered the shift mid-fight.
+    spawnUnitsForCard(state, BALANCE, getCardById('titan-guard')!, 'player', cardio.lane, cardio.x - 4);
+    spawnUnitsForCard(state, BALANCE, getCardById('titan-guard')!, 'player', cardio.lane === 0 ? 1 : 0, cardio.x - 6);
+    const log = decide(state);
+    expect(log.some((c) => c.command.type === 'champion-ability')).toBe(false);
+  });
+
+  it('queues Lane Shift when its own lane is quiet and other-lane combat is in range', () => {
+    const state = cardioCaptainState();
+    const cardio = findTeamChampion(state, 'opponent')!;
+    spawnUnitsForCard(
+      state,
+      BALANCE,
+      getCardById('titan-guard')!,
+      'player',
+      cardio.lane === 0 ? 1 : 0,
+      cardio.x - 5
+    );
+    const log = decide(state);
+    expect(log.some((c) => c.command.type === 'champion-ability')).toBe(true);
   });
 });

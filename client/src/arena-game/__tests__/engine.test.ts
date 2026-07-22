@@ -321,6 +321,34 @@ describe('command validation', () => {
     }
     expect(result.stalled).toBe(false);
   });
+
+  it('schedule entries with a valid tick but null/missing command are rejected, never thrown (P4)', () => {
+    // {tick:5} and {tick:5, command:null} used to pass prepareCommandSchedule
+    // and TypeError inside applyCommand at command.team — a contract breach
+    // (commands are rejected, never thrown).
+    const poisoned = [
+      { tick: 5 },
+      { tick: 6, command: null },
+      { tick: 7, command: 'noop' },
+    ] as unknown as ScheduledCommand[];
+    const result = runBattle(config, poisoned, BALANCE);
+    expect(result.stalled).toBe(false);
+    expect(result.rejected.length).toBe(3);
+    for (const r of result.rejected) {
+      expect(r.reason).toContain('malformed command');
+      expect(r.command).toBeNull();
+    }
+    // applyCommand itself guards consumers that reach advanceTick without
+    // prepareCommandSchedule (the live path).
+    expect(applyCommand(freshState(), BALANCE, null as unknown as BattleCommand)).toEqual({
+      ok: false,
+      reason: 'malformed command (not an object)',
+    });
+    expect(applyCommand(freshState(), BALANCE, undefined as unknown as BattleCommand)).toEqual({
+      ok: false,
+      reason: 'malformed command (not an object)',
+    });
+  });
 });
 
 describe('energy regeneration', () => {

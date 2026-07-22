@@ -100,7 +100,10 @@
   does). A tampered-but-well-formed record therefore produces a ghost whose
   commands simply play out (or get rejected) under normal engine validation
   — safe, just not authenticated. Full verification before ghost start is a
-  one-line change if Gym Wars (M9+) needs it.
+  one-line change if Gym Wars (M9+) needs it. *(P4 2026-07-23: the "safe"
+  claim had real holes — a null/missing play-card target THREW out of the
+  live tick loop, and non-finite champion scaling spawned Infinity-health
+  ghosts. Both closed; see the P4 section.)*
 - Ghost battles are recorded as battle records (mode 'ghost') but never
   reach the provider: no rank movement, no stats. Fighting the ghost of a
   ghost battle is possible and intentional (the record's player side is
@@ -126,12 +129,14 @@
   win (BALANCE.gym). Real damage attribution needs per-unit damage-source
   tracking in the engine — deferred until a milestone needs it for more
   than a leaderboard chip.
-- **Always-valid abilities auto-cast on cooldown**: a borrowed Speedster
+- ~~**Always-valid abilities auto-cast on cooldown**: a borrowed Speedster
   casts Lane Shift the moment it recharges (its validate is
-  unconditionally OK), ping-ponging lanes every 10s; a borrowed Hybrid
-  similarly stance-shifts on cooldown (which is fine). Deterministic and
-  replay-safe; a "combat nearby" gate like the AI's would fix the Speedster
-  quirk if playtesting minds it.
+  unconditionally OK), ping-ponging lanes every 10s~~ — fixed in P4
+  (2026-07-23): Lane Shift auto-casts are gated by `laneShiftJoinsCombat`
+  (shift only to JOIN combat in the other lane when the current lane is
+  quiet — see the P4 section). A borrowed Aesthetics (ex-Hybrid) still
+  stance-shifts on cooldown, which remains fine (the stance buff is always
+  useful).
 - Borrowed champions respawn at their STAGGERED spawn slot (spawnX stored
   per champion), in the lane they currently occupy — same lane semantics as
   the M5 captain respawn note.
@@ -202,8 +207,72 @@
   stages estimate from forge_level; the roster chips read "(EST.)". The
   real fix is a gym_detail origin_path migration (flagged in the audit,
   shared-schema protected).
-- **Borrowed Cardio Machine still auto-casts Lane Shift on cooldown**
+- ~~**Borrowed Cardio Machine still auto-casts Lane Shift on cooldown**
   (audit HIGH #5, kit inherited): its validate is unconditionally OK, so a
   borrowed one ping-pongs lanes every 10s in gym wars. A combat-nearby gate
   is the sketched fix — deliberately not landed in the roster pass (P4+
-  engine-reliability scope).
+  engine-reliability scope).~~ — RESOLVED in P4 (2026-07-23), see below.
+
+## P4 — engine reliability (overnight run 2026-07-23)
+
+Adversarially-verified findings, all fixed this phase:
+
+- **play-card with a null/missing/primitive target THREW instead of
+  rejecting** (high): `validateCardTarget` dereferenced `target.kind`
+  unguarded, so a poisoned-but-structurally-valid stored record could
+  TypeError inside `advanceTick` mid-frame in a live ghost battle (the
+  50ms interval has no try/catch). Fixed with a shape guard in
+  `validateCardTarget` + the same guard mirrored in `applyCardEffects`;
+  `transformGhostCommands` additionally normalizes non-object targets to
+  `{ kind: 'none' }` (defense in depth). Rejected, never thrown; rejection
+  costs no energy.
+- **Schedule entries with a valid tick but null/missing command threw**
+  (medium): `prepareCommandSchedule` never inspected `entry.command`, and
+  `applyCommand` dereferenced `command.team` unconditionally. Fixed at both
+  layers: the schedule rejects `{tick: N}` / `{tick: N, command: null}` up
+  front ('malformed command'), and `applyCommand` shape-guards the command
+  itself (covers direct `advanceTick` consumers). `RejectedCommand.command`
+  is now `BattleCommand | null` (honest type for malformed entries; all
+  shipping consumers only read `.length`/`.reason`).
+- **Untrusted championScaling was never validated** (medium): a record
+  config carrying `maxHealthMult: 1e999` (JSON.parse → Infinity) fielded an
+  unkillable Infinity-health ghost champion; partial scaling objects would
+  bake NaN. Fixed at both layers: `isValidChampionScaling`
+  (game-engine/balance/fitness-scaling.ts — all five fields finite inside
+  the [0.1, 10] engine sanity bounds; NOT the ranked cap, which
+  services/progression/ranked.ts enforces separately and tighter) is
+  required by `validateBattleRecordValue` for every config slot (legacy
+  field, squad captain, borrowed) and re-checked by `createBattle`, which
+  throws like its deck/champion-id validation (all untrusted-data consumers
+  wrap it).
+- **No bound on record.commands length** (low — fixed, cheap): re-sim cost
+  is O(ticks × commands), so a 1M-noop-command record would freeze the UI
+  thread for minutes. `validateBattleRecordValue` now caps commands at
+  `MAX_RECORD_COMMANDS` (10,000 — orders of magnitude above legitimate
+  play). Deferred (documented, not built): a per-tick index into the sorted
+  schedule for `applyScheduledCommands` — the full-scan cost is now bounded
+  by the cap, and the live command log is not guaranteed pre-sorted, so the
+  index needs its own invariant work to be worth it.
+- **Borrowed Cardio Lane Shift ping-pong** (high, audit #5) + **the AI's
+  lane-blind champion-ability gate** (medium): fixed together. New
+  `validateChampionAutoCast` resolves a handler's optional
+  `autoCastValidate` (falling back to `validate` — bit-identical for the
+  other champions). Lane Shift's gate `laneShiftJoinsCombat`: shift ONLY
+  when the current lane holds no living enemy within aggro range AND the
+  other lane holds at least one within aggro range of the champion's x.
+  Ping-pong is structurally impossible (right after a shift the destination
+  lane has an in-range enemy, so the gate stays closed until that fight
+  resolves). Consumers: `autoCastBorrowedAbility` and the opponent AI's
+  `maybeUseChampion` (which used a lane-blind enemies-near count and made
+  its Cardio captain teleport out of its own fight every cooldown).
+  Commanded captain casts and their UI pre-validation stay unconditional —
+  a human's tactical choice. Pure state reads, no RNG: deterministic and
+  replay-identical.
+
+Digest note: the Lane Shift gate changes simulation behaviour for squad
+battles fielding a borrowed Cardio Machine (and AI command streams with a
+Cardio captain). No BALANCE_VERSION bump: 0.6.0 shipped in this same
+overnight run and has zero player records (unreleased) — the change rides
+the existing 0.6.0 gate. All other P4 fixes only affect malformed inputs
+(previously: throw or nonsense; now: reject) — no digest impact for any
+well-formed battle.

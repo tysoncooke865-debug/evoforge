@@ -49,6 +49,7 @@ import type { CardDefinition } from '../../content/types';
 import {
   findTeamCaptain,
   validateChampionAbility,
+  validateChampionAutoCast,
 } from '../../game-engine/abilities/champion-abilities';
 import { SeededRng } from '../../game-engine/random/rng';
 import type { ScheduledCommand } from '../../game-engine/simulation/events';
@@ -289,12 +290,17 @@ function maybeUseChampion(
     }
   }
 
-  // Active ability: only when combat is actually nearby (avoids e.g. Lane
-  // Shift spam in an empty arena) and the engine-side validation passes.
+  // Active ability: only when combat is actually nearby AND the ability's
+  // tactical auto-cast gate passes. enemiesNearChampion is lane-blind, which
+  // for Lane Shift used to mean shifting away from the very enemy the
+  // captain was fighting (P4 fix) — validateChampionAutoCast applies the
+  // same join-combat gate as borrowed auto-casts (Lane Shift only fires to
+  // JOIN a fight in the other lane, never mid-fight) and falls back to the
+  // normal validate for the other champions (bit-identical behaviour).
   if (
     enemiesNearChampion > 0 &&
     champion.champion.abilityCooldownTicks === 0 &&
-    validateChampionAbility(state, BALANCE, champion, definition.ability).ok
+    validateChampionAutoCast(state, BALANCE, champion, definition.ability).ok
   ) {
     queue(commandLog, nextTick, { type: 'champion-ability', team: 'opponent' });
     return true;

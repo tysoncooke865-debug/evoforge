@@ -58,10 +58,20 @@ against the working tree, not recalled.
    from forge_level, and the roster chips are labeled "(EST.)". A future
    `gym_detail` migration adding `origin_path` is the real fix (flagged,
    not executed — shared-schema protection).
-5. **Cardio Machine auto-cast ping-pong** (borrowed champion Lane Shift
+5. ~~**Cardio Machine auto-cast ping-pong** (borrowed champion Lane Shift
    fires on cooldown because it is always-valid) — player-visible oddity in
    gym battles; needs a combat-nearby gate. The five-champion pass kept the
-   kit (reflavored); the gate belongs to the P4 engine-reliability review.
+   kit (reflavored); the gate belongs to the P4 engine-reliability review.~~
+   **RESOLVED (P4, 2026-07-23).** Auto-casts (borrowed champions AND the
+   opponent AI's queue-time tactics) now route through
+   `validateChampionAutoCast`; Lane Shift's auto-cast-only gate
+   (`laneShiftJoinsCombat`) fires solely to JOIN combat: current lane must
+   hold no living enemy within aggro range AND the other lane must hold one
+   within aggro range of the champion's x. Ping-pong is structurally
+   impossible (the destination lane always has an in-range enemy right
+   after a shift). Commanded captain shifts stay unconditional (a human's
+   tactical choice). Deterministic, replay-identical; tested in
+   gym-champions.test.ts + opponent-ai.test.ts.
 
 ## MEDIUM
 6. Arena-local "rank points" ladder can be confused with EvoForge's Rival

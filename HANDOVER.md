@@ -43,6 +43,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
+- **ARENA ENGINE RELIABILITY PASS (2026-07-23, no migration — overnight
+  hardening P4)**: adversarial review (4 finder + 8 verifier agents) of the
+  Arena battle engine post five-champion rebuild; 8 confirmed defects, all
+  fixed with 13 regression tests (suite 1,426→1,441). Notables: `play-card`
+  with a null/malformed target THREW instead of rejecting (crashed live
+  ghost battles — shape guards in `cards/effects.ts` + ghost-transform
+  normalization); schedule entries with null `command` threw inside
+  `runBattle`; untrusted `championScaling` in battle records was never
+  validated (1e999 → Infinity-health unkillable ghost champions — new
+  `isValidChampionScaling` [0.1,10] enforced at record-parse AND
+  `createBattle`); `record.commands` now capped at 10,000; and the
+  borrowed/AI Cardio **Lane Shift ping-pong** is gated
+  (`autoCastValidate`: shift only to JOIN combat — own lane quiet, other
+  lane has an in-range enemy; commanded player casts stay unconditional;
+  deterministic, no RNG). No BALANCE_VERSION bump (0.6.0 unreleased same
+  run). All under `client/src/arena-game/`. NOTE: committed alongside
+  another session's in-flight work — this commit stages the arena package
+  + HANDOVER only.
 - **ARENA FIVE-CHAMPION ROSTER + REAL PROGRESSION (2026-07-23, no migration —
   overnight hardening P2+P3)**: the Arena now fields THE official five
   champions — **Aesthetics, Titan, Mass Monster, The Shredder, Cardio

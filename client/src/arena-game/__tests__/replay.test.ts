@@ -4,8 +4,10 @@ import type { ScheduledCommand } from '../game-engine/simulation/events';
 import {
   BATTLE_RECORD_SCHEMA_VERSION,
   BattleRecord,
+  MAX_RECORD_COMMANDS,
   parseBattleRecord,
   serializeBattleRecord,
+  validateBattleRecordValue,
   verifyBattleRecord,
 } from '../game-engine/simulation/replay';
 import { runBattle } from '../game-engine/simulation/run';
@@ -92,6 +94,90 @@ describe('battle records', () => {
     const mangled = { ...record, seed: record.seed + 1 };
     const parsed = parseBattleRecord(serializeBattleRecord(mangled));
     expect(parsed.ok).toBe(false);
+  });
+
+  it('caps the command count — hostile padding cannot stall re-simulation (P4)', () => {
+    // Re-sim cost is O(ticks × commands); an unbounded record could freeze
+    // the UI thread for minutes. The cap is orders of magnitude above any
+    // legitimate battle (~20 commands/minute, 4-minute max).
+    const record = makeRecord();
+    const noop = { tick: 1, command: { type: 'noop', team: 'player' } };
+    const atCap = {
+      ...record,
+      commands: Array.from({ length: MAX_RECORD_COMMANDS }, () => noop),
+    };
+    expect(validateBattleRecordValue(atCap).ok).toBe(true); // boundary passes
+    const overCap = {
+      ...record,
+      commands: Array.from({ length: MAX_RECORD_COMMANDS + 1 }, () => noop),
+    };
+    const rejected = validateBattleRecordValue(overCap);
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.reason).toContain('too many commands');
+  });
+
+  it('rejects non-finite, out-of-bounds or partial champion scaling in any config slot (P4)', () => {
+    const record = makeRecord();
+    const neutral = {
+      attackDamageMult: 1,
+      maxHealthMult: 1,
+      moveSpeedMult: 1,
+      abilityCooldownMult: 1,
+      ultimateChargeMult: 1,
+    };
+    const withPlayerScaling = (championScaling: unknown) => ({
+      ...record,
+      config: { ...record.config, player: { ...record.config.player, championScaling } },
+    });
+
+    // Well-formed scaling still parses.
+    expect(validateBattleRecordValue(withPlayerScaling(neutral)).ok).toBe(true);
+
+    // 1e999 in raw JSON parses to Infinity — the exact hostile vector.
+    const json = serializeBattleRecord(withPlayerScaling(neutral) as unknown as BattleRecord)
+      .replace('"maxHealthMult":1', '"maxHealthMult":1e999');
+    const hostile = parseBattleRecord(json);
+    expect(hostile.ok).toBe(false);
+    if (!hostile.ok) expect(hostile.reason).toContain('champion scaling');
+
+    const badScalings: unknown[] = [
+      { ...neutral, maxHealthMult: Infinity },
+      { ...neutral, attackDamageMult: NaN },
+      { ...neutral, moveSpeedMult: -1 },
+      { ...neutral, abilityCooldownMult: 0 }, // below the sanity floor
+      { ...neutral, ultimateChargeMult: 1000 }, // above the sanity ceiling
+      { maxHealthMult: 1.05 }, // partial: missing fields multiply as NaN
+      'scale-me',
+      42,
+    ];
+    for (const scaling of badScalings) {
+      expect(
+        validateBattleRecordValue(withPlayerScaling(scaling)).ok,
+        JSON.stringify(scaling)
+      ).toBe(false);
+    }
+
+    // Squad slots are validated too (captain + borrowed).
+    const squadRecord = {
+      ...record,
+      config: {
+        ...record.config,
+        opponent: {
+          ...record.config.opponent,
+          squad: {
+            captain: { championId: 'champion-titan', scaling: neutral },
+            borrowed: [
+              {
+                championId: 'champion-cardio',
+                lane: 1,
+                scaling: { ...neutral, maxHealthMult: Infinity },
+              },
+            ],
+          },
+        },
+      },
+    };
+    expect(validateBattleRecordValue(squadRecord).ok).toBe(false);
   });
 
   it('accepts the optional M8 fields (recordId, debug) and round-trips them', () => {

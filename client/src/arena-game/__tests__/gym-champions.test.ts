@@ -12,7 +12,11 @@ import {
   findTeamCaptain,
   findTeamChampion,
 } from '../game-engine/abilities/champion-abilities';
-import { computeFitnessScaling } from '../game-engine/balance/fitness-scaling';
+import {
+  computeFitnessScaling,
+  NEUTRAL_SCALING,
+  type ChampionFitnessScaling,
+} from '../game-engine/balance/fitness-scaling';
 import { damageUnit } from '../game-engine/combat/combat';
 import { spawnChampion, spawnUnitsForCard } from '../game-engine/entities/spawn';
 import { applyCommand } from '../game-engine/simulation/events';
@@ -148,6 +152,48 @@ describe('multi-champion squads — spawning and invariants', () => {
     const bad = squadOf('champion-titan', ['champion-aesthetic']);
     bad.borrowed[0].lane = 7 as unknown as 0;
     expect(() => createBattle(squadConfig(bad), BALANCE)).toThrow(/invalid borrowed champion lane/);
+  });
+
+  it('rejects non-finite or partial champion scaling at creation (P4)', () => {
+    // Untrusted record configs can smuggle Infinity (1e999 in JSON) or a
+    // partial scaling object; either would bake NaN/Infinity into champion
+    // stats at spawn (unkillable ghosts). createBattle throws — the same
+    // contract as its deck/champion-id validation.
+    const badCaptain = squadOf('champion-titan', ['champion-cardio']);
+    badCaptain.captain.scaling = { ...NEUTRAL_SCALING, maxHealthMult: Infinity };
+    expect(() => createBattle(squadConfig(badCaptain), BALANCE)).toThrow(
+      /invalid champion scaling/
+    );
+
+    const badBorrowed = squadOf('champion-titan', ['champion-cardio']);
+    badBorrowed.borrowed[0].scaling = { maxHealthMult: 1.05 } as unknown as ChampionFitnessScaling;
+    expect(() => createBattle(squadConfig(badBorrowed), BALANCE)).toThrow(
+      /invalid champion scaling/
+    );
+
+    // The legacy championScaling field routes through the same validation.
+    expect(() =>
+      createBattle(
+        {
+          seed: 1,
+          player: {
+            playerId: 'p1',
+            championId: 'champion-titan',
+            championScaling: { ...NEUTRAL_SCALING, attackDamageMult: NaN },
+          },
+          opponent: { playerId: 'p2' },
+        },
+        BALANCE
+      )
+    ).toThrow(/invalid champion scaling/);
+
+    // Legitimate fitness-derived scaling still constructs (never rejected).
+    const good = squadOf('champion-titan', ['champion-cardio']);
+    good.captain.scaling = computeFitnessScaling(
+      { strength: 100, cardio: 100, muscularity: 100, leanness: 100, aesthetics: 100 },
+      BALANCE
+    );
+    expect(() => createBattle(squadConfig(good), BALANCE)).not.toThrow();
   });
 
   it('invariants flag a second commandable champion and over-limit borrowed', () => {
@@ -352,6 +398,86 @@ describe('borrowed auto-cast', () => {
     advanceTick(state, BALANCE);
     expect(borrowed.champion!.abilityCooldownTicks).toBe(0);
     expect(state.log.some((l) => l.type === 'auto-ability')).toBe(false);
+  });
+});
+
+describe('borrowed Lane Shift auto-cast gate (P4 — audit HIGH #5)', () => {
+  /** Player squad: Titan captain + borrowed Cardio Machine (lane 0). */
+  function cardioBattle(): { state: BattleState; borrowed: UnitState } {
+    const state = createBattle(
+      squadConfig(squadOf('champion-titan', ['champion-cardio'])),
+      BALANCE
+    );
+    const borrowed = state.units.find((u) => u.champion && !u.champion.commandable)!;
+    expect(borrowed.contentId).toBe('champion-cardio');
+    return { state, borrowed };
+  }
+  const shifts = (state: BattleState) =>
+    state.log.filter((l) => l.type === 'auto-ability').length;
+
+  function immortalEnemy(state: BattleState, lane: 0 | 1, x: number): UnitState {
+    const enemy = spawnEnemy(state, 'titan-guard', lane, x);
+    enemy.stunUntilTick = 100000;
+    enemy.health = 100000;
+    enemy.baseMaxHealth = 100000;
+    return enemy;
+  }
+
+  it('a quiet arena never triggers Lane Shift (no more on-cooldown ping-pong)', () => {
+    const { state, borrowed } = cardioBattle();
+    // Pre-fix: always-valid ability + cooldown 0 → shift on tick 1 and every
+    // cooldown after, forever. Now: nothing to join, no shift, ever.
+    for (let i = 0; i < 250; i++) advanceTick(state, BALANCE);
+    expect(shifts(state)).toBe(0);
+    expect(borrowed.lane).toBe(0);
+    // The gate never burns the cooldown either (validate → pay → apply).
+    expect(borrowed.champion!.abilityCooldownTicks).toBe(0);
+  });
+
+  it('never shifts away from a fight in its own lane (lane-blind bug)', () => {
+    const { state, borrowed } = cardioBattle();
+    immortalEnemy(state, 0, borrowed.x + 5); // the fight it is in
+    immortalEnemy(state, 1, borrowed.x + 3); // tempting other-lane enemy
+    for (let i = 0; i < 250; i++) advanceTick(state, BALANCE);
+    expect(shifts(state)).toBe(0);
+    expect(borrowed.lane).toBe(0);
+  });
+
+  it('shifts once to JOIN other-lane combat, then holds — and re-arms when that fight resolves', () => {
+    const { state, borrowed } = cardioBattle();
+    const enemy = immortalEnemy(state, 1, borrowed.x + 5);
+
+    // Own lane quiet + combat to join in the other lane → shift fires.
+    advanceTick(state, BALANCE);
+    expect(shifts(state)).toBe(1);
+    expect(borrowed.lane).toBe(1);
+    const total = borrowed.champion!.abilityCooldownTotalTicks;
+    expect(borrowed.champion!.abilityCooldownTicks).toBe(total);
+
+    // Structurally no ping-pong: the destination lane now holds an in-range
+    // enemy, so the gate stays closed across MULTIPLE cooldown expiries.
+    for (let i = 0; i < 2 * total + 10; i++) advanceTick(state, BALANCE);
+    expect(shifts(state)).toBe(1);
+    expect(borrowed.lane).toBe(1);
+    expect(borrowed.champion!.abilityCooldownTicks).toBe(0); // ready, gated
+
+    // The fight resolves and a new one starts in lane 0 → the gate re-arms.
+    damageUnit(state, enemy, enemy.shield + enemy.health, 'test');
+    expect(enemy.alive).toBe(false);
+    immortalEnemy(state, 0, borrowed.x + 3);
+    advanceTick(state, BALANCE);
+    expect(shifts(state)).toBe(2);
+    expect(borrowed.lane).toBe(0);
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
+  it('the commanded captain Lane Shift stays unconditional (a tactical choice)', () => {
+    const state = createBattle(squadConfig(squadOf('champion-cardio', [])), BALANCE);
+    state.tick = 1;
+    // Empty arena — a deliberate captain command still shifts freely.
+    const result = applyCommand(state, BALANCE, { type: 'champion-ability', team: 'player' });
+    expect(result.ok).toBe(true);
+    expect(findTeamCaptain(state, 'player')!.lane).toBe(1);
   });
 });
 

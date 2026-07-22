@@ -19,14 +19,15 @@ import {
   predictGhostAugmentOffer,
   transformGhostCommands,
 } from '../features/arena/ghost';
-import type { ScheduledCommand } from '../game-engine/simulation/events';
-import { validateDeployPosition } from '../game-engine/simulation/events';
+import type { BattleCommand, ScheduledCommand } from '../game-engine/simulation/events';
+import { applyCommand, validateDeployPosition } from '../game-engine/simulation/events';
 import {
   BATTLE_RECORD_SCHEMA_VERSION,
   BattleRecord,
   verifyBattleRecord,
 } from '../game-engine/simulation/replay';
 import { runBattle } from '../game-engine/simulation/run';
+import { createBattle } from '../game-engine/simulation/state';
 import type { BattleConfig } from '../game-engine/simulation/state';
 import type {
   BattleResult,
@@ -457,5 +458,101 @@ describe('null/non-object command elements (Opus replay-review fuzz)', () => {
     const result = runBattle(config, poisoned, BALANCE);
     expect(result.stalled).toBe(false);
     expect(['player', 'opponent', 'draw']).toContain(result.outcome.winner);
+  });
+
+  it('play-card with a null/missing/primitive target is REJECTED, never thrown (P4)', () => {
+    // target arrives from untrusted record data; validateCardTarget used to
+    // dereference target.kind unguarded and TypeError out of the tick
+    // pipeline — crashing live ghost battles mid-frame.
+    const state = createBattle(
+      { seed: 557, player: { playerId: 'p1' }, opponent: { playerId: 'p2' } },
+      BALANCE
+    );
+    state.tick = 1;
+    state.teams.player.energy = 10;
+    const attempt = (target: unknown) =>
+      applyCommand(state, BALANCE, {
+        type: 'play-card',
+        team: 'player',
+        cardId: 'recovery-pulse',
+        target,
+      } as unknown as BattleCommand);
+    for (const target of [null, undefined, 5, 'unit', true]) {
+      const result = attempt(target);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toContain('requires a unit target');
+    }
+    // Rejections never cost energy (validate → pay → apply).
+    expect(state.teams.player.energy).toBe(10);
+  });
+
+  it('a record whose play-card carries target:null runs headless and ghost-transforms safely (P4)', () => {
+    const config: BattleConfig = {
+      seed: 558,
+      player: { playerId: 'p1' },
+      opponent: { playerId: 'p2' },
+    };
+    const record = makeRecord(config, []);
+    const poisoned = {
+      ...record,
+      commands: [
+        {
+          tick: 40,
+          command: { type: 'play-card', team: 'player', cardId: 'recovery-pulse', target: null },
+        },
+      ] as unknown as ScheduledCommand[],
+    };
+
+    // Direct engine run: the poisoned command lands in rejected, no throw.
+    const direct = runBattle(config, poisoned.commands, BALANCE);
+    expect(direct.stalled).toBe(false);
+    expect(direct.rejected.some((r) => r.reason.includes('requires a unit target'))).toBe(true);
+
+    // Ghost path: the transform normalizes the target to { kind: 'none' }
+    // (defense in depth) and the ghost battle completes without throwing.
+    const setup = buildGhostBattleSetup(poisoned, 3, 'p2', {}, BALANCE);
+    expect(setup.ok).toBe(true);
+    if (!setup.ok) return;
+    const plays = setup.commands.filter((c) => c.command.type === 'play-card');
+    expect(plays.length).toBe(1);
+    expect((plays[0].command as { target?: unknown }).target).toEqual({ kind: 'none' });
+    const ghostRun = runBattle(setup.config, setup.commands, BALANCE);
+    expect(ghostRun.stalled).toBe(false);
+    expect(['player', 'opponent', 'draw']).toContain(ghostRun.outcome.winner);
+  });
+
+  it('a record with non-finite champion scaling is refused up front and fails safely everywhere (P4)', () => {
+    const config: BattleConfig = {
+      seed: 559,
+      player: { playerId: 'p1', championId: 'champion-titan' },
+      opponent: { playerId: 'p2' },
+    };
+    const record = makeRecord(config, []);
+    // JSON cannot carry NaN, but 1e999 parses to Infinity — an unkillable
+    // champion if it reaches spawn. Craft the config the way hostile JSON
+    // arrives (validateBattleRecordValue sees the parsed value).
+    const poisoned = {
+      ...record,
+      config: {
+        ...record.config,
+        player: {
+          ...record.config.player,
+          championScaling: {
+            attackDamageMult: 1,
+            maxHealthMult: Infinity,
+            moveSpeedMult: 1,
+            abilityCooldownMult: 1,
+            ultimateChargeMult: 1,
+          },
+        },
+      },
+    };
+    // Ghost setup fails safely (createBattle throws inside the try/catch).
+    const setup = buildGhostBattleSetup(poisoned, 4, 'p2', {}, BALANCE);
+    expect(setup.ok).toBe(false);
+    if (!setup.ok) expect(setup.reason).toContain('invalid champion scaling');
+    // verifyBattleRecord fails safely too — no Infinity-health battle runs.
+    const verified = verifyBattleRecord(poisoned, BALANCE);
+    expect(verified.ok).toBe(false);
   });
 });

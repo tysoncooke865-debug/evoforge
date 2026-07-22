@@ -11,11 +11,23 @@
  * return structured failures ("Invalid replays fail safely").
  */
 import type { BalanceConfig } from '../../content/balance';
+import { isValidChampionScaling } from '../balance/fitness-scaling';
 import type { ScheduledCommand } from './events';
 import { runBattle } from './run';
 import type { BattleConfig, BattleOutcome } from './state';
 
 export const BATTLE_RECORD_SCHEMA_VERSION = 1;
+
+/**
+ * Generous upper bound on a record's command count. Legitimate battles
+ * record a few commands per second at the very most (~20/minute typical,
+ * max battle length four minutes), so 10,000 is orders of magnitude above
+ * real use — the cap exists only to refuse hostile padding: re-simulation
+ * scans the full schedule once per tick (O(ticks × commands)), so an
+ * unbounded record could stall verification and ghost battles for minutes
+ * on the UI thread (P4 fix).
+ */
+export const MAX_RECORD_COMMANDS = 10_000;
 
 /** Display-only metadata snapshot; never feeds the simulation. */
 export interface CombatantSnapshot {
@@ -79,6 +91,34 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+/**
+ * Validates every fitness-scaling shape a team config can carry (legacy
+ * championScaling, squad captain, borrowed members) plus the minimal squad
+ * structure needed to reach them safely. createBattle re-checks and throws;
+ * rejecting here refuses the record up front with an honest reason instead
+ * (a 1e999 multiplier parses to Infinity and would otherwise field an
+ * unkillable champion in ghost battles — P4 fix).
+ */
+function isTeamScalingValid(team: Record<string, unknown>): boolean {
+  if (team.championScaling !== undefined && !isValidChampionScaling(team.championScaling)) {
+    return false;
+  }
+  if (team.squad === undefined) return true;
+  const squad = team.squad;
+  if (!isObject(squad) || !isObject(squad.captain)) return false;
+  if (squad.captain.scaling !== undefined && !isValidChampionScaling(squad.captain.scaling)) {
+    return false;
+  }
+  if (squad.borrowed !== undefined) {
+    if (!Array.isArray(squad.borrowed)) return false;
+    for (const b of squad.borrowed as unknown[]) {
+      if (!isObject(b)) return false;
+      if (b.scaling !== undefined && !isValidChampionScaling(b.scaling)) return false;
+    }
+  }
+  return true;
+}
+
 function isSnapshot(v: unknown): v is CombatantSnapshot {
   if (!isObject(v)) return false;
   return (
@@ -121,9 +161,19 @@ export function validateBattleRecordValue(raw: unknown): ParseResult {
   if (!isObject(config.opponent) || typeof config.opponent.playerId !== 'string')
     return { ok: false, reason: 'invalid config.opponent' };
   if (config.seed !== raw.seed) return { ok: false, reason: 'config.seed mismatch' };
+  if (!isTeamScalingValid(config.player as unknown as Record<string, unknown>))
+    return { ok: false, reason: 'invalid config.player champion scaling' };
+  if (!isTeamScalingValid(config.opponent as unknown as Record<string, unknown>))
+    return { ok: false, reason: 'invalid config.opponent champion scaling' };
   if (!isSnapshot(raw.playerSnapshot)) return { ok: false, reason: 'invalid playerSnapshot' };
   if (!isSnapshot(raw.opponentSnapshot)) return { ok: false, reason: 'invalid opponentSnapshot' };
   if (!Array.isArray(raw.commands)) return { ok: false, reason: 'commands must be an array' };
+  if (raw.commands.length > MAX_RECORD_COMMANDS) {
+    return {
+      ok: false,
+      reason: `too many commands (${raw.commands.length} > ${MAX_RECORD_COMMANDS})`,
+    };
+  }
   for (const c of raw.commands as unknown[]) {
     if (!isObject(c) || typeof c.tick !== 'number' || !isObject(c.command)) {
       return { ok: false, reason: 'malformed command entry' };

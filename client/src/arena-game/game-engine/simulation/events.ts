@@ -103,7 +103,12 @@ export function applyCommand(
   if (state.phase === 'finished') return { ok: false, reason: 'battle already finished' };
 
   // Commands can arrive from untrusted replay/network data — TypeScript's
-  // union types protect compile-time callers only. Validate everything.
+  // union types protect compile-time callers only. Validate everything,
+  // starting with the shape itself: a schedule entry can carry a null or
+  // missing command (P4 fix — reject, never dereference).
+  if (!command || typeof command !== 'object') {
+    return { ok: false, reason: 'malformed command (not an object)' };
+  }
   if (command.team !== 'player' && command.team !== 'opponent') {
     return { ok: false, reason: `invalid team '${String((command as { team?: unknown }).team)}'` };
   }
@@ -246,7 +251,8 @@ export function applyCommand(
 
 export interface RejectedCommand {
   tick: number;
-  command: BattleCommand;
+  /** Null when the schedule entry carried no usable command object at all. */
+  command: BattleCommand | null;
   reason: string;
 }
 
@@ -264,8 +270,15 @@ export function applyScheduledCommands(
     if (scheduled.tick !== state.tick) continue;
     const result = applyCommand(state, balance, scheduled.command);
     if (!result.ok) {
-      rejected.push({ tick: scheduled.tick, command: scheduled.command, reason: result.reason });
-      logEvent(state, 'command-rejected', `${scheduled.command.type}: ${result.reason}`);
+      // scheduled.command can be null/undefined at runtime (untrusted data
+      // reaching advanceTick directly) — never dereference it while logging.
+      const type = String((scheduled.command as { type?: unknown } | null | undefined)?.type);
+      rejected.push({
+        tick: scheduled.tick,
+        command: scheduled.command ?? null,
+        reason: result.reason,
+      });
+      logEvent(state, 'command-rejected', `${type}: ${result.reason}`);
     }
   }
 }

@@ -90,7 +90,11 @@ export function autoCastBorrowedAbility(
   if (champ.abilityCooldownTicks > 0) return;
   const definition = getChampionById(champ.definitionId);
   if (!definition) return; // unreachable: spawn validated the id
-  if (!validateChampionAbility(state, balance, unit, definition.ability).ok) return;
+  // Auto-casts use the TACTICAL validation (autoCastValidate when a handler
+  // defines one, its normal validate otherwise): an always-valid ability like
+  // Lane Shift needs an intent gate here or a borrowed champion fires it on
+  // cooldown forever (P4 fix — the Cardio Machine lane ping-pong).
+  if (!validateChampionAutoCast(state, balance, unit, definition.ability).ok) return;
   champ.abilityCooldownTicks = champ.abilityCooldownTotalTicks;
   applyChampionAbility(state, balance, unit, definition.ability);
   logEvent(state, 'auto-ability', `${unit.team} ${unit.contentId}#${unit.id} auto-cast`);
@@ -149,12 +153,59 @@ interface AbilityHandler {
     champion: UnitState,
     ability: ChampionAbilityDefinition
   ): AbilityCheck;
+  /**
+   * Optional AUTO-CAST-ONLY gate: consulted instead of `validate` by
+   * autoCastBorrowedAbility (and by the opponent AI via
+   * validateChampionAutoCast) for abilities whose unconditional validity is
+   * fine for a deliberate human command but degenerate on a cooldown loop
+   * (Lane Shift). Commanded casts — captain commands and their UI
+   * pre-validation — never consult this: a human's tactical choice stays
+   * unconditional. Must be pure and deterministic like `validate`.
+   */
+  autoCastValidate?(
+    state: BattleState,
+    balance: BalanceConfig,
+    champion: UnitState,
+    ability: ChampionAbilityDefinition
+  ): AbilityCheck;
   apply(
     state: BattleState,
     balance: BalanceConfig,
     champion: UnitState,
     ability: ChampionAbilityDefinition
   ): void;
+}
+
+/**
+ * Tactical gate for auto-cast Lane Shift: shift ONLY to join combat — the
+ * champion's CURRENT lane must hold no living enemy within aggro range
+ * (nothing to fight here) AND the OTHER lane must hold at least one living
+ * enemy within aggro range of the champion's x (a fight to join at this
+ * position). Ping-pong is structurally impossible: immediately after a
+ * shift, the destination lane has an in-range enemy, so the gate fails until
+ * that fight resolves — at which point shifting again is genuinely correct.
+ * Pure state reads, no RNG, order-independent — deterministic and
+ * replay-identical by construction.
+ */
+export function laneShiftJoinsCombat(
+  state: BattleState,
+  balance: BalanceConfig,
+  champion: UnitState
+): boolean {
+  const range = balance.arena.aggroRange;
+  const inCurrentLane = livingEnemiesNear(state, champion, {
+    radius: range,
+    sameLane: true,
+  });
+  if (inCurrentLane.length > 0) return false;
+  const enemyTeam = enemyOf(champion.team);
+  return state.units.some(
+    (u) =>
+      u.alive &&
+      u.team === enemyTeam &&
+      u.lane !== champion.lane &&
+      Math.abs(u.x - champion.x) <= range
+  );
 }
 
 /** Ground AoE (Titan, Mass Monster): everything hostile within radius of the
@@ -245,7 +296,14 @@ const HANDLERS: Record<string, AbilityHandler> = {
   },
 
   'cardio-lane-shift': {
+    // Commanded shifts stay a free tactical choice (always valid); the
+    // auto-cast path is gated on joining combat (P4 fix — see
+    // laneShiftJoinsCombat for why this cannot ping-pong).
     validate: () => OK,
+    autoCastValidate: (state, balance, champion) =>
+      laneShiftJoinsCombat(state, balance, champion)
+        ? OK
+        : { ok: false, reason: 'no combat to join in the other lane' },
     apply: (state, _balance, champion) => {
       champion.lane = champion.lane === 0 ? 1 : 0;
       champion.targetId = null; // retarget cleanly in the new lane
@@ -378,6 +436,24 @@ export function validateChampionAbility(
   const handler = HANDLERS[ability.id];
   if (!handler) return { ok: false, reason: `unknown ability '${ability.id}'` };
   return handler.validate(state, balance, champion, ability);
+}
+
+/**
+ * Validation for AUTOMATIC casts — borrowed-champion auto-casts and the
+ * opponent AI's queue-time tactics: the handler's autoCastValidate when
+ * defined, falling back to its normal validate (bit-identical for every
+ * ability without a tactical gate). Commanded casts keep using
+ * validateChampionAbility unchanged.
+ */
+export function validateChampionAutoCast(
+  state: BattleState,
+  balance: BalanceConfig,
+  champion: UnitState,
+  ability: ChampionAbilityDefinition
+): AbilityCheck {
+  const handler = HANDLERS[ability.id];
+  if (!handler) return { ok: false, reason: `unknown ability '${ability.id}'` };
+  return (handler.autoCastValidate ?? handler.validate)(state, balance, champion, ability);
 }
 
 /** Applies an ability/ultimate. Only call after validateChampionAbility passed. */

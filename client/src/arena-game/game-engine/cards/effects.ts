@@ -70,7 +70,11 @@ export function validateCardTarget(
 ): EffectResult {
   if (!card.effects) return { ok: false, reason: `card '${card.id}' has no effects` };
 
-  if (target.kind !== 'unit') {
+  // The target arrives from untrusted replay/record data: it can be null,
+  // missing entirely, or a primitive. Shape-guard BEFORE reading .kind so a
+  // poisoned play-card command is rejected, never thrown (P4 fix — a null
+  // target used to TypeError out of the tick pipeline in live ghost battles).
+  if (!target || typeof target !== 'object' || target.kind !== 'unit') {
     // The initial 20-card set has no 'no-target' cards; champion abilities
     // route through their own command types. Reject to keep behaviour explicit.
     return { ok: false, reason: `card '${card.id}' requires a unit target` };
@@ -227,7 +231,9 @@ export function applyCardEffects(
   target: CardTarget
 ): EffectResult {
   const effects = card.effects;
-  if (!effects || target.kind !== 'unit') {
+  // Mirror validateCardTarget's shape guard (defense in depth for any future
+  // caller that skips validation): never dereference an untrusted target.
+  if (!effects || !target || typeof target !== 'object' || target.kind !== 'unit') {
     return { ok: false, reason: 'applyCardEffects called without validation' };
   }
   const unit = state.units.find((u) => u.id === target.unitId);
