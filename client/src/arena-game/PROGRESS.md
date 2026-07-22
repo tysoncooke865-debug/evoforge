@@ -1095,3 +1095,109 @@ class of warning).
 (default). Both far under the ~120s budget with no gating needed for the
 default run; `ARENA_STABILITY_DEEP=1` exists per the brief but isn't
 required to hit the 100+ bar or stay inside budget.
+
+## P6 — combat feel (2026-07-23) ✅
+
+Visual-only pass: battles now telegraph hits, deaths, ability/ultimate
+casts, summon/deploy arrivals and core damage without touching the
+simulation. Zero engine/content edits — every new effect is derived from
+log entry types the engine already wrote for other reasons (`fx`,
+`ability`, `ultimate`, `spawn`) or, for core hits, a before/after
+comparison of the (already-rendered) core health. No digest impact:
+nothing new is logged, nothing new is read that wasn't already part of
+`BattleState`.
+
+**The derivation pattern** — a new pure module,
+`features/arena/components/combat-fx.ts`, extends the pre-existing M6
+floater pattern instead of inventing a new one:
+
+- `deriveCombatSignals(log, fromIndex, unitLookup)` scans the log delta
+  once per frame and returns raw signals only (lane/x/team/label/color,
+  no timestamps) — floaters (hit/heal/death, replacing the inline parsing
+  that used to live in arena-screen.tsx's `collectFloaters`), hit pings
+  (for the unit flash), ability/ultimate telegraphs (resolved to the
+  caster's CURRENT position via a small id→position lookup built fresh
+  each frame from `state.units`) and spawn signals (deploy landings AND
+  Mass Uprising Titan Guard arrivals — both go through the engine's
+  `spawnUnitsForCard`, which logs one identical `'spawn'` entry either
+  way, so one signal kind covers 2d and 2f).
+- `latestMatchingHit(lane, x, team, hits, toleranceX)` matches a unit's
+  CURRENT position against recent hit pings by proximity — the `fx hit`
+  log entry carries no unit id, only lane/x/(defending) team, so a unit
+  that moved slightly since being struck still flashes correctly.
+- `deriveCoreHitIntensity(prevHealth, nextHealth, maxHealth)` compares
+  two consecutive core-health snapshots (cores mutate in place and carry
+  no history of their own) to decide `'none' | 'normal' | 'severe'`
+  (severe = at/below 25% max health) — the only derivation here that
+  ISN'T a log scan, because core damage was never logged as an event.
+- The component layer (arena-screen.tsx's `collectCombatFx`,
+  lane-strip.tsx, core-bar.tsx) does exactly what it always did for
+  floaters: timestamp new signals with `Date.now()` when first observed,
+  age/prune/cap them every ~50ms render, render purely from age — no
+  `Animated` values, no per-unit React state, `'use no memo'` unchanged
+  on arena-screen.tsx/lane-strip.tsx.
+
+**Effects implemented:**
+- **a. Hit flash** — a unit struck this frame gets a brief (150ms,
+  `HIT_FLASH_TTL_MS`) white overlay clipped to its own sprite/dot box,
+  never the health bar above it.
+- **b. Death dissolve** — the death floater ('✕') now pairs with a
+  fading, shrinking ring (`Floater`'s death branch in lane-strip.tsx) —
+  reads as "gone" instead of just another number.
+- **c. Ability/ultimate telegraphs** — an expanding ring + the ability's
+  real name (from content: `champion.ability.name` /
+  `champion.ultimate.name`) in the champion's path color at the cast
+  position; ultimates ring bigger and hold longer
+  (`TELEGRAPH_TTL_MS`/`TELEGRAPH_MAX_RING_PX`: ability 450ms/30px vs.
+  ultimate 700ms/50px).
+- **d. Summon arrival** — Mass Uprising's Titan Guards get the same
+  landing poof as (f) below (see the spawn-signal note above).
+- **e. Core hits** — the Forge Core sprite shakes (decaying sine, 2-3
+  oscillations) and flashes (white, or red once at/below 25% health) on
+  every hit this frame, via `CoreBar`'s new optional `hit` prop
+  (`CoreHitFlash { ageFrac, severe }`, aged the same way as everything
+  else — `CORE_HIT_TTL_MS` = 220ms).
+- **f. Deploy feedback** — a quick expanding ring in the deploying
+  team's color where a card lands in the deploy zone.
+- Idle bob (task item 3, "allowed only if…") was deliberately **not**
+  added — see KNOWN_ISSUES.md.
+
+**Readability**: every new effect's TTL is ≤ 700ms and the hit-flash is
+capped at 150ms per the brief's "never obscures for more than ~150ms"
+rule; each category has its own cap (`HIT_PING_CAP` 12, `TELEGRAPH_CAP`
+4, `SPAWN_POOF_CAP` 8 — `FLOATER_CAP` 12 unchanged), same "newest wins"
+rule the pre-existing floater cap already used.
+
+**Perf**: one log scan per frame (unchanged from before — floaters used
+to scan the same log separately; `collectCombatFx` now does it once for
+every category), plus O(units × recent hit pings) proximity checks for
+the flash (both bounded small numbers). No new timers, no new Animated
+drivers — the existing 50ms battle-store loop is the only clock any of
+this reads.
+
+**Files touched**: `features/arena/components/combat-fx.ts` (new, pure
+derivation + tests), `features/arena/components/lane-strip.tsx` (hit
+flash, telegraph/poof rendering, death dissolve, new optional props),
+`features/arena/components/core-bar.tsx` (hit shake/flash, new optional
+`hit` prop), `features/arena/components/arena-screen.tsx`
+(`collectFloaters` replaced by `collectCombatFx`, core-hit tracking,
+wiring the new props into `CoreBar`/`LaneStrip`).
+`screens/replay.tsx` is untouched (it already renders `LaneStrip`/
+`CoreBar` without floaters at all — the new props are optional so
+replay's visuals are unchanged, not regressed).
+
+**Tests**: `__tests__/combat-fx.test.ts` (new, 27 cases) —
+`deriveCombatSignals` for every entry type (fx hit/heal/death incl.
+malformed/unknown-kind entries, ability/ultimate incl. unresolvable-
+caster and unknown-champion fallback, spawn incl. malformed, incremental
+`fromIndex`/`nextIndex` scanning, unrelated log types produce nothing),
+`latestMatchingHit` (lane/team/tolerance/most-recent-wins/no-match) and
+`deriveCoreHitIntensity` (none/normal/severe/zero-maxHealth defensive
+case).
+
+Gates: `npx vitest run src/arena-game` — 23 files, 409 tests green (up
+from 382) · `npx tsc --noEmit` clean, zero arena errors · `npx expo lint`
+0 errors (7 pre-existing warnings, none in touched files) ·
+`node scripts/verify-motion.mjs` OK (14 looping components, all gated —
+unchanged; none of the new effects loop, so none needed gating) ·
+`npx expo export -p web` succeeded.

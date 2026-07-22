@@ -21,6 +21,14 @@
  * side instead of an AI battle. An unusable record (missing, stale balance
  * version, corrupt) shows a clear error state and NEVER falls back to a
  * standard battle.
+ *
+ * P6 — combat feel: hit-flash, death dissolve, ability/ultimate telegraphs,
+ * spawn/summon poofs and core hit shake/flash are ALL derived the same way
+ * as the M6 floaters above — a pure scan of the battle log delta (plus,
+ * for telegraphs, current unit positions; for core hits, the previous
+ * frame's core health) in combat-fx.ts, timestamped/aged/capped here in the
+ * fx ref, exactly like collectFloaters always did. No Animated values, no
+ * per-unit React state, no engine edits — see PROGRESS.md "P6 — combat feel".
  */
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -52,8 +60,19 @@ import { usePlayer } from '../../../services/player-data/use-player';
 import { AugmentPicker } from './augment-picker';
 import { CardRow } from './card-row';
 import { ChampionHud } from './champion-hud';
-import { CoreBar } from './core-bar';
-import { FLOATER_TTL_MS, LaneFloater, LaneStrip } from './lane-strip';
+import { buildUnitLookup, deriveCombatSignals, deriveCoreHitIntensity } from './combat-fx';
+import { CoreBar, CoreHitFlash, CORE_HIT_TTL_MS } from './core-bar';
+import {
+  FLOATER_TTL_MS,
+  HIT_FLASH_TTL_MS,
+  LaneFloater,
+  LaneHitPing,
+  LaneSpawnPoof,
+  LaneStrip,
+  LaneTelegraph,
+  SPAWN_POOF_TTL_MS,
+  TELEGRAPH_TTL_MS,
+} from './lane-strip';
 import { ResultOverlay } from './result-overlay';
 import { SynergyChips } from './synergy-chips';
 import { TutorialOverlay } from './tutorial-overlay';
@@ -62,6 +81,13 @@ import { TutorialOverlay } from './tutorial-overlay';
 const REJECTION_TOAST_MS = 1500;
 /** Cap on concurrently displayed combat floaters (mobile-safe). */
 const FLOATER_CAP = 12;
+/** Caps for the newer P6 effect categories — same "mobile-safe, newest win"
+ *  rule as FLOATER_CAP. Telegraphs/spawns are rare (ability cooldowns are
+ *  10s+; deploys are player-paced) so these caps are generous headroom, not
+ *  a normal-play limit. */
+const HIT_PING_CAP = 12;
+const TELEGRAPH_CAP = 4;
+const SPAWN_POOF_CAP = 8;
 
 const { laneLength } = BALANCE.arena;
 
@@ -70,58 +96,148 @@ interface FxState {
   logIndex: number;
   nextKey: number;
   floaters: LaneFloater[];
+  hitPings: LaneHitPing[];
+  telegraphs: LaneTelegraph[];
+  spawnPoofs: LaneSpawnPoof[];
+  /** Previous frame's core health, for deriveCoreHitIntensity's before/after
+   *  comparison — core objects mutate in place and carry no history. */
+  prevCoreHealth: { player: number; opponent: number } | null;
+  /** Most recent core-hit event per team, aged into CoreHitFlash below. */
+  coreHitBornAt: { player: number | null; opponent: number | null; playerSevere: boolean; opponentSevere: boolean };
+}
+
+function topPctOf(x: number): number {
+  return (1 - x / laneLength) * 100;
 }
 
 /**
- * Consumes new structured 'fx' log entries (kind|lane|x|amount|team, written
- * by the engine's combat/heal paths) into short-lived floaters. Runs inside
- * render on the existing per-frame re-render — mutating only the ref.
+ * Consumes the battle log delta since the last frame (via combat-fx.ts's
+ * pure deriveCombatSignals) into every P6 combat-feel effect: floaters (as
+ * before), hit pings, ability/ultimate telegraphs and spawn/summon poofs.
+ * Runs inside render on the existing per-frame re-render — mutating only
+ * the ref, same as the M6-era collectFloaters this replaces.
  */
-function collectFloaters(fx: FxState, live: LiveBattle, nowMs: number): LaneFloater[] {
+function collectCombatFx(
+  fx: FxState,
+  live: LiveBattle,
+  nowMs: number
+): {
+  floaters: LaneFloater[];
+  hitPings: LaneHitPing[];
+  telegraphs: LaneTelegraph[];
+  spawnPoofs: LaneSpawnPoof[];
+} {
   if (fx.live !== live) {
-    // New battle (start/rematch): drop stale floaters, skip the old log.
+    // New battle (start/rematch): drop stale effects, skip the old log.
     fx.live = live;
     fx.logIndex = 0;
     fx.floaters = [];
+    fx.hitPings = [];
+    fx.telegraphs = [];
+    fx.spawnPoofs = [];
+    fx.prevCoreHealth = null;
+    fx.coreHitBornAt = { player: null, opponent: null, playerSevere: false, opponentSevere: false };
   }
-  const log = live.state.log;
-  for (; fx.logIndex < log.length; fx.logIndex++) {
-    const entry = log[fx.logIndex];
-    if (entry.type !== 'fx') continue;
-    const [kind, laneStr, xStr, amountStr, team] = entry.detail.split('|');
-    const lane = laneStr === '1' ? 1 : 0;
-    const x = Number(xStr);
-    const amount = Number(amountStr);
-    if (!Number.isFinite(x)) continue;
-    let text: string;
-    let color: string;
-    if (kind === 'hit') {
-      text = `-${amount}`;
-      color = team === 'player' ? colors.danger : colors.warning;
-    } else if (kind === 'heal') {
-      text = `+${amount}`;
-      color = colors.success;
-    } else if (kind === 'death') {
-      text = '✕';
-      color = team === 'player' ? colors.player : colors.opponent;
-    } else {
-      continue;
-    }
+
+  const units = buildUnitLookup(live.state.units);
+  const { floaters, hits, telegraphs, spawns, nextIndex } = deriveCombatSignals(
+    live.state.log,
+    fx.logIndex,
+    units
+  );
+  fx.logIndex = nextIndex;
+
+  for (const sig of floaters) {
     fx.floaters.push({
       key: fx.nextKey++,
-      lane,
-      topPct: (1 - x / laneLength) * 100,
-      text,
-      color,
+      lane: sig.lane,
+      topPct: topPctOf(sig.x),
+      kind: sig.kind,
+      text: sig.text,
+      color: sig.color,
       bornAtMs: nowMs,
     });
   }
-  // Prune aged floaters; cap the rest (newest win — they carry the news).
   fx.floaters = fx.floaters.filter((f) => nowMs - f.bornAtMs < FLOATER_TTL_MS);
   if (fx.floaters.length > FLOATER_CAP) {
     fx.floaters = fx.floaters.slice(fx.floaters.length - FLOATER_CAP);
   }
-  return fx.floaters;
+
+  for (const hit of hits) {
+    fx.hitPings.push({ lane: hit.lane, x: hit.x, team: hit.team, bornAtMs: nowMs });
+  }
+  fx.hitPings = fx.hitPings.filter((h) => nowMs - h.bornAtMs < HIT_FLASH_TTL_MS);
+  if (fx.hitPings.length > HIT_PING_CAP) {
+    fx.hitPings = fx.hitPings.slice(fx.hitPings.length - HIT_PING_CAP);
+  }
+
+  for (const sig of telegraphs) {
+    fx.telegraphs.push({
+      key: fx.nextKey++,
+      lane: sig.lane,
+      topPct: topPctOf(sig.x),
+      tier: sig.tier,
+      label: sig.label,
+      color: sig.color,
+      bornAtMs: nowMs,
+    });
+  }
+  fx.telegraphs = fx.telegraphs.filter((t) => nowMs - t.bornAtMs < TELEGRAPH_TTL_MS[t.tier]);
+  if (fx.telegraphs.length > TELEGRAPH_CAP) {
+    fx.telegraphs = fx.telegraphs.slice(fx.telegraphs.length - TELEGRAPH_CAP);
+  }
+
+  for (const sig of spawns) {
+    fx.spawnPoofs.push({
+      key: fx.nextKey++,
+      lane: sig.lane,
+      topPct: topPctOf(sig.x),
+      team: sig.team,
+      bornAtMs: nowMs,
+    });
+  }
+  fx.spawnPoofs = fx.spawnPoofs.filter((p) => nowMs - p.bornAtMs < SPAWN_POOF_TTL_MS);
+  if (fx.spawnPoofs.length > SPAWN_POOF_CAP) {
+    fx.spawnPoofs = fx.spawnPoofs.slice(fx.spawnPoofs.length - SPAWN_POOF_CAP);
+  }
+
+  // Core hit flash/shake: compare this frame's core health against the last
+  // frame's (cores mutate in place — see combat.ts's damageCore — so there
+  // is no log entry to scan; a before/after snapshot is the only signal).
+  const playerHealth = live.state.cores.player.health;
+  const opponentHealth = live.state.cores.opponent.health;
+  const prev = fx.prevCoreHealth ?? { player: playerHealth, opponent: opponentHealth };
+  const playerIntensity = deriveCoreHitIntensity(
+    prev.player,
+    playerHealth,
+    live.state.cores.player.maxHealth
+  );
+  const opponentIntensity = deriveCoreHitIntensity(
+    prev.opponent,
+    opponentHealth,
+    live.state.cores.opponent.maxHealth
+  );
+  if (playerIntensity !== 'none') {
+    fx.coreHitBornAt.player = nowMs;
+    fx.coreHitBornAt.playerSevere = playerIntensity === 'severe';
+  }
+  if (opponentIntensity !== 'none') {
+    fx.coreHitBornAt.opponent = nowMs;
+    fx.coreHitBornAt.opponentSevere = opponentIntensity === 'severe';
+  }
+  fx.prevCoreHealth = { player: playerHealth, opponent: opponentHealth };
+
+  return { floaters: fx.floaters, hitPings: fx.hitPings, telegraphs: fx.telegraphs, spawnPoofs: fx.spawnPoofs };
+}
+
+/** Turns a recorded core-hit timestamp into the age-fraction CoreBar renders
+ *  from (see core-bar.tsx's CoreHitFlash) — undefined once fully faded, so
+ *  CoreBar does no work for a core that was never hit this battle. */
+function coreHitFlashFor(bornAtMs: number | null, severe: boolean, nowMs: number): CoreHitFlash | undefined {
+  if (bornAtMs === null) return undefined;
+  const ageFrac = (nowMs - bornAtMs) / CORE_HIT_TTL_MS;
+  if (ageFrac >= 1) return undefined;
+  return { ageFrac: Math.max(0, ageFrac), severe };
 }
 
 export function ArenaScreen({
@@ -154,7 +270,17 @@ export function ArenaScreen({
   const ghostRecordRef = useRef<BattleRecord | null>(null);
   /** Gym War battle options (squads + enemy identity), kept for Rematch. */
   const gymWarOptionsRef = useRef<LiveBattleOptions | null>(null);
-  const fxRef = useRef<FxState>({ live: null, logIndex: 0, nextKey: 1, floaters: [] });
+  const fxRef = useRef<FxState>({
+    live: null,
+    logIndex: 0,
+    nextKey: 1,
+    floaters: [],
+    hitPings: [],
+    telegraphs: [],
+    spawnPoofs: [],
+    prevCoreHealth: null,
+    coreHitBornAt: { player: null, opponent: null, playerSevere: false, opponentSevere: false },
+  });
 
   const save = usePlayer((s) => s.save);
   // The player's active deck; falls back to the starter deck if the saved
@@ -362,9 +488,26 @@ export function ArenaScreen({
       (u) => u.kind === 'champion' && u.team === 'player' && u.champion?.commandable
     ) ?? null;
 
-  const floaters = collectFloaters(fxRef.current, live, Date.now());
+  const nowMs = Date.now();
+  const { floaters, hitPings, telegraphs, spawnPoofs } = collectCombatFx(fxRef.current, live, nowMs);
   const lane0Floaters = floaters.filter((f) => f.lane === 0);
   const lane1Floaters = floaters.filter((f) => f.lane === 1);
+  const lane0HitPings = hitPings.filter((h) => h.lane === 0);
+  const lane1HitPings = hitPings.filter((h) => h.lane === 1);
+  const lane0Telegraphs = telegraphs.filter((t) => t.lane === 0);
+  const lane1Telegraphs = telegraphs.filter((t) => t.lane === 1);
+  const lane0SpawnPoofs = spawnPoofs.filter((p) => p.lane === 0);
+  const lane1SpawnPoofs = spawnPoofs.filter((p) => p.lane === 1);
+  const playerCoreHit = coreHitFlashFor(
+    fxRef.current.coreHitBornAt.player,
+    fxRef.current.coreHitBornAt.playerSevere,
+    nowMs
+  );
+  const opponentCoreHit = coreHitFlashFor(
+    fxRef.current.coreHitBornAt.opponent,
+    fxRef.current.coreHitBornAt.opponentSevere,
+    nowMs
+  );
 
   const playerAugment = state.teams.player.augment;
   const pickerAvailable =
@@ -397,6 +540,7 @@ export function ArenaScreen({
               ? `${(live.opponentDisplayName ?? 'ENEMY GYM').toUpperCase()} CORE`
               : 'OPPONENT CORE'
         }
+        hit={opponentCoreHit}
       />
       <SynergyChips
         team="opponent"
@@ -405,8 +549,24 @@ export function ArenaScreen({
       />
 
       <View style={styles.arena}>
-        <LaneStrip lane={0} units={lane0Units} floaters={lane0Floaters} onDeployTap={handleDeployTap} />
-        <LaneStrip lane={1} units={lane1Units} floaters={lane1Floaters} onDeployTap={handleDeployTap} />
+        <LaneStrip
+          lane={0}
+          units={lane0Units}
+          floaters={lane0Floaters}
+          hitPings={lane0HitPings}
+          telegraphs={lane0Telegraphs}
+          spawnPoofs={lane0SpawnPoofs}
+          onDeployTap={handleDeployTap}
+        />
+        <LaneStrip
+          lane={1}
+          units={lane1Units}
+          floaters={lane1Floaters}
+          hitPings={lane1HitPings}
+          telegraphs={lane1Telegraphs}
+          spawnPoofs={lane1SpawnPoofs}
+          onDeployTap={handleDeployTap}
+        />
       </View>
 
       <SynergyChips
@@ -414,7 +574,7 @@ export function ArenaScreen({
         synergyIds={state.auras.player.activeSynergyIds}
         augmentId={playerAugment.chosenId}
       />
-      <CoreBar core={state.cores.player} label="YOUR CORE" />
+      <CoreBar core={state.cores.player} label="YOUR CORE" hit={playerCoreHit} />
 
       <View style={styles.hudBottom}>
         <View style={styles.energyRow}>

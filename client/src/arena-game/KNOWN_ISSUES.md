@@ -315,3 +315,34 @@ Adversarial pass over the five champion passives. One defect found+fixed
   `damageTakenMult` can blunt Final Cut's execute (M6 note above — an
   Iron-Hide Titan survives the execute at 5 health); armour applies only
   to melee (frontline rule) and never to cores or heals.
+
+## P6 — combat feel
+
+- **Idle bob deliberately deferred.** The brief allowed (not required) a
+  cheap tick-parity champion bob gated on `useReducedMotion`. Skipped: it
+  is the one P6 item that's continuous/ambient rather than reactive to an
+  actual combat event, so it would need real reduced-motion wiring (the
+  `verify-motion` guard only scans for `withRepeat` — a tick-parity bob
+  wouldn't even trip it, meaning a careless implementation could ship
+  ungated and undetected). Every shipped P6 effect is reactive and
+  short-lived (≤700ms) instead, sidestepping the question entirely. Worth
+  revisiting only if playtesting specifically asks for more ambient life
+  in a stalled lane.
+- **Telegraph position is the caster's position AT THE TIME THE FRAME
+  PROCESSES the log entry**, not at cast time. For non-instant-movement
+  abilities (most of them) this is identical; Phase Dash (which moves the
+  champion TO the target as part of the same log line) telegraphs at the
+  post-dash position, one frame later than the in-fiction cast point.
+  Cosmetic only — the ability's actual targeting/damage is unaffected
+  (visual layer never reads back into the engine); revisit only if
+  playtesting finds the ring position confusing.
+- **Hit-flash is proximity-matched, not id-matched**, because the `fx
+  hit` log entry (combat.ts's `damageUnit`) carries lane/x/(defending)
+  team but no unit id. Two units of the same team standing within
+  `HIT_FLASH_MATCH_RADIUS` (3 world units) of each other could both flash
+  on one hit meant for only one of them. Rare in practice (`unitSpacing`
+  is 2, so this needs near-perfectly-stacked units) and harmless
+  (over-flashing looks like "the group took splash," never wrong in a
+  way that misleads about who died/survived — health bars are ground
+  truth). Fixing it properly needs the engine's fx log entry to carry a
+  target unit id, which is an engine change outside this pass's scope.

@@ -43,7 +43,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA STABILITY @ FIVE CHAMPIONS (2026-07-23, no migration — overnight
+- **ARENA COMBAT FEEL (2026-07-23, no migration — overnight hardening
+  P6)**: battle FX layer, zero engine/digest impact, all in the existing
+  frame-driven floater pattern (no Animated values, no per-unit React
+  state, `'use no memo'` untouched). New pure module
+  `arena-game/features/arena/components/combat-fx.ts`
+  (`deriveCombatSignals` — one log-delta scan per frame; 27-case test).
+  Effects: hit flash (150ms, clipped to sprite, proximity-matched — fx
+  log has no target id), death dissolve ring, ability/ultimate
+  telegraphs (expanding ring + real ability name in path color; ults
+  bigger/longer), summon-arrival poof, deploy landing ring, Forge Core
+  shake+flash on damage (red under 25%, via optional CoreBar `hit`
+  prop). Idle bob deliberately deferred (only looping candidate).
+  verify-motion still 14/14. Arena suite 409.
   hardening P5)**: stability harness extended to **208 matches** default
   (413 with `ARENA_STABILITY_DEEP=1`): 5×5 matchup matrix × 3 AI tiers,
   squads with guaranteed borrowed Mass/Cardio, maxTicks outcome paths,
