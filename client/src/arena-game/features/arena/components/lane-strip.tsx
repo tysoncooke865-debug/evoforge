@@ -8,11 +8,12 @@
  * player's tap-to-deploy zone, tinted so it reads as interactive.
  */
 import React, { useCallback, useState } from 'react';
-import { GestureResponderEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureResponderEvent, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, pathColor, radius } from '../../../constants/theme';
 import { BALANCE, getCardById, getChampionById } from '../../../content';
 import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId } from '../../../game-engine/types';
+import { championSprite, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
 const DEPLOY_ZONE_HEIGHT_PCT = (deployZoneDepth / laneLength) * 100;
@@ -129,6 +130,9 @@ function UnitMarker({ unit }: { unit: UnitState }) {
     const fill = champion ? pathColor(champion.path) : tint;
     const initial = champion ? champion.name.charAt(0).toUpperCase() : '?';
     const borrowed = unit.champion ? !unit.champion.commandable : false;
+    // Pixel sprite (path-colored) when available; the team ring + health bar
+    // tint keep team readability. Falls back to the colored dot + initial.
+    const sprite = champion ? championSprite(champion.art, champion.path) : null;
     return (
       <View style={[styles.unitWrap, { top: `${topPct}%` }]} pointerEvents="none">
         <View
@@ -141,21 +145,36 @@ function UnitMarker({ unit }: { unit: UnitState }) {
             style={[styles.unitHealthFill, { width: `${healthPct * 100}%`, backgroundColor: tint }]}
           />
         </View>
-        <View
-          style={[
-            borrowed ? styles.borrowedDot : styles.championDot,
-            { backgroundColor: fill, borderColor: tint },
-          ]}
-        >
-          <Text style={borrowed ? styles.borrowedMarkerText : styles.championMarkerText}>
-            {initial}
-          </Text>
-        </View>
+        {sprite ? (
+          <View
+            style={[
+              borrowed ? styles.borrowedSpriteFrame : styles.championSpriteFrame,
+              { borderColor: tint },
+            ]}
+          >
+            <Image
+              source={sprite}
+              style={borrowed ? styles.borrowedSprite : styles.championSprite}
+            />
+          </View>
+        ) : (
+          <View
+            style={[
+              borrowed ? styles.borrowedDot : styles.championDot,
+              { backgroundColor: fill, borderColor: tint },
+            ]}
+          >
+            <Text style={borrowed ? styles.borrowedMarkerText : styles.championMarkerText}>
+              {initial}
+            </Text>
+          </View>
+        )}
       </View>
     );
   }
 
   const card = getCardById(unit.contentId);
+  const sprite = card ? unitSprite(card.art, unit.team) : null;
   const marker =
     card?.unit?.behavior === 'healer' || card?.unit?.stats.isRanged
       ? card.art.charAt(0).toUpperCase()
@@ -168,9 +187,13 @@ function UnitMarker({ unit }: { unit: UnitState }) {
           style={[styles.unitHealthFill, { width: `${healthPct * 100}%`, backgroundColor: tint }]}
         />
       </View>
-      <View style={[styles.unitDot, { backgroundColor: tint, borderColor: tint }]}>
-        {marker ? <Text style={styles.unitMarkerText}>{marker}</Text> : null}
-      </View>
+      {sprite ? (
+        <Image source={sprite} style={styles.unitSprite} />
+      ) : (
+        <View style={[styles.unitDot, { backgroundColor: tint, borderColor: tint }]}>
+          {marker ? <Text style={styles.unitMarkerText}>{marker}</Text> : null}
+        </View>
+      )}
     </View>
   );
 }
@@ -237,6 +260,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   championMarkerText: { color: '#04121A', fontSize: 11, fontWeight: '800' },
+  // Pixel sprites (Kenney 1-bit, pre-tinted). Sizes mirror the dot metrics
+  // so battle-density readability stays unchanged.
+  unitSprite: { width: 18, height: 18 },
+  championSpriteFrame: {
+    borderWidth: 2,
+    borderRadius: 6,
+    padding: 1,
+    backgroundColor: 'rgba(4, 18, 26, 0.65)',
+  },
+  championSprite: { width: 24, height: 24 },
+  borrowedSpriteFrame: {
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 1,
+    backgroundColor: 'rgba(4, 18, 26, 0.65)',
+  },
+  borrowedSprite: { width: 18, height: 18 },
   // Borrowed (M9): between a regular unit and the captain in size — path
   // color + initial mark it as a champion, the thinner ring as borrowed.
   borrowedHealthTrack: { width: 20 },
