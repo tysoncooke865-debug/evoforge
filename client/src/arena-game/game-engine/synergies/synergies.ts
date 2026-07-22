@@ -16,9 +16,14 @@
  * Counting rules:
  *  - A tag synergy counts living combatants carrying the tag (copies count —
  *    two Forge Recruits are two brawlers).
- *  - 'mixed-paths' counts DISTINCT avatar-path tags (titan/speedster/
- *    shredder/hybrid) present across living combatants.
+ *  - 'mixed-paths' counts DISTINCT avatar-path tags (aesthetic/titan/mass/
+ *    shredder/cardio) present across living combatants.
  *  - The champion's content tags count exactly like unit tags.
+ *
+ * Champion team-aura PASSIVES (five-champion pass) fold into the same layer:
+ * a LIVING champion whose passive declares a teamAura contributes its
+ * multipliers here — dies with the champion, returns on respawn, recomputed
+ * every tick like everything else in this file (derived state).
  */
 import { getAugmentById } from '../../content/augments';
 import { getCardById } from '../../content/cards';
@@ -57,6 +62,15 @@ export function computeTeamAuras(state: BattleState, team: TeamId): TeamAuras {
     for (const tag of combatantTags(unit)) {
       tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
       if (PATH_TAGS.has(tag)) pathsPresent.add(tag);
+    }
+    // Living champions contribute their passive team aura (Flow State,
+    // Perpetual Motion). Content-defined, alive-only, derived each recompute.
+    if (unit.kind === 'champion') {
+      const aura = getChampionById(unit.contentId)?.passive.effects.teamAura;
+      if (aura) {
+        if (aura.energyRegenMult !== undefined) auras.energyRegenMult *= aura.energyRegenMult;
+        if (aura.healingMult !== undefined) auras.healingMult *= aura.healingMult;
+      }
     }
   }
 

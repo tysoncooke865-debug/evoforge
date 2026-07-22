@@ -140,7 +140,7 @@ describe('fitness scaling applied in battle (M7 wiring)', () => {
   it('scaled battles stay deterministic and replay-identical', () => {
     const config = {
       seed: 424242,
-      player: { playerId: 'p1', championId: 'champion-speedster', championScaling: maxScaling },
+      player: { playerId: 'p1', championId: 'champion-cardio', championScaling: maxScaling },
       opponent: { playerId: 'p2', championId: 'champion-shredder' },
     };
     const a = runBattle(config, [], BALANCE);
@@ -155,7 +155,7 @@ describe('fitness scaling applied in battle (M7 wiring)', () => {
     const withNeutral = createBattle(
       {
         seed: 7,
-        player: { playerId: 'p1', championId: 'champion-hybrid', championScaling: NEUTRAL_SCALING },
+        player: { playerId: 'p1', championId: 'champion-aesthetic', championScaling: NEUTRAL_SCALING },
         opponent: { playerId: 'p2' },
       },
       BALANCE
@@ -163,7 +163,7 @@ describe('fitness scaling applied in battle (M7 wiring)', () => {
     const without = createBattle(
       {
         seed: 7,
-        player: { playerId: 'p1', championId: 'champion-hybrid' },
+        player: { playerId: 'p1', championId: 'champion-aesthetic' },
         opponent: { playerId: 'p2' },
       },
       BALANCE

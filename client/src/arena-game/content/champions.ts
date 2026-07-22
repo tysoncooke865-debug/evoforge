@@ -1,12 +1,69 @@
 /**
- * The four initial Champions — one per Avatar Path.
- * Ability/ultimate numerics live here (data-driven), interpreted by the
- * engine's ability system from Milestone 5.
+ * THE OFFICIAL ROSTER — five Champions, one per live EvoForge BranchV2 slug
+ * ('hybrid' is retired). Ids are stable and slug-aligned ('champion-<path>');
+ * display names are pinned by content validation (incl. "The Shredder").
+ * Ability/ultimate/passive numerics live here (data-driven), interpreted by
+ * the engine's ability system and the passive hooks (spawn/combat/auras).
  */
 import { secondsToTicks } from './balance';
 import type { ChampionDefinition } from './types';
 
 export const CHAMPIONS: ChampionDefinition[] = [
+  {
+    id: 'champion-aesthetic',
+    name: 'Aesthetics',
+    path: 'aesthetic',
+    role: 'Flexible tactician and support',
+    description:
+      'Precision in every line. Reads the battle, times abilities perfectly and shifts stance to become what the squad needs.',
+    stats: {
+      maxHealth: 1050,
+      attackDamage: 60,
+      attackIntervalTicks: secondsToTicks(1.0),
+      attackRange: 3.5,
+      moveSpeedPerTick: 0.24,
+      isRanged: false,
+    },
+    tags: ['aesthetic', 'support'],
+    passive: {
+      id: 'aesthetic-flow-state',
+      name: 'Flow State',
+      description: 'While Aesthetics is alive, your team receives 10% more healing.',
+      effects: { teamAura: { healingMult: 1.1 } },
+    },
+    ability: {
+      id: 'aesthetic-stance-shift',
+      name: 'Stance Shift',
+      description:
+        'Toggle stance for 8s: Bulwark (+30% damage taken reduction) or Assault (+25% damage).',
+      cooldownTicks: secondsToTicks(12),
+      kind: 'active',
+      // The ability system applies exactly one of these per use: Bulwark
+      // takes damageTakenMult, Assault takes attackDamageMult (alternating).
+      effects: {
+        durationTicks: secondsToTicks(8),
+        attackDamageMult: 1.25,
+        damageTakenMult: 0.7,
+      },
+    },
+    ultimate: {
+      id: 'aesthetic-rally',
+      name: 'Forge Rally',
+      description: 'Allies everywhere gain +25% damage and heal 120 over 5s.',
+      cooldownTicks: 0,
+      kind: 'ultimate',
+      effects: {
+        durationTicks: secondsToTicks(5),
+        attackDamageMult: 1.25,
+        heal: 120,
+      },
+    },
+    ultimateChargePerDamageDealt: 0.06,
+    ultimateChargePerDamageTaken: 0.06,
+    ultimateChargeRequired: 100,
+    animationStates: ['idle', 'walk', 'attack', 'stance', 'ultimate', 'hit', 'death'],
+    art: 'champion-aesthetic',
+  },
   {
     id: 'champion-titan',
     name: 'Titan',
@@ -23,6 +80,12 @@ export const CHAMPIONS: ChampionDefinition[] = [
       isRanged: false,
     },
     tags: ['titan', 'brawler'],
+    passive: {
+      id: 'titan-iron-hide',
+      name: 'Iron Hide',
+      description: 'Every hit against the Titan is reduced by 5 (never below 1 damage).',
+      effects: { selfArmorFlat: 5 },
+    },
     ability: {
       id: 'titan-quake-stomp',
       name: 'Quake Stomp',
@@ -46,50 +109,57 @@ export const CHAMPIONS: ChampionDefinition[] = [
     art: 'champion-titan',
   },
   {
-    id: 'champion-speedster',
-    name: 'Speedster',
-    path: 'speedster',
-    role: 'Mobility and rapid pressure',
+    id: 'champion-mass',
+    name: 'Mass Monster',
+    path: 'mass',
+    role: 'Durable bruiser and area presence',
     description:
-      'A blur of neon motion. Punishes slow reactions, swaps lanes in a heartbeat and overwhelms with attack tempo.',
+      'Sheer scale weaponised. Too big to move, too big to ignore — grinds a lane down under sustained pressure and endless bulk.',
+    // Deliberately DISTINCT from Titan: Titan is explosive impact + control
+    // (stun stomp, 320-damage smash); the Mass Monster is an enormous health
+    // pool with lower sustained damage, area denial (slow field) and a
+    // summoning ultimate instead of burst.
     stats: {
-      maxHealth: 850,
-      attackDamage: 45,
-      attackIntervalTicks: secondsToTicks(0.6),
-      attackRange: 3,
-      moveSpeedPerTick: 0.34,
+      maxHealth: 1900,
+      attackDamage: 55,
+      attackIntervalTicks: secondsToTicks(1.4),
+      attackRange: 3.5,
+      moveSpeedPerTick: 0.14,
       isRanged: false,
     },
-    tags: ['speedster', 'brawler'],
+    tags: ['mass', 'brawler'],
+    passive: {
+      id: 'mass-colossal-frame',
+      name: 'Colossal Frame',
+      description: 'The Mass Monster spawns with 10% bonus max health.',
+      effects: { spawnMaxHealthMult: 1.1 },
+    },
     ability: {
-      id: 'speedster-lane-shift',
-      name: 'Lane Shift',
-      description: 'Dash instantly to the same position in the other lane.',
-      cooldownTicks: secondsToTicks(10),
+      id: 'mass-gravity-well',
+      name: 'Gravity Well',
+      description: 'Enemies in a nearby area are slowed to 60% move speed for 4s.',
+      cooldownTicks: secondsToTicks(12),
       kind: 'active',
-      effects: {}, // Movement effect — interpreted by the ability system.
+      effects: { radius: 10, durationTicks: secondsToTicks(4), moveSpeedMult: 0.6 },
     },
     ultimate: {
-      id: 'speedster-overclock',
-      name: 'Overclock',
-      description: 'For 6s, attack twice as fast and move 60% faster.',
+      id: 'mass-summon',
+      name: 'Mass Uprising',
+      description:
+        'Summon two Titan Guards at the Mass Monster’s position — one in each lane.',
       cooldownTicks: 0,
       kind: 'ultimate',
-      effects: {
-        durationTicks: secondsToTicks(6),
-        attackIntervalMult: 0.5,
-        moveSpeedMult: 1.6,
-      },
+      effects: { summon: { cardId: 'titan-guard', count: 2 } },
     },
-    ultimateChargePerDamageDealt: 0.08,
-    ultimateChargePerDamageTaken: 0.04,
+    ultimateChargePerDamageDealt: 0.05,
+    ultimateChargePerDamageTaken: 0.06,
     ultimateChargeRequired: 100,
-    animationStates: ['idle', 'run', 'attack', 'dash', 'ultimate', 'hit', 'death'],
-    art: 'champion-speedster',
+    animationStates: ['idle', 'walk', 'attack', 'ability', 'ultimate', 'hit', 'death'],
+    art: 'champion-mass',
   },
   {
     id: 'champion-shredder',
-    name: 'Shredder',
+    name: 'The Shredder',
     path: 'shredder',
     role: 'Assassin and backline disruption',
     description:
@@ -103,6 +173,13 @@ export const CHAMPIONS: ChampionDefinition[] = [
       isRanged: false,
     },
     tags: ['shredder'],
+    passive: {
+      id: 'shredder-killer-instinct',
+      name: 'Killer Instinct',
+      description:
+        'The Shredder’s own hits deal 25% more damage to targets below 35% health.',
+      effects: { lowHealthBonus: { belowHealthFraction: 0.35, damageMult: 1.25 } },
+    },
     ability: {
       id: 'shredder-phase-dash',
       name: 'Phase Dash',
@@ -127,53 +204,55 @@ export const CHAMPIONS: ChampionDefinition[] = [
     art: 'champion-shredder',
   },
   {
-    id: 'champion-hybrid',
-    name: 'Hybrid',
-    path: 'hybrid',
-    role: 'Adaptable all-rounder',
+    id: 'champion-cardio',
+    name: 'Cardio Machine',
+    path: 'cardio',
+    role: 'Tempo and sustained pressure',
     description:
-      'Balanced in every dimension. Reads the battle and shifts stance to become what the squad needs.',
+      'An engine that never stops. Swaps lanes in a heartbeat, keeps the whole team fuelled and overwhelms with attack tempo.',
     stats: {
-      maxHealth: 1050,
-      attackDamage: 60,
-      attackIntervalTicks: secondsToTicks(1.0),
-      attackRange: 3.5,
-      moveSpeedPerTick: 0.24,
+      maxHealth: 850,
+      attackDamage: 45,
+      attackIntervalTicks: secondsToTicks(0.6),
+      attackRange: 3,
+      moveSpeedPerTick: 0.34,
       isRanged: false,
     },
-    tags: ['hybrid', 'support'],
-    ability: {
-      id: 'hybrid-stance-shift',
-      name: 'Stance Shift',
+    tags: ['cardio', 'brawler'],
+    passive: {
+      id: 'cardio-perpetual-motion',
+      name: 'Perpetual Motion',
       description:
-        'Toggle stance for 8s: Bulwark (+30% damage taken reduction) or Assault (+25% damage).',
-      cooldownTicks: secondsToTicks(12),
+        'While the Cardio Machine is alive, your Forge Energy regenerates 5% faster.',
+      effects: { teamAura: { energyRegenMult: 1.05 } },
+    },
+    ability: {
+      id: 'cardio-lane-shift',
+      name: 'Lane Shift',
+      description: 'Dash instantly to the same position in the other lane.',
+      cooldownTicks: secondsToTicks(10),
       kind: 'active',
-      // The ability system applies exactly one of these per use: Bulwark
-      // takes damageTakenMult, Assault takes attackDamageMult (alternating).
-      effects: {
-        durationTicks: secondsToTicks(8),
-        attackDamageMult: 1.25,
-        damageTakenMult: 0.7,
-      },
+      effects: {}, // Movement effect — interpreted by the ability system.
     },
     ultimate: {
-      id: 'hybrid-rally',
-      name: 'Forge Rally',
-      description: 'Allies everywhere gain +25% damage and heal 120 over 5s.',
+      id: 'cardio-overclock',
+      name: 'Overclock',
+      description:
+        'For 6s, attack twice as fast and move 60% faster. Refunds 1 Forge Energy on cast.',
       cooldownTicks: 0,
       kind: 'ultimate',
       effects: {
-        durationTicks: secondsToTicks(5),
-        attackDamageMult: 1.25,
-        heal: 120,
+        durationTicks: secondsToTicks(6),
+        attackIntervalMult: 0.5,
+        moveSpeedMult: 1.6,
+        energyRefund: 1,
       },
     },
-    ultimateChargePerDamageDealt: 0.06,
-    ultimateChargePerDamageTaken: 0.06,
+    ultimateChargePerDamageDealt: 0.08,
+    ultimateChargePerDamageTaken: 0.04,
     ultimateChargeRequired: 100,
-    animationStates: ['idle', 'walk', 'attack', 'stance', 'ultimate', 'hit', 'death'],
-    art: 'champion-hybrid',
+    animationStates: ['idle', 'run', 'attack', 'dash', 'ultimate', 'hit', 'death'],
+    art: 'champion-cardio',
   },
 ];
 
@@ -183,4 +262,9 @@ export function getChampionById(id: string): ChampionDefinition | undefined {
 
 export function getChampionByPath(path: string): ChampionDefinition | undefined {
   return CHAMPIONS.find((c) => c.path === path);
+}
+
+/** Player-facing display name for an Avatar Path slug (the champion name). */
+export function pathDisplayName(path: string): string {
+  return getChampionByPath(path)?.name ?? path;
 }

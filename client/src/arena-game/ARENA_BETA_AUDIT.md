@@ -17,38 +17,51 @@ against the working tree, not recalled.
   standing gap (tracked since standalone M1).
 
 ## CRITICAL
-1. **Champion identity violates the official EvoForge roster.** Game has 4
-   paths (`titan|speedster|shredder|hybrid`); official Champions are FIVE:
-   Aesthetics, Titan, Mass Monster, The Shredder, Cardio Machine — exactly
-   EvoForge's live `BranchV2` roster. The provider's 5→4 fold collapses
-   `mass`→titan and `aesthetic`→hybrid: two athletes with different real
-   Origins get the same in-game champion, and player-facing names
-   ("Speedster", "Hybrid") don't exist in EvoForge. Fix: five champions
-   keyed to the real branch ids, "The Shredder" display name, compatibility
-   migration for saved `championId`s (speedster→cardio machine's champion,
-   hybrid→aesthetics'), no destructive resets.
+1. ~~**Champion identity violates the official EvoForge roster.**~~
+   **RESOLVED (P2, 2026-07-23).** Five champions keyed to the real BranchV2
+   slugs (`champion-aesthetic|titan|mass|shredder|cardio`), display names
+   pinned by content validation incl. "The Shredder"; Mass Monster is a NEW
+   kit (Gravity Well slow field + Mass Uprising summons + Colossal Frame),
+   Cardio Machine inherits the tempo kit with an energy-refund ultimate and
+   a team-regen passive; every champion gained a data-driven passive. The
+   provider maps Origins 5→5 (hybrid→aesthetic, null→titan); save v4→v5
+   migrates `championId`/`avatarPath` non-destructively (tested incl.
+   malformed + full v1→v5 chain). BALANCE_VERSION 0.6.0; zero obsolete
+   names in player-facing strings (grep-verified; remap tables and
+   explanatory comments only).
 
 ## HIGH
-2. **Avatar/evolution stage is not the real one.** The Arena derives stage
-   from a Forge-Level ladder (25/50/75/100). EvoForge's authoritative stages
-   are branch-specific (`avatarStageRowsV2`; The Shredder's stage is
-   BODY-FAT-driven). The Arena must display the real stage; locked stages
-   stay locked (EvoForge rules authoritative).
-3. **Dev fitness editor is misleading inside EvoForge.** It edits the LOCAL
-   mock save's fitness, which the Supabase provider ignores — player-facing
-   route that does nothing to battles. Remove from the integrated lobby
-   (keep code behind the debug screen only, clearly labeled dev-mock).
+2. ~~**Avatar/evolution stage is not the real one.**~~
+   **RESOLVED (P3, 2026-07-23), one documented approximation.** The
+   provider now derives the REAL stage via the same pure domain functions
+   the customiser renders (`currentStageFor`): The Shredder from the latest
+   valid bodyfat_log bf_mid, level branches from the legacy level
+   (profiles.base_level + public.xp_total() through the pinned curve).
+   Every fallback UNDER-states progress (null ledger → base level; no bf
+   reading → stage 1) — locked stages can never show unlocked. PARTIAL
+   remainder: EvoForge's screens floor the ledger at the log-derived XP
+   total (resolveXp), which a pure profile query cannot compute — a
+   ledger-behind-derived athlete may see an earlier stage in the Arena
+   until reconciliation (see KNOWN_ISSUES).
+3. ~~**Dev fitness editor is misleading inside EvoForge.**~~
+   **RESOLVED (P3, 2026-07-23).** Lobby button removed; the editor is
+   reachable only from the Developer Debug screen and opens under an
+   explicit "DEV MOCK — has no effect on integrated battles" banner. The
+   champion detail screen now COMMUNICATES the real scaling instead: it
+   lists the five fitness-derived multipliers from the athlete's live
+   provider profile (UI copy uses EvoForge's "Size" pillar name).
 4. **Gym member paths are synthesized** (deterministic hash of user id) and
    member pillars are flat `evo_rating` — `gym_detail` RPC exposes only
    display_name/forge_level/evo_rating (RLS: cannot read others' profiles).
-   No schema change this run (protected); document the approximation
-   in-UI ("estimated build") and map the synthesized path onto the FIVE
-   official paths. A future `gym_detail` migration adding `origin_path` is
-   the real fix (flagged, not executed — shared-schema protection).
-5. **Speedster auto-cast ping-pong** (borrowed champion Lane Shift fires on
-   cooldown because it is always-valid) — player-visible oddity in gym
-   battles; needs a combat-nearby gate. (Ability itself is being reworked in
-   the five-champion pass.)
+   No schema change this run (protected). P2/P3 progress: the synthesized
+   path now hashes over the FIVE official paths, member stages estimate
+   from forge_level, and the roster chips are labeled "(EST.)". A future
+   `gym_detail` migration adding `origin_path` is the real fix (flagged,
+   not executed — shared-schema protection).
+5. **Cardio Machine auto-cast ping-pong** (borrowed champion Lane Shift
+   fires on cooldown because it is always-valid) — player-visible oddity in
+   gym battles; needs a combat-nearby gate. The five-champion pass kept the
+   kit (reflavored); the gate belongs to the P4 engine-reliability review.
 
 ## MEDIUM
 6. Arena-local "rank points" ladder can be confused with EvoForge's Rival

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Body, Heading, Mono, Panel, Screen } from '../components/ui';
 import { colors, pathColor, radius, spacing, typography } from '../constants/theme';
+import { pathDisplayName } from '../content';
 import { computeMemberRoles, GYM_ROLE_LABELS } from '../features/gyms/squad';
 import type { GymMemberInfo } from '../integration/evoforge/types';
 import { playerProvider } from '../services/app-services';
@@ -78,12 +79,13 @@ export default function GymRosterScreen() {
               </Heading>
               <View style={[styles.pathChip, { borderColor: pathColor(f.avatarPath) }]}>
                 <Text style={[styles.pathChipText, { color: pathColor(f.avatarPath) }]}>
-                  {f.avatarPath.toUpperCase()}
+                  {pathDisplayName(f.avatarPath).toUpperCase()}
+                  {isSelf ? '' : ' (EST.)'}
                 </Text>
               </View>
             </View>
             <Mono>
-              Evo {f.evoRating} · STR {f.strengthRating} · CAR {f.cardioRating} · MUS{' '}
+              Evo {f.evoRating} · STR {f.strengthRating} · CAR {f.cardioRating} · SIZ{' '}
               {f.muscularityRating} · LEA {f.leannessRating} · AES {f.aestheticsRating} · Forge Lv{' '}
               {f.forgeLevel}
             </Mono>

@@ -1,5 +1,61 @@
 # Balance Guide
 
+## The official roster (balance 0.6.0)
+
+Five Champions — exactly EvoForge's live BranchV2 slugs, ids `champion-<slug>`,
+display names pinned by content validation. Fitness scaling applies the same
+±12%-capped five-way mapping to every champion (Strength→damage,
+Cardio→cooldowns, Size→health, Leanness→speed, Aesthetics→ult charge), shown
+openly on the champion detail screen.
+
+| | Aesthetics (`aesthetic`) |
+|---|---|
+| Role | Flexible tactician / support |
+| Stats | 1050 HP · 60 dmg / 1.0s · range 3.5 · speed 0.24 |
+| Passive | **Flow State** — team receives +10% healing while alive (aura layer) |
+| Ability | **Stance Shift** (12s): toggle Bulwark (0.7× damage taken) / Assault (+25% damage) for 8s |
+| Ultimate | **Forge Rally**: all allies +25% damage, 120 heal over 5s |
+| Counters | Burst assassins (The Shredder) — kill it before the rally value accrues |
+
+| | Titan (`titan`) |
+|---|---|
+| Role | Tank / controller — explosive impact + control |
+| Stats | 1400 HP · 70 dmg / 1.5s · range 3.5 · speed 0.16 |
+| Passive | **Iron Hide** — every hit against it reduced by 5 flat (min 1) |
+| Ability | **Quake Stomp** (14s): stun all enemies in radius 10, both lanes, 1.5s |
+| Ultimate | **Seismic Smash**: 320 damage + 0.8s stun, radius 14, both lanes |
+| Counters | Ranged chip (armour is melee-relevant only for its own frontline rule); kiting its 0.16 speed |
+
+| | Mass Monster (`mass`) |
+|---|---|
+| Role | Durable bruiser / area presence — sustained pressure, NOT burst |
+| Stats | 1900 HP (×1.1 passive = 2090 at spawn) · 55 dmg / 1.4s · range 3.5 · speed 0.14 |
+| Passive | **Colossal Frame** — spawns with +10% max health (baked at spawn) |
+| Ability | **Gravity Well** (12s): slow enemies in radius 10 (both lanes) to 60% speed for 4s |
+| Ultimate | **Mass Uprising**: summon two Titan Guards at its position, one per lane |
+| Counters | Executes/% damage (Final Cut ignores the health pool), tempo (outpace the 0.14 speed), AoE clears the summons |
+
+| | The Shredder (`shredder`) |
+|---|---|
+| Role | Assassin / backline disruption |
+| Stats | 750 HP · 90 dmg / 1.1s · range 3 · speed 0.26 |
+| Passive | **Killer Instinct** — its own hits deal +25% vs targets below 35% health |
+| Ability | **Phase Dash** (12s): dash to the furthest in-lane enemy in aggro range, 120 damage |
+| Ultimate | **Final Cut**: 250 to the lowest-health in-lane enemy; executes below 30% (through shields) |
+| Counters | Stuns (750 HP melts under Seismic Smash), shields blunt the opener (not the execute) |
+
+| | Cardio Machine (`cardio`) |
+|---|---|
+| Role | Tempo specialist — speed, energy efficiency, sustained pressure |
+| Stats | 850 HP · 45 dmg / 0.6s · range 3 · speed 0.34 |
+| Passive | **Perpetual Motion** — team Forge Energy regen ×1.05 while alive (aura layer) |
+| Ability | **Lane Shift** (10s): teleport to the same x in the other lane |
+| Ultimate | **Overclock**: 6s of 2× attack speed + 60% move speed, refunds 1 energy on cast |
+| Counters | Kill it to shut the energy engine off; area control (Gravity Well) traps the tempo game |
+
+Synergy tags follow the same slugs (`cardio-momentum`, `mass-presence`,
+`titan-bulwark`, `support-network`, `balanced-forge` over 5 distinct paths).
+
 ## Where numbers live
 
 Every tunable number is in exactly one of these places:

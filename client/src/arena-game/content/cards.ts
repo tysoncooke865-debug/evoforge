@@ -63,7 +63,7 @@ export const CARDS: CardDefinition[] = [
     category: 'fighter',
     energyCost: 3,
     target: 'deploy-lane',
-    tags: ['speedster', 'brawler'],
+    tags: ['cardio', 'brawler'],
     unit: {
       deployCount: 1,
       stats: {
@@ -86,7 +86,7 @@ export const CARDS: CardDefinition[] = [
     category: 'fighter',
     energyCost: 3,
     target: 'deploy-lane',
-    tags: ['speedster'],
+    tags: ['cardio'],
     unit: {
       deployCount: 1,
       behavior: 'core-only',
@@ -181,7 +181,9 @@ export const CARDS: CardDefinition[] = [
     category: 'fighter',
     energyCost: 6,
     target: 'deploy-lane',
-    tags: ['titan'],
+    // Dual identity: a heavy frontliner counts for both the titan wall and
+    // the mass line's presence (like blade-runner's shredder/cardio split).
+    tags: ['titan', 'mass'],
     unit: {
       deployCount: 1,
       stats: {
@@ -228,7 +230,7 @@ export const CARDS: CardDefinition[] = [
     category: 'fighter',
     energyCost: 5,
     target: 'deploy-lane',
-    tags: ['shredder', 'speedster'],
+    tags: ['shredder', 'cardio'],
     unit: {
       deployCount: 1,
       stats: {
@@ -381,7 +383,7 @@ export const CARDS: CardDefinition[] = [
     category: 'equipment',
     energyCost: 1,
     target: 'friendly-unit',
-    tags: ['speedster'],
+    tags: ['cardio'],
     effects: { durationTicks: secondsToTicks(10), moveSpeedMult: 1.5 },
     balanceTags: ['buff', 'tempo'],
     upgrade: noUpgrade,

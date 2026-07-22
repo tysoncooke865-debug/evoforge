@@ -76,11 +76,13 @@ import {
 /** Engine backstop: timeout + sudden death + margin. Never reached by a healthy battle. */
 const MAX_TICKS = BALANCE.battle.durationTicks + BALANCE.battle.suddenDeathTicks + 10;
 
+/** The official five — every champion must appear in the harness matrix. */
 const CHAMPION_IDS = [
+  'champion-aesthetic',
   'champion-titan',
-  'champion-speedster',
+  'champion-mass',
   'champion-shredder',
-  'champion-hybrid',
+  'champion-cardio',
 ] as const;
 
 const ALL_DIFFICULTIES: readonly AiDifficulty[] = ['training', 'standard', 'advanced'];
@@ -500,6 +502,17 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
     expect(inert).toEqual([]);
   });
 
+  it('every official champion appears as a captain somewhere in the harness', () => {
+    const fielded = new Set<string>();
+    for (const r of results) {
+      if (r.playerChampionId) fielded.add(r.playerChampionId);
+      if (r.opponentChampionId) fielded.add(r.opponentChampionId);
+    }
+    for (const id of CHAMPION_IDS) {
+      expect([...fielded], `champion ${id} never fielded`).toContain(id);
+    }
+  });
+
   it('win-rate sanity: neither side wins 100% across the full mixed set', () => {
     const playerWins = results.filter((r) => r.winner === 'player').length;
     const opponentWins = results.filter((r) => r.winner === 'opponent').length;
@@ -790,7 +803,7 @@ describe('ranked simulation — mode ranked ≡ standard, cap enforced', () => {
               captain: { championId: 'champion-titan' },
               borrowed: [
                 {
-                  championId: 'champion-speedster',
+                  championId: 'champion-cardio',
                   lane: 1,
                   scaling: { ...NEUTRAL_SCALING, moveSpeedMult: 2 },
                 },

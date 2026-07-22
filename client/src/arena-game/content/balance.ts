@@ -7,7 +7,10 @@
  * to run against a different balance dataset.
  */
 
-export const BALANCE_VERSION = '0.5.0';
+/** 0.6.0 — the official five-champion roster (content change: paths, kits,
+ *  passives, synergy tags). Older records stay listed but unplayable via the
+ *  existing balance-version gate. */
+export const BALANCE_VERSION = '0.6.0';
 
 export const TICKS_PER_SECOND = 20;
 

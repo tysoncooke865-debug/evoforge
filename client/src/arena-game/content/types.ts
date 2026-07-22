@@ -64,6 +64,32 @@ export interface ChampionAbilityDefinition {
   kind: 'active' | 'ultimate';
 }
 
+/**
+ * Champion PASSIVE — data-driven, always-on identity effect. Exactly one per
+ * champion; each effect kind maps onto one existing engine mechanism (no
+ * scattered constants, no new status-effect plumbing):
+ *  - selfArmorFlat: flat per-hit reduction on the champion itself, applied in
+ *    damageUnit alongside aura armour (frontline/melee rule shared).
+ *  - spawnMaxHealthMult: max-health multiplier baked at spawn, on top of
+ *    fitness scaling (like all spawn-time multipliers).
+ *  - lowHealthBonus: the champion's own hits (basic attacks + active
+ *    abilities — sourced damage) deal `damageMult` vs targets already below
+ *    `belowHealthFraction` of base max health (execute-adjacent machinery).
+ *  - teamAura: folded into the per-tick aura recompute while the champion is
+ *    ALIVE (dies with the champion, returns on respawn — derived state).
+ */
+export interface ChampionPassiveDefinition {
+  id: string;
+  name: string;
+  description: string;
+  effects: {
+    selfArmorFlat?: number;
+    spawnMaxHealthMult?: number;
+    lowHealthBonus?: { belowHealthFraction: number; damageMult: number };
+    teamAura?: { energyRegenMult?: number; healingMult?: number };
+  };
+}
+
 export interface ChampionDefinition {
   id: string;
   name: string;
@@ -72,6 +98,7 @@ export interface ChampionDefinition {
   description: string;
   stats: CombatStats;
   tags: UnitTag[];
+  passive: ChampionPassiveDefinition;
   ability: ChampionAbilityDefinition;
   ultimate: ChampionAbilityDefinition;
   /** Ultimate charge gained per point of damage dealt / taken. */

@@ -11,15 +11,52 @@ describe('content validation', () => {
     expect(report.ok).toBe(true);
   });
 
-  it('ships 20 cards, 4 champions and at least 4 synergies', () => {
+  it('ships 20 cards, 5 champions and at least 4 synergies', () => {
     expect(CARDS.length).toBe(20);
-    expect(CHAMPIONS.length).toBe(4);
+    expect(CHAMPIONS.length).toBe(5);
     expect(SYNERGIES.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('has one champion per avatar path', () => {
+  it('has one champion per official avatar path (BranchV2 minus hybrid)', () => {
     const paths = CHAMPIONS.map((c) => c.path).sort();
-    expect(paths).toEqual(['hybrid', 'shredder', 'speedster', 'titan']);
+    expect(paths).toEqual(['aesthetic', 'cardio', 'mass', 'shredder', 'titan']);
+  });
+
+  it('pins the official display names — including "The Shredder"', () => {
+    const names = Object.fromEntries(CHAMPIONS.map((c) => [c.path, c.name]));
+    expect(names).toEqual({
+      aesthetic: 'Aesthetics',
+      titan: 'Titan',
+      mass: 'Mass Monster',
+      shredder: 'The Shredder',
+      cardio: 'Cardio Machine',
+    });
+    // Slug-aligned stable ids.
+    for (const c of CHAMPIONS) expect(c.id).toBe(`champion-${c.path}`);
+  });
+
+  it('rejects a roster that is not exactly the five official champions', () => {
+    const four = CHAMPIONS.slice(0, 4);
+    const { errors } = validateChampions(four);
+    expect(errors.some((e) => e.includes('expected 5 champions'))).toBe(true);
+    expect(errors.some((e) => e.includes("no champion for path"))).toBe(true);
+
+    const renamed = [{ ...CHAMPIONS[3], name: 'Shredder' }, ...CHAMPIONS.slice(0, 3), CHAMPIONS[4]];
+    const nameErrors = validateChampions(renamed).errors;
+    expect(nameErrors.some((e) => e.includes("display name must be 'The Shredder'"))).toBe(true);
+  });
+
+  it('every champion ships a validated passive', () => {
+    for (const c of CHAMPIONS) {
+      expect(c.passive.id.length).toBeGreaterThan(0);
+      expect(Object.keys(c.passive.effects).length).toBeGreaterThan(0);
+    }
+    // And the validator genuinely detects a missing/empty passive.
+    const broken = CHAMPIONS.map((c, i) =>
+      i === 0 ? { ...c, passive: { ...c.passive, effects: {} } } : c
+    );
+    const { errors } = validateChampions(broken);
+    expect(errors.some((e) => e.includes('needs at least one effect'))).toBe(true);
   });
 
   it('every card id is unique', () => {

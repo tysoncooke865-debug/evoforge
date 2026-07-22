@@ -3,6 +3,8 @@ import { LocalMockPlayerProvider } from '../integration/evoforge/local-mock-prov
 import {
   createDefaultSave,
   loadSave,
+  migrateAvatarPath,
+  migrateChampionId,
   persistSave,
   resetSave,
   SAVE_KEY,
@@ -205,6 +207,113 @@ describe('save migration v2 → v3 (M9: gym squad + war stats)', () => {
       expect(result.recovered, JSON.stringify(gym)).toBe(true);
       expect(result.save.gym.selectedSquad).toEqual([]);
     }
+  });
+});
+
+describe('save migration v4 → v5 (five-champion pass: official roster ids)', () => {
+  /** A faithful v4 save carrying the retired champion/path names. */
+  function v4Save(championId: string, avatarPath: string): Record<string, unknown> {
+    const base = createDefaultSave('2026-07-20T00:00:00.000Z') as unknown as Record<string, unknown>;
+    return {
+      ...base,
+      saveVersion: 4,
+      player: {
+        ...(base.player as object),
+        displayName: 'Roster Migrator',
+        championId,
+        rankPoints: 420,
+        onboardingComplete: true,
+      },
+      fitness: { ...(base.fitness as object), avatarPath, avatarStage: 5, strengthRating: 77 },
+    };
+  }
+
+  it('maps speedster → champion-cardio and hybrid → champion-aesthetic, preserving everything else', async () => {
+    const cases: [string, string][] = [
+      ['champion-speedster', 'champion-cardio'],
+      ['champion-hybrid', 'champion-aesthetic'],
+      ['champion-titan', 'champion-titan'],
+      ['champion-shredder', 'champion-shredder'],
+      ['champion-mass', 'champion-mass'],
+    ];
+    for (const [oldId, newId] of cases) {
+      const storage = new MemoryStorage();
+      await storage.setItem(SAVE_KEY, JSON.stringify(v4Save(oldId, 'speedster')));
+      const result = await loadSave(storage);
+      expect(result.recovered, oldId).toBe(false);
+      expect(result.save.saveVersion).toBe(SAVE_VERSION);
+      expect(result.save.player.championId, oldId).toBe(newId);
+      // Everything else survives untouched.
+      expect(result.save.player.rankPoints).toBe(420);
+      expect(result.save.player.displayName).toBe('Roster Migrator');
+      expect(result.save.player.onboardingComplete).toBe(true);
+      expect(result.save.fitness.strengthRating).toBe(77);
+      // The mock fitness path migrates by the same table; stage clamps to 4.
+      expect(result.save.fitness.avatarPath).toBe('cardio');
+      expect(result.save.fitness.avatarStage).toBe(4);
+    }
+  });
+
+  it('normalizes unknown or malformed champion ids to the titan default', async () => {
+    for (const bad of ['champion-nope', 42, null, undefined, '']) {
+      const storage = new MemoryStorage();
+      const save = v4Save('champion-titan', 'hybrid');
+      (save.player as Record<string, unknown>).championId = bad as never;
+      await storage.setItem(SAVE_KEY, JSON.stringify(save));
+      const result = await loadSave(storage);
+      // championId must be a string for the migrated save to validate; the
+      // remap normalizes every malformed value rather than recovering.
+      expect(result.save.player.championId, String(bad)).toBe('champion-titan');
+      expect(result.save.fitness.avatarPath).toBe('aesthetic'); // hybrid folds
+    }
+  });
+
+  it('the pure remap tables are total', () => {
+    expect(migrateChampionId('champion-speedster')).toBe('champion-cardio');
+    expect(migrateChampionId('champion-hybrid')).toBe('champion-aesthetic');
+    expect(migrateChampionId('champion-cardio')).toBe('champion-cardio');
+    expect(migrateChampionId({})).toBe('champion-titan');
+    expect(migrateAvatarPath('speedster')).toBe('cardio');
+    expect(migrateAvatarPath('hybrid')).toBe('aesthetic');
+    expect(migrateAvatarPath('mass')).toBe('mass');
+    expect(migrateAvatarPath(null)).toBe('titan');
+  });
+
+  it('migrates a v1 save through the whole chain to v5', async () => {
+    const storage = new MemoryStorage();
+    const base = createDefaultSave('2026-01-01T00:00:00.000Z') as unknown as Record<string, unknown>;
+    const v1player: Record<string, unknown> = {
+      ...(base.player as object),
+      championId: 'champion-speedster',
+      rankPoints: 99,
+    };
+    // A faithful v1 save predates the onboarding flag entirely.
+    delete v1player.onboardingComplete;
+    const v1 = {
+      ...base,
+      saveVersion: 1,
+      player: v1player,
+      fitness: { ...(base.fitness as object), avatarPath: 'hybrid' },
+      settings: { showDebugPanel: true },
+    };
+    delete (v1 as Record<string, unknown>).gym;
+    await storage.setItem(SAVE_KEY, JSON.stringify(v1));
+    const result = await loadSave(storage);
+    expect(result.recovered).toBe(false);
+    expect(result.save.saveVersion).toBe(SAVE_VERSION);
+    expect(result.save.player.championId).toBe('champion-cardio');
+    expect(result.save.fitness.avatarPath).toBe('aesthetic');
+    expect(result.save.player.rankPoints).toBe(99);
+    expect(result.save.settings).toEqual({ showDebugPanel: true, aiDifficulty: 'standard' });
+    expect(result.save.gym.selectedSquad).toEqual([]);
+    expect(result.save.player.onboardingComplete).toBe(true);
+  });
+
+  it('the default save is already v5 with an official champion id', () => {
+    const save = createDefaultSave();
+    expect(save.saveVersion).toBe(SAVE_VERSION);
+    expect(save.player.championId).toBe('champion-titan');
+    expect(save.fitness.avatarPath).toBe('titan');
   });
 });
 

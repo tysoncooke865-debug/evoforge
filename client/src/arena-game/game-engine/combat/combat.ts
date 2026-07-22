@@ -64,7 +64,22 @@ export function damageUnit(
 ): DamageResult {
   if (!target.alive || amount <= 0) return { dealtToShield: 0, dealtToHealth: 0, killed: false };
   let effective = amount * damageTakenMult(target, state.tick);
-  const armor = state.auras[target.team].armorFlat;
+  // Killer Instinct-style champion passive: the attacker's own hits (basic
+  // attacks and sourced active abilities — never ultimates, which pass no
+  // source) deal bonus damage to targets ALREADY below the health fraction
+  // (checked before this hit, like the execute threshold is checked after).
+  const lowBonus = source?.champion?.passiveLowHealthBonus;
+  if (
+    lowBonus &&
+    source.alive &&
+    source.team !== target.team &&
+    target.health < lowBonus.belowHealthFraction * target.baseMaxHealth
+  ) {
+    effective *= lowBonus.damageMult;
+  }
+  // Aura armour plus the target champion's own passive armour (Iron Hide) —
+  // one flat reduction, same frontline/melee rule and min-1 floor.
+  const armor = state.auras[target.team].armorFlat + (target.champion?.passiveArmorFlat ?? 0);
   if (armor > 0 && !target.base.isRanged) {
     effective = Math.max(ARMOR_MIN_DAMAGE, effective - armor);
   }

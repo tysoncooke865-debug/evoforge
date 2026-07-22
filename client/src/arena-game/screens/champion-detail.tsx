@@ -1,15 +1,21 @@
 /**
- * Champion detail: full stats, ability/ultimate numbers and respawn rules
- * for one Champion, with a select action.
+ * Champion detail: full stats, passive, ability/ultimate numbers, respawn
+ * rules and — communicated openly, never a hidden bonus — the five
+ * fitness-derived combat multipliers the athlete's real EvoForge ratings
+ * produce (the same computeFitnessScaling every battle setup uses).
  */
 import { Stack, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Body, Heading, NeonButton, Panel, Screen } from '../components/ui';
+import { Body, Heading, Mono, NeonButton, Panel, Screen } from '../components/ui';
 import { colors, pathColor, spacing } from '../constants/theme';
 import { BALANCE, CHAMPIONS, getChampionById, TICKS_PER_SECOND } from '../content';
 import type { ChampionAbilityDefinition } from '../content/types';
-import { playerStore } from '../services/app-services';
+import {
+  ChampionFitnessScaling,
+  computeFitnessScaling,
+} from '../game-engine/balance/fitness-scaling';
+import { playerProvider, playerStore } from '../services/app-services';
 import { usePlayer } from '../services/player-data/use-player';
 
 export function generateStaticParams(): { id: string }[] {
@@ -63,11 +69,49 @@ function AbilityPanel({
   );
 }
 
+function pct(mult: number, invert = false): string {
+  const delta = invert ? 1 - mult : mult - 1;
+  const sign = delta >= 0 ? '+' : '';
+  return `${sign}${(delta * 100).toFixed(1)}%`;
+}
+
 export default function ChampionDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
   const champion = getChampionById(id);
   const save = usePlayer((s) => s.save);
+
+  // The athlete's REAL fitness-derived scaling, read through the provider
+  // boundary exactly like the battle setup does — displayed so the effect
+  // is communicated, never a hidden bonus. Null while loading/unavailable.
+  const [scaling, setScaling] = useState<ChampionFitnessScaling | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const player = await playerProvider.getCurrentPlayer();
+        const fitness = await playerProvider.getFitnessProfile(player.playerId);
+        if (cancelled) return;
+        setScaling(
+          computeFitnessScaling(
+            {
+              strength: fitness.strengthRating,
+              cardio: fitness.cardioRating,
+              muscularity: fitness.muscularityRating,
+              leanness: fitness.leannessRating,
+              aesthetics: fitness.aestheticsRating,
+            },
+            BALANCE
+          )
+        );
+      } catch {
+        if (!cancelled) setScaling(null); // fail soft: battles fall back to neutral too
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!champion) {
     return (
@@ -114,6 +158,11 @@ export default function ChampionDetailScreen() {
         />
       </Panel>
 
+      <Panel>
+        <Heading>Passive: {champion.passive.name}</Heading>
+        <Body dim>{champion.passive.description}</Body>
+      </Panel>
+
       <AbilityPanel
         title="Ability"
         ability={champion.ability}
@@ -124,6 +173,26 @@ export default function ChampionDetailScreen() {
         ability={champion.ultimate}
         extra={`Charges from combat: +${champion.ultimateChargePerDamageDealt} per damage dealt, +${champion.ultimateChargePerDamageTaken} per damage taken (${champion.ultimateChargeRequired} to unleash)`}
       />
+
+      <Panel>
+        <Heading>Your training, your Champion</Heading>
+        {scaling ? (
+          <>
+            <Mono>Attack damage {pct(scaling.attackDamageMult)} (Strength)</Mono>
+            <Mono>Ability cooldowns {pct(scaling.abilityCooldownMult, true)} faster (Cardio)</Mono>
+            <Mono>Max health {pct(scaling.maxHealthMult)} (Size)</Mono>
+            <Mono>Move speed {pct(scaling.moveSpeedMult)} (Leanness)</Mono>
+            <Mono>Ultimate charge {pct(scaling.ultimateChargeMult)} (Aesthetics)</Mono>
+          </>
+        ) : (
+          <Body dim>Fitness profile unavailable — battles use neutral scaling.</Body>
+        )}
+        <Body dim>
+          Derived from your live EvoForge ratings, capped at ±
+          {Math.round(BALANCE.fitness.rankedMaxTotalAdvantage * 100)}% total — fitness shapes
+          your Champion, it never decides the battle.
+        </Body>
+      </Panel>
 
       <NeonButton
         label={selected ? 'Selected ✓' : `Select ${champion.name}`}

@@ -1,9 +1,10 @@
 /**
- * Developer fitness-profile editor (Milestone 7). Simulates what EvoForge
- * will eventually supply through the provider boundary: edit the mock
- * FitnessProfile and see exactly how it shapes the Champion — the scaling
- * preview uses the same computeFitnessScaling the battle setup uses, so the
- * effect is predictable by construction.
+ * Developer fitness-profile editor (Milestone 7) — DEV MOCK ONLY (audit
+ * HIGH #3). It edits the LOCAL mock save's FitnessProfile, which the
+ * integrated Supabase provider never reads: battles inside EvoForge fetch
+ * real pillar ratings through the provider boundary and ignore everything
+ * here. Reachable only from the Developer Debug screen; the scaling
+ * preview still uses the same computeFitnessScaling the battle setup uses.
  */
 import { Stack } from 'expo-router';
 import React from 'react';
@@ -20,7 +21,8 @@ import { usePlayer } from '../services/player-data/use-player';
 const RATING_KEYS = [
   ['strengthRating', 'Strength'],
   ['cardioRating', 'Cardio'],
-  ['muscularityRating', 'Muscularity'],
+  // EvoForge's SIZE pillar (the field name is save-compat only).
+  ['muscularityRating', 'Size'],
   ['leannessRating', 'Leanness'],
   ['aestheticsRating', 'Aesthetics'],
 ] as const;
@@ -115,6 +117,12 @@ export default function DevFitnessEditorScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Fitness Editor (dev)' }} />
       <Panel>
+        <Text style={styles.devBanner}>
+          DEV MOCK — edits the local mock save only and has NO effect on integrated battles.
+          Real battles read your live EvoForge ratings through the provider.
+        </Text>
+      </Panel>
+      <Panel>
         <Heading>Mock Evo Rating: {fitness.evoRating}</Heading>
         <Body dim>
           Simulated EvoForge data. In the integrated app these values come from the
@@ -143,10 +151,10 @@ export default function DevFitnessEditorScreen() {
         <Stepper
           label="Avatar Stage"
           value={fitness.avatarStage}
-          onChange={(v) => update((f) => ({ ...f, avatarStage: Math.max(1, Math.min(5, v)) }))}
+          onChange={(v) => update((f) => ({ ...f, avatarStage: Math.max(1, Math.min(4, v)) }))}
           step={1}
           min={1}
-          max={5}
+          max={4}
         />
         <Body dim>Avatar Path</Body>
         <View style={styles.pathRow}>
@@ -177,7 +185,7 @@ export default function DevFitnessEditorScreen() {
         <Heading>Champion effect (ranked-capped)</Heading>
         <Mono>Attack damage {pct(scaling.attackDamageMult)} (Strength)</Mono>
         <Mono>Ability cooldowns {pct(scaling.abilityCooldownMult, true)} faster (Cardio)</Mono>
-        <Mono>Max health {pct(scaling.maxHealthMult)} (Muscularity)</Mono>
+        <Mono>Max health {pct(scaling.maxHealthMult)} (Size)</Mono>
         <Mono>Move speed {pct(scaling.moveSpeedMult)} (Leanness)</Mono>
         <Mono>Ultimate charge {pct(scaling.ultimateChargeMult)} (Aesthetics)</Mono>
         <Body dim>
@@ -191,6 +199,12 @@ export default function DevFitnessEditorScreen() {
 }
 
 const styles = StyleSheet.create({
+  devBanner: {
+    color: colors.warning,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',

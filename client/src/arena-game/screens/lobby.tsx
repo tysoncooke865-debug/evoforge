@@ -79,7 +79,9 @@ export default function LobbyScreen() {
       <NeonButton label="Profile" variant="secondary" onPress={() => router.push('/forge-arena/profile')} />
       <NeonButton label="Send Feedback" variant="secondary" onPress={() => router.push('/forge-arena/feedback')} />
       <NeonButton label="Replay Onboarding" variant="secondary" onPress={() => router.push('/forge-arena/onboarding')} />
-      <NeonButton label="Fitness Editor (dev)" variant="secondary" onPress={() => router.push('/forge-arena/dev-fitness-editor')} />
+      {/* The dev fitness editor is deliberately NOT linked here (audit HIGH
+          #3): it edits the local mock save, which integrated battles ignore.
+          It remains reachable from the Developer Debug screen, labeled. */}
       <NeonButton label="Developer Debug" variant="secondary" onPress={() => router.push('/forge-arena/debug')} />
     </Screen>
   );

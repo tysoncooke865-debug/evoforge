@@ -3,7 +3,7 @@
  *
  * Covers: champion spawning, every ability and ultimate's numeric outcomes,
  * ultimate charge accrual (dealt/taken/cap), cooldown and charge gating,
- * no-valid-target rejections, death → untargetable → respawn, the full 4x4
+ * no-valid-target rejections, death → untargetable → respawn, the full 5x5
  * champion matchup matrix, live replay fidelity including ability/ultimate
  * commands, and determinism.
  */
@@ -111,7 +111,7 @@ describe('champion spawning', () => {
     const state = createBattle(
       {
         seed: 1,
-        player: { playerId: 'p1', championId: 'champion-speedster', championLane: 1 },
+        player: { playerId: 'p1', championId: 'champion-cardio', championLane: 1 },
         opponent: { playerId: 'p2' },
       },
       BALANCE
@@ -128,8 +128,8 @@ describe('champion spawning', () => {
   });
 
   it('champions fight automatically and the digest covers champion state', () => {
-    const a = createBattle(championConfig('champion-titan', 'champion-hybrid'), BALANCE);
-    const b = createBattle(championConfig('champion-titan', 'champion-hybrid'), BALANCE);
+    const a = createBattle(championConfig('champion-titan', 'champion-aesthetic'), BALANCE);
+    const b = createBattle(championConfig('champion-titan', 'champion-aesthetic'), BALANCE);
     expect(computeDigest(a)).toBe(computeDigest(b));
 
     // Every champion runtime field must be digest-visible.
@@ -141,7 +141,7 @@ describe('champion spawning', () => {
       (u) => (u.lane = 1),
     ];
     for (const mutate of mutations) {
-      const fresh = createBattle(championConfig('champion-titan', 'champion-hybrid'), BALANCE);
+      const fresh = createBattle(championConfig('champion-titan', 'champion-aesthetic'), BALANCE);
       mutate(champ(fresh, 'player'));
       expect(computeDigest(fresh)).not.toBe(computeDigest(a));
     }
@@ -150,7 +150,7 @@ describe('champion spawning', () => {
 
 describe('Titan — Quake Stomp and Seismic Smash', () => {
   it('Quake Stomp stuns all enemies within radius in BOTH lanes, both unit kinds', () => {
-    const state = championBattle('champion-titan', 'champion-speedster');
+    const state = championBattle('champion-titan', 'champion-cardio');
     const titan = champ(state, 'player');
     const enemyChampion = champ(state, 'opponent');
     enemyChampion.x = titan.x + 4; // drag the enemy champion into range
@@ -258,14 +258,17 @@ describe('ultimate charge accrual', () => {
       titanDamage * def.ultimateChargePerDamageDealt
     );
 
-    // Only the guard swings: charge from damage taken.
+    // Only the guard swings: charge from damage taken. Iron Hide (the
+    // Titan's passive armour) reduces the hit first — charge accrues from
+    // damage actually dealt.
     titan.stunUntilTick = 100000;
     guard.stunUntilTick = 0;
     advanceTick(state, BALANCE);
     const guardDamage = getCardById('titan-guard')!.unit!.stats.attackDamage;
+    const ironHide = def.passive.effects.selfArmorFlat!;
     expect(titan.champion!.ultimateCharge).toBeCloseTo(
       titanDamage * def.ultimateChargePerDamageDealt +
-        guardDamage * def.ultimateChargePerDamageTaken
+        (guardDamage - ironHide) * def.ultimateChargePerDamageTaken
     );
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
@@ -307,52 +310,52 @@ describe('ultimate charge accrual', () => {
   });
 });
 
-describe('Speedster — Lane Shift and Overclock', () => {
+describe('Cardio Machine — Lane Shift and Overclock', () => {
   it('Lane Shift moves to the same x in the other lane and retargets cleanly', () => {
-    const state = championBattle('champion-speedster');
-    const speedster = champ(state);
-    const lane0Enemy = spawnEnemy(state, 'titan-guard', 0, speedster.x + 2);
-    const lane1Enemy = spawnEnemy(state, 'titan-guard', 1, speedster.x + 4);
+    const state = championBattle('champion-cardio');
+    const cardio = champ(state);
+    const lane0Enemy = spawnEnemy(state, 'titan-guard', 0, cardio.x + 2);
+    const lane1Enemy = spawnEnemy(state, 'titan-guard', 1, cardio.x + 4);
     lane0Enemy.stunUntilTick = 100000;
     lane1Enemy.stunUntilTick = 100000;
 
     advanceTick(state, BALANCE); // both sides acquire targets in lane 0
-    expect(speedster.targetId).toBe(lane0Enemy.id);
-    const xBefore = speedster.x;
+    expect(cardio.targetId).toBe(lane0Enemy.id);
+    const xBefore = cardio.x;
 
     const result = useAbility(state);
     expect(result.ok).toBe(true);
-    expect(speedster.lane).toBe(1);
-    expect(speedster.x).toBe(xBefore); // same position along the lane axis
-    expect(speedster.targetId).toBeNull();
-    expect(speedster.champion!.abilityCooldownTicks).toBe(
-      getChampionById('champion-speedster')!.ability.cooldownTicks
+    expect(cardio.lane).toBe(1);
+    expect(cardio.x).toBe(xBefore); // same position along the lane axis
+    expect(cardio.targetId).toBeNull();
+    expect(cardio.champion!.abilityCooldownTicks).toBe(
+      getChampionById('champion-cardio')!.ability.cooldownTicks
     );
 
     advanceTick(state, BALANCE);
     // The champion re-acquired in its new lane; nothing targets across lanes.
-    expect(speedster.targetId).toBe(lane1Enemy.id);
-    expect(lane0Enemy.targetId).not.toBe(speedster.id);
+    expect(cardio.targetId).toBe(lane1Enemy.id);
+    expect(lane0Enemy.targetId).not.toBe(cardio.id);
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 
   it('Overclock applies the self modifiers for the listed duration', () => {
-    const state = championBattle('champion-speedster');
-    const speedster = champ(state);
-    const def = getChampionById('champion-speedster')!;
-    speedster.champion!.ultimateCharge = 100;
+    const state = championBattle('champion-cardio');
+    const cardio = champ(state);
+    const def = getChampionById('champion-cardio')!;
+    cardio.champion!.ultimateCharge = 100;
 
     expect(useUltimate(state).ok).toBe(true);
-    expect(speedster.champion!.ultimateCharge).toBe(0);
-    expect(speedster.modifiers).toEqual([
+    expect(cardio.champion!.ultimateCharge).toBe(0);
+    expect(cardio.modifiers).toEqual([
       {
-        sourceId: 'speedster-overclock',
+        sourceId: 'cardio-overclock',
         expiresAtTick: state.tick + def.ultimate.effects.durationTicks!,
         attackIntervalMult: 0.5,
         moveSpeedMult: 1.6,
       },
     ]);
-    const stats = effectiveStats(speedster, state.tick);
+    const stats = effectiveStats(cardio, state.tick);
     expect(stats.attackIntervalTicks).toBe(Math.round(def.stats.attackIntervalTicks * 0.5));
     expect(stats.moveSpeedPerTick).toBeCloseTo(def.stats.moveSpeedPerTick * 1.6);
 
@@ -361,7 +364,7 @@ describe('Speedster — Lane Shift and Overclock', () => {
       advanceTick(state, BALANCE);
       expect(checkInvariants(state, BALANCE)).toEqual([]);
     }
-    expect(speedster.modifiers).toEqual([]);
+    expect(cardio.modifiers).toEqual([]);
   });
 });
 
@@ -443,61 +446,62 @@ describe('Shredder — Phase Dash and Final Cut', () => {
   });
 });
 
-describe('Hybrid — Stance Shift and Forge Rally', () => {
+describe('Aesthetics — Stance Shift and Forge Rally', () => {
   it('stances alternate Bulwark → Assault → Bulwark, each replacing the last', () => {
-    const state = championBattle('champion-hybrid');
-    const hybrid = champ(state);
-    const def = getChampionById('champion-hybrid')!;
+    const state = championBattle('champion-aesthetic');
+    const aesthetics = champ(state);
+    const def = getChampionById('champion-aesthetic')!;
 
     // Use 1: Bulwark — damage taken reduced by the content multiplier.
     expect(useAbility(state).ok).toBe(true);
-    expect(hybrid.champion!.stanceShifts).toBe(1);
-    expect(hybrid.modifiers).toHaveLength(1);
-    expect(hybrid.modifiers[0].damageTakenMult).toBe(def.ability.effects.damageTakenMult);
-    expect(hybrid.modifiers[0].attackDamageMult).toBeUndefined();
-    const before = hybrid.health;
-    damageUnit(state, hybrid, 100, 'test');
-    expect(before - hybrid.health).toBeCloseTo(100 * def.ability.effects.damageTakenMult!);
+    expect(aesthetics.champion!.stanceShifts).toBe(1);
+    expect(aesthetics.modifiers).toHaveLength(1);
+    expect(aesthetics.modifiers[0].damageTakenMult).toBe(def.ability.effects.damageTakenMult);
+    expect(aesthetics.modifiers[0].attackDamageMult).toBeUndefined();
+    const before = aesthetics.health;
+    damageUnit(state, aesthetics, 100, 'test');
+    expect(before - aesthetics.health).toBeCloseTo(100 * def.ability.effects.damageTakenMult!);
 
     // Use 2: Assault — the Bulwark modifier is replaced, damage buffed.
-    hybrid.champion!.abilityCooldownTicks = 0;
+    aesthetics.champion!.abilityCooldownTicks = 0;
     expect(useAbility(state).ok).toBe(true);
-    expect(hybrid.champion!.stanceShifts).toBe(2);
-    expect(hybrid.modifiers).toHaveLength(1);
-    expect(hybrid.modifiers[0].attackDamageMult).toBe(def.ability.effects.attackDamageMult);
-    expect(hybrid.modifiers[0].damageTakenMult).toBeUndefined();
-    expect(effectiveStats(hybrid, state.tick).attackDamage).toBeCloseTo(
+    expect(aesthetics.champion!.stanceShifts).toBe(2);
+    expect(aesthetics.modifiers).toHaveLength(1);
+    expect(aesthetics.modifiers[0].attackDamageMult).toBe(def.ability.effects.attackDamageMult);
+    expect(aesthetics.modifiers[0].damageTakenMult).toBeUndefined();
+    expect(effectiveStats(aesthetics, state.tick).attackDamage).toBeCloseTo(
       def.stats.attackDamage * def.ability.effects.attackDamageMult!
     );
 
     // Use 3: back to Bulwark.
-    hybrid.champion!.abilityCooldownTicks = 0;
+    aesthetics.champion!.abilityCooldownTicks = 0;
     expect(useAbility(state).ok).toBe(true);
-    expect(hybrid.champion!.stanceShifts).toBe(3);
-    expect(hybrid.modifiers).toHaveLength(1);
-    expect(hybrid.modifiers[0].damageTakenMult).toBe(def.ability.effects.damageTakenMult);
+    expect(aesthetics.champion!.stanceShifts).toBe(3);
+    expect(aesthetics.modifiers).toHaveLength(1);
+    expect(aesthetics.modifiers[0].damageTakenMult).toBe(def.ability.effects.damageTakenMult);
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 
   it('Forge Rally buffs and heals ALL living allies in both lanes, not enemies', () => {
-    const state = championBattle('champion-hybrid');
-    const hybrid = champ(state);
-    const def = getChampionById('champion-hybrid')!;
+    const state = championBattle('champion-aesthetic');
+    const aesthetics = champ(state);
+    const def = getChampionById('champion-aesthetic')!;
     const woundedAlly = spawnAlly(state, 'titan-guard', 0, 20);
     const fullAlly = spawnAlly(state, 'neon-boxer', 1, 30);
     const enemy = spawnEnemy(state, 'titan-guard', 0, 40);
     woundedAlly.health = 300;
-    hybrid.champion!.ultimateCharge = 100;
+    aesthetics.champion!.ultimateCharge = 100;
 
     expect(useUltimate(state).ok).toBe(true);
-    expect(woundedAlly.health).toBe(300 + def.ultimate.effects.heal!);
+    // Flow State (Aesthetics' passive) boosts the team's healing by 1.1.
+    expect(woundedAlly.health).toBe(300 + def.ultimate.effects.heal! * 1.1);
     expect(fullAlly.health).toBe(300); // heal clamps at max
-    for (const ally of [hybrid, woundedAlly, fullAlly]) {
-      expect(ally.modifiers.some((m) => m.sourceId === 'hybrid-rally' && m.attackDamageMult === 1.25)).toBe(true);
+    for (const ally of [aesthetics, woundedAlly, fullAlly]) {
+      expect(ally.modifiers.some((m) => m.sourceId === 'aesthetic-rally' && m.attackDamageMult === 1.25)).toBe(true);
     }
     expect(enemy.modifiers).toEqual([]);
     expect(enemy.health).toBe(650);
-    expect(hybrid.champion!.ultimateCharge).toBe(0);
+    expect(aesthetics.champion!.ultimateCharge).toBe(0);
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 });
@@ -583,24 +587,25 @@ describe('champion death and respawn', () => {
 
 describe('second-wind targets a live champion (M4 gap closed)', () => {
   it('heals the champion and refunds energy', () => {
-    const state = championBattle('champion-hybrid');
-    const hybrid = champ(state);
-    hybrid.health -= 300;
-    const before = hybrid.health;
+    const state = championBattle('champion-aesthetic');
+    const aesthetics = champ(state);
+    aesthetics.health -= 300;
+    const before = aesthetics.health;
     const result = applyCommand(state, BALANCE, {
       type: 'play-card',
       team: 'player',
       cardId: 'second-wind',
-      target: { kind: 'unit', unitId: hybrid.id },
+      target: { kind: 'unit', unitId: aesthetics.id },
     });
     expect(result.ok).toBe(true);
-    expect(hybrid.health).toBe(before + 220);
+    // 220 base heal × 1.1 Flow State (the champion's own passive team aura).
+    expect(aesthetics.health).toBe(before + 220 * 1.1);
     expect(state.teams.player.energy).toBeCloseTo(10 - 2 + 1);
   });
 });
 
-describe('4x4 champion matchup matrix', () => {
-  it('all 16 matchups run headless to completion with zero invariant violations', () => {
+describe('5x5 champion matchup matrix', () => {
+  it('all 25 matchups run headless to completion with zero invariant violations', () => {
     let seed = 7000;
     for (const a of CHAMPIONS) {
       for (const b of CHAMPIONS) {
@@ -678,7 +683,7 @@ describe('champion battle determinism and replay fidelity', () => {
 
   it('the same live seed twice produces identical digests (incl. opponent champion pick)', () => {
     function playThrough(): number {
-      const live = createLiveBattle(777, 'p1', { playerChampionId: 'champion-speedster' });
+      const live = createLiveBattle(777, 'p1', { playerChampionId: 'champion-cardio' });
       while (live.state.phase !== 'finished') {
         stepLiveBattle(live, 40);
         queueChampionAbility(live);

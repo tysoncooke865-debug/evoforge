@@ -1,7 +1,8 @@
 /**
- * Champion selection: the four Champions as tappable cards. Tapping selects
- * (persisted to the save via the player store); the current selection is
- * highlighted. DETAILS opens the full stat sheet.
+ * Champion selection: the five official Champions (one per EvoForge branch)
+ * as tappable cards. Tapping selects (persisted to the save via the player
+ * store); the current selection is highlighted. DETAILS opens the full stat
+ * sheet.
  */
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
@@ -45,6 +46,10 @@ function ChampionCard({
       </View>
       <Text style={styles.role}>{champion.role}</Text>
       <Text style={styles.stats}>{statsSummary(champion)}</Text>
+      <Text style={styles.abilityLine}>
+        <Text style={styles.abilityName}>{champion.passive.name} (passive): </Text>
+        {champion.passive.description}
+      </Text>
       <Text style={styles.abilityLine}>
         <Text style={styles.abilityName}>{champion.ability.name}: </Text>
         {champion.ability.description}

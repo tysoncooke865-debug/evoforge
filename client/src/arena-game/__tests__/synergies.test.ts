@@ -78,9 +78,25 @@ describe('synergy counting', () => {
     expect(state.auras.player.healingMult).toBeCloseTo(1.25);
   });
 
+  it('mass-presence activates at 2 mass combatants (heavy tanks carry the tag)', () => {
+    const state = battle();
+    spawn(state, 'heavy-tank', 0, 10);
+    spawn(state, 'heavy-tank', 1, 14);
+    advanceTick(state, BALANCE);
+    expect(state.auras.player.activeSynergyIds).toContain('mass-presence');
+    expect(state.auras.player.activeSynergyIds).not.toContain('titan-bulwark'); // only 2 titans
+    expect(state.auras.player.armorFlat).toBe(4);
+    // The Mass Monster champion counts toward the threshold like any tag.
+    const withChampion = battle('champion-mass');
+    spawn(withChampion, 'heavy-tank', 0, 30);
+    advanceTick(withChampion, BALANCE);
+    expect(withChampion.auras.player.activeSynergyIds).toContain('mass-presence');
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
   it('mixed-paths counts DISTINCT avatar paths, champion path included', () => {
     const state = battle('champion-titan');
-    // Champion (titan) + speedster + shredder = 3 distinct paths.
+    // Champion (titan) + cardio + shredder = 3 distinct paths.
     spawn(state, 'neon-boxer', 0, 10);
     spawn(state, 'shadow-striker', 1, 10);
     advanceTick(state, BALANCE);
@@ -90,12 +106,12 @@ describe('synergy counting', () => {
 
   it('mixed-paths needs distinct paths, not path-tagged bodies', () => {
     const state = battle();
-    // Three speedsters: 1 distinct path — momentum on, balanced-forge off.
+    // Three cardio bodies: 1 distinct path — momentum on, balanced-forge off.
     spawn(state, 'neon-boxer', 0, 10);
     spawn(state, 'cardio-runner', 0, 14);
     spawn(state, 'blade-runner', 1, 10);
     advanceTick(state, BALANCE);
-    expect(state.auras.player.activeSynergyIds).toContain('speedster-momentum');
+    expect(state.auras.player.activeSynergyIds).toContain('cardio-momentum');
     expect(state.auras.player.activeSynergyIds).not.toContain('balanced-forge');
     expect(state.auras.player.moveSpeedMult).toBeCloseTo(1.15);
   });
@@ -242,7 +258,7 @@ describe('aura folding into stats and the tick pipeline', () => {
     advanceTick(state, BALANCE);
     const digest = computeDigest(state);
     state.auras.player.armorFlat += 100;
-    state.auras.player.activeSynergyIds.push('speedster-momentum');
+    state.auras.player.activeSynergyIds.push('cardio-momentum');
     expect(computeDigest(state)).toBe(digest);
   });
 

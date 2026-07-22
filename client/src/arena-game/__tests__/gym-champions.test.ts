@@ -90,7 +90,7 @@ async function makeProvider() {
 describe('multi-champion squads — spawning and invariants', () => {
   it('spawns the captain commandable and borrowed champions staggered behind it', () => {
     const state = createBattle(
-      squadConfig(squadOf('champion-titan', ['champion-speedster', 'champion-shredder', 'champion-hybrid'])),
+      squadConfig(squadOf('champion-titan', ['champion-cardio', 'champion-shredder', 'champion-aesthetic'])),
       BALANCE
     );
     const champions = state.units.filter((u) => u.kind === 'champion' && u.team === 'player');
@@ -115,7 +115,7 @@ describe('multi-champion squads — spawning and invariants', () => {
 
   it('opponent borrowed champions mirror the stagger toward their own core', () => {
     const state = createBattle(
-      squadConfig(squadOf('champion-titan', []), squadOf('champion-titan', ['champion-hybrid'])),
+      squadConfig(squadOf('champion-titan', []), squadOf('champion-titan', ['champion-aesthetic'])),
       BALANCE
     );
     const borrowed = state.units.find(
@@ -145,14 +145,14 @@ describe('multi-champion squads — spawning and invariants', () => {
     expect(() =>
       createBattle(squadConfig(squadOf('champion-titan', ['nope'])), BALANCE)
     ).toThrow(/unknown champion/);
-    const bad = squadOf('champion-titan', ['champion-hybrid']);
+    const bad = squadOf('champion-titan', ['champion-aesthetic']);
     bad.borrowed[0].lane = 7 as unknown as 0;
     expect(() => createBattle(squadConfig(bad), BALANCE)).toThrow(/invalid borrowed champion lane/);
   });
 
   it('invariants flag a second commandable champion and over-limit borrowed', () => {
     const state = createBattle(
-      squadConfig(squadOf('champion-titan', ['champion-speedster'])),
+      squadConfig(squadOf('champion-titan', ['champion-cardio'])),
       BALANCE
     );
     expect(checkInvariants(state, BALANCE)).toEqual([]);
@@ -165,7 +165,7 @@ describe('multi-champion squads — spawning and invariants', () => {
 
     // State surgery: spawn 3 extra borrowed → 4 borrowed on one team.
     for (let i = 0; i < 3; i++) {
-      spawnChampion(state, BALANCE, getChampionById('champion-hybrid')!, 'player', 0, undefined, {
+      spawnChampion(state, BALANCE, getChampionById('champion-aesthetic')!, 'player', 0, undefined, {
         commandable: false,
       });
     }
@@ -173,8 +173,8 @@ describe('multi-champion squads — spawning and invariants', () => {
   });
 
   it('digest covers the commandable flag', () => {
-    const a = createBattle(squadConfig(squadOf('champion-titan', ['champion-hybrid'])), BALANCE);
-    const b = createBattle(squadConfig(squadOf('champion-titan', ['champion-hybrid'])), BALANCE);
+    const a = createBattle(squadConfig(squadOf('champion-titan', ['champion-aesthetic'])), BALANCE);
+    const b = createBattle(squadConfig(squadOf('champion-titan', ['champion-aesthetic'])), BALANCE);
     expect(computeDigest(a)).toBe(computeDigest(b));
     b.units.find((u) => u.champion && !u.champion.commandable)!.champion!.commandable = true;
     expect(computeDigest(b)).not.toBe(computeDigest(a));
@@ -358,7 +358,7 @@ describe('borrowed auto-cast', () => {
 describe('borrowed respawn', () => {
   it('a borrowed champion respawns at its staggered spawn slot, state clean', () => {
     const state = createBattle(
-      squadConfig(squadOf('champion-titan', ['champion-speedster'])),
+      squadConfig(squadOf('champion-titan', ['champion-cardio'])),
       BALANCE
     );
     state.tick = 1;
@@ -392,8 +392,8 @@ describe('borrowed respawn', () => {
 describe('squad battles — determinism and replay', () => {
   it('full-squad battles run headless deterministically with clean invariants', () => {
     const config = squadConfig(
-      squadOf('champion-titan', ['champion-speedster', 'champion-shredder', 'champion-hybrid']),
-      squadOf('champion-hybrid', ['champion-titan', 'champion-speedster'])
+      squadOf('champion-titan', ['champion-cardio', 'champion-shredder', 'champion-aesthetic']),
+      squadOf('champion-aesthetic', ['champion-titan', 'champion-cardio'])
     );
     const a = runBattle(config, [], BALANCE);
     const b = runBattle(config, [], BALANCE);
@@ -684,8 +684,8 @@ describe('gym-war through the battle store (mode + recording)', () => {
     const playerSquad: TeamSquadConfig = {
       captain: { championId: 'champion-titan' },
       borrowed: [
-        { championId: 'champion-speedster', lane: 1, displayName: 'Kai', sourcePlayerId: 'm-1' },
-        { championId: 'champion-hybrid', lane: 0, displayName: 'Lena', sourcePlayerId: 'm-2' },
+        { championId: 'champion-cardio', lane: 1, displayName: 'Kai', sourcePlayerId: 'm-1' },
+        { championId: 'champion-aesthetic', lane: 0, displayName: 'Lena', sourcePlayerId: 'm-2' },
       ],
     };
     const opponentSquad: TeamSquadConfig = {

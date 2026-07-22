@@ -14,12 +14,20 @@ export const SYNERGIES: SynergyDefinition[] = [
     bonus: { armorFlat: 8 },
   },
   {
-    id: 'speedster-momentum',
+    id: 'cardio-momentum',
     name: 'Momentum',
-    description: '3 Speedster combatants: +15% movement speed.',
-    tag: 'speedster',
+    description: '3 Cardio combatants: +15% movement speed.',
+    tag: 'cardio',
     threshold: 3,
     bonus: { moveSpeedMult: 1.15 },
+  },
+  {
+    id: 'mass-presence',
+    name: 'Mass Presence',
+    description: '2 Mass combatants: frontline gains 4 flat armour per hit.',
+    tag: 'mass',
+    threshold: 2,
+    bonus: { armorFlat: 4 },
   },
   {
     id: 'support-network',

@@ -12,8 +12,10 @@ import type { FitnessProfile } from '../../integration/evoforge/types';
 import type { KeyValueStorage } from './storage';
 
 export const SAVE_KEY = 'evoforge-arena/save';
-/** v2 (M6): settings gained aiDifficulty. v3 (M9): gym squad + war stats. */
-export const SAVE_VERSION = 4;
+/** v2 (M6): settings gained aiDifficulty. v3 (M9): gym squad + war stats.
+ *  v4 (M10): onboardingComplete. v5 (five-champion pass): champion ids and
+ *  avatar paths remapped onto the official EvoForge roster. */
+export const SAVE_VERSION = 5;
 
 export interface DeckRecord {
   id: string;
@@ -221,7 +223,72 @@ const MIGRATIONS: Record<number, Migration> = {
       },
     };
   },
+  // v4 → v5 (five-champion pass): champion ids and avatar paths map onto the
+  // OFFICIAL EvoForge roster — no destructive resets. speedster → Cardio
+  // Machine's champion, hybrid → Aesthetics'; already-official ids pass
+  // through; anything unknown/malformed normalizes to the titan default (the
+  // same default a fresh save uses). The mock fitness avatarPath migrates by
+  // the same table and its stage clamps onto the real 1–4 art-stage ladder.
+  4: (data) => {
+    const oldPlayer =
+      typeof data.player === 'object' && data.player !== null
+        ? (data.player as Record<string, unknown>)
+        : {};
+    const oldFitness =
+      typeof data.fitness === 'object' && data.fitness !== null
+        ? (data.fitness as Record<string, unknown>)
+        : {};
+    const stage =
+      typeof oldFitness.avatarStage === 'number' && Number.isFinite(oldFitness.avatarStage)
+        ? Math.min(4, Math.max(1, Math.trunc(oldFitness.avatarStage)))
+        : 1;
+    return {
+      ...data,
+      saveVersion: 5,
+      player: {
+        ...oldPlayer,
+        championId: migrateChampionId(oldPlayer.championId),
+      },
+      fitness: {
+        ...oldFitness,
+        avatarPath: migrateAvatarPath(oldFitness.avatarPath),
+        avatarStage: stage,
+      },
+    };
+  },
 };
+
+/** The five official champion ids (v5). */
+const OFFICIAL_CHAMPION_IDS = new Set([
+  'champion-aesthetic',
+  'champion-titan',
+  'champion-mass',
+  'champion-shredder',
+  'champion-cardio',
+]);
+
+/** v4 → v5 champion id remap (exported for tests). */
+export function migrateChampionId(id: unknown): string {
+  if (id === 'champion-speedster') return 'champion-cardio';
+  if (id === 'champion-hybrid') return 'champion-aesthetic';
+  if (typeof id === 'string' && OFFICIAL_CHAMPION_IDS.has(id)) return id;
+  return 'champion-titan';
+}
+
+/** v4 → v5 avatar path remap (exported for tests). */
+export function migrateAvatarPath(path: unknown): string {
+  if (path === 'speedster') return 'cardio';
+  if (path === 'hybrid') return 'aesthetic';
+  if (
+    path === 'aesthetic' ||
+    path === 'titan' ||
+    path === 'mass' ||
+    path === 'shredder' ||
+    path === 'cardio'
+  )
+    return path;
+  return 'titan';
+}
 
 export interface LoadResult {
   save: SaveData;

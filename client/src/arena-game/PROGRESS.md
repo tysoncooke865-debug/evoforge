@@ -832,3 +832,76 @@ behind one provider interface documented in EVOFORGE_INTEGRATION.md.
 - Phase 1 audit complete: see ARENA_BETA_AUDIT.md. Headline: champion roster
   must become the official FIVE (Aesthetics, Titan, Mass Monster,
   The Shredder, Cardio Machine); real avatar stages; dev editor demoted.
+
+## P2+P3 — The official five-champion roster + real progression (2026-07-23) ✅
+
+Built (BALANCE_VERSION 0.6.0, save v5):
+- **THE OFFICIAL ROSTER** (audit CRITICAL #1): `AvatarPath` = EvoForge's live
+  `BranchV2` slugs minus retired hybrid (`aesthetic|titan|mass|shredder|
+  cardio`); five champions with stable slug-aligned ids `champion-<path>`
+  and display names PINNED by content validation ("Aesthetics", "Titan",
+  "Mass Monster", "The Shredder", "Cardio Machine" — exactly five, one per
+  path, both enforced as validation ERRORS). Aesthetics inherits the
+  tactician kit (Stance Shift + Forge Rally, ids renamed); Titan unchanged;
+  The Shredder keeps Phase Dash + Final Cut under the official name; Cardio
+  Machine inherits the tempo kit reflavored + `energyRefund: 1` on Overclock.
+- **Mass Monster — NEW kit, tested distinct from Titan** (different stats +
+  different ability behaviour class): 1900 HP bruiser with LOWER burst;
+  **Gravity Well** (cross-lane ground slow to 60% for 4s — area denial, no
+  stun/damage) and **Mass Uprising** (summons two Titan Guards at his
+  position, one per lane, via spawnUnitsForCard — a new deterministic
+  summon handler; `CardEffects.summon` validated against the card catalog).
+- **PASSIVES** — one per champion, data-driven (`ChampionPassiveDefinition`),
+  each mapped onto ONE existing engine mechanism, all validated + tested:
+  Iron Hide (Titan, 5 flat self-armour in damageUnit, min-1 shared rule);
+  Colossal Frame (Mass, ×1.1 max health baked at spawn); Killer Instinct
+  (The Shredder, own sourced hits ×1.25 vs targets below 35% — execute-
+  adjacent, never ultimates); Perpetual Motion (Cardio, team energy regen
+  ×1.05 while ALIVE via the aura recompute); Flow State (Aesthetics, team
+  healing ×1.1 while ALIVE). createBattle now seeds the initial aura
+  snapshot from real starting composition so passives are live from tick 1.
+- **Synergies/tags**: `speedster`→`cardio`, `hybrid`→`aesthetic` across all
+  card tags; heavy-tank dual-tagged `titan+mass`; new `mass-presence`
+  synergy (2 mass: 4 flat armour); `cardio-momentum` renamed; mixed-paths
+  now counts over five. Theme: five path colors (mass = fuchsia #E879F9,
+  distinct from titan amber and opponent red).
+- **Save v4→v5** (no destructive resets): championId speedster→cardio,
+  hybrid→aesthetic, official ids pass, unknown/malformed→titan default;
+  mock fitness avatarPath remapped identically, stage clamped to the real
+  1–4 ladder; everything else preserved (tested incl. v1→v5 chain).
+- **REAL PROGRESSION (audit HIGH #2)**: provider Origin mapping is 5→5
+  passthrough (hybrid→aesthetic, null→titan); avatar stage is EvoForge's
+  REAL derivation via pure `progression-mapping.ts` reusing domain
+  functions (`currentStageFor`): Shredder = body-fat (bodyfat_log latest
+  valid bf_mid), others = legacy level (base_level + xp_total() ledger,
+  pinned curve). Fallbacks only under-state (ledger null → base level; no
+  bf → stage 1). Gym members: path hash over FIVE, stage estimated from
+  forge_level, labeled "(EST.)" in the roster UI.
+- **Dev editor demoted (audit HIGH #3)**: no lobby button; debug-screen-only
+  with a DEV MOCK banner; champion detail screen now lists the athlete's
+  five real scaling multipliers (Size pillar naming) — "communicate, don't
+  hide".
+- **Sprites**: pipeline + CC0 sheet copied into the repo
+  (client/assets/arena-pixel-src/, client/scripts/arena-sprite-tools.mjs,
+  pngjs devDependency); five champion sprites regenerated with slug
+  variants; Mass Monster tile picked via preview survey (col 29 row 2 —
+  broadest silhouette, bulkier than Titan's); orphaned speedster/hybrid
+  PNGs deleted; registry updated.
+
+Verified:
+- `npx tsc --noEmit` clean · `npm test` — 93 files, 1,425+ tests green
+  (38 new: five-champion validation + pinned names, Mass kit numerics +
+  Titan distinctness, all five passives incl. alive-only aura lifecycle,
+  migration v4→v5 + malformed + v1→v5 chain, provider stage derivation
+  against a mocked supabase client + pure mapping table, mass-presence
+  synergy; 5x5 matchup matrix headless with zero invariant violations;
+  stability harness asserts all five champions fielded).
+- `npx expo lint` 0 errors · `npx expo export -p web` succeeds (all five
+  /forge-arena/champion/[id] routes statically render, incl. champion-mass).
+- Added `client/vitest.config.ts` (alias `@`→src only — enables the mocked
+  provider test; discovery untouched).
+
+Deviations, documented: records from balance <0.6.0 become cleanly
+unplayable (existing gate; KNOWN_ISSUES); ledger-behind-derived athletes
+may briefly see an earlier stage (KNOWN_ISSUES); borrowed Cardio Lane Shift
+ping-pong deferred to P4 (audit HIGH #5).

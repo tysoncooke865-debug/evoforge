@@ -30,11 +30,14 @@ export const colors = {
   player: '#22D3EE',
   opponent: '#F87171',
 
-  // Path identity colors (placeholder art tinting)
+  // Path identity colors — one per official Avatar Path (BranchV2 slugs).
+  // Mass is fuchsia: readable on bg #070B14 and clearly distinct from both
+  // titan amber and the opponent/danger red.
+  pathAesthetic: '#34D399',
   pathTitan: '#F59E0B',
-  pathSpeedster: '#22D3EE',
+  pathMass: '#E879F9',
   pathShredder: '#A78BFA',
-  pathHybrid: '#34D399',
+  pathCardio: '#22D3EE',
 } as const;
 
 export const spacing = {
@@ -61,14 +64,16 @@ export const typography = {
 
 export function pathColor(path: string): string {
   switch (path) {
+    case 'aesthetic':
+      return colors.pathAesthetic;
     case 'titan':
       return colors.pathTitan;
-    case 'speedster':
-      return colors.pathSpeedster;
+    case 'mass':
+      return colors.pathMass;
     case 'shredder':
       return colors.pathShredder;
-    case 'hybrid':
-      return colors.pathHybrid;
+    case 'cardio':
+      return colors.pathCardio;
     default:
       return colors.textDim;
   }

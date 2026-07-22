@@ -9,9 +9,14 @@
  * apply (mutates state; only called after validate passed).
  *
  * Semantics decisions (tested):
- *  - Titan's Quake Stomp / Seismic Smash are ground effects centered on the
- *    champion and hit BOTH lanes within radius (card AoE stays lane-scoped;
- *    cross-lane areas are deliberately a champion-only feature).
+ *  - Titan's Quake Stomp / Seismic Smash and the Mass Monster's Gravity Well
+ *    are ground effects centered on the champion and hit BOTH lanes within
+ *    radius (card AoE stays lane-scoped; cross-lane areas are deliberately a
+ *    champion-only feature).
+ *  - Mass Uprising summons existing fighter cards via spawnUnitsForCard —
+ *    first in the champion's lane, then alternating — at the champion's x.
+ *    Always valid (spawning needs no targets); summons inherit deploy-shield
+ *    auras like any fighter.
  *  - Phase Dash / Final Cut target living enemies (units and champions) in
  *    the champion's lane within aggro range. Furthest / lowest-current-health
  *    respectively, ties broken by lower entity id.
@@ -27,12 +32,14 @@
  *    the ultimate itself does not (no self-recharging ultimates).
  */
 import type { BalanceConfig } from '../../content/balance';
+import { getCardById } from '../../content/cards';
 import { getChampionById } from '../../content/champions';
 import type { ChampionAbilityDefinition } from '../../content/types';
 import { applyEffectPayload } from '../cards/effects';
 import { damageUnit } from '../combat/combat';
+import { spawnUnitsForCard } from '../entities/spawn';
 import { BattleState, enemyOf, logEvent, UnitState } from '../simulation/state';
-import type { CardEffects, TeamId } from '../types';
+import type { CardEffects, LaneId, TeamId } from '../types';
 
 export type AbilityCheck = { ok: true } | { ok: false; reason: string };
 
@@ -150,8 +157,9 @@ interface AbilityHandler {
   ): void;
 }
 
-/** Titan AoE: everything hostile within radius of the champion, both lanes. */
-function titanAoeTargets(
+/** Ground AoE (Titan, Mass Monster): everything hostile within radius of the
+ *  champion, BOTH lanes. */
+function groundAoeTargets(
   state: BattleState,
   champion: UnitState,
   ability: ChampionAbilityDefinition
@@ -171,9 +179,9 @@ function shredderTargets(
 const HANDLERS: Record<string, AbilityHandler> = {
   'titan-quake-stomp': {
     validate: (state, _balance, champion, ability) =>
-      titanAoeTargets(state, champion, ability).length > 0 ? OK : NO_VALID_TARGETS,
+      groundAoeTargets(state, champion, ability).length > 0 ? OK : NO_VALID_TARGETS,
     apply: (state, balance, champion, ability) => {
-      const enemies = titanAoeTargets(state, champion, ability);
+      const enemies = groundAoeTargets(state, champion, ability);
       applyEffectPayload(state, balance, ability.effects, champion.team, { allies: [], enemies }, {
         sourceId: ability.id,
         damageLabel: abilityLabel(ability),
@@ -185,9 +193,9 @@ const HANDLERS: Record<string, AbilityHandler> = {
 
   'titan-ground-smash': {
     validate: (state, _balance, champion, ability) =>
-      titanAoeTargets(state, champion, ability).length > 0 ? OK : NO_VALID_TARGETS,
+      groundAoeTargets(state, champion, ability).length > 0 ? OK : NO_VALID_TARGETS,
     apply: (state, balance, champion, ability) => {
-      const enemies = titanAoeTargets(state, champion, ability);
+      const enemies = groundAoeTargets(state, champion, ability);
       // No damageSource: an ultimate never charges the next one.
       applyEffectPayload(state, balance, ability.effects, champion.team, { allies: [], enemies }, {
         sourceId: ability.id,
@@ -197,7 +205,46 @@ const HANDLERS: Record<string, AbilityHandler> = {
     },
   },
 
-  'speedster-lane-shift': {
+  'mass-gravity-well': {
+    // Area denial, not burst: slows every enemy in the ground area (both
+    // lanes) — applyEffectPayload routes moveSpeedMult < 1 as an enemy
+    // debuff with refresh-by-sourceId stacking.
+    validate: (state, _balance, champion, ability) =>
+      groundAoeTargets(state, champion, ability).length > 0 ? OK : NO_VALID_TARGETS,
+    apply: (state, balance, champion, ability) => {
+      const enemies = groundAoeTargets(state, champion, ability);
+      applyEffectPayload(state, balance, ability.effects, champion.team, { allies: [], enemies }, {
+        sourceId: ability.id,
+        damageLabel: abilityLabel(ability),
+        damageSource: champion,
+      });
+      logEvent(state, 'ability', `${champion.contentId}#${champion.id} slowed ${enemies.length} enemies`);
+    },
+  },
+
+  'mass-summon': {
+    // Summoning needs no targets — always castable once charged.
+    validate: () => OK,
+    apply: (state, balance, champion, ability) => {
+      const summon = ability.effects.summon;
+      if (!summon) return; // unreachable: content validation pins the payload
+      const card = getCardById(summon.cardId);
+      if (!card?.unit) return; // unreachable: content validation pins the card
+      for (let i = 0; i < summon.count; i++) {
+        // First summon holds the champion's lane, then alternate — sustained
+        // area presence across the arena rather than one stacked blob.
+        const lane: LaneId = i % 2 === 0 ? champion.lane : champion.lane === 0 ? 1 : 0;
+        spawnUnitsForCard(state, balance, card, champion.team, lane, champion.x);
+      }
+      logEvent(
+        state,
+        'ultimate',
+        `${champion.contentId}#${champion.id} summoned ${summon.count}x ${summon.cardId}`
+      );
+    },
+  },
+
+  'cardio-lane-shift': {
     validate: () => OK,
     apply: (state, _balance, champion) => {
       champion.lane = champion.lane === 0 ? 1 : 0;
@@ -210,7 +257,7 @@ const HANDLERS: Record<string, AbilityHandler> = {
     },
   },
 
-  'speedster-overclock': {
+  'cardio-overclock': {
     validate: () => OK,
     apply: (state, balance, champion, ability) => {
       applyEffectPayload(
@@ -262,7 +309,7 @@ const HANDLERS: Record<string, AbilityHandler> = {
     },
   },
 
-  'hybrid-stance-shift': {
+  'aesthetic-stance-shift': {
     validate: () => OK,
     apply: (state, balance, champion, ability) => {
       const champ = champion.champion;
@@ -296,7 +343,7 @@ const HANDLERS: Record<string, AbilityHandler> = {
     },
   },
 
-  'hybrid-rally': {
+  'aesthetic-rally': {
     validate: () => OK, // the champion itself is always a living ally
     apply: (state, balance, champion, ability) => {
       const allies = state.units.filter((u) => u.alive && u.team === champion.team);

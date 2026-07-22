@@ -6,6 +6,7 @@
 import { ALL_AVATAR_PATHS, ALL_UNIT_TAGS } from '../game-engine/types';
 import type { CombatStats } from '../game-engine/types';
 import { ALL_AI_DIFFICULTIES, BALANCE } from './balance';
+import { getCardById } from './cards';
 import type {
   AugmentDefinition,
   CardDefinition,
@@ -96,6 +97,62 @@ export function validateCards(cards: CardDefinition[]): { errors: string[]; warn
   return { errors, warnings };
 }
 
+/**
+ * The OFFICIAL display names, pinned per path — exactly EvoForge's five live
+ * branches (branchDisplayNameV2 minus the emoji). "The Shredder" keeps its
+ * article. A rename here is a product decision, not a refactor.
+ */
+export const OFFICIAL_CHAMPION_NAMES: Record<string, string> = {
+  aesthetic: 'Aesthetics',
+  titan: 'Titan',
+  mass: 'Mass Monster',
+  shredder: 'The Shredder',
+  cardio: 'Cardio Machine',
+};
+
+function validatePassive(prefix: string, ch: ChampionDefinition, errors: string[]): void {
+  const passive = ch.passive;
+  if (!passive || typeof passive !== 'object') {
+    errors.push(`${prefix}: missing passive`);
+    return;
+  }
+  const pp = `${prefix} passive '${passive.id}'`;
+  if (!passive.id || !/^[a-z0-9-]+$/.test(passive.id)) errors.push(`${pp}: invalid id`);
+  if (!passive.name || !passive.description) errors.push(`${pp}: missing name/description`);
+  const e = passive.effects ?? {};
+  const kinds = [e.selfArmorFlat, e.spawnMaxHealthMult, e.lowHealthBonus, e.teamAura].filter(
+    (v) => v !== undefined
+  );
+  if (kinds.length === 0) errors.push(`${pp}: needs at least one effect`);
+  if (e.selfArmorFlat !== undefined && (!isFiniteNumber(e.selfArmorFlat) || e.selfArmorFlat <= 0))
+    errors.push(`${pp}: selfArmorFlat must be > 0`);
+  if (
+    e.spawnMaxHealthMult !== undefined &&
+    (!isFiniteNumber(e.spawnMaxHealthMult) || e.spawnMaxHealthMult <= 0)
+  )
+    errors.push(`${pp}: spawnMaxHealthMult must be > 0`);
+  if (e.lowHealthBonus !== undefined) {
+    const b = e.lowHealthBonus;
+    if (
+      !isFiniteNumber(b.belowHealthFraction) ||
+      b.belowHealthFraction <= 0 ||
+      b.belowHealthFraction >= 1
+    )
+      errors.push(`${pp}: lowHealthBonus.belowHealthFraction must be in (0, 1)`);
+    if (!isFiniteNumber(b.damageMult) || b.damageMult <= 1)
+      errors.push(`${pp}: lowHealthBonus.damageMult must be > 1`);
+  }
+  if (e.teamAura !== undefined) {
+    const fields = [e.teamAura.energyRegenMult, e.teamAura.healingMult];
+    if (fields.every((v) => v === undefined))
+      errors.push(`${pp}: teamAura needs at least one multiplier`);
+    for (const v of fields) {
+      if (v !== undefined && (!isFiniteNumber(v) || v <= 0))
+        errors.push(`${pp}: teamAura multipliers must be > 0`);
+    }
+  }
+}
+
 export function validateChampions(champions: ChampionDefinition[]): {
   errors: string[];
   warnings: string[];
@@ -113,8 +170,15 @@ export function validateChampions(champions: ChampionDefinition[]): {
     if (seenPaths.has(ch.path)) errors.push(`${prefix}: duplicate path '${ch.path}'`);
     seenPaths.add(ch.path);
     if (!ALL_AVATAR_PATHS.includes(ch.path)) errors.push(`${prefix}: unknown path '${ch.path}'`);
+    // Stable slug-aligned ids + pinned official display names.
+    if (ch.id !== `champion-${ch.path}`)
+      errors.push(`${prefix}: id must be 'champion-${ch.path}' (slug-aligned)`);
+    const officialName = OFFICIAL_CHAMPION_NAMES[ch.path];
+    if (officialName !== undefined && ch.name !== officialName)
+      errors.push(`${prefix}: display name must be '${officialName}', found '${ch.name}'`);
     validateStats(prefix, ch.stats, errors);
     validateTags(prefix, ch.tags, errors);
+    validatePassive(prefix, ch, errors);
 
     for (const ability of [ch.ability, ch.ultimate]) {
       const ap = `${prefix} ability '${ability.id}'`;
@@ -122,6 +186,15 @@ export function validateChampions(champions: ChampionDefinition[]): {
       if (!ability.name || !ability.description) errors.push(`${ap}: missing name/description`);
       if (!isFiniteNumber(ability.cooldownTicks) || ability.cooldownTicks < 0)
         errors.push(`${ap}: cooldownTicks must be >= 0`);
+      // Summon payloads must reference a real fighter card (Mass Monster).
+      const summon = ability.effects?.summon;
+      if (summon !== undefined) {
+        const card = getCardById(summon.cardId);
+        if (!card || card.category !== 'fighter' || !card.unit)
+          errors.push(`${ap}: summon.cardId '${summon.cardId}' is not a fighter card`);
+        if (!Number.isInteger(summon.count) || summon.count < 1 || summon.count > 5)
+          errors.push(`${ap}: summon.count must be 1..5`);
+      }
     }
     if (ch.ability.kind !== 'active') errors.push(`${prefix}: ability.kind must be 'active'`);
     if (ch.ultimate.kind !== 'ultimate') errors.push(`${prefix}: ultimate.kind must be 'ultimate'`);
@@ -133,7 +206,12 @@ export function validateChampions(champions: ChampionDefinition[]): {
     if (ch.animationStates.length === 0) errors.push(`${prefix}: needs animation states`);
     if (!ch.animationStates.includes('death')) warnings.push(`${prefix}: no 'death' animation state`);
   }
-  if (champions.length !== 4) warnings.push(`expected 4 champions, found ${champions.length}`);
+  // THE OFFICIAL ROSTER: exactly five champions, one per live branch.
+  if (champions.length !== ALL_AVATAR_PATHS.length)
+    errors.push(`expected ${ALL_AVATAR_PATHS.length} champions (one per path), found ${champions.length}`);
+  for (const path of ALL_AVATAR_PATHS) {
+    if (!seenPaths.has(path)) errors.push(`no champion for path '${path}'`);
+  }
   return { errors, warnings };
 }
 

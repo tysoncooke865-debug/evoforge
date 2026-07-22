@@ -35,7 +35,7 @@ describe('seeded gyms', () => {
         );
         expect(f.evoRating).toBe(expectedEvo);
         expect(f.forgeLevel).toBeGreaterThanOrEqual(1);
-        expect(['titan', 'speedster', 'shredder', 'hybrid']).toContain(f.avatarPath);
+        expect(['aesthetic', 'titan', 'mass', 'shredder', 'cardio']).toContain(f.avatarPath);
       }
     }
   });

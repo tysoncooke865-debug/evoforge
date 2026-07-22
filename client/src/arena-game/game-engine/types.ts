@@ -4,35 +4,44 @@
  * anywhere under src/game-engine.
  */
 
-/** Autobattler synergy / identity tags. */
+/** Autobattler synergy / identity tags. Path tags are EvoForge's live
+ *  BranchV2 slugs (minus the retired 'hybrid'). */
 export type UnitTag =
+  | 'aesthetic'
   | 'titan'
-  | 'speedster'
+  | 'mass'
   | 'shredder'
-  | 'hybrid'
+  | 'cardio'
   | 'brawler'
   | 'ranged'
   | 'support'
   | 'tech';
 
 export const ALL_UNIT_TAGS: readonly UnitTag[] = [
+  'aesthetic',
   'titan',
-  'speedster',
+  'mass',
   'shredder',
-  'hybrid',
+  'cardio',
   'brawler',
   'ranged',
   'support',
   'tech',
 ];
 
-export type AvatarPath = 'titan' | 'speedster' | 'shredder' | 'hybrid';
+/**
+ * The FIVE official Avatar Paths — exactly EvoForge's live `BranchV2` roster
+ * ('hybrid' is retired). Champion identity, synergy path counting and the
+ * provider's Origin mapping all key off these slugs.
+ */
+export type AvatarPath = 'aesthetic' | 'titan' | 'mass' | 'shredder' | 'cardio';
 
 export const ALL_AVATAR_PATHS: readonly AvatarPath[] = [
+  'aesthetic',
   'titan',
-  'speedster',
+  'mass',
   'shredder',
-  'hybrid',
+  'cardio',
 ];
 
 export type LaneId = 0 | 1;
@@ -108,4 +117,11 @@ export interface CardEffects {
    * below this fraction of its base max health is executed outright.
    */
   executeBelowHealthFraction?: number;
+  /**
+   * Champion-only: summon `count` deploys of an existing fighter card at the
+   * caster's position (Mass Monster's ultimate). Deterministic — reuses
+   * spawnUnitsForCard; validated against the card catalog at content load.
+   * No card ships this effect (cards keep numeric-only payloads).
+   */
+  summon?: { cardId: string; count: number };
 }

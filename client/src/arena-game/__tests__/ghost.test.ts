@@ -65,7 +65,7 @@ describe('ghost command transform', () => {
   const config: BattleConfig = {
     seed: 20260801,
     player: { playerId: 'p1', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-titan' },
-    opponent: { playerId: 'foe', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-speedster' },
+    opponent: { playerId: 'foe', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-cardio' },
   };
 
   // Hand-written command stream exercising every command type, including
@@ -249,7 +249,7 @@ describe('ghost battles — full runs', () => {
     const sourceConfig: BattleConfig = {
       seed: 555,
       player: { playerId: 'p1', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-titan' },
-      opponent: { playerId: 'foe', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-speedster' },
+      opponent: { playerId: 'foe', deckCardIds: DEFAULT_DECK_CARD_IDS, championId: 'champion-cardio' },
     };
     const sourceCommands: ScheduledCommand[] = [
       { tick: 20, command: { type: 'deploy-card', team: 'player', cardId: 'forge-recruit', lane: 0, x: 10 } },
@@ -260,7 +260,7 @@ describe('ghost battles — full runs', () => {
     function playGhost(): number {
       const created = createGhostLiveBattle(record, 20262026, 'p2', {
         playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
-        playerChampionId: 'champion-hybrid',
+        playerChampionId: 'champion-aesthetic',
       });
       expect(created.ok).toBe(true);
       if (!created.ok) throw new Error('unreachable');

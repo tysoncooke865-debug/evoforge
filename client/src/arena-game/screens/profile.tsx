@@ -1,7 +1,7 @@
 import React from 'react';
 import { ErrorBoundary } from '../components/error-boundary';
 import { Body, Heading, Mono, Panel, Screen } from '../components/ui';
-import { getChampionById } from '../content';
+import { getChampionById, pathDisplayName } from '../content';
 import { usePlayer } from '../services/player-data/use-player';
 
 export default function ProfileScreen() {
@@ -31,11 +31,11 @@ function ProfileScreenInner() {
         <Body>Overall: {f.evoRating}</Body>
         <Body dim>Strength {f.strengthRating} · Cardio {f.cardioRating}</Body>
         <Body dim>
-          Muscularity {f.muscularityRating} · Leanness {f.leannessRating} · Aesthetics{' '}
+          Size {f.muscularityRating} · Leanness {f.leannessRating} · Aesthetics{' '}
           {f.aestheticsRating}
         </Body>
         <Body dim>
-          Forge Level {f.forgeLevel} · Path {f.avatarPath} · Stage {f.avatarStage}
+          Forge Level {f.forgeLevel} · Path {pathDisplayName(f.avatarPath)} · Stage {f.avatarStage}
         </Body>
         <Mono>
           Fitness data is simulated locally and read through the EvoForge provider boundary.

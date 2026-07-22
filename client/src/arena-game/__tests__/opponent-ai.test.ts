@@ -186,10 +186,13 @@ describe('the AI never cheats', () => {
         }
       }
       // Energy stays within what regen can possibly have produced (loose
-      // upper bound: max multipliers the whole time), on top of the engine
-      // invariant that already caps it at the energy maximum.
+      // upper bound: max multipliers the whole time — the 1.1 regen augment
+      // AND the Cardio Machine's 1.05 Perpetual Motion passive), on top of
+      // the engine invariant that already caps it at the energy maximum.
       const bound =
-        startingEnergy + live.state.tick * regenPerTick * finalMinuteRegenMult * 1.1 + 1e-6;
+        startingEnergy +
+        live.state.tick * regenPerTick * finalMinuteRegenMult * 1.1 * 1.05 +
+        1e-6;
       expect(live.state.teams.opponent.energy).toBeLessThanOrEqual(
         Math.min(BALANCE.energy.max + 1e-9, bound)
       );
@@ -251,7 +254,7 @@ describe('AI augment choice', () => {
   });
 
   it('chooses in a real long battle (offer crossed live)', () => {
-    const live = defendedBattle(777, 'training', 'champion-hybrid');
+    const live = defendedBattle(777, 'training', 'champion-aesthetic');
     expect(live.state.outcome!.endTick).toBeGreaterThan(BALANCE.augment.offerTick);
     const opponentAugment = live.state.teams.opponent.augment;
     expect(opponentAugment.chosenId).not.toBeNull();
@@ -265,7 +268,7 @@ describe('AI augment choice', () => {
 
 describe('full replay fidelity: AI + augments + synergies in one live battle', () => {
   it('replays digest-identically with zero violations, and is deterministic', () => {
-    const play = () => defendedBattle(777, 'training', 'champion-hybrid');
+    const play = () => defendedBattle(777, 'training', 'champion-aesthetic');
     const live = play();
     expect(live.state.phase).toBe('finished');
     expect(live.rejected).toEqual([]);

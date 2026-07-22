@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { Body, Heading, Mono, NeonButton, Panel, Screen } from '../components/ui';
@@ -13,6 +14,7 @@ import {
 import { usePlayer } from '../services/player-data/use-player';
 
 export default function DebugScreen() {
+  const router = useRouter();
   const save = usePlayer((s) => s.save);
   const recovered = usePlayer((s) => s.recovered);
   const fresh = usePlayer((s) => s.fresh);
@@ -119,6 +121,19 @@ export default function DebugScreen() {
           </Mono>
         )}
         <NeonButton label="Clear records" variant="danger" onPress={confirmClearRecords} />
+      </Panel>
+
+      <Panel>
+        <Heading>Dev tools</Heading>
+        <Body dim>
+          The fitness editor edits the LOCAL MOCK save only — integrated battles read real
+          EvoForge data through the provider and ignore it entirely.
+        </Body>
+        <NeonButton
+          label="Fitness Editor (dev mock)"
+          variant="secondary"
+          onPress={() => router.push('/forge-arena/dev-fitness-editor')}
+        />
       </Panel>
 
       <NeonButton label={resetDone ? 'Data reset ✓' : 'Reset all data'} variant="danger" onPress={confirmReset} />

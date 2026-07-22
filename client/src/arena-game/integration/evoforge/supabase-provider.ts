@@ -6,32 +6,46 @@
  * gym-battle precedent — no client-minted XP, no server writes. A reward
  * migration (server-priced xp_ledger kind) is a deliberate later decision.
  *
- * Mapping notes (EvoForge → Arena FitnessProfile):
+ * Mapping notes (EvoForge → Arena FitnessProfile; pure functions live in
+ * progression-mapping.ts, tested directly):
  *  - Pillars: strength←strength_score, cardio←cardio_score,
- *    muscularity←size_score, aesthetics←aesthetics_score (evo_rating_current,
- *    1–100); leanness←profiles.leanness_score.
+ *    muscularity←size_score (EvoForge's SIZE pillar — the field name is
+ *    save-compat, all UI copy says Size), aesthetics←aesthetics_score
+ *    (evo_rating_current, 1–100); leanness←profiles.leanness_score.
  *  - forgeLevel: derived from user_progression.lifetime_xp via the pinned
  *    forgeProgressFor curve (SQL twin in migration 023).
- *  - avatarPath: profiles.origin_path (BranchV2, 5 live branches) folded onto
- *    the Arena's 4 paths: shredder→shredder, titan/mass→titan,
- *    cardio→speedster, aesthetic/hybrid→hybrid.
- *  - avatarStage: forge-level ladder 25/50/75/100 → stages 1–5 (uniform for
- *    all branches; the Shredder's body-fat stages are display-only here).
+ *  - avatarPath: profiles.origin_path (BranchV2) passes through 5→5 — the
+ *    five live branches ARE the five champions; retired 'hybrid' →
+ *    'aesthetic'; missing → 'titan'.
+ *  - avatarStage: the REAL evolution stage (audit HIGH #2) — the same
+ *    branch-specific derivation the customiser renders: The Shredder's
+ *    stage is BODY-FAT-driven (latest bodyfat_log bf_mid > 0); the other
+ *    branches use their legacy-level ladders, with the legacy level derived
+ *    from profiles.base_level + public.xp_total() (the ledger path). Every
+ *    fallback under-states progress, never inflates it.
  *  - Gym members expose forge_level + evo_rating only, so member pillar
- *    ratings are approximated as their evo_rating and their path derives
- *    deterministically from their user id — a "simplified fitness-derived
- *    build" exactly as the Arena's borrowed-champion spec allows.
+ *    ratings are approximated as their evo_rating, their path derives
+ *    deterministically from their user id (over the FIVE official paths)
+ *    and their stage is estimated from forge_level — a "simplified
+ *    fitness-derived build" exactly as the Arena's borrowed-champion spec
+ *    allows (rendered as estimated).
  *
  * Every read fails soft to sensible baselines: a broken profile must never
  * block battling (the Arena then plays with neutral scaling).
  */
 import { supabase } from '@/data/supabase';
-import { originAsBranch } from '@/domain/customise';
 import { forgeProgressFor } from '@/domain/progression/forge-level';
-import { seedFromString } from '../../game-engine/random/rng';
-import { ALL_AVATAR_PATHS, AvatarPath } from '../../game-engine/types';
+import { AvatarPath } from '../../game-engine/types';
 import type { PlayerStore } from '../../services/player-data/player-store';
 import { LocalMockPlayerProvider } from './local-mock-provider';
+import {
+  branchToAvatarPath,
+  deriveLegacyLevel,
+  deriveRealStage,
+  estimateMemberStage,
+  latestValidBfMid,
+  pathFromUserId,
+} from './progression-mapping';
 import type {
   BattleResult,
   EvoForgePlayerProvider,
@@ -41,44 +55,13 @@ import type {
   PlayerProfile,
 } from './types';
 
+export { branchToAvatarPath } from './progression-mapping';
+
 const BASELINE_RATING = 50;
-/** Forge levels at which the avatar stage advances (stages 1–5). */
-const STAGE_LEVELS = [25, 50, 75, 100];
 
 function clampRating(value: unknown): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? value : BASELINE_RATING;
   return Math.min(100, Math.max(1, Math.round(n)));
-}
-
-function stageForLevel(level: number): number {
-  let stage = 1;
-  for (const threshold of STAGE_LEVELS) {
-    if (level >= threshold) stage++;
-  }
-  return stage;
-}
-
-/** Folds EvoForge's five live branches onto the Arena's four paths. */
-export function branchToAvatarPath(originPath: string | null | undefined): AvatarPath {
-  switch (originAsBranch(originPath)) {
-    case 'shredder':
-      return 'shredder';
-    case 'titan':
-    case 'mass':
-      return 'titan';
-    case 'cardio':
-      return 'speedster';
-    case 'aesthetic':
-    case 'hybrid':
-      return 'hybrid';
-    default:
-      return 'titan';
-  }
-}
-
-/** Deterministic path for gym members whose origin is not visible to us. */
-function pathFromUserId(userId: string): AvatarPath {
-  return ALL_AVATAR_PATHS[seedFromString(userId) % ALL_AVATAR_PATHS.length];
 }
 
 function baselineFitness(playerId: string): FitnessProfile {
@@ -127,7 +110,7 @@ export class SupabaseEvoForgePlayerProvider implements EvoForgePlayerProvider {
       const originPath = profile && profile.length > 0 ? profile[0].origin_path : null;
       if (originPath) {
         // The Origin lock decides the champion — same rule as EvoForge's
-        // own battle champion select.
+        // own battle champion select. 5 → 5: the Origin IS the champion.
         championId = `champion-${branchToAvatarPath(originPath)}`;
       }
     } catch {
@@ -143,30 +126,68 @@ export class SupabaseEvoForgePlayerProvider implements EvoForgePlayerProvider {
       return baselineFitness(playerId);
     }
     try {
-      const [{ data: evo }, { data: profile }, { data: progression }] = await Promise.all([
-        supabase.from('evo_rating_current').select('*').limit(1),
-        supabase.from('profiles').select('leanness_score,origin_path').limit(1),
-        supabase.from('user_progression').select('lifetime_xp').limit(1),
-      ]);
+      const [{ data: evo }, { data: profile }, { data: progression }, ledgerXp, bfMid] =
+        await Promise.all([
+          supabase.from('evo_rating_current').select('*').limit(1),
+          supabase.from('profiles').select('leanness_score,origin_path,base_level').limit(1),
+          supabase.from('user_progression').select('lifetime_xp').limit(1),
+          this.fetchLedgerXp(),
+          this.fetchLatestBfMid(),
+        ]);
       const evoRow = (evo?.[0] ?? {}) as Record<string, unknown>;
       const profileRow = (profile?.[0] ?? {}) as Record<string, unknown>;
       const lifetimeXp =
         typeof progression?.[0]?.lifetime_xp === 'number' ? progression[0].lifetime_xp : 0;
-      const level = forgeProgressFor(lifetimeXp).level;
+      const forgeLevel = forgeProgressFor(lifetimeXp).level;
+      const avatarPath: AvatarPath = branchToAvatarPath(profileRow.origin_path as string | null);
+      // The REAL stage: legacy display level (base_level + XP ledger, pinned
+      // curve) drives the level ladders; The Shredder's stage is body-fat-
+      // driven. See progression-mapping.ts for the fallback doctrine.
+      const legacyLevel = deriveLegacyLevel(profileRow.base_level, ledgerXp);
       return {
         playerId,
         evoRating: clampRating(evoRow.displayed_rating),
         strengthRating: clampRating(evoRow.strength_score),
         cardioRating: clampRating(evoRow.cardio_score),
+        // EvoForge's SIZE pillar — field name kept for save compatibility.
         muscularityRating: clampRating(evoRow.size_score),
         aestheticsRating: clampRating(evoRow.aesthetics_score),
         leannessRating: clampRating(profileRow.leanness_score),
-        forgeLevel: level,
-        avatarPath: branchToAvatarPath(profileRow.origin_path as string | null),
-        avatarStage: stageForLevel(level),
+        forgeLevel,
+        avatarPath,
+        avatarStage: deriveRealStage(avatarPath, legacyLevel, bfMid),
       };
     } catch {
       return baselineFitness(playerId);
+    }
+  }
+
+  /** xp_events summed server-side (public.xp_total()) — null on ANY failure,
+   *  never 0 (the useLedgerXp rule). */
+  private async fetchLedgerXp(): Promise<number | null> {
+    try {
+      const { data, error } = await supabase.rpc('xp_total');
+      if (error || data === null || data === undefined) return null;
+      const n = Number(data);
+      return Number.isFinite(n) ? Math.trunc(n) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Latest valid bf_mid (> 0) from the newest readings — mirrors
+   *  useLatestBodyfatMid. Null (stage 1 / level ladder) on any failure. */
+  private async fetchLatestBfMid(): Promise<number | null> {
+    try {
+      const { data, error } = await supabase
+        .from('bodyfat_log')
+        .select('bf_mid,timestamp')
+        .order('timestamp', { ascending: false })
+        .limit(90);
+      if (error || !Array.isArray(data)) return null;
+      return latestValidBfMid(data.map((r) => (r as Record<string, unknown>).bf_mid));
+    } catch {
+      return null;
     }
   }
 
@@ -202,9 +223,12 @@ export class SupabaseEvoForgePlayerProvider implements EvoForgePlayerProvider {
         leannessRating: rating,
         aestheticsRating: rating,
         forgeLevel: level,
+        // Estimated build: gym_detail exposes no origin/stage inputs (RLS),
+        // so path synthesizes over the FIVE official paths and stage
+        // estimates from forge_level — see progression-mapping.ts.
         avatarPath:
           member.user_id === this.userId ? branchToAvatarPath(null) : pathFromUserId(member.user_id),
-        avatarStage: stageForLevel(level),
+        avatarStage: estimateMemberStage(level),
       };
       this.memberFitness.set(member.user_id, fitness);
       return {

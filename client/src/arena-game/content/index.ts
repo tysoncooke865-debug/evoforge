@@ -21,7 +21,7 @@ export type { AiDifficulty, AiDifficultyConfig } from './balance';
 export { ALL_AI_DIFFICULTIES } from './balance';
 export { AUGMENTS, getAugmentById } from './augments';
 export { CARDS, getCardById } from './cards';
-export { CHAMPIONS, getChampionById, getChampionByPath } from './champions';
+export { CHAMPIONS, getChampionById, getChampionByPath, pathDisplayName } from './champions';
 export { SYNERGIES } from './synergies';
 export type {
   AugmentDefinition,

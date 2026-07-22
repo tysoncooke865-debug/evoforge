@@ -174,3 +174,36 @@
 ## Integrated beta (overnight run 2026-07-23)
 - See ARENA_BETA_AUDIT.md for the classified audit; items graduate into
   this file as they are fixed or explicitly deferred.
+
+## Five-champion pass (P2+P3, 2026-07-23)
+
+- **Balance 0.6.0 makes pre-existing battle records cleanly unplayable.**
+  The roster change (paths, kits, passives, synergy tags) bumped
+  BALANCE_VERSION; old records stay listed in the battle log with the
+  existing stale-balance explanation and their Watch/Fight actions disabled
+  (the established gate). Not destructive — nothing is deleted — and
+  accepted: records are not migrated across balance tuning, by design.
+- **Save v4→v5 remaps champion identity, never resets it**: saved
+  `championId` speedster→champion-cardio, hybrid→champion-aesthetic,
+  official ids pass through, anything unknown normalizes to champion-titan;
+  the mock fitness avatarPath migrates by the same table and its stage
+  clamps onto the real 1–4 art-stage ladder. All other fields preserved
+  (tested, incl. the full v1→v5 chain).
+- **The Arena's avatar stage is now EvoForge's real one** (provider):
+  The Shredder's stage is body-fat-driven (latest bodyfat_log bf_mid > 0);
+  level branches use their real ladders off base_level + public.xp_total().
+  Two documented under-statements (never inflations): a failed/unreconciled
+  ledger read falls back to base_level alone, and EvoForge's screens floor
+  the ledger at the log-derived XP total, which a pure profile query cannot
+  compute — a ledger-behind-derived athlete may briefly see an earlier
+  stage in the Arena than on the avatar screen.
+- **Gym member identity is estimated** (unchanged mechanism, now labeled):
+  paths synthesize deterministically over the FIVE official slugs and
+  stages estimate from forge_level; the roster chips read "(EST.)". The
+  real fix is a gym_detail origin_path migration (flagged in the audit,
+  shared-schema protected).
+- **Borrowed Cardio Machine still auto-casts Lane Shift on cooldown**
+  (audit HIGH #5, kit inherited): its validate is unconditionally OK, so a
+  borrowed one ping-pongs lanes every 10s in gym wars. A combat-nearby gate
+  is the sketched fix — deliberately not landed in the roster pass (P4+
+  engine-reliability scope).

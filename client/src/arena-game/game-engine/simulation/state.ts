@@ -13,6 +13,9 @@ import type { ChampionFitnessScaling } from '../balance/fitness-scaling';
 import { initTeamCards, TeamCardsState } from '../cards/deck';
 import { championSpawnX, spawnChampion } from '../entities/spawn';
 import { SeededRng } from '../random/rng';
+// Runtime-only usage inside createBattle (the module cycle with synergies.ts
+// is init-safe: neither module calls the other during initialization).
+import { computeTeamAuras } from '../synergies/synergies';
 import type { CombatStats, LaneId, TeamId } from '../types';
 
 export type EntityId = number;
@@ -57,8 +60,15 @@ export interface ChampionState {
   /** Ability cooldown duration for THIS champion (fitness-scaled at spawn). */
   abilityCooldownTotalTicks: number;
   respawnDelayTicks: number;
-  /** Stance Shift uses so far (Hybrid): even = Bulwark next, odd = Assault. */
+  /** Stance Shift uses so far (Aesthetics): even = Bulwark next, odd = Assault. */
   stanceShifts: number;
+  /**
+   * Passive hooks copied from content at spawn (config-derived constants —
+   * not digested, like chargeRequired/respawnDelayTicks). Zero/null when the
+   * champion's passive uses other mechanisms (spawn bake / team aura).
+   */
+  passiveArmorFlat: number;
+  passiveLowHealthBonus: { belowHealthFraction: number; damageMult: number } | null;
   /**
    * Where this champion spawned (and respawns). Captains use the standard
    * spawn offset; borrowed champions are staggered behind it (M9) so squads
@@ -369,9 +379,10 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
         augment: { offeredIds: null, chosenId: null, chosenAtTick: null },
       },
     },
-    // Neutral at creation: no synergy can activate off a lone champion (all
-    // thresholds >= 2 tags / 3 paths) and no augment exists yet. The tick
-    // pipeline recomputes at the end of every tick.
+    // Neutral placeholder — recomputed below once champions have spawned so
+    // tick 1 already sees champion passives (and any squad synergies) instead
+    // of a synthetic empty-team snapshot. The tick pipeline then recomputes
+    // at the end of every tick as before.
     auras: { player: neutralTeamAuras(), opponent: neutralTeamAuras() },
     outcome: null,
     log: [],
@@ -417,6 +428,12 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
       });
     });
   }
+  // Initial aura snapshot from the REAL starting composition: champion
+  // passives (and full-squad synergies) are live from tick 1 instead of
+  // arriving one tick late off a synthetic empty snapshot. Deterministic —
+  // derived purely from the spawns above.
+  state.auras.player = computeTeamAuras(state, 'player');
+  state.auras.opponent = computeTeamAuras(state, 'opponent');
   return state;
 }
 

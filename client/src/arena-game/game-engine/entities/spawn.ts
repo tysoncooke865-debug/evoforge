@@ -50,7 +50,13 @@ export function spawnChampion(
   // duration and the charge accrual rates all carry their multipliers here,
   // so combat/tick/events never consult scaling again. Scaling arrives via
   // BattleConfig (already capped), so replays reproduce it exactly.
-  const scaledMaxHealth = Math.round(champion.stats.maxHealth * scaling.maxHealthMult);
+  // Champion passives (five-champion pass) bake in the same way: spawn-time
+  // effects multiply here; per-hit hooks are copied onto the champion
+  // sub-state so combat never consults content mid-battle.
+  const passive = champion.passive.effects;
+  const scaledMaxHealth = Math.round(
+    champion.stats.maxHealth * scaling.maxHealthMult * (passive.spawnMaxHealthMult ?? 1)
+  );
   const unit: UnitState = {
     id: state.nextEntityId++,
     team,
@@ -89,6 +95,10 @@ export function spawnChampion(
       ),
       respawnDelayTicks: balance.champion.respawnTicks,
       stanceShifts: 0,
+      passiveArmorFlat: passive.selfArmorFlat ?? 0,
+      passiveLowHealthBonus: passive.lowHealthBonus
+        ? { ...passive.lowHealthBonus }
+        : null,
       spawnX: x,
     },
   };

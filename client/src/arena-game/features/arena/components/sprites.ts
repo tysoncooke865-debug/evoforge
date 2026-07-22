@@ -1,12 +1,13 @@
 /**
  * Sprite registry — pixel art from Kenney's 1-Bit Pack (CC0, kenney.nl),
  * recolored into the EvoForge palette at build time by
- * scripts/sprite-tools.js (see ASSETS.md for provenance). Requires must be
- * static string literals for Metro, hence the explicit table.
+ * client/scripts/arena-sprite-tools.mjs (see ASSETS.md for provenance).
+ * Requires must be static string literals for Metro, hence the explicit
+ * table.
  *
  * Keys: `<artKey>--<variant>` where artKey is CardDefinition.art /
  * ChampionDefinition.art / 'forge-core', and variant is 'player'/'opponent'
- * for team-tinted units or the path name for champions.
+ * for team-tinted units or the Avatar Path slug for the five champions.
  */
 import type { ImageSourcePropType } from 'react-native';
 
@@ -31,10 +32,11 @@ const SPRITES: Record<string, ImageSourcePropType> = {
   'support-drone--opponent': require('../sprites/support-drone--opponent.png'),
   'blade-runner--player': require('../sprites/blade-runner--player.png'),
   'blade-runner--opponent': require('../sprites/blade-runner--opponent.png'),
+  'champion-aesthetic--aesthetic': require('../sprites/champion-aesthetic--aesthetic.png'),
   'champion-titan--titan': require('../sprites/champion-titan--titan.png'),
-  'champion-speedster--speedster': require('../sprites/champion-speedster--speedster.png'),
+  'champion-mass--mass': require('../sprites/champion-mass--mass.png'),
   'champion-shredder--shredder': require('../sprites/champion-shredder--shredder.png'),
-  'champion-hybrid--hybrid': require('../sprites/champion-hybrid--hybrid.png'),
+  'champion-cardio--cardio': require('../sprites/champion-cardio--cardio.png'),
   'forge-core--player': require('../sprites/forge-core--player.png'),
   'forge-core--opponent': require('../sprites/forge-core--opponent.png'),
 };

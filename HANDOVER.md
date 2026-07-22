@@ -26,6 +26,30 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ARENA FIVE-CHAMPION ROSTER + REAL PROGRESSION (2026-07-23, no migration —
+  overnight hardening P2+P3)**: the Arena now fields THE official five
+  champions — **Aesthetics, Titan, Mass Monster, The Shredder, Cardio
+  Machine** — keyed `champion-<slug>` to the live BranchV2 roster
+  (`aesthetic|titan|mass|shredder|cardio`; retired `hybrid` folds to
+  aesthetic). Speedster/Hybrid are GONE from player-facing surfaces; local
+  save migration v4→v5 remaps old `championId`s non-destructively
+  (`save.ts::migrateChampionId`). Mass Monster is a NEW kit (Gravity Well
+  cross-lane slow field + Mass Uprising summons via the new deterministic
+  `CardEffects.summon` handler), each champion has a data-driven passive
+  (`ChampionPassiveDefinition`), display names are content-validation
+  ERRORS, BALANCE_VERSION 0.6.0 (old replays gated stale, by design).
+  Evolution stage is now the REAL one via
+  `arena-game/integration/evoforge/progression-mapping.ts` reusing
+  `src/domain` functions — Shredder's stage is body-fat-driven
+  (`bodyfat_log`), others level-driven; fallbacks only ever under-state.
+  Dev fitness editor demoted to the debug screen (labeled dev-mock); gym
+  roster builds labeled "(EST.)". Sprite pipeline now lives IN this repo
+  (`client/scripts/arena-sprite-tools.mjs` + `client/assets/
+  arena-pixel-src/`, pngjs devDep); five champion sprites regenerated.
+  `client/vitest.config.ts` added (only the `@`→`src` alias for tests —
+  discovery untouched). Suite 1,387→1,426, all gates green. Remaining
+  phases of the overnight run tracked in
+  `client/src/arena-game/ARENA_BETA_AUDIT.md`.
 - **PAGE-HELP HOME SLIDE-OFFSCREEN FIX (2026-07-23, no migration)**: opening the
   guided tour ("?" FAB) on Home slid the whole screen off to the left. Cause:
   `ui/help/page-help.tsx::useSpotlight` called `scrollIntoView({block:'center',
