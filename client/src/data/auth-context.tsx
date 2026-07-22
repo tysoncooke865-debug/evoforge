@@ -103,6 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
     );
+    // The Arena card-battler's stores (battle loop + player save). Its
+    // persistence is per-user namespaced on disk; this stops any running
+    // battle timer and drops in-memory state so nothing greets the next
+    // athlete.
+    void import('@/arena-game/services/app-services').then(({ resetArenaSession }) =>
+      resetArenaSession().catch(() => undefined)
+    );
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

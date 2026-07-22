@@ -16,4 +16,18 @@ module.exports = defineConfig([
       'react/no-danger': 'error',
     },
   },
+  {
+    // The Arena card-battler renders a MUTABLE deterministic simulation: the
+    // battle/replay screens re-render on a version counter and read the live
+    // sim state from refs by design (see arena-game battle-store docs). Those
+    // components carry 'use no memo' so the React Compiler skips them; the
+    // compiler-assumption rules are scoped off here to match. Everything else
+    // (exhaustive-deps, rules-of-hooks, react/no-danger) still applies.
+    files: ['src/arena-game/**', 'src/app/(main)/forge-arena/**'],
+    rules: {
+      'react-hooks/refs': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
 ]);

@@ -18,6 +18,7 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { OnlineBadge } from '@/ui/core/online-badge';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { arenaGameFeatures } from '@/arena-game/features';
 import { HistoryRow } from '@/ui/arena/history-row';
 import { useBattleRpgStore } from '@/state/battle-rpg-store';
 import { GYMS } from '@/domain/battle-rpg/gyms';
@@ -86,6 +87,28 @@ export default function ArenaScreen() {
             style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
           >
             ⚔ RIVAL RANK — placements, rating, rated history
+          </Text>
+          <Text className="text-base font-bold text-accent">›</Text>
+        </Pressable>
+      ) : null}
+      {/* EVOFORGE ARENA (card-battler beta) — the mini-game, mounted as its
+          own route group; champion + build derive from this athlete's real
+          Evo Rating pillars and Origin. */}
+      {arenaGameFeatures.arenaGameEnabled ? (
+        <Pressable
+          onPress={() => router.push('/forge-arena' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Open EvoForge Arena, the card battler beta"
+          testID="arena-game-door"
+          className="flex-row items-center justify-between rounded-md border px-s3"
+          style={{ minHeight: 44, borderColor: `${colors.accent}45`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+        >
+          <Text
+            className="text-accent"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+          >
+            ♜ EVOFORGE ARENA — card battler (beta), forged from your Evo Rating
           </Text>
           <Text className="text-base font-bold text-accent">›</Text>
         </Pressable>

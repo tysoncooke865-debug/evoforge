@@ -26,6 +26,37 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **EVOFORGE ARENA CARD-BATTLER INTEGRATED (2026-07-22, no migration)**: the
+  standalone Arena beta (built separately at `C:\Users\tyson\evoforge-arena` —
+  deterministic tick engine, cards/champions/synergies/augments, three AI
+  tiers, ghost battles + verifiable replays, gym squads, 318 tests) now lives
+  at **`client/src/arena-game/`** (self-contained feature package; tests ride
+  in `npm test`, total suite 1,387) and mounts as the hidden route group
+  **`/(main)/forge-arena/`** (thin route files re-export `arena-game/screens`;
+  route strings are `/forge-arena/...`-prefixed). Entry: the ♜ door on the
+  Arena hub, behind `arena-game/features.ts::arenaGameEnabled`. Boot:
+  `forge-arena/_layout.tsx` validates game content then `initArenaForUser` —
+  **per-user namespaced AsyncStorage** (`u/<userId>/...`) + the
+  **SupabaseEvoForgePlayerProvider** (`arena-game/integration/evoforge/
+  supabase-provider.ts`): pillars from `evo_rating_current`
+  (strength/cardio/size→muscularity/aesthetics) + `profiles.leanness_score`,
+  Forge Level via the pinned `forgeProgressFor` curve, champion from the
+  Origin lock (`origin_path`→ shredder→shredder, titan/mass→titan,
+  cardio→speedster, aesthetic→hybrid), REAL gyms via `my_gyms`/`gym_detail`/
+  `discover_gyms` RPCs (member builds approximated from evo_rating +
+  forge_level). Fitness advantage is hard-capped ±12% in-game. **Battle
+  results are COSMETIC** (local rank/stats only, gym-battle precedent): no
+  server writes, NO XP minting — an Arena reward kind is a future migration +
+  Tyson decision. Sign-out calls `resetArenaSession()` in auth-context
+  (stops the battle loop, drops in-memory state; disk is per-user
+  namespaced). The Arena package renders a mutable sim from refs on a
+  version counter BY DESIGN: those three components carry `'use no memo'`
+  (React Compiler opt-out) and eslint scopes `react-hooks/refs|purity|
+  set-state-in-effect` off for `src/arena-game/**` only — every other rule
+  (and react/no-danger) still applies. No tokens/engine/glicko/motion/goldens
+  surface touched (all guards verified green). Standalone repo remains the
+  upstream for engine work; `EVOFORGE_INTEGRATION.md` there documents the
+  boundary this integration implements.
 - **HOME v2 CLEANUP + COIN CLAIM HONESTY (2026-07-22, no migration)**: Home
   slimmed — header arena rank (`home-arena-rank`) gone; EVO RATING title is
   SectionLabel-lg with NO status suffix (PROVISIONAL is a quiet tag beside
