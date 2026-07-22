@@ -49,7 +49,13 @@ export function CardRow({ cardIds, energy, selectedCardId, onSelect, onUnafforda
               {CATEGORY_MARKER[card.category]}
               {card.name}
             </Text>
-            <Text style={[styles.cost, !affordable && styles.dim]}>{card.energyCost}</Text>
+            {/* P7: an unaffordable card's cost is highlighted in the danger
+                color (not just dimmed like the name) — it's the specific
+                reason the card can't be played, so it should read as the
+                thing to look at, not fade away with the rest of the chip. */}
+            <Text style={[styles.cost, !affordable && styles.costUnaffordable]}>
+              {card.energyCost}
+            </Text>
           </Pressable>
         );
       })}
@@ -77,4 +83,5 @@ const styles = StyleSheet.create({
   name: { ...typography.label, color: colors.text, fontSize: 11, textAlign: 'center' },
   cost: { ...typography.mono, color: colors.cyan, fontSize: 13, fontWeight: '700' },
   dim: { color: colors.textFaint },
+  costUnaffordable: { color: colors.danger },
 });

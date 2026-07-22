@@ -7,6 +7,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../constants/theme';
 import type { CoreState } from '../../../game-engine/simulation/state';
+import { healthBarColor } from './readability';
 import { coreSprite } from './sprites';
 
 /**
@@ -71,7 +72,13 @@ export function CoreBar({ core, label, hit }: Props) {
           </Text>
         </View>
         <View style={styles.track}>
-          <View style={[styles.fill, { width: `${pct * 100}%`, backgroundColor: tint }]} />
+          {/* P7: low-health emphasis — same threshold/amber as every other
+              health bar in the arena (see readability.ts's healthBarColor)
+              so a core on the brink reads as "danger" before the hit-shake
+              severity threshold (25%) even kicks in. */}
+          <View
+            style={[styles.fill, { width: `${pct * 100}%`, backgroundColor: healthBarColor(pct, tint, colors.warning) }]}
+          />
         </View>
       </View>
     </View>

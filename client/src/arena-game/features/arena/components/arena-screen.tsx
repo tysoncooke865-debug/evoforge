@@ -73,6 +73,7 @@ import {
   SPAWN_POOF_TTL_MS,
   TELEGRAPH_TTL_MS,
 } from './lane-strip';
+import { computeFloaterStagger, computeLaneMomentum } from './readability';
 import { ResultOverlay } from './result-overlay';
 import { SynergyChips } from './synergy-chips';
 import { TutorialOverlay } from './tutorial-overlay';
@@ -90,6 +91,12 @@ const TELEGRAPH_CAP = 4;
 const SPAWN_POOF_CAP = 8;
 
 const { laneLength } = BALANCE.arena;
+// P7: one divider per whole energy point on the energy bar (e.g. 9 dividers
+// for a max of 10) — a cheap "pip" affordance so a player can eyeball how
+// many more whole-energy card costs the current fill covers, without doing
+// the (energy / max) division in their head. Pure layout, no new state.
+const ENERGY_PIP_COUNT = Math.max(0, Math.floor(BALANCE.energy.max) - 1);
+const ENERGY_PIPS = Array.from({ length: ENERGY_PIP_COUNT }, (_, i) => i + 1);
 
 interface FxState {
   live: LiveBattle | null;
@@ -148,14 +155,24 @@ function collectCombatFx(
   fx.logIndex = nextIndex;
 
   for (const sig of floaters) {
+    const topPct = topPctOf(sig.x);
+    // P7: stagger against floaters already active in the SAME lane (age is
+    // irrelevant here — every entry in fx.floaters that survived to this
+    // point is still within FLOATER_TTL_MS, including ones pushed earlier
+    // in this very loop, so simultaneous multi-hit ticks fan out too).
+    const staggerPx = computeFloaterStagger(
+      fx.floaters.filter((f) => f.lane === sig.lane).map((f) => f.topPct),
+      topPct
+    );
     fx.floaters.push({
       key: fx.nextKey++,
       lane: sig.lane,
-      topPct: topPctOf(sig.x),
+      topPct,
       kind: sig.kind,
       text: sig.text,
       color: sig.color,
       bornAtMs: nowMs,
+      staggerPx,
     });
   }
   fx.floaters = fx.floaters.filter((f) => nowMs - f.bornAtMs < FLOATER_TTL_MS);
@@ -481,6 +498,10 @@ export function ArenaScreen({
   const energyPct = Math.max(0, Math.min(1, energy / BALANCE.energy.max));
   const lane0Units = state.units.filter((u) => u.alive && u.lane === 0);
   const lane1Units = state.units.filter((u) => u.alive && u.lane === 1);
+  // P7: which team currently has more living presence pushing each lane, and
+  // toward which core — see readability.ts's computeLaneMomentum.
+  const lane0Momentum = computeLaneMomentum(lane0Units);
+  const lane1Momentum = computeLaneMomentum(lane1Units);
   // The HUD drives the CAPTAIN only (M9): borrowed champions are not
   // commandable — they auto-cast engine-side.
   const playerChampion =
@@ -556,6 +577,7 @@ export function ArenaScreen({
           hitPings={lane0HitPings}
           telegraphs={lane0Telegraphs}
           spawnPoofs={lane0SpawnPoofs}
+          momentum={lane0Momentum}
           onDeployTap={handleDeployTap}
         />
         <LaneStrip
@@ -565,6 +587,7 @@ export function ArenaScreen({
           hitPings={lane1HitPings}
           telegraphs={lane1Telegraphs}
           spawnPoofs={lane1SpawnPoofs}
+          momentum={lane1Momentum}
           onDeployTap={handleDeployTap}
         />
       </View>
@@ -583,6 +606,13 @@ export function ArenaScreen({
           </Text>
           <View style={styles.energyTrack}>
             <View style={[styles.energyFill, { width: `${energyPct * 100}%` }]} />
+            {ENERGY_PIPS.map((n) => (
+              <View
+                key={n}
+                pointerEvents="none"
+                style={[styles.energyPip, { left: `${(n / BALANCE.energy.max) * 100}%` }]}
+              />
+            ))}
           </View>
         </View>
 
@@ -726,6 +756,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   energyFill: { height: '100%', backgroundColor: colors.cyan },
+  // P7: whole-energy-point divider on the energy bar (see ENERGY_PIPS).
+  energyPip: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: 'rgba(7, 11, 18, 0.45)',
+  },
   toast: {
     ...typography.label,
     color: colors.warning,

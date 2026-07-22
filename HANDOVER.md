@@ -43,7 +43,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA COMBAT FEEL (2026-07-23, no migration — overnight hardening
+- **ARENA BATTLE READABILITY (2026-07-23, no migration — overnight
+  hardening P7)**: new-player readability audit + fixes, visual only.
+  Real bug caught: `pathCardio` was `#22D3EE` — bit-identical to
+  `colors.player` team cyan, so an ENEMY Cardio champion wore friendly
+  colors → retinted `#818CF8` indigo. Added: per-unit direction chevrons
+  (colorblind-safe team cue beyond hue), low-health amber on ALL health
+  bars below 35% (deliberately matches Shredder Killer Instinct
+  threshold so execute range is visible), lane-momentum edge glow,
+  floater vertical stagger (no more overlapping numbers), energy pips,
+  cooldown-fraction fill + ult charge fill under HUD buttons,
+  unaffordable card cost highlighted. Pure helpers in
+  `features/arena/components/readability.ts` (19 tests). No pulsing
+  glow / radial sweep (reduced-motion + RN primitive constraints —
+  KNOWN_ISSUES). Arena suite 428.
   P6)**: battle FX layer, zero engine/digest impact, all in the existing
   frame-driven floater pattern (no Animated values, no per-unit React
   state, `'use no memo'` untouched). New pure module

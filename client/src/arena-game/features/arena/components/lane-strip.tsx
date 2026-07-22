@@ -14,6 +14,7 @@ import { BALANCE, getCardById, getChampionById } from '../../../content';
 import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId, TeamId } from '../../../game-engine/types';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
+import { healthBarColor } from './readability';
 import { championSprite, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
@@ -36,6 +37,11 @@ export interface LaneFloater {
   text: string;
   color: string;
   bornAtMs: number;
+  /** P7: extra vertical offset (px) so floaters landing at nearly the same
+   *  spot at nearly the same time don't render perfectly on top of each
+   *  other — see readability.ts's computeFloaterStagger. 0 for a floater
+   *  with no nearby neighbor when it was created. */
+  staggerPx: number;
 }
 
 /** Floater lifetime; the arena screen prunes with the same constant. */
@@ -102,6 +108,10 @@ interface Props {
   telegraphs?: readonly LaneTelegraph[];
   /** Active spawn/summon arrival markers for this lane (already capped). */
   spawnPoofs?: readonly LaneSpawnPoof[];
+  /** P7: -1..1 signed lane momentum (see readability.ts's computeLaneMomentum)
+   *  — which team currently has more living presence pushing this lane, and
+   *  toward which core. Omit (or 0) for no edge indicator. */
+  momentum?: number;
   onDeployTap: (lane: LaneId, engineX: number) => void;
 }
 
@@ -112,6 +122,7 @@ export function LaneStrip({
   hitPings,
   telegraphs,
   spawnPoofs,
+  momentum = 0,
   onDeployTap,
 }: Props) {
   const [height, setHeight] = useState(0);
@@ -149,6 +160,7 @@ export function LaneStrip({
       accessibilityLabel={`Lane ${lane + 1} — tap the deploy zone to deploy the selected card`}
     >
       <View style={styles.deployZone} />
+      {momentum !== 0 && <LaneMomentumEdge momentum={momentum} />}
       {units.map((unit) => (
         <UnitMarker
           key={unit.id}
@@ -178,6 +190,12 @@ function Floater({ floater }: { floater: LaneFloater }) {
   const age = Math.min(FLOATER_TTL_MS, Math.max(0, Date.now() - floater.bornAtMs));
   const t = age / FLOATER_TTL_MS; // 0..1
 
+  // P7: staggerPx lifts a floater that landed at nearly the same spot/time
+  // as another (see readability.ts's computeFloaterStagger) — a constant
+  // extra rise added on top of the normal age-based one, so simultaneous
+  // hits/heals/deaths in one tick fan out instead of overprinting each other.
+  const stagger = floater.staggerPx;
+
   if (floater.kind === 'death') {
     // Death dissolve: a fading ring shrinking outward-then-gone plus a larger,
     // scaling-down glyph — reads as "gone" rather than just another number.
@@ -194,6 +212,7 @@ function Floater({ floater }: { floater: LaneFloater }) {
               marginLeft: -ringSize / 2,
               borderColor: floater.color,
               opacity: (1 - t) * 0.6,
+              transform: [{ translateY: -stagger }],
             },
           ]}
         />
@@ -203,7 +222,7 @@ function Floater({ floater }: { floater: LaneFloater }) {
             {
               color: floater.color,
               opacity: 1 - t,
-              transform: [{ scale: 1.3 - t * 0.5 }, { translateY: -4 - t * 10 }],
+              transform: [{ scale: 1.3 - t * 0.5 }, { translateY: -4 - t * 10 - stagger }],
             },
           ]}
         >
@@ -222,7 +241,7 @@ function Floater({ floater }: { floater: LaneFloater }) {
           top: `${floater.topPct}%`,
           color: floater.color,
           opacity: 1 - t,
-          transform: [{ translateY: -10 - t * 16 }],
+          transform: [{ translateY: -10 - t * 16 - stagger }],
         },
       ]}
     >
@@ -293,6 +312,65 @@ function SpawnPoofMarker({ poof }: { poof: LaneSpawnPoof }) {
   );
 }
 
+/**
+ * P7 — lane momentum: a subtle tint along whichever edge of the strip is
+ * under pressure from this lane's living presence (see readability.ts's
+ * computeLaneMomentum). `momentum` > 0 means the player currently has more
+ * living health in this lane, i.e. the push is toward the OPPONENT core —
+ * the top edge (x = laneLength) — so the top glows player-tinted; < 0
+ * glows the bottom edge (the player's own core) opponent-tinted. A few
+ * stacked, decreasingly-opaque bands approximate a gradient without a
+ * gradient-capable primitive. Deliberately not rendered at momentum === 0
+ * (caller already skips it) so an empty or perfectly even lane stays quiet.
+ */
+function LaneMomentumEdge({ momentum }: { momentum: number }) {
+  const pushingTowardTop = momentum > 0; // player dominant -> pressure on the opponent core
+  const tint = pushingTowardTop ? colors.player : colors.opponent;
+  const strength = Math.min(1, Math.abs(momentum));
+  // Bands are always authored strongest-band-first; anchoring at the bottom
+  // needs them laid out bottom-up so the strongest band still sits flush
+  // against the true edge rather than the far side of the fixed-height box.
+  const edgeStyle = pushingTowardTop
+    ? { top: 0 as const, flexDirection: 'column' as const }
+    : { bottom: 0 as const, flexDirection: 'column-reverse' as const };
+  return (
+    <View pointerEvents="none" style={[styles.momentumEdge, edgeStyle]}>
+      {MOMENTUM_BAND_OPACITIES.map((bandOpacity, i) => (
+        <View
+          key={i}
+          style={[
+            styles.momentumBand,
+            { backgroundColor: tint, opacity: bandOpacity * strength * MOMENTUM_MAX_OPACITY },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** Decreasing opacity multipliers for the stacked momentum bands, outermost
+ *  (closest to the edge) first. */
+const MOMENTUM_BAND_OPACITIES = [1, 0.6, 0.3];
+/** Ceiling on the strongest band's opacity even at momentum = ±1 — this is a
+ *  read-the-room cue, never a bright team-colored bar competing with units. */
+const MOMENTUM_MAX_OPACITY = 0.35;
+
+/** Tiny team-facing chevron under a unit's health bar: player units point up
+ *  (toward the opponent core, x = laneLength), opponent units point down
+ *  (toward the player's own core, x = 0) — a shape/direction cue that holds
+ *  even for a colorblind viewer, independent of the cyan/red team hues. */
+function DirectionChevron({ team }: { team: TeamId }) {
+  const tint = team === 'player' ? colors.player : colors.opponent;
+  return (
+    <View
+      style={[
+        styles.directionChevron,
+        team === 'player' ? { borderBottomColor: tint } : { borderTopColor: tint },
+      ]}
+    />
+  );
+}
+
 /** Small marker dot with a 3px health bar; ranged/healer units get a letter from their art key.
  *  `flashBornAtMs` (null when no recent hit matched) drives a brief white
  *  overlay flash, aged the same way as every other combat-feel effect here —
@@ -329,7 +407,10 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
           ]}
         >
           <View
-            style={[styles.unitHealthFill, { width: `${healthPct * 100}%`, backgroundColor: tint }]}
+            style={[
+              styles.unitHealthFill,
+              { width: `${healthPct * 100}%`, backgroundColor: healthBarColor(healthPct, tint, colors.warning) },
+            ]}
           />
         </View>
         {sprite ? (
@@ -358,6 +439,7 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
             {flashOverlay}
           </View>
         )}
+        <DirectionChevron team={unit.team} />
       </View>
     );
   }
@@ -373,7 +455,10 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
     <View style={[styles.unitWrap, { top: `${topPct}%` }]} pointerEvents="none">
       <View style={styles.unitHealthTrack}>
         <View
-          style={[styles.unitHealthFill, { width: `${healthPct * 100}%`, backgroundColor: tint }]}
+          style={[
+            styles.unitHealthFill,
+            { width: `${healthPct * 100}%`, backgroundColor: healthBarColor(healthPct, tint, colors.warning) },
+          ]}
         />
       </View>
       {sprite ? (
@@ -387,6 +472,7 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
           {flashOverlay}
         </View>
       )}
+      <DirectionChevron team={unit.team} />
     </View>
   );
 }
@@ -523,4 +609,25 @@ const styles = StyleSheet.create({
   // team's color.
   poofWrap: { position: 'absolute', left: '50%' },
   poofRing: { position: 'absolute', top: -14, borderWidth: 2 },
+  // P7 — lane momentum edge: a few stacked, decreasingly-opaque bands
+  // against whichever edge is under pressure (see LaneMomentumEdge).
+  momentumEdge: { position: 'absolute', left: 0, right: 0, height: 22 },
+  momentumBand: { flex: 1 },
+  // P7 — team-direction chevron under every unit marker: a CSS-triangle
+  // (zero-size box, two transparent side borders, one colored border on the
+  // facing edge) pointing up for the player (toward the opponent core) and
+  // down for the opponent (toward the player's own core).
+  directionChevron: {
+    marginTop: 1,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 3,
+    borderRightWidth: 3,
+    borderTopWidth: 4,
+    borderBottomWidth: 4,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+  },
 });

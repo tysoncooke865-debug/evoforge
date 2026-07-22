@@ -346,3 +346,53 @@ Adversarial pass over the five champion passives. One defect found+fixed
   way that misleads about who died/survived — health bars are ground
   truth). Fixing it properly needs the engine's fx log entry to carry a
   target unit id, which is an engine change outside this pass's scope.
+
+## P7 — readability (deferrals)
+
+- **No pulsing/glowing "ready" animation on the ability/ultimate
+  buttons.** A continuous ambient loop that only stops once the button is
+  tapped is precisely the class of effect P6 already flagged and skipped
+  for the idle bob: it isn't reactive to a discrete combat event, so
+  shipping it carelessly could sit outside `verify-motion.mjs`'s reach
+  (the guard only greps for `withRepeat` calls; a hand-rolled
+  `Date.now()`-driven sine pulse wouldn't trip it either way, meaning a
+  future author could add a real ambient loop here without the guard ever
+  seeing it). Shipped a static alternative instead — a visibly thicker
+  border (2px vs. 1px cooling) plus the new cooldown/charge progress fill
+  — that reads "ready" at a glance without opening the reduced-motion
+  question. Revisit only if playtesting specifically wants more visual
+  "pop" on readiness.
+- **No circular/radial cooldown sweep.** The ability/ultimate progress
+  fills are linear bars, not a radial wipe around the button. React
+  Native has no native radial-progress primitive; building one needs
+  either an SVG dependency or a multi-view arc-mask hack, disproportionate
+  effort for a readability pass whose brief was "clarity," not new visual
+  chrome. The numeric label (READY/`Ns`/`%`) plus the linear fill already
+  cover the same "how close" question.
+- **Lane momentum is presence-only, not predictive.** `computeLaneMomentum`
+  weighs each lane's CURRENTLY ALIVE units' health by team — it says
+  "who's winning this lane right now," not "whose core falls first" (that
+  would need each unit's remaining distance/speed/target and a real ETA
+  calculation, i.e. engine-level pathing data this visual-only pass has
+  no business computing or duplicating). Good enough for the stated goal
+  (an at-a-glance push indicator); revisit only if playtesting wants a
+  genuine "time to impact" readout.
+- **No additional borrowed-vs-captain label.** The existing ring-thickness
+  difference (captain: 2px border, `championSpriteFrame`; borrowed: 1px,
+  `borrowedSpriteFrame`) plus the smaller overall marker size were judged
+  legible enough at arena scale; a text label would either compete with
+  the unit's own health bar/chevron for the ~18-26px marker's vertical
+  space or require a bigger marker, which the M9 gym-war notes already
+  weighed against (borrowed markers are deliberately smaller so a squad
+  doesn't overwhelm a lane).
+- **No animated energy-regen "creep" on the energy fill.** The new pips
+  (one divider per whole energy point) were judged sufficient for the
+  "can I afford this" question; an animated leading-edge creep would be a
+  second new continuous visual driver in the same pass that just argued
+  against one for the ability buttons — inconsistent to add here.
+- **No formal colorblind simulation pass.** The chevron (a) and the
+  `pathCardio` retint (g) were verified by inspecting every team/path hex
+  pairwise for hue distinctness (documented in PROGRESS.md's P7 section),
+  not by running the palette through a simulator (e.g. Coblis) — no such
+  tool was available in this environment. The team hues themselves
+  (cyan/red) were already colorblind-safe pre-P7 (not a red/green pair).

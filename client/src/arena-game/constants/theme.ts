@@ -37,7 +37,13 @@ export const colors = {
   pathTitan: '#F59E0B',
   pathMass: '#E879F9',
   pathShredder: '#A78BFA',
-  pathCardio: '#22D3EE',
+  // P7 readability fix: was '#22D3EE', IDENTICAL to `cyan`/`player` — a
+  // Cardio champion fielded by the OPPONENT wore the exact hue that means
+  // "this is my team" everywhere else on the screen (the champion sprite is
+  // path-tinted, not team-tinted; only the thin border/health-bar ring
+  // carried team color). Indigo keeps a cool "cardio" feel while reading as
+  // clearly distinct from both team colors and every other path.
+  pathCardio: '#818CF8',
 } as const;
 
 export const spacing = {

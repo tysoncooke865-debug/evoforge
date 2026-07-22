@@ -1201,3 +1201,146 @@ from 382) · `npx tsc --noEmit` clean, zero arena errors · `npx expo lint`
 `node scripts/verify-motion.mjs` OK (14 looping components, all gated —
 unchanged; none of the new effects loop, so none needed gating) ·
 `npx expo export -p web` succeeded.
+
+## P7 — readability
+
+Code-level audit of the battle screen as a new player would see it, then
+targeted fixes. No engine/content/digest changes — visual layer only, on
+top of P6's combat FX without undoing any of it.
+
+**Audit verdicts:**
+- **Team-at-a-glance**: cyan (player) vs. red (opponent) is already
+  colorblind-safe (not a red/green pair), but the ONLY cue was hue — no
+  shape/direction backup. Fixed (a).
+- **Whose champion is whose**: champion sprites are PATH-tinted, not
+  team-tinted (by design — one sprite per path, shared across teams); team
+  only read from a thin 1-2px border + the health-bar fill. Found a real
+  collision doing this: `pathCardio` was `#22D3EE`, bit-for-bit the same
+  hex as `colors.player`/`colors.cyan` — a Cardio champion fielded by the
+  OPPONENT wore the exact "this is my team" hue everywhere else on screen.
+  Fixed (retinted to indigo `#818CF8`, no test pinned the old hex).
+- **Lane momentum**: nothing existed — a new player has no read on which
+  side is winning a given push until a core bar visibly drops. Fixed (e).
+- **Card affordance**: unaffordable cards were already dimmed with a 44px
+  hit target and an accessibilityLabel calling out "not enough energy" —
+  good — but the cost number dimmed identically to the name, so the
+  specific reason didn't stand out. Fixed (c). No pip/segment cue existed
+  on the energy bar itself either. Fixed (c).
+- **Ability/ultimate affordance**: READY/cooldown-seconds/charge-% text
+  already existed and is genuinely informative, but there was no
+  progress-fill visual for either — a player has to read a number, not
+  glance at a bar. Fixed (d).
+- **Deploy zone**: already tinted + labeled; no change needed.
+- **FX density**: P6's caps/TTLs still hold (nothing added or removed
+  there). The one real gap: floaters landing at the same spot in the same
+  tick (a multi-hit or an AoE) rendered EXACTLY on top of each other for
+  their whole lifetime — the age-based rise alone doesn't separate
+  simultaneous floaters, only sequential ones. Fixed (f).
+- **Low-health read**: health bars (unit, champion, core) were team/path-
+  tinted at every health level — no visual distinction between "healthy"
+  and "about to die," so a player can't see the Shredder's Killer
+  Instinct execute range (35% of baked max) coming. Fixed (b).
+
+**Fixes shipped** (new pure module `features/arena/components/
+readability.ts`, mirroring combat-fx.ts's split — plain-number derivations,
+zero React/Date.now()/engine imports, wired by the callers which already
+read the wall clock every ~50ms frame):
+- **(a) Team direction chevron** — a small CSS-triangle under every unit
+  marker (regular units, champions, borrowed), team-tinted, pointing up
+  for the player (toward the opponent core) and down for the opponent
+  (toward the player's own core). Independent of hue — holds even in
+  grayscale.
+- **(b) Low-health emphasis** — `healthBarColor(fraction, teamTint,
+  lowColor)`: below 35% health (`LOW_HEALTH_FRACTION`, chosen to match the
+  Shredder's Killer Instinct threshold as a UI convention, not a read of
+  that specific champion's data) any health bar — unit, champion, Forge
+  Core — switches to amber (`colors.warning`) regardless of team/path
+  tint. Applied in `lane-strip.tsx` (units + champions + borrowed),
+  `champion-hud.tsx` (the HUD's own health bar) and `core-bar.tsx` (both
+  team cores), so the "danger zone" reads identically everywhere.
+- **(c) Energy affordance** — `card-row.tsx`: an unaffordable card's COST
+  number now renders in `colors.danger`, distinct from the name's plain
+  dim — the number that's actually the blocker gets the emphasis.
+  `arena-screen.tsx`: the energy track now has a divider every whole
+  energy point (`ENERGY_PIPS`, 9 pips for a max of 10) so a player can
+  eyeball "two more fighters' worth" without doing the division.
+- **(d) Ability/ultimate progress fills** — `champion-hud.tsx`: a thin
+  fill bar under the ability button (`abilityCooldownFraction`, 0 = just
+  used, 1 = ready) and under the ultimate button (existing `chargePct`,
+  now also rendered as a bar, not just text). Ready states also get a
+  visibly thicker border (2px vs. cooling's 1px) — a static contrast bump,
+  deliberately NOT a pulsing glow (see Deferrals).
+- **(e) Lane momentum edge** — `computeLaneMomentum(units)`: -1..1 signed,
+  from each lane's currently-alive units' summed health by team (0 for an
+  empty lane or an exact standoff — no indicator shown). `LaneMomentumEdge`
+  in `lane-strip.tsx` renders a few stacked, capped-opacity
+  (`MOMENTUM_MAX_OPACITY` 0.35) bands against whichever edge is under
+  pressure — the top (opponent core) tinted player-color when the player
+  dominates a lane, the bottom (player core) tinted opponent-color when
+  the opponent does. Cheap (reuses the units list the screen already
+  filters per lane; no new log scanning) and quiet by construction (a
+  perfectly even lane renders nothing).
+- **(f) Floater stagger** — `computeFloaterStagger(existingTopPcts,
+  topPct)`: counts how many currently-active floaters in the SAME lane
+  sit within 5% topPct of a new one and returns
+  `min(count, 4) * 11px` as an extra, constant vertical lift on top of the
+  existing age-based rise. Wired in `arena-screen.tsx`'s `collectCombatFx`
+  (computed against the running `fx.floaters` list, so simultaneous
+  multi-hit floaters within one tick fan out too, not just sequential
+  ones) and consumed in `lane-strip.tsx`'s `Floater` (both the rising
+  hit/heal text and the death-dissolve glyph/ring). `FLOATER_CAP` (12) and
+  every P6 TTL are unchanged.
+- **(g) Champion identity** — covered by (b)'s pathCardio retint above;
+  the existing path-color + initial + team-ring + borrowed-vs-captain
+  ring-thickness distinction was otherwise judged sufficient and left
+  alone.
+
+**Deferrals** (see KNOWN_ISSUES.md for the full writeups):
+- No pulsing/glowing "ready" animation on the ability/ultimate buttons —
+  a continuous ambient loop needs real reduced-motion wiring the same way
+  P6's idle bob did (and for the same reason, deliberately skipped it);
+  static border-width contrast + the new progress fill cover the same
+  affordance without the accessibility question.
+- No circular/radial cooldown sweep — a linear fill was used instead;
+  RN has no native radial-progress primitive, and adding one (SVG or a
+  view-stack hack) is disproportionate to a visual-clarity pass.
+- Lane momentum reads current unit health only, not a predictive
+  "who reaches the core first" — that needs engine-level pathing/ETA data,
+  out of scope for a visual-only derivation.
+- No additional champion-vs-borrowed label beyond the existing ring-
+  thickness difference — screen real estate at the arena's marker sizes.
+- No animated energy-regen "creep" on the fill — the new pips were judged
+  sufficient; avoids introducing a new continuous driver.
+- No formal colorblind simulation pass (e.g. Coblis) was run — the fixes
+  are colorblind-safe by construction (shape cue + a hue not already
+  reused, verified by inspecting every path/team hex pairwise) but no
+  screenshot-based simulation tool was available in this pass.
+
+**Tests**: `__tests__/readability.test.ts` (new, 19 cases) — every
+`readability.ts` export: `healthBarColor` (above/at/below threshold, the
+non-special-cased exact-0 case, defensive negative input), `
+computeLaneMomentum` (empty lane, standoff, one-sided, proportional,
+non-positive-health entries ignored), `computeFloaterStagger` (no
+neighbors, far neighbors, per-neighbor stepping, the pile-up cap) and
+`abilityCooldownFraction` (ready, just-used, proportional, the
+zero-total-cooldown ultimate edge case, defensive clamping).
+
+**Files touched**: `features/arena/components/readability.ts` (new, pure
++ tests), `constants/theme.ts` (`pathCardio` retint), `features/arena/
+components/lane-strip.tsx` (direction chevron, lane momentum edge,
+low-health color, floater stagger consumption, `LaneFloater.staggerPx`),
+`features/arena/components/arena-screen.tsx` (momentum computed/passed per
+lane, floater stagger computed on push, energy pips), `features/arena/
+components/champion-hud.tsx` (low-health color, cooldown/charge progress
+fills, bolder ready border), `features/arena/components/card-row.tsx`
+(unaffordable cost highlight), `features/arena/components/core-bar.tsx`
+(low-health color). `screens/replay.tsx` untouched — `momentum` is an
+optional prop defaulting to 0 (no edge rendered), `LaneFloater.staggerPx`
+is never constructed on the replay path since replay doesn't pass
+floaters at all.
+
+Gates: `npx vitest run src/arena-game` — 24 files, 428 tests green (up
+from 409) · `npx tsc --noEmit` clean, zero arena errors · `npx expo lint`
+0 errors (same 7 pre-existing warnings, none in touched files) ·
+`node scripts/verify-motion.mjs` OK (14 looping components, all gated —
+unchanged; nothing new loops) · `npx expo export -p web` succeeded.
