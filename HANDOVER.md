@@ -26,6 +26,16 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **PAGE-HELP HOME SLIDE-OFFSCREEN FIX (2026-07-23, no migration)**: opening the
+  guided tour ("?" FAB) on Home slid the whole screen off to the left. Cause:
+  `ui/help/page-help.tsx::useSpotlight` called `scrollIntoView({block:'center',
+  inline:'center'})` whenever the target was off-screen on EITHER axis (the
+  f8c2c0b Train-carousel change). Home's first target (`home-level-module`) is
+  horizontally visible but below the fold, so the vertical scroll also forced a
+  horizontal re-centre, scrolling the page sideways. Fix: scroll each axis only
+  when it's actually off (`block: offV ? 'center' : 'nearest'`, `inline: offH ?
+  'center' : 'nearest'`) — `'nearest'` is a no-op when the axis is in view, so
+  the Train-carousel horizontal case is unchanged.
 - **EVOFORGE ARENA CARD-BATTLER INTEGRATED (2026-07-22, no migration)**: the
   standalone Arena beta (built separately at `C:\Users\tyson\evoforge-arena` —
   deterministic tick engine, cards/champions/synergies/augments, three AI

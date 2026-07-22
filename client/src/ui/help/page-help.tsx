@@ -199,7 +199,14 @@ function useSpotlight(target: string | string[] | undefined, step: number, resiz
       if (!scrolled && (offV || offH)) {
         scrolled = true;
         settleFrame = frames;
-        try { found.el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch { /* ignore */ }
+        // Scroll each axis ONLY when the target is actually off-screen on that
+        // axis. Passing inline:'center' for a horizontally-visible target (the
+        // Home case — home-level-module is centred but below the fold) forces
+        // the browser to re-centre it sideways, sliding Home off to the left.
+        // 'nearest' is a no-op when the axis is already in view.
+        try {
+          found.el.scrollIntoView({ block: offV ? 'center' : 'nearest', inline: offH ? 'center' : 'nearest', behavior: 'auto' });
+        } catch { /* ignore */ }
         raf = requestAnimationFrame(loop);
         return;
       }
