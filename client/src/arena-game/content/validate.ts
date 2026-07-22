@@ -388,6 +388,12 @@ export function validateBalance(): { errors: string[]; warnings: string[] } {
       errors.push(`${prefix}: energyReserve must be in [0, max energy)`);
     if (d.augmentChoiceDelayTicks < 1)
       errors.push(`${prefix}: augmentChoiceDelayTicks must be >= 1`);
+    if (
+      !isFiniteNumber(d.tendencyFollowChance) ||
+      d.tendencyFollowChance < 0 ||
+      d.tendencyFollowChance > 1
+    )
+      errors.push(`${prefix}: tendencyFollowChance must be in [0, 1]`);
   }
   if (
     b.ai.threatMidlineFraction <= 0 ||
@@ -396,5 +402,7 @@ export function validateBalance(): { errors: string[]; warnings: string[] } {
     b.ai.swarmCountThreshold < 2
   )
     errors.push('invalid ai threat config');
+  if (!Number.isInteger(b.ai.openingWindowTicks) || b.ai.openingWindowTicks < 0)
+    errors.push('ai openingWindowTicks must be a non-negative integer');
   return { errors, warnings };
 }

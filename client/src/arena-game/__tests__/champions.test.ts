@@ -515,8 +515,8 @@ describe('champion death and respawn', () => {
     titan.shield = 50;
     titan.modifiers.push({ sourceId: 'x', expiresAtTick: 100000, attackDamageMult: 1.5 });
 
-    // The killing blow still charges from damage taken: 1450 (health+shield).
-    const chargeAtDeath = 10 + 1450 * titan.champion!.chargePerDamageTaken;
+    // The killing blow still charges from damage taken: health + shield.
+    const chargeAtDeath = 10 + (titan.health + titan.shield) * titan.champion!.chargePerDamageTaken;
     damageUnit(state, titan, 999999, 'test');
     expect(titan.champion!.ultimateCharge).toBeCloseTo(chargeAtDeath);
     expect(titan.alive).toBe(false);
@@ -654,7 +654,10 @@ describe('champion battle determinism and replay fidelity', () => {
   });
 
   it('a live champion battle with ability/ultimate use replays digest-identically', () => {
-    const live = createLiveBattle(20260722, 'p1', {
+    // Seed re-pinned 20260722 → 20260723 for P10: the AI runtime's opening
+    // draws shifted the opponent stream and the old seed's battle now ends
+    // before the player ultimate charges; the new seed exercises both uses.
+    const live = createLiveBattle(20260723, 'p1', {
       playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
       opponentDeckCardIds: DEFAULT_DECK_CARD_IDS,
       playerChampionId: 'champion-titan',

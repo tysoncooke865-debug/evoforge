@@ -1487,3 +1487,89 @@ from 428, +5 new in `content.test.ts`) · `npx tsc --noEmit` clean, zero
 arena errors · `npx expo lint` 0 errors (same 7 pre-existing warnings,
 none newly introduced) · `npx expo export -p web` succeeded.
 No BALANCE_VERSION bump (0.6.0 unreleased this same run).
+
+## P10 — AI tendencies (2026-07-23, overnight hardening)
+
+Champion-path tendency profiles for the rule-based AI plus seed-varied
+openings. AI-layer only — zero engine changes; every command still passes
+validateChampionAbility / validateChampionAutoCast at queue time and the
+engine's authoritative validation at apply time, so a tendency can never
+produce an illegal command. All logic is a pure function of (battle state,
+the AI's own seeded RNG stream) — the mirrored player-side driver
+(ai-driver.ts) exercises identical behavior by construction.
+
+New module `features/arena/champion-tendencies.ts`: a data-driven TENDENCY
+knob table + per-champion `ChampionTendencyProfile`s consumed by
+`opponent-ai.ts maybeUseChampion`. Profiles either HOLD an already-valid
+cast for a better moment (ability + most ultimates) or RELAX the ultimate
+trigger for a still-validated cast (Mass). Every holding ultimate keeps
+escape valves (core threatened; usually also charge-held-too-long) so a
+tendency can delay an ultimate but never strand it.
+
+### Tendency table
+
+| Champion | Ability tendency | Ultimate tendency |
+|---|---|---|
+| Titan | Hold Quake Stomp until ≥2 enemies inside its radius, OR ≥1 with the ultimate ≥80% charged (stun→smash combo) | Seismic Smash wants ≥2 enemies inside ITS radius (not just aggro-range clump); valves: core threat, held-long |
+| Mass Monster | Gravity Well on ≥2 enemies in the well, OR defensively whenever its lane's threat score ≥ threatTriggerScore (lane is losing) | Baseline triggers PLUS defensive relaxation: summon early when its lane's threat ≥ trigger (pushed) |
+| The Shredder | (Phase Dash unchanged — baseline) | Hold Final Cut until the actual target it would strike (engine-mirrored lowest-health selection) dies outright (damage > shield+health) or lands in execute range post-hit; valves: core threat, held-long |
+| Cardio Machine | (Lane Shift unchanged — P4 join-combat gate) | Overclock only with an engaged fight (living enemy in its lane within aggro range) or core threat — deliberately NO held-long valve (walking-alone casts are the waste it prevents) |
+| Aesthetics | Time the stance the toggle would produce: Bulwark when health ≤55% or ≥2 same-lane enemies in aggro range; Assault when health ≥70% with ≥1 enemy in reach | Forge Rally wants ≥2 living allied units besides the captain; valves: core threat, held-long |
+
+### Tier scaling
+
+New `AiDifficultyConfig.tendencyFollowChance` (validated in [0,1] by
+content/validate.ts): training 0 (never follows; it also never commands
+champions — tier-0 contract), standard 0.75, advanced 1. One deterministic
+roll per decision on the AI's own stream (`rng.chance` consumes no draw at
+0/1, so training and advanced stay draw-free); a failed roll reverts that
+decision to the exact pre-P10 baseline heuristics.
+
+### Opening variety
+
+Pre-P10, openings were seed-invariant in lane/policy (always
+strongest-affordable into the weaker lane — effectively the same lane every
+battle). Now `createOpponentAiRuntime` draws an `openingLane` (0/1) and an
+`openingStyle` (strongest/bulkiest/swiftest fighter scoring) from the AI's
+seeded stream; during `BALANCE.ai.openingWindowTicks` (20s) the pressure
+branch uses them instead of weaker-lane/strongest. Threat responses still
+preempt (an opening never ignores a real push); training keeps its
+per-decision random lanes. Deterministic per seed, different across seeds —
+verified by test (12 seeds: both lanes + ≥2 distinct first cards; same seed
+⇒ identical opening command sequence).
+
+### Deep-harness win rates (ARENA_STABILITY_DEEP=1, 362 matches)
+
+| Champion | P8/P9 baseline | P10 | Band [42,58] |
+|---|---|---|---|
+| Aesthetics | 50% | 46% | ok |
+| Titan | 46% | 43% | ok |
+| Mass Monster | 53% | 57% | ok |
+| The Shredder | 53% | 58% | ok (edge) |
+| Cardio Machine | 49% | 47% | ok |
+
+Zero stalls / errors / invariant violations (304 matches checked every
+tick); 30/30 ghost replays digest-identical; borrowed-champion ultimates 0;
+2 rejected commands (the documented report-only same-tick-invalidation
+category). Spread widened 7 → 15 points but every champion stays inside the
+band — the shifts are the tendencies themselves (Shredder stops wasting
+Final Cut, Mass summons defensively; Titan pays a small cost for holding
+stomps). A Titan "defensive peel" stomp valve was tried and reverted: the
+harness measured it moving Titan 43→42 and Shredder 58→59 (wrong direction
+on both edges). Future tuning lever is the TENDENCY table (never champion
+stats) — see KNOWN_ISSUES.
+
+Tests: new `__tests__/ai-tendencies.test.ts` (20 tests): hold + cast cases
+per tendency on crafted states, standard-tier follow-roll determinism with
+the roll PREDICTED from the RNG state (both branches observed across 40
+seeds), tier-0-vs-top-tier difference on the same state, opening variety +
+per-seed opening determinism. Three seed-sensitive fixtures re-pinned (the
+runtime's two new opening draws shifted every AI stream):
+opponent-ai.test.ts 777→510 (augment-crossing training battle), 555→500
+(beats-training/loses-to-advanced), champions.test.ts 20260722→20260723
+(live ability+ultimate use).
+
+Gates: `npx vitest run src/arena-game` — 25 files, 453 tests green (+20) ·
+deep stability harness 26/26 green · `npx tsc --noEmit` zero arena errors ·
+`npx expo lint` 0 errors · `npx expo export -p web` succeeded.
+No BALANCE_VERSION bump (0.6.0 unreleased this same run).

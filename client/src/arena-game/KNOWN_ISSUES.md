@@ -426,3 +426,44 @@ Adversarial pass over the five champion passives. One defect found+fixed
   placeholder key — maps to a temporary visual (color/icon), not a
   file," so this has zero player-visible effect; flagged only so a
   future real-art pass does not assume the art key is the display name.
+
+## P10 — AI tendencies (deferrals)
+
+- **Shredder sits on the band edge (58%) and Titan near the floor (43%)**
+  in the 362-match deep harness — inside the required [42,58] band, but
+  the tendency pass widened the P8 spread (7 → 15 points) because smarter
+  ultimate usage is real value (Shredder no longer wastes Final Cut) and
+  holding stomps has real cost (Titan). One tuning attempt (a low-health
+  "defensive peel" stomp valve) measurably moved both edges the wrong way
+  (Titan 43→42, Shredder 58→59) and was reverted. If a future pass needs
+  to narrow the spread, tune the TENDENCY table in
+  `features/arena/champion-tendencies.ts` (never champion stats — that
+  was P8's job and its numbers are pinned by tests).
+- **Final Cut kill estimate ignores armor and damage-taken modifiers.**
+  `finalCutWouldKill` models shield-then-health and the post-hit execute
+  threshold exactly, but not the target's flat armor (Iron Hide, synergy
+  auras) or damageTakenMult modifiers — against an armored/bulwarked
+  target the AI may cast a Final Cut that leaves a sliver. Legality and
+  determinism are unaffected (the engine resolves the truth); it is a
+  deliberately simple heuristic, refine only if the harness ever shows
+  Shredder underperforming into Titan/Aesthetics specifically.
+- **Cardio's Overclock tendency has no held-long valve by design** — a
+  fully-charged ultimate can sit unused until the champion is engaged in
+  its lane (or the core is threatened). It cannot strand forever in
+  practice (the AI keeps deploying and enemies march), but a
+  pathological stalemate with an empty enemy lane would leave the charge
+  banked; accepted as the lesser evil versus overclocking while walking
+  alone.
+- **Standard-tier tendency rolls consume one extra RNG draw per decision**
+  (with a living captain), and runtime creation consumes two extra draws
+  (opening lane/style) at every tier — every pre-P10 AI stream shifted,
+  which is why three seed-sensitive fixtures were re-pinned (see
+  PROGRESS P10). Replays/records are unaffected (commands are recorded;
+  the AI never runs during replay), but any external harness that pinned
+  exact P9 battle digests must re-pin.
+- **Opening variety only varies the PRESSURE branch** (lane + fighter
+  scoring style) inside the 20s window. The defend/heal/support branches
+  deliberately stay reactive, and training keeps its per-decision random
+  lanes — so two seeds with an identical early threat pattern can still
+  converge to similar defensive openings. Accepted: never ignoring a real
+  push outranks variety.

@@ -54,6 +54,13 @@ export interface AiDifficultyConfig {
   ultimateCoreThreatFraction: number;
   /** Ticks after the augment offer before the AI picks its augment. */
   augmentChoiceDelayTicks: number;
+  /**
+   * Chance a decision FOLLOWS the champion-path tendency profile (P10 —
+   * features/arena/champion-tendencies.ts): 0 = tendencies ignored (pure
+   * baseline heuristics), 1 = always followed. Decision quality only —
+   * legality is engine-validated either way.
+   */
+  tendencyFollowChance: number;
 }
 
 export interface BalanceConfig {
@@ -171,6 +178,12 @@ export interface BalanceConfig {
     healWoundedFraction: number;
     /** Distance behind the frontline pusher for support deploys. */
     supportBehindOffset: number;
+    /**
+     * Ticks from battle start during which pressure deploys use the AI
+     * runtime's seed-varied opening lane/card-style preferences (P10 opening
+     * variety) instead of the fixed strongest-into-weaker-lane policy.
+     */
+    openingWindowTicks: number;
     difficulties: Record<AiDifficulty, AiDifficultyConfig>;
   };
 }
@@ -260,6 +273,7 @@ export const BALANCE: BalanceConfig = {
     fastThreatSpeed: 0.35,
     healWoundedFraction: 0.6,
     supportBehindOffset: 6,
+    openingWindowTicks: secondsToTicks(20),
     difficulties: {
       // Genuinely beatable by a new player: slow decisions, no counters, no
       // champion usage, frequent deliberate mistakes — but it never cheats
@@ -277,6 +291,9 @@ export const BALANCE: BalanceConfig = {
         ultimateHoldTicks: secondsToTicks(999),
         ultimateCoreThreatFraction: 0,
         augmentChoiceDelayTicks: secondsToTicks(4),
+        // Moot while usesChampion is false, but pinned at 0 as the tier-0
+        // contract: training NEVER follows champion tendencies.
+        tendencyFollowChance: 0,
       },
       standard: {
         decisionIntervalTicks: secondsToTicks(2.5),
@@ -291,6 +308,7 @@ export const BALANCE: BalanceConfig = {
         ultimateHoldTicks: secondsToTicks(8),
         ultimateCoreThreatFraction: 0.5,
         augmentChoiceDelayTicks: secondsToTicks(2),
+        tendencyFollowChance: 0.75,
       },
       advanced: {
         decisionIntervalTicks: secondsToTicks(1.2),
@@ -305,6 +323,7 @@ export const BALANCE: BalanceConfig = {
         ultimateHoldTicks: secondsToTicks(5),
         ultimateCoreThreatFraction: 0.6,
         augmentChoiceDelayTicks: secondsToTicks(1),
+        tendencyFollowChance: 1,
       },
     },
   },

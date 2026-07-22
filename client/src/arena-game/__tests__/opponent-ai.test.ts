@@ -255,7 +255,10 @@ describe('AI augment choice', () => {
   });
 
   it('chooses in a real long battle (offer crossed live)', () => {
-    const live = defendedBattle(777, 'training', 'champion-aesthetic');
+    // Seed re-pinned 777 → 510 for P10: the AI runtime's two extra opening
+    // draws shifted every training stream; 510 restores a battle that
+    // outlives the augment offer (same scenario, new stream).
+    const live = defendedBattle(510, 'training', 'champion-aesthetic');
     expect(live.state.outcome!.endTick).toBeGreaterThan(BALANCE.augment.offerTick);
     const opponentAugment = live.state.teams.opponent.augment;
     expect(opponentAugment.chosenId).not.toBeNull();
@@ -269,7 +272,8 @@ describe('AI augment choice', () => {
 
 describe('full replay fidelity: AI + augments + synergies in one live battle', () => {
   it('replays digest-identically with zero violations, and is deterministic', () => {
-    const play = () => defendedBattle(777, 'training', 'champion-aesthetic');
+    // Seed re-pinned 777 → 510 for P10 (see the augment-choice test above).
+    const play = () => defendedBattle(510, 'training', 'champion-aesthetic');
     const live = play();
     expect(live.state.phase).toBe('finished');
     expect(live.rejected).toEqual([]);
@@ -289,9 +293,12 @@ describe('full replay fidelity: AI + augments + synergies in one live battle', (
 
 describe('training is genuinely beatable', () => {
   it('the same simple player script beats training but loses to advanced', () => {
-    const vsTraining = defendedBattle(555, 'training', 'champion-titan');
+    // Seed re-pinned 555 → 500 for P10: the runtime's opening draws shifted
+    // the training stream; 500 restores the beats-training/loses-to-advanced
+    // pairing for the identical script.
+    const vsTraining = defendedBattle(500, 'training', 'champion-titan');
     expect(vsTraining.state.outcome!.winner).toBe('player');
-    const vsAdvanced = defendedBattle(555, 'advanced', 'champion-titan');
+    const vsAdvanced = defendedBattle(500, 'advanced', 'champion-titan');
     expect(vsAdvanced.state.outcome!.winner).toBe('opponent');
   });
 });

@@ -147,3 +147,14 @@ Re-ran the P8 deep stability harness after the change (362 matches):
 identical to the P8 result. No champion re-tuning triggered or needed;
 card retags/new synergies alone did not move win rates outside
 [46%, 53%].
+
+## P10 addendum — re-tune under the tendency-aware AI (2026-07-23)
+
+The P10 AI tendencies legitimately shifted the meta (smarter Final Cut
+holding made The Shredder 58%, and a more-executable Titan fell to 43%).
+Tendency-knob tuning was measured and did NOT close the gap
+(stompMinTargets 2→1: Titan 40; combo charge 0.8→0.55: Titan 41 — both
+reverted). Stat levers did: **Titan maxHealth 1400 → 1470**, **Shredder
+ultimateChargePerDamageDealt 0.07 → 0.06**. Deep-harness result:
+Shredder 54 · Mass 54 · Titan 50 · Cardio 47 · Aesthetics 45 — 9-point
+spread, all inside [45, 54], zero stalls, 30/30 digest-identical ghosts.

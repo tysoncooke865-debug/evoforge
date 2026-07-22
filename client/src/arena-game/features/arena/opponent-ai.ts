@@ -35,6 +35,19 @@
  *    lane and a random affordable card instead of the best one.
  *  - Training: slow decisions, no counters, no techniques, no champion use,
  *    random lanes — genuinely beatable, but never cheating.
+ *  - Champion-path tendencies (P10): a per-champion profile
+ *    (champion-tendencies.ts) refines WHEN the ability/ultimate fires
+ *    (Titan stomps clumps / combos into a near-ready smash, Mass wells and
+ *    summons defensively when its lane is losing, Shredder holds Final Cut
+ *    for a kill/execute, Cardio overclocks only in an engaged fight,
+ *    Aesthetics times its stances and rallies a real squad). Followed per
+ *    decision with the tier's tendencyFollowChance (training 0, standard
+ *    0.75, advanced 1) via the AI's own seeded RNG — pure state reads,
+ *    never a new legality path.
+ *  - Opening variety (P10): during BALANCE.ai.openingWindowTicks, pressure
+ *    deploys use a seed-varied opening lane + fighter-scoring style drawn
+ *    once at runtime creation, so openings differ across seeds while each
+ *    seed stays perfectly reproducible.
  */
 import {
   AiDifficulty,
@@ -55,17 +68,36 @@ import { SeededRng } from '../../game-engine/random/rng';
 import type { ScheduledCommand } from '../../game-engine/simulation/events';
 import type { BattleState, UnitState } from '../../game-engine/simulation/state';
 import type { LaneId } from '../../game-engine/types';
+import {
+  CHAMPION_TENDENCIES,
+  ChampionTendencyContext,
+  ChampionTendencyProfile,
+} from './champion-tendencies';
 
 /** Fighters playable by deckless opponents (legacy free-pool mode). */
 const FIGHTER_POOL: readonly string[] = CARDS.filter((c) => c.category === 'fighter').map(
   (c) => c.id
 );
 
+/** Opening-window fighter-scoring styles (P10): 0 = strongest (the legacy
+ *  policy, by energy cost), 1 = bulkiest, 2 = swiftest. */
+export type OpeningStyle = 0 | 1 | 2;
+
+const OPENING_STYLE_SCORERS: readonly ((card: CardDefinition) => number)[] = [
+  (c) => c.energyCost,
+  (c) => c.unit!.stats.maxHealth,
+  (c) => c.unit!.stats.moveSpeedPerTick,
+];
+
 export interface OpponentAiRuntime {
   /** Next tick at which the AI evaluates the battle. */
   nextDecisionTick: number;
   /** Tick the ultimate charge became full; null while not full. */
   ultimateFullSinceTick: number | null;
+  /** P10 opening variety: seed-varied lane for opening-window pressure deploys. */
+  openingLane: LaneId;
+  /** P10 opening variety: seed-varied fighter-scoring style for the opening. */
+  openingStyle: OpeningStyle;
 }
 
 export function createOpponentAiRuntime(
@@ -76,6 +108,8 @@ export function createOpponentAiRuntime(
   return {
     nextDecisionTick: cfg.decisionIntervalTicks + rng.nextInt(0, cfg.decisionJitterTicks),
     ultimateFullSinceTick: null,
+    openingLane: rng.nextInt(0, 1) as LaneId,
+    openingStyle: rng.nextInt(0, 2) as OpeningStyle,
   };
 }
 
@@ -240,18 +274,19 @@ export function runOpponentAi(
   runtime.nextDecisionTick =
     state.tick + cfg.decisionIntervalTicks + rng.nextInt(0, cfg.decisionJitterTicks);
 
-  if (cfg.usesChampion && maybeUseChampion(state, commandLog, runtime, cfg, nextTick)) {
+  if (cfg.usesChampion && maybeUseChampion(state, commandLog, rng, runtime, cfg, nextTick)) {
     // A champion command this decision does not preclude a card action —
     // champion commands cost no energy.
   }
 
-  cardAction(state, commandLog, rng, cfg, nextTick);
+  cardAction(state, commandLog, rng, runtime, cfg, nextTick);
 }
 
 /** Returns true if a champion command was queued. */
 function maybeUseChampion(
   state: BattleState,
   commandLog: ScheduledCommand[],
+  rng: SeededRng,
   runtime: OpponentAiRuntime,
   cfg: AiDifficultyConfig,
   nextTick: number
@@ -277,14 +312,40 @@ function maybeUseChampion(
       Math.abs(u.x - champion.x) <= BALANCE.arena.aggroRange
   ).length;
 
+  const coreThreatened =
+    state.cores.opponent.health <=
+    cfg.ultimateCoreThreatFraction * state.cores.opponent.maxHealth;
+  const heldLong =
+    runtime.ultimateFullSinceTick !== null &&
+    state.tick - runtime.ultimateFullSinceTick >= cfg.ultimateHoldTicks;
+
+  // P10 champion-path tendencies: one deterministic roll per decision decides
+  // whether this decision follows the champion's tendency profile (see
+  // champion-tendencies.ts; rng.chance consumes no draw at 0 or 1, so
+  // training and advanced stay draw-free here). A followed profile only
+  // refines WHEN the already-validated ability/ultimate fires — legality is
+  // still the validate calls below plus the engine's apply-time check.
+  const profile: ChampionTendencyProfile | undefined = CHAMPION_TENDENCIES[champion.contentId];
+  const followed = profile !== undefined && rng.chance(cfg.tendencyFollowChance) ? profile : null;
+  const tendencyCtx: ChampionTendencyContext | null = followed
+    ? {
+        state,
+        cfg,
+        champion,
+        definition,
+        enemiesNearChampion,
+        championLaneThreatScore: laneThreat(state, champion.lane).score,
+        coreThreatened,
+        heldLong,
+      }
+    : null;
+
   if (full && validateChampionAbility(state, BALANCE, champion, definition.ultimate).ok) {
-    const coreThreatened =
-      state.cores.opponent.health <=
-      cfg.ultimateCoreThreatFraction * state.cores.opponent.maxHealth;
-    const heldLong =
-      runtime.ultimateFullSinceTick !== null &&
-      state.tick - runtime.ultimateFullSinceTick >= cfg.ultimateHoldTicks;
-    if (enemiesNearChampion >= cfg.ultimateClumpSize || coreThreatened || heldLong) {
+    const wantsUltimate =
+      followed && tendencyCtx && followed.ultimateWantsCast
+        ? followed.ultimateWantsCast(tendencyCtx)
+        : enemiesNearChampion >= cfg.ultimateClumpSize || coreThreatened || heldLong;
+    if (wantsUltimate) {
       queue(commandLog, nextTick, { type: 'champion-ultimate', team: 'opponent' });
       return true;
     }
@@ -300,7 +361,14 @@ function maybeUseChampion(
   if (
     enemiesNearChampion > 0 &&
     champion.champion.abilityCooldownTicks === 0 &&
-    validateChampionAutoCast(state, BALANCE, champion, definition.ability).ok
+    validateChampionAutoCast(state, BALANCE, champion, definition.ability).ok &&
+    // A followed tendency may HOLD an otherwise-valid ability for a better
+    // moment (Titan waits for a clump/combo, Mass for a losing lane or a
+    // multi-slow, Aesthetics for the stance the toggle would produce).
+    (followed === null ||
+      tendencyCtx === null ||
+      followed.abilityWantsCast === undefined ||
+      followed.abilityWantsCast(tendencyCtx))
   ) {
     queue(commandLog, nextTick, { type: 'champion-ability', team: 'opponent' });
     return true;
@@ -313,6 +381,7 @@ function cardAction(
   state: BattleState,
   commandLog: ScheduledCommand[],
   rng: SeededRng,
+  runtime: OpponentAiRuntime,
   cfg: AiDifficultyConfig,
   nextTick: number
 ): void {
@@ -475,12 +544,24 @@ function cardAction(
   }
 
   // 4. PRESSURE the weaker enemy lane with the strongest affordable fighter.
-  let lane: LaneId = cfg.targetsWeakerLane
-    ? playerLaneStrength(state, 0) <= playerLaneStrength(state, 1)
-      ? 0
-      : 1
-    : (rng.nextInt(0, 1) as LaneId);
-  let cardId = bestFighter(affordableWithReserve, (c) => c.energyCost);
+  //    During the opening window (P10) the lane and the fighter-scoring style
+  //    come from the runtime's seed-varied opening preferences instead, so
+  //    openings differ across seeds (threat responses above still preempt
+  //    this — an opening preference never ignores a real push). Training
+  //    never reaches here (early return above) and keeps its per-decision
+  //    random lanes.
+  const inOpeningWindow = state.tick < BALANCE.ai.openingWindowTicks;
+  let lane: LaneId = inOpeningWindow
+    ? runtime.openingLane
+    : cfg.targetsWeakerLane
+      ? playerLaneStrength(state, 0) <= playerLaneStrength(state, 1)
+        ? 0
+        : 1
+      : (rng.nextInt(0, 1) as LaneId);
+  let cardId = bestFighter(
+    affordableWithReserve,
+    inOpeningWindow ? OPENING_STYLE_SCORERS[runtime.openingStyle] : (c) => c.energyCost
+  );
   if (!cardId) return;
   if (mistake) {
     lane = (1 - lane) as LaneId;

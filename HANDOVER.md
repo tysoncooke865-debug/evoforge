@@ -43,7 +43,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA CARDS + SYNERGIES (2026-07-23, no migration — overnight
+- **ARENA AI CHAMPION TENDENCIES (2026-07-23, no migration — overnight
+  hardening P10)**: data-driven per-champion AI tendency profiles
+  (`arena-game/features/arena/champion-tendencies.ts`, knobs in its
+  TENDENCY table): Titan holds Quake Stomp for ≥2 targets or a
+  stun→smash combo; Mass casts Gravity Well on clumps or defensively;
+  Shredder holds Final Cut until it actually kills (shield-aware,
+  mirrors engine targeting); Cardio Overclocks only into engaged
+  fights; Aesthetics reads stances (Bulwark ≤55% hp/focused, Assault
+  ≥70% + engaged) and rallies with ≥2 allies. Tier-scaled via
+  `tendencyFollowChance` (0 / 0.75 / 1, range-validated); one
+  deterministic RNG roll per decision; legality still goes through the
+  validators — no illegal commands possible. Openings vary by seed
+  (lane + style draw at AI-runtime creation, 20s window). Meta shifted
+  → re-tuned: Titan HP 1470, Shredder ult charge/dealt 0.06 (tendency
+  knobs measured and reverted — see ARENA_BALANCE P10 addendum). Final
+  deep-harness spread: all five in [45%, 54%]. Arena suite 453; RNG
+  stream shift re-pinned 3 seed-sensitive fixtures.
   hardening P9)**: card catalog brought to official fitness-forge
   terminology — six cyberpunk leftovers renamed (Neon Boxer→Cardio
   Boxer, Cyber Medic→Recovery Coach, Drone Archer→Javelin Marksman,

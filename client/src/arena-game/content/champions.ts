@@ -72,7 +72,7 @@ export const CHAMPIONS: ChampionDefinition[] = [
     description:
       'An immovable wall of forged muscle. Anchors a lane, absorbs punishment and flattens whatever stands in front of it.',
     stats: {
-      maxHealth: 1400,
+      maxHealth: 1470,
       attackDamage: 70,
       attackIntervalTicks: secondsToTicks(1.5),
       attackRange: 3.5,
@@ -197,7 +197,7 @@ export const CHAMPIONS: ChampionDefinition[] = [
       kind: 'ultimate',
       effects: { damage: 250, executeBelowHealthFraction: 0.3 },
     },
-    ultimateChargePerDamageDealt: 0.07,
+    ultimateChargePerDamageDealt: 0.06,
     ultimateChargePerDamageTaken: 0.05,
     ultimateChargeRequired: 100,
     animationStates: ['idle', 'walk', 'attack', 'dash', 'ultimate', 'hit', 'death'],
