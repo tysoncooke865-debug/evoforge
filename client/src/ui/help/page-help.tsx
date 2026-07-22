@@ -118,22 +118,33 @@ function viewport(): { vw: number; vh: number } {
   return { vw: vv?.width ?? window.innerWidth, vh: vv?.height ?? window.innerHeight };
 }
 
-/** The largest on-screen element matching a testID (exact, or prefix when the
- *  target ends with '-'), as a viewport rect. Accepts a fallback CHAIN — the
- *  first target in the list that's actually visible wins. null if none is. */
+/** The element matching a testID (exact, or prefix when the target ends with
+ *  '-') that is MOST VISIBLE in the viewport — critical because carousels
+ *  render many same-testid cards, most scrolled off-screen; raw-area would pick
+ *  an off-screen one and the ring would land on nothing. Falls back to the
+ *  largest element if none is on screen yet (so it can be scrolled in). Accepts
+ *  a fallback CHAIN — the first target with any match wins. */
 function measureTarget(target: string | string[]): { rect: Rect; el: HTMLElement } | null {
   if (typeof document === 'undefined') return null;
+  const { vw, vh } = viewport();
   for (const t of Array.isArray(target) ? target : [target]) {
     const sel = t.endsWith('-') ? `[data-testid^="${t}"]` : `[data-testid="${t}"]`;
     const nodes = Array.from(document.querySelectorAll(sel)) as HTMLElement[];
-    let best: { rect: Rect; el: HTMLElement; area: number } | null = null;
+    let visible: { rect: Rect; el: HTMLElement; vis: number } | null = null;
+    let anyLargest: { rect: Rect; el: HTMLElement; area: number } | null = null;
     for (const el of nodes) {
       const r = el.getBoundingClientRect();
       if (r.width < 6 || r.height < 6) continue;
+      const rect = { x: r.left, y: r.top, w: r.width, h: r.height };
       const area = r.width * r.height;
-      if (!best || area > best.area) best = { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, el, area };
+      const visW = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
+      const visH = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+      const vis = visW * visH;
+      if (!anyLargest || area > anyLargest.area) anyLargest = { rect, el, area };
+      if (vis > 0 && (!visible || vis > visible.vis)) visible = { rect, el, vis };
     }
-    if (best) return { rect: best.rect, el: best.el };
+    const chosen = visible ?? anyLargest;
+    if (chosen) return { rect: chosen.rect, el: chosen.el };
   }
   return null;
 }
