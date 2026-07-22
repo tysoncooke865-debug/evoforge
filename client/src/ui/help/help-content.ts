@@ -12,10 +12,12 @@
 export interface HelpSection {
   heading: string;
   body: string;
-  /** testID of the on-screen element this section points at. A trailing '-'
-   *  means "prefix" (the first element whose testID starts with it). Omitted
-   *  when the section is conceptual and has no single element to spotlight. */
-  target?: string;
+  /** testID(s) of the on-screen element this section points at. A trailing '-'
+   *  means "prefix" (first element whose testID starts with it). An array is a
+   *  fallback chain — the first target that's actually on screen wins, so a
+   *  section still points at something when the primary element isn't rendered
+   *  in the current account state. Omitted when the section is conceptual. */
+  target?: string | string[];
 }
 export interface HelpTopic {
   title: string;
@@ -39,8 +41,8 @@ export const HELP: Record<string, HelpTopic> = {
     tagline: 'Home is your character. Everything you do in the gym forges it.',
     sections: [
       { heading: 'XP & Level', target: 'home-level-module', body: 'This is your level and the bar toward the next one. Every working set is worth 10 XP; every minute of cardio is worth 2. Levelling up costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
-      { heading: 'Your champion evolves', target: 'hero-avatar', body: 'This is you. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
-      { heading: "Today's mission", target: 'mission-progress', body: 'This ring shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level.' },
+      { heading: 'Your champion evolves', target: ['hero-avatar', 'hero-origin-empty', 'hero-form'], body: 'This is you. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
+      { heading: "Today's mission", target: ['mission-progress', 'mission-start', 'mission-rest-train', 'mission-view'], body: 'This shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level.' },
       { heading: 'Your menu lives here', target: 'profile-menu', body: 'Tap the animated fighter in the top-right of any screen to open your bag — progress, awards, coins, schedule, profile and everything else.' },
     ],
   },

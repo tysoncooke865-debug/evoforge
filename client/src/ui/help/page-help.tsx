@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pixelFont } from '@/theme/fonts';
@@ -17,14 +18,17 @@ import { HELP, helpKeyForPath, type HelpSection, type HelpTopic } from './help-c
  * element is ringed, and a tooltip explains it.
  *
  * Targeting is by testID against the live DOM (this is a web PWA), so it points
- * where the element ACTUALLY rendered. Two things this file guarantees, because
- * they bit us on iPhone:
- *   1. The ring is RE-MEASURED on an interval, so it tracks a target that
- *      animates (the floating champion) or lays out late instead of going stale.
- *   2. The tooltip is ALWAYS fully inside the safe viewport — clamped
- *      horizontally, height-capped to the space above/below the target, with the
- *      nav buttons pinned so they're never pushed off-screen. If the target
- *      fills the screen (no room either side) it becomes a bottom sheet.
+ * where the element ACTUALLY rendered. The measurement model (useSpotlight) is
+ * built to feel calm, not janky:
+ *   • it locks the ring ONCE per step — after any scroll-into-view has settled —
+ *     rather than chasing the element on a timer (the old jank);
+ *   • it never shows the bottom-sheet fallback WHILE measuring, so a step no
+ *     longer flashes at the bottom and jumps to place;
+ *   • the previous spotlight stays on screen during the hand-off, and the ring
+ *     GLIDES to the next element (CSS transition on web);
+ *   • the tooltip is always clamped fully inside the safe viewport, height-capped
+ *     with the nav pinned, and falls back to a bottom sheet only when the target
+ *     genuinely fills the screen.
  *
  * "Seen" is one AsyncStorage set keyed by screen; auto-open waits for the
  * first-run tour so a new athlete never gets two overlays stacked on Home.
@@ -105,127 +109,162 @@ function FabButton({ bottom, onPress }: { bottom: number; onPress: () => void })
 }
 
 interface Rect { x: number; y: number; w: number; h: number }
+type Phase = 'measuring' | 'spotlight' | 'sheet';
+interface SpotState { phase: Phase; rect: Rect | null; forStep: number }
 
 function viewport(): { vw: number; vh: number } {
   if (typeof window === 'undefined') return { vw: 390, vh: 800 };
-  // visualViewport is the source of truth on mobile Safari (toolbars, zoom).
   const vv = window.visualViewport;
   return { vw: vv?.width ?? window.innerWidth, vh: vv?.height ?? window.innerHeight };
 }
 
 /** The largest on-screen element matching a testID (exact, or prefix when the
- *  target ends with '-'), as a viewport rect. null if none is visible. */
-function measureTarget(target: string): { rect: Rect; el: HTMLElement } | null {
+ *  target ends with '-'), as a viewport rect. Accepts a fallback CHAIN — the
+ *  first target in the list that's actually visible wins. null if none is. */
+function measureTarget(target: string | string[]): { rect: Rect; el: HTMLElement } | null {
   if (typeof document === 'undefined') return null;
-  const sel = target.endsWith('-') ? `[data-testid^="${target}"]` : `[data-testid="${target}"]`;
-  const nodes = Array.from(document.querySelectorAll(sel)) as HTMLElement[];
-  let best: { rect: Rect; el: HTMLElement; area: number } | null = null;
-  for (const el of nodes) {
-    const r = el.getBoundingClientRect();
-    if (r.width < 6 || r.height < 6) continue;
-    const area = r.width * r.height;
-    if (!best || area > best.area) best = { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, el, area };
+  for (const t of Array.isArray(target) ? target : [target]) {
+    const sel = t.endsWith('-') ? `[data-testid^="${t}"]` : `[data-testid="${t}"]`;
+    const nodes = Array.from(document.querySelectorAll(sel)) as HTMLElement[];
+    let best: { rect: Rect; el: HTMLElement; area: number } | null = null;
+    for (const el of nodes) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 6 || r.height < 6) continue;
+      const area = r.width * r.height;
+      if (!best || area > best.area) best = { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, el, area };
+    }
+    if (best) return { rect: best.rect, el: best.el };
   }
-  return best ? { rect: best.rect, el: best.el } : null;
+  return null;
 }
 
 const sameRect = (a: Rect | null, b: Rect | null): boolean =>
   a === b || (!!a && !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.w - b.w) < 0.5 && Math.abs(a.h - b.h) < 0.5);
 
-/** Keep a live rect for the current step's target: scroll it into view once,
- *  then re-measure on an interval so the ring follows animation / reflow. */
-function useTargetRect(target: string | undefined, stepKey: number): Rect | null {
-  const [rect, setRect] = useState<Rect | null>(null);
+/**
+ * Resolve the current step's target to a stable rect. Locks ONCE per step (after
+ * scroll-into-view settles), with a few late re-measures to catch reflow — no
+ * perpetual timer, so the ring doesn't jitter. `forStep` lags the step index
+ * until the new rect is locked, which is how the caller keeps the previous
+ * spotlight on screen (and hides the new card) during the hand-off.
+ */
+function useSpotlight(target: string | string[] | undefined, step: number, resizeTick: number): SpotState {
+  const [state, setState] = useState<SpotState>({ phase: 'measuring', rect: null, forStep: -1 });
   useEffect(() => {
     let alive = true;
-    const apply = (r: Rect | null) => { if (alive) setRect((prev) => (sameRect(prev, r) ? prev : r)); };
+    // Native or a target-less step: a bottom sheet, resolved on the next tick
+    // (deferred so this isn't a synchronous setState inside the effect).
     if (!isWeb || !target) {
-      const t = setTimeout(() => apply(null), 0);
+      const t = setTimeout(() => { if (alive) setState({ phase: 'sheet', rect: null, forStep: step }); }, 0);
       return () => { alive = false; clearTimeout(t); };
     }
+    let raf = 0;
+    let frames = 0;
     let scrolled = false;
-    const measure = () => {
+    let settleFrame = 0;
+    const followups: ReturnType<typeof setTimeout>[] = [];
+    const loop = () => {
+      if (!alive) return;
+      frames += 1;
       const found = measureTarget(target);
-      if (!found) { apply(null); return; }
-      const { vh } = viewport();
+      if (!found) {
+        // ~0.6s of retries for a slow-rendering target, then fall back to the
+        // sheet — long enough for late layout, short enough that a genuinely
+        // absent target doesn't strand the previous ring on screen.
+        if (frames > 36) setState({ phase: 'sheet', rect: null, forStep: step });
+        else raf = requestAnimationFrame(loop);
+        return;
+      }
       const r = found.rect;
+      const { vh } = viewport();
+      // Off-screen: bring it to the middle, then let the scroll settle two
+      // frames before measuring where it landed (this is what fixed off-centre).
       if (!scrolled && (r.y < 72 || r.y + r.h > vh - 72)) {
         scrolled = true;
-        try { found.el.scrollIntoView({ block: 'center' }); } catch { /* ignore */ }
-        return; // the next tick reads the settled position
+        settleFrame = frames;
+        try { found.el.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch { /* ignore */ }
+        raf = requestAnimationFrame(loop);
+        return;
       }
-      apply(r);
-    };
-    const t0 = setTimeout(measure, 0);
-    const iv = setInterval(measure, 250);
-    return () => { alive = false; clearTimeout(t0); clearInterval(iv); };
-  }, [target, stepKey]);
-  return rect;
-}
+      if (scrolled && frames - settleFrame < 2) { raf = requestAnimationFrame(loop); return; }
 
-/** Re-render on viewport changes so positions stay correct through rotation,
- *  toolbar show/hide and keyboard. */
-function useViewport(): { vw: number; vh: number } {
-  const [vp, setVp] = useState(viewport);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const on = () => setVp(viewport());
-    window.addEventListener('resize', on);
-    window.visualViewport?.addEventListener('resize', on);
-    window.visualViewport?.addEventListener('scroll', on);
-    return () => {
-      window.removeEventListener('resize', on);
-      window.visualViewport?.removeEventListener('resize', on);
-      window.visualViewport?.removeEventListener('scroll', on);
+      // Lock it. Then a few late re-measures glide the ring to its final spot if
+      // images/fonts reflow the page after we lock.
+      setState({ phase: 'spotlight', rect: r, forStep: step });
+      for (const ms of [120, 260, 440]) {
+        followups.push(setTimeout(() => {
+          if (!alive) return;
+          const again = measureTarget(target);
+          if (again) setState((s) => (s.forStep === step && !sameRect(s.rect, again.rect) ? { ...s, rect: again.rect } : s));
+        }, ms));
+      }
     };
-  }, []);
-  return vp;
+    raf = requestAnimationFrame(loop);
+    return () => { alive = false; cancelAnimationFrame(raf); followups.forEach(clearTimeout); };
+  }, [target, step, resizeTick]);
+  return state;
 }
 
 interface Nav { step: number; total: number; last: boolean; onNext: () => void; onBack: () => void; onClose: () => void }
 
 function HelpCoach({ topic, onClose }: { topic: HelpTopic; onClose: () => void }) {
   const [step, setStep] = useState(0);
+  const [resizeTick, setResizeTick] = useState(0);
   const section = topic.sections[step];
-  const rect = useTargetRect(section?.target, step);
+  const s = useSpotlight(section?.target, step, resizeTick);
+
+  // Re-measure the current step on rotation / toolbar show-hide.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const on = () => setResizeTick((n) => n + 1);
+    window.addEventListener('resize', on);
+    window.visualViewport?.addEventListener('resize', on);
+    return () => { window.removeEventListener('resize', on); window.visualViewport?.removeEventListener('resize', on); };
+  }, []);
+
   const last = step >= topic.sections.length - 1;
   const nav: Nav = {
     step, total: topic.sections.length, last,
-    onNext: () => (last ? onClose() : setStep((s) => s + 1)),
-    onBack: () => setStep((s) => Math.max(0, s - 1)),
+    onNext: () => (last ? onClose() : setStep((v) => v + 1)),
+    onBack: () => setStep((v) => Math.max(0, v - 1)),
     onClose,
   };
+
+  const cardReady = s.forStep === step;
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 70 }}>
-      <Overlay topic={topic} section={section} nav={nav} rect={rect} />
+      <Overlay state={s} cardReady={cardReady} topic={topic} section={section} nav={nav} />
     </View>
   );
 }
 
-function Overlay({ topic, section, nav, rect }: { topic: HelpTopic; section: HelpSection; nav: Nav; rect: Rect | null }) {
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+
+function Overlay({ state, cardReady, topic, section, nav }: { state: SpotState; cardReady: boolean; topic: HelpTopic; section: HelpSection; nav: Nav }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { vw, vh } = useViewport();
+  const reduced = useReducedMotion();
+  const { vw, vh } = viewport();
 
-  const safeTop = insets.top + 8;
-  const safeBottom = vh - insets.bottom - 8;
-  const gap = 14;
-  const MIN = 150; // a tooltip needs at least this much room to sit beside a target
-  const TW = Math.min(360, vw - insets.left - insets.right - 24);
+  // The ring rect can LAG the step during a hand-off (previous spotlight stays
+  // up while the next is measured), which is what keeps the transition smooth.
+  const rect = state.rect;
+  const glide = isWeb && !reduced
+    ? { transitionProperty: 'all', transitionDuration: '170ms', transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)' } as unknown as object
+    : {};
 
-  // Space reserved for the header + nav + padding, so only the body scrolls.
-  const CHROME = 132;
-  const sheetMax = safeBottom - safeTop - 8;
-
-  // No target (or off-screen / native): a bottom sheet, always readable.
+  // No rect at all (very first step, or a sheet step): full dim, sheet card when ready.
   if (!rect) {
+    const safeMax = vh - insets.top - insets.bottom - 24;
     return (
       <View style={{ flex: 1, backgroundColor: DIM }}>
         <Pressable style={{ flex: 1 }} onPress={nav.onNext} accessibilityLabel="next" />
-        <Card
-          topic={topic} section={section} nav={nav} bodyMax={Math.max(48, sheetMax - CHROME)}
-          style={{ position: 'absolute', left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12, maxHeight: sheetMax }}
-        />
+        {cardReady && state.phase === 'sheet' ? (
+          <Fade step={nav.step}>
+            <Card topic={topic} section={section} nav={nav} bodyMax={Math.max(48, safeMax - 132)}
+              style={{ position: 'absolute', left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12, maxHeight: safeMax }} />
+          </Fade>
+        ) : null}
       </View>
     );
   }
@@ -234,65 +273,75 @@ function Overlay({ topic, section, nav, rect }: { topic: HelpTopic; section: Hel
   const hole = { x: Math.max(0, rect.x - pad), y: Math.max(0, rect.y - pad), w: rect.w + pad * 2, h: rect.h + pad * 2 };
   const holeRight = hole.x + hole.w;
   const holeBottom = hole.y + hole.h;
-  // Circle small near-square targets (avatar, menu, icons); a tidy rounded
-  // rectangle for larger blocks so a tall card doesn't become an ellipse.
   const squareish = Math.abs(hole.w - hole.h) < Math.max(hole.w, hole.h) * 0.4;
   const small = Math.min(hole.w, hole.h) < 160;
   const ringRadius = squareish && small ? Math.min(hole.w, hole.h) / 2 + 2 : 14;
 
+  const safeTop = insets.top + 8;
+  const safeBottom = vh - insets.bottom - 8;
+  const gap = 14;
+  const MIN = 150;
+  const CHROME = 132;
+  const TW = Math.min(360, vw - insets.left - insets.right - 24);
   const spaceBelow = safeBottom - (holeBottom + gap);
   const spaceAbove = hole.y - gap - safeTop;
   const mode: 'below' | 'above' | 'sheet' =
     spaceBelow >= MIN && spaceBelow >= spaceAbove ? 'below' : spaceAbove >= MIN ? 'above' : 'sheet';
-  const cardMax = mode === 'below' ? spaceBelow : mode === 'above' ? spaceAbove : sheetMax;
+  const cardMax = mode === 'below' ? spaceBelow : mode === 'above' ? spaceAbove : safeBottom - safeTop - 8;
   const bodyMax = Math.max(48, cardMax - CHROME);
-
   const tx = clamp(rect.x + rect.w / 2 - TW / 2, insets.left + 12, vw - insets.right - 12 - TW);
   const arrowLeft = clamp(rect.x + rect.w / 2 - tx - 7, 16, TW - 30);
 
-  const panel = (s: object, k: string) => (
-    <Pressable key={k} onPress={nav.onNext} style={[{ position: 'absolute', backgroundColor: DIM }, s]} />
+  const panel = (st: object, k: string) => (
+    <Pressable key={k} onPress={nav.onNext} style={[{ position: 'absolute', backgroundColor: DIM }, glide, st]} />
   );
-
-  const cardPos =
-    mode === 'below'
-      ? { left: tx, width: TW, top: holeBottom + gap, maxHeight: spaceBelow }
-      : mode === 'above'
-        ? { left: tx, width: TW, bottom: vh - (hole.y - gap), maxHeight: spaceAbove }
-        : { left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12, maxHeight: safeBottom - safeTop - 8 };
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Dim everything but the hole. Tapping the dim advances. */}
       {panel({ left: 0, top: 0, right: 0, height: hole.y }, 'top')}
       {panel({ left: 0, top: holeBottom, right: 0, bottom: 0 }, 'bottom')}
       {panel({ left: 0, top: hole.y, width: hole.x, height: hole.h }, 'left')}
       {panel({ left: holeRight, top: hole.y, right: 0, height: hole.h }, 'right')}
 
-      {/* The ring on the target. */}
+      {/* The ring on the target — glides on web when the rect changes. */}
       <View
         pointerEvents="none"
         style={{
           position: 'absolute', left: hole.x, top: hole.y, width: hole.w, height: hole.h,
           borderRadius: ringRadius, borderWidth: 2, borderColor: colors.accent,
-          shadowColor: colors.accent, shadowOpacity: 0.85, shadowRadius: 14,
+          shadowColor: colors.accent, shadowOpacity: 0.85, shadowRadius: 14, ...glide,
         }}
       />
 
-      {mode !== 'sheet' ? (
-        <View style={{ position: 'absolute', ...cardPos }}>
-          {mode === 'below' ? <Arrow left={arrowLeft} dir="up" colour={colors.surface} border={`${colors.accent}59`} /> : null}
-          <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ flexShrink: 1 }} />
-          {mode === 'above' ? <Arrow left={arrowLeft} dir="down" colour={colors.surface} border={`${colors.accent}59`} /> : null}
-        </View>
-      ) : (
-        <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ position: 'absolute', ...cardPos }} />
-      )}
+      {/* The card — only once the CURRENT step is locked, so it never shows at a
+          stale position. */}
+      {cardReady ? (
+        mode !== 'sheet' ? (
+          <Fade step={nav.step} style={{ position: 'absolute', left: tx, width: TW, ...(mode === 'below' ? { top: holeBottom + gap } : { bottom: vh - (hole.y - gap) }) }}>
+            {mode === 'below' ? <Arrow left={arrowLeft} dir="up" colour={colors.surface} border={`${colors.accent}59`} /> : null}
+            <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ flexShrink: 1 }} />
+            {mode === 'above' ? <Arrow left={arrowLeft} dir="down" colour={colors.surface} border={`${colors.accent}59`} /> : null}
+          </Fade>
+        ) : (
+          <Fade step={nav.step} style={{ position: 'absolute', left: insets.left + 12, right: insets.right + 12, bottom: insets.bottom + 12 }}>
+            <Card topic={topic} section={section} nav={nav} bodyMax={bodyMax} style={{ maxHeight: cardMax }} />
+          </Fade>
+        )
+      ) : null}
     </View>
   );
 }
 
-const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+/** Fades its children in on mount; re-keyed per step so each step fades fresh. */
+function Fade({ step, style, children }: { step: number; style?: object; children: React.ReactNode }) {
+  const reduced = useReducedMotion();
+  const o = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    o.value = reduced ? 1 : withTiming(1, { duration: 150 });
+  }, [o, reduced, step]);
+  const anim = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View style={[style, anim]}>{children}</Animated.View>;
+}
 
 function Arrow({ left, dir, colour, border }: { left: number; dir: 'up' | 'down'; colour: string; border: string }) {
   return (
