@@ -215,7 +215,18 @@ export function validateChampions(champions: ChampionDefinition[]): {
   return { errors, warnings };
 }
 
-export function validateSynergies(synergies: SynergyDefinition[]): {
+/**
+ * `cards`/`champions` are optional so existing call sites that only care
+ * about per-synergy shape (duplicate ids, tag existence, threshold/bonus
+ * sanity) keep working; passing them turns on two extra, content-wide
+ * checks: every tag synergy must be reachable by the actual roster, and
+ * every official Avatar Path must have a path-identity synergy.
+ */
+export function validateSynergies(
+  synergies: SynergyDefinition[],
+  cards?: CardDefinition[],
+  champions?: ChampionDefinition[]
+): {
   errors: string[];
   warnings: string[];
 } {
@@ -238,6 +249,39 @@ export function validateSynergies(synergies: SynergyDefinition[]): {
         errors.push(`${prefix}: bonus '${key}' must be a positive number`);
     }
   }
+
+  // Reachability: a tag synergy is dead content if no fighter card or
+  // champion can ever carry enough of the tag to hit its threshold. Only
+  // FIGHTER cards count — techniques/equipment never spawn a combatant, so
+  // their tags never enter the aura layer's tag count (synergies.ts).
+  if (cards !== undefined && champions !== undefined) {
+    const fighterTagCounts = new Map<string, number>();
+    for (const card of cards) {
+      if (card.category !== 'fighter') continue;
+      for (const tag of card.tags) fighterTagCounts.set(tag, (fighterTagCounts.get(tag) ?? 0) + 1);
+    }
+    const championTagCounts = new Map<string, number>();
+    for (const ch of champions) {
+      for (const tag of ch.tags) championTagCounts.set(tag, (championTagCounts.get(tag) ?? 0) + 1);
+    }
+    for (const s of synergies) {
+      if (s.tag === 'mixed-paths' || !isFiniteNumber(s.threshold)) continue;
+      const reachable = (fighterTagCounts.get(s.tag) ?? 0) + (championTagCounts.get(s.tag) ?? 0);
+      if (reachable < s.threshold) {
+        errors.push(
+          `synergy '${s.id}': threshold ${s.threshold} exceeds the ${reachable} fighter cards + champions that can ever carry tag '${s.tag}'`
+        );
+      }
+    }
+
+    // Every official Avatar Path needs at least one path-identity synergy.
+    for (const path of ALL_AVATAR_PATHS) {
+      if (!synergies.some((s) => s.tag === path)) {
+        errors.push(`no synergy for official path '${path}'`);
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 

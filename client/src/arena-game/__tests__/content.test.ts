@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { ALL_AVATAR_PATHS } from '../game-engine/types';
 import { BALANCE, CARDS, CHAMPIONS, SYNERGIES, validateAllContent } from '../content';
 import { DEFAULT_DECK_CARD_IDS } from '../services/persistence/save';
-import { validateCards, validateChampions } from '../content/validate';
-import type { CardDefinition } from '../content/types';
+import { validateCards, validateChampions, validateSynergies } from '../content/validate';
+import type { CardDefinition, SynergyDefinition } from '../content/types';
 
 describe('content validation', () => {
   it('all shipped content passes validation', () => {
@@ -11,10 +12,59 @@ describe('content validation', () => {
     expect(report.ok).toBe(true);
   });
 
-  it('ships 20 cards, 5 champions and at least 4 synergies', () => {
+  it('ships 20 cards, 5 champions and 7 synergies (one per path + 2 cross-path)', () => {
     expect(CARDS.length).toBe(20);
     expect(CHAMPIONS.length).toBe(5);
-    expect(SYNERGIES.length).toBeGreaterThanOrEqual(4);
+    expect(SYNERGIES.length).toBe(7);
+  });
+
+  it('P9: every official path has at least one fighter card carrying its tag', () => {
+    const fighterPathCounts = new Map<string, number>();
+    for (const card of CARDS) {
+      if (card.category !== 'fighter') continue;
+      for (const tag of card.tags) {
+        if ((ALL_AVATAR_PATHS as readonly string[]).includes(tag)) {
+          fighterPathCounts.set(tag, (fighterPathCounts.get(tag) ?? 0) + 1);
+        }
+      }
+    }
+    for (const path of ALL_AVATAR_PATHS) {
+      expect(fighterPathCounts.get(path) ?? 0, `path '${path}' has no fighter card`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('P9: every official path has a path-identity synergy, reachable by the shipped roster', () => {
+    const { errors } = validateSynergies(SYNERGIES, CARDS, CHAMPIONS);
+    expect(errors).toEqual([]);
+    for (const path of ALL_AVATAR_PATHS) {
+      expect(SYNERGIES.some((s) => s.tag === path), `no synergy for path '${path}'`).toBe(true);
+    }
+  });
+
+  it('rejects a synergy whose threshold exceeds what the roster can ever field', () => {
+    const impossible: SynergyDefinition = {
+      id: 'impossible',
+      name: 'Impossible',
+      description: 'unreachable',
+      tag: 'aesthetic',
+      threshold: 50,
+      bonus: { armorFlat: 1 },
+    };
+    const { errors } = validateSynergies([...SYNERGIES, impossible], CARDS, CHAMPIONS);
+    expect(errors.some((e) => e.includes("synergy 'impossible'") && e.includes('exceeds the'))).toBe(
+      true
+    );
+  });
+
+  it('rejects a synergy set missing a path (falsifies the path-coverage check)', () => {
+    const missingShredder = SYNERGIES.filter((s) => s.tag !== 'shredder');
+    const { errors } = validateSynergies(missingShredder, CARDS, CHAMPIONS);
+    expect(errors.some((e) => e.includes("no synergy for official path 'shredder'"))).toBe(true);
+  });
+
+  it('validateSynergies stays shape-only (no false positives) when cards/champions are omitted', () => {
+    const { errors } = validateSynergies(SYNERGIES);
+    expect(errors).toEqual([]);
   });
 
   it('has one champion per official avatar path (BranchV2 minus hybrid)', () => {

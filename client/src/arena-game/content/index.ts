@@ -37,7 +37,7 @@ export function validateAllContent(): ContentValidationReport {
   if (cachedReport) return cachedReport;
   const cards = validateCards(CARDS);
   const champions = validateChampions(CHAMPIONS);
-  const synergies = validateSynergies(SYNERGIES);
+  const synergies = validateSynergies(SYNERGIES, CARDS, CHAMPIONS);
   const augments = validateAugments(AUGMENTS);
   const balance = validateBalance();
   const errors = [

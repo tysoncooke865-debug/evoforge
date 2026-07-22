@@ -396,3 +396,33 @@ Adversarial pass over the five champion passives. One defect found+fixed
   not by running the palette through a simulator (e.g. Coblis) — no such
   tool was available in this environment. The team hues themselves
   (cyan/red) were already colorblind-safe pre-P7 (not a red/green pair).
+
+## P9 — cards & synergies (deferrals)
+
+- **Mass still has only one FIGHTER card** (`heavy-tank`, dual-tagged
+  titan/mass). `power-belt` picked up the `'mass'` tag for collection-
+  screen/flavor coverage, but equipment never spawns a combatant, so it
+  cannot help `mass-presence` activate — that synergy is (and remains)
+  reachable only via champion-mass + heavy-tank, or by replaying
+  heavy-tank twice in one match. A second mass-identity fighter (not a
+  stat-clone of heavy-tank) is the real fix; deferred rather than adding
+  a 21st card outside the 12–20 requirement without a matching
+  merge/cut elsewhere.
+- **Equipment/technique tags are cosmetic only, not audited for
+  synergy-reachability parity with fighters.** `content/validate.ts`'s
+  new reachability check deliberately counts FIGHTER cards only (matching
+  how `game-engine/synergies/synergies.ts` counts combatants), so a
+  technique/equipment card's tag (e.g. `overload`'s `'tech'`,
+  `reinforced-armour`'s `'titan'`) is never verified against anything —
+  it is pure collection-screen flavor text. Fine today (no mismatches
+  found), but nothing stops a future card from picking a tag that reads
+  as wrong in the collection screen without any test catching it; a
+  lightweight "does this technique/equipment's tag match its
+  `balanceTags`/effect shape" lint is the sketched follow-up, not
+  built (no clear falsifiable rule presented itself in this pass).
+- **`art` placeholder keys were left unchanged on every renamed card**
+  (e.g. `neon-boxer`'s art key is still `'neon-boxer'` though its display
+  name is now "Cardio Boxer"). Per `content/types.ts`, `art` is "a
+  placeholder key — maps to a temporary visual (color/icon), not a
+  file," so this has zero player-visible effect; flagged only so a
+  future real-art pass does not assume the art key is the display name.

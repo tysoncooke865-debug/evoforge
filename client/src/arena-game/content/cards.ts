@@ -58,8 +58,8 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'neon-boxer',
-    name: 'Neon Boxer',
-    description: 'Fast-swinging duelist with glowing gloves.',
+    name: 'Cardio Boxer',
+    description: 'Fast combinations, endless conditioning. Wears an opponent down on volume.',
     category: 'fighter',
     energyCost: 3,
     target: 'deploy-lane',
@@ -105,8 +105,9 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'shadow-striker',
-    name: 'Shadow Striker',
-    description: 'High burst damage, fragile. Hunts the closest threat.',
+    name: 'The Cutter',
+    description:
+      'Explosive, lean, and built to fold before it slows down. High burst damage, fragile frame — hunts the closest threat.',
     category: 'fighter',
     energyCost: 4,
     target: 'deploy-lane',
@@ -128,8 +129,8 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'drone-archer',
-    name: 'Drone Archer',
-    description: 'Hovering ranged drone that peppers targets from a distance.',
+    name: 'Javelin Marksman',
+    description: 'Throws javelins from deep in the lane, chipping targets down from range.',
     category: 'fighter',
     energyCost: 3,
     target: 'deploy-lane',
@@ -151,12 +152,15 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'cyber-medic',
-    name: 'Cyber Medic',
+    name: 'Recovery Coach',
     description: 'Heals the most damaged nearby ally instead of attacking.',
     category: 'fighter',
     energyCost: 4,
     target: 'deploy-lane',
-    tags: ['support', 'tech', 'ranged'],
+    // Dual identity: a dedicated healer directly amplifies Aesthetics' Flow
+    // State (+10% team healing) while still filling the generic support
+    // slot (like heavy-tank's titan/mass split).
+    tags: ['support', 'tech', 'ranged', 'aesthetic'],
     unit: {
       deployCount: 1,
       behavior: 'healer',
@@ -201,8 +205,8 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'support-drone',
-    name: 'Support Drone',
-    description: 'Cheap flying shield generator for whoever leads the push.',
+    name: 'Spotter',
+    description: 'Keeps watch on the frontline, throwing up a shield before the hit lands.',
     category: 'fighter',
     energyCost: 2,
     target: 'deploy-lane',
@@ -225,8 +229,8 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'blade-runner',
-    name: 'Blade Runner',
-    description: 'Twin-blade skirmisher balancing speed and cut damage.',
+    name: 'Tempo Cutter',
+    description: 'Twin-blade skirmisher balancing tempo and cut damage.',
     category: 'fighter',
     energyCost: 5,
     target: 'deploy-lane',
@@ -344,7 +348,9 @@ export const CARDS: CardDefinition[] = [
     category: 'equipment',
     energyCost: 2,
     target: 'friendly-unit',
-    tags: [],
+    // Raw power buff — the Mass Monster's identity in equipment form (a
+    // lifting belt), giving the mass line a second card beyond heavy-tank.
+    tags: ['mass'],
     effects: { durationTicks: secondsToTicks(15), attackDamageMult: 1.35 },
     balanceTags: ['buff'],
     upgrade: noUpgrade,
@@ -365,8 +371,8 @@ export const CARDS: CardDefinition[] = [
   },
   {
     id: 'neon-blades',
-    name: 'Neon Blades',
-    description: 'Target ally attacks 30% faster for 12s.',
+    name: 'Cutting Program',
+    description: 'A punishing training tempo — target ally attacks 30% faster for 12s.',
     category: 'equipment',
     energyCost: 2,
     target: 'friendly-unit',

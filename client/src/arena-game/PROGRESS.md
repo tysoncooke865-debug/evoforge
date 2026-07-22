@@ -1353,4 +1353,137 @@ cadence/rally heal), Mass Monster's summon tempo trimmed (HP 1820,
 taken-damage ult charge 0.045). Spread narrowed 18 → 7 points: all five
 champions in [46%, 53%] across the 362-match deterministic matrix.
 Re-pinned the two Colossal Frame numeric tests (baked max 2090 → 2002).
+
+## P9 — cards & synergies (2026-07-23, overnight hardening)
+
+Audit findings (20 cards, 5 champions, 5 synergies pre-pass):
+- **Aesthetics had zero fighter-card presence.** Every other path had at
+  least one fighter card carrying its tag (titan 2, mass 1, shredder 2,
+  cardio 3) but no card carried `'aesthetic'` — the path's only combatant
+  was its own champion.
+- **No path-identity synergy for aesthetic or shredder.** `titan-bulwark`,
+  `mass-presence`, `cardio-momentum` shipped (P2/P3); aesthetic and
+  shredder had none, leaving 2 of 5 official paths with no synergy to
+  build a deck around.
+- **Six cyberpunk-flavored names clashed with the fitness-forge theme**
+  (`Neon Boxer`, `Cyber Medic`, `Drone Archer`, `Support Drone`, `Neon
+  Blades`) or read as a generic-fantasy/movie-reference name unrelated to
+  fitness (`Shadow Striker`, `Blade Runner` — literally a film title).
+  No leftover `speedster`/`hybrid` strings existed (already swept in
+  P2/P3 per ARENA_BETA_AUDIT.md); the remaining 14 names/descriptions
+  (Forge Recruit, Titan Guard, Cardio Runner, Heavy Tank, Adrenaline
+  Surge, Recovery Pulse, Overload, Second Wind, Shockwave, Emergency
+  Shield, Power Belt, Reinforced Armour, Carbon Boots) already read as
+  genuine fitness/strength-training terminology and were left alone.
+- **Mass had only one fighter card** (`heavy-tank`, dual-tagged
+  titan/mass) and no equipment; `power-belt`'s "target ally deals 35%
+  more damage" buff was untagged despite being a clean fit for the raw-
+  power identity.
+- Tags otherwise matched mechanical identity throughout (no healer
+  tagged brawler, no support unit tagged shredder, etc.); energy costs
+  all sit inside 1..10; card count (20) was already inside the 12–20
+  requirement, so no cards were added or removed — every fix below is a
+  rename, retag, or new synergy on the EXISTING 20-card set.
+
+Renames (id unchanged — only `name`/`description`; ids stay the stable
+save/replay-referenced keys):
+- `neon-boxer` → **Cardio Boxer** ("Fast combinations, endless
+  conditioning...").
+- `cyber-medic` → **Recovery Coach** (kept description; added tag, see
+  below).
+- `drone-archer` → **Javelin Marksman** ("Throws javelins from deep in
+  the lane...").
+- `support-drone` → **Spotter** (a spotter is genuine gym terminology —
+  matches its shielder behavior exactly).
+- `shadow-striker` → **The Cutter** (ties into the Shredder's own
+  body-fat-driven "Cut Deep"/"Shredded" lore ladder in
+  `domain/branches-v2.ts`).
+- `blade-runner` → **Tempo Cutter** ("tempo" mirrors Cardio Machine's own
+  role text "Tempo specialist"; "cutter" mirrors the Shredder side of its
+  dual `['shredder','cardio']` tag).
+- `neon-blades` → **Cutting Program** ("training tempo" flavor, same
+  effect).
+
+Retags (mechanical/engine-relevant — the synergy aura layer only counts
+tags on FIGHTER cards and champions; technique/equipment tags are
+collection-screen flavor only, confirmed by reading
+`game-engine/synergies/synergies.ts`):
+- `cyber-medic`/Recovery Coach gained `'aesthetic'` (kept `support`,
+  `tech`, `ranged`) — a dedicated healer directly amplifies Aesthetics'
+  Flow State (+10% team healing); same dual-identity pattern already
+  used by `heavy-tank` (titan+mass) and `blade-runner` (shredder+cardio).
+  This is the ONLY fighter-card tag change and it is what makes the new
+  `aesthetic-poise` synergy reachable (champion-aesthetic + one Recovery
+  Coach = 2).
+- `power-belt` (equipment, untagged) gained `'mass'` — a lifting-belt
+  damage buff is a clean equipment-slot fit for Mass Monster's raw-power
+  identity; does not affect synergy counting (equipment never spawns a
+  combatant) but gives mass a second card in the collection screen.
+
+New synergies (`content/synergies.ts`, reordered to the canonical
+aesthetic/titan/mass/shredder/cardio path order):
+- **`aesthetic-poise`** — 2 Aesthetic combatants: +10% movement speed.
+  Reachable via champion-aesthetic + Recovery Coach (exactly 2, same
+  shape as the existing `mass-presence`: champion-mass + heavy-tank).
+- **`shredder-cut-deep`** — 3 Shredder combatants: +12% damage. Reachable
+  via champion-shredder + The Cutter + Tempo Cutter (exactly 3, same
+  shape as `titan-bulwark`: champion-titan + titan-guard + heavy-tank).
+  Name borrows the Shredder's own lore stage ("Cut Deep" in
+  `branches-v2.ts`'s body-fat ladder) for terminology consistency.
+
+Final synergy list (7): `aesthetic-poise`, `titan-bulwark`,
+`mass-presence`, `shredder-cut-deep`, `cardio-momentum`,
+`support-network`, `balanced-forge` — every official path now has
+exactly one path-identity synergy plus the two existing cross-path ones.
+
+Final per-path fighter-card tag coverage (fighter cards + champion,
+`'X'` = the champion itself):
+| Path | Fighter cards | +Champion |
+|---|---|---|
+| Aesthetic | Recovery Coach | champion-aesthetic |
+| Titan | Titan Guard, Heavy Tank | champion-titan |
+| Mass | Heavy Tank (+Power Belt, equipment-only) | champion-mass |
+| Shredder | The Cutter, Tempo Cutter | champion-shredder |
+| Cardio | Cardio Boxer, Cardio Runner, Tempo Cutter | champion-cardio |
+
+Content validation (`content/validate.ts`): extended `validateSynergies`
+with two new checks, gated behind optional `cards`/`champions` params
+(existing shape-only callers unaffected):
+1. **Reachability** — every non-`mixed-paths` synergy's threshold must
+   not exceed the fighter-cards + champions that can ever carry the tag
+   (counts FIGHTER cards only, matching how the aura layer actually
+   counts — see `combatantTags` in `synergies.ts`, which only looks at
+   spawned units + the champion).
+2. **Path coverage** — every entry in `ALL_AVATAR_PATHS` must have at
+   least one synergy with `tag === path`.
+Both are wired into `validateAllContent` via `content/index.ts` passing
+`CARDS`/`CHAMPIONS` through. Falsified in `content.test.ts`: an
+`impossible` synergy with `threshold: 50` on the `aesthetic` tag trips
+the reachability error, and dropping the `shredder` entry from the
+synergy list trips the path-coverage error; a third test confirms
+omitting `cards`/`champions` stays a pure no-op (existing callers keep
+their old, narrower behavior).
+
+Tests: `content.test.ts` gained 5 new tests (P9 fighter-tag-coverage-per-
+path, P9 path-synergy-coverage-and-reachability, the two falsification
+tests above, the shape-only-omit test) and re-pinned the existing card/
+champion/synergy count test to the exact new synergy count (7);
+`synergies.test.ts`/`cards.test.ts`/`five-champions.test.ts` needed no
+changes — they reference cards/champions by `id`, never by display
+`name`, and none of the pre-existing spawns land on the new
+threshold-2/3 boundaries unintentionally (checked by hand against every
+test that spawns `cyber-medic`, `shadow-striker`, or `blade-runner`
+together with other same-team combatants).
+
+Balance spot-check: `ARENA_STABILITY_DEEP=1` stability harness (362
+matches) after the retag/synergy changes — win rates unchanged from the
+P8 baseline: Aesthetics 50%, Titan 46%, Mass 53%, Shredder 53%, Cardio
+49% (same [46%, 53%] spread as P8; the champion's own tag identity, not
+any card tag, is what P8 tuned). No champion re-tuning needed or
+performed.
+
+Gates: `npx vitest run src/arena-game` — 24 files, 433 tests green (up
+from 428, +5 new in `content.test.ts`) · `npx tsc --noEmit` clean, zero
+arena errors · `npx expo lint` 0 errors (same 7 pre-existing warnings,
+none newly introduced) · `npx expo export -p web` succeeded.
 No BALANCE_VERSION bump (0.6.0 unreleased this same run).

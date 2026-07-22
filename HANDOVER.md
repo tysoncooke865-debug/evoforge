@@ -43,7 +43,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA FIVE-CHAMPION BALANCE (2026-07-23, no migration — overnight
+- **ARENA CARDS + SYNERGIES (2026-07-23, no migration — overnight
+  hardening P9)**: card catalog brought to official fitness-forge
+  terminology — six cyberpunk leftovers renamed (Neon Boxer→Cardio
+  Boxer, Cyber Medic→Recovery Coach, Drone Archer→Javelin Marksman,
+  Support Drone→Spotter, Shadow Striker→The Cutter, Blade Runner→Tempo
+  Cutter, Neon Blades→Cutting Program; ids unchanged). Aesthetic and
+  Shredder finally got path synergies (`aesthetic-poise` 2-count,
+  `shredder-cut-deep` 3-count) — 7 synergies total, every official path
+  covered (now a content-validation ERROR if not, plus a
+  threshold-reachability validator; both falsified). 20 playable cards.
+  Deep-harness win rates unchanged from P8 ([46%,53%]). Arena suite 433.
   hardening P8)**: tuned from the P5 deep harness (362 deterministic
   AI-vs-AI matches). Win-rate spread narrowed **18 → 7 points** (all
   five in [46%, 53%]): Aesthetics buffed (HP 1150, dmg 66, Stance Shift

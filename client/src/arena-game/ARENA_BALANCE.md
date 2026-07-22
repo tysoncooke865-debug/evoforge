@@ -128,3 +128,22 @@ Result: **Shredder 53% · Mass 53% · Aesthetics 50% · Cardio 49% ·
 Titan 46%** — 7-point spread, all five inside [46, 53]. Titan's 46% is
 within one-seed noise for n≈130 fielded slots; deliberately NOT tuned
 further to avoid overfitting the fixed seed set.
+
+## P9 — cards & synergies (2026-07-23, overnight hardening)
+
+Card-catalog-only pass (see PROGRESS.md P9 for the full audit): renamed
+six cyberpunk/generic-fantasy card names to fitness-forge terminology
+(ids unchanged), added `'aesthetic'` to `cyber-medic`/Recovery Coach and
+`'mass'` to `power-belt` so all five paths have fighter-card presence,
+and shipped two new path synergies — `aesthetic-poise` (2 Aesthetic
+combatants, +10% move speed) and `shredder-cut-deep` (3 Shredder
+combatants, +12% damage) — closing the gap left by P2/P3 shipping only
+`titan-bulwark`/`mass-presence`/`cardio-momentum`. No card was added,
+removed, or had its stats/energy cost changed; `BALANCE_VERSION` stays
+0.6.0.
+
+Re-ran the P8 deep stability harness after the change (362 matches):
+**Aesthetics 50% · Titan 46% · Mass 53% · Shredder 53% · Cardio 49%** —
+identical to the P8 result. No champion re-tuning triggered or needed;
+card retags/new synergies alone did not move win rates outside
+[46%, 53%].
