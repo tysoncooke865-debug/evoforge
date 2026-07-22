@@ -26,6 +26,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **EXERCISE LIBRARY + SPLITS EXPANSION (2026-07-23, no migration)**: added
+  **88 new curated exercises** (variants of the staples — every triceps-pushdown
+  grip/handle, overhead-extension, curl, lateral/front raise, upright row, cable
+  fly, pulldown/row, squat/lunge, hip-thrust, calf and shrug variant) to
+  `CORE_EXERCISES` in `client/src/domain/exercise-library.ts` (core 113→201,
+  whole library ~1021→1109). Every name was collision-checked (case-insensitive)
+  against the full library incl. the ~908 imported `free-exercise-db` entries —
+  the 23 that already existed there were dropped, not duplicated (the
+  NO-DUPLICATE test fails on any). New entries carry `popularity: 90` so the top
+  staples (100) still surface first in search/substitution. Also added **10 new
+  `DAY_PRESETS`** (Chest, Back, Shoulders, Chest & Triceps, Back & Biceps,
+  Shoulders & Arms, Upper/Lower Power, Upper/Lower Hypertrophy) and **5 new
+  `SPLITS`** (`bro5full` full-seed bro, `arnold6`, `phul4`, `ppul5`, `ubro4`;
+  non-custom splits 6→11). All preset exercise names are byte-identical to
+  library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
+  EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
+  35/35, full suite 1426 green, tsc + lint clean.
 - **ARENA FIVE-CHAMPION ROSTER + REAL PROGRESSION (2026-07-23, no migration —
   overnight hardening P2+P3)**: the Arena now fields THE official five
   champions — **Aesthetics, Titan, Mass Monster, The Shredder, Cardio
