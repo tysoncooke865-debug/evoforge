@@ -50,7 +50,7 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'TRAIN',
     tagline: 'Your training hub — plans, your week, and today’s session.',
     sections: [
-      { heading: 'Start today’s session', target: 'hero-card-', body: 'This card is today’s workout. Tap it to open the session and log sets — each set banks 10 XP the moment you tap it, and saves even offline, so a dropped signal never loses a set.' },
+      { heading: 'Start today’s session', target: ['hero-card', 'hero-card-'], body: 'This card is today’s workout. Tap it to open the session and log sets — each set banks 10 XP the moment you tap it, and saves even offline, so a dropped signal never loses a set.' },
       { heading: 'Three plans, one switch', target: 'plan-dropdown', body: 'This dropdown switches the whole week between MY PLAN (yours), AI PLAN (built for you) and the EVOFORGE PLAN.' },
       { heading: 'Set your week', target: 'edit-week', body: 'EDIT SCHEDULE is where you pick which split lands on each day. Today’s pick drives your Home mission and the sets you see here.' },
       { heading: 'Your own split', target: 'change-workout', body: 'CHOOSE/UPLOAD MY WORKOUT builds a session from scratch or scans a photo of a plan you already follow. QUICK WORKOUT just starts logging with no plan at all.' },
