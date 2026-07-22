@@ -101,3 +101,30 @@ one, move it into balance/content and reference it.
 
 The simulation runs at 20 ticks/second. All durations in content are in ticks;
 author them with `secondsToTicks(x)` for readability.
+
+## P8 — five-champion balance tune (2026-07-23, overnight hardening)
+
+Data source: the P5 deep stability harness (`ARENA_STABILITY_DEEP=1`,
+362 AI-vs-AI matches: 25 matchups × 3 tiers × 3 seeds + squads +
+timeout paths; fully deterministic, so numbers are reproducible).
+
+Baseline win rates: Mass 57% · Shredder 53% · Cardio 53% · Titan 50% ·
+**Aesthetics 39%** — an 18-point spread with one clear laggard.
+
+Changes (content-only; BALANCE_VERSION stays 0.6.0 — unreleased):
+- **Aesthetics**: maxHealth 1050 → 1150, attackDamage 60 → 66, Stance
+  Shift cooldown 12s → 10s, Forge Rally heal 120 → 150. Rationale: its
+  team-support auras underperform in champion-centric matches, so the
+  base line needed real teeth; the stance loop is its identity, so it
+  cycles faster.
+- **Mass Monster**: maxHealth 1900 → 1820 (baked ×1.1 → 2002) and
+  `ultimateChargePerDamageTaken` 0.06 → 0.045. Rationale: the huge HP
+  pool made Mass charge Mass Uprising almost passively; slowing
+  taken-damage charge trims summon tempo without touching the kit.
+- A pure stat nudge alone (round 1: ±80–100 HP) moved win rates by <2
+  points — the charge-rate and DPS levers carried the change.
+
+Result: **Shredder 53% · Mass 53% · Aesthetics 50% · Cardio 49% ·
+Titan 46%** — 7-point spread, all five inside [46, 53]. Titan's 46% is
+within one-seed noise for n≈130 fielded slots; deliberately NOT tuned
+further to avoid overfitting the fixed seed set.

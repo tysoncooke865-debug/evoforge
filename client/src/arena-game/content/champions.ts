@@ -17,8 +17,8 @@ export const CHAMPIONS: ChampionDefinition[] = [
     description:
       'Precision in every line. Reads the battle, times abilities perfectly and shifts stance to become what the squad needs.',
     stats: {
-      maxHealth: 1050,
-      attackDamage: 60,
+      maxHealth: 1150,
+      attackDamage: 66,
       attackIntervalTicks: secondsToTicks(1.0),
       attackRange: 3.5,
       moveSpeedPerTick: 0.24,
@@ -36,7 +36,7 @@ export const CHAMPIONS: ChampionDefinition[] = [
       name: 'Stance Shift',
       description:
         'Toggle stance for 8s: Bulwark (+30% damage taken reduction) or Assault (+25% damage).',
-      cooldownTicks: secondsToTicks(12),
+      cooldownTicks: secondsToTicks(10),
       kind: 'active',
       // The ability system applies exactly one of these per use: Bulwark
       // takes damageTakenMult, Assault takes attackDamageMult (alternating).
@@ -49,13 +49,13 @@ export const CHAMPIONS: ChampionDefinition[] = [
     ultimate: {
       id: 'aesthetic-rally',
       name: 'Forge Rally',
-      description: 'Allies everywhere gain +25% damage and heal 120 over 5s.',
+      description: 'Allies everywhere gain +25% damage and heal 150 over 5s.',
       cooldownTicks: 0,
       kind: 'ultimate',
       effects: {
         durationTicks: secondsToTicks(5),
         attackDamageMult: 1.25,
-        heal: 120,
+        heal: 150,
       },
     },
     ultimateChargePerDamageDealt: 0.06,
@@ -120,7 +120,7 @@ export const CHAMPIONS: ChampionDefinition[] = [
     // pool with lower sustained damage, area denial (slow field) and a
     // summoning ultimate instead of burst.
     stats: {
-      maxHealth: 1900,
+      maxHealth: 1820,
       attackDamage: 55,
       attackIntervalTicks: secondsToTicks(1.4),
       attackRange: 3.5,
@@ -152,7 +152,7 @@ export const CHAMPIONS: ChampionDefinition[] = [
       effects: { summon: { cardId: 'titan-guard', count: 2 } },
     },
     ultimateChargePerDamageDealt: 0.05,
-    ultimateChargePerDamageTaken: 0.06,
+    ultimateChargePerDamageTaken: 0.045,
     ultimateChargeRequired: 100,
     animationStates: ['idle', 'walk', 'attack', 'ability', 'ultimate', 'hit', 'death'],
     art: 'champion-mass',

@@ -43,7 +43,16 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA BATTLE READABILITY (2026-07-23, no migration — overnight
+- **ARENA FIVE-CHAMPION BALANCE (2026-07-23, no migration — overnight
+  hardening P8)**: tuned from the P5 deep harness (362 deterministic
+  AI-vs-AI matches). Win-rate spread narrowed **18 → 7 points** (all
+  five in [46%, 53%]): Aesthetics buffed (HP 1150, dmg 66, Stance Shift
+  10s, Rally heal 150 — was the 39% laggard), Mass Monster's summon
+  tempo trimmed (HP 1820 → baked 2002, taken-damage ult charge 0.06 →
+  0.045 — the HP pool was charging Mass Uprising passively). Content
+  numbers only; BALANCE_VERSION stays 0.6.0 (unreleased). Data +
+  rationale in `arena-game/ARENA_BALANCE.md` P8 section; two Colossal
+  Frame tests re-pinned to the new baked max.
   hardening P7)**: new-player readability audit + fixes, visual only.
   Real bug caught: `pathCardio` was `#22D3EE` — bit-identical to
   `colors.player` team cyan, so an ENEMY Cardio champion wore friendly

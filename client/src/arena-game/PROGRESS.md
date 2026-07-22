@@ -1344,3 +1344,13 @@ from 409) · `npx tsc --noEmit` clean, zero arena errors · `npx expo lint`
 0 errors (same 7 pre-existing warnings, none in touched files) ·
 `node scripts/verify-motion.mjs` OK (14 looping components, all gated —
 unchanged; nothing new loops) · `npx expo export -p web` succeeded.
+
+## P8 — five-champion balance (2026-07-23, overnight hardening)
+
+Tuned from the P5 deep-harness win rates (see ARENA_BALANCE.md P8
+section for data + rationale). Aesthetics buffed (HP/damage/stance
+cadence/rally heal), Mass Monster's summon tempo trimmed (HP 1820,
+taken-damage ult charge 0.045). Spread narrowed 18 → 7 points: all five
+champions in [46%, 53%] across the 362-match deterministic matrix.
+Re-pinned the two Colossal Frame numeric tests (baked max 2090 → 2002).
+No BALANCE_VERSION bump (0.6.0 unreleased this same run).

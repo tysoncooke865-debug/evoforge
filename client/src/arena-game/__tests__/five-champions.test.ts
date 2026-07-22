@@ -273,14 +273,14 @@ describe('champion passives', () => {
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 
-  it('Killer Instinct threshold uses the BAKED max: 35% of a Colossal-Frame Mass Monster is 731.5', () => {
+  it('Killer Instinct threshold uses the BAKED max: 35% of a Colossal-Frame Mass Monster is 700.7', () => {
     const state = championBattle('champion-shredder', 'champion-mass');
     const shredder = champ(state);
     const mass = champ(state, 'opponent');
-    expect(mass.baseMaxHealth).toBe(2090); // 1900 × 1.1 baked at spawn
-    // 700 health is BELOW 35% of the baked max (731.5) but ABOVE 35% of the
-    // listed 1900 (665) — the bonus firing here pins the baked-max basis.
-    mass.health = 700;
+    expect(mass.baseMaxHealth).toBe(2002); // 1820 × 1.1 baked at spawn (P8 tune)
+    // 680 health is BELOW 35% of the baked max (700.7) but ABOVE 35% of the
+    // listed 1820 (637) — the bonus firing here pins the baked-max basis.
+    mass.health = 680;
     const boosted = damageUnit(state, mass, 40, 'test', shredder);
     expect(boosted.dealtToHealth).toBe(50); // 40 × 1.25
     mass.health = 800; // above both thresholds
@@ -288,7 +288,7 @@ describe('champion passives', () => {
     expect(normal.dealtToHealth).toBe(40);
     // Sourceless damage (the ultimate path — ultimates pass no source) never
     // gets the bonus, even on a low target.
-    mass.health = 700;
+    mass.health = 680;
     const sourceless = damageUnit(state, mass, 40, 'test');
     expect(sourceless.dealtToHealth).toBe(40);
     expect(checkInvariants(state, BALANCE)).toEqual([]);
@@ -300,10 +300,10 @@ describe('champion passives', () => {
     damageUnit(state, mass, 999999, 'test');
     expect(mass.alive).toBe(false);
     while (!mass.alive) advanceTick(state, BALANCE);
-    expect(mass.baseMaxHealth).toBe(2090); // preserved, not 1.1× again
-    expect(mass.health).toBe(0.5 * 2090); // respawnHealthFraction of the baked max
+    expect(mass.baseMaxHealth).toBe(2002); // preserved, not 1.1× again
+    expect(mass.health).toBe(0.5 * 2002); // respawnHealthFraction of the baked max
     healUnit(mass, 999999);
-    expect(mass.health).toBe(2090); // heal cap includes the bake
+    expect(mass.health).toBe(2002); // heal cap includes the bake
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 
