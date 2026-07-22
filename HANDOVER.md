@@ -54,7 +54,11 @@ Owner: Tyson. He works through other Claude sessions too — **always
   (React Compiler opt-out) and eslint scopes `react-hooks/refs|purity|
   set-state-in-effect` off for `src/arena-game/**` only — every other rule
   (and react/no-danger) still applies. No tokens/engine/glicko/motion/goldens
-  surface touched (all guards verified green). Standalone repo remains the
+  surface touched (all guards verified green). Sprites (52f4a4d): the Arena
+  renders Kenney 1-Bit Pack (CC0) pixel sprites recolored to the palette —
+  26 pre-tinted PNGs at `arena-game/features/arena/sprites/` (provenance:
+  `arena-game/ASSETS.md`; the slicing/tinting pipeline lives in the upstream
+  repo's `scripts/sprite-tools.js`). Standalone repo remains the
   upstream for engine work; `EVOFORGE_INTEGRATION.md` there documents the
   boundary this integration implements.
 - **HOME v2 CLEANUP + COIN CLAIM HONESTY (2026-07-22, no migration)**: Home
