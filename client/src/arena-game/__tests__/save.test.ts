@@ -98,7 +98,9 @@ describe('save migration v1 → v2 (M6: settings.aiDifficulty)', () => {
     expect(result.recovered).toBe(false);
     expect(result.fresh).toBe(false);
     expect(result.save.saveVersion).toBe(SAVE_VERSION);
-    expect(result.save.settings.aiDifficulty).toBe('standard');
+    // v1→v2 added 'standard'; the v5→v6 step re-defaults a never-battled
+    // save (this fixture has 0 battles) to 'training'.
+    expect(result.save.settings.aiDifficulty).toBe('training');
     // Existing data survives the migration untouched.
     expect(result.save.settings.showDebugPanel).toBe(true);
     expect(result.save.player.displayName).toBe('Migrator');
@@ -112,23 +114,23 @@ describe('save migration v1 → v2 (M6: settings.aiDifficulty)', () => {
     await storage.setItem(SAVE_KEY, JSON.stringify(broken));
     const result = await loadSave(storage);
     expect(result.recovered).toBe(false);
-    expect(result.save.settings).toEqual({ showDebugPanel: false, aiDifficulty: 'standard' });
+    expect(result.save.settings).toEqual({ showDebugPanel: false, aiDifficulty: 'training' });
   });
 
-  it('a v2 save with an invalid aiDifficulty is recovered, not trusted', async () => {
+  it('a current-version save with an invalid aiDifficulty is recovered, not trusted', async () => {
     const storage = new MemoryStorage();
     const bad = createDefaultSave() as unknown as Record<string, unknown>;
     (bad.settings as Record<string, unknown>).aiDifficulty = 'nightmare';
     await storage.setItem(SAVE_KEY, JSON.stringify(bad));
     const result = await loadSave(storage);
     expect(result.recovered).toBe(true);
-    expect(result.save.settings.aiDifficulty).toBe('standard');
+    expect(result.save.settings.aiDifficulty).toBe('training');
   });
 
-  it('the default save is already the current version with a standard difficulty', () => {
+  it('the default save is already the current version with the training difficulty (v6)', () => {
     const save = createDefaultSave();
     expect(save.saveVersion).toBe(SAVE_VERSION);
-    expect(save.settings.aiDifficulty).toBe('standard');
+    expect(save.settings.aiDifficulty).toBe('training');
   });
 });
 
@@ -161,7 +163,8 @@ describe('save migration v2 → v3 (M9: gym squad + war stats)', () => {
     // Existing data survives the migration untouched.
     expect(result.save.player.displayName).toBe('GymMigrator');
     expect(result.save.player.rankPoints).toBe(77);
-    expect(result.save.settings.aiDifficulty).toBe('standard');
+    // 0 battles in this fixture → v5→v6 re-defaults to 'training'.
+    expect(result.save.settings.aiDifficulty).toBe('training');
     expect(result.save.decks.all[0].cardIds.length).toBe(8);
   });
 
@@ -172,7 +175,7 @@ describe('save migration v2 → v3 (M9: gym squad + war stats)', () => {
     const result = await loadSave(storage);
     expect(result.recovered).toBe(false);
     expect(result.save.saveVersion).toBe(SAVE_VERSION);
-    expect(result.save.settings).toEqual({ showDebugPanel: true, aiDifficulty: 'standard' });
+    expect(result.save.settings).toEqual({ showDebugPanel: true, aiDifficulty: 'training' });
     expect(result.save.gym.selectedSquad).toEqual([]);
   });
 
@@ -304,7 +307,8 @@ describe('save migration v4 → v5 (five-champion pass: official roster ids)', (
     expect(result.save.player.championId).toBe('champion-cardio');
     expect(result.save.fitness.avatarPath).toBe('aesthetic');
     expect(result.save.player.rankPoints).toBe(99);
-    expect(result.save.settings).toEqual({ showDebugPanel: true, aiDifficulty: 'standard' });
+    // 0 battles in this fixture → the final v5→v6 step lands 'training'.
+    expect(result.save.settings).toEqual({ showDebugPanel: true, aiDifficulty: 'training' });
     expect(result.save.gym.selectedSquad).toEqual([]);
     expect(result.save.player.onboardingComplete).toBe(true);
   });
@@ -398,6 +402,63 @@ describe('player store + mock provider', () => {
     });
     expect(store.getState().save.player.rankPoints).toBe(0);
     expect(store.getState().save.stats.losses).toBe(1);
+  });
+});
+
+describe('save migration v5 → v6 (P11: first-battle difficulty default)', () => {
+  /** A faithful v5 save at the given battle count / difficulty. */
+  function v5Save(battlesPlayed: number, aiDifficulty: string): Record<string, unknown> {
+    const base = createDefaultSave() as unknown as Record<string, unknown>;
+    return {
+      ...base,
+      saveVersion: 5,
+      player: { ...(base.player as object), displayName: 'Gater', rankPoints: 55 },
+      stats: {
+        battlesPlayed,
+        wins: Math.min(battlesPlayed, 3),
+        losses: Math.max(0, battlesPlayed - 3),
+        draws: 0,
+      },
+      settings: { showDebugPanel: true, aiDifficulty },
+    };
+  }
+
+  it('a never-battled v5 save re-defaults its difficulty to training', async () => {
+    const storage = new MemoryStorage();
+    await storage.setItem(SAVE_KEY, JSON.stringify(v5Save(0, 'standard')));
+    const result = await loadSave(storage);
+    expect(result.recovered).toBe(false);
+    expect(result.save.saveVersion).toBe(SAVE_VERSION);
+    expect(result.save.settings.aiDifficulty).toBe('training');
+    // Everything else survives untouched.
+    expect(result.save.settings.showDebugPanel).toBe(true);
+    expect(result.save.player.displayName).toBe('Gater');
+    expect(result.save.player.rankPoints).toBe(55);
+  });
+
+  it('a v5 save with battles keeps its chosen difficulty', async () => {
+    for (const difficulty of ['training', 'standard', 'advanced']) {
+      const storage = new MemoryStorage();
+      await storage.setItem(SAVE_KEY, JSON.stringify(v5Save(7, difficulty)));
+      const result = await loadSave(storage);
+      expect(result.recovered, difficulty).toBe(false);
+      expect(result.save.settings.aiDifficulty, difficulty).toBe(difficulty);
+    }
+  });
+
+  it('normalizes a malformed difficulty or stats block to training', async () => {
+    for (const broken of [
+      { ...v5Save(0, 'standard'), settings: 'garbage' },
+      v5Save(0, 'nightmare'),
+      // battlesPlayed missing → treated as never-battled.
+      { ...v5Save(4, 'advanced'), stats: {} },
+    ]) {
+      const storage = new MemoryStorage();
+      await storage.setItem(SAVE_KEY, JSON.stringify(broken));
+      const result = await loadSave(storage);
+      expect(result.recovered).toBe(false);
+      expect(result.save.settings.aiDifficulty).toBe('training');
+    }
   });
 });
 

@@ -43,7 +43,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA AI CHAMPION TENDENCIES (2026-07-23, no migration — overnight
+- **ARENA PLAYER JOURNEY (2026-07-23, no migration — overnight hardening
+  P11)**: full first-run journey traced and repaired (8 defects). Arena
+  onboarding no longer asks for a name (EvoForge identity wins —
+  `applyProviderIdentity` at init; Origin champion adopted until
+  onboarding completes); rebuilt as 2 steps (Origin-prefilled champion
+  pick + 3-block core-loop primer). First battle now defaults to the
+  training AI tier, harder tiers win-gated with 🔒 chips (save **v6**
+  migration re-defaults difficulty ONLY for never-battled saves).
+  Tutorial/ghost battles award zero rating (single delta source
+  `ratingDeltaForOutcome`); results overlay shows the Arena Rating
+  delta + explicit "no Forge XP, no Evo Rating change" line; "rank
+  points"→"Arena Rating" everywhere (audit #6 resolved); profile shows
+  REAL provider fitness; debug entries dev-gated; gym non-membership is
+  a friendly state routing to /social, not an error. Arena suite 469.
   hardening P10)**: data-driven per-champion AI tendency profiles
   (`arena-game/features/arena/champion-tendencies.ts`, knobs in its
   TENDENCY table): Titan holds Quake Stomp for ≥2 targets or a

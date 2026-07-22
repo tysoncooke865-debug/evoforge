@@ -9,7 +9,11 @@ import { runBattle } from '../game-engine/simulation/run';
 import { createBattle } from '../game-engine/simulation/state';
 import { advanceTick } from '../game-engine/simulation/tick';
 import { applyCommand } from '../game-engine/simulation/events';
-import { rankTierForPoints } from '../services/progression/rank';
+import {
+  rankTierForPoints,
+  ratingDeltaForOutcome,
+  ratingLineFor,
+} from '../services/progression/rank';
 
 function ratings(all: number): FitnessRatings {
   return { strength: all, cardio: all, muscularity: all, leanness: all, aesthetics: all };
@@ -213,5 +217,34 @@ describe('rank tiers', () => {
   it('handles garbage input safely', () => {
     expect(rankTierForPoints(NaN, BALANCE).name).toBe(BALANCE.rank.tiers[0].name);
     expect(rankTierForPoints(-500, BALANCE).name).toBe(BALANCE.rank.tiers[0].name);
+  });
+});
+
+describe('ratingDeltaForOutcome + ratingLineFor (P11 — results clarity)', () => {
+  it('standard/ranked/gym-war move by the BALANCE.rank table', () => {
+    for (const mode of ['standard', 'ranked', 'gym-war'] as const) {
+      expect(ratingDeltaForOutcome(mode, 'player', BALANCE)).toBe(BALANCE.rank.pointsPerWin);
+      expect(ratingDeltaForOutcome(mode, 'opponent', BALANCE)).toBe(BALANCE.rank.pointsPerLoss);
+      expect(ratingDeltaForOutcome(mode, 'draw', BALANCE)).toBe(BALANCE.rank.pointsPerDraw);
+    }
+  });
+
+  it('tutorial and ghost battles never move Arena Rating', () => {
+    for (const mode of ['tutorial', 'ghost'] as const) {
+      for (const winner of ['player', 'opponent', 'draw'] as const) {
+        expect(ratingDeltaForOutcome(mode, winner, BALANCE)).toBe(0);
+      }
+    }
+  });
+
+  it('the overlay line matches the delta, sign included', () => {
+    expect(ratingLineFor('standard', BALANCE.rank.pointsPerWin)).toBe(
+      `Arena Rating +${BALANCE.rank.pointsPerWin}`
+    );
+    expect(ratingLineFor('standard', BALANCE.rank.pointsPerLoss)).toBe(
+      `Arena Rating ${BALANCE.rank.pointsPerLoss}`
+    );
+    expect(ratingLineFor('tutorial', 0)).toBe('Tutorial — Arena Rating unchanged');
+    expect(ratingLineFor('ghost', 0)).toBe('Ghost battle — Arena Rating unchanged');
   });
 });

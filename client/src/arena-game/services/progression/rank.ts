@@ -1,9 +1,45 @@
 /**
- * Rank tier resolution (Milestone 7). Rank represents competitive battle
+ * Arena Rating tier resolution (Milestone 7; presented as "Arena Rating" in
+ * all UI copy since P11 — audit MEDIUM #6 — to avoid collision with
+ * EvoForge's Rival Rank). Arena Rating represents competitive battle
  * performance only — fully separate from Evo Rating (physique) and Forge
- * Level (consistency).
+ * Level (consistency), Arena-local and cosmetic: it never grants Forge XP
+ * or changes any EvoForge progression.
  */
 import type { BalanceConfig } from '../../content/balance';
+
+/** Battle modes that can finish with an outcome (mirrors the battle store). */
+export type RatedBattleMode = 'standard' | 'ranked' | 'tutorial' | 'ghost' | 'gym-war';
+
+/**
+ * Arena Rating movement for a finished battle — the single source both the
+ * battle store's result recording and the result overlay display use (P11),
+ * so the number shown IS the number applied.
+ *  - tutorial: 0 (a guided lesson never moves the ladder)
+ *  - ghost: 0 (offline; the store never records ghosts to the provider)
+ *  - everything else: the BALANCE.rank table.
+ */
+export function ratingDeltaForOutcome(
+  mode: RatedBattleMode,
+  winner: 'player' | 'opponent' | 'draw',
+  balance: BalanceConfig
+): number {
+  if (mode === 'tutorial' || mode === 'ghost') return 0;
+  return winner === 'player'
+    ? balance.rank.pointsPerWin
+    : winner === 'opponent'
+      ? balance.rank.pointsPerLoss
+      : balance.rank.pointsPerDraw;
+}
+
+/** The result overlay's Arena Rating line (P11) — pure so it is testable
+ *  headless; tutorial/ghost battles say explicitly that nothing moved. */
+export function ratingLineFor(mode: RatedBattleMode, ratingDelta: number): string {
+  if (mode === 'tutorial') return 'Tutorial — Arena Rating unchanged';
+  if (mode === 'ghost') return 'Ghost battle — Arena Rating unchanged';
+  const sign = ratingDelta > 0 ? '+' : '';
+  return `Arena Rating ${sign}${ratingDelta}`;
+}
 
 export interface RankTierInfo {
   name: string;

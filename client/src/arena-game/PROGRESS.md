@@ -1573,3 +1573,116 @@ Gates: `npx vitest run src/arena-game` — 25 files, 453 tests green (+20) ·
 deep stability harness 26/26 green · `npx tsc --noEmit` zero arena errors ·
 `npx expo lint` 0 errors · `npx expo export -p web` succeeded.
 No BALANCE_VERSION bump (0.6.0 unreleased this same run).
+
+## P11 — player journey (2026-07-23, overnight hardening)
+
+The complete first-time journey, traced and repaired as a first-time
+EvoForge athlete would walk it.
+
+### The journey map (after this pass)
+
+Arena hub door (`/arena` → "EVOFORGE ARENA" card) → `/forge-arena`
+(_layout boots: content validation + `initArenaForUser` = per-user storage
++ Supabase provider + NEW identity sync) → title screen ("ENTER THE
+ARENA") → `resolveEntryRoute`: first-timer → `/onboarding` (2 steps:
+champion pick prefilled from the real Origin, then the 3-block core-loop
+primer) → "START TUTORIAL" → guided battle vs the training AI (overlay
+sequencer; rating unchanged) → result overlay (outcome + Arena Rating
+line + cosmetic-rewards note) → lobby (difficulty defaults to Training;
+Standard/Advanced locked behind the first win with a two-tap explicit
+override) → BATTLE → results with real ±Arena Rating → Battle Log →
+Watch Replay / Fight Ghost → Gym (member: full flow; non-member: honest
+empty state + door to EvoForge Social → Gyms).
+
+### What was broken (found by the trace)
+
+1. **Onboarding asked for a display name** (audit #9) while the provider
+   overrides it with the EvoForge profile name — so the lobby/profile
+   showed "Challenger" while battle records showed the real name.
+2. **A first-timer's first real battle hit the 'standard' AI** — the
+   default save difficulty was 'standard' and nothing gated the tiers.
+3. **Tutorial battles moved rank points** (±30/−20 through the provider):
+   losing your guided lesson cost ladder points.
+4. **The result overlay showed no earnings at all** — no rating delta, no
+   hint that rewards are Arena-local (a player could reasonably assume
+   real Forge XP).
+5. **"Rank points" copy everywhere** (lobby/profile/rank screen) — the
+   audit-#6 collision with EvoForge's Rival Rank, never renamed in UI.
+6. **The Arena profile showed the MOCK fitness block** ("Evo Rating
+   (mock)", the local save's flat 50s) instead of the real provider data
+   integrated battles actually use.
+7. **"Developer Debug" sat on the player-facing title screen and lobby**
+   in production builds (standalone-ism).
+8. **Gym non-membership rendered as an error** ("Gym unavailable") with
+   no path forward.
+
+### What changed
+
+- **Identity sync (audit #9 closed)**: `applyProviderIdentity` (pure,
+  services/onboarding) runs at the end of `initArenaForUser` — display
+  name always follows EvoForge (sanitised, fail-soft); the Origin-derived
+  champion prefills the save ONLY until onboarding completes (a finished
+  player's pick is never overridden). No-op returns the same object so
+  nothing persists on the common path. Onboarding is now 2 steps — the
+  name step is gone; the primer is exactly 3 blocks (deploy cards /
+  command your champion / destroy the Forge Core) plus the first-battle
+  difficulty note.
+- **First-battle gating**: save v5→v6 (SAVE_VERSION 6) — `createDefaultSave`
+  now starts at 'training', and the migration re-defaults ONLY
+  never-battled saves (battlesPlayed 0, or malformed stats/settings) to
+  'training'; any save with battles keeps its chosen tier. Lobby chips
+  show 🔒 on Standard/Advanced until the first WIN
+  (`isDifficultyUnlocked`); the lock is advisory — first tap explains
+  ("unlocks after your first win — tap again to face it anyway"), second
+  tap selects (explicit choice per the brief).
+- **Tutorial off the ladder**: `ratingDeltaForOutcome` (pure,
+  services/progression/rank) is now the single delta source for BOTH the
+  battle store's `recordResult` and the overlay display — tutorial and
+  ghost modes return 0. Tutorial battles still count in battle stats, so
+  a tutorial win unlocks the harder tiers.
+- **Results clarity**: ResultOverlay takes `mode` + `ratingDelta` and
+  renders `ratingLineFor` ("Arena Rating +30" / "Tutorial — Arena Rating
+  unchanged" / "Ghost battle — Arena Rating unchanged") plus the standing
+  line "Arena progress stays in the Arena — no Forge XP, no Evo Rating
+  change."
+- **Arena Rating naming (audit #6 closed)**: lobby, profile and the rank
+  screen (title now "Arena Rating") all say Arena Rating; the progression
+  panel states it is Arena-local and cosmetic.
+- **Real profile**: /profile now reads the provider's fitness profile
+  (the exact data battles scale from), with loading and
+  "unavailable — battles use neutral scaling" states; the mock block,
+  "Player ID: local-player" row and "simulated locally" copy are gone.
+- **Debug doors dev-gated**: title + lobby "Developer Debug" buttons
+  render only under `__DEV__` or the save's `showDebugPanel` flag (the
+  route stays reachable by URL for development).
+- **Gym empty state**: non-membership is its own state ("No gym yet" +
+  what Gym Wars are + "Open EvoForge Social" door to the real gyms UI);
+  only genuine read failures show the error panel.
+
+### Tests
+
+469 arena tests green (+16 this pass): v5→v6 migration (re-default only
+when unbattled; preserved when battled; malformed settings/stats
+normalise), training default pinned across the v1→v6 chain,
+`applyProviderIdentity` (sync/adopt/never-override/no-op identity/other
+fields untouched), `isDifficultyUnlocked` (win-gated, training always),
+`ratingDeltaForOutcome` + `ratingLineFor` (table modes, zero modes, sign
+rendering). Existing save fixtures updated where the v6 default
+legitimately changed expectations.
+
+### Verified journey states (empty/error)
+
+- No fitness data: provider baselines (50s) or profile "unavailable"
+  note; battles fall back to neutral scaling (unchanged, re-verified).
+- No gyms joined: dedicated no-gym state (gym overview); sub-screens
+  (roster/squad/war) keep their fail-soft panels and are only linked from
+  the gated overview.
+- No battle records: battle log's existing "No battles recorded" panel +
+  arena CTA (unchanged, verified).
+- Boot failure: _layout's retry panel; screen crashes: ErrorBoundary
+  (battle, tutorial, profile, gym-war, layout-wide) — unchanged.
+
+Gates: `npx vitest run src/arena-game` 25 files / 469 tests green ·
+`npx tsc --noEmit` clean · `npx expo lint` 0 errors · `npx expo export -p
+web` succeeded. No BALANCE_VERSION bump (no simulation change; the
+tutorial delta lives outside the engine).

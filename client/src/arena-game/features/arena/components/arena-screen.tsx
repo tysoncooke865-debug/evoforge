@@ -55,6 +55,7 @@ import {
   battleRecordKey,
   loadBattleRecords,
 } from '../../../services/persistence/battle-records';
+import { ratingDeltaForOutcome } from '../../../services/progression/rank';
 import { DEFAULT_DECK_CARD_IDS } from '../../../services/persistence/save';
 import { usePlayer } from '../../../services/player-data/use-player';
 import { AugmentPicker } from './augment-picker';
@@ -651,6 +652,10 @@ export function ArenaScreen({
       {status === 'finished' && state.outcome && (
         <ResultOverlay
           outcome={state.outcome}
+          mode={mode}
+          // Same source the store records through — the number shown IS the
+          // number applied (0 for tutorial/ghost).
+          ratingDelta={ratingDeltaForOutcome(mode, state.outcome.winner, BALANCE)}
           contributions={
             mode === 'gym-war'
               ? (live.config.player.squad?.borrowed ?? []).map((b, i) => ({

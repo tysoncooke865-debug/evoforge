@@ -25,8 +25,9 @@
  *    standard battle). The BattleResult reports mode 'ranked' so a future
  *    backend can split ladders; the persisted record keeps debug.mode
  *    'standard' (record schema unchanged). See services/progression/ranked.ts.
- *  - 'tutorial' battles record a BattleResult (mode 'tutorial') but are
- *    NEVER persisted as battle records.
+ *  - 'tutorial' battles record a BattleResult (mode 'tutorial', always a
+ *    ZERO rank-point delta — a guided lesson never moves the ladder, P11)
+ *    but are NEVER persisted as battle records.
  *  - 'ghost' battles (startGhost) are fully offline: no provider call, no
  *    rank movement — but they ARE persisted as battle records (mode
  *    'ghost'), with display snapshots derived from the source record so no
@@ -41,6 +42,7 @@ import {
   CombatantSnapshot,
 } from '../../game-engine/simulation/replay';
 import type { BattleResult, EvoForgePlayerProvider } from '../../integration/evoforge/types';
+import { ratingDeltaForOutcome } from '../../services/progression/rank';
 import { appendBattleRecord } from '../../services/persistence/battle-records';
 import type { KeyValueStorage } from '../../services/persistence/storage';
 import {
@@ -167,12 +169,10 @@ export function createBattleStore(
     resultRecorded = true;
     if (currentMode === 'ghost') return;
 
-    const rankPointsDelta =
-      outcome.winner === 'player'
-        ? BALANCE.rank.pointsPerWin
-        : outcome.winner === 'opponent'
-          ? BALANCE.rank.pointsPerLoss
-          : BALANCE.rank.pointsPerDraw;
+    // Shared with the result overlay display (P11): tutorial battles move 0
+    // Arena Rating (a guided lesson is not the ladder) — they still count in
+    // battle stats, so a tutorial win unlocks the harder AI tiers.
+    const rankPointsDelta = ratingDeltaForOutcome(currentMode, outcome.winner, BALANCE);
 
     const result: BattleResult = {
       battleId: `battle-${live.state.seed}-${outcome.endTick}`,

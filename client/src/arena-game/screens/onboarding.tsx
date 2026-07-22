@@ -1,31 +1,34 @@
 /**
- * First-time onboarding flow (M10) — three steps:
- *   1. Welcome + display-name entry (default kept if left as-is / blanked).
- *   2. Champion pick (same card presentation pattern as /champions).
- *   3. "How it works" primer with Start Tutorial / Skip to Lobby exits.
- * Both exits mark save.player.onboardingComplete = true; the flow is
- * re-runnable from the lobby ("Replay Onboarding").
+ * First-time onboarding flow (M10, reworked P11 for the integrated Arena) —
+ * two steps:
+ *   1. Champion pick (same card presentation pattern as /champions). The
+ *      pick is prefilled from the athlete's EvoForge Origin (synced into the
+ *      save at boot by applyProviderIdentity) — switching is free.
+ *   2. "How it works" primer: the core loop in three short blocks (deploy
+ *      cards / command your champion / destroy the Forge Core), plus the
+ *      first-battle note that battles start on the Training AI tier.
+ *      Exits: Start Tutorial / Skip to Lobby.
+ *
+ * There is NO display-name step (audit #9): the Arena battles under the
+ * athlete's EvoForge profile name. Both exits mark
+ * save.player.onboardingComplete = true; the flow is re-runnable from the
+ * lobby ("Replay Onboarding").
  */
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Body, Heading, NeonButton, Screen } from '../components/ui';
 import { colors, pathColor, radius, spacing, typography } from '../constants/theme';
 import { CHAMPIONS, TICKS_PER_SECOND } from '../content';
 import type { ChampionDefinition } from '../content/types';
 import { playerStore } from '../services/app-services';
-import {
-  MAX_DISPLAY_NAME_LENGTH,
-  sanitizeDisplayName,
-} from '../services/onboarding/onboarding';
 import { usePlayer } from '../services/player-data/use-player';
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1;
 
 const STEP_TITLES: Record<Step, string> = {
-  0: 'WELCOME, CHALLENGER',
-  1: 'PICK YOUR CHAMPION',
-  2: 'HOW IT WORKS',
+  0: 'PICK YOUR CHAMPION',
+  1: 'HOW IT WORKS',
 };
 
 function statsSummary(champion: ChampionDefinition): string {
@@ -82,28 +85,15 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const save = usePlayer((s) => s.save);
   const [step, setStep] = useState<Step>(0);
-  const [name, setName] = useState(save.player.displayName);
   const [championId, setChampionId] = useState(save.player.championId);
 
-  /** Step 1 → 2: persist the (sanitised) display name; blank keeps default. */
-  const commitName = () => {
-    void playerStore.getState().update((s) => ({
-      ...s,
-      player: {
-        ...s.player,
-        displayName: sanitizeDisplayName(name, s.player.displayName),
-      },
-    }));
-    setStep(1);
-  };
-
-  /** Step 2 → 3: persist the champion choice. */
+  /** Step 1 → 2: persist the champion choice. */
   const commitChampion = () => {
     void playerStore.getState().update((s) => ({
       ...s,
       player: { ...s.player, championId },
     }));
-    setStep(2);
+    setStep(1);
   };
 
   /** Either exit completes onboarding, then leaves the flow. */
@@ -118,41 +108,18 @@ export default function OnboardingScreen() {
   return (
     <Screen>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepCounter}>STEP {step + 1} OF 3</Text>
+        <Text style={styles.stepCounter}>STEP {step + 1} OF 2</Text>
         <Heading>{STEP_TITLES[step]}</Heading>
       </View>
 
       {step === 0 && (
         <>
           <Body dim>
-            EvoForge Arena turns your training into battles. Before your first
-            fight, tell the arena what to call you.
-          </Body>
-          <Text style={styles.inputLabel}>DISPLAY NAME</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            maxLength={MAX_DISPLAY_NAME_LENGTH}
-            placeholder="Challenger"
-            placeholderTextColor={colors.textDim}
-            style={styles.input}
-            accessibilityLabel="Display name"
-            autoCapitalize="words"
-            autoCorrect={false}
-            returnKeyType="done"
-            onSubmitEditing={commitName}
-          />
-          <Body dim>Leave it as-is to keep the default. You can battle under any name.</Body>
-          <NeonButton label="NEXT" onPress={commitName} />
-        </>
-      )}
-
-      {step === 1 && (
-        <>
-          <Body dim>
-            Your Champion anchors every battle: it fights on its own, respawns
-            when it falls, and brings an ability plus a chargeable ultimate.
-            You can change this any time from the lobby.
+            Welcome, {save.player.displayName} — the Arena turns your training
+            into battles. Your Champion anchors every one: it fights on its
+            own, respawns when it falls, and brings an ability plus a
+            chargeable ultimate. Your EvoForge Origin pre-selects one, but the
+            pick is yours — change it any time from the lobby.
           </Body>
           {CHAMPIONS.map((champion) => (
             <ChampionPickCard
@@ -163,36 +130,36 @@ export default function OnboardingScreen() {
             />
           ))}
           <NeonButton label="NEXT" onPress={commitChampion} />
-          <NeonButton label="Back" variant="secondary" onPress={() => setStep(0)} />
         </>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <>
-          <PrimerBlock title="⚡ FORGE ENERGY">
-            Energy refills over time and pays for every card you play — and it
-            regenerates faster in the final minute. Spend it, don&apos;t hoard it.
+          <PrimerBlock title="▤ DEPLOY CARDS">
+            Forge Energy refills over time and pays for every card. Tap a card
+            in your hand, then tap the glowing zone at the bottom of a lane to
+            deploy it there.
           </PrimerBlock>
-          <PrimerBlock title="⇅ TWO LANES">
-            Two lanes lead to the enemy Forge Core. Tap the glowing zone at the
-            bottom of a lane to deploy your selected card there. Destroy their
-            core — or hold more core health at the timer — to win.
+          <PrimerBlock title="★ COMMAND YOUR CHAMPION">
+            Your Champion fights automatically — trigger its ability and, once
+            charged, its ultimate from the buttons above your hand. Your real
+            EvoForge ratings shape its stats (capped, never decisive).
           </PrimerBlock>
-          <PrimerBlock title="▤ YOUR DECK">
-            You battle with an 8-card deck and hold 4 in hand. A played card
-            cycles to the back of the queue and the next one takes its slot.
+          <PrimerBlock title="◎ DESTROY THE FORGE CORE">
+            Two lanes lead to the enemy Forge Core. Destroy it — or hold more
+            core health when the timer runs out — and the battle is yours.
           </PrimerBlock>
-          <PrimerBlock title="★ YOUR CHAMPION">
-            Your Champion fights automatically. Trigger its ability and — once
-            charged — its ultimate from the buttons above your hand.
-          </PrimerBlock>
+          <Body dim>
+            Your first battles face the Training AI. Harder tiers unlock in
+            the lobby after your first win.
+          </Body>
           <NeonButton label="START TUTORIAL" onPress={() => void finish('/forge-arena/tutorial')} />
           <NeonButton
             label="Skip to Lobby"
             variant="secondary"
             onPress={() => void finish('/forge-arena/lobby')}
           />
-          <NeonButton label="Back" variant="secondary" onPress={() => setStep(1)} />
+          <NeonButton label="Back" variant="secondary" onPress={() => setStep(0)} />
         </>
       )}
     </Screen>
@@ -202,18 +169,6 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   stepHeader: { gap: spacing.xs, marginTop: spacing.md },
   stepCounter: { ...typography.label, color: colors.cyan, letterSpacing: 2 },
-  inputLabel: { ...typography.label, color: colors.textDim, letterSpacing: 1 },
-  input: {
-    ...typography.body,
-    color: colors.text,
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 44,
-  },
   card: {
     borderWidth: 1,
     borderColor: colors.border,

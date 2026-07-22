@@ -2,12 +2,19 @@
  * Full-screen result overlay shown once the battle store's status is
  * 'finished'. Outcome is always described from the local player's
  * perspective (the live battle's 'player' team).
+ *
+ * P11: shows what the battle actually earned — the Arena Rating delta the
+ * store applied (same ratingDeltaForOutcome source), with tutorial/ghost
+ * battles explicitly labeled as moving nothing — plus the standing line
+ * that Arena progress is cosmetic and never touches EvoForge progression.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NeonButton } from '../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../constants/theme';
 import type { BattleOutcome } from '../../../game-engine/simulation/state';
+import { ratingLineFor } from '../../../services/progression/rank';
+import type { BattleMode } from '../battle-store';
 
 /** One fielded gym member's contribution line (M9 Gym Wars). */
 export interface ContributionLine {
@@ -18,6 +25,10 @@ export interface ContributionLine {
 
 interface Props {
   outcome: BattleOutcome;
+  /** Battle mode — decides how the rating line reads (P11). */
+  mode: BattleMode;
+  /** Arena Rating delta the store recorded for this outcome (0 for tutorial/ghost). */
+  ratingDelta: number;
   onRematch: () => void;
   onBackToLobby: () => void;
   /** Gym War contribution summary for the fielded members (M9). */
@@ -35,6 +46,8 @@ const REASON_LABEL: Record<BattleOutcome['reason'], string> = {
 
 export function ResultOverlay({
   outcome,
+  mode,
+  ratingDelta,
   onRematch,
   onBackToLobby,
   contributions,
@@ -60,6 +73,18 @@ export function ResultOverlay({
             Opponent {Math.max(0, Math.round(outcome.opponentCoreHealth))}
           </Text>
         </View>
+        <Text
+          style={[
+            styles.ratingLine,
+            ratingDelta > 0 && { color: colors.success },
+            ratingDelta < 0 && { color: colors.danger },
+          ]}
+        >
+          {ratingLineFor(mode, ratingDelta)}
+        </Text>
+        <Text style={styles.cosmeticNote}>
+          Arena progress stays in the Arena — no Forge XP, no Evo Rating change.
+        </Text>
         {contributions && contributions.length > 0 && (
           <View style={styles.contribBlock}>
             {contributionsTitle && <Text style={styles.contribTitle}>{contributionsTitle}</Text>}
@@ -103,6 +128,8 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 34, fontWeight: '800', letterSpacing: 2 },
   reason: { ...typography.body, color: colors.textDim, textAlign: 'center' },
+  ratingLine: { ...typography.label, color: colors.textDim, letterSpacing: 1 },
+  cosmeticNote: { ...typography.body, fontSize: 12, color: colors.textDim, textAlign: 'center' },
   healthRow: { flexDirection: 'row', gap: spacing.lg },
   healthText: { ...typography.mono, color: colors.text },
   contribBlock: {

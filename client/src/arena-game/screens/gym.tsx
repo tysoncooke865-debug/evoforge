@@ -22,6 +22,9 @@ export default function GymScreen() {
   const router = useRouter();
   const save = usePlayer((s) => s.save);
   const [data, setData] = useState<GymData | null>(null);
+  // P11: "not in a gym" is a normal first-timer state with its own guidance,
+  // not an error — only real read failures land in `error`.
+  const [noGym, setNoGym] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export default function GymScreen() {
       try {
         const profile = await playerProvider.getGymProfile(save.player.playerId);
         if (!profile) {
-          if (!cancelled) setError('You are not a member of a gym yet.');
+          if (!cancelled) setNoGym(true);
           return;
         }
         const members = await playerProvider.getGymMembers(profile.gymId);
@@ -43,6 +46,21 @@ export default function GymScreen() {
       cancelled = true;
     };
   }, [save.player.playerId]);
+
+  if (noGym) {
+    return (
+      <Screen>
+        <Panel>
+          <Heading>No gym yet</Heading>
+          <Body dim>
+            Gym Wars field a squad borrowed from your real EvoForge gym. Join one in EvoForge
+            (Social → Gyms), then come back here to build your war squad.
+          </Body>
+        </Panel>
+        <NeonButton label="Open EvoForge Social" onPress={() => router.push('/social')} />
+      </Screen>
+    );
+  }
 
   if (error) {
     return (

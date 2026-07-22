@@ -467,3 +467,30 @@ Adversarial pass over the five champion passives. One defect found+fixed
   lanes — so two seeds with an identical early threat pattern can still
   converge to similar defensive openings. Accepted: never ignoring a real
   push outranks variety.
+
+## P11 — player journey (deferrals)
+
+- **The difficulty lock is advisory by design**: a 0-win player can still
+  select Standard/Advanced with a deliberate second tap (the brief's
+  "explicit choice"). Pre-v6 saves that never battled are re-defaulted
+  to 'training' by the migration; a pre-v6 player who had EXPLICITLY set
+  'standard' without ever battling is indistinguishable from the old
+  default and gets re-defaulted too — accepted (two taps restore it).
+- **The result overlay has no "Watch Replay" shortcut**: the battle
+  record is persisted asynchronously (best-effort, after snapshots
+  resolve), so a link straight from the overlay could race a
+  not-yet-written record. Entry point stays the Battle Log (one tap
+  away via Back to Lobby); wiring a ready-when-persisted link is
+  backlog.
+- **Identity sync is boot-time only**: an EvoForge display-name change
+  mid-session shows up in the Arena on the next `/forge-arena` boot, not
+  live. Same staleness class as the provider's other reads (fitness is
+  fetched per battle already); acceptable for the beta.
+- **`showDebugPanel` has no UI toggle**: with the debug doors dev-gated,
+  production access to /forge-arena/debug is by URL only (deliberate —
+  the flag remains in the save for a future settings screen).
+- **gym-roster/gym-squad still phrase non-membership as "unavailable"**:
+  they are only linked from the gym overview, which now gates
+  non-members with the dedicated no-gym state first, so the copy is
+  unreachable in the normal journey; unifying them onto the no-gym
+  component is cosmetic backlog.

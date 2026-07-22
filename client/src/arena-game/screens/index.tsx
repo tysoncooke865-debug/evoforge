@@ -21,7 +21,11 @@ export default function TitleScreen() {
         {/* First-time players route through onboarding; done players go to
             the lobby (decision logic: services/onboarding/onboarding.ts). */}
         <NeonButton label="ENTER THE ARENA" onPress={() => router.push(resolveEntryRoute(save))} />
-        <NeonButton label="Developer Debug" variant="secondary" onPress={() => router.push('/forge-arena/debug')} />
+        {/* P11: the debug door is dev/opt-in only — a regular athlete's
+            front door has exactly one action. */}
+        {(__DEV__ || save.settings.showDebugPanel) && (
+          <NeonButton label="Developer Debug" variant="secondary" onPress={() => router.push('/forge-arena/debug')} />
+        )}
       </View>
       <Text style={styles.version}>beta · balance v{BALANCE_VERSION}</Text>
     </Screen>

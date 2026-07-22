@@ -13,10 +13,10 @@ export default function RankScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Rank' }} />
+      <Stack.Screen options={{ title: 'Arena Rating' }} />
       <Panel>
         <Heading>{info.name}</Heading>
-        <Body dim>{save.player.rankPoints} rank points</Body>
+        <Body dim>{save.player.rankPoints} Arena Rating</Body>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${info.progress * 100}%` }]} />
         </View>
@@ -49,7 +49,8 @@ export default function RankScreen() {
       <Panel>
         <Heading>How progression fits together</Heading>
         <Body dim>
-          Rank measures battle results only. It is separate from your Evo Rating (physical
+          Arena Rating measures battle results only, and it stays in the Arena — cosmetic
+          standing, never Forge XP. It is separate from your Evo Rating (physical
           development, shapes your Champion within a capped ±{Math.round(
             (BALANCE.fitness.rankedMaxTotalAdvantage / 2) * 100
           )}–{Math.round(BALANCE.fitness.rankedMaxTotalAdvantage * 100)}% band) and your Forge

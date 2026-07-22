@@ -14,8 +14,11 @@ import type { KeyValueStorage } from './storage';
 export const SAVE_KEY = 'evoforge-arena/save';
 /** v2 (M6): settings gained aiDifficulty. v3 (M9): gym squad + war stats.
  *  v4 (M10): onboardingComplete. v5 (five-champion pass): champion ids and
- *  avatar paths remapped onto the official EvoForge roster. */
-export const SAVE_VERSION = 5;
+ *  avatar paths remapped onto the official EvoForge roster. v6 (P11 player
+ *  journey): a save that has never battled defaults aiDifficulty to
+ *  'training' (first battle lands on the easiest AI tier; see
+ *  services/onboarding/onboarding.ts isDifficultyUnlocked). */
+export const SAVE_VERSION = 6;
 
 export interface DeckRecord {
   id: string;
@@ -123,7 +126,8 @@ export function createDefaultSave(now: string = new Date().toISOString()): SaveD
       all: [{ id: 'starter', name: 'Starter Deck', cardIds: [...DEFAULT_DECK_CARD_IDS] }],
     },
     stats: { battlesPlayed: 0, wins: 0, losses: 0, draws: 0 },
-    settings: { showDebugPanel: false, aiDifficulty: 'standard' },
+    // v6: a fresh player's first battle faces the easiest AI tier.
+    settings: { showDebugPanel: false, aiDifficulty: 'training' },
     gym: createDefaultGymState(),
   };
 }
@@ -253,6 +257,38 @@ const MIGRATIONS: Record<number, Migration> = {
         ...oldFitness,
         avatarPath: migrateAvatarPath(oldFitness.avatarPath),
         avatarStage: stage,
+      },
+    };
+  },
+  // v5 → v6 (P11 player journey): a save that has NEVER battled re-defaults
+  // its opponent difficulty to 'training' so the first battle lands on the
+  // easiest AI tier (harder tiers unlock in the lobby after a win, or by
+  // explicit choice). Saves with any battles keep their chosen difficulty.
+  // A malformed settings object is rebuilt so the migrated save validates.
+  5: (data) => {
+    const oldSettings =
+      typeof data.settings === 'object' && data.settings !== null
+        ? (data.settings as Record<string, unknown>)
+        : {};
+    const oldStats =
+      typeof data.stats === 'object' && data.stats !== null
+        ? (data.stats as Record<string, unknown>)
+        : {};
+    const battlesPlayed =
+      typeof oldStats.battlesPlayed === 'number' && Number.isFinite(oldStats.battlesPlayed)
+        ? oldStats.battlesPlayed
+        : 0;
+    const keptDifficulty = ALL_AI_DIFFICULTIES.includes(oldSettings.aiDifficulty as AiDifficulty)
+      ? (oldSettings.aiDifficulty as AiDifficulty)
+      : 'training';
+    return {
+      ...data,
+      saveVersion: 6,
+      settings: {
+        ...oldSettings,
+        showDebugPanel:
+          typeof oldSettings.showDebugPanel === 'boolean' ? oldSettings.showDebugPanel : false,
+        aiDifficulty: battlesPlayed > 0 ? keptDifficulty : ('training' satisfies AiDifficulty),
       },
     };
   },

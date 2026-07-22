@@ -17,6 +17,7 @@ import type {
   GymProfile,
   PlayerProfile,
 } from '../integration/evoforge/types';
+import { applyProviderIdentity } from './onboarding/onboarding';
 import { AsyncStorageBackend } from './persistence/async-storage';
 import type { KeyValueStorage } from './persistence/storage';
 import { createPlayerStore, PlayerStore } from './player-data/player-store';
@@ -88,6 +89,18 @@ export async function initArenaForUser(userId: string): Promise<void> {
   activeStorage = new NamespacedStorage(new AsyncStorageBackend(), `u/${userId}/`);
   activeProvider = new SupabaseEvoForgePlayerProvider(playerStore, userId);
   await playerStore.getState().initialize(appStorage);
+  // P11 (audit #9): EvoForge identity is canonical — sync the profile's
+  // display name (and, until onboarding completes, the Origin-derived
+  // champion) into the Arena save so lobby/profile/battles all agree.
+  // Fail-soft: a broken identity read never blocks the Arena from booting.
+  try {
+    const profile = await activeProvider.getCurrentPlayer();
+    const state = playerStore.getState();
+    const synced = applyProviderIdentity(state.save, profile);
+    if (synced !== state.save) await state.update(() => synced);
+  } catch (e) {
+    console.warn('[forge-arena] identity sync failed — using local save identity', e);
+  }
 }
 
 /**
