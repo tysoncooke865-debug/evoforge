@@ -18,7 +18,7 @@ import { championSpawnX, spawnChampion } from '../entities/spawn';
 import { SeededRng } from '../random/rng';
 // Runtime-only usage inside createBattle (the module cycle with synergies.ts
 // is init-safe: neither module calls the other during initialization).
-import { computeTeamAuras } from '../synergies/synergies';
+import { recomputeAuras } from '../synergies/synergies';
 import type { CombatStats, LaneId, TeamId } from '../types';
 
 export type EntityId = number;
@@ -445,9 +445,11 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
   // Initial aura snapshot from the REAL starting composition: champion
   // passives (and full-squad synergies) are live from tick 1 instead of
   // arriving one tick late off a synthetic empty snapshot. Deterministic —
-  // derived purely from the spawns above.
-  state.auras.player = computeTeamAuras(state, 'player');
-  state.auras.opponent = computeTeamAuras(state, 'opponent');
+  // derived purely from the spawns above. Via recomputeAuras (not bare
+  // computeTeamAuras) so synergies active from spawn (full-squad tags) log
+  // their tick-0 'synergy-on' — otherwise a later death emits an orphan
+  // 'synergy-off' with no matching activation (passives-review fix).
+  recomputeAuras(state);
   return state;
 }
 

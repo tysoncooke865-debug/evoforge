@@ -276,3 +276,42 @@ overnight run and has zero player records (unreleased) — the change rides
 the existing 0.6.0 gate. All other P4 fixes only affect malformed inputs
 (previously: throw or nonsense; now: reject) — no digest impact for any
 well-formed battle.
+
+## P4 addendum — passives/combat-correctness review (2026-07-23)
+
+Adversarial pass over the five champion passives. One defect found+fixed
+(log-only); everything else verified correct or already documented:
+
+- **Fixed: spawn-active synergies never logged 'synergy-on'** (low,
+  observability): `createBattle`'s initial aura seeding assigned
+  `computeTeamAuras` directly, so a squad whose tags meet a threshold at
+  spawn (e.g. 3 titan champions → Titan Bulwark) activated silently and a
+  later death emitted an orphan 'synergy-off' with no matching 'on'.
+  Seeding now goes through `recomputeAuras` (tick-0 transitions logged
+  against the neutral placeholder). Log-only — the log is not digested —
+  so ZERO digest impact.
+- **Verified, correct by probe** (regression tests added in
+  five-champions.test.ts): aura `armorFlat` + Iron Hide stack as ONE flat
+  reduction with ONE min-1 floor (8+5 → 30-damage hit deals 17, 10-damage
+  hit deals 1); Killer Instinct's 35% threshold is against the BAKED
+  `baseMaxHealth` (35% of a Colossal-Frame Mass Monster = 731.5 of 2090,
+  not 665 of the listed 1900) and never applies to sourceless damage
+  (ultimates pass no source); Colossal Frame survives respawn exactly once
+  (respawn at 50% of 2090 = 1045, healable back to 2090, never re-baked —
+  fitness scaling preserved the same way); Mass Uprising summons inherit
+  the deploy-shield aura and count toward tag synergies via their card
+  tags (both documented design: champion-abilities.ts header + the
+  synergy copies-count rule); initial tick-0 aura seed is bit-identical
+  to what `recomputeAuras` produces (same function).
+- **Quantified, intended (the documented one-tick aura latency)**: a team
+  passive's aura lags composition by exactly one tick in BOTH directions,
+  because the tick consumes the end-of-previous-tick snapshot. Respawn
+  tick: energy regen at ×1 (not ×1.05), fresh from the next tick. Death
+  between ticks: one tick of ×1.05 overhang. Magnitude ≈ 0.05 ×
+  regenPerTick ≈ 0.0009 energy — imperceptible; deterministic and
+  replay-identical (live and replay share the pipeline; digest-equality
+  probed across reruns with mid-battle champion deaths).
+- **Re-confirmed already-documented semantics** (no change): armour and
+  `damageTakenMult` can blunt Final Cut's execute (M6 note above — an
+  Iron-Hide Titan survives the execute at 5 health); armour applies only
+  to melee (frontline rule) and never to cores or heals.

@@ -256,6 +256,134 @@ describe('champion passives', () => {
     expect(checkInvariants(state, BALANCE)).toEqual([]);
   });
 
+  it('armour sources stack once: aura armorFlat + Iron Hide, one min-1 floor', () => {
+    const state = championBattle('champion-titan');
+    const titan = champ(state);
+    // Two more titan-tagged units activate Titan Bulwark (armorFlat 8).
+    spawnUnitsForCard(state, BALANCE, getCardById('titan-guard')!, 'player', 0, 10);
+    spawnUnitsForCard(state, BALANCE, getCardById('heavy-tank')!, 'player', 0, 14);
+    advanceTick(state, BALANCE);
+    expect(state.auras.player.armorFlat).toBe(8);
+    // One combined flat reduction (8 aura + 5 passive), applied once.
+    const big = damageUnit(state, titan, 30, 'test');
+    expect(big.dealtToHealth).toBe(17); // 30 - 13
+    // The min-1 floor applies once to the combined total, never per source.
+    const tiny = damageUnit(state, titan, 10, 'test');
+    expect(tiny.dealtToHealth).toBe(1); // max(1, 10 - 13)
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
+  it('Killer Instinct threshold uses the BAKED max: 35% of a Colossal-Frame Mass Monster is 731.5', () => {
+    const state = championBattle('champion-shredder', 'champion-mass');
+    const shredder = champ(state);
+    const mass = champ(state, 'opponent');
+    expect(mass.baseMaxHealth).toBe(2090); // 1900 × 1.1 baked at spawn
+    // 700 health is BELOW 35% of the baked max (731.5) but ABOVE 35% of the
+    // listed 1900 (665) — the bonus firing here pins the baked-max basis.
+    mass.health = 700;
+    const boosted = damageUnit(state, mass, 40, 'test', shredder);
+    expect(boosted.dealtToHealth).toBe(50); // 40 × 1.25
+    mass.health = 800; // above both thresholds
+    const normal = damageUnit(state, mass, 40, 'test', shredder);
+    expect(normal.dealtToHealth).toBe(40);
+    // Sourceless damage (the ultimate path — ultimates pass no source) never
+    // gets the bonus, even on a low target.
+    mass.health = 700;
+    const sourceless = damageUnit(state, mass, 40, 'test');
+    expect(sourceless.dealtToHealth).toBe(40);
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
+  it('Colossal Frame survives respawn: 50% of the baked max, healable back to it, never re-baked', () => {
+    const state = championBattle('champion-mass');
+    const mass = champ(state);
+    damageUnit(state, mass, 999999, 'test');
+    expect(mass.alive).toBe(false);
+    while (!mass.alive) advanceTick(state, BALANCE);
+    expect(mass.baseMaxHealth).toBe(2090); // preserved, not 1.1× again
+    expect(mass.health).toBe(0.5 * 2090); // respawnHealthFraction of the baked max
+    healUnit(mass, 999999);
+    expect(mass.health).toBe(2090); // heal cap includes the bake
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
+  it('Perpetual Motion snapshot timing: the respawn tick regenerates at ×1, the next at ×1.05', () => {
+    const state = championBattle('champion-cardio');
+    const cardio = champ(state);
+    damageUnit(state, cardio, 999999, 'test');
+    const respawnTick = cardio.champion!.respawnAtTick!;
+    while (state.tick < respawnTick - 1) advanceTick(state, BALANCE);
+    state.teams.player.energy = 0;
+    state.teams.opponent.energy = 0;
+    advanceTick(state, BALANCE); // the respawn tick
+    expect(cardio.alive).toBe(true);
+    // Regen ran off the end-of-previous-tick snapshot (champion still down):
+    // one tick of neutral regen, by the documented one-tick aura latency.
+    expect(state.teams.player.energy).toBeCloseTo(state.teams.opponent.energy);
+    const p0 = state.teams.player.energy;
+    const o0 = state.teams.opponent.energy;
+    advanceTick(state, BALANCE); // first tick on the fresh snapshot
+    expect(
+      (state.teams.player.energy - p0) / (state.teams.opponent.energy - o0)
+    ).toBeCloseTo(1.05);
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
+  it('Mass Uprising summons inherit the deploy-shield aura and count for tag synergies', () => {
+    const state = championBattle('champion-mass');
+    const mass = champ(state);
+    state.auras.player.deployShield = 100; // as if Prefab Shielding is active
+    mass.champion!.ultimateCharge = mass.champion!.chargeRequired;
+    const before = state.units.length;
+    expect(applyCommand(state, BALANCE, { type: 'champion-ultimate', team: 'player' }).ok).toBe(
+      true
+    );
+    const summons = state.units.slice(before);
+    expect(summons.map((u) => u.shield)).toEqual([100, 100]);
+    // Summoned Titan Guards carry the 'titan' tag like any deployed copy:
+    // 2 summons + 1 deployed guard reach the Titan Bulwark threshold of 3.
+    spawnUnitsForCard(state, BALANCE, getCardById('titan-guard')!, 'player', 0, 20);
+    advanceTick(state, BALANCE);
+    expect(state.auras.player.activeSynergyIds).toContain('titan-bulwark');
+    expect(state.auras.player.armorFlat).toBe(8);
+  });
+
+  it('synergies active from SPAWN log their tick-0 synergy-on (no orphan synergy-off later)', () => {
+    const state = createBattle(
+      {
+        seed: 4242,
+        player: {
+          playerId: 'p1',
+          squad: {
+            captain: { championId: 'champion-titan' },
+            borrowed: [
+              { championId: 'champion-titan', lane: 1 },
+              { championId: 'champion-titan', lane: 0 },
+            ],
+          },
+        },
+        opponent: { playerId: 'p2' },
+      },
+      BALANCE
+    );
+    // Three titan-tagged champions activate Titan Bulwark from creation…
+    expect(state.auras.player.activeSynergyIds).toContain('titan-bulwark');
+    // …and the activation is logged at tick 0 (previously silent, so a later
+    // death emitted 'synergy-off' with no matching 'synergy-on').
+    expect(
+      state.log.some(
+        (l) => l.tick === 0 && l.type === 'synergy-on' && l.detail === 'player titan-bulwark'
+      )
+    ).toBe(true);
+    const borrowed = state.units.find((u) => u.champion && !u.champion.commandable)!;
+    damageUnit(state, borrowed, 999999, 'test');
+    advanceTick(state, BALANCE);
+    expect(
+      state.log.some((l) => l.type === 'synergy-off' && l.detail === 'player titan-bulwark')
+    ).toBe(true);
+    expect(checkInvariants(state, BALANCE)).toEqual([]);
+  });
+
   it('Cardio Overclock refunds 1 energy on cast (tempo identity)', () => {
     const state = championBattle('champion-cardio');
     const cardio = champ(state);

@@ -973,3 +973,30 @@ its lane is quiet and other-lane combat is in range).
 
 Verified: `npx tsc --noEmit` clean · `npm test` 94 files / 1,441 tests
 green · `npx expo lint` 0 errors (7 pre-existing warnings, none from P4).
+
+### P4 addendum — passives review (2026-07-23)
+
+Dedicated adversarial pass over the five champion passives (armor
+stacking, Killer Instinct threshold basis, Colossal Frame across respawn,
+alive-only aura timing, initial aura seeding, summons × deploy-shield).
+Every claim probed numerically before verdict; full detail in
+KNOWN_ISSUES.md ("P4 addendum — passives review").
+
+- ONE fix: `createBattle` now seeds auras via `recomputeAuras` so
+  synergies active from spawn log their tick-0 'synergy-on' (previously a
+  silent activation produced an orphan 'synergy-off' on a later death).
+  Log-only; the log is not digested — zero digest impact for any battle.
+- Six regression tests added (five-champions.test.ts): armour
+  stacking/min-1 (8+5→17, floor at 1), Killer Instinct baked-max basis
+  (boost at 700/2090, none at 800, none sourceless), Colossal Frame
+  respawn (1045 → healable to 2090, never re-baked), Perpetual Motion
+  snapshot timing (respawn tick ×1, next tick ×1.05), summons inherit
+  deploy-shield + count for synergies, tick-0 synergy-on logging.
+- Verdicts elsewhere: armor/Killer Instinct/Colossal Frame/seeding all
+  correct; aura one-tick latency intended + now quantified (≈0.0009
+  energy per respawn, deterministic); execute-blunting and summon
+  behaviour already documented, re-confirmed.
+
+Gates: `npx vitest run src/arena-game` 22 files / 376 tests green ·
+`npx tsc --noEmit` clean (arena introduces no errors) · `npx expo lint`
+0 errors (6 pre-existing warnings, none in files this pass touched).

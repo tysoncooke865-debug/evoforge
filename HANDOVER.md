@@ -60,7 +60,14 @@ Owner: Tyson. He works through other Claude sessions too — **always
   deterministic, no RNG). No BALANCE_VERSION bump (0.6.0 unreleased same
   run). All under `client/src/arena-game/`. NOTE: committed alongside
   another session's in-flight work — this commit stages the arena package
-  + HANDOVER only.
+  + HANDOVER only. **P4 addendum (same day)**: the passives dimension
+  (finder died mid-review) was re-run — Iron Hide stacking, Killer
+  Instinct threshold vs baked max, Colossal Frame across respawn,
+  alive-only aura one-tick latency, summon shields/synergy tags all
+  verified clean-or-documented by numeric probe; one real fix: tick-0
+  spawn-active synergies now log `synergy-on` (createBattle seeds auras
+  via the logging recompute — log-only, zero digest impact). +6 tests
+  (arena 376).
 - **ARENA FIVE-CHAMPION ROSTER + REAL PROGRESSION (2026-07-23, no migration —
   overnight hardening P2+P3)**: the Arena now fields THE official five
   champions — **Aesthetics, Titan, Mass Monster, The Shredder, Cardio
