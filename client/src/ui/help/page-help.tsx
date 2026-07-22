@@ -187,13 +187,19 @@ function useSpotlight(target: string | string[] | undefined, step: number, resiz
         return;
       }
       const r = found.rect;
-      const { vh } = viewport();
-      // Off-screen: bring it to the middle, then let the scroll settle two
-      // frames before measuring where it landed (this is what fixed off-centre).
-      if (!scrolled && (r.y < 72 || r.y + r.h > vh - 72)) {
+      const { vw, vh } = viewport();
+      // Off-screen in EITHER axis: centre it, then let the scroll settle two
+      // frames before measuring where it landed. The horizontal case matters on
+      // the Train day-carousel — on iOS its initialScrollIndex often doesn't
+      // land on today, so today's card sits off to the side; inline:'center'
+      // scrolls the carousel (and the page) to bring it into view before we
+      // lock, instead of ringing an off-screen card.
+      const offV = r.y < 60 || r.y + r.h > vh - 60;
+      const offH = r.x + r.w < 60 || r.x > vw - 60;
+      if (!scrolled && (offV || offH)) {
         scrolled = true;
         settleFrame = frames;
-        try { found.el.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch { /* ignore */ }
+        try { found.el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch { /* ignore */ }
         raf = requestAnimationFrame(loop);
         return;
       }
