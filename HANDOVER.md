@@ -43,7 +43,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA PLAYER JOURNEY (2026-07-23, no migration — overnight hardening
+- **ARENA GYM CHAMPIONS SLICE (2026-07-23, no migration — overnight
+  hardening P12)**: official-path squad ROLES, data-driven from champion
+  content (`features/gyms/path-roles.ts` — Titan Anchor, Mass Bulwark,
+  Shredder Finisher, Cardio Pacer, Aesthetics Coach; team-aura flags
+  derived, not hand-written), shown on roster + squad picker. Borrowed
+  passives verified functioning in auto-cast context by 6 probe tests
+  (auras key on kind==='champion', not commandable). Squad picker now
+  previews spawn-live synergies (`synergy-preview.ts`, pinned test-equal
+  to `createBattle` aura output; deck potential deliberately
+  under-stated). Honesty pass: Arena-local disclaimers on gym war
+  stats/contribution, estimated-builds headers, "never their ultimate"
+  copy. Stale squad ids pruned on load; no save bump (v3's
+  gym.selectedSquad reused). No battle-affecting changes. Arena 487.
   P11)**: full first-run journey traced and repaired (8 defects). Arena
   onboarding no longer asks for a name (EvoForge identity wins —
   `applyProviderIdentity` at init; Origin champion adopted until

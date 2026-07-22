@@ -106,6 +106,10 @@ export default function GymScreen() {
         </Mono>
         {mvp && <Body dim>War MVP: {mvp}</Body>}
         {mostUsed && <Body dim>Most fielded: {mostUsed}</Body>}
+        <Body dim>
+          Wars and contribution are Arena-local — winning here never changes your real EvoForge gym
+          standing.
+        </Body>
       </Panel>
 
       <NeonButton label="START GYM WAR" onPress={() => router.push('/forge-arena/gym-war')} />

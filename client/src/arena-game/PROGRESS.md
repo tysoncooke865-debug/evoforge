@@ -1686,3 +1686,106 @@ Gates: `npx vitest run src/arena-game` 25 files / 469 tests green ·
 `npx tsc --noEmit` clean · `npx expo lint` 0 errors · `npx expo export -p
 web` succeeded. No BALANCE_VERSION bump (no simulation change; the
 tutorial delta lives outside the engine).
+
+## P12 — Gym Champions slice (2026-07-23, overnight hardening)
+
+Made the gym mode a coherent, honest vertical slice: official-path squad
+ROLES, squad-composition guidance, and estimate/Arena-local honesty across
+every gym surface. No engine, content or balance changes — the roles NAME
+what the kits already do.
+
+### The flow, mapped end-to-end (after this pass)
+
+`/gym` (name, member count, your champion titles, war record + MVP/most-
+fielded, NEW Arena-local honesty line) → `/gym-roster` (per-member fitness
+summary, "(EST.)" path chip, NEW squad-role line, champion-role badges, war
+stats "(Arena-local)", NEW estimated-builds header) → `/gym-squad` (borrow
+≤3, NEW role line + synergy preview + stale-selection pruning + empty/no-gym
+states) → `/gym-war` (rival picker → shared ArenaScreen mode 'gym-war') →
+result overlay (SQUAD CONTRIBUTION +pts, the standing "Arena progress stays
+in the Arena" line) → provider `recordBattleResult` mode 'gym-war' →
+`applyGymWarResult` into `save.gym` (local only) → back to `/gym`.
+
+### Official-path squad roles (features/gyms/path-roles.ts)
+
+Data-driven display metadata; each summary NAMES the path's actual passive
+(asserted by test) and `teamAura` is DERIVED from champion content:
+
+| Path      | Role     | Mechanical meaning (existing kit)                          | Squad-wide? |
+|-----------|----------|------------------------------------------------------------|-------------|
+| titan     | Anchor   | Iron Hide self-armour; Quake Stomp area stun               | self        |
+| mass      | Bulwark  | Colossal Frame health bake; Gravity Well area slow         | self        |
+| shredder  | Finisher | Killer Instinct low-health bonus; Phase Dash reach         | self        |
+| cardio    | Pacer    | Perpetual Motion team energy aura; gated Lane Shift        | TEAM aura   |
+| aesthetic | Coach    | Flow State team healing aura; Stance Shift                 | TEAM aura   |
+
+Borrowed-context verification (probe tests in gym-roles.test.ts): every
+passive functions on a borrowed, non-commandable champion — the aura layer
+keys on `unit.kind === 'champion'` (never `commandable`) and the spawn bakes
+are per-champion. Pinned: borrowed Perpetual Motion/Flow State auras apply
+from tick 0, die with the champion and return on respawn; borrowed Iron
+Hide reduces hits (min-1 floor); borrowed Colossal Frame bakes ×1.1 max
+health; borrowed Killer Instinct scales the borrowed unit's own hits. No
+passive needed fixing — the P2/P3 implementation was already
+commandable-agnostic; P12 adds the probes that keep it that way.
+
+### Squad synergy preview (features/gyms/synergy-preview.ts)
+
+Pure `previewSquadSynergies(squadChampionIds, deckCardIds)` mirroring the
+engine's counting rules: squad champions are living combatants from tick 0,
+so squad-only counts meeting a threshold are "LIVE FROM SPAWN" — pinned by
+a test asserting the preview's active set EXACTLY equals
+`createBattle(...).auras.player.activeSynergyIds` across squad shapes.
+Deck potential counts DISTINCT fighter cards per tag (techniques/equipment
+never spawn combatants; mixed-paths counts only paths the squad lacks) —
+deliberately under-stating, never overclaiming (engine counts copies).
+The squad picker renders per-synergy `name n/threshold` rows (deck-support
+notes on incomplete ones) and a hint when no synergy is live from spawn.
+
+### Honesty fixes
+
+- Gym overview: "Wars and contribution are Arena-local — winning here never
+  changes your real EvoForge gym standing."
+- Roster: estimated-builds header (paths/stages/stats estimated from Forge
+  Level + Evo Rating), "(EST.)" chips kept, war stats line says
+  "(Arena-local)"; squad-role lines derive from the synthesized path.
+- Squad picker: "(EST.)" on champion names + estimated-builds footer;
+  borrowed copy now says "never their ultimate" (the M9 rule, previously
+  undisclosed in UI).
+- Result overlay already showed the standing line + per-member `+pts`
+  matching `BALANCE.gym` exactly (verified, unchanged).
+
+### Polish
+
+- gym-roster and gym-squad non-membership now shows the friendly no-gym
+  state with the EvoForge Social door (P11 deferral closed).
+- Single-member gyms: explicit "No squad-mates yet" panel (captain fights
+  solo) instead of a silently empty list; synergy preview still renders for
+  the captain-only squad.
+- Stale squad selections (members who left the gym) are pruned on squad-
+  screen load via pure `pruneSquadSelection` (persisted only when changed),
+  so the saved squad and the n/3 cap reflect reality — battle-time fielding
+  already filtered stale ids identically (unchanged).
+- Members with no fitness cache keep the provider's fail-soft baselines
+  (unchanged, re-verified).
+
+### Save decision
+
+NO schema change: `gym.selectedSquad` (save v3, M9) already persists squad
+selection across sessions — verified by a round-trip test. SAVE_VERSION
+stays 6.
+
+### Tests
+
+487 arena tests green (+18 this pass, gym-roles.test.ts): role coverage/
+uniqueness/pinned labels, summary-names-passive data link, derived teamAura
+flags, unknown-path fail-soft; synergy preview vs engine spawn auras (4
+squad shapes), tag + mixed-paths counting, fighter-only deck potential,
+no-synergy hint, purity; 6 borrowed-passive probes; pruneSquadSelection;
+selectedSquad persistence round-trip.
+
+Gates: `npx vitest run src/arena-game` 26 files / 487 tests green ·
+`npx tsc --noEmit` clean · `npx expo lint` 0 errors · `npx expo export -p
+web` succeeded. Deep harness NOT re-run: no battle-affecting change (no
+game-engine/content/balance/AI edits; the new modules are display-only pure
+functions and battle-time squad fielding is byte-identical).

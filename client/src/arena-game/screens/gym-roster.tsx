@@ -1,14 +1,17 @@
 /**
- * Gym roster (M9): every member with a fitness summary, champion-role badges
- * (computed from member fitness via the squad feature helpers) and most-used
- * / MVP chips from the war contribution stats. Data flows through the
- * provider boundary only.
+ * Gym roster (M9, P12): every member with a fitness summary, their
+ * official-path squad ROLE (P12 — derived from the synthesized path, so the
+ * copy stays "estimated"), champion-role badges (computed from member
+ * fitness via the squad feature helpers) and most-used / MVP chips from the
+ * war contribution stats. Data flows through the provider boundary only.
  */
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Body, Heading, Mono, Panel, Screen } from '../components/ui';
+import { Body, Heading, Mono, NeonButton, Panel, Screen } from '../components/ui';
 import { colors, pathColor, radius, spacing, typography } from '../constants/theme';
 import { pathDisplayName } from '../content';
+import { pathSquadRole } from '../features/gyms/path-roles';
 import { computeMemberRoles, GYM_ROLE_LABELS } from '../features/gyms/squad';
 import type { GymMemberInfo } from '../integration/evoforge/types';
 import { playerProvider } from '../services/app-services';
@@ -16,8 +19,11 @@ import { gymMostUsedMemberId, gymMvpMemberId } from '../services/gyms/contributi
 import { usePlayer } from '../services/player-data/use-player';
 
 export default function GymRosterScreen() {
+  const router = useRouter();
   const save = usePlayer((s) => s.save);
   const [members, setMembers] = useState<GymMemberInfo[] | null>(null);
+  // P12: non-membership is the same friendly state the gym overview uses.
+  const [noGym, setNoGym] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +32,7 @@ export default function GymRosterScreen() {
       try {
         const profile = await playerProvider.getGymProfile(save.player.playerId);
         if (!profile) {
-          if (!cancelled) setError('You are not a member of a gym yet.');
+          if (!cancelled) setNoGym(true);
           return;
         }
         const roster = await playerProvider.getGymMembers(profile.gymId);
@@ -39,6 +45,21 @@ export default function GymRosterScreen() {
       cancelled = true;
     };
   }, [save.player.playerId]);
+
+  if (noGym) {
+    return (
+      <Screen>
+        <Panel>
+          <Heading>No gym yet</Heading>
+          <Body dim>
+            The roster shows your real EvoForge gym-mates. Join a gym in EvoForge (Social → Gyms),
+            then come back here.
+          </Body>
+        </Panel>
+        <NeonButton label="Open EvoForge Social" onPress={() => router.push('/social')} />
+      </Screen>
+    );
+  }
 
   if (error) {
     return (
@@ -65,11 +86,19 @@ export default function GymRosterScreen() {
 
   return (
     <Screen>
+      <Panel>
+        <Body dim>
+          Estimated builds: gym-mates share Forge Level and Evo Rating only, so their path, stage
+          and stats are estimated (EST.). War stats are Arena-local — they never change real gym
+          standing.
+        </Body>
+      </Panel>
       {members.map((member) => {
         const f = member.fitness;
         const memberRoles = roles[member.playerId] ?? [];
         const stats = save.gym.championStats[member.playerId];
         const isSelf = member.playerId === save.player.playerId;
+        const squadRole = pathSquadRole(f.avatarPath);
         return (
           <Panel key={member.playerId}>
             <View style={styles.headerRow}>
@@ -84,6 +113,11 @@ export default function GymRosterScreen() {
                 </Text>
               </View>
             </View>
+            {squadRole && (
+              <Text style={[styles.squadRole, { color: pathColor(f.avatarPath) }]}>
+                {squadRole.label.toUpperCase()} — {squadRole.summary}
+              </Text>
+            )}
             <Mono>
               Evo {f.evoRating} · STR {f.strengthRating} · CAR {f.cardioRating} · SIZ{' '}
               {f.muscularityRating} · LEA {f.leannessRating} · AES {f.aestheticsRating} · Forge Lv{' '}
@@ -113,7 +147,7 @@ export default function GymRosterScreen() {
             {stats && (
               <Body dim>
                 Wars: {stats.appearances} fielded · {stats.wins} won · {stats.warContribution}{' '}
-                contribution
+                contribution (Arena-local)
               </Body>
             )}
           </Panel>
@@ -138,6 +172,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   pathChipText: { ...typography.label, fontSize: 10 },
+  squadRole: { ...typography.label, fontSize: 10 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   roleBadge: {
     borderWidth: 1,

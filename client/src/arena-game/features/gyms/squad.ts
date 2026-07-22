@@ -145,3 +145,17 @@ export function roleLabelsFor(
 ): string[] {
   return (roles[playerId] ?? []).map((role) => GYM_ROLE_LABELS[role]);
 }
+
+/**
+ * Drops squad selections whose member is no longer on the roster (left the
+ * gym / roster changed) while preserving selection order (P12). Pure — the
+ * squad screen persists the pruned list only when it actually shrank, so
+ * the saved squad and the 'Selected: n/3' cap always reflect reality.
+ */
+export function pruneSquadSelection(
+  selected: readonly string[],
+  members: readonly GymMemberInfo[]
+): string[] {
+  const rosterIds = new Set(members.map((m) => m.playerId));
+  return selected.filter((id) => rosterIds.has(id));
+}

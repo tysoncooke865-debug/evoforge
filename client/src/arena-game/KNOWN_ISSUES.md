@@ -489,8 +489,44 @@ Adversarial pass over the five champion passives. One defect found+fixed
 - **`showDebugPanel` has no UI toggle**: with the debug doors dev-gated,
   production access to /forge-arena/debug is by URL only (deliberate —
   the flag remains in the save for a future settings screen).
-- **gym-roster/gym-squad still phrase non-membership as "unavailable"**:
+- ~~**gym-roster/gym-squad still phrase non-membership as "unavailable"**:
   they are only linked from the gym overview, which now gates
   non-members with the dedicated no-gym state first, so the copy is
   unreachable in the normal journey; unifying them onto the no-gym
-  component is cosmetic backlog.
+  component is cosmetic backlog.~~ — closed in P12: both screens now show
+  the friendly no-gym state with the EvoForge Social door. The gym-war
+  route (rival picker + ArenaScreen setup) keeps its fail-safe error
+  state for the no-gym case — reachable only by direct URL, since every
+  in-app path to it goes through the gated overview.
+
+## P12 — Gym Champions slice (deferrals)
+
+- **Gym-mate identity stays ESTIMATED until a real origin_path RPC lands**
+  (unchanged mechanism, now surfaced everywhere): `gym_detail` exposes
+  display_name/forge_level/evo_rating only, so paths synthesize
+  deterministically over the FIVE official slugs (`pathFromUserId`), all
+  five sub-ratings clone the evo_rating, and stages estimate from
+  forge_level. P12 made every surface that shows this data declare it:
+  "(EST.)" chips, the roster/squad "estimated builds" notes, and squad
+  ROLE chips that derive from the synthesized path. The real fix is a
+  gym_detail origin_path migration (audit-flagged, shared-schema
+  protected — NOT done in the Arena package).
+- **Squad roles are display metadata, deliberately**: `path-roles.ts`
+  names what each path's existing kit does (probe-tested to function
+  borrowed); it adds no engine mechanics. If a future pass wants roles to
+  DO something (e.g. Anchor taunt), that is an engine/balance change with
+  a BALANCE_VERSION bump — do not bolt it onto the display layer.
+- **Synergy preview deck potential counts DISTINCT fighter cards**, while
+  the engine counts living COPIES (replaying one fighter can stack a
+  tag). The preview therefore under-states the ceiling and never claims a
+  synergy is unreachable — honest by construction. A copies-aware
+  "possible over time" ceiling was considered and rejected: it would
+  promise simultaneity the battle may never produce.
+- **Member sub-ratings shown on the roster are the evo_rating clone**
+  (Supabase provider) — they are displayed anyway because they ARE the
+  exact inputs `memberScaling` feeds into battle; the header note
+  declares the estimate. Per-pillar member ratings need server support
+  (same origin_path-class migration).
+- **warContribution remains a participation proxy** (M9 note stands);
+  P12 added the "Arena-local" copy on the gym overview and roster so the
+  numbers cannot be read as real gym standing.
