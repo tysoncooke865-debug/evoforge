@@ -1000,3 +1000,98 @@ KNOWN_ISSUES.md ("P4 addendum — passives review").
 Gates: `npx vitest run src/arena-game` 22 files / 376 tests green ·
 `npx tsc --noEmit` clean (arena introduces no errors) · `npx expo lint`
 0 errors (6 pre-existing warnings, none in files this pass touched).
+
+---
+
+## P5 — stability @ five champions (2026-07-23) ✅
+
+Extended `__tests__/stability.test.ts` (no new files) to close the P5 bar:
+the full 5x5 champion matchup matrix, squads that guarantee borrowed
+Mass/Cardio, ghost battles (record → transform → replay), and the
+maxTicks/timeout outcome paths, all folded into the same harness so the
+per-champion stat table covers the whole run. Zero defects found — every
+category terminated cleanly on the first pass; no engine fix was needed.
+
+**Match counts by category (default run — no `ARENA_STABILITY_DEEP`):**
+
+| category | matches | seeds/tiers |
+|---|---|---|
+| base M10 set (full/decks-only/free-pool/squads/scaled + cross-difficulty) | 117 | unchanged from M10 |
+| 5x5 champion matchup matrix (`matchup`) | 75 | 25 pairs × 3 AI tiers × 1 seed |
+| squads w/ guaranteed borrowed Mass + borrowed Cardio (`squad-mass-cardio-borrowed`) | 9 | 3 tiers × 3 seeds |
+| maxTicks/timeout outcome paths (`timeout-draw`, `timeout-decisive`) | 2 | deterministic, no AI/commands |
+| **AI-vs-AI + engine subtotal** | **203** | |
+| ghost battles (record → transform → replay) | 5 | 1 per official champion @ standard |
+| **total** | **208** | |
+
+`ARENA_STABILITY_DEEP=1` widens the sweep to 383 AI-vs-AI/engine matches
+(225 matchup + 18 squad-borrowed, 3 seeds each) + 30 ghost battles (every
+tier × 2 seeds per champion) — gated behind the env var per the P5 brief;
+the default run alone clears the 100+ bar by 2x.
+
+Every match (both modes) asserts: terminates inside the engine backstop
+(zero stalls), zero invariant violations (per-tick checks on all 145
+default / all new-category matches, not just the M10-era 50% sample), zero
+thrown errors, a structurally valid outcome, and — on the matchup, ghost
+and consecutive-run subsets plus a dedicated determinism test — replay
+digest identity (`runBattle` on the recorded command log reproduces the
+live digest exactly). The borrowed-Mass-never-ultimates rule is asserted
+directly from the log (see below), not just implied by engine design.
+
+**Per-champion aggregate stats (default run, Phase 8 balance-pass input):**
+
+| champion | fielded | win% | avg ticks (s) | avg dmg out* | ults | summons |
+|---|---|---|---|---|---|---|
+| champion-aesthetic | 73 | 37% | 1652 (82.6s) | 4892 | 97 | 0 |
+| champion-titan | 63 | 56% | 1702 (85.1s) | 5687 | 62 | 0 |
+| champion-mass | 62 | 63% | 1696 (84.8s) | 5711 | 72 | 144 |
+| champion-shredder | 58 | 48% | 1761 (88.1s) | 5672 | 91 | 0 |
+| champion-cardio | 62 | 48% | 1601 (80.0s) | 5337 | 93 | 0 |
+
+\* "avg dmg out" is a **team damage-output proxy**, not per-unit
+attribution: the `fx` log carries `hit|lane|x|amount|targetTeam` with no
+source id, so it sums damage landed on the OTHER team for every match this
+champion's side fielded — an honest, reproducible number for the balance
+pass, but it includes fighters/cards/summons on that side, not the
+champion's own hits in isolation. Ultimate cast counts and summon counts
+ARE exact (every `'ultimate'` log line is authored
+`${champion.contentId}#${id} …`, parsed directly). Mass Monster's
+Mass Uprising fired 72 times across 62 matches fielded (144 Titan Guards
+summoned, 2 per cast, matching the pinned content constant) — the highest
+win rate of the five (63%) at this pass, worth flagging for Phase 8
+balance even though nothing here is a defect.
+
+**Defects found: none.** Across 208 matches (383 + 30 under
+`ARENA_STABILITY_DEEP=1`) spanning every required category: 0 stalls, 0
+thrown errors, 0 invariant violations, 0 invalid outcomes, 0 borrowed-
+champion ultimate casts, 100% digest-identical replays (matchup
+determinism test + all 5/5 default ghost battles + the pre-existing M10
+determinism/replay tests). The engine held up cleanly on the first run;
+no fix was needed and KNOWN_ISSUES.md is unchanged.
+
+**New assertions added** (`stability.test.ts`): full 5x5×3-tier matchup
+coverage (asserts all 75 combinations present, not just a count); borrowed
+champions (incl. Mass) never cast an ultimate, checked across every
+squad-shaped match in the run via log-parsed actor ids; the two
+maxTicks-path fixtures resolve to the correct outcome/endTick
+(`timeout-draw` → draw at duration+suddenDeath ticks via full sudden
+death; `timeout-decisive` → `timeout-core-health` at exactly the duration
+tick); ghost-battle pipeline (per-champion record capture → transform →
+full AI-driven replay → digest-identity through `runBattle`).
+
+Gates: `npx vitest run src/arena-game` — 22 files, 382 tests green (up
+from 376; all pre-P5 tests unweakened) · `npx tsc --noEmit` clean (one
+switch-exhaustiveness fix needed for the two new engine-only config kinds,
+no arena regressions) · `npx expo lint` 0 errors (7 warnings — 5
+pre-existing + 2 new "unused eslint-disable directive" on the P5 console
+reports; `no-console` is not an active rule anywhere in this project's
+eslint config, so the pre-existing directive at the same call site was
+already inert before this pass — matching the master prompt's instruction
+to reuse "the harness's existing console reporting pattern", not a new
+class of warning).
+
+**Runtime**: `stability.test.ts` alone — 5.81s test time (default),
+10.28s (deep). Full `src/arena-game` suite — 8.31s test time / 9.83s wall
+(default). Both far under the ~120s budget with no gating needed for the
+default run; `ARENA_STABILITY_DEEP=1` exists per the brief but isn't
+required to hit the 100+ bar or stay inside budget.

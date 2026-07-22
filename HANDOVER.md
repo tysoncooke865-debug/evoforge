@@ -43,6 +43,16 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
+- **ARENA STABILITY @ FIVE CHAMPIONS (2026-07-23, no migration — overnight
+  hardening P5)**: stability harness extended to **208 matches** default
+  (413 with `ARENA_STABILITY_DEEP=1`): 5×5 matchup matrix × 3 AI tiers,
+  squads with guaranteed borrowed Mass/Cardio, maxTicks outcome paths,
+  ghost record→transform→replay per champion. **Zero defects**: no
+  stalls/throws/invariant violations, zero borrowed ultimates, 100%
+  digest-identical replays. Per-champion stats recorded in
+  `arena-game/PROGRESS.md` (P5 section) for the P8 balance pass — headline
+  spread: Mass 63% / Titan 56% / Shredder 48% / Cardio 48% / Aesthetics
+  37% win rate. Suite runtime unaffected (~10s wall for the package).
 - **ARENA ENGINE RELIABILITY PASS (2026-07-23, no migration — overnight
   hardening P4)**: adversarial review (4 finder + 8 verifier agents) of the
   Arena battle engine post five-champion rebuild; 8 confirmed defects, all

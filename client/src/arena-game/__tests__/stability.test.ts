@@ -29,6 +29,7 @@ import { BALANCE } from '../content';
 import type { AiDifficulty } from '../content';
 import { createPlayerAiDriver, runPlayerAi } from '../features/arena/ai-driver';
 import {
+  createGhostLiveBattle,
   createLiveBattle,
   LiveBattle,
   LiveBattleOptions,
@@ -43,8 +44,14 @@ import {
 } from '../game-engine/balance/fitness-scaling';
 import { seedFromString } from '../game-engine/random/rng';
 import { checkInvariants } from '../game-engine/simulation/invariants';
-import { verifyBattleRecord } from '../game-engine/simulation/replay';
-import { runBattle } from '../game-engine/simulation/run';
+import {
+  BATTLE_RECORD_SCHEMA_VERSION,
+  BattleRecord,
+  verifyBattleRecord,
+} from '../game-engine/simulation/replay';
+import { computeDigest, runBattle } from '../game-engine/simulation/run';
+import { createBattle, TeamSquadConfig } from '../game-engine/simulation/state';
+import { advanceTick } from '../game-engine/simulation/tick';
 import { LocalMockPlayerProvider } from '../integration/evoforge/local-mock-provider';
 import type {
   BattleResult,
@@ -87,6 +94,16 @@ const CHAMPION_IDS = [
 
 const ALL_DIFFICULTIES: readonly AiDifficulty[] = ['training', 'standard', 'advanced'];
 
+/**
+ * P5 deep sweep gate: the default run already clears the 100+ match bar (and
+ * every required category — all 25 matchups, all 3 tiers, squads incl.
+ * borrowed Mass/Cardio, ghosts, timeout paths) well under the ~120s budget.
+ * ARENA_STABILITY_DEEP=1 widens the seed spread per matchup/squad/ghost
+ * combination for an overnight-only deeper pass; CI and everyday runs never
+ * need it.
+ */
+const DEEP = process.env.ARENA_STABILITY_DEEP === '1';
+
 function rotChampion(n: number): string {
   return CHAMPION_IDS[((n % CHAMPION_IDS.length) + CHAMPION_IDS.length) % CHAMPION_IDS.length];
 }
@@ -117,7 +134,20 @@ function maxedScaling() {
 // Match harness
 // ---------------------------------------------------------------------------
 
-type ConfigKind = 'full' | 'decks-only' | 'free-pool' | 'squads' | 'scaled';
+type ConfigKind =
+  | 'full'
+  | 'decks-only'
+  | 'free-pool'
+  | 'squads'
+  | 'scaled'
+  // P5 additions below — exact 5x5 champion matchups and a squad shape that
+  // GUARANTEES a borrowed Mass Monster + borrowed Cardio Machine (rather than
+  // leaving it to rotChampion's luck of the draw).
+  | 'matchup'
+  | 'squad-mass-cardio-borrowed'
+  // P5 — deterministic maxTicks-outcome-path fixtures: no AI, no commands.
+  | 'timeout-draw'
+  | 'timeout-decisive';
 const CONFIG_KINDS: readonly ConfigKind[] = [
   'full',
   'decks-only',
@@ -133,6 +163,9 @@ interface MatchSpec {
   config: ConfigKind;
   /** Run checkInvariants after EVERY tick of this match. */
   checkEveryTick: boolean;
+  /** config==='matchup' only: the exact champion pair to field. */
+  matchupPlayerChampion?: string;
+  matchupOpponentChampion?: string;
 }
 
 interface MatchOutcome {
@@ -153,6 +186,23 @@ interface MatchOutcome {
   opponentChampionId: string | null;
   /** Card plays (deploy + technique) split by whether the playing side won. */
   cardUse: Record<string, { byWinner: number; byLoser: number }>;
+  /**
+   * P5 aggregate stats — parsed from the finished battle's structured log
+   * (never affects the digest; report-only, same source the M6/M10 harness
+   * already reads for card-use stats).
+   */
+  /** champion contentId -> number of 'ultimate' log entries attributed to it. */
+  ultimateCastsByChampion: Record<string, number>;
+  /** champion contentId -> units summoned via an ultimate (Mass Uprising only). */
+  summonsByChampion: Record<string, number>;
+  /** Team damage OUTPUT proxy: sum of fx-hit amounts landed on the OTHER team. */
+  teamDamageOutput: { player: number; opponent: number };
+  /**
+   * 'ultimate' log entries whose actor is a borrowed (non-commandable)
+   * champion — must stay empty in every match (borrowed champions never
+   * ultimate; P4/M9 contract).
+   */
+  borrowedUltimateCasts: string[];
 }
 
 function specLabel(spec: MatchSpec): string {
@@ -166,6 +216,42 @@ function optionsFor(spec: MatchSpec): LiveBattleOptions {
     opponentDeckCardIds: DEFAULT_DECK_CARD_IDS,
   };
   switch (config) {
+    case 'matchup':
+      // Exact 5x5 pairing: opponentSquad (captain-only, no borrowed) pins the
+      // opponent's champion precisely instead of the deterministic-random
+      // pick createLiveBattle otherwise makes when only playerChampionId is
+      // set — captain-only squads are digest-identical to the legacy
+      // championId path (M9), so this is a normal champion battle underneath.
+      return {
+        ...decks,
+        playerChampionId: spec.matchupPlayerChampion!,
+        opponentSquad: {
+          captain: { championId: spec.matchupOpponentChampion! },
+          borrowed: [],
+        },
+        aiDifficulty: opponentDifficulty,
+      };
+    case 'squad-mass-cardio-borrowed': {
+      // Every match in this bucket fields a borrowed Mass Monster (must never
+      // ultimate) and a borrowed Cardio Machine (exercises the Lane Shift
+      // auto-cast join-combat gate) on BOTH sides, with a rotating captain of
+      // a different champion so the captain-vs-borrowed routing is exercised
+      // too.
+      const squadFor = (captainId: string): TeamSquadConfig => ({
+        captain: { championId: captainId },
+        borrowed: [
+          { championId: 'champion-mass', lane: 1 },
+          { championId: 'champion-cardio', lane: 0 },
+        ],
+      });
+      return {
+        ...decks,
+        aiDifficulty: opponentDifficulty,
+        playerSquad: squadFor(rotChampion(seed)),
+        opponentSquad: squadFor(rotChampion(seed + 1)),
+        opponentPlayerId: 'gym-stability-mass-cardio',
+      };
+    }
     case 'full':
       return { ...decks, playerChampionId: rotChampion(seed), aiDifficulty: opponentDifficulty };
     case 'decks-only':
@@ -216,6 +302,11 @@ function optionsFor(spec: MatchSpec): LiveBattleOptions {
         playerChampionScaling: maxedScaling(),
         aiDifficulty: opponentDifficulty,
       };
+    case 'timeout-draw':
+    case 'timeout-decisive':
+      // These two configs never route through playLive/optionsFor — they are
+      // built directly by runTimeoutMatch (no AI, no commands). Unreachable.
+      throw new Error(`${config} is handled by runTimeoutMatch, not optionsFor/playLive`);
   }
 }
 
@@ -252,9 +343,20 @@ function runMatch(spec: MatchSpec): MatchOutcome {
     playerChampionId: null,
     opponentChampionId: null,
     cardUse: {},
+    ultimateCastsByChampion: {},
+    summonsByChampion: {},
+    teamDamageOutput: { player: 0, opponent: 0 },
+    borrowedUltimateCasts: [],
   };
   try {
     const live = playLive(spec, out.violations);
+    // Borrowed (non-commandable) champion entity ids never change across
+    // respawns, so capturing them once after the match is equivalent to
+    // capturing them at creation.
+    const borrowedIds = new Set<number>();
+    for (const u of live.state.units) {
+      if (u.champion && !u.champion.commandable) borrowedIds.add(u.id);
+    }
     out.stalled = live.state.phase !== 'finished';
     const outcome = live.state.outcome;
     out.finished =
@@ -286,6 +388,41 @@ function runMatch(spec: MatchSpec): MatchOutcome {
       live.config.player.squad?.captain.championId ?? live.config.player.championId ?? null;
     out.opponentChampionId =
       live.config.opponent.squad?.captain.championId ?? live.config.opponent.championId ?? null;
+
+    // P5 aggregate stats + the borrowed-never-ultimates business rule, parsed
+    // from the structured log (log entries are never digested — read-only,
+    // report/assertion-only consumption, same as the M6 card-use stats above).
+    // Every 'ultimate' log line is authored as `${champion.contentId}#${id} …`
+    // (see champion-abilities.ts HANDLERS) — champion contentId first, so
+    // this regex is stable across every shipped ability.
+    const ultimateLine = /^([\w-]+)#(\d+)/;
+    for (const entry of live.state.log) {
+      if (entry.type === 'ultimate') {
+        const m = ultimateLine.exec(entry.detail);
+        if (!m) continue;
+        const [, contentId, idStr] = m;
+        out.ultimateCastsByChampion[contentId] = (out.ultimateCastsByChampion[contentId] ?? 0) + 1;
+        if (contentId === 'champion-mass') {
+          // Mass Uprising always summons exactly two (content-pinned; see
+          // five-champions.test.ts) — no need to string-parse the count back
+          // out of the log detail.
+          out.summonsByChampion[contentId] = (out.summonsByChampion[contentId] ?? 0) + 2;
+        }
+        if (borrowedIds.has(Number(idStr))) {
+          out.borrowedUltimateCasts.push(`${specLabel(spec)}: ${entry.detail}`);
+        }
+      } else if (entry.type === 'fx' && entry.detail.startsWith('hit|')) {
+        // 'hit|lane|x|amount|targetTeam' — damage LANDED ON targetTeam is
+        // damage OUTPUT by the other team (a proxy: not exact per-champion
+        // attribution, since fx carries no source id, but an honest measure
+        // of each side's damage output for the balance pass).
+        const parts = entry.detail.split('|');
+        const amount = Number(parts[3]);
+        const targetTeam = parts[4];
+        if (targetTeam === 'opponent') out.teamDamageOutput.player += amount;
+        else if (targetTeam === 'player') out.teamDamageOutput.opponent += amount;
+      }
+    }
   } catch (e) {
     out.error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
   }
@@ -334,6 +471,134 @@ function buildSpecs(): MatchSpec[] {
   return specs;
 }
 
+/**
+ * P5 — the full 5x5 champion matchup matrix (25 pairs), fielded as REAL
+ * AI-vs-AI matches (not the headless zero-command matrix in champions.test.ts)
+ * across all three AI tiers. Default: one seed per (pair, tier) = 75 matches,
+ * a spread of seeds via seedFromString over a distinct label per combination.
+ * ARENA_STABILITY_DEEP widens to three seeds per combination (225 matches).
+ */
+function buildMatchupSpecs(): MatchSpec[] {
+  const specs: MatchSpec[] = [];
+  const seedTags = DEEP ? ['a', 'b', 'c'] : ['a'];
+  for (const playerChampion of CHAMPION_IDS) {
+    for (const opponentChampion of CHAMPION_IDS) {
+      for (const difficulty of ALL_DIFFICULTIES) {
+        for (const tag of seedTags) {
+          specs.push({
+            seed: seedFromString(`matchup:${playerChampion}:${opponentChampion}:${difficulty}:${tag}`),
+            playerDifficulty: difficulty,
+            opponentDifficulty: difficulty,
+            config: 'matchup',
+            matchupPlayerChampion: playerChampion,
+            matchupOpponentChampion: opponentChampion,
+            checkEveryTick: true,
+          });
+        }
+      }
+    }
+  }
+  return specs;
+}
+
+/**
+ * P5 — squad battles that GUARANTEE a borrowed Mass Monster (must never
+ * ultimate) and a borrowed Cardio Machine (Lane Shift auto-cast join-combat
+ * gate) on both sides, across all three AI tiers and several seeds. Default:
+ * 3 seeds x 3 tiers = 9 matches; ARENA_STABILITY_DEEP doubles the seed spread.
+ */
+function buildBorrowedSquadSpecs(): MatchSpec[] {
+  const specs: MatchSpec[] = [];
+  const seeds = DEEP ? [7001, 7002, 7003, 7004, 7005, 7006] : [7001, 7002, 7003];
+  for (const difficulty of ALL_DIFFICULTIES) {
+    for (const s of seeds) {
+      specs.push({
+        seed: seedFromString(`squad-mass-cardio-borrowed:${difficulty}:${s}`),
+        playerDifficulty: difficulty,
+        opponentDifficulty: difficulty,
+        config: 'squad-mass-cardio-borrowed',
+        checkEveryTick: true,
+      });
+    }
+  }
+  return specs;
+}
+
+/**
+ * P5 — deterministic maxTicks-outcome-path matches: no champions, no decks,
+ * no commands at all (the same shape engine.test.ts's own coverage of these
+ * two outcome branches uses), wrapped in the harness's MatchOutcome shape so
+ * they are counted, reported and gated exactly like every other match — the
+ * one deliberate difference being zero commands on both sides (by design:
+ * the whole point is isolating the timeout/sudden-death resolution branch
+ * from combat-timing flakiness), which the "both AIs command" assertion
+ * below excludes these two config kinds from.
+ */
+function runTimeoutMatch(kind: 'timeout-draw' | 'timeout-decisive', seed: number): MatchOutcome {
+  const spec: MatchSpec = {
+    seed,
+    playerDifficulty: 'standard',
+    opponentDifficulty: 'standard',
+    config: kind,
+    checkEveryTick: true,
+  };
+  const out: MatchOutcome = {
+    spec,
+    finished: false,
+    stalled: false,
+    error: null,
+    winner: null,
+    endTick: 0,
+    violations: [],
+    rejectedCount: 0,
+    playerCommandCount: 0,
+    opponentCommandCount: 0,
+    digest: 0,
+    playerChampionId: null,
+    opponentChampionId: null,
+    cardUse: {},
+    ultimateCastsByChampion: {},
+    summonsByChampion: {},
+    teamDamageOutput: { player: 0, opponent: 0 },
+    borrowedUltimateCasts: [],
+  };
+  try {
+    const config = { seed, player: { playerId: 'p1' }, opponent: { playerId: 'p2' } };
+    const state = createBattle(config, BALANCE);
+    if (kind === 'timeout-decisive') {
+      // Chip ONE core so the duration-tick health comparison is decisive.
+      // There are no units/champions/decks in this fixture, so nothing else
+      // could ever deal damage — isolates the 'timeout-core-health' branch
+      // from combat-timing flakiness.
+      state.cores.opponent.health -= 1;
+    }
+    let ticks = 0;
+    while (state.phase !== 'finished' && ticks <= MAX_TICKS) {
+      advanceTick(state, BALANCE, [], []);
+      ticks++;
+      const v = checkInvariants(state, BALANCE);
+      if (v.length > 0) out.violations.push(...v.map((x) => `tick ${state.tick}: ${x}`));
+    }
+    out.stalled = state.phase !== 'finished';
+    const outcome = state.outcome;
+    out.finished =
+      !out.stalled &&
+      outcome !== null &&
+      (outcome.winner === 'player' || outcome.winner === 'opponent' || outcome.winner === 'draw') &&
+      Number.isInteger(outcome.endTick) &&
+      outcome.endTick >= 1 &&
+      outcome.endTick <= MAX_TICKS;
+    if (outcome) {
+      out.winner = outcome.winner;
+      out.endTick = outcome.endTick;
+    }
+    out.digest = computeDigest(state);
+  } catch (e) {
+    out.error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  }
+  return out;
+}
+
 interface WinAgg {
   player: number;
   opponent: number;
@@ -371,8 +636,20 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
   let uncheckedCount = 0;
 
   beforeAll(() => {
-    const specs = buildSpecs();
+    // P5: the base M10 set (117) PLUS the full 5x5 matchup matrix across all
+    // three tiers, PLUS squads that guarantee borrowed Mass/Cardio. Every
+    // required category lands in ONE merged `results` set so the per-champion
+    // aggregate table (win rate, avg ticks, avg damage, ultimates, summons)
+    // covers the whole run, and every existing M10 assertion below keeps
+    // working over a strictly larger, richer set.
+    const specs = [...buildSpecs(), ...buildMatchupSpecs(), ...buildBorrowedSquadSpecs()];
     results = specs.map(runMatch);
+    // The two deterministic maxTicks-outcome-path fixtures (no AI, no
+    // commands by design — see runTimeoutMatch) join the same results set.
+    results.push(
+      runTimeoutMatch('timeout-draw', seedFromString('timeout-draw')),
+      runTimeoutMatch('timeout-decisive', seedFromString('timeout-decisive:opponent-damaged'))
+    );
     checkedCount = results.filter((r) => r.spec.checkEveryTick).length;
     uncheckedCount = results.length - checkedCount;
 
@@ -412,6 +689,45 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
         const c = perChampion.get(champ)!;
         c.fielded++;
         if (r.winner === side) c.won++;
+      }
+    }
+
+    // P5 — per-champion aggregate stats for the Phase 8 balance pass: win
+    // rate, avg battle length, avg team-damage OUTPUT while fielding this
+    // champion (a proxy — the fx log carries no source id, only target/team;
+    // see the runMatch comment), ultimate cast counts, and Mass Uprising
+    // summon counts. One row per official champion, aggregated over every
+    // match in the run where it was fielded as a captain (either side).
+    interface ChampionAgg {
+      fielded: number;
+      won: number;
+      ticks: number;
+      damageOutput: number;
+      ultimateCasts: number;
+      summons: number;
+    }
+    const emptyChampionAgg = (): ChampionAgg => ({
+      fielded: 0,
+      won: 0,
+      ticks: 0,
+      damageOutput: 0,
+      ultimateCasts: 0,
+      summons: 0,
+    });
+    const perChampionStats = new Map<string, ChampionAgg>(CHAMPION_IDS.map((id) => [id, emptyChampionAgg()]));
+    for (const r of results) {
+      for (const [champ, side] of [
+        [r.playerChampionId, 'player'],
+        [r.opponentChampionId, 'opponent'],
+      ] as const) {
+        if (!champ || !perChampionStats.has(champ)) continue;
+        const c = perChampionStats.get(champ)!;
+        c.fielded++;
+        c.ticks += r.endTick;
+        c.damageOutput += r.teamDamageOutput[side];
+        if (r.winner === side) c.won++;
+        c.ultimateCasts += r.ultimateCastsByChampion[champ] ?? 0;
+        c.summons += r.summonsByChampion[champ] ?? 0;
       }
     }
 
@@ -455,6 +771,25 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
           .sort((a, b) => b.share - a.share)
           .map((x) => `  ${x.card}: ${(100 * x.share).toFixed(0)}% of ${x.total} plays`);
       })(),
+      '',
+      'P5 PER-CHAMPION AGGREGATE STATS (Phase 8 balance-pass input; damage is a team-output proxy — see comment)',
+      '  champion            | fielded | win%  | avg ticks (s)   | avg dmg out | ults | summons',
+      ...CHAMPION_IDS.map((id) => {
+        const c = perChampionStats.get(id)!;
+        const n = Math.max(1, c.fielded);
+        const winPct = `${((100 * c.won) / n).toFixed(0)}%`;
+        const avgTicksC = c.ticks / n;
+        const avgDmg = c.damageOutput / n;
+        return (
+          `  ${id.padEnd(20)} | ${String(c.fielded).padStart(7)} | ${winPct.padStart(5)} | ` +
+          `${avgTicksC.toFixed(0).padStart(4)} (${(avgTicksC / BALANCE.ticksPerSecond).toFixed(1)}s) | ` +
+          `${avgDmg.toFixed(0).padStart(11)} | ${String(c.ultimateCasts).padStart(4)} | ${c.summons}`
+        );
+      }),
+      `borrowed-champion ultimate casts (must always be zero): ${results.reduce((a, r) => a + r.borrowedUltimateCasts.length, 0)}`,
+      `matchup-matrix matches: ${results.filter((r) => r.spec.config === 'matchup').length} ` +
+        `(25 pairs x ${ALL_DIFFICULTIES.length} tiers${DEEP ? ' x 3 seeds [DEEP]' : ''})`,
+      `borrowed-mass/cardio squad matches: ${results.filter((r) => r.spec.config === 'squad-mass-cardio-borrowed').length}`,
     ];
     // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
@@ -492,8 +827,9 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
     expect(invalid).toEqual([]);
   });
 
-  it('both AIs actually command their teams in every match', () => {
+  it('both AIs actually command their teams in every match (excl. the deliberately command-free timeout fixtures)', () => {
     const inert = results
+      .filter((r) => r.spec.config !== 'timeout-draw' && r.spec.config !== 'timeout-decisive')
       .filter((r) => r.playerCommandCount === 0 || r.opponentCommandCount === 0)
       .map(
         (r) =>
@@ -511,6 +847,51 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
     for (const id of CHAMPION_IDS) {
       expect([...fielded], `champion ${id} never fielded`).toContain(id);
     }
+  });
+
+  it('P5: the full 5x5 champion matchup matrix is fielded across all three AI tiers', () => {
+    const seen = new Set<string>();
+    for (const r of results) {
+      if (r.spec.config !== 'matchup') continue;
+      seen.add(`${r.playerChampionId}:${r.opponentChampionId}:${r.spec.playerDifficulty}`);
+    }
+    let expectedCombos = 0;
+    for (const a of CHAMPION_IDS) {
+      for (const b of CHAMPION_IDS) {
+        for (const difficulty of ALL_DIFFICULTIES) {
+          expectedCombos++;
+          expect(seen, `missing matchup ${a} vs ${b} @ ${difficulty}`).toContain(`${a}:${b}:${difficulty}`);
+        }
+      }
+    }
+    expect(expectedCombos).toBe(75); // 5 x 5 x 3
+    const matchupErrors = results
+      .filter((r) => r.spec.config === 'matchup' && (r.error !== null || r.stalled || !r.finished))
+      .map((r) => `${specLabel(r.spec)}: error=${r.error} stalled=${r.stalled} finished=${r.finished}`);
+    expect(matchupErrors).toEqual([]);
+  });
+
+  it('P5: borrowed champions (incl. Mass Monster) NEVER cast an ultimate, in any squad-shaped match', () => {
+    const violations = results.flatMap((r) => r.borrowedUltimateCasts);
+    expect(violations).toEqual([]);
+    // The bucket that guarantees a borrowed Mass + borrowed Cardio actually
+    // ran (a vacuous pass would be worthless).
+    const borrowedBucket = results.filter((r) => r.spec.config === 'squad-mass-cardio-borrowed');
+    expect(borrowedBucket.length).toBeGreaterThanOrEqual(9);
+    expect(borrowedBucket.every((r) => r.finished && !r.stalled && r.error === null)).toBe(true);
+  });
+
+  it('P5: the two deterministic maxTicks-outcome-path fixtures resolve correctly (no stall)', () => {
+    const draw = results.find((r) => r.spec.config === 'timeout-draw')!;
+    const decisive = results.find((r) => r.spec.config === 'timeout-decisive')!;
+    expect(draw.error).toBeNull();
+    expect(draw.stalled).toBe(false);
+    expect(draw.winner).toBe('draw');
+    expect(draw.endTick).toBe(BALANCE.battle.durationTicks + BALANCE.battle.suddenDeathTicks);
+    expect(decisive.error).toBeNull();
+    expect(decisive.stalled).toBe(false);
+    expect(decisive.winner).toBe('player');
+    expect(decisive.endTick).toBe(BALANCE.battle.durationTicks);
   });
 
   it('win-rate sanity: neither side wins 100% across the full mixed set', () => {
@@ -594,6 +975,164 @@ describe('M10 stability harness — 100+ automated AI-vs-AI matches', () => {
       }
     }
   );
+});
+
+// ---------------------------------------------------------------------------
+// P5 — Ghost battles: record -> transform -> replay, headless to completion
+// ---------------------------------------------------------------------------
+
+describe('P5 — ghost battles (record capture -> command transform -> full replay)', () => {
+  /** Plays a full AI-vs-AI battle and captures it as a real, verifiable BattleRecord. */
+  function recordFromLiveMatch(
+    seed: number,
+    championId: string,
+    difficulty: AiDifficulty
+  ): BattleRecord {
+    const live = createLiveBattle(seed, 'ghost-source', {
+      playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
+      opponentDeckCardIds: DEFAULT_DECK_CARD_IDS,
+      playerChampionId: championId,
+      aiDifficulty: difficulty,
+    });
+    const driver = createPlayerAiDriver(seed, difficulty);
+    while (live.state.phase !== 'finished' && live.state.tick <= MAX_TICKS) {
+      runPlayerAi(live.state, live.commandLog, driver);
+      stepLiveBattle(live, 1);
+    }
+    expect(live.state.phase, `source match for ${championId}`).toBe('finished');
+    return {
+      schemaVersion: BATTLE_RECORD_SCHEMA_VERSION,
+      balanceVersion: BALANCE.balanceVersion,
+      seed: live.config.seed,
+      config: live.config,
+      playerSnapshot: {
+        playerId: live.config.player.playerId,
+        displayName: 'Ghost Source',
+        championId,
+        rankPoints: 0,
+      },
+      opponentSnapshot: {
+        playerId: live.config.opponent.playerId,
+        displayName: 'AI',
+        championId: live.config.opponent.championId ?? null,
+        rankPoints: 0,
+      },
+      commands: live.commandLog,
+      outcome: live.state.outcome!,
+      digest: liveDigest(live),
+      recordedAt: '2026-07-23T00:00:00.000Z',
+    };
+  }
+
+  interface GhostOutcome {
+    label: string;
+    error: string | null;
+    stalled: boolean;
+    finished: boolean;
+    violations: string[];
+    digestReplayMatches: boolean;
+  }
+
+  /** Builds the ghost (transform), plays the PLAYER side with the AI driver
+   *  to completion, and checks replay-digest identity through runBattle. */
+  function playGhost(
+    record: BattleRecord,
+    ghostSeed: number,
+    championId: string,
+    difficulty: AiDifficulty
+  ): GhostOutcome {
+    const label = `ghost/${championId}/${difficulty}/seed=${ghostSeed}`;
+    const out: GhostOutcome = {
+      label,
+      error: null,
+      stalled: false,
+      finished: false,
+      violations: [],
+      digestReplayMatches: false,
+    };
+    try {
+      const setup = createGhostLiveBattle(record, ghostSeed, 'ghost-player', {
+        playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
+        playerChampionId: championId,
+        aiDifficulty: difficulty,
+      });
+      if (!setup.ok) {
+        out.error = `ghost setup failed: ${setup.reason}`;
+        return out;
+      }
+      const live = setup.live;
+      expect(live.opponentKind, label).toBe('ghost');
+      const driver = createPlayerAiDriver(ghostSeed, difficulty);
+      while (live.state.phase !== 'finished' && live.state.tick <= MAX_TICKS) {
+        runPlayerAi(live.state, live.commandLog, driver);
+        stepLiveBattle(live, 1);
+        const v = checkInvariants(live.state, BALANCE);
+        if (v.length > 0) out.violations.push(...v.map((x) => `tick ${live.state.tick}: ${x}`));
+      }
+      out.stalled = live.state.phase !== 'finished';
+      out.finished = !out.stalled && live.state.outcome !== null;
+      const rerun = runBattle(live.config, live.commandLog, BALANCE);
+      out.digestReplayMatches =
+        rerun.digest === liveDigest(live) && !rerun.stalled && rerun.invariantViolations.length === 0;
+    } catch (e) {
+      out.error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    }
+    return out;
+  }
+
+  // Default: one ghost per official champion at 'standard' (5 matches).
+  // ARENA_STABILITY_DEEP widens to every tier x 2 seeds (30 matches).
+  const seeds = DEEP ? [901, 902] : [901];
+  const tiers: readonly AiDifficulty[] = DEEP ? ALL_DIFFICULTIES : ['standard'];
+
+  let ghostResults: GhostOutcome[] = [];
+
+  beforeAll(() => {
+    ghostResults = [];
+    for (const championId of CHAMPION_IDS) {
+      for (const difficulty of tiers) {
+        for (const seed of seeds) {
+          const record = recordFromLiveMatch(
+            seedFromString(`ghost-source:${championId}:${difficulty}:${seed}`),
+            championId,
+            difficulty
+          );
+          const ghostSeed = seedFromString(`ghost-play:${championId}:${difficulty}:${seed}`);
+          ghostResults.push(playGhost(record, ghostSeed, championId, difficulty));
+        }
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      [
+        'P5 GHOST BATTLE REPORT',
+        `ghost matches: ${ghostResults.length}`,
+        `errors: ${ghostResults.filter((r) => r.error !== null).length} | ` +
+          `stalled: ${ghostResults.filter((r) => r.stalled).length} | ` +
+          `digest-identical replays: ${ghostResults.filter((r) => r.digestReplayMatches).length}/${ghostResults.length}`,
+      ].join('\n')
+    );
+  }, 60_000);
+
+  it('runs at least one ghost battle per official champion (record -> transform -> replay)', () => {
+    expect(ghostResults.length).toBeGreaterThanOrEqual(CHAMPION_IDS.length);
+  });
+
+  it('every ghost battle terminates cleanly: no throw, no stall, zero invariant violations, valid outcome', () => {
+    const bad = ghostResults
+      .filter((r) => r.error !== null || r.stalled || !r.finished || r.violations.length > 0)
+      .map(
+        (r) =>
+          `${r.label}: error=${r.error} stalled=${r.stalled} finished=${r.finished} ` +
+          `violations=${r.violations.slice(0, 2).join('; ')}`
+      );
+    expect(bad).toEqual([]);
+  });
+
+  it('every ghost battle replays digest-identically through runBattle with no AI/ghost machinery present', () => {
+    const mismatched = ghostResults.filter((r) => !r.digestReplayMatches).map((r) => r.label);
+    expect(mismatched).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
