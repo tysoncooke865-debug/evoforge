@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { libraryMuscleFor } from '@/domain/exercise-library';
+// muscle-lookup, NOT exercise-library: initSetQueue runs in (main)/_layout, so
+// this import path decides whether the full library rides the boot chunk.
+import { libraryMuscleFor } from '@/domain/muscle-lookup';
 import { buildSetRow, type SetInput } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';

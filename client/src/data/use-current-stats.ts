@@ -1,6 +1,5 @@
-import { useBodyweightLog, useLatestBodyfatMid, useProfile, useWorkoutLog } from './hooks';
+import { useBodyweightLog, useLatestBodyfatMid, useLiftBests, useProfile } from './hooks';
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
-import { bestE1rmFor } from '@/domain/avatar-stats-calc';
 import { pyFloat } from '@/domain/py';
 
 /**
@@ -31,7 +30,11 @@ export interface CurrentStats {
 export function useCurrentStats(): CurrentStats {
   const profile = useProfile();
   const bodyweights = useBodyweightLog();
-  const workouts = useWorkoutLog();
+  // Perf (2026-07-23): the five bestE1rmFor scans over the 2,500-row log
+  // moved into useLiftBests' TanStack select — computed once per data
+  // change, not once per render of every consumer (Home re-rendered this
+  // on every unrelated state change).
+  const lifts = useLiftBests();
   const bf = useLatestBodyfatMid();
 
   // A6: the one bodyweight chain (this file already had the canonical order).
@@ -42,19 +45,14 @@ export function useCurrentStats(): CurrentStats {
   const heightRaw = pyFloat(profile.data?.height_cm) ?? null;
   const heightCm = heightRaw && heightRaw > 0 ? heightRaw : null;
 
-  const rows = workouts.data ?? [];
   const lift = (derived: number, snapshot: unknown): [number | null, 'log' | 'profile' | 'none'] => {
     if (derived > 0) return [derived, 'log'];
     const snap = pyFloat(snapshot) ?? 0;
     return snap > 0 ? [snap, 'profile'] : [null, 'none'];
   };
-  let bench = bestE1rmFor(rows, 'Barbell Bench Press (Strength)');
-  if (bench <= 0) {
-    bench = Math.max(bestE1rmFor(rows, 'Barbell Bench Press'), bestE1rmFor(rows, 'Paused Barbell Bench Press'));
-  }
-  const [benchE1rm, benchSrc] = lift(bench, profile.data?.bench_e1rm);
-  const [squatE1rm, squatSrc] = lift(bestE1rmFor(rows, 'Barbell Back Squat'), profile.data?.squat_e1rm);
-  const [deadliftE1rm, dlSrc] = lift(bestE1rmFor(rows, 'Barbell Deadlift'), profile.data?.deadlift_e1rm);
+  const [benchE1rm, benchSrc] = lift(lifts.data?.bench ?? 0, profile.data?.bench_e1rm);
+  const [squatE1rm, squatSrc] = lift(lifts.data?.squat ?? 0, profile.data?.squat_e1rm);
+  const [deadliftE1rm, dlSrc] = lift(lifts.data?.deadlift ?? 0, profile.data?.deadlift_e1rm);
 
   return {
     heightCm,

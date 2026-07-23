@@ -272,22 +272,14 @@ export const EXERCISE_LIBRARY: readonly LibraryExercise[] = [
   ...IMPORTED_EXERCISES,
 ];
 
-/** Case-insensitive name → tag. Built once; the library is ~960 entries and
- *  this is read on every set save. */
-const BY_NAME: ReadonlyMap<string, string> = new Map(
-  EXERCISE_LIBRARY.map((e) => [e.name.trim().toLowerCase(), e.muscle])
-);
-
-/**
- * The muscle THE LIBRARY says this exercise trains, or null if it has never
- * heard of it. Callers fall back to inferMuscleGroup (pinned) — see
- * useSaveSet. This exists because inferMuscleGroup is a name heuristic, and
- * the 848 imported names are not names it was tuned for: without this, a
- * logged "Landmine Twist" would land in the fallback bucket instead of Abs.
- */
-export function libraryMuscleFor(exercise: string): string | null {
-  return BY_NAME.get(exercise.trim().toLowerCase()) ?? null;
-}
+/** Name → muscle moved to muscle-lookup.ts (perf, 2026-07-23): set save and
+ *  the Home/Train cards need ONLY that projection, and importing it from here
+ *  dragged the whole library into the shared boot chunk. The data rides
+ *  muscle-by-name.generated.ts, pinned to THIS array by
+ *  __tests__/muscle-by-name.test.ts — regenerate with
+ *  `node scripts/gen-muscle-by-name.mjs` whenever entries change.
+ *  Re-exported here so picker/builder-side callers keep one import. */
+export { libraryMuscleFor } from './muscle-lookup';
 
 /** Gym-familiar UI sections → the fine-grained tags they collapse. */
 export const LIBRARY_SECTIONS: readonly { label: string; muscles: readonly string[] }[] = [

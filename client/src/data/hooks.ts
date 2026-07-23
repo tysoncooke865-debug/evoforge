@@ -17,8 +17,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { useIsFocused } from 'expo-router';
 
-import type { PhysiqueValues } from '@/domain/avatar-stats-calc';
+import { bestE1rmFor, type PhysiqueValues } from '@/domain/avatar-stats-calc';
 import type { CardioRow, WorkoutRow } from '@/domain/summary';
 import { buildWorkoutIndex } from '@/domain/workout-index';
 
@@ -107,6 +108,34 @@ export function useWorkoutLog() {
     queryKey: ['workout_log', userId],
     enabled: userId !== null,
     queryFn: fetchWorkoutLog,
+  });
+}
+
+/** The big-three lift bests, shaped ONCE per data change (perf, 2026-07-23).
+ *  useCurrentStats used to run five bestE1rmFor scans over the 2,500-row log
+ *  INLINE per render of Home/avatar surfaces; a module-scope TanStack select
+ *  memoises them per observer exactly like useWorkoutIndex. The bench
+ *  precedence (Strength variant first, then flat/paused best) is the pinned
+ *  order use-current-stats has always applied. */
+const selectLiftBests = (rows: WorkoutRow[]) => {
+  let bench = bestE1rmFor(rows, 'Barbell Bench Press (Strength)');
+  if (bench <= 0) {
+    bench = Math.max(bestE1rmFor(rows, 'Barbell Bench Press'), bestE1rmFor(rows, 'Paused Barbell Bench Press'));
+  }
+  return {
+    bench,
+    squat: bestE1rmFor(rows, 'Barbell Back Squat'),
+    deadlift: bestE1rmFor(rows, 'Barbell Deadlift'),
+  };
+};
+
+export function useLiftBests() {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['workout_log', userId],
+    enabled: userId !== null,
+    queryFn: fetchWorkoutLog,
+    select: selectLiftBests,
   });
 }
 
@@ -338,16 +367,19 @@ export function usePublicIdentity() {
 /** The ONE cross-user read surface: leaderboard_top() RPC, [] on any failure.
  *  FRESHNESS (Tyson 2026-07-19, "updating as new members roll in"): other
  *  athletes' XP changes without any local invalidation, so this query alone
- *  polls — 60s while an observer is FOCUSED (refetchIntervalInBackground
- *  stays default-false; an idle tab costs nothing). staleTime 30s keeps tab
- *  hops instant without refetch spam. */
+ *  polls — 60s while the SCREEN is focused. The gate must be useIsFocused
+ *  (the gyms/notifications pattern), not just window visibility: the idle
+ *  tab preload keeps Home mounted, so an ungated interval polled forever
+ *  from behind whatever tab you were actually using (perf, 2026-07-23).
+ *  staleTime 30s keeps tab hops instant without refetch spam. */
 export function useLeaderboardTop(n = 50) {
   const userId = useUserId();
+  const focused = useIsFocused();
   return useQuery({
     queryKey: ['leaderboard_top', userId, n],
     enabled: userId !== null,
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: focused ? 60_000 : false,
     queryFn: async (): Promise<import('@/domain/leaderboard').LeaderboardRow[]> => {
       try {
         const { data, error } = await supabase.rpc('leaderboard_top', { n });
@@ -366,11 +398,12 @@ export function useLeaderboardTop(n = 50) {
  *  row, so the client renders whichever column the active tab wants. */
 export function useLeaderboardByMetric(metric: string, n = 50) {
   const userId = useUserId();
+  const focused = useIsFocused();
   return useQuery({
     queryKey: ['leaderboard_metric', userId, metric, n],
     enabled: userId !== null,
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    refetchInterval: focused ? 60_000 : false,
     queryFn: async (): Promise<import('@/domain/leaderboard').MetricRow[]> => {
       try {
         const { data, error } = await supabase.rpc('leaderboard_by_metric', { p_metric: metric, n });

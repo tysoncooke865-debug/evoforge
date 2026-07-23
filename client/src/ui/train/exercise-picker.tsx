@@ -664,6 +664,16 @@ function FilterSheet({
   const [draft, setDraft] = useState<ExerciseFilters>(filters);
   const insets = useSafeAreaInsets();
 
+  // Perf (2026-07-23): countFor ranks the whole ~1,100-entry library, and it
+  // used to run INLINE in render — a full synchronous re-rank on every chip
+  // tap. Debounced at the search box's own 120ms rhythm; the previous number
+  // holds until the new one settles.
+  const [count, setCount] = useState(() => countFor(filters));
+  useEffect(() => {
+    const t = setTimeout(() => setCount(countFor(draft)), 120);
+    return () => clearTimeout(t);
+  }, [countFor, draft]);
+
   const toggle = <T,>(list: readonly T[] | undefined, v: T): T[] => {
     const cur = list ?? [];
     return cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
@@ -756,7 +766,7 @@ function FilterSheet({
             </View>
             <View className="flex-1">
               <NeonButton
-                title={`APPLY · ${countFor(draft)}`}
+                title={`APPLY · ${count}`}
                 onPress={() => onApply(draft)}
                 testID="filters-apply"
               />

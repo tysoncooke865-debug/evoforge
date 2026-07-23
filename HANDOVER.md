@@ -26,6 +26,40 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **PERF PASS: BOOT CHUNK + SET-SAVE NETWORK BUDGET (2026-07-23, no
+  migration)**: five independent hot-path fixes, no behavior change intended.
+  (1) **Boot-chunk slimming**: set save, the set queue and the Home/Train
+  cards resolve exercise→muscle through the new
+  `client/src/domain/muscle-lookup.ts` seam, which carries only the compact
+  GENERATED name→muscle projection (`muscle-by-name.generated.ts`, regenerate
+  via `node scripts/gen-muscle-by-name.mjs`, pinned to `EXERCISE_LIBRARY` by
+  `__tests__/muscle-by-name.test.ts`) — the full ~1,109-entry library now
+  stays behind the picker/builder route chunks instead of riding the shared
+  boot chunk. `exercise-library.ts`/`exercise-search.ts` re-export
+  `libraryMuscleFor`/`userMuscleFor`/`UserExercise` so picker-side callers
+  keep one import; precedence (user > library > inferMuscleGroup) unchanged.
+  (2) **Achievement sweep network budget** (`data/achievement-sweep.ts`):
+  was ~7 fresh round-trips PER SET; now `achievements` + `xp_total` stay
+  always-fresh (they make the insert honest) while the other inputs read the
+  Query cache when it can answer COMPLETELY (bodyweight's 180-row window only
+  stands in when it holds the whole history) with byte-identical fresh-read
+  fallbacks; concurrent saves COALESCE into one running + one trailing sweep.
+  Cache-fed sweeps can only fire an unlock LATE, never wrongly (C8 rule).
+  (3) **Leaderboard polling gated on focus** (`data/hooks.ts`): both
+  leaderboard queries poll only while their screen `useIsFocused()` — the
+  idle-tab preload kept Home mounted, so the old visibility-only gate polled
+  the two most expensive RPCs forever from behind other tabs. Also
+  `data/keys.ts`: a `public_profile` write no longer invalidates the two
+  leaderboard keys (a name/privacy edit reorders nothing; /rank refetches on
+  visit; order changes ride `user_progression`).
+  (4) **Lift bests memoised** (`useLiftBests` in `data/hooks.ts`): the five
+  `bestE1rmFor` scans over the 2,500-row log moved out of per-render
+  `useCurrentStats` into a module-scope TanStack `select`; bench precedence
+  order preserved. (5) **Picker filter count debounced** (`exercise-picker.tsx`,
+  120ms) and the QUICK WORKOUT sheet extracted into its own component in
+  `today.tsx` so name keystrokes stop re-rendering the whole Train hub.
+  Guards: full suite 1,558 green (incl. new `muscle-by-name.test.ts`), tsc +
+  lint clean, tokens/battle-engine/motion guards green, export clean.
 - **EXERCISE LIBRARY + SPLITS EXPANSION (2026-07-23, no migration)**: added
   **88 new curated exercises** (variants of the staples — every triceps-pushdown
   grip/handle, overhead-extension, curl, lateral/front raise, upright row, cable

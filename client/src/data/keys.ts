@@ -17,10 +17,13 @@ import type { QueryClient } from '@tanstack/react-query';
  *   profile. Every other profile writer should.
  */
 export const TABLE_READERS: Record<string, readonly string[]> = {
+  // NOT the two leaderboard keys (perf, 2026-07-23): a name/privacy edit
+  // reorders nothing, and /rank refetches on visit anyway (staleTime 30s +
+  // the focused 60s poll) — invalidating them here refired the app's two
+  // most expensive RPCs, across every metric tab, for a one-string write.
+  // Rank ORDER changes ride the `user_progression` entry below.
   public_profile: [
     'public_profile',
-    'leaderboard_top',
-    'leaderboard_metric',
     'athlete_profile',
     'discover_athletes',
     'search_athletes',

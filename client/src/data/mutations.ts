@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { cardioEventAmount } from '@/domain/cardio';
-import { libraryMuscleFor } from '@/domain/exercise-library';
-import { userMuscleFor, type UserExercise } from '@/domain/exercise-search';
+// muscle-lookup, NOT exercise-library/-search: those drag the full ~1,100-entry
+// library into the shared boot chunk (perf, 2026-07-23).
+import { libraryMuscleFor, userMuscleFor, type UserExercise } from '@/domain/muscle-lookup';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';

@@ -1,6 +1,5 @@
 import { ROUTINE, ROUTINE_ORDER } from './catalogs';
-import { libraryMuscleFor } from './exercise-library';
-import { userMuscleFor, type UserExercise } from './exercise-search';
+import { libraryMuscleFor, userMuscleFor, type UserExercise } from './muscle-lookup';
 import { pyInt } from './py';
 import { inferMuscleGroup } from './workouts';
 

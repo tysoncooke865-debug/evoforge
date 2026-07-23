@@ -14,11 +14,12 @@
 
 import { EXERCISE_LIBRARY, LIBRARY_SECTIONS, type LibraryExercise } from './exercise-library';
 
-export interface UserExercise {
-  id?: string;
-  name: string;
-  muscle: string;
-}
+// Moved to muscle-lookup.ts (perf, 2026-07-23): set save + Home/Train only
+// need these, and importing them from HERE pulled the full library into the
+// shared boot chunk. Re-exported so picker-side callers keep one import.
+import { userMuscleFor, type UserExercise } from './muscle-lookup';
+
+export { userMuscleFor, type UserExercise };
 
 export const MINE = 'Mine';
 
@@ -41,16 +42,6 @@ const norm = (s: string): string => s.trim().toLowerCase();
  *  chips the CREATE flow offers. */
 export function muscleOptions(): { label: string; muscles: readonly string[] }[] {
   return LIBRARY_SECTIONS.map((s) => ({ label: s.label, muscles: s.muscles }));
-}
-
-/**
- * Resolve an exercise's muscle: an athlete's own definition wins over
- * inference, because they told us. Callers fall back to inferMuscleGroup
- * (which is parity-pinned and must not move) when this returns null.
- */
-export function userMuscleFor(exercise: string, userExercises: readonly UserExercise[]): string | null {
-  const hit = userExercises.find((u) => norm(u.name) === norm(exercise));
-  return hit ? hit.muscle : null;
 }
 
 export function searchExercises(query: string, userExercises: readonly UserExercise[] = []): SearchResult {
