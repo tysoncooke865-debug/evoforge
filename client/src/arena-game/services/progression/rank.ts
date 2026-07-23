@@ -9,7 +9,7 @@
 import type { BalanceConfig } from '../../content/balance';
 
 /** Battle modes that can finish with an outcome (mirrors the battle store). */
-export type RatedBattleMode = 'standard' | 'ranked' | 'tutorial' | 'ghost' | 'gym-war';
+export type RatedBattleMode = 'standard' | 'ranked' | 'tutorial' | 'ghost' | 'gym-war' | 'dev-stress';
 
 /**
  * Arena Rating movement for a finished battle — the single source both the
@@ -24,7 +24,7 @@ export function ratingDeltaForOutcome(
   winner: 'player' | 'opponent' | 'draw',
   balance: BalanceConfig
 ): number {
-  if (mode === 'tutorial' || mode === 'ghost') return 0;
+  if (mode === 'tutorial' || mode === 'ghost' || mode === 'dev-stress') return 0;
   return winner === 'player'
     ? balance.rank.pointsPerWin
     : winner === 'opponent'
@@ -37,6 +37,7 @@ export function ratingDeltaForOutcome(
 export function ratingLineFor(mode: RatedBattleMode, ratingDelta: number): string {
   if (mode === 'tutorial') return 'Tutorial — Arena Rating unchanged';
   if (mode === 'ghost') return 'Ghost battle — Arena Rating unchanged';
+  if (mode === 'dev-stress') return 'Stress battle — Arena Rating unchanged';
   const sign = ratingDelta > 0 ? '+' : '';
   return `Arena Rating ${sign}${ratingDelta}`;
 }

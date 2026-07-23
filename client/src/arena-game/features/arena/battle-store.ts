@@ -32,6 +32,10 @@
  *    rank movement — but they ARE persisted as battle records (mode
  *    'ghost'), with display snapshots derived from the source record so no
  *    profile lookup is needed.
+ *  - 'dev-stress' battles (premium P1/P3 render-stress lab) are fully
+ *    inert: no provider call, no rank movement, and NEVER persisted — the
+ *    stress driver force-spawns units outside the command log, so a stored
+ *    record could never replay to its digest.
  */
 import { createStore } from 'zustand/vanilla';
 import { BALANCE, getCardById } from '../../content';
@@ -74,7 +78,20 @@ const MAX_INTRO_HOLD_MS = 3500;
 /** Matches the default save's player id (see services/persistence/save.ts). */
 const DEFAULT_PLAYER_ID = 'local-player';
 
-export type BattleMode = 'standard' | 'ranked' | 'tutorial' | 'ghost' | 'gym-war';
+export type BattleMode = 'standard' | 'ranked' | 'tutorial' | 'ghost' | 'gym-war' | 'dev-stress';
+
+/**
+ * Dev-only frame instrumentation seam (premium P1). The stress lab's frame
+ * profiler sets `current` while mounted so it can time the sim step and the
+ * store publish (which includes React's synchronous subscriber flush);
+ * normal play pays a single null check per 50ms frame. Never set outside
+ * dev tooling.
+ */
+export const devFrameHook: {
+  current:
+    | ((info: { gapMs: number; simMs: number; publishMs: number; ticks: number }) => void)
+    | null;
+} = { current: null };
 
 export interface BattleStoreState {
   status: 'idle' | 'running' | 'finished';
@@ -195,7 +212,10 @@ export function createBattleStore(
     const outcome = live.state.outcome;
     if (!outcome) return;
     resultRecorded = true;
-    if (currentMode === 'ghost') return;
+    // Ghost battles are offline; dev-stress battles are lab runs whose
+    // outcome is meaningless (the driver force-spawns armies) — neither may
+    // ever reach the provider.
+    if (currentMode === 'ghost' || currentMode === 'dev-stress') return;
 
     // Shared with the result overlay display (P11): tutorial battles move 0
     // Arena Rating (a guided lesson is not the ladder) — they still count in
@@ -252,6 +272,9 @@ export function createBattleStore(
     const outcome = live.state.outcome;
     if (!outcome) return;
     if (currentMode === 'tutorial') return;
+    // Dev-stress battles must never be persisted: driver spawns are not in
+    // the command log, so the record's digest could never replay true.
+    if (currentMode === 'dev-stress') return;
     recordPersisted = true;
 
     // Mode 'ranked' deliberately falls through to 'standard' here: the record
@@ -369,8 +392,18 @@ export function createBattleStore(
       if (ticks > MAX_CATCHUP_TICKS) ticks = MAX_CATCHUP_TICKS;
       simTimeOwedMs -= ticks * LOOP_INTERVAL_MS;
 
-      stepLiveBattle(live, ticks);
-      set((s) => ({ version: s.version + 1 }));
+      const hook = devFrameHook.current;
+      if (hook) {
+        const t0 = performance.now();
+        stepLiveBattle(live, ticks);
+        const t1 = performance.now();
+        set((s) => ({ version: s.version + 1 }));
+        const t2 = performance.now();
+        hook({ gapMs: delta, simMs: t1 - t0, publishMs: t2 - t1, ticks });
+      } else {
+        stepLiveBattle(live, ticks);
+        set((s) => ({ version: s.version + 1 }));
+      }
 
       if (live.state.phase === 'finished') {
         clearLoop();
