@@ -196,6 +196,30 @@ describe('battle store time dilation (hit-stop / slow-mo)', () => {
     store.getState().reset();
   });
 
+  it('P11 repeated rematches: dilation/hold state never leaks across consecutive battles', async () => {
+    const store = createBattleStore({ current: null as never });
+    for (let round = 0; round < 3; round++) {
+      store.getState().restart(SEED + round, 'p1');
+      // Simulate the P9 intro + a mid-battle hit-stop, then leave some of
+      // the dilation window UNCONSUMED before restarting — the next battle
+      // must start at full speed regardless.
+      store.getState().holdForIntro(2450);
+      await vi.advanceTimersByTimeAsync(2450);
+      expect(store.getState().live!.state.tick).toBe(0);
+      await vi.advanceTimersByTimeAsync(500);
+      const tick = store.getState().live!.state.tick;
+      expect(tick).toBeGreaterThanOrEqual(9);
+      expect(tick).toBeLessThanOrEqual(11);
+      store.getState().applyTimeDilation(0, 400); // deliberately abandoned mid-hold
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    // A fresh battle right after an abandoned hold runs at normal pace.
+    store.getState().restart(SEED + 99, 'p1');
+    await vi.advanceTimersByTimeAsync(500);
+    expect(store.getState().live!.state.tick).toBeGreaterThanOrEqual(9);
+    store.getState().reset();
+  });
+
   it('a slower active dilation is not overridden by a weaker one, durations are capped, and idle stores ignore it', async () => {
     const store = createBattleStore({ current: null as never });
     // Idle: no-op, no throw.

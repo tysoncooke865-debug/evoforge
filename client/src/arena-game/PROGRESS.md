@@ -2044,3 +2044,32 @@ Gates: tsc clean; arena 28 files / 513 tests (+2); full suite 1,584;
 lint back to the documented 7 warnings (a mid-file import-order slip in
 gym-squad was caught by lint and fixed); verify-motion/battle-engine OK;
 web export green.
+
+## Phases 11-12 - hardening + independent review (2026-07-23)
+
+P11 verified on the FINAL build: deep harness (ARENA_STABILITY_DEEP=1)
+362/362 matches, 0 stalls/errors/violations, 30/30 ghost digests, and
+champion win rates IDENTICAL to the pre-polish baseline (54/54/50/47/45)
+- ten phases of polish, zero sim drift. Timer audit: all five timer
+sites (battle loop, toast, intro, climax, ceremony) have unmount cleanup
+AND self-termination; unmount reset() covers loop+dilation+intro hold.
+New store test: 3 consecutive battles with abandoned mid-battle holds -
+no dilation leaks. Measured per-frame cost of the new render derivations
+(stack offsets + pose math, 40-unit worst case): 6.9us = 0.014% of the
+50ms budget. Degradation switches deliberately NOT added (caps +
+reactive doctrine + reduced-motion cover it).
+
+P12: adversarial review against the running export - report at repo
+root VERTICAL_SLICE_BUILD_REPORT.md. Verdict: presentable vertical
+slice; ready for testers/recording on web. Honest gaps recorded there:
+no VICTORY capture (five scripted battles all LOST to Training AI ->
+HIGH playtest finding: entry tier may be too punishing, win-gated tiers
+could trap new players; needs ONE human session before tuning via
+TENDENCY only), no gym-war on-screen capture (G2), nothing on real
+hardware (standing M1 gap). MEDIUM: audit C6 (no testIDs) is now the
+highest-value engineering follow-up - every tour drives by coordinates
+and one mis-click derailed a run. LOW: floor accent-strip tiling.
+
+Final gates: tsc clean; arena 28 files / 514 tests; full 1,585; lint 0
+errors (7 documented warnings); verify-tokens/motion/battle-engine
+green; export green.

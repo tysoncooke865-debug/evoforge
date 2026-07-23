@@ -47,6 +47,12 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [x] G1 Borrowed champions carry owner nameplates in-battle (engine ownerName, digest-neutral, tested) + Gym War intro squad row + sprite portraits in the War Squad builder. DONE (Phase 10).
 - [ ] G2 On-screen gym-war verification OWED: smoke ALPHA is in no gym and creating one would write real, discoverable social data. Verify the intro squad row + nameplates visually in Phase 12 or Tyson's device pass (a private test gym with the two smoke accounts would do it).
 
+## Phase 12 review findings (post-program)
+- [ ] R1 HIGH (playtest): Training AI may be too strong for the entry tier — five scripted players lost five straight; win-gated tiers could trap a new player. Weak evidence (scripted players are bad); needs ONE human session; if confirmed, tune TENDENCY or a training-only handicap, never champion stats. OPEN
+- [ ] R2 MEDIUM: audit C6 unresolved — zero testIDs in the package; tours drive by coordinates and one mis-click derailed a run. Cheap, highest-value engineering follow-up. OPEN
+- [ ] R3 LOW: floor amber accent strips tile noticeably on tall screens — cosmetic; second floor variant or darker accents. OPEN
+- [ ] R4 VICTORY treatment never seen on screen (code-shared with the verified defeat ceremony; banner/color differ). Capture during the human playtest. OPEN
+
 ## Guardrails to re-verify after each phase (not issues — tripwires)
 - Replay digest parity (any engine log change), deep harness 0 defects,
   full gate sweep green, no new timers/Animated loops, FX teardown on

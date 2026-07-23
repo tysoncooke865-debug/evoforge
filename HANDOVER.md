@@ -2116,6 +2116,20 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   generator through it. Arena suite 511, full 1,582, all guards green,
   tour-verified.
 
+- **2026-07-23 — Arena polish COMPLETE (Phases 11+12): hardening +
+  independent review.** Deep harness on the final build: 362/362, zero
+  defects, champion win rates IDENTICAL to pre-polish (zero sim drift
+  across ten phases of visual work). Timer/leak audit clean; measured
+  render-derivation cost 0.014% of frame budget; repeated-rematch leak
+  test added. **The program report is `VERTICAL_SLICE_BUILD_REPORT.md`
+  at the repo root** — verdict: presentable vertical slice, ready for
+  testers/recording on web. Its open findings (also in
+  KNOWN_POLISH_ISSUES): R1 HIGH — Training AI may be too punishing for
+  the entry tier (five scripted players lost five straight; needs one
+  HUMAN playtest before any tuning, TENDENCY-only); R2 — add testIDs
+  (audit C6, highest-value follow-up); G2 gym-war on-screen check;
+  the standing on-device pass. Arena suite 514, full 1,585.
+
 ---
 
 ## 3. The rules that cost real bugs
