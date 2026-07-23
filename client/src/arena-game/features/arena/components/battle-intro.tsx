@@ -12,7 +12,11 @@ import React from 'react';
 import { Image, type ImageStyle, Platform, StyleSheet, Text, View } from 'react-native';
 import { colors, pathColor, radius, spacing, typography } from '../../../constants/theme';
 import { getChampionById } from '../../../content';
-import { championSprite } from './sprites';
+import {
+  profileForChampionPath,
+  type ArenaAvatarProfile,
+} from '../../../integration/evoforge/avatar-profile';
+import { resolveChampionBattleAsset } from './battle-assets';
 
 const PIXELATED =
   Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
@@ -34,6 +38,9 @@ interface Props {
   opponentChampionId: string | null;
   /** Who this is against — difficulty label, gym name, or ghost line. */
   opponentLabel: string;
+  /** Premium P5: the athlete's resolved visual profile — stage/skin-aware
+   *  art on their plate + the evolution form line under their name. */
+  playerProfile?: ArenaAvatarProfile | null;
   /** P10 Gym Wars: the borrowed gym-mates fighting beside the captain —
    *  they get their own entrance row under the face-off. */
   squad?: IntroSquadMember[];
@@ -43,13 +50,26 @@ interface Props {
 function ChampionPlate({
   championId,
   team,
+  profile = null,
 }: {
   championId: string | null;
   team: 'player' | 'opponent';
+  profile?: ArenaAvatarProfile | null;
 }) {
   const champion = championId ? getChampionById(championId) : undefined;
-  const sprite = champion ? championSprite(champion.art, team) : null;
+  // The profile only ever drives art/labels for the athlete's own path —
+  // a deliberately cross-path arena pick renders canonically (P5 guard).
+  const ownProfile = champion ? profileForChampionPath(profile, champion.path) : null;
+  const sprite = champion
+    ? resolveChampionBattleAsset(champion.art, team, ownProfile).still
+    : null;
   const teamTint = team === 'player' ? colors.player : colors.opponent;
+  // The athlete's REAL evolution identity (P5): stage + form name, exactly
+  // what Home/Customise call this champion.
+  const stageLine =
+    ownProfile && ownProfile.formName
+      ? `STAGE ${ownProfile.evolutionStage} — ${ownProfile.formName.toUpperCase()}`
+      : null;
   return (
     <View style={styles.plate}>
       <View style={[styles.plateFrame, { borderColor: teamTint }]}>
@@ -65,6 +85,11 @@ function ChampionPlate({
       >
         {champion?.name ?? 'Unknown'}
       </Text>
+      {stageLine ? (
+        <Text numberOfLines={1} style={styles.plateStage}>
+          {stageLine}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -72,7 +97,7 @@ function ChampionPlate({
 /** Small portrait + owner name for one borrowed gym-mate (entrance row). */
 function SquadEntry({ member }: { member: IntroSquadMember }) {
   const champion = getChampionById(member.championId);
-  const sprite = champion ? championSprite(champion.art, 'player') : null;
+  const sprite = champion ? resolveChampionBattleAsset(champion.art, 'player', null).still : null;
   return (
     <View style={styles.squadEntry}>
       <View
@@ -99,6 +124,7 @@ export function BattleIntro({
   playerChampionId,
   opponentChampionId,
   opponentLabel,
+  playerProfile = null,
   squad,
   reduceMotion,
 }: Props) {
@@ -116,7 +142,7 @@ export function BattleIntro({
     <View style={styles.overlay} pointerEvents="none">
       <Text style={styles.opponentLine}>{opponentLabel.toUpperCase()}</Text>
       <View style={styles.matchup}>
-        <ChampionPlate championId={playerChampionId} team="player" />
+        <ChampionPlate championId={playerChampionId} team="player" profile={playerProfile} />
         <Text style={styles.vs}>VS</Text>
         <ChampionPlate championId={opponentChampionId} team="opponent" />
       </View>
@@ -171,6 +197,8 @@ const styles = StyleSheet.create({
   plateSprite: { width: 72, height: 72 },
   plateFallback: { ...typography.pixelBold, fontSize: 40 },
   plateName: { ...typography.label, textAlign: 'center' },
+  // P5: the athlete's real evolution identity under their champion's name.
+  plateStage: { ...typography.label, fontSize: 10, color: colors.textDim, letterSpacing: 1, textAlign: 'center' },
   vs: { ...typography.pixelBold, fontSize: 26, color: colors.textDim, letterSpacing: 2 },
   // P10 — squad entrance row (Gym Wars): the borrowed gym-mates.
   squadBlock: { alignItems: 'center', gap: spacing.xs },

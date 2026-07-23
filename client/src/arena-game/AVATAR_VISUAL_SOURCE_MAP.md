@@ -4,6 +4,18 @@ What the EvoForge app ACTUALLY has for champion identity, where it lives,
 and how the Arena must consume it (Phase 5+). This corrects the arena
 program's standing assumption that no avatar/cosmetic system existed.
 
+> **PHASE 5 IMPLEMENTED (same day):** the profile + push pipeline described
+> in §3 is now live — `integration/evoforge/avatar-profile.ts` (profile,
+> store, own-path guard), `ArenaIdentityBridge` in the arena layout (maps
+> `useDisplayIdentity()` and pushes), the battle-asset fidelity chain
+> (`battle-assets-core.ts` pure + tested), and continuity surfaces (lobby
+> portrait = the app's own skinned still + stage line; intro stage plate).
+> One doctrine refinement vs the original sketch: the arena's post-
+> onboarding champion pick is deliberately free (applyProviderIdentity
+> doctrine), so the profile drives art only for the athlete's OWN path and
+> refines the FIRST-RUN prefill only. Current support state + Phase 8
+> contract: `ARENA_COSMETIC_COMPATIBILITY.md`.
+
 ## 1. The canonical chain (wider app — all real, shipped code)
 
 ```

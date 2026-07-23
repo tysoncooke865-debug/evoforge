@@ -7,6 +7,7 @@
  * Arena persistence under the signed-in user id (shared-device isolation —
  * the "four caches" doctrine) and swaps in the Supabase-backed provider.
  */
+import { getChampionByPath } from '../content/champions';
 import { LocalMockPlayerProvider } from '../integration/evoforge/local-mock-provider';
 import { SupabaseEvoForgePlayerProvider } from '../integration/evoforge/supabase-provider';
 import type {
@@ -104,6 +105,22 @@ export async function initArenaForUser(userId: string): Promise<void> {
 }
 
 /**
+ * Premium P5: refine the first-run champion prefill with the DISPLAY-
+ * resolved path (origin lock + cross-path equip applied — what Home
+ * actually shows), pushed by the arena layout's identity bridge. Same
+ * doctrine as applyProviderIdentity: ONLY while onboarding is incomplete —
+ * a finished player's own champion pick is never overridden.
+ */
+export async function prefillChampionFromDisplayPath(path: string): Promise<void> {
+  const state = playerStore.getState();
+  if (state.status !== 'ready') return;
+  if (state.save.player.onboardingComplete) return;
+  const champion = getChampionByPath(path);
+  if (!champion || state.save.player.championId === champion.id) return;
+  await state.update((s) => ({ ...s, player: { ...s.player, championId: champion.id } }));
+}
+
+/**
  * Sign-out teardown, called from EvoForge's auth-context (which clears
  * EVERY cache layer on sign-out): drop back to defaults so no in-memory
  * state can leak to the next athlete on a shared device. Persistence is
@@ -115,6 +132,9 @@ export async function resetArenaSession(): Promise<void> {
   // Reset the battle loop first so no timer keeps mutating a battle.
   const { battleStore } = await import('../features/arena/battle-store');
   battleStore.getState().reset();
+  // P5: the pushed visual identity is per-athlete — never leak it.
+  const { clearArenaAvatarProfile } = await import('../integration/evoforge/avatar-profile');
+  clearArenaAvatarProfile();
   playerStore.setState({ status: 'idle' });
 }
 

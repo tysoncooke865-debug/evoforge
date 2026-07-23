@@ -50,6 +50,7 @@ import type { BattleRecord } from '../../../game-engine/simulation/replay';
 import type { LaneId } from '../../../game-engine/types';
 import { buildEnemyGymSquad } from '../../gyms/gym-war';
 import { buildPlayerSquad } from '../../gyms/squad';
+import { useArenaAvatar } from '../../../integration/evoforge/avatar-profile';
 import { appStorage, playerProvider } from '../../../services/app-services';
 import {
   battleRecordKey,
@@ -418,6 +419,9 @@ export function ArenaScreen({
   const lastRejection = useBattle((s) => s.lastRejection);
   /** Suppresses the units' walk-bob (Phase 3) — see use-reduced-motion.ts. */
   const reduceMotion = useReducedMotionPref();
+  /** Premium P5: the athlete's resolved visual profile (pushed by the app
+   *  layout from useDisplayIdentity) — selects their own champion's art. */
+  const playerProfile = useArenaAvatar().profile;
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -855,6 +859,7 @@ export function ArenaScreen({
           momentum={lane0Momentum}
           deployHighlight={selectedCardId !== null}
           reduceMotion={reduceMotion}
+          playerProfile={playerProfile}
           onDeployTap={handleDeployTap}
         />
         <LaneStrip
@@ -870,6 +875,7 @@ export function ArenaScreen({
           momentum={lane1Momentum}
           deployHighlight={selectedCardId !== null}
           reduceMotion={reduceMotion}
+          playerProfile={playerProfile}
           onDeployTap={handleDeployTap}
         />
         {ultimateFlashOpacity > 0 && (
@@ -944,6 +950,7 @@ export function ArenaScreen({
             null
           }
           opponentLabel={opponentIntroLabel}
+          playerProfile={playerProfile}
           squad={
             mode === 'gym-war'
               ? (live.config.player.squad?.borrowed ?? []).map((b) => ({

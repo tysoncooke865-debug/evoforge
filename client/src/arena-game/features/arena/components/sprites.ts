@@ -126,6 +126,44 @@ export function championWalkFrames(
   return frames;
 }
 
+/** Registry key suffix for a profile variant (premium P5): stage always,
+ *  skin only when non-standard — `champion-titan--s3--k-inferno--player`. */
+function variantPrefix(artKey: string, stage: number, skinId: string): string {
+  const skin = skinId && skinId !== 'standard' ? `--k-${skinId}` : '';
+  return `${artKey}--s${stage}${skin}`;
+}
+
+/**
+ * Stage/skin-aware champion variant (premium P5). Null until Phase 8+
+ * generates variant art — callers then fall back through the fidelity
+ * chain in battle-assets-core.ts, never to a broken image.
+ */
+export function championSpriteVariant(
+  artKey: string,
+  team: 'player' | 'opponent',
+  stage: number,
+  skinId: string
+): ImageSourcePropType | null {
+  return SPRITES[`${variantPrefix(artKey, stage, skinId)}--${team}`] ?? null;
+}
+
+/** Variant walk frames — all 4 or nothing (a variant still must never cycle
+ *  canonical frames: layer-drift rule, battle-assets-core.ts). */
+export function championWalkFramesVariant(
+  artKey: string,
+  team: 'player' | 'opponent',
+  stage: number,
+  skinId: string
+): ImageSourcePropType[] | null {
+  const frames: ImageSourcePropType[] = [];
+  for (let i = 0; i < 4; i++) {
+    const frame = SPRITES[`${variantPrefix(artKey, stage, skinId)}--${team}--w${i}`];
+    if (!frame) return null;
+    frames.push(frame);
+  }
+  return frames;
+}
+
 /** Forge Core art; swaps to the cracked variant once the core is battered. */
 export function coreSprite(team: 'player' | 'opponent', damaged = false): ImageSourcePropType {
   return SPRITES[`forge-core-${team}${damaged ? '-damaged' : ''}`];

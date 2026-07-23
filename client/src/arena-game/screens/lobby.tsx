@@ -14,6 +14,7 @@ import { colors, pathColor, radius, spacing, typography } from '../constants/the
 import { ALL_AI_DIFFICULTIES, getChampionById } from '../content';
 import type { AiDifficulty } from '../content';
 import { championSprite } from '../features/arena/components/sprites';
+import { useArenaAvatar } from '../integration/evoforge/avatar-profile';
 import { isDifficultyUnlocked } from '../services/onboarding/onboarding';
 import { usePlayer } from '../services/player-data/use-player';
 
@@ -32,6 +33,13 @@ export default function LobbyScreen() {
   const update = usePlayer((s) => s.update);
   const champion = getChampionById(save.player.championId);
   const firstBattle = save.stats.battlesPlayed === 0;
+  // Premium P5 — avatar continuity: the lobby shows the SAME champion art
+  // Home/Customise show (the app's skin/stage-aware still, pushed by the
+  // arena layout), so the athlete recognises their champion instantly.
+  // Standalone/mock sessions have no pushed identity → arena sprite.
+  const { profile: avatarProfile, portraitStill } = useArenaAvatar();
+  const profileMatchesChampion =
+    avatarProfile !== null && champion !== undefined && avatarProfile.championPath === champion.path;
   // P11 difficulty gate: locked tiers need a second, deliberate tap.
   const [confirmUnlock, setConfirmUnlock] = useState<AiDifficulty | null>(null);
 
@@ -59,8 +67,19 @@ export default function LobbyScreen() {
     <Screen>
       <Panel>
         <View style={styles.profileRow}>
-          {/* P7: the champion stands in the lobby — same sprite it fields. */}
-          {champion && championSprite(champion.art, 'player') && (
+          {/* P5 continuity: prefer the app's own champion art (skin/stage-
+              aware — identical to Home); arena sprite when no identity was
+              pushed (standalone/mock). */}
+          {profileMatchesChampion && portraitStill ? (
+            <View style={[styles.profilePortrait, { borderColor: pathColor(champion!.path) }]}>
+              <Image
+                source={portraitStill}
+                style={[styles.profileStill, PIXELATED]}
+                resizeMode="contain"
+                fadeDuration={0}
+              />
+            </View>
+          ) : champion && championSprite(champion.art, 'player') ? (
             <View style={[styles.profilePortrait, { borderColor: pathColor(champion.path) }]}>
               <Image
                 source={championSprite(champion.art, 'player')!}
@@ -68,12 +87,17 @@ export default function LobbyScreen() {
                 fadeDuration={0}
               />
             </View>
-          )}
+          ) : null}
           <View style={styles.profileText}>
             <Heading>{save.player.displayName}</Heading>
             <Body dim>
               Champion: {champion ? `${champion.name} — ${champion.role}` : 'none selected'}
             </Body>
+            {profileMatchesChampion && avatarProfile.formName ? (
+              <Body dim>
+                Stage {avatarProfile.evolutionStage} — {avatarProfile.formName}
+              </Body>
+            ) : null}
             <Body dim>
               Arena Rating: {save.player.rankPoints} · Battles: {save.stats.battlesPlayed} (
               {save.stats.wins}W / {save.stats.losses}L / {save.stats.draws}D)
@@ -159,6 +183,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileSprite: { width: 54, height: 54 },
+  profileStill: { width: 58, height: 58 },
   profileText: { flex: 1, gap: 2 },
   difficultyLabel: { ...typography.label, color: colors.textDim, letterSpacing: 1 },
   difficultyRow: { flexDirection: 'row', gap: spacing.xs },

@@ -12,8 +12,46 @@ import { ErrorBoundary } from '@/arena-game/components/error-boundary';
 import { NeonButton } from '@/arena-game/components/ui';
 import { colors, spacing } from '@/arena-game/constants/theme';
 import { validateAllContent } from '@/arena-game/content';
-import { initArenaForUser } from '@/arena-game/services/app-services';
+import {
+  mapDisplayToArenaProfile,
+  setArenaAvatarProfile,
+} from '@/arena-game/integration/evoforge/avatar-profile';
+import {
+  initArenaForUser,
+  prefillChampionFromDisplayPath,
+} from '@/arena-game/services/app-services';
 import { useAuth } from '@/data/auth-context';
+import { useDisplayIdentity } from '@/data/use-display-identity';
+
+/**
+ * Premium P5 — the identity bridge: the ONE place the Arena learns the
+ * athlete's resolved visual identity. Runs the app's canonical resolver
+ * (useDisplayIdentity — the exact hook Home/Customise render from) and
+ * pushes the mapped ArenaAvatarProfile + the skin/stage-aware still into
+ * the arena's avatar store. Rendered only once boot is ready, so the push
+ * always lands after the save is loaded. Changing a cosmetic in Customise
+ * re-resolves here and updates the Arena in the same session.
+ */
+function ArenaIdentityBridge() {
+  const identity = useDisplayIdentity();
+  useEffect(() => {
+    if (!identity.ready) return;
+    const profile = mapDisplayToArenaProfile({
+      branch: identity.display.branch,
+      stage: identity.display.stage,
+      formName: identity.display.formName,
+      skinId: identity.display.skinId,
+      character: identity.display.character,
+      sex: identity.sex,
+    });
+    setArenaAvatarProfile(profile, identity.stillSource ?? identity.paintedSource ?? null);
+    // First-run only (applyProviderIdentity doctrine): refine the champion
+    // prefill with the display-resolved path; never override a finished
+    // player's own pick.
+    void prefillChampionFromDisplayPath(profile.championPath);
+  }, [identity]);
+  return null;
+}
 
 type BootState =
   | { phase: 'loading' }
@@ -73,6 +111,7 @@ export default function ForgeArenaLayout() {
 
   return (
     <ErrorBoundary label="forge-arena">
+      <ArenaIdentityBridge />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },

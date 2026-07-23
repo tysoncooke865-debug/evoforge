@@ -22,10 +22,15 @@ import { colors, pathColor, radius } from '../../../constants/theme';
 import { BALANCE, getCardById, getChampionById } from '../../../content';
 import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId, TeamId } from '../../../game-engine/types';
+import {
+  profileForChampionPath,
+  type ArenaAvatarProfile,
+} from '../../../integration/evoforge/avatar-profile';
+import { resolveChampionBattleAsset } from './battle-assets';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
 import { attackPose, spawnScale, tierForDamage, PROJECTILE_TTL_MS, STRIKE_MS, TIER_FX } from './impact';
 import { computeStackOffsets, healthBarColor } from './readability';
-import { arenaFloorTexture, championSprite, championWalkFrames, unitSprite } from './sprites';
+import { arenaFloorTexture, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
 const DEPLOY_ZONE_HEIGHT_PCT = (deployZoneDepth / laneLength) * 100;
@@ -188,6 +193,9 @@ interface Props {
   /** Reduced-motion preference (see use-reduced-motion.ts) — suppresses the
    *  walk-bob; every other effect here is already reactive + short-lived. */
   reduceMotion?: boolean;
+  /** Premium P5: the athlete's resolved visual profile — selects stage/skin
+   *  champion art for THEIR OWN champion (display-only; never the sim). */
+  playerProfile?: ArenaAvatarProfile | null;
   onDeployTap: (lane: LaneId, engineX: number) => void;
 }
 
@@ -204,6 +212,7 @@ export function LaneStrip({
   momentum = 0,
   deployHighlight = false,
   reduceMotion = false,
+  playerProfile = null,
   onDeployTap,
 }: Props) {
   const [height, setHeight] = useState(0);
@@ -261,6 +270,7 @@ export function LaneStrip({
           unit={unit}
           tick={tick}
           reduceMotion={reduceMotion}
+          playerProfile={playerProfile}
           stackOffsetX={stackOffsets.get(unit.id) ?? 0}
           strikeBornAtMs={strikes?.get(unit.id) ?? null}
           hitPing={
@@ -684,6 +694,7 @@ function UnitMarker({
   strikeBornAtMs,
   stackOffsetX,
   reduceMotion,
+  playerProfile,
 }: {
   unit: UnitState;
   tick: number;
@@ -691,6 +702,7 @@ function UnitMarker({
   strikeBornAtMs: number | null;
   stackOffsetX: number;
   reduceMotion: boolean;
+  playerProfile: ArenaAvatarProfile | null;
 }) {
   const nowMs = Date.now();
   const topPct = (1 - unit.x / laneLength) * 100;
@@ -773,16 +785,27 @@ function UnitMarker({
     const fill = champion ? pathColor(champion.path) : tint;
     const initial = champion ? champion.name.charAt(0).toUpperCase() : '?';
     const borrowed = unit.champion ? !unit.champion.commandable : false;
-    // P4 real character animation: champions cycle their PixelLab walk
-    // frames while moving (frame 0 is anchored to the base sprite); static
-    // base sprite in combat / under reduced motion / when frames missing.
-    const walkFrames = champion ? championWalkFrames(champion.art, unit.team) : null;
+    // Premium P5: the athlete's OWN champion (their commandable captain, of
+    // their own display path) resolves through the profile-aware fidelity
+    // chain — stage/skin art when it exists, canonical path art otherwise.
+    // Opponent/borrowed champions, and a deliberately cross-path arena pick,
+    // resolve canonically (profileForChampionPath guards the mismatch).
+    const ownProfile =
+      unit.team === 'player' && unit.champion?.commandable && champion
+        ? profileForChampionPath(playerProfile, champion.path)
+        : null;
+    const asset = champion
+      ? resolveChampionBattleAsset(champion.art, unit.team, ownProfile)
+      : null;
+    // P4 real character animation: champions cycle their walk frames while
+    // moving (frame 0 anchored to the base sprite); static base sprite in
+    // combat / under reduced motion / when frames missing. A stage/skin
+    // variant without its own frames renders static (layer-drift rule).
+    const walkFrames = asset?.walkFrames ?? null;
     const walking = moving && !reduceMotion && walkFrames !== null;
     const sprite = walking
       ? walkFrames![Math.floor((nowMs / WALK_FRAME_MS + bobPhase(unit.id)) % 4)]
-      : champion
-        ? championSprite(champion.art, unit.team)
-        : null;
+      : (asset?.still ?? null);
     // P5 path identity in motion: the Cardio Machine leaves a speed
     // afterimage while moving; the Shredder leaves a crimson ghost during
     // its strike lunge. Both are a second sprite draw offset behind the
