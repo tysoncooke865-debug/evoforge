@@ -186,9 +186,12 @@ export function OriginFlow({
       // the queryClient lets a landed seed refresh Train immediately (A4).
       void seedFirstMissionIfNeeded(selected, queryClient);
       setStep('awakening');
-    } catch {
-      track('origin_binding_failed', { ...FLOW_PROPS, user_type: userType, reason: 'network' });
-      useToastStore.getState().push({ kind: 'error', title: 'NOT BOUND', subtitle: 'Connection problem — try again.' });
+    } catch (e) {
+      // Track the REAL failure (a server error retrying can't fix must be
+      // visible in analytics, not filed as "network" — the 082 lesson).
+      const msg = e instanceof Error ? e.message : 'network';
+      track('origin_binding_failed', { ...FLOW_PROPS, user_type: userType, reason: msg.slice(0, 120) });
+      useToastStore.getState().push({ kind: 'error', title: 'NOT BOUND', subtitle: 'Something went wrong — try again.' });
     }
   };
 
