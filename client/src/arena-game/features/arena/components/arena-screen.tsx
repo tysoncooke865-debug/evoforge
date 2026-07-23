@@ -255,6 +255,9 @@ function collectCombatFx(
       staggerPx,
       fontSize: tierFx.floaterFontSize,
       fontWeight: tierFx.floaterWeight,
+      // Death floaters carry the dying unit's identity so a unit with a death
+      // animation (the Marksman) collapses in place instead of dissolving.
+      ...(sig.kind === 'death' ? { team: sig.team, deathContentId: sig.contentId } : {}),
     });
   }
   fx.floaters = fx.floaters.filter((f) => nowMs - f.bornAtMs < FLOATER_TTL_MS);

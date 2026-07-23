@@ -40,6 +40,13 @@ does not follow this document does not merge. Companion docs:
   only where asymmetry doesn't matter (blade/javelin arms matter).
 - Environment: floor uses `view: 'high top-down'` (the shipped
   `arena-floor`, 128×320, tiled).
+- **Documented exception — the Marksman mob** (`drone-archer`): a user-supplied
+  external sheet with real directional frames (toward/away run, attack, death),
+  sliced by `scripts/arena-madmog-gen.mjs` (see ASSETS.md). Because the vertical
+  lane faces player units away and opponents toward, its directional art is
+  legitimate here, and its red palette is kept for BOTH teams as identity (team
+  still reads from the outline). This is the ONE combatant outside the PixelLab
+  pipeline; do not treat it as precedent for generated champions/units.
 
 ## 3. Source sizes (what the pipeline actually uses)
 

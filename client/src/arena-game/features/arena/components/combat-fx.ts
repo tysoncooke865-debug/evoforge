@@ -60,6 +60,11 @@ export interface FloaterSignal {
   text: string;
   color: string;
   amount: number;
+  /** For deaths only: the dying unit's card/champion content id, so the wiring
+   *  can play a per-character death animation (the Marksman) when one exists.
+   *  Resolved by pairing the structured `death` log line (which carries the
+   *  contentId) with its adjacent `fx death` line. Undefined otherwise. */
+  contentId?: string;
 }
 
 /** A landed hit, kept separately (alongside its floater) so the caller can
@@ -119,6 +124,11 @@ const CASTER_ID_RE = /^([\w-]+)#(\d+)/;
 /** 'team deployed cardId xN lane L @x' (see entities/spawn.ts). */
 const SPAWN_RE = /^(player|opponent) deployed \S+ x\d+ lane (\d) @(-?[\d.]+)/;
 
+/** Structured death line: 'team contentId#id killed by …' (combat.ts). Emitted
+ *  immediately BEFORE the matching `fx death|…` line, so it names the unit the
+ *  next death floater belongs to. */
+const DEATH_RE = /^(?:player|opponent) ([\w-]+)#\d+ killed/;
+
 function laneOf(laneStr: string): LaneId {
   return laneStr === '1' ? 1 : 0;
 }
@@ -139,9 +149,20 @@ export function deriveCombatSignals(
   const telegraphs: TelegraphSignal[] = [];
   const spawns: SpawnSignal[] = [];
 
+  // The structured 'death' line names the unit; its adjacent 'fx death' line
+  // carries the position. Hold the last-named contentId to stamp onto the very
+  // next death floater (the two are always emitted back-to-back — combat.ts).
+  let pendingDeathContentId: string | null = null;
+
   let i = fromIndex;
   for (; i < log.length; i++) {
     const entry = log[i];
+
+    if (entry.type === 'death') {
+      const m = DEATH_RE.exec(entry.detail);
+      pendingDeathContentId = m ? m[1] : null;
+      continue;
+    }
 
     if (entry.type === 'fx') {
       const [kind, laneStr, xStr, amountStr, team, idStr, shieldStr] = entry.detail.split('|');
@@ -185,7 +206,9 @@ export function deriveCombatSignals(
           text: '✕',
           color: team === 'player' ? colors.player : colors.opponent,
           amount: 0,
+          contentId: pendingDeathContentId ?? undefined,
         });
+        pendingDeathContentId = null;
       }
       continue;
     }
