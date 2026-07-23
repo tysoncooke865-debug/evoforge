@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NeonButton, Screen } from '../components/ui';
-import { colors, spacing } from '../constants/theme';
+import { colors, spacing, typography } from '../constants/theme';
 import { BALANCE_VERSION } from '../content';
 import { resolveEntryRoute } from '../services/onboarding/onboarding';
 import { usePlayer } from '../services/player-data/use-player';
@@ -36,8 +36,9 @@ const styles = StyleSheet.create({
   container: { justifyContent: 'space-between', paddingVertical: spacing.xl * 2 },
   hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl },
   kicker: { color: colors.textDim, letterSpacing: 3, fontSize: 12, fontWeight: '600' },
-  logo: { color: colors.text, fontSize: 44, fontWeight: '900', letterSpacing: 6 },
-  logoAccent: { color: colors.cyan, fontSize: 44, fontWeight: '900', letterSpacing: 12 },
+  // P7: the wordmark wears the EvoForge pixel display face.
+  logo: { ...typography.pixelBold, color: colors.text, fontSize: 52, letterSpacing: 4 },
+  logoAccent: { ...typography.pixelBold, color: colors.cyan, fontSize: 52, letterSpacing: 10 },
   actions: { gap: spacing.md },
   version: { color: colors.textFaint, textAlign: 'center', fontSize: 12 },
 });

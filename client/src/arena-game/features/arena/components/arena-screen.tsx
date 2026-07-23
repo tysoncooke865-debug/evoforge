@@ -267,6 +267,7 @@ function collectCombatFx(
       label: sig.label,
       color: sig.color,
       bornAtMs: nowMs,
+      path: sig.path,
     });
     // Ultimates get the full presentation beat: path-colored screen tint,
     // the strongest pre-core shake, and a short slow-motion emphasis.
@@ -274,6 +275,12 @@ function collectCombatFx(
       fx.ultimateFlash = { bornAtMs: nowMs, color: sig.color };
       requestShake('ultimate');
       battleStore.getState().applyTimeDilation(ULTIMATE_SLOWMO_SCALE, ULTIMATE_SLOWMO_MS);
+    } else if (sig.path === 'titan') {
+      // P5: Titan is the ground-shaker — even its signature ability bumps
+      // the camera (Quake Stomp). No other path shakes on a mere ability;
+      // Mass Monster stays deliberately shake-free (oppressive, not
+      // explosive).
+      requestShake('heavy');
     }
   }
   fx.telegraphs = fx.telegraphs.filter((t) => nowMs - t.bornAtMs < TELEGRAPH_TTL_MS[t.tier]);
@@ -678,6 +685,15 @@ export function ArenaScreen({
   const flashWindowMs = status === 'finished' ? CLIMAX_MS : ULTIMATE_FLASH_MS;
   const ultimateFlashOpacity =
     flashAge < flashWindowMs ? (1 - flashAge / flashWindowMs) * 0.16 : 0;
+  // Phase 6: a steady crimson edge marks a core on the brink (≤25%, the
+  // severe threshold) on that core's side of the arena — static by design
+  // (no ambient pulse), the hit shake supplies the motion.
+  const playerCoreDanger =
+    state.cores.player.health > 0 &&
+    state.cores.player.health / state.cores.player.maxHealth <= 0.25;
+  const opponentCoreDanger =
+    state.cores.opponent.health > 0 &&
+    state.cores.opponent.health / state.cores.opponent.maxHealth <= 0.25;
   const playerCoreHit = coreHitFlashFor(
     fxRef.current.coreHitBornAt.player,
     fxRef.current.coreHitBornAt.playerSevere,
@@ -774,6 +790,12 @@ export function ArenaScreen({
               { backgroundColor: fxRef.current.ultimateFlash!.color, opacity: ultimateFlashOpacity },
             ]}
           />
+        )}
+        {opponentCoreDanger && (
+          <View pointerEvents="none" style={[styles.coreDangerEdge, styles.coreDangerTop]} />
+        )}
+        {playerCoreDanger && (
+          <View pointerEvents="none" style={[styles.coreDangerEdge, styles.coreDangerBottom]} />
         )}
 
       </View>
@@ -909,7 +931,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  timer: { ...typography.heading, color: colors.text, fontVariant: ['tabular-nums'] },
+  // P7: the timer is the battle's heartbeat — pixel display face, larger.
+  timer: {
+    ...typography.pixelBold,
+    fontSize: 26,
+    letterSpacing: 1,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
   phaseLabel: {
     ...typography.label,
     color: colors.danger,
@@ -937,9 +966,19 @@ const styles = StyleSheet.create({
   // P4 — full-screen tint for ultimates (caster's path color) and the
   // battle-end climax (winner's color); opacity is aged per frame.
   screenFlash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // Phase 6 — steady danger edge on the side of a core at ≤25% health.
+  coreDangerEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 18,
+    backgroundColor: `${colors.danger}1C`,
+  },
+  coreDangerTop: { top: 0, borderTopWidth: 2, borderTopColor: colors.danger },
+  coreDangerBottom: { bottom: 0, borderBottomWidth: 2, borderBottomColor: colors.danger },
   hudBottom: { gap: spacing.xs },
   energyRow: { gap: spacing.xs },
-  energyLabel: { ...typography.mono, color: colors.cyan },
+  energyLabel: { ...typography.pixel, fontSize: 15, letterSpacing: 0.5, color: colors.cyan },
   energyTrack: {
     height: 8,
     borderRadius: 4,

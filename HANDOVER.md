@@ -2082,6 +2082,24 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   see KNOWN_POLISH_ISSUES A3). Arena suite 504 (+17), full 1,575, all
   guards green, export + tour verified the climax flow on screen.
 
+- **2026-07-23 — Arena polish Phases 5–7 done: champion identity,
+  readability, premium UI.** Per-path telegraph shape language (Titan
+  shockwave+cracks / Mass pressure dust / Shredder slash arcs / Cardio
+  pulses / Aesthetics gold ring+sparks) + Cardio speed afterimage +
+  Shredder strike ghost; unit-pile lateral fan-out
+  (`computeStackOffsets`, id-stable, tested) + champions draw on top +
+  crimson core-danger edges; **the tab bar now hides for the whole
+  /forge-arena group** ((main)/_layout.tsx — the game is full-bleed);
+  pixel display faces (Jersey family names pinned as strings in the arena
+  theme — do NOT import src/theme/fonts.ts there, its .ttf requires break
+  vitest) on timer/energy/wordmark/result banner; card chips are
+  mini-cards with sprite thumbnails + category edges (two-line names —
+  truncation fixed); champion select + lobby carry real sprite portraits;
+  ResultOverlay is a staged ceremony (banner slam → facts → rating →
+  actions, outcome-colored, reduced-motion instant), verified mid-stage
+  by a dedicated Playwright check. Arena suite 510, full 1,581, all
+  guards green.
+
 ---
 
 ## 3. The rules that cost real bugs

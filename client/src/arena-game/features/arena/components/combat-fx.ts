@@ -78,7 +78,9 @@ export interface HitSignal {
 
 export type TelegraphTier = 'ability' | 'ultimate';
 
-/** An ability/ultimate cast, resolved to the caster's CURRENT position. */
+/** An ability/ultimate cast, resolved to the caster's CURRENT position.
+ *  P5: `path` is the caster champion's Avatar Path (null when the caster
+ *  isn't a known champion) — it drives the per-path telegraph shapes. */
 export interface TelegraphSignal {
   lane: LaneId;
   x: number;
@@ -86,6 +88,7 @@ export interface TelegraphSignal {
   tier: TelegraphTier;
   label: string;
   color: string;
+  path: string | null;
 }
 
 /** A fighter card (or champion summon) landing — same signal serves both the
@@ -203,7 +206,15 @@ export function deriveCombatSignals(
           ? 'Ultimate'
           : 'Ability';
       const color = champion ? pathColor(champion.path) : colors.textDim;
-      telegraphs.push({ lane: unit.lane, x: unit.x, team: unit.team, tier, label, color });
+      telegraphs.push({
+        lane: unit.lane,
+        x: unit.x,
+        team: unit.team,
+        tier,
+        label,
+        color,
+        path: champion?.path ?? null,
+      });
       continue;
     }
 

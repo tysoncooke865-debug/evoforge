@@ -2,7 +2,17 @@
  * EvoForge Arena visual direction: dark cyberpunk, cyan / electric-blue
  * highlights, strong readable typography, pixel-inspired accents.
  * All colors come from here — no inline hex values in screens.
+ *
+ * P7: the pixel display faces are EvoForge's own Jersey 10/25 — loaded
+ * app-wide by the root layout from src/theme/fonts.ts. The FAMILY NAMES are
+ * pinned here as strings rather than importing that module: fonts.ts
+ * require()s .ttf assets, which the node test environment cannot parse, and
+ * the arena package deliberately keeps its out-of-package import surface
+ * minimal (see the P13 isolation inventory). If src/theme/fonts.ts ever
+ * renames a family, update these two strings.
  */
+const PIXEL = 'Jersey10';
+const PIXEL_BOLD = 'Jersey25';
 
 export const colors = {
   // Base surfaces
@@ -69,6 +79,11 @@ export const typography = {
   body: { fontSize: 15, fontWeight: '400' as const },
   label: { fontSize: 13, fontWeight: '600' as const, letterSpacing: 0.5 },
   mono: { fontSize: 12, fontFamily: 'monospace' },
+  /** P7 — the EvoForge pixel display faces, for game-feel moments (timer,
+   *  banners, big numerals). Jersey has no bold cut: weight lives in the
+   *  face itself, so fontWeight stays 'normal' wherever these are used. */
+  pixel: { fontFamily: PIXEL, fontWeight: 'normal' as const },
+  pixelBold: { fontFamily: PIXEL_BOLD, fontWeight: 'normal' as const },
 } as const;
 
 export function pathColor(path: string): string {

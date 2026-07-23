@@ -12,8 +12,8 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [x] A1 Battlefield is two empty flat boxes — no floor/environment/depth. DONE (Phase 2: PixelLab floor texture + center line + deploy boundary; tour-verified). Tuning note: floor amber strips slightly busy, deploy wash strength — judge in Phase 12.
 - [x] A2 Units/champions are flat-tinted static Kenney 1-bit tiles. DONE (Phase 3: PixelLab character set, 5 champions + 10 units + cores; team = baked outline + base plate). Frame ANIMATION remains B1.
 - [ ] A3 No audio or haptics anywhere. DEFERRED past Phase 4: adding an audio dependency (expo-audio) to a fitness app whose game is often played in public deserves Tyson's sign-off (default-muted? which SFX set?). All Phase 4 feedback shipped visual/temporal instead. Revisit at Phase 9 or on Tyson's call.
-- [ ] A4 Title/lobby/champion screens are bare text lists, no art. → Phase 7. OPEN
-- [ ] A5 Arena never uses the EvoForge pixel display font; theme values duplicated from tokens. → Phase 7 (font); token unification DEFERRED (product decision — two theme sources are pinned app-wide, see client/CLAUDE.md rarity-palette precedent). OPEN
+- [x] A4 Menu screens. DONE-enough (Phase 7): title wordmark in pixel face; lobby profile + champion select got real sprite portraits in path frames. Deck-builder/collection/gym screens stay text-first (functional, non-slice) — Phase 12 judges whether they need portraits too.
+- [x] A5 Pixel font. DONE (Phase 7): Jersey10/25 family names pinned in arena theme (strings, not a fonts.ts import — its .ttf requires break the node test env). Token unification stays DEFERRED (product decision).
 
 ## Combat feel
 - [x] B1 Unit animation. DONE (Phase 4): champions have REAL 4-frame PixelLab walk cycles (frame-0 inpainting anchor + image_guidance 3.0 cracked the earlier turn-around failure); ALL units get sim-synced procedural attack animation (anticipation → strike lunge → lean), hit recoil, spawn drop-in, walk-bob. Unit walk frames remain optional future work (bob + attack cycle reads well at 26pt).
@@ -21,22 +21,22 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [x] B3 Hit-stop / screen shake / slow-mo. DONE (Phase 4): impact-tier table (TIER_FX); heavy hits 50ms hit-stop + shake, ultimates 0.35× slow-mo + path-color screen tint, severe core hits top-rung shake + 90ms stop. Store-level time dilation delays ticks, never skips (replay-safe, tested).
 - [x] B4 PARTIAL: core-destruction CLIMAX done (1.1s hold, winner-colored wash, top shake, then result overlay). Battle intro/countdown remains → Phase 9. 
 - [x] B5 Tier scaling. DONE (Phase 4): damage numbers size/weight by tier; light hits stay deliberately quiet.
-- [ ] B6 Zero per-champion FX differentiation beyond hue. → Phase 5. OPEN
+- [x] B6 Per-champion FX differentiation. DONE (Phase 5): per-path telegraph shapes (Titan shockwave+cracks / Mass pressure+dust / Shredder slashes / Cardio pulses / Aesthetics gold ring+sparks), Titan ability camera bump, Cardio speed afterimage, Shredder strike ghost.
 - [x] B7 Hit fx entries carry unit id + shield flag. DONE (Phase 4, digest-inert, legacy fallback kept + tested).
 
 ## Readability
-- [ ] C1 Co-located units overprint into an unreadable pile (no stacking offset/draw order). → Phase 6. OPEN
+- [x] C1 Unit-pile overprint. DONE (Phase 6): computeStackOffsets lateral fan-out (id-stable, cycling slots, tested) + champions draw on top. Crowded-battle screenshot check owed in Phase 12.
 - [x] C2 Opposing champions near-identical in mirror/path-tint situations. DONE (Phase 3: team-colored baked outlines + base plates on every character; art carries identity). Mirror-match screenshot check still owed in Phase 6.
-- [ ] C3 Card names truncate on 390pt phones ("Emergenc…", "Javelin Mark…"). → Phase 6 (chip layout) + 8 (featured names). OPEN
+- [x] C3 Card-name truncation. DONE (Phase 6/7: two-line mini-card chips; tour-verified full names on 390pt).
 - [x] C4 Deploy zone tint ~invisible; no idle affordance. DONE (Phase 2: visible boundary line + zone, both brighten while a card is selected; tour-verified).
 - [x] C5 Arena Images lack `imageRendering: pixelated`. DONE (Phase 2/3: applied to floor, units, cores; DPR-4 zoom verified crisp).
 - [ ] C6 Zero testIDs in the package — audits must click by coordinates. → Phase 3 (add while touching components). OPEN
 
 ## UI presentation
-- [ ] D1 Main-app tab bar visible during battle (~70pt lost + accidental-exit risk). → Phase 7. OPEN
-- [ ] D2 HUD panels functional but generic (system font, flat boxes). → Phase 7. OPEN
-- [ ] D3 Result screen is static text; victory/defeat differ only by word/color. → Phase 7 (+9 sequence). OPEN
-- [ ] D4 Cards are text chips — no art/frames on the primary interaction surface. → Phases 6+7 (+3 thumbnails if asset budget allows). OPEN
+- [x] D1 Tab bar in battle. DONE (Phase 7): hidden for the whole /forge-arena group; full-bleed verified. Watch for navigation complaints in arena MENUS (back header is the only way out now) — revisit if testers get lost.
+- [x] D2 HUD treatment. DONE-enough (Phase 7): pixel display faces on timer/energy/wordmark/result banner. Further chrome (scanlines/glow) deliberately NOT added — restraint beats noise; Phase 12 judges.
+- [x] D3 Result ceremony. DONE (Phase 7): staged reveal (banner slam → facts → rating → actions), outcome-colored border+glow, reduced-motion instant path; Playwright-verified mid-stage.
+- [x] D4 Card chips. DONE (Phases 6+7): mini-cards with fighter sprite thumbnails, category top edges, cost badge.
 
 ## Pipeline / assets
 - [x] E1 PixelLab key validated and adopted (generate-image-pixflux at 64px low top-down is excellent; animate-with-text unusable for toward-camera walks; rotate south→north returned another front view). Pipeline: scripts/arena-pixellab-gen.mjs, pinned seeds, idempotent raws.

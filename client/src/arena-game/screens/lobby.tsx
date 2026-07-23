@@ -1,12 +1,24 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  type ImageStyle,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Body, Heading, NeonButton, Panel, Screen } from '../components/ui';
-import { colors, radius, spacing, typography } from '../constants/theme';
+import { colors, pathColor, radius, spacing, typography } from '../constants/theme';
 import { ALL_AI_DIFFICULTIES, getChampionById } from '../content';
 import type { AiDifficulty } from '../content';
+import { championSprite } from '../features/arena/components/sprites';
 import { isDifficultyUnlocked } from '../services/onboarding/onboarding';
 import { usePlayer } from '../services/player-data/use-player';
+
+const PIXELATED =
+  Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
 
 const DIFFICULTY_LABEL: Record<AiDifficulty, string> = {
   training: 'Training',
@@ -46,14 +58,28 @@ export default function LobbyScreen() {
   return (
     <Screen>
       <Panel>
-        <Heading>{save.player.displayName}</Heading>
-        <Body dim>
-          Champion: {champion ? `${champion.name} — ${champion.role}` : 'none selected'}
-        </Body>
-        <Body dim>
-          Arena Rating: {save.player.rankPoints} · Battles: {save.stats.battlesPlayed} (
-          {save.stats.wins}W / {save.stats.losses}L / {save.stats.draws}D)
-        </Body>
+        <View style={styles.profileRow}>
+          {/* P7: the champion stands in the lobby — same sprite it fields. */}
+          {champion && championSprite(champion.art, 'player') && (
+            <View style={[styles.profilePortrait, { borderColor: pathColor(champion.path) }]}>
+              <Image
+                source={championSprite(champion.art, 'player')!}
+                style={[styles.profileSprite, PIXELATED]}
+                fadeDuration={0}
+              />
+            </View>
+          )}
+          <View style={styles.profileText}>
+            <Heading>{save.player.displayName}</Heading>
+            <Body dim>
+              Champion: {champion ? `${champion.name} — ${champion.role}` : 'none selected'}
+            </Body>
+            <Body dim>
+              Arena Rating: {save.player.rankPoints} · Battles: {save.stats.battlesPlayed} (
+              {save.stats.wins}W / {save.stats.losses}L / {save.stats.draws}D)
+            </Body>
+          </View>
+        </View>
       </Panel>
 
       {firstBattle && (
@@ -122,6 +148,18 @@ export default function LobbyScreen() {
 }
 
 const styles = StyleSheet.create({
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  profilePortrait: {
+    width: 64,
+    height: 64,
+    borderWidth: 2,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileSprite: { width: 54, height: 54 },
+  profileText: { flex: 1, gap: 2 },
   difficultyLabel: { ...typography.label, color: colors.textDim, letterSpacing: 1 },
   difficultyRow: { flexDirection: 'row', gap: spacing.xs },
   difficultyChip: {

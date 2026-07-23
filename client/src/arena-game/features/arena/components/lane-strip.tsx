@@ -24,7 +24,7 @@ import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId, TeamId } from '../../../game-engine/types';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
 import { attackPose, spawnScale, tierForDamage, PROJECTILE_TTL_MS, STRIKE_MS, TIER_FX } from './impact';
-import { healthBarColor } from './readability';
+import { computeStackOffsets, healthBarColor } from './readability';
 import { arenaFloorTexture, championSprite, championWalkFrames, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
@@ -49,6 +49,15 @@ const WALK_FRAME_MS = 140;
  *  perfect sync (reads as one blob) — derived from the unit id, no state. */
 function bobPhase(id: number): number {
   return (((id * 2654435761) >>> 0) % 628) / 100; // 0..2π
+}
+
+/** Phase 6 draw order: champions render LAST (on top of the pile) so the
+ *  most important silhouette is never buried under a swarm. */
+function renderOrder(units: readonly UnitState[]): UnitState[] {
+  return [...units].sort((a, b) => {
+    const rank = (u: UnitState) => (u.kind === 'champion' ? 1 : 0);
+    return rank(a) - rank(b) || a.id - b.id;
+  });
 }
 
 /**
@@ -129,6 +138,8 @@ export interface LaneTelegraph {
   label: string;
   color: string;
   bornAtMs: number;
+  /** P5: caster champion's path — selects the per-path telegraph shape. */
+  path: string | null;
 }
 
 /** Ultimates telegraph bigger and longer than signature abilities. */
@@ -196,6 +207,9 @@ export function LaneStrip({
   onDeployTap,
 }: Props) {
   const [height, setHeight] = useState(0);
+  // Phase 6 (audit C1): fan co-located units out laterally so piles stay
+  // readable — recomputed each frame from current positions (pure helper).
+  const stackOffsets = computeStackOffsets(units);
 
   const handlePress = useCallback(
     (e: GestureResponderEvent) => {
@@ -241,12 +255,13 @@ export function LaneStrip({
       <View style={[styles.deployZone, deployHighlight && styles.deployZoneActive]} />
       <View style={[styles.deployBoundary, deployHighlight && styles.deployBoundaryActive]} />
       {momentum !== 0 && <LaneMomentumEdge momentum={momentum} />}
-      {units.map((unit) => (
+      {renderOrder(units).map((unit) => (
         <UnitMarker
           key={unit.id}
           unit={unit}
           tick={tick}
           reduceMotion={reduceMotion}
+          stackOffsetX={stackOffsets.get(unit.id) ?? 0}
           strikeBornAtMs={strikes?.get(unit.id) ?? null}
           hitPing={
             hitPings?.length
@@ -361,9 +376,17 @@ function ProjectileMarker({ shot }: { shot: LaneProjectile }) {
   );
 }
 
-/** Expanding ring + name label for an ability/ultimate cast — ultimates ring
- *  bigger and hold longer (TELEGRAPH_TTL_MS / TELEGRAPH_MAX_RING_PX), so the
- *  same visual language reads as "bigger deal" without new colors. */
+/**
+ * Ability/ultimate cast telegraph. P5: each champion path speaks its own
+ * effect language on top of the base expanding ring — shape, not just hue,
+ * so two paths never read alike:
+ *  - Titan: shockwave — a second trailing ring + four radial crack lines;
+ *  - Mass Monster: pressure — one THICK slow ring + drifting dust dots;
+ *  - The Shredder: violence — two crossing slash arcs, violet over crimson;
+ *  - Cardio Machine: momentum — widening horizontal pulse lines;
+ *  - Aesthetics: precision — a gold inner ring + four symmetric sparks.
+ * All derived from age each frame, same TTL/caps as before.
+ */
 function TelegraphMarker({ telegraph }: { telegraph: LaneTelegraph }) {
   const ttl = TELEGRAPH_TTL_MS[telegraph.tier];
   const age = Math.min(ttl, Math.max(0, Date.now() - telegraph.bornAtMs));
@@ -371,22 +394,187 @@ function TelegraphMarker({ telegraph }: { telegraph: LaneTelegraph }) {
   const maxSize = TELEGRAPH_MAX_RING_PX[telegraph.tier];
   const size = 8 + t * maxSize;
   const opacity = 1 - t;
+  const ring = (
+    <View
+      style={[
+        styles.telegraphRing,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          marginLeft: -size / 2,
+          borderColor: telegraph.color,
+          borderWidth: TELEGRAPH_BORDER_PX[telegraph.tier],
+          opacity: opacity * 0.85,
+        },
+      ]}
+    />
+  );
+
+  let pathLayer: React.ReactNode = null;
+  if (telegraph.path === 'titan') {
+    // Trailing shockwave ring + radial cracks.
+    const size2 = 4 + Math.max(0, t - 0.25) * maxSize;
+    const crackLen = 6 + t * (maxSize * 0.55);
+    pathLayer = (
+      <>
+        {t > 0.25 && (
+          <View
+            style={[
+              styles.telegraphRing,
+              {
+                width: size2,
+                height: size2,
+                borderRadius: size2 / 2,
+                marginLeft: -size2 / 2,
+                borderColor: telegraph.color,
+                borderWidth: 2,
+                opacity: opacity * 0.5,
+              },
+            ]}
+          />
+        )}
+        {[45, 135, 225, 315].map((deg) => (
+          <View
+            key={deg}
+            style={[
+              styles.telegraphCrack,
+              {
+                height: crackLen,
+                backgroundColor: telegraph.color,
+                opacity: opacity * 0.8,
+                transform: [{ rotate: `${deg}deg` }, { translateY: -crackLen / 2 - 4 }],
+              },
+            ]}
+          />
+        ))}
+      </>
+    );
+  } else if (telegraph.path === 'mass') {
+    // Oppressive pressure: dust dots drifting outward.
+    const drift = 6 + t * (maxSize * 0.5);
+    pathLayer = (
+      <>
+        {[0, 60, 120, 180, 240, 300].map((deg) => {
+          const rad = (deg * Math.PI) / 180;
+          return (
+            <View
+              key={deg}
+              style={[
+                styles.telegraphDust,
+                {
+                  backgroundColor: telegraph.color,
+                  opacity: opacity * 0.7,
+                  transform: [
+                    { translateX: Math.cos(rad) * drift },
+                    { translateY: Math.sin(rad) * drift * 0.6 },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
+      </>
+    );
+  } else if (telegraph.path === 'shredder') {
+    // Crossing slash arcs: violet over crimson, growing fast then gone.
+    const slashLen = 10 + Math.min(1, t * 1.8) * (maxSize * 0.9);
+    pathLayer = (
+      <>
+        <View
+          style={[
+            styles.telegraphSlash,
+            {
+              height: slashLen,
+              backgroundColor: colors.danger,
+              opacity: opacity * 0.75,
+              transform: [{ rotate: '45deg' }],
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.telegraphSlash,
+            {
+              height: slashLen,
+              backgroundColor: telegraph.color,
+              opacity: opacity * 0.9,
+              transform: [{ rotate: '-45deg' }],
+            },
+          ]}
+        />
+      </>
+    );
+  } else if (telegraph.path === 'cardio') {
+    // Momentum pulses: horizontal lines widening away from the cast point.
+    const width = 8 + t * maxSize * 1.4;
+    pathLayer = (
+      <>
+        {[-8, 0, 8].map((dy) => (
+          <View
+            key={dy}
+            style={[
+              styles.telegraphPulse,
+              {
+                width,
+                marginLeft: -width / 2,
+                backgroundColor: telegraph.color,
+                opacity: opacity * (dy === 0 ? 0.9 : 0.5),
+                transform: [{ translateY: dy }],
+              },
+            ]}
+          />
+        ))}
+      </>
+    );
+  } else if (telegraph.path === 'aesthetic') {
+    // Precision: gold inner ring + four symmetric sparks on the diagonals.
+    const inner = Math.max(4, size * 0.55);
+    const sparkDist = 4 + t * (maxSize * 0.5);
+    pathLayer = (
+      <>
+        <View
+          style={[
+            styles.telegraphRing,
+            {
+              width: inner,
+              height: inner,
+              borderRadius: inner / 2,
+              marginLeft: -inner / 2,
+              borderColor: colors.warning,
+              borderWidth: 1.5,
+              opacity: opacity * 0.9,
+            },
+          ]}
+        />
+        {[45, 135, 225, 315].map((deg) => {
+          const rad = (deg * Math.PI) / 180;
+          return (
+            <View
+              key={deg}
+              style={[
+                styles.telegraphSpark,
+                {
+                  backgroundColor: colors.warning,
+                  opacity: opacity * 0.9,
+                  transform: [
+                    { translateX: Math.cos(rad) * sparkDist },
+                    { translateY: Math.sin(rad) * sparkDist },
+                    { rotate: '45deg' },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
+      </>
+    );
+  }
+
   return (
     <View pointerEvents="none" style={[styles.telegraphWrap, { top: `${telegraph.topPct}%` }]}>
-      <View
-        style={[
-          styles.telegraphRing,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            marginLeft: -size / 2,
-            borderColor: telegraph.color,
-            borderWidth: TELEGRAPH_BORDER_PX[telegraph.tier],
-            opacity: opacity * 0.85,
-          },
-        ]}
-      />
+      {ring}
+      {pathLayer}
       <Text
         numberOfLines={1}
         style={[styles.telegraphLabel, { color: telegraph.color, opacity }]}
@@ -494,12 +682,14 @@ function UnitMarker({
   tick,
   hitPing,
   strikeBornAtMs,
+  stackOffsetX,
   reduceMotion,
 }: {
   unit: UnitState;
   tick: number;
   hitPing: LaneHitPing | null;
   strikeBornAtMs: number | null;
+  stackOffsetX: number;
   reduceMotion: boolean;
 }) {
   const nowMs = Date.now();
@@ -532,11 +722,13 @@ function UnitMarker({
   const animScale = pose.scale * dropScale;
   const flashTint = hitPing?.shielded ? colors.shield : '#FFFFFF';
 
-  /** Sprite + silhouette flash + team base plate, animating together. */
+  /** Sprite + silhouette flash + team base plate (+ optional P5 motion
+   *  trail behind the sprite), animating together. */
   const spriteStack = (
     sprite: NonNullable<ReturnType<typeof unitSprite>>,
     sizeStyle: ImageStyle,
-    plateStyle: object
+    plateStyle: object,
+    trail?: { offsetY: number; tintColor: string; opacity: number } | null
   ) => (
     <View
       style={[
@@ -545,6 +737,18 @@ function UnitMarker({
       ]}
     >
       <View style={[styles.basePlate, plateStyle, { borderColor: tint, backgroundColor: `${tint}33` }]} />
+      {trail && (
+        <Image
+          source={sprite}
+          style={[
+            sizeStyle,
+            PIXELATED,
+            styles.trailSilhouette,
+            { opacity: trail.opacity, tintColor: trail.tintColor, transform: [{ translateY: trail.offsetY }] },
+          ]}
+          fadeDuration={0}
+        />
+      )}
       <Image source={sprite} style={[sizeStyle, PIXELATED]} fadeDuration={0} />
       {flashOpacity > 0 && (
         <Image
@@ -579,8 +783,35 @@ function UnitMarker({
       : champion
         ? championSprite(champion.art, unit.team)
         : null;
+    // P5 path identity in motion: the Cardio Machine leaves a speed
+    // afterimage while moving; the Shredder leaves a crimson ghost during
+    // its strike lunge. Both are a second sprite draw offset behind the
+    // facing direction — no extra assets, gone with the pose.
+    const behindSign = unit.team === 'player' ? 1 : -1;
+    let trail: { offsetY: number; tintColor: string; opacity: number } | null = null;
+    if (champion && sprite && !reduceMotion) {
+      if (champion.path === 'cardio' && moving) {
+        trail = { offsetY: behindSign * 7, tintColor: colors.pathCardio, opacity: 0.3 };
+      } else if (
+        champion.path === 'shredder' &&
+        strikeAge !== null &&
+        strikeAge < STRIKE_MS
+      ) {
+        trail = {
+          offsetY: behindSign * 6,
+          tintColor: colors.danger,
+          opacity: 0.45 * (1 - strikeAge / STRIKE_MS),
+        };
+      }
+    }
     return (
-      <View style={[styles.unitWrap, { top: `${topPct}%` }]} pointerEvents="none">
+      <View
+        style={[
+          styles.unitWrap,
+          { top: `${topPct}%`, transform: [{ translateY: -14 }, { translateX: stackOffsetX }] },
+        ]}
+        pointerEvents="none"
+      >
         <View
           style={[
             styles.unitHealthTrack,
@@ -598,7 +829,8 @@ function UnitMarker({
           spriteStack(
             sprite,
             borrowed ? styles.borrowedSprite : styles.championSprite,
-            borrowed ? styles.borrowedPlate : styles.championPlate
+            borrowed ? styles.borrowedPlate : styles.championPlate,
+            trail
           )
         ) : (
           <View
@@ -729,6 +961,8 @@ const styles = StyleSheet.create({
   // White-silhouette hit flash: the same sprite re-drawn tinted solid white
   // over itself (tintColor recolors every opaque pixel).
   flashSilhouette: { position: 'absolute', top: 0, tintColor: '#FFFFFF' },
+  // P5 motion trail: the sprite re-drawn tinted + offset behind the mover.
+  trailSilhouette: { position: 'absolute', top: 0 },
   unitDot: {
     width: 14,
     height: 14,
@@ -797,9 +1031,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Ability/ultimate telegraph: expanding ring + name label in the champion's
-  // path color, centered on the caster.
+  // path color, centered on the caster. P5 adds per-path shape layers.
   telegraphWrap: { position: 'absolute', left: '50%' },
   telegraphRing: { position: 'absolute', top: -25 },
+  telegraphCrack: { position: 'absolute', top: -25, width: 2, marginLeft: -1, borderRadius: 1 },
+  telegraphDust: {
+    position: 'absolute',
+    top: -27,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginLeft: -2,
+  },
+  telegraphSlash: { position: 'absolute', top: -25, width: 3, marginLeft: -1.5, borderRadius: 1.5 },
+  telegraphPulse: { position: 'absolute', top: -26, height: 2, borderRadius: 1 },
+  telegraphSpark: { position: 'absolute', top: -27, width: 5, height: 5, marginLeft: -2.5 },
   telegraphLabel: {
     position: 'absolute',
     top: -6,

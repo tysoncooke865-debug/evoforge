@@ -101,7 +101,7 @@ describe('deriveCombatSignals — ability/ultimate telegraphs', () => {
     const log = [entry('ability', 'champion-titan#5 stomped 2 enemies')];
     const out = deriveCombatSignals(log, 0, units);
     expect(out.telegraphs).toEqual([
-      { lane: 0, x: 62, team: 'player', tier: 'ability', label: 'Quake Stomp', color: pathColor('titan') },
+      { lane: 0, x: 62, team: 'player', tier: 'ability', label: 'Quake Stomp', color: pathColor('titan'), path: 'titan' },
     ]);
   });
 
@@ -109,7 +109,7 @@ describe('deriveCombatSignals — ability/ultimate telegraphs', () => {
     const log = [entry('ultimate', 'champion-titan#5 smashed 3 enemies')];
     const out = deriveCombatSignals(log, 0, units);
     expect(out.telegraphs).toEqual([
-      { lane: 0, x: 62, team: 'player', tier: 'ultimate', label: 'Seismic Smash', color: pathColor('titan') },
+      { lane: 0, x: 62, team: 'player', tier: 'ultimate', label: 'Seismic Smash', color: pathColor('titan'), path: 'titan' },
     ]);
   });
 
@@ -124,6 +124,7 @@ describe('deriveCombatSignals — ability/ultimate telegraphs', () => {
         tier: 'ability',
         label: 'Phase Dash',
         color: pathColor('shredder'),
+        path: 'shredder',
       },
     ]);
   });
@@ -138,7 +139,7 @@ describe('deriveCombatSignals — ability/ultimate telegraphs', () => {
     const log = [entry('ultimate', 'champion-nonexistent#5 did something')];
     const out = deriveCombatSignals(log, 0, withGhost);
     expect(out.telegraphs).toEqual([
-      { lane: 0, x: 1, team: 'player', tier: 'ultimate', label: 'Ultimate', color: colors.textDim },
+      { lane: 0, x: 1, team: 'player', tier: 'ultimate', label: 'Ultimate', color: colors.textDim, path: null },
     ]);
   });
 });

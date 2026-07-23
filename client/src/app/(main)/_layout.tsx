@@ -283,7 +283,14 @@ export default function MainLayout() {
       <Tabs.Screen name="customise" options={{ href: null }} />
       {/* BATTLE RPG: the turn-based fight, pushed over the Arena tab. */}
       <Tabs.Screen name="battle" options={{ href: null }} />
-      <Tabs.Screen name="forge-arena" options={{ href: null }} />
+      {/* Arena polish P7 (audit D1): the game goes full-bleed — the tab bar
+          hides while any /forge-arena route is focused (it stole ~70pt of
+          battle screen and invited accidental mid-match exits; the arena
+          has its own navigation and back path). */}
+      <Tabs.Screen
+        name="forge-arena"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
       <Tabs.Screen name="pvp" options={{ href: null }} />
       <Tabs.Screen name="log" options={{ href: null }} />
       <Tabs.Screen name="progress" options={{ href: null }} />

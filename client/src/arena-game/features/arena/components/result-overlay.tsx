@@ -8,13 +8,25 @@
  * battles explicitly labeled as moving nothing — plus the standing line
  * that Arena progress is cosmetic and never touches EvoForge progression.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { NeonButton } from '../../../components/ui';
 import { colors, radius, spacing, typography } from '../../../constants/theme';
 import type { BattleOutcome } from '../../../game-engine/simulation/state';
 import { ratingLineFor } from '../../../services/progression/rank';
 import type { BattleMode } from '../battle-store';
+import { useReducedMotionPref } from './use-reduced-motion';
+
+/** P7 staged reveal: banner slams in, then facts, then actions — a result
+ *  should LAND, not appear. One bounded interval drives it (~1s, cleared on
+ *  completion/unmount); under reduced motion everything shows immediately.
+ *  Sections fade in at fixed offsets but always occupy layout (opacity, not
+ *  conditional render) so the card never reflows mid-ceremony. */
+const REVEAL_BANNER_MS = 240;
+const REVEAL_FACTS_AT = 240;
+const REVEAL_RATING_AT = 430;
+const REVEAL_ACTIONS_AT = 640;
+const REVEAL_TOTAL_MS = 700;
 
 /** One fielded gym member's contribution line (M9 Gym Wars). */
 export interface ContributionLine {
@@ -53,6 +65,22 @@ export function ResultOverlay({
   contributions,
   contributionsTitle,
 }: Props) {
+  const reduceMotion = useReducedMotionPref();
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (reduceMotion) {
+      setElapsed(REVEAL_TOTAL_MS);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const e = Date.now() - start;
+      setElapsed(e);
+      if (e >= REVEAL_TOTAL_MS) clearInterval(interval);
+    }, 30);
+    return () => clearInterval(interval);
+  }, [reduceMotion]);
+
   const title =
     outcome.winner === 'player' ? 'VICTORY' : outcome.winner === 'opponent' ? 'DEFEAT' : 'DRAW';
   const titleColor =
@@ -62,42 +90,65 @@ export function ResultOverlay({
         ? colors.danger
         : colors.warning;
 
+  // Banner slam: scale eases 1.5 -> 1 as it fades in.
+  const bannerT = Math.min(1, elapsed / REVEAL_BANNER_MS);
+  const bannerEase = 1 - (1 - bannerT) * (1 - bannerT);
+  const sectionOpacity = (atMs: number) => ({ opacity: elapsed >= atMs ? 1 : 0 });
+
   return (
     <View style={styles.overlay}>
-      <View style={styles.card}>
-        <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
-        <Text style={styles.reason}>{REASON_LABEL[outcome.reason]}</Text>
-        <View style={styles.healthRow}>
-          <Text style={styles.healthText}>You {Math.max(0, Math.round(outcome.playerCoreHealth))}</Text>
-          <Text style={styles.healthText}>
-            Opponent {Math.max(0, Math.round(outcome.opponentCoreHealth))}
-          </Text>
-        </View>
+      <View style={[styles.card, { borderColor: titleColor }]}>
         <Text
           style={[
-            styles.ratingLine,
-            ratingDelta > 0 && { color: colors.success },
-            ratingDelta < 0 && { color: colors.danger },
+            styles.title,
+            {
+              color: titleColor,
+              opacity: bannerT,
+              textShadowColor: `${titleColor}66`,
+              transform: [{ scale: 1.5 - 0.5 * bannerEase }],
+            },
           ]}
         >
-          {ratingLineFor(mode, ratingDelta)}
+          {title}
         </Text>
-        <Text style={styles.cosmeticNote}>
-          Arena progress stays in the Arena — no Forge XP, no Evo Rating change.
-        </Text>
-        {contributions && contributions.length > 0 && (
-          <View style={styles.contribBlock}>
-            {contributionsTitle && <Text style={styles.contribTitle}>{contributionsTitle}</Text>}
-            {contributions.map((line) => (
-              <View key={line.key} style={styles.contribRow}>
-                <Text style={styles.contribLabel}>{line.label}</Text>
-                <Text style={styles.contribDetail}>{line.detail}</Text>
-              </View>
-            ))}
+        <View style={[styles.section, sectionOpacity(REVEAL_FACTS_AT)]}>
+          <Text style={styles.reason}>{REASON_LABEL[outcome.reason]}</Text>
+          <View style={styles.healthRow}>
+            <Text style={styles.healthText}>You {Math.max(0, Math.round(outcome.playerCoreHealth))}</Text>
+            <Text style={styles.healthText}>
+              Opponent {Math.max(0, Math.round(outcome.opponentCoreHealth))}
+            </Text>
           </View>
-        )}
-        <NeonButton label="Rematch" onPress={onRematch} />
-        <NeonButton label="Back to Lobby" variant="secondary" onPress={onBackToLobby} />
+        </View>
+        <View style={[styles.section, sectionOpacity(REVEAL_RATING_AT)]}>
+          <Text
+            style={[
+              styles.ratingLine,
+              ratingDelta > 0 && { color: colors.success },
+              ratingDelta < 0 && { color: colors.danger },
+            ]}
+          >
+            {ratingLineFor(mode, ratingDelta)}
+          </Text>
+          <Text style={styles.cosmeticNote}>
+            Arena progress stays in the Arena — no Forge XP, no Evo Rating change.
+          </Text>
+          {contributions && contributions.length > 0 && (
+            <View style={styles.contribBlock}>
+              {contributionsTitle && <Text style={styles.contribTitle}>{contributionsTitle}</Text>}
+              {contributions.map((line) => (
+                <View key={line.key} style={styles.contribRow}>
+                  <Text style={styles.contribLabel}>{line.label}</Text>
+                  <Text style={styles.contribDetail}>{line.detail}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+        <View style={[styles.actions, sectionOpacity(REVEAL_ACTIONS_AT)]}>
+          <NeonButton label="Rematch" onPress={onRematch} />
+          <NeonButton label="Back to Lobby" variant="secondary" onPress={onBackToLobby} />
+        </View>
       </View>
     </View>
   );
@@ -126,7 +177,16 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: 'center',
   },
-  title: { fontSize: 34, fontWeight: '800', letterSpacing: 2 },
+  // P7: pixel display face + soft glow in the outcome color.
+  title: {
+    ...typography.pixelBold,
+    fontSize: 44,
+    letterSpacing: 3,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  section: { gap: spacing.md, alignItems: 'center', alignSelf: 'stretch' },
+  actions: { gap: spacing.md, alignSelf: 'stretch' },
   reason: { ...typography.body, color: colors.textDim, textAlign: 'center' },
   ratingLine: { ...typography.label, color: colors.textDim, letterSpacing: 1 },
   cosmeticNote: { ...typography.body, fontSize: 12, color: colors.textDim, textAlign: 'center' },

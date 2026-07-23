@@ -1938,3 +1938,42 @@ fired-attack/projectile derivation, all 3 dilation behaviours); full
 suite 1,575; lint 0 errors; verify-motion/tokens/battle-engine OK; export
 + tour re-run — climax hold, defeat wash, delayed overlay, champion-duel
 readability all confirmed on screen.
+
+## Phases 5-7 - champion FX identity, readability, premium UI (2026-07-23)
+
+P5 (identity beyond hue): TelegraphSignal/LaneTelegraph carry the caster
+PATH; TelegraphMarker renders a per-path shape language - Titan trailing
+shockwave ring + four radial cracks (and its ABILITY now bumps the camera:
+the one path that shakes on a non-ultimate), Mass Monster thick ring +
+drifting dust dots (deliberately shake-free: oppressive, not explosive),
+Shredder crossing violet/crimson slash arcs, Cardio widening pulse lines,
+Aesthetics gold inner ring + four symmetric sparks. In-motion identity:
+Cardio champion carries a speed afterimage while moving; Shredder a
+crimson ghost during its strike lunge (sprite re-draw, zero assets).
+
+P6 (readability): computeStackOffsets in readability.ts fans co-located
+units laterally (center-out slots 0,+1,-1,+2,-2 cycling, id-stable across
+frames; 6 new tests) - closes audit C1; champions draw LAST (on top of
+piles); steady crimson danger edge on a core side at <=25% (severe
+threshold; static by doctrine); card chips grew two-line names (C3 fixed,
+tour-verified: "Emergency Shield"/"Javelin Marksman" full width).
+
+P7 (premium UI): tab bar HIDDEN for the whole /forge-arena group
+(tabBarStyle display none in the (main) Tabs layout - audit D1, ~70pt of
+battle screen reclaimed, tour-verified full-bleed); the EvoForge pixel
+faces (Jersey10/25 - family names PINNED as strings in arena theme.ts,
+NOT imported from src/theme/fonts.ts whose .ttf requires break the node
+test env; comment explains) on the battle timer, energy label, title
+wordmark and result banner; card chips became mini-cards (fighter sprite
+thumbnails, category top-edge fighter-cyan/technique-amber/equipment-blue,
+cost badge); champion-select cards + lobby profile got real sprite
+portraits in path-colored frames; ResultOverlay is a staged ceremony
+(pixel banner slams in scale 1.5->1 with outcome-colored glow + card
+border, facts at 240ms, rating at 430ms, actions at 640ms; one bounded
+~1s interval, sections hold layout via opacity so nothing reflows;
+reduced-motion shows everything instantly) - verified by a dedicated
+Playwright check capturing the reveal mid-stage (no buttons) and complete.
+
+Gates: tsc clean; arena 27 files / 510 tests; full suite 1,581; lint 0
+errors; verify-motion/tokens/battle-engine OK; export + full tour +
+ceremony check on the real build.

@@ -8,9 +8,11 @@ import {
   abilityCooldownFraction,
   computeFloaterStagger,
   computeLaneMomentum,
+  computeStackOffsets,
   FLOATER_STAGGER_STEP_PX,
   healthBarColor,
   LOW_HEALTH_FRACTION,
+  STACK_OFFSET_PX,
 } from '../features/arena/components/readability';
 
 const TEAM_TINT = '#22D3EE';
@@ -127,5 +129,67 @@ describe('abilityCooldownFraction', () => {
   it('clamps defensively outside [0,1] (stale/negative inputs never crash the bar)', () => {
     expect(abilityCooldownFraction(-10, 240)).toBe(1);
     expect(abilityCooldownFraction(300, 240)).toBe(0);
+  });
+});
+
+describe('computeStackOffsets (Phase 6 - audit C1)', () => {
+  it('a lone unit gets no offset and is not even in the map', () => {
+    const out = computeStackOffsets([{ id: 1, x: 40 }]);
+    expect(out.size).toBe(0);
+  });
+
+  it('spread-out units get no offsets', () => {
+    const out = computeStackOffsets([
+      { id: 1, x: 10 },
+      { id: 2, x: 20 },
+      { id: 3, x: 40 },
+    ]);
+    expect(out.size).toBe(0);
+  });
+
+  it('a pile fans out center-out in id order: 0, +1, -1 steps', () => {
+    const out = computeStackOffsets([
+      { id: 12, x: 40.5 },
+      { id: 3, x: 40 },
+      { id: 7, x: 41 },
+    ]);
+    expect(out.get(3)).toBe(0);
+    expect(out.get(7)).toBe(STACK_OFFSET_PX);
+    expect(out.get(12)).toBe(-STACK_OFFSET_PX);
+  });
+
+  it('offsets are stable per unit id across frames even as pile membership reshuffles', () => {
+    const frameA = computeStackOffsets([
+      { id: 3, x: 40 },
+      { id: 7, x: 41 },
+    ]);
+    const frameB = computeStackOffsets([
+      { id: 7, x: 41.2 },
+      { id: 3, x: 40.1 },
+    ]);
+    expect(frameA.get(3)).toBe(frameB.get(3));
+    expect(frameA.get(7)).toBe(frameB.get(7));
+  });
+
+  it('big piles cycle the slot pattern instead of fanning wider than +/-2 steps', () => {
+    const pile = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, x: 40 + i * 0.1 }));
+    const out = computeStackOffsets(pile);
+    for (const [, offset] of out) {
+      expect(Math.abs(offset)).toBeLessThanOrEqual(2 * STACK_OFFSET_PX);
+    }
+    expect(out.get(6)).toBe(0); // slot pattern restarts at the 6th unit
+  });
+
+  it('two separate piles offset independently', () => {
+    const out = computeStackOffsets([
+      { id: 1, x: 10 },
+      { id: 2, x: 11 },
+      { id: 8, x: 60 },
+      { id: 9, x: 61 },
+    ]);
+    expect(out.get(1)).toBe(0);
+    expect(out.get(2)).toBe(STACK_OFFSET_PX);
+    expect(out.get(8)).toBe(0);
+    expect(out.get(9)).toBe(STACK_OFFSET_PX);
   });
 });

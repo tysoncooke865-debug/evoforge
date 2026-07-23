@@ -115,3 +115,44 @@ export function abilityCooldownFraction(remainingTicks: number, totalTicks: numb
   const frac = 1 - remainingTicks / totalTicks;
   return Math.max(0, Math.min(1, frac));
 }
+
+/** Lateral px between stacked units (Phase 6 — audit C1). */
+export const STACK_OFFSET_PX = 9;
+/** Units within this many world x-units of each other count as one pile. */
+const STACK_CLUSTER_RADIUS_X = 2.5;
+
+/**
+ * Phase 6 (audit C1): units standing on nearly the same x used to overprint
+ * into one unreadable pile — this fans a pile out laterally. Clusters are
+ * greedy over x-sorted units; within a cluster, offsets go center-out
+ * (0, +1, -1, +2, -2 …) in id order so a unit keeps ITS offset from frame
+ * to frame (ids are stable; position in the pile is not). Pure — the
+ * renderer applies the returned px as a translateX.
+ */
+export function computeStackOffsets(
+  units: readonly { id: number; x: number }[]
+): Map<number, number> {
+  const sorted = [...units].sort((a, b) => a.x - b.x || a.id - b.id);
+  const out = new Map<number, number>();
+  let cluster: { id: number; x: number }[] = [];
+  // Center-out slots, cycling for big piles so a chain of many units never
+  // fans wider than ±2 steps (the lane is only so wide).
+  const SLOTS = [0, 1, -1, 2, -2];
+  const flush = () => {
+    if (cluster.length > 1) {
+      cluster.sort((a, b) => a.id - b.id);
+      cluster.forEach((u, i) => {
+        out.set(u.id, SLOTS[i % SLOTS.length] * STACK_OFFSET_PX);
+      });
+    }
+    cluster = [];
+  };
+  for (const u of sorted) {
+    if (cluster.length > 0 && u.x - cluster[cluster.length - 1].x > STACK_CLUSTER_RADIUS_X) {
+      flush();
+    }
+    cluster.push(u);
+  }
+  flush();
+  return out;
+}

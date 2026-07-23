@@ -6,13 +6,25 @@
  */
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  type ImageStyle,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Body, Screen } from '../components/ui';
 import { colors, pathColor, radius, spacing } from '../constants/theme';
 import { CHAMPIONS, TICKS_PER_SECOND } from '../content';
 import type { ChampionDefinition } from '../content/types';
+import { championSprite } from '../features/arena/components/sprites';
 import { playerStore } from '../services/app-services';
 import { usePlayer } from '../services/player-data/use-player';
+
+const PIXELATED =
+  Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
 
 function statsSummary(champion: ChampionDefinition): string {
   const s = champion.stats;
@@ -41,10 +53,24 @@ function ChampionCard({
       style={[styles.card, selected && { borderColor: tint, backgroundColor: colors.surfaceRaised }]}
     >
       <View style={styles.header}>
-        <Text style={[styles.name, { color: tint }]}>{champion.name}</Text>
+        {/* P7: the battlefield sprite IS the portrait — what you pick is
+            what you field. */}
+        <View style={[styles.portraitFrame, { borderColor: tint }]}>
+          {(() => {
+            const sprite = championSprite(champion.art, 'player');
+            return sprite ? (
+              <Image source={sprite} style={[styles.portrait, PIXELATED]} fadeDuration={0} />
+            ) : (
+              <Text style={[styles.name, { color: tint }]}>{champion.name.charAt(0)}</Text>
+            );
+          })()}
+        </View>
+        <View style={styles.headerText}>
+          <Text style={[styles.name, { color: tint }]}>{champion.name}</Text>
+          <Text style={styles.role}>{champion.role}</Text>
+        </View>
         {selected && <Text style={[styles.selectedBadge, { color: tint }]}>SELECTED</Text>}
       </View>
-      <Text style={styles.role}>{champion.role}</Text>
       <Text style={styles.stats}>{statsSummary(champion)}</Text>
       <Text style={styles.abilityLine}>
         <Text style={styles.abilityName}>{champion.passive.name} (passive): </Text>
@@ -115,7 +141,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     gap: spacing.xs,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerText: { flex: 1, gap: 2 },
+  portraitFrame: {
+    width: 52,
+    height: 52,
+    borderWidth: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  portrait: { width: 44, height: 44 },
   name: { fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
   selectedBadge: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   role: { color: colors.text, fontSize: 13, fontWeight: '600' },
