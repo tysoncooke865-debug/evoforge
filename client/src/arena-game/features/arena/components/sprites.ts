@@ -26,6 +26,74 @@ const SPRITES: Record<string, ImageSourcePropType> = {
   'shadow-striker--opponent': require('../sprites/px/shadow-striker--opponent.png'),
   'drone-archer--player': require('../sprites/px/drone-archer--player.png'),
   'drone-archer--opponent': require('../sprites/px/drone-archer--opponent.png'),
+  // Marksman mob: the drone-archer (Javelin Marksman) is the one arena
+  // combatant with a full frame-animation set (sliced from a third-party
+  // sheet by scripts/arena-madmog-gen.mjs, see ASSETS.md). Four animations
+  // (toward/away run, ranged attack, death), 8 frames each, per team.
+  'drone-archer--player--toward0': require('../sprites/px/drone-archer--player--toward0.png'),
+  'drone-archer--player--toward1': require('../sprites/px/drone-archer--player--toward1.png'),
+  'drone-archer--player--toward2': require('../sprites/px/drone-archer--player--toward2.png'),
+  'drone-archer--player--toward3': require('../sprites/px/drone-archer--player--toward3.png'),
+  'drone-archer--player--toward4': require('../sprites/px/drone-archer--player--toward4.png'),
+  'drone-archer--player--toward5': require('../sprites/px/drone-archer--player--toward5.png'),
+  'drone-archer--player--toward6': require('../sprites/px/drone-archer--player--toward6.png'),
+  'drone-archer--player--toward7': require('../sprites/px/drone-archer--player--toward7.png'),
+  'drone-archer--player--away0': require('../sprites/px/drone-archer--player--away0.png'),
+  'drone-archer--player--away1': require('../sprites/px/drone-archer--player--away1.png'),
+  'drone-archer--player--away2': require('../sprites/px/drone-archer--player--away2.png'),
+  'drone-archer--player--away3': require('../sprites/px/drone-archer--player--away3.png'),
+  'drone-archer--player--away4': require('../sprites/px/drone-archer--player--away4.png'),
+  'drone-archer--player--away5': require('../sprites/px/drone-archer--player--away5.png'),
+  'drone-archer--player--away6': require('../sprites/px/drone-archer--player--away6.png'),
+  'drone-archer--player--away7': require('../sprites/px/drone-archer--player--away7.png'),
+  'drone-archer--player--attack0': require('../sprites/px/drone-archer--player--attack0.png'),
+  'drone-archer--player--attack1': require('../sprites/px/drone-archer--player--attack1.png'),
+  'drone-archer--player--attack2': require('../sprites/px/drone-archer--player--attack2.png'),
+  'drone-archer--player--attack3': require('../sprites/px/drone-archer--player--attack3.png'),
+  'drone-archer--player--attack4': require('../sprites/px/drone-archer--player--attack4.png'),
+  'drone-archer--player--attack5': require('../sprites/px/drone-archer--player--attack5.png'),
+  'drone-archer--player--attack6': require('../sprites/px/drone-archer--player--attack6.png'),
+  'drone-archer--player--attack7': require('../sprites/px/drone-archer--player--attack7.png'),
+  'drone-archer--player--death0': require('../sprites/px/drone-archer--player--death0.png'),
+  'drone-archer--player--death1': require('../sprites/px/drone-archer--player--death1.png'),
+  'drone-archer--player--death2': require('../sprites/px/drone-archer--player--death2.png'),
+  'drone-archer--player--death3': require('../sprites/px/drone-archer--player--death3.png'),
+  'drone-archer--player--death4': require('../sprites/px/drone-archer--player--death4.png'),
+  'drone-archer--player--death5': require('../sprites/px/drone-archer--player--death5.png'),
+  'drone-archer--player--death6': require('../sprites/px/drone-archer--player--death6.png'),
+  'drone-archer--player--death7': require('../sprites/px/drone-archer--player--death7.png'),
+  'drone-archer--opponent--toward0': require('../sprites/px/drone-archer--opponent--toward0.png'),
+  'drone-archer--opponent--toward1': require('../sprites/px/drone-archer--opponent--toward1.png'),
+  'drone-archer--opponent--toward2': require('../sprites/px/drone-archer--opponent--toward2.png'),
+  'drone-archer--opponent--toward3': require('../sprites/px/drone-archer--opponent--toward3.png'),
+  'drone-archer--opponent--toward4': require('../sprites/px/drone-archer--opponent--toward4.png'),
+  'drone-archer--opponent--toward5': require('../sprites/px/drone-archer--opponent--toward5.png'),
+  'drone-archer--opponent--toward6': require('../sprites/px/drone-archer--opponent--toward6.png'),
+  'drone-archer--opponent--toward7': require('../sprites/px/drone-archer--opponent--toward7.png'),
+  'drone-archer--opponent--away0': require('../sprites/px/drone-archer--opponent--away0.png'),
+  'drone-archer--opponent--away1': require('../sprites/px/drone-archer--opponent--away1.png'),
+  'drone-archer--opponent--away2': require('../sprites/px/drone-archer--opponent--away2.png'),
+  'drone-archer--opponent--away3': require('../sprites/px/drone-archer--opponent--away3.png'),
+  'drone-archer--opponent--away4': require('../sprites/px/drone-archer--opponent--away4.png'),
+  'drone-archer--opponent--away5': require('../sprites/px/drone-archer--opponent--away5.png'),
+  'drone-archer--opponent--away6': require('../sprites/px/drone-archer--opponent--away6.png'),
+  'drone-archer--opponent--away7': require('../sprites/px/drone-archer--opponent--away7.png'),
+  'drone-archer--opponent--attack0': require('../sprites/px/drone-archer--opponent--attack0.png'),
+  'drone-archer--opponent--attack1': require('../sprites/px/drone-archer--opponent--attack1.png'),
+  'drone-archer--opponent--attack2': require('../sprites/px/drone-archer--opponent--attack2.png'),
+  'drone-archer--opponent--attack3': require('../sprites/px/drone-archer--opponent--attack3.png'),
+  'drone-archer--opponent--attack4': require('../sprites/px/drone-archer--opponent--attack4.png'),
+  'drone-archer--opponent--attack5': require('../sprites/px/drone-archer--opponent--attack5.png'),
+  'drone-archer--opponent--attack6': require('../sprites/px/drone-archer--opponent--attack6.png'),
+  'drone-archer--opponent--attack7': require('../sprites/px/drone-archer--opponent--attack7.png'),
+  'drone-archer--opponent--death0': require('../sprites/px/drone-archer--opponent--death0.png'),
+  'drone-archer--opponent--death1': require('../sprites/px/drone-archer--opponent--death1.png'),
+  'drone-archer--opponent--death2': require('../sprites/px/drone-archer--opponent--death2.png'),
+  'drone-archer--opponent--death3': require('../sprites/px/drone-archer--opponent--death3.png'),
+  'drone-archer--opponent--death4': require('../sprites/px/drone-archer--opponent--death4.png'),
+  'drone-archer--opponent--death5': require('../sprites/px/drone-archer--opponent--death5.png'),
+  'drone-archer--opponent--death6': require('../sprites/px/drone-archer--opponent--death6.png'),
+  'drone-archer--opponent--death7': require('../sprites/px/drone-archer--opponent--death7.png'),
   'cyber-medic--player': require('../sprites/px/cyber-medic--player.png'),
   'cyber-medic--opponent': require('../sprites/px/cyber-medic--opponent.png'),
   'heavy-tank--player': require('../sprites/px/heavy-tank--player.png'),
@@ -94,6 +162,33 @@ const SPRITES: Record<string, ImageSourcePropType> = {
 /** Team-outlined unit sprite for a card art key; null → caller falls back to dots. */
 export function unitSprite(artKey: string, team: 'player' | 'opponent'): ImageSourcePropType | null {
   return SPRITES[`${artKey}--${team}`] ?? null;
+}
+
+/** A unit's frame-animation states. `toward`/`away` are run cycles (direction
+ *  selected by team — the vertical lane faces player units away, opponents
+ *  toward); `attack` is a one-shot firing arc; `death` is a one-shot collapse. */
+export type UnitAnim = 'toward' | 'away' | 'attack' | 'death';
+/** Frames per unit animation (see scripts/arena-madmog-gen.mjs). */
+export const UNIT_ANIM_FRAMES = 8;
+
+/**
+ * The 8 team-outlined frames for a unit's animation, or null when the art has
+ * no animation set (the caller then falls back to the static unit sprite).
+ * Only the drone-archer (Marksman) ships frames today; every other unit
+ * resolves null and renders its single sprite exactly as before.
+ */
+export function unitAnimFrames(
+  artKey: string,
+  team: 'player' | 'opponent',
+  anim: UnitAnim
+): ImageSourcePropType[] | null {
+  const frames: ImageSourcePropType[] = [];
+  for (let i = 0; i < UNIT_ANIM_FRAMES; i++) {
+    const frame = SPRITES[`${artKey}--${team}--${anim}${i}`];
+    if (!frame) return null;
+    frames.push(frame);
+  }
+  return frames;
 }
 
 /**

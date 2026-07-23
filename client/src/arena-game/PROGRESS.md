@@ -2218,3 +2218,39 @@ still pending with Tyson).
 
 Gates: tsc clean, 1,595 tests (10 new), lint 7-warning baseline, all
 verify scripts, export green, lobby/intro/battle captures verified.
+
+---
+
+## Marksman mob — frame-animated ranged unit (2026-07-24) ✅
+
+The `drone-archer` (Javelin Marksman) is now the first fully frame-animated
+combatant, driven by a user-supplied external sheet
+(`assets/arena-madmog-src/madmog-streamavatars.png`, a mad-max marksman).
+
+Built:
+- **Slicer** `scripts/arena-madmog-gen.mjs build`: reads the 25×11 / 256px
+  grid, area-downsamples the used frames to 64×64 on a shared scale + baseline,
+  applies the SAME 2px team-outline + pngquant as the PixelLab pipeline.
+  Emits 8 frames each for `toward`/`away` run, `attack`, `death`, per team,
+  plus the canonical still (overwriting the old PixelLab javelin thrower).
+- **Registry** `sprites.ts`: 64 new static requires + `unitAnimFrames(art,
+  team, anim)` (null for every other art → static fallback unchanged).
+- **Render** `lane-strip.tsx`: `UnitMarker` picks run frames while moving
+  (team selects direction — vertical lane faces player units away, opponents
+  toward) and the attack loop while engaged; `Floater` plays the death frames
+  in place of the dissolve. All frame-driven off the frame clock — no per-unit
+  state, no Animated (the perf doctrine holds).
+- **Death identity** `combat-fx.ts` + `arena-screen.tsx`: the structured
+  `death` log line is paired with its adjacent `fx death` line to stamp the
+  dying unit's `contentId` onto the floater, so only the Marksman collapses
+  (no engine change → no replay-hash risk).
+
+Decisions (reversible): mob = drone-archer (rifle marksman = ranged fit);
+run rows over the calmer walk rows (read as motion at ~26pt); red palette kept
+for both teams as identity — a DOCUMENTED divergence from ART_BIBLE §2/§5
+(ASSETS.md + ART_BIBLE §2). Hit reaction reuses the shipped white-flash +
+recoil; the sheet has no distinct flinch pose.
+
+Gates: tsc clean, 1,599 tests (4 new combat-fx death-pairing cases), lint
+7-warning baseline, motion/tokens/arena-purity green, export green, real-
+battle Playwright zoom captures verified (marksman fields on both teams).

@@ -30,7 +30,7 @@ import { resolveChampionBattleAsset } from './battle-assets';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
 import { attackPose, spawnScale, tierForDamage, PROJECTILE_TTL_MS, STRIKE_MS, TIER_FX } from './impact';
 import { computeStackOffsets, healthBarColor } from './readability';
-import { arenaFloorTexture, unitSprite } from './sprites';
+import { arenaFloorTexture, unitAnimFrames, UNIT_ANIM_FRAMES, type UnitAnim, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
 const DEPLOY_ZONE_HEIGHT_PCT = (deployZoneDepth / laneLength) * 100;
@@ -90,6 +90,11 @@ export interface LaneFloater {
   /** P4 impact tiers: big hits print bigger/bolder numbers. */
   fontSize: number;
   fontWeight: '700' | '800' | '900';
+  /** Death floaters only: the dying unit's team + content id, so a unit with a
+   *  death animation (the Marksman) plays its collapse frames in place of the
+   *  generic dissolve. Both undefined → the dissolve marker, exactly as before. */
+  team?: TeamId;
+  deathContentId?: string;
 }
 
 /** Floater lifetime; the arena screen prunes with the same constant. */
@@ -308,6 +313,27 @@ function Floater({ floater }: { floater: LaneFloater }) {
   const stagger = floater.staggerPx;
 
   if (floater.kind === 'death') {
+    // Marksman-style death animation: a unit whose art ships death frames
+    // collapses in place (the sheet's gib sequence) instead of the generic
+    // dissolve. Frame index ages across the floater's lifetime; a short tail
+    // fade covers the final near-empty frame. Falls through to the dissolve
+    // marker for every other unit (no frames) exactly as before.
+    const deathCard = floater.deathContentId ? getCardById(floater.deathContentId) : undefined;
+    const deathFrames =
+      deathCard && floater.team ? unitAnimFrames(deathCard.art, floater.team, 'death') : null;
+    if (deathFrames) {
+      const fi = Math.min(UNIT_ANIM_FRAMES - 1, Math.floor(t * UNIT_ANIM_FRAMES));
+      const tailFade = t > 0.85 ? (1 - t) / 0.15 : 1;
+      return (
+        <View pointerEvents="none" style={[styles.deathSpriteWrap, { top: `${floater.topPct}%` }]}>
+          <Image
+            source={deathFrames[fi]}
+            style={[styles.unitSprite, PIXELATED, { opacity: tailFade }]}
+            fadeDuration={0}
+          />
+        </View>
+      );
+    }
     // Death dissolve: a fading ring shrinking outward-then-gone plus a larger,
     // scaling-down glyph — reads as "gone" rather than just another number.
     const ringSize = 26 - t * 10;
@@ -882,7 +908,22 @@ function UnitMarker({
   }
 
   const card = getCardById(unit.contentId);
-  const sprite = card ? unitSprite(card.art, unit.team) : null;
+  // Frame-animated mob (the Marksman): a unit whose art ships an animation set
+  // plays run/attack frames instead of the single static sprite. The vertical
+  // lane faces player units away (up-screen) and opponents toward (down-screen),
+  // so team selects the run direction; an engaged unit (has a target → not
+  // moving) plays its attack loop. Frame index derives from the frame clock —
+  // no per-unit state, exactly like the champion walk cycle. Reduced motion or
+  // an art with no frames falls back to the static sprite unchanged.
+  let animSprite: ReturnType<typeof unitSprite> = null;
+  if (card && !reduceMotion) {
+    const anim: UnitAnim = moving ? (unit.team === 'player' ? 'away' : 'toward') : 'attack';
+    const frames = unitAnimFrames(card.art, unit.team, anim);
+    if (frames) {
+      animSprite = frames[Math.floor((nowMs / WALK_FRAME_MS + bobPhase(unit.id)) % UNIT_ANIM_FRAMES)];
+    }
+  }
+  const sprite = animSprite ?? (card ? unitSprite(card.art, unit.team) : null);
   const marker =
     card?.unit?.behavior === 'healer' || card?.unit?.stats.isRanged
       ? card.art.charAt(0).toUpperCase()
@@ -1062,6 +1103,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: '#FFFFFF',
     borderRadius: 6,
+  },
+  // Marksman death frames: the 26px collapse sprite centered on the unit's
+  // last position (nudged up so it lies roughly where the body stood).
+  deathSpriteWrap: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -13,
+    alignItems: 'center',
+    transform: [{ translateY: -20 }],
   },
   // Death dissolve: a shrinking-fade ring plus a scaling-down glyph, centered
   // on the unit's last position.

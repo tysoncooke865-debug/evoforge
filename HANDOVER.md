@@ -26,6 +26,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ARENA MARKSMAN MOB — first frame-animated combatant (2026-07-24, no
+  migration)**: the `drone-archer` (Javelin Marksman) ranged unit now plays a
+  full animation set sliced from a user-supplied external sheet
+  (`client/assets/arena-madmog-src/madmog-streamavatars.png`) by the new
+  committed slicer `client/scripts/arena-madmog-gen.mjs` (same 2px team-outline
+  + pngquant as the PixelLab pipeline). `toward`/`away` run cycles (team
+  selects direction — the vertical lane faces player units away, opponents
+  toward), an `attack` firing loop while engaged, and a `death` collapse; the
+  hit reaction reuses the existing white-flash + recoil. All frame-driven off
+  the frame clock (no per-unit state / no Animated — the arena perf doctrine).
+  Death identity is resolved by pairing the structured `death` log line with
+  its adjacent `fx death` line in `combat-fx.ts` (NO engine change → no replay-
+  hash risk). The character's red palette is a DOCUMENTED divergence from
+  ART_BIBLE §2/§5 (external user-directed asset). See
+  `client/src/arena-game/ASSETS.md` + `PROGRESS.md` (Marksman section). Gates:
+  tsc, 1,599 tests (4 new), lint baseline, motion/tokens/arena-purity, export,
+  real-battle Playwright zoom captures.
 - **PERF PASS: BOOT CHUNK + SET-SAVE NETWORK BUDGET (2026-07-23, no
   migration)**: five independent hot-path fixes, no behavior change intended.
   (1) **Boot-chunk slimming**: set save, the set queue and the Home/Train

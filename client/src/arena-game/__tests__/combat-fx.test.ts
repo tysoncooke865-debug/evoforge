@@ -74,6 +74,33 @@ describe('deriveCombatSignals — fx (hit/heal/death) entries', () => {
     expect(out.hits).toEqual([]);
   });
 
+  it('pairs the structured death line with its fx death line — the floater carries the dying unit contentId', () => {
+    // combat.ts emits these two back-to-back (see logEvent 'death' then 'fx').
+    const log = [
+      entry('death', 'opponent drone-archer#12 killed by player recruit#3'),
+      entry('fx', 'death|1|88|0|opponent'),
+    ];
+    const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
+    expect(out.floaters).toHaveLength(1);
+    expect(out.floaters[0]).toMatchObject({ kind: 'death', contentId: 'drone-archer' });
+  });
+
+  it('a lone fx death (no preceding structured line, e.g. mid-stream resume) carries no contentId', () => {
+    const log = [entry('fx', 'death|0|10|0|player')];
+    expect(deriveCombatSignals(log, 0, EMPTY_UNITS).floaters[0].contentId).toBeUndefined();
+  });
+
+  it('does not leak one death\'s contentId onto the next death (pending id is consumed once)', () => {
+    const log = [
+      entry('death', 'player drone-archer#7 killed by opponent titan-guard#9'),
+      entry('fx', 'death|0|20|0|player'),
+      entry('fx', 'death|1|55|0|opponent'), // a second death with NO structured line before it
+    ];
+    const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
+    expect(out.floaters[0].contentId).toBe('drone-archer');
+    expect(out.floaters[1].contentId).toBeUndefined();
+  });
+
   it('skips a malformed fx entry (non-finite x) without throwing', () => {
     const log = [entry('fx', 'hit|0|not-a-number|85|player')];
     expect(() => deriveCombatSignals(log, 0, EMPTY_UNITS)).not.toThrow();
