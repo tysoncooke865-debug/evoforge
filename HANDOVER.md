@@ -2180,6 +2180,31 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   phase. **Next: Session 3 (Phases 5-7, avatar source of truth) on Fable 5
   Ultracode; run Step 0 before any Phase 7 renderer change.**
 
+- **2026-07-23 — Arena PREMIUM Session 3 (Phases 5-7): avatar source of
+  truth + art bible + performance-safe cosmetics.** P5: the Arena now
+  renders the athlete's REAL champion identity — `ArenaAvatarProfile`
+  pushed by an app-side bridge in the arena layout from
+  `useDisplayIdentity()` (the exact resolver Home/Customise use; the arena
+  keeps zero cosmetic state), battle-asset fidelity chain
+  (variant→canonical→glyph, layer-drift rule, pure+tested), lobby shows
+  the app's own skinned/staged still + "Stage N — form" line, intro
+  carries stage identity. Doctrine kept: a finished player's arena pick is
+  never overridden (own-path guard); display path refines the FIRST-RUN
+  prefill only — verified fix: originless smoke ALPHA used to prefill
+  Titan while Home showed an aesthetic "Elite Aesthetic"; it now fields
+  Aesthetics everywhere. P6: `ARENA_ART_BIBLE.md` (mandatory generation
+  spec: pipeline law, per-champion continuity with real seeds, variant
+  naming `--s<stage>[--k-<skin>]`). P7: precomposed single-sprite
+  cosmetics adopted, runtime layering rejected (recolour-class cosmetics
+  only), cached per profile key, zero draw-cost change — verified by a
+  same-machine A/B after the re-sweep's absolutes came out 3× worse than
+  the P3 baseline and production showed the SAME degradation. **STANDING
+  MEASUREMENT RULE (PR-8): perf claims only from same-machine same-session
+  A/B (TOUR_BASE_URL vs local dist) — never cross-session absolute
+  tables.** Variant ART still pending (Phase 8 golden pipeline contract in
+  `ARENA_COSMETIC_COMPATIBILITY.md` §5). Next: Session 4 = Phase 8 on
+  Sonnet 5 high (golden champion), reviewed by Fable 5.
+
 ---
 
 ## 3. The rules that cost real bugs

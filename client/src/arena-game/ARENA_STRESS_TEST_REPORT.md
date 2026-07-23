@@ -99,6 +99,32 @@ re-verification). The lab measures any candidate with identical methodology
 — require before/after sweeps including the 4× throttle row before
 accepting a choice.
 
+## 5b. Phase 7 addendum (2026-07-23, same day) — cosmetic seam verified + a measurement lesson
+
+The Phase 5 avatar/cosmetic resolution seam (battle-assets chain, cached;
+one Map lookup per champion per frame) went live and the sweep was re-run.
+The re-run's ABSOLUTE numbers came out far worse than the §2 table
+(30/team 45fps, 4× throttle 3.4fps) — which triggered an immediate A/B:
+the SAME sweep against the pre-P5 production deploy on the same machine at
+the same time produced the SAME degraded numbers (30/team 50.9fps, 4×
+throttle 3.7fps, sim cost itself 2-3× higher). Conclusion, stated plainly:
+
+- **The cosmetic seam did not regress rendering** — P5-vs-pre-P5 differ
+  only within run noise (each side wins some rows).
+- **Sweep absolutes are session-relative**: the §2 baseline was captured on
+  an idle machine; a loaded/thermally-throttled host shifts every number.
+  From now on, ANY before/after perf claim must come from a same-machine,
+  same-session A/B (production URL vs local dist is the easy recipe via
+  TOUR_BASE_URL) — never from comparing absolute tables across sessions.
+
+Phase 7 acceptance items verified: single-composed-sprite rendering
+(runtime layering rejected — ARENA_COSMETIC_COMPATIBILITY.md §4), cache
+keyed by every art-selecting profile field (tested), Customise changes
+propagate through the idempotent store push, missing assets fall through
+the tested chain, and the full gate sweep + battle/lobby/intro visual
+captures are green with the seam live. Renderer-optimization steps remain
+untouched per the Phase 4 decision (Step 0 device baseline pending).
+
 ## 6. Phase 3 acceptance
 
 - Stress mode reproducible (route + chips + script, all committed).

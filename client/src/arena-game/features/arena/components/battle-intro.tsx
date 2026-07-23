@@ -86,7 +86,7 @@ function ChampionPlate({
         {champion?.name ?? 'Unknown'}
       </Text>
       {stageLine ? (
-        <Text numberOfLines={1} style={styles.plateStage}>
+        <Text numberOfLines={2} style={styles.plateStage}>
           {stageLine}
         </Text>
       ) : null}
@@ -197,8 +197,16 @@ const styles = StyleSheet.create({
   plateSprite: { width: 72, height: 72 },
   plateFallback: { ...typography.pixelBold, fontSize: 40 },
   plateName: { ...typography.label, textAlign: 'center' },
-  // P5: the athlete's real evolution identity under their champion's name.
-  plateStage: { ...typography.label, fontSize: 10, color: colors.textDim, letterSpacing: 1, textAlign: 'center' },
+  // P5: the athlete's real evolution identity under their champion's name —
+  // two lines allowed; a truncated identity label is worse than a wrap.
+  plateStage: {
+    ...typography.label,
+    fontSize: 10,
+    color: colors.textDim,
+    letterSpacing: 1,
+    textAlign: 'center',
+    maxWidth: 130,
+  },
   vs: { ...typography.pixelBold, fontSize: 26, color: colors.textDim, letterSpacing: 2 },
   // P10 — squad entrance row (Gym Wars): the borrowed gym-mates.
   squadBlock: { alignItems: 'center', gap: spacing.xs },

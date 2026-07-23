@@ -44,9 +44,20 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · NEEDS-TYSON.
   Phase 4 Step 0: open the Render Stress Lab on a recent iPhone + older
   iPhone + ordinary Android (PWA + Expo Go) at 30/team, read the HUD.
   Decides whether any renderer optimization is even needed. NEEDS-TYSON.
-- [ ] PR-2 MEDIUM: **Arena ignores the app's avatar identity** — path-only
-  sprites; no stage/sex/skin/premium-character awareness
-  (AVATAR_VISUAL_SOURCE_MAP.md §2). Phase 5 scope. OPEN.
+- [x] PR-2 MEDIUM: **Arena ignores the app's avatar identity.** DONE
+  (premium P5, 2026-07-23): ArenaAvatarProfile pushed from
+  useDisplayIdentity via the layout bridge; battle-asset fidelity chain
+  live everywhere; lobby shows the app's own skinned/staged still + form
+  line; intro carries stage identity; display path refines the first-run
+  champion prefill (fixed: originless athletes no longer default to Titan
+  when Home shows a different champion). REMAINING: stage/skin VARIANT ART
+  does not exist yet — every profile resolves canonically until Phase 8
+  (contract in ARENA_COSMETIC_COMPATIBILITY.md §5).
+- [ ] PR-8 INFO (measurement doctrine): stress-sweep ABSOLUTE numbers are
+  session-relative (host load/thermals shift everything — a same-day rerun
+  of identical code moved 30/team from 60fps to ~50fps). Any before/after
+  perf claim must be a same-machine same-session A/B (TOUR_BASE_URL vs
+  local dist). Recorded in ARENA_STRESS_TEST_REPORT.md §5b. STANDING RULE.
 - [ ] PR-3 LOW: desktop 1%-low dips to 30fps at 40/team (nine >33ms frames
   in 512) — above the slice's 30-combatant target, recorded as the desktop
   ceiling. OPEN (re-measure after Phase 4's chosen optimization).

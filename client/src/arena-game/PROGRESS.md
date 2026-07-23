@@ -2176,3 +2176,45 @@ Step 4 contained Skia ONLY if 1-3 fail on hardware. Steps fold into Phase
 
 Next: Session 3 (Phases 5-7) on Fable 5 Ultracode; run Step 0 before any
 Phase 7 renderer change.
+
+## Premium program Session 3 (Phases 5-7): avatar source of truth, art bible, cosmetic rendering (2026-07-23)
+
+P5 (canonical identity): ArenaAvatarProfile (path/stage/formName/sex/skin/
+premium, display-only, never digested) + arenaAvatarStore in integration/
+evoforge/avatar-profile.ts; the app-side ArenaIdentityBridge in the arena
+layout maps useDisplayIdentity (THE resolver Home renders from) and pushes;
+sign-out clears it. Battle-asset fidelity chain (variant -> canonical ->
+glyph) pure+tested in battle-assets-core.ts with a cached registry binding;
+champion renders resolve through it on the battlefield, intro plates, and
+squad row. DOCTRINE RECONCILIATION that changed the design mid-phase:
+applyProviderIdentity documents that a finished player's arena champion
+pick is NEVER overridden - so the profile drives art only for the athlete's
+own path (profileForChampionPath guard everywhere) and the display path
+refines the FIRST-RUN prefill only (prefillChampionFromDisplayPath).
+VERIFIED WIN: smoke ALPHA (no origin record) used to prefill Titan while
+Home showed an aesthetic Stage 3 "Elite Aesthetic" - the bridge now fields
+the Aesthetics champion, the lobby shows the app's own skinned still in the
+emerald frame with the real stage name, the intro carries STAGE 3 - ELITE
+AESTHETIC (numberOfLines=2 after a truncation catch). 10 new tests.
+
+P6: ARENA_ART_BIBLE.md - formalizes the practiced pipeline law (pinned
+seeds, low top-down, 64px, neutral art + build-step team outlines, frame-0
+anchored walks, pngquant), perspective/size/pixel/language rules, the five
+champions' continuity law with their REAL seeds and identity references,
+and the variant naming contract (--s<stage>[--k-<skin>], all-4-or-none
+frames).
+
+P7 (performance-safe cosmetics): PRECOMPOSED single-sprite adopted, runtime
+layering REJECTED (this app's cosmetics are recolours + one premium
+character - no gear slots to layer); resolution cached per profile key;
+zero added draw cost. MEASUREMENT LESSON that matters: the P7 re-sweep came
+out 3x worse than the P3 baseline and an immediate same-machine A/B against
+the pre-P5 production deploy showed THE SAME degraded numbers - host
+load/thermals shift every absolute; the P5 seam did not regress anything.
+STANDING RULE (KNOWN_ARENA_ISSUES PR-8): perf claims only from same-machine
+same-session A/B (TOUR_BASE_URL vs local dist), never cross-session
+absolutes. Renderer optimization untouched (Phase 4 Step 0 device baseline
+still pending with Tyson).
+
+Gates: tsc clean, 1,595 tests (10 new), lint 7-warning baseline, all
+verify scripts, export green, lobby/intro/battle captures verified.
