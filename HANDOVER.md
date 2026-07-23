@@ -2040,6 +2040,19 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
 `verify-tokens` · `verify-battle-engine` (byte-pin ×3) · `verify-motion` ·
 `lighthouse` (budgets in `client/lighthouserc.json`).
 
+- **2026-07-23 — Arena polish pass, Phase 1 (visual audit) done.** A new
+  multi-session program to turn the working-but-plain Arena into a polished
+  vertical slice (real pixel art, combat feel, full-bleed premium UI). The
+  three living docs are in `client/src/arena-game/`:
+  `ARENA_VISUAL_AUDIT.md` (evidence from a real played battle — screenshots
+  via the new `client/scripts/arena-visual-tour.mjs`),
+  `VERTICAL_SLICE_PLAN.md` (phase map + model schedule + constraints),
+  `KNOWN_POLISH_ISSUES.md` (living checklist, presentation-only —
+  engineering issues stay in the package `KNOWN_ISSUES.md`). Code unchanged
+  this phase. NOTE for the asset phase: `client/.env.local` carries an
+  unused `PIXELLAB_AI_KEY` (pixel-art sprite generation API) — validate
+  before building on it.
+
 ---
 
 ## 3. The rules that cost real bugs
