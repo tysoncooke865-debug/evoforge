@@ -1,0 +1,529 @@
+{
+  "startedAt": "2026-07-23T05:31:33.146Z",
+  "base": "http://localhost:4173",
+  "densitySweep": [
+    {
+      "density": 10,
+      "atMs": 1784784725706,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.666015625,
+        "worstFrameMs": 16.80000000000291,
+        "fpsAvg": 60.00234384155631,
+        "fps1PercentLow": 59.523809523799216,
+        "framesOver16_7": 268,
+        "framesOver33": 0
+      },
+      "store": {
+        "frames": 300,
+        "avgSimMs": 0.09900000075499217,
+        "worstSimMs": 0.5,
+        "avgPublishMs": 0.08133333166440328,
+        "worstPublishMs": 0.30000001192092896,
+        "avgTicksPerFrame": 1,
+        "effectiveTickHz": 19.98001998001998,
+        "stallCount": 0,
+        "worstGapMs": 57
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 420,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 22,
+        "playerUnits": 10,
+        "opponentUnits": 12,
+        "logLength": 570
+      },
+      "cdp": {
+        "scriptPct": 12.872040000000002,
+        "layoutPct": 0.7279866666666667,
+        "stylePct": 0.8623733333333334,
+        "taskPct": 18.377273333333335,
+        "domNodes": 7839
+      }
+    },
+    {
+      "density": 20,
+      "atMs": 1784784749347,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.666015625,
+        "worstFrameMs": 16.80000000000291,
+        "fpsAvg": 60.00234384155631,
+        "fps1PercentLow": 59.523809523799216,
+        "framesOver16_7": 139,
+        "framesOver33": 0
+      },
+      "store": {
+        "frames": 211,
+        "avgSimMs": 0.14265402798404062,
+        "worstSimMs": 2.399999976158142,
+        "avgPublishMs": 0.07440758372935073,
+        "worstPublishMs": 0.30000001192092896,
+        "avgTicksPerFrame": 1.4218009478672986,
+        "effectiveTickHz": 19.99067102019058,
+        "stallCount": 0,
+        "worstGapMs": 61
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 421,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 40,
+        "playerUnits": 20,
+        "opponentUnits": 20,
+        "logLength": 837
+      },
+      "cdp": {
+        "scriptPct": 12.638213333333331,
+        "layoutPct": 0.5991066666666667,
+        "stylePct": 0.7303800000000001,
+        "taskPct": 18.52414,
+        "domNodes": 4058
+      }
+    },
+    {
+      "density": 30,
+      "atMs": 1784784772971,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.666015625,
+        "worstFrameMs": 16.80000000000291,
+        "fpsAvg": 60.00234384155631,
+        "fps1PercentLow": 59.523809523799216,
+        "framesOver16_7": 82,
+        "framesOver33": 0
+      },
+      "store": {
+        "frames": 230,
+        "avgSimMs": 0.12869565435077834,
+        "worstSimMs": 0.5999999642372131,
+        "avgPublishMs": 0.0804347813129425,
+        "worstPublishMs": 0.30000001192092896,
+        "avgTicksPerFrame": 1.308695652173913,
+        "effectiveTickHz": 20.046620046620045,
+        "stallCount": 0,
+        "worstGapMs": 61
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 421,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 60,
+        "playerUnits": 30,
+        "opponentUnits": 30,
+        "logLength": 1602
+      },
+      "cdp": {
+        "scriptPct": 19.521320000000006,
+        "layoutPct": 0.7656533333333333,
+        "stylePct": 1.0343800000000003,
+        "taskPct": 26.804546666666674,
+        "domNodes": 4494
+      }
+    },
+    {
+      "density": 40,
+      "atMs": 1784784796637,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.958984375,
+        "worstFrameMs": 33.39999999999418,
+        "fpsAvg": 58.96579523206265,
+        "fps1PercentLow": 29.994001199760568,
+        "framesOver16_7": 89,
+        "framesOver33": 9
+      },
+      "store": {
+        "frames": 223,
+        "avgSimMs": 0.15291479537305275,
+        "worstSimMs": 0.40000003576278687,
+        "avgPublishMs": 0.09192825112107623,
+        "worstPublishMs": 0.3999999761581421,
+        "avgTicksPerFrame": 1.3497757847533631,
+        "effectiveTickHz": 20.025281085756102,
+        "stallCount": 0,
+        "worstGapMs": 61
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 421,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 80,
+        "playerUnits": 40,
+        "opponentUnits": 40,
+        "logLength": 2172
+      },
+      "cdp": {
+        "scriptPct": 33.66036666666666,
+        "layoutPct": 1.3673600000000004,
+        "stylePct": 1.6356399999999998,
+        "taskPct": 45.27311333333335,
+        "domNodes": 8771
+      }
+    }
+  ],
+  "particleSweep": [
+    {
+      "particles": 0,
+      "atMs": 1784784820441,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.666015625,
+        "worstFrameMs": 16.80000000000291,
+        "fpsAvg": 60.00234384155631,
+        "fps1PercentLow": 59.523809523799216,
+        "framesOver16_7": 86,
+        "framesOver33": 0
+      },
+      "store": {
+        "frames": 247,
+        "avgSimMs": 0.10809716666758301,
+        "worstSimMs": 0.30000001192092896,
+        "avgPublishMs": 0.08461538693200239,
+        "worstPublishMs": 0.30000001192092896,
+        "avgTicksPerFrame": 1.2186234817813766,
+        "effectiveTickHz": 20.025281085756102,
+        "stallCount": 0,
+        "worstGapMs": 58
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 422,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 58,
+        "playerUnits": 30,
+        "opponentUnits": 28,
+        "logLength": 1602
+      },
+      "cdp": {
+        "scriptPct": 27.983140000000002,
+        "layoutPct": 1.0165266666666668,
+        "stylePct": 1.3099666666666672,
+        "taskPct": 37.50246666666664,
+        "domNodes": 5321
+      }
+    },
+    {
+      "particles": 150,
+      "atMs": 1784784844171,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.69843750000001,
+        "worstFrameMs": 33.39999999999418,
+        "fpsAvg": 59.885842612519845,
+        "fps1PercentLow": 49.70178926438189,
+        "framesOver16_7": 195,
+        "framesOver33": 1
+      },
+      "store": {
+        "frames": 300,
+        "avgSimMs": 0.1076666667064031,
+        "worstSimMs": 0.40000003576278687,
+        "avgPublishMs": 0.08066666682561238,
+        "worstPublishMs": 0.30000001192092896,
+        "avgTicksPerFrame": 1,
+        "effectiveTickHz": 19.978689397975494,
+        "stallCount": 0,
+        "worstGapMs": 57
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 421,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 60,
+        "playerUnits": 30,
+        "opponentUnits": 30,
+        "logLength": 1576
+      },
+      "cdp": {
+        "scriptPct": 41.15092666666669,
+        "layoutPct": 1.660973333333334,
+        "stylePct": 2.51754,
+        "taskPct": 56.993553333333345,
+        "domNodes": 8562
+      }
+    },
+    {
+      "particles": 400,
+      "atMs": 1784784867884,
+      "raf": {
+        "sampleCount": 512,
+        "avgFrameMs": 16.666015625,
+        "worstFrameMs": 16.800000000017462,
+        "fpsAvg": 60.00234384155631,
+        "fps1PercentLow": 59.52380952374765,
+        "framesOver16_7": 205,
+        "framesOver33": 0
+      },
+      "store": {
+        "frames": 278,
+        "avgSimMs": 0.12949640459293943,
+        "worstSimMs": 0.5,
+        "avgPublishMs": 0.09352517899849432,
+        "worstPublishMs": 0.3999999761581421,
+        "avgTicksPerFrame": 1.079136690647482,
+        "effectiveTickHz": 19.986675549633578,
+        "stallCount": 0,
+        "worstGapMs": 64
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 419,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 61,
+        "playerUnits": 30,
+        "opponentUnits": 31,
+        "logLength": 1645
+      },
+      "cdp": {
+        "scriptPct": 37.37258666666667,
+        "layoutPct": 1.5906066666666667,
+        "stylePct": 2.9870133333333344,
+        "taskPct": 53.605746666666654,
+        "domNodes": 6393
+      }
+    }
+  ],
+  "heapTrend": [
+    {
+      "match": 1,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 150,
+      "status": "running"
+    },
+    {
+      "match": 2,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 150,
+      "status": "running"
+    },
+    {
+      "match": 3,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 150,
+      "status": "running"
+    },
+    {
+      "match": 4,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 151,
+      "status": "running"
+    },
+    {
+      "match": 5,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 149,
+      "status": "running"
+    },
+    {
+      "match": 6,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 151,
+      "status": "running"
+    },
+    {
+      "match": 7,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 150,
+      "status": "running"
+    },
+    {
+      "match": 8,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 151,
+      "status": "running"
+    },
+    {
+      "match": 9,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 151,
+      "status": "running"
+    },
+    {
+      "match": 10,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "tick": 150,
+      "status": "running"
+    }
+  ],
+  "throttledSweep": [
+    {
+      "rate": 4,
+      "atMs": 1784784895062,
+      "raf": {
+        "sampleCount": 135,
+        "avgFrameMs": 111.60074074074079,
+        "worstFrameMs": 166.70000000001164,
+        "fpsAvg": 8.9605140016328,
+        "fps1PercentLow": 5.99880023995159,
+        "framesOver16_7": 134,
+        "framesOver33": 134
+      },
+      "store": {
+        "frames": 130,
+        "avgSimMs": 0.47538461639330937,
+        "worstSimMs": 5.5,
+        "avgPublishMs": 0.19692307664797856,
+        "worstPublishMs": 0.5,
+        "avgTicksPerFrame": 2.3153846153846156,
+        "effectiveTickHz": 19.858811110378042,
+        "stallCount": 0,
+        "worstGapMs": 198
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 425,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 60,
+        "playerUnits": 30,
+        "opponentUnits": 30,
+        "logLength": 1606
+      },
+      "cdp": {
+        "scriptPct": 77.9098133333333,
+        "layoutPct": 2.9516600000000004,
+        "stylePct": 4.63592,
+        "taskPct": 100.73406666666659,
+        "domNodes": 15714
+      }
+    },
+    {
+      "rate": 6,
+      "atMs": 1784784926349,
+      "raf": {
+        "sampleCount": 92,
+        "avgFrameMs": 162.4934782608695,
+        "worstFrameMs": 266.70000000001164,
+        "fpsAvg": 6.154093140861844,
+        "fps1PercentLow": 3.749531308586263,
+        "framesOver16_7": 92,
+        "framesOver33": 92
+      },
+      "store": {
+        "frames": 65,
+        "avgSimMs": 1.0261538459704473,
+        "worstSimMs": 2.800000011920929,
+        "avgPublishMs": 0.31230769340808573,
+        "worstPublishMs": 0.699999988079071,
+        "avgTicksPerFrame": 4.569230769230769,
+        "effectiveTickHz": 19.659760375984643,
+        "stallCount": 42,
+        "worstGapMs": 375
+      },
+      "commit": null,
+      "heap": {
+        "usedMB": 29.754638671875,
+        "totalMB": 110.626220703125,
+        "limitMB": 3585.8154296875
+      },
+      "battle": {
+        "tick": 422,
+        "mode": "dev-stress",
+        "status": "running",
+        "units": 59,
+        "playerUnits": 29,
+        "opponentUnits": 30,
+        "logLength": 1593
+      },
+      "cdp": {
+        "scriptPct": 76.12261999999997,
+        "layoutPct": 3.2674533333333353,
+        "stylePct": 4.815426666666665,
+        "taskPct": 100.34917333333331,
+        "domNodes": 9020
+      }
+    }
+  ],
+  "teardown": {
+    "profilerGlobalRemoved": true
+  }
+}

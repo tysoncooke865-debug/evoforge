@@ -95,6 +95,7 @@ export default function ForgeArenaLayout() {
         <Stack.Screen name="replay" options={{ title: 'Replay' }} />
         <Stack.Screen name="profile" options={{ title: 'Profile' }} />
         <Stack.Screen name="debug" options={{ title: 'Developer Debug' }} />
+        <Stack.Screen name="dev-stress" options={{ title: 'Render Stress Lab' }} />
       </Stack>
     </ErrorBoundary>
   );

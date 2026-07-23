@@ -134,6 +134,11 @@ export default function DebugScreen() {
           variant="secondary"
           onPress={() => router.push('/forge-arena/dev-fitness-editor')}
         />
+        <NeonButton
+          label="Render Stress Lab"
+          variant="secondary"
+          onPress={() => router.push('/forge-arena/dev-stress')}
+        />
       </Panel>
 
       <NeonButton label={resetDone ? 'Data reset ✓' : 'Reset all data'} variant="danger" onPress={confirmReset} />

@@ -2130,6 +2130,33 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   (audit C6, highest-value follow-up); G2 gym-war on-screen check;
   the standing on-device pass. Arena suite 514, full 1,585.
 
+- **2026-07-23 — Arena PREMIUM program, Session 1 (Phases 1-3): audit +
+  render architecture + stress lab.** New 19-phase program (premium
+  mobile quality; Clash Royale as a quality bar only). Docs live in
+  `client/src/arena-game/`: ARENA_PREMIUM_AUDIT (two corrections: the
+  wider app HAS a full avatar/cosmetic system the arena ignores —
+  path-only sprites, no stage/sex/skin; and an app-level synth SFX
+  system exists), ARENA_RENDER_ARCHITECTURE (as-is pipeline + ranked
+  evidence-gated optimizations, deliberately unapplied),
+  ARENA_PERFORMANCE_BASELINE / ARENA_QUALITY_GATES /
+  ARENA_GOLDEN_SLICE_PLAN / AVATAR_VISUAL_SOURCE_MAP /
+  KNOWN_ARENA_ISSUES / **ARENA_STRESS_TEST_REPORT** (+ raw JSON).
+  New instrument: Render Stress Lab (`/forge-arena/dev-stress`, linked
+  from debug) — battle mode `'dev-stress'` (never recorded/persisted/
+  rated), density driver, alloc-free frame profiler
+  (`window.__ARENA_PROFILE`), headless bench (ARENA_STRESS_BENCH=1),
+  browser sweep `scripts/arena-stress-measure.mjs` (CDP script/layout
+  split + CPU throttle + heap trend). THE FINDING: sim is never the
+  bottleneck (tickHz holds 20 everywhere); desktop 60fps through
+  30/team; **4× CPU throttle (mid-phone proxy) → 9fps, script-bound
+  (78% core) while layout stays <5%** — the whole-tree un-memoized
+  20Hz re-render is the cost. Heap flat over 10 matches. New CI guard
+  `verify-arena-purity.mjs` (engine imports no UI; falsified).
+  GOTCHA: React 19 does NOT flush zustand subscribers synchronously in
+  set() — publish timing measures scheduling only; trust the rAF
+  sampler. **Session stopped by design: Phase 4 (renderer decision) is
+  scheduled for Opus 4.8 at xhigh, independent, on this evidence.**
+
 ---
 
 ## 3. The rules that cost real bugs

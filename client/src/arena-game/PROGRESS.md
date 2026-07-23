@@ -2073,3 +2073,63 @@ and one mis-click derailed a run. LOW: floor accent-strip tiling.
 Final gates: tsc clean; arena 28 files / 514 tests; full 1,585; lint 0
 errors (7 documented warnings); verify-tokens/motion/battle-engine
 green; export green.
+
+## Premium program Session 1 (Phases 1-3): audit, architecture, stress lab (2026-07-23)
+
+New 19-phase "premium mobile quality" program (operator prompt; Clash
+Royale as a QUALITY benchmark only). Session 1 = Phases 1-3, stopped by
+design after the stress report; Phase 4 (independent renderer decision)
+is scheduled for Opus 4.8 xhigh.
+
+P1 (audit + gates): two assumption corrections found by exploration -
+(a) the wider app HAS a full avatar/cosmetic system the arena ignores
+(5 classes x 4 stages real art, palette-swap skins, premium character,
+Supabase-backed ownership, canonical resolver use-display-identity.ts;
+arena reads profiles.origin_path only), and (b) the app HAS a synth
+Web-Audio SFX system (ui/core/sound.ts) - "no audio anywhere" was wrong
+at app level. Docs: ARENA_PREMIUM_AUDIT / ARENA_PERFORMANCE_BASELINE /
+ARENA_QUALITY_GATES / ARENA_GOLDEN_SLICE_PLAN / AVATAR_VISUAL_SOURCE_MAP
+/ KNOWN_ARENA_ISSUES (the premium living checklist).
+
+P2 (architecture): ARENA_RENDER_ARCHITECTURE.md documents the as-is
+pipeline (pure engine -> version-counter store -> single-subscriber
+whole-tree re-render at 20Hz -> same-tree HUD) with boundary rules and
+RANKED evidence-gated optimization candidates - deliberately NOT applied
+before the Phase 4 decision. Engine purity is now CI (verify-arena-
+purity.mjs, falsified once: react import -> red -> removed; wired into
+client.yml).
+
+P3 (stress lab): battle mode 'dev-stress' (never recorded/persisted/
+rated - driver spawns bypass the command log so a record could never
+replay; the ONLY production diff, ~20 lines + null-checked devFrameHook
+timing sim/publish per frame). features/arena/dev/frame-profiler.ts
+(alloc-free rAF ring + store hook + __ARENA_PROFILE global) and
+stress-driver.ts (spawnUnitsForCard top-up 250ms burst-capped mode-
+guarded, 2x/4x extra stepLiveBattle, auto-cast, auto-restart). Screen
+/forge-arena/dev-stress mounts the REAL ArenaScreen (boot effect skips
+start() when a battle runs; unmount reset is the teardown) - fully
+testID'd, linked from debug screen. Headless bench stress-bench.test.ts
+(ARENA_STRESS_BENCH=1, falsified once) + scripts/arena-stress-measure.mjs
+(density/particle sweeps, CDP script-layout split, 4x/6x CPU throttle,
+10-match heap trend, teardown check).
+
+THE FINDING (ARENA_STRESS_TEST_REPORT.md): sim is never the bottleneck
+(<=1.1ms/frame even throttled; tickHz holds 20 everywhere - overload
+renders choppy, never plays slow). Desktop: 60fps through 30/team+400
+particles; first strain at 40/team (1% low 30). Phone-class proxy: 4x
+CPU throttle -> 9.0fps, 6x -> 6.2fps, script 78% of core while
+layout+style stay <5% - the cost is re-executing the un-memoized tree
+20x/s, not the browser pipeline. Heap flat 29.8MB over 10 matches.
+GOTCHA for posterity: publishMs measures SCHEDULING only - React 19
+does not flush zustand subscribers synchronously in set(); the rAF
+sampler is the truth (this falsified the design agent's assumption).
+GOTCHA 2: stress battles FINISH (~40-60s at density) - the first sweep
+silently measured a frozen result screen at densities 30/40; the
+harness now forces a fresh battle per step, validates status/tickHz
+per window, and warns on a frozen sim.
+
+Gates: tsc clean; full suite 1,585 + bench; lint 0 errors (7-warning
+baseline restored after stripping a BOM the PowerShell round-trip
+added); all verify scripts green incl. the new purity guard; deep
+harness green with DEEP confirmed by duration scaling (10.8s vs 5.4s);
+export green; visual tour unregressed; stress lab screenshot-verified.
