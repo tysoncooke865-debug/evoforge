@@ -207,7 +207,10 @@ export function useBindOrigin() {
   return useMutation({
     mutationFn: async (path: string): Promise<BindResult> => {
       const { data, error } = await supabase.rpc('assign_origin_path', { p_path: path });
-      if (error) throw new Error('network');
+      // Carry the REAL error message — collapsing everything to 'network' hid a
+      // server-side P0003 for days (the duplicate-profile bind bug): the user
+      // retried forever against an error retrying could never fix.
+      if (error) throw new Error(error.message || 'network');
       const r = data as BindResult;
       if (!r.ok && r.reason !== 'already_assigned') return r;
       return { ...r, ok: true, already: r.reason === 'already_assigned' };
@@ -252,7 +255,7 @@ export function useReforgeOrigin() {
   return useMutation({
     mutationFn: async (path: string): Promise<BindResult & { previous_origin?: string }> => {
       const { data, error } = await supabase.rpc('reforge_origin', { p_path: path });
-      if (error) throw new Error('network');
+      if (error) throw new Error(error.message || 'network');
       return data as BindResult & { previous_origin?: string };
     },
     onSuccess: (r) => {
