@@ -4,11 +4,19 @@
  * team-tinted) gives the core a physical identity.
  */
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageStyle, Platform, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../../constants/theme';
 import type { CoreState } from '../../../game-engine/simulation/state';
 import { healthBarColor } from './readability';
 import { coreSprite } from './sprites';
+
+/** Nearest-neighbour rendering on web (see lane-strip.tsx). */
+const PIXELATED =
+  Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
+
+/** Below this health fraction the core art swaps to its cracked variant —
+ *  a persistent damage state on top of the transient hit shake/flash. */
+const DAMAGED_ART_FRACTION = 0.5;
 
 /**
  * Core hit feedback (P6) — the caller (arena-screen.tsx) derives this fresh
@@ -53,7 +61,11 @@ export function CoreBar({ core, label, hit }: Props) {
       accessibilityLabel={`${label}: ${Math.max(0, Math.round(core.health))} of ${core.maxHealth} health`}
     >
       <View style={[styles.spriteClip, { transform: [{ translateX: shakeX }] }]}>
-        <Image source={coreSprite(core.team)} style={[styles.sprite, pct <= 0 && styles.destroyed]} />
+        <Image
+          source={coreSprite(core.team, pct < DAMAGED_ART_FRACTION)}
+          style={[styles.sprite, PIXELATED, pct <= 0 && styles.destroyed]}
+          fadeDuration={0}
+        />
         {flashOpacity > 0 && (
           <View
             pointerEvents="none"
@@ -93,7 +105,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   spriteClip: { position: 'relative' },
-  sprite: { width: 28, height: 28 },
+  sprite: { width: 44, height: 44 },
   destroyed: { opacity: 0.25 },
   hitFlash: {
     position: 'absolute',

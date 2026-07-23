@@ -9,14 +9,14 @@ commit; add newly discovered polish issues here, never silently.
 Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 
 ## Visual identity
-- [ ] A1 Battlefield is two empty flat boxes — no floor/environment/depth. → Phase 2. OPEN
-- [ ] A2 Units/champions are flat-tinted static Kenney 1-bit tiles. → Phase 3. OPEN
+- [x] A1 Battlefield is two empty flat boxes — no floor/environment/depth. DONE (Phase 2: PixelLab floor texture + center line + deploy boundary; tour-verified). Tuning note: floor amber strips slightly busy, deploy wash strength — judge in Phase 12.
+- [x] A2 Units/champions are flat-tinted static Kenney 1-bit tiles. DONE (Phase 3: PixelLab character set, 5 champions + 10 units + cores; team = baked outline + base plate). Frame ANIMATION remains B1.
 - [ ] A3 No audio or haptics anywhere. → Phase 4 (decision + SFX set). OPEN
 - [ ] A4 Title/lobby/champion screens are bare text lists, no art. → Phase 7. OPEN
 - [ ] A5 Arena never uses the EvoForge pixel display font; theme values duplicated from tokens. → Phase 7 (font); token unification DEFERRED (product decision — two theme sources are pinned app-wide, see client/CLAUDE.md rarity-palette precedent). OPEN
 
 ## Combat feel
-- [ ] B1 No unit animation (idle/walk/attack/hit/death) — units glide. → Phase 3 (frames) + 4 (cycle timing). OPEN
+- [ ] B1 No unit animation frames — units glide. PARTIAL (Phase 3: movement-driven walk-bob with per-unit phase, reduced-motion gated; white-silhouette hit flash). Full frame cycles DEFERRED: PixelLab animate-with-text degrades/turns the character on toward-camera walks (tested); revisit with skeleton animation or hand frames in Phase 4 only if bob reads as insufficient.
 - [ ] B2 No projectiles for ranged units. → Phase 4. OPEN
 - [ ] B3 No hit-stop / camera shake / slow-mo; core-sprite shake is the only screen response. → Phase 4 (impact tiers). OPEN
 - [ ] B4 No battle intro/countdown; result overlay pops the frame the core dies; core destruction has no climax. → Phases 4+9. OPEN
@@ -26,10 +26,10 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 
 ## Readability
 - [ ] C1 Co-located units overprint into an unreadable pile (no stacking offset/draw order). → Phase 6. OPEN
-- [ ] C2 Opposing champions near-identical in mirror/path-tint situations; team read hangs on a thin ring. → Phase 3 (encoding) + 6 (verify). OPEN
+- [x] C2 Opposing champions near-identical in mirror/path-tint situations. DONE (Phase 3: team-colored baked outlines + base plates on every character; art carries identity). Mirror-match screenshot check still owed in Phase 6.
 - [ ] C3 Card names truncate on 390pt phones ("Emergenc…", "Javelin Mark…"). → Phase 6 (chip layout) + 8 (featured names). OPEN
-- [ ] C4 Deploy zone tint ~invisible (0.08 alpha); no idle affordance. → Phase 2, verified Phase 6. OPEN
-- [ ] C5 Arena Images lack `imageRendering: pixelated`; 64px sprites drawn at 18/24/28pt non-integer scale (rest of app sets it). → Phase 2. OPEN
+- [x] C4 Deploy zone tint ~invisible; no idle affordance. DONE (Phase 2: visible boundary line + zone, both brighten while a card is selected; tour-verified).
+- [x] C5 Arena Images lack `imageRendering: pixelated`. DONE (Phase 2/3: applied to floor, units, cores; DPR-4 zoom verified crisp).
 - [ ] C6 Zero testIDs in the package — audits must click by coordinates. → Phase 3 (add while touching components). OPEN
 
 ## UI presentation
@@ -39,8 +39,9 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [ ] D4 Cards are text chips — no art/frames on the primary interaction surface. → Phases 6+7 (+3 thumbnails if asset budget allows). OPEN
 
 ## Pipeline / assets
-- [ ] E1 PixelLab key provisioned but unvalidated — confirm API access, license terms, output quality before committing Phase 3 to it; fallback = curated CC0 pack through arena-sprite-tools.mjs. OPEN
-- [ ] E2 New sprite sheets need the pngquant diet + fallback hierarchy (path+stage → path base → styled placeholder → 1-bit tile). OPEN (standing rule)
+- [x] E1 PixelLab key validated and adopted (generate-image-pixflux at 64px low top-down is excellent; animate-with-text unusable for toward-camera walks; rotate south→north returned another front view). Pipeline: scripts/arena-pixellab-gen.mjs, pinned seeds, idempotent raws.
+- [x] E2 Sprites pngquant-crushed (175→59KB); runtime fallback = colored dot / letter glyph (unchanged, never a broken image); legacy Kenney set kept on disk as documented fallback source.
+- [ ] E3 NEW: unit sprites at 26pt occasionally read ambiguous at arm's length (cardio-runner reads bike-ish) — judge per-card during Phase 8 roster selection; regenerate individual raws (delete + re-run generate) where identity fails. OPEN
 
 ## Guardrails to re-verify after each phase (not issues — tripwires)
 - Replay digest parity (any engine log change), deep harness 0 defects,

@@ -78,6 +78,7 @@ import { computeFloaterStagger, computeLaneMomentum } from './readability';
 import { ResultOverlay } from './result-overlay';
 import { SynergyChips } from './synergy-chips';
 import { TutorialOverlay } from './tutorial-overlay';
+import { useReducedMotionPref } from './use-reduced-motion';
 
 /** How long a rejected-deploy toast stays visible. */
 const REJECTION_TOAST_MS = 1500;
@@ -275,6 +276,8 @@ export function ArenaScreen({
   const mode = useBattle((s) => s.mode);
   const selectedCardId = useBattle((s) => s.selectedCardId);
   const lastRejection = useBattle((s) => s.lastRejection);
+  /** Suppresses the units' walk-bob (Phase 3) — see use-reduced-motion.ts. */
+  const reduceMotion = useReducedMotionPref();
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -579,6 +582,8 @@ export function ArenaScreen({
           telegraphs={lane0Telegraphs}
           spawnPoofs={lane0SpawnPoofs}
           momentum={lane0Momentum}
+          deployHighlight={selectedCardId !== null}
+          reduceMotion={reduceMotion}
           onDeployTap={handleDeployTap}
         />
         <LaneStrip
@@ -589,8 +594,11 @@ export function ArenaScreen({
           telegraphs={lane1Telegraphs}
           spawnPoofs={lane1SpawnPoofs}
           momentum={lane1Momentum}
+          deployHighlight={selectedCardId !== null}
+          reduceMotion={reduceMotion}
           onDeployTap={handleDeployTap}
         />
+
       </View>
 
       <SynergyChips

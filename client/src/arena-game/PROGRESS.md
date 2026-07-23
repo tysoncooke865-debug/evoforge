@@ -1849,3 +1849,46 @@ tier gating, gym slice with roles.
 Full report at repo root: `OVERNIGHT_ARENA_BUILD_REPORT.md`.
 
 # OVERNIGHT ARENA HARDENING RUN COMPLETE (P1–P14, 2026-07-23)
+
+# POLISH PASS (vertical slice)
+
+## Phase 1 — visual audit (2026-07-23, commit 93877b3)
+
+Real-build audit (played battle + full screen tour via
+scripts/arena-visual-tour.mjs). Docs: ARENA_VISUAL_AUDIT.md,
+VERTICAL_SLICE_PLAN.md, KNOWN_POLISH_ISSUES.md.
+
+## Phases 2+3 — arena environment + PixelLab sprite replacement (2026-07-23)
+
+The 1-bit look is gone. PixelLab (pixellab.ai, key in .env.local) generates
+the entire character/structure/floor set: 5 champions with distinct
+physiques + path colors baked in the art, 10 fighter units, 2 Forge Cores
+with cracked damage variants, 1 lane floor texture. Pipeline:
+scripts/arena-pixellab-gen.mjs (generate = API, idempotent per raw file,
+pinned seeds; build = team-outline post-process player-cyan/opponent-red);
+raws in assets/arena-pixellab-src/, game PNGs in
+features/arena/sprites/px/ (pngquant-crushed, 35 files 59KB).
+
+Renderer (sim untouched, replay digests unaffected):
+- lane-strip: floor texture per lane (static Image), center line, visible
+  deploy boundary + brighter zone while a card is selected; units 26pt /
+  champions 38pt / borrowed 30pt with team base-plate ellipses (team =
+  outline + plate + health bar + chevron; art = identity); walk-bob while a
+  unit has no combat target (movement-driven, per-unit phase offset,
+  gated by new use-reduced-motion.ts); hit flash upgraded from white box to
+  white-tinted sprite silhouette; imageRendering:pixelated on web (C5).
+- core-bar: 44pt core art, cracked variant below 50% health, pixelated.
+- championSprite() now keys by TEAM (outline variant); path identity lives
+  in the art itself. Legacy Kenney set kept on disk as documented fallback
+  source (ASSETS.md rewritten).
+
+Verified: tsc clean; arena suite 26 files/487 tests green; lint 0 errors
+(7 documented warnings); verify-motion/verify-tokens OK; web export +
+Playwright tour re-run — floor/cores/units/damage-variant all confirmed
+on-screen at DPR 2 and DPR 4 (shots compared against the Phase 1 baseline).
+
+Deferred (documented in KNOWN_POLISH_ISSUES.md): PixelLab walk-cycle
+animation (frames degrade/turn the character — evidence in the Phase 1
+session; bob + hit-flash carry motion for now), north-facing back views
+(rotate returned another front view; chevron still carries direction),
+deploy-wash/floor-busyness tuning judged fine pending the Phase 12 review.

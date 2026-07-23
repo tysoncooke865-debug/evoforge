@@ -8,17 +8,45 @@
  * player's tap-to-deploy zone, tinted so it reads as interactive.
  */
 import React, { useCallback, useState } from 'react';
-import { GestureResponderEvent, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  GestureResponderEvent,
+  Image,
+  type ImageStyle,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors, pathColor, radius } from '../../../constants/theme';
 import { BALANCE, getCardById, getChampionById } from '../../../content';
 import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId, TeamId } from '../../../game-engine/types';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
 import { healthBarColor } from './readability';
-import { championSprite, unitSprite } from './sprites';
+import { arenaFloorTexture, championSprite, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
 const DEPLOY_ZONE_HEIGHT_PCT = (deployZoneDepth / laneLength) * 100;
+
+/** Nearest-neighbour rendering for the pixel sprites on web (native ignores
+ *  it) — the rest of EvoForge sets the same flag on its pixel art; without it
+ *  the browser's bilinear filter softens every downscaled sprite (audit C5). */
+const PIXELATED =
+  Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
+
+/** Walk-bob (Phase 3): amplitude/period of the little vertical bounce a unit
+ *  carries while it is actually moving (no combat target). Movement-driven —
+ *  it stops the moment the unit stops — and additionally gated behind the
+ *  reduced-motion preference (see use-reduced-motion.ts). */
+const BOB_AMPLITUDE_PX = 1.6;
+const BOB_PERIOD_MS = 340;
+
+/** Deterministic per-unit phase offset so a pack of walkers doesn't bob in
+ *  perfect sync (reads as one blob) — derived from the unit id, no state. */
+function bobPhase(id: number): number {
+  return (((id * 2654435761) >>> 0) % 628) / 100; // 0..2π
+}
 
 /**
  * Combat-feedback floater (damage/heal number or death marker), derived by
@@ -112,6 +140,12 @@ interface Props {
    *  — which team currently has more living presence pushing this lane, and
    *  toward which core. Omit (or 0) for no edge indicator. */
   momentum?: number;
+  /** True while a card is selected — the deploy zone brightens to advertise
+   *  where the tap will land (Phase 2 readability). */
+  deployHighlight?: boolean;
+  /** Reduced-motion preference (see use-reduced-motion.ts) — suppresses the
+   *  walk-bob; every other effect here is already reactive + short-lived. */
+  reduceMotion?: boolean;
   onDeployTap: (lane: LaneId, engineX: number) => void;
 }
 
@@ -123,6 +157,8 @@ export function LaneStrip({
   telegraphs,
   spawnPoofs,
   momentum = 0,
+  deployHighlight = false,
+  reduceMotion = false,
   onDeployTap,
 }: Props) {
   const [height, setHeight] = useState(0);
@@ -159,12 +195,23 @@ export function LaneStrip({
       accessibilityRole="button"
       accessibilityLabel={`Lane ${lane + 1} — tap the deploy zone to deploy the selected card`}
     >
-      <View style={styles.deployZone} />
+      {/* Phase 2: the cyberpunk gym floor — a static texture, zero per-tick
+          cost; the strip's surface color remains behind it as the fallback. */}
+      <Image
+        source={arenaFloorTexture()}
+        style={[styles.floor, PIXELATED]}
+        resizeMode="cover"
+        fadeDuration={0}
+      />
+      <View style={styles.centerLine} />
+      <View style={[styles.deployZone, deployHighlight && styles.deployZoneActive]} />
+      <View style={[styles.deployBoundary, deployHighlight && styles.deployBoundaryActive]} />
       {momentum !== 0 && <LaneMomentumEdge momentum={momentum} />}
       {units.map((unit) => (
         <UnitMarker
           key={unit.id}
           unit={unit}
+          reduceMotion={reduceMotion}
           flashBornAtMs={
             hitPings?.length
               ? latestMatchingHit(unit.lane, unit.x, unit.team, hitPings, HIT_FLASH_MATCH_RADIUS)
@@ -371,33 +418,65 @@ function DirectionChevron({ team }: { team: TeamId }) {
   );
 }
 
-/** Small marker dot with a 3px health bar; ranged/healer units get a letter from their art key.
- *  `flashBornAtMs` (null when no recent hit matched) drives a brief white
- *  overlay flash, aged the same way as every other combat-feel effect here —
- *  no Animated value, no per-unit React state. */
-function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: number | null }) {
+/** A unit/champion marker: team base plate + PixelLab sprite + health bar +
+ *  direction chevron. `flashBornAtMs` (null when no recent hit matched)
+ *  drives a brief white silhouette flash (the sprite re-drawn tinted white),
+ *  aged the same way as every other combat-feel effect here — no Animated
+ *  value, no per-unit React state. While a unit is actually moving (no
+ *  combat target) it carries a small walk-bob, movement-driven and gated
+ *  behind reduced motion. */
+function UnitMarker({
+  unit,
+  flashBornAtMs,
+  reduceMotion,
+}: {
+  unit: UnitState;
+  flashBornAtMs: number | null;
+  reduceMotion: boolean;
+}) {
+  const nowMs = Date.now();
   const topPct = (1 - unit.x / laneLength) * 100;
   const healthPct = Math.max(0, Math.min(1, unit.health / unit.baseMaxHealth));
   const tint = unit.team === 'player' ? colors.player : colors.opponent;
-  const flashAge =
-    flashBornAtMs === null ? HIT_FLASH_TTL_MS : Math.max(0, Date.now() - flashBornAtMs);
+  const flashAge = flashBornAtMs === null ? HIT_FLASH_TTL_MS : Math.max(0, nowMs - flashBornAtMs);
   const flashOpacity = flashAge < HIT_FLASH_TTL_MS ? (1 - flashAge / HIT_FLASH_TTL_MS) * 0.75 : 0;
-  const flashOverlay = flashOpacity > 0 && (
+  const boxFlashOverlay = flashOpacity > 0 && (
     <View pointerEvents="none" style={[styles.hitFlashOverlay, { opacity: flashOpacity }]} />
+  );
+  const moving = unit.targetId === null;
+  const bobY =
+    moving && !reduceMotion
+      ? Math.sin((nowMs / BOB_PERIOD_MS) * Math.PI * 2 + bobPhase(unit.id)) * BOB_AMPLITUDE_PX
+      : 0;
+
+  /** Sprite + white-silhouette flash + team base plate, bobbing together. */
+  const spriteStack = (
+    sprite: NonNullable<ReturnType<typeof unitSprite>>,
+    sizeStyle: ImageStyle,
+    plateStyle: object
+  ) => (
+    <View style={[styles.spriteStack, { transform: [{ translateY: bobY }] }]}>
+      <View style={[styles.basePlate, plateStyle, { borderColor: tint, backgroundColor: `${tint}33` }]} />
+      <Image source={sprite} style={[sizeStyle, PIXELATED]} fadeDuration={0} />
+      {flashOpacity > 0 && (
+        <Image
+          source={sprite}
+          style={[sizeStyle, PIXELATED, styles.flashSilhouette, { opacity: flashOpacity }]}
+          fadeDuration={0}
+        />
+      )}
+    </View>
   );
 
   if (unit.kind === 'champion') {
-    // Champions render larger, tinted with their path color and initial;
-    // the team still reads from the border + health bar tint. Borrowed squad
-    // champions (M9) keep the path color + initial but use a visibly smaller
-    // ring — the captain keeps the big marker.
+    // Champions render distinctly larger; their path identity lives in the
+    // art itself (PixelLab), team reads from outline + plate + health bar.
+    // Borrowed squad champions (M9) sit between unit and captain size.
     const champion = getChampionById(unit.contentId);
     const fill = champion ? pathColor(champion.path) : tint;
     const initial = champion ? champion.name.charAt(0).toUpperCase() : '?';
     const borrowed = unit.champion ? !unit.champion.commandable : false;
-    // Pixel sprite (path-colored) when available; the team ring + health bar
-    // tint keep team readability. Falls back to the colored dot + initial.
-    const sprite = champion ? championSprite(champion.art, champion.path) : null;
+    const sprite = champion ? championSprite(champion.art, unit.team) : null;
     return (
       <View style={[styles.unitWrap, { top: `${topPct}%` }]} pointerEvents="none">
         <View
@@ -414,18 +493,11 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
           />
         </View>
         {sprite ? (
-          <View
-            style={[
-              borrowed ? styles.borrowedSpriteFrame : styles.championSpriteFrame,
-              { borderColor: tint },
-            ]}
-          >
-            <Image
-              source={sprite}
-              style={borrowed ? styles.borrowedSprite : styles.championSprite}
-            />
-            {flashOverlay}
-          </View>
+          spriteStack(
+            sprite,
+            borrowed ? styles.borrowedSprite : styles.championSprite,
+            borrowed ? styles.borrowedPlate : styles.championPlate
+          )
         ) : (
           <View
             style={[
@@ -436,7 +508,7 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
             <Text style={borrowed ? styles.borrowedMarkerText : styles.championMarkerText}>
               {initial}
             </Text>
-            {flashOverlay}
+            {boxFlashOverlay}
           </View>
         )}
         <DirectionChevron team={unit.team} />
@@ -462,14 +534,11 @@ function UnitMarker({ unit, flashBornAtMs }: { unit: UnitState; flashBornAtMs: n
         />
       </View>
       {sprite ? (
-        <View style={styles.spriteFlashClip}>
-          <Image source={sprite} style={styles.unitSprite} />
-          {flashOverlay}
-        </View>
+        spriteStack(sprite, styles.unitSprite, styles.unitPlate)
       ) : (
         <View style={[styles.unitDot, { backgroundColor: tint, borderColor: tint }]}>
           {marker ? <Text style={styles.unitMarkerText}>{marker}</Text> : null}
-          {flashOverlay}
+          {boxFlashOverlay}
         </View>
       )}
       <DirectionChevron team={unit.team} />
@@ -487,24 +556,56 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  // Phase 2 — environment. The floor texture fills the strip (static Image,
+  // zero per-tick cost); the faint center line marks the halfway point; the
+  // deploy zone gets a real boundary line that brightens while a card is
+  // selected.
+  floor: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.92,
+  },
+  centerLine: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    top: '50%',
+    height: 1,
+    backgroundColor: 'rgba(230, 241, 255, 0.07)',
+  },
   deployZone: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     height: `${DEPLOY_ZONE_HEIGHT_PCT}%`,
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    backgroundColor: 'rgba(34, 211, 238, 0.07)',
   },
+  deployZoneActive: { backgroundColor: 'rgba(34, 211, 238, 0.16)' },
+  deployBoundary: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: `${DEPLOY_ZONE_HEIGHT_PCT}%`,
+    height: 2,
+    backgroundColor: 'rgba(34, 211, 238, 0.28)',
+  },
+  deployBoundaryActive: { backgroundColor: 'rgba(34, 211, 238, 0.8)' },
   unitWrap: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -9,
-    width: 18,
+    marginLeft: -22,
+    width: 44,
     alignItems: 'center',
-    transform: [{ translateY: -9 }],
+    transform: [{ translateY: -14 }],
   },
   unitHealthTrack: {
-    width: 16,
+    width: 20,
     height: 3,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 2,
@@ -512,6 +613,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   unitHealthFill: { height: '100%' },
+  // Sprite stack: team base plate (ground ellipse) behind the sprite; the
+  // white silhouette flash overlays it; all three bob together while moving.
+  spriteStack: { position: 'relative', alignItems: 'center' },
+  basePlate: {
+    position: 'absolute',
+    bottom: -1,
+    borderWidth: 1.5,
+  },
+  unitPlate: { width: 20, height: 7, borderRadius: 4 },
+  championPlate: { width: 30, height: 9, borderRadius: 5, borderWidth: 2 },
+  borrowedPlate: { width: 24, height: 8, borderRadius: 4 },
+  // White-silhouette hit flash: the same sprite re-drawn tinted solid white
+  // over itself (tintColor recolors every opaque pixel).
+  flashSilhouette: { position: 'absolute', top: 0, tintColor: '#FFFFFF' },
   unitDot: {
     width: 14,
     height: 14,
@@ -529,7 +644,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  championHealthTrack: { width: 26 },
+  championHealthTrack: { width: 30 },
   championDot: {
     width: 22,
     height: 22,
@@ -539,26 +654,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   championMarkerText: { color: '#04121A', fontSize: 11, fontWeight: '800' },
-  // Pixel sprites (Kenney 1-bit, pre-tinted). Sizes mirror the dot metrics
-  // so battle-density readability stays unchanged.
-  unitSprite: { width: 18, height: 18 },
-  championSpriteFrame: {
-    borderWidth: 2,
-    borderRadius: 6,
-    padding: 1,
-    backgroundColor: 'rgba(4, 18, 26, 0.65)',
-  },
-  championSprite: { width: 24, height: 24 },
-  borrowedSpriteFrame: {
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 1,
-    backgroundColor: 'rgba(4, 18, 26, 0.65)',
-  },
-  borrowedSprite: { width: 18, height: 18 },
-  // Borrowed (M9): between a regular unit and the captain in size — path
-  // color + initial mark it as a champion, the thinner ring as borrowed.
-  borrowedHealthTrack: { width: 20 },
+  // PixelLab sprites (64px source, team-outlined at build time). Champions
+  // are deliberately much larger than units — silhouette hierarchy is the
+  // primary "that's a champion" read (Phase 3).
+  unitSprite: { width: 26, height: 26 },
+  championSprite: { width: 38, height: 38 },
+  borrowedSprite: { width: 30, height: 30 },
+  // Borrowed (M9): between a regular unit and the captain in size — the
+  // smaller sprite + thinner plate mark it as borrowed.
+  borrowedHealthTrack: { width: 24 },
   borrowedDot: {
     width: 17,
     height: 17,
@@ -568,9 +672,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   borrowedMarkerText: { color: '#04121A', fontSize: 9, fontWeight: '800' },
-  // Hit-flash: a brief bright overlay clipped to the sprite/dot's own box —
-  // never the health bar above it (see spriteFlashClip / the frame views'
-  // implicit sizing). Plain View + opacity, aged per frame — no Animated.
+  // Hit-flash for the DOT fallback path only — sprites flash via the tinted
+  // silhouette overlay instead (flashSilhouette). Plain View + opacity, aged
+  // per frame — no Animated.
   hitFlashOverlay: {
     position: 'absolute',
     top: 0,
@@ -580,7 +684,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 6,
   },
-  spriteFlashClip: { position: 'relative' },
   // Death dissolve: a shrinking-fade ring plus a scaling-down glyph, centered
   // on the unit's last position.
   deathWrap: { position: 'absolute', left: '50%' },

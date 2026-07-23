@@ -2053,6 +2053,19 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   unused `PIXELLAB_AI_KEY` (pixel-art sprite generation API) — validate
   before building on it.
 
+- **2026-07-23 — Arena polish Phases 2+3 done: the 1-bit look is gone.**
+  PixelLab (that key, now validated) generated the full battle asset set —
+  5 champions / 10 units / 2 cores with cracked damage variants / lane
+  floor — via the new idempotent `client/scripts/arena-pixellab-gen.mjs`
+  (generate = API with pinned seeds, build = team-outline post-process,
+  raws in `client/assets/arena-pixellab-src/`). Renderer: floor + deploy
+  boundary + team base plates + walk-bob (reduced-motion gated via new
+  `use-reduced-motion.ts`) + white-silhouette hit-flash + pixelated
+  rendering; sim untouched, arena suite 487 green, Playwright tour
+  re-verified on the export. Known limits (documented in
+  KNOWN_POLISH_ISSUES.md): PixelLab walk-cycle/rotate animation unusable —
+  the walk-bob carries motion; direction is still chevron-carried.
+
 ---
 
 ## 3. The rules that cost real bugs
