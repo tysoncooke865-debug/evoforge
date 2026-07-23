@@ -897,6 +897,14 @@ export function ArenaScreen({
             null
           }
           opponentLabel={opponentIntroLabel}
+          squad={
+            mode === 'gym-war'
+              ? (live.config.player.squad?.borrowed ?? []).map((b) => ({
+                  championId: b.championId,
+                  ownerName: b.displayName ?? 'Gym mate',
+                }))
+              : undefined
+          }
           reduceMotion={reduceMotion}
         />
       )}

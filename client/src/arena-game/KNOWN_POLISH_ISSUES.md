@@ -43,6 +43,10 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [x] E2 Sprites pngquant-crushed (175→59KB); runtime fallback = colored dot / letter glyph (unchanged, never a broken image); legacy Kenney set kept on disk as documented fallback source.
 - [x] E3 DONE (Phase 8): cardio-runner → human sprinter, drone-archer → javelin thrower (matches the Javelin Marksman rename), support-drone → gym spotter with shield. Deck composition deliberately untouched (AI plays the starter deck — balance-coupled; see PROGRESS P8 decision).
 
+## Gym presentation (Phase 10)
+- [x] G1 Borrowed champions carry owner nameplates in-battle (engine ownerName, digest-neutral, tested) + Gym War intro squad row + sprite portraits in the War Squad builder. DONE (Phase 10).
+- [ ] G2 On-screen gym-war verification OWED: smoke ALPHA is in no gym and creating one would write real, discoverable social data. Verify the intro squad row + nameplates visually in Phase 12 or Tyson's device pass (a private test gym with the two smoke accounts would do it).
+
 ## Guardrails to re-verify after each phase (not issues — tripwires)
 - Replay digest parity (any engine log change), deep harness 0 defects,
   full gate sweep green, no new timers/Animated loops, FX teardown on

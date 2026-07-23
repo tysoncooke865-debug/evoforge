@@ -887,3 +887,35 @@ describe('provider gym boundary (M9)', () => {
     }
   });
 });
+
+describe('P10 - borrowed-champion owner attribution', () => {
+  const squadConfig = (displayName?: string): BattleConfig => ({
+    seed: 4242,
+    player: {
+      playerId: 'p1',
+      squad: {
+        captain: { championId: 'champion-titan' },
+        borrowed: [
+          { championId: 'champion-cardio', lane: 1, displayName, sourcePlayerId: 'm-1' },
+        ],
+      },
+    },
+    opponent: { playerId: 'p2', championId: 'champion-shredder' },
+  });
+
+  it('copies the owning member display name onto the borrowed champion state (captains stay unnamed)', () => {
+    const state = createBattle(squadConfig('Kai'), BALANCE);
+    const borrowed = state.units.find((u) => u.kind === 'champion' && !u.champion!.commandable);
+    const captain = state.units.find((u) => u.kind === 'champion' && u.champion!.commandable && u.team === 'player');
+    expect(borrowed?.champion?.ownerName).toBe('Kai');
+    expect(captain?.champion?.ownerName).toBeUndefined();
+  });
+
+  it('owner attribution is display-only: the digest is identical whatever the name says', () => {
+    const named = runBattle(squadConfig('Kai'), [], BALANCE);
+    const renamed = runBattle(squadConfig('Somebody Else Entirely'), [], BALANCE);
+    const anonymous = runBattle(squadConfig(undefined), [], BALANCE);
+    expect(renamed.digest).toBe(named.digest);
+    expect(anonymous.digest).toBe(named.digest);
+  });
+});

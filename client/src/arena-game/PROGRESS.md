@@ -2015,3 +2015,32 @@ errors; verify-motion/tokens/battle-engine OK; export + tour.
 GOTCHA (build tooling): PowerShell Select-Object -First N terminates the
 upstream native command early - it killed a pixellab generate run
 mid-way. Never pipe the generator through early-terminating filters.
+
+## Phase 10 - Gym Champions presentation (2026-07-23)
+
+Borrowed champions now carry their OWNER on the battlefield: engine-level
+ownerName on ChampionState (copied from the squad config at spawn -
+display/attribution metadata like spawnX, NEVER digested; pinned by two
+new tests incl. digest-identity across renames) -> a tiny team-tinted
+nameplate under every borrowed champion in lane-strip. Gym War battles
+get a squad ENTRANCE: the battle intro shows a FIGHTING BESIDE YOU row -
+each borrowed gym-mate's champion portrait in its path frame with the
+member's name. The War Squad builder cards show the member's actual
+champion sprite in a path-colored frame next to name/role/(EST.) chips.
+Result-side contribution lines were already in the staged ceremony (P7);
+gym overview MVP/most-fielded unchanged. All presentation-only: zero
+schema changes, (EST.) honesty copy intact, ownership/progression data
+untouched.
+
+HONESTY NOTE: the gym-war INTRO/nameplate visuals could not be verified
+on-screen this session - smoke ALPHA is in no gym, and creating/joining
+one would write real social data (discoverable by real users), which
+this package's zero-write discipline forbids. Verified instead via the
+engine tests + shared component paths (SquadEntry reuses the tour-
+verified ChampionPlate patterns). On-screen gym-war check is OWED to
+Phase 12 / Tyson's device pass (flagged in KNOWN_POLISH_ISSUES).
+
+Gates: tsc clean; arena 28 files / 513 tests (+2); full suite 1,584;
+lint back to the documented 7 warnings (a mid-file import-order slip in
+gym-squad was caught by lint and fixed); verify-motion/battle-engine OK;
+web export green.

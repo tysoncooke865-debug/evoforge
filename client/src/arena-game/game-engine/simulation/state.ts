@@ -66,6 +66,13 @@ export interface ChampionState {
   /** Stance Shift uses so far (Aesthetics): even = Bulwark next, odd = Assault. */
   stanceShifts: number;
   /**
+   * P10 gym presentation: the owning gym member's display name for borrowed
+   * champions — display/attribution metadata copied from the squad config at
+   * spawn. Never feeds the simulation, never digested (like spawnX).
+   * Undefined for captains and non-squad champions.
+   */
+  ownerName?: string;
+  /**
    * Passive hooks copied from content at spawn (config-derived constants —
    * not digested, like chargeRequired/respawnDelayTicks). Zero/null when the
    * champion's passive uses other mechanisms (spawn bake / team aura).
@@ -439,6 +446,7 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
       spawnChampion(state, balance, definition, team, borrowed.lane, borrowed.scaling, {
         commandable: false,
         spawnX,
+        ownerName: borrowed.displayName,
       });
     });
   }

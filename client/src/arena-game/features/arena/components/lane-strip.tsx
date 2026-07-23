@@ -846,6 +846,14 @@ function UnitMarker({
           </View>
         )}
         <DirectionChevron team={unit.team} />
+        {/* P10: a borrowed champion carries its OWNER's name — the social
+            point of Gym Wars is fielding your gym-mates, so say whose
+            champion this is right on the battlefield. */}
+        {borrowed && unit.champion?.ownerName ? (
+          <Text numberOfLines={1} style={[styles.ownerPlate, { color: tint }]}>
+            {unit.champion.ownerName}
+          </Text>
+        ) : null}
       </View>
     );
   }
@@ -1008,6 +1016,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   borrowedMarkerText: { color: '#04121A', fontSize: 9, fontWeight: '800' },
+  // P10 — owner nameplate under a borrowed champion (team-tinted, tiny but
+  // readable; the wrap is 44pt wide so ~8 chars show before ellipsis).
+  ownerPlate: {
+    marginTop: 1,
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    maxWidth: 44,
+    textShadowColor: 'rgba(4, 18, 26, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
   // Hit-flash for the DOT fallback path only — sprites flash via the tinted
   // silhouette overlay instead (flashSilhouette). Plain View + opacity, aged
   // per frame — no Animated.

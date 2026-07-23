@@ -11,10 +11,19 @@
  */
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  type ImageStyle,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Body, Heading, Mono, NeonButton, Panel, Screen } from '../components/ui';
 import { colors, pathColor, radius, spacing, typography } from '../constants/theme';
 import { BALANCE, CHAMPIONS, getChampionById, getChampionByPath } from '../content';
+import { championSprite } from '../features/arena/components/sprites';
 import { pathSquadRole } from '../features/gyms/path-roles';
 import { memberChampionId, memberScaling, pruneSquadSelection } from '../features/gyms/squad';
 import {
@@ -25,6 +34,9 @@ import {
 import type { GymMemberInfo } from '../integration/evoforge/types';
 import { playerProvider } from '../services/app-services';
 import { usePlayer } from '../services/player-data/use-player';
+
+const PIXELATED =
+  Platform.OS === 'web' ? ({ imageRendering: 'pixelated' } as unknown as ImageStyle) : undefined;
 
 function scalingPreview(member: GymMemberInfo): string {
   const s = memberScaling(member.fitness, BALANCE);
@@ -198,16 +210,33 @@ export default function GymSquadScreen() {
             style={[styles.card, isSelected && styles.cardSelected, full && styles.cardDim]}
           >
             <View style={styles.headerRow}>
-              <Text style={styles.name}>{member.displayName}</Text>
-              <Text style={[styles.champ, { color: pathColor(member.fitness.avatarPath) }]}>
-                {champion ? champion.name : member.fitness.avatarPath} (EST.)
-              </Text>
+              {/* P10: the member's champion stands on the card — the same
+                  sprite that will fight beside you. */}
+              {(() => {
+                const sprite = champion ? championSprite(champion.art, 'player') : null;
+                return sprite ? (
+                  <View
+                    style={[
+                      styles.portraitFrame,
+                      { borderColor: pathColor(member.fitness.avatarPath) },
+                    ]}
+                  >
+                    <Image source={sprite} style={[styles.portrait, PIXELATED]} fadeDuration={0} />
+                  </View>
+                ) : null;
+              })()}
+              <View style={styles.headerText}>
+                <Text style={styles.name}>{member.displayName}</Text>
+                <Text style={[styles.champ, { color: pathColor(member.fitness.avatarPath) }]}>
+                  {champion ? champion.name : member.fitness.avatarPath} (EST.)
+                </Text>
+                {role && (
+                  <Text style={[styles.role, { color: pathColor(member.fitness.avatarPath) }]}>
+                    {role.label.toUpperCase()} — {role.summary}
+                  </Text>
+                )}
+              </View>
             </View>
-            {role && (
-              <Text style={[styles.role, { color: pathColor(member.fitness.avatarPath) }]}>
-                {role.label.toUpperCase()} — {role.summary}
-              </Text>
-            )}
             <Text style={styles.preview}>{scalingPreview(member)}</Text>
             <Text style={[styles.state, isSelected && styles.stateSelected]}>
               {isSelected ? 'IN SQUAD — tap to remove' : full ? 'Squad full' : 'Tap to add'}
@@ -237,7 +266,18 @@ const styles = StyleSheet.create({
   },
   cardSelected: { borderColor: colors.cyan, backgroundColor: colors.surfaceRaised },
   cardDim: { opacity: 0.55 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  headerText: { flex: 1, gap: 2 },
+  portraitFrame: {
+    width: 48,
+    height: 48,
+    borderWidth: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  portrait: { width: 40, height: 40 },
   name: { ...typography.heading, color: colors.text, flexShrink: 1 },
   champ: { ...typography.label },
   role: { ...typography.label, fontSize: 10 },

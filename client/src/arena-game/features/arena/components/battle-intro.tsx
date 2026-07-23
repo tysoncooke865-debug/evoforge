@@ -22,12 +22,21 @@ export const INTRO_BEAT_MS = 650;
 export const INTRO_FIGHT_MS = 500;
 export const INTRO_TOTAL_MS = INTRO_BEAT_MS * 3 + INTRO_FIGHT_MS;
 
+/** P10: one borrowed gym-mate champion shown in the squad entrance row. */
+export interface IntroSquadMember {
+  championId: string;
+  ownerName: string;
+}
+
 interface Props {
   elapsedMs: number;
   playerChampionId: string | null;
   opponentChampionId: string | null;
   /** Who this is against — difficulty label, gym name, or ghost line. */
   opponentLabel: string;
+  /** P10 Gym Wars: the borrowed gym-mates fighting beside the captain —
+   *  they get their own entrance row under the face-off. */
+  squad?: IntroSquadMember[];
   reduceMotion: boolean;
 }
 
@@ -60,11 +69,37 @@ function ChampionPlate({
   );
 }
 
+/** Small portrait + owner name for one borrowed gym-mate (entrance row). */
+function SquadEntry({ member }: { member: IntroSquadMember }) {
+  const champion = getChampionById(member.championId);
+  const sprite = champion ? championSprite(champion.art, 'player') : null;
+  return (
+    <View style={styles.squadEntry}>
+      <View
+        style={[
+          styles.squadFrame,
+          { borderColor: champion ? pathColor(champion.path) : colors.border },
+        ]}
+      >
+        {sprite ? (
+          <Image source={sprite} style={[styles.squadSprite, PIXELATED]} fadeDuration={0} />
+        ) : (
+          <Text style={styles.squadFallback}>?</Text>
+        )}
+      </View>
+      <Text numberOfLines={1} style={styles.squadOwner}>
+        {member.ownerName}
+      </Text>
+    </View>
+  );
+}
+
 export function BattleIntro({
   elapsedMs,
   playerChampionId,
   opponentChampionId,
   opponentLabel,
+  squad,
   reduceMotion,
 }: Props) {
   const inFight = elapsedMs >= INTRO_BEAT_MS * 3;
@@ -85,6 +120,16 @@ export function BattleIntro({
         <Text style={styles.vs}>VS</Text>
         <ChampionPlate championId={opponentChampionId} team="opponent" />
       </View>
+      {squad && squad.length > 0 && (
+        <View style={styles.squadBlock}>
+          <Text style={styles.squadTitle}>FIGHTING BESIDE YOU</Text>
+          <View style={styles.squadRow}>
+            {squad.map((member, i) => (
+              <SquadEntry key={`${member.championId}-${i}`} member={member} />
+            ))}
+          </View>
+        </View>
+      )}
       <Text
         style={[
           styles.countdown,
@@ -127,6 +172,23 @@ const styles = StyleSheet.create({
   plateFallback: { ...typography.pixelBold, fontSize: 40 },
   plateName: { ...typography.label, textAlign: 'center' },
   vs: { ...typography.pixelBold, fontSize: 26, color: colors.textDim, letterSpacing: 2 },
+  // P10 — squad entrance row (Gym Wars): the borrowed gym-mates.
+  squadBlock: { alignItems: 'center', gap: spacing.xs },
+  squadTitle: { ...typography.label, fontSize: 11, color: colors.textDim, letterSpacing: 2 },
+  squadRow: { flexDirection: 'row', gap: spacing.md },
+  squadEntry: { alignItems: 'center', gap: 2, width: 72 },
+  squadFrame: {
+    width: 44,
+    height: 44,
+    borderWidth: 1.5,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  squadSprite: { width: 36, height: 36 },
+  squadFallback: { ...typography.pixelBold, fontSize: 20, color: colors.textDim },
+  squadOwner: { fontSize: 10, fontWeight: '700', color: colors.text, textAlign: 'center' },
   countdown: {
     ...typography.pixelBold,
     fontSize: 72,

@@ -33,6 +33,12 @@ export interface SpawnChampionOptions {
    * captain's spawn offset. Default: the standard championSpawnX.
    */
   spawnX?: number;
+  /**
+   * P10: owning gym member's display name for borrowed champions —
+   * display/attribution only (copied onto ChampionState.ownerName, never
+   * simulated, never digested).
+   */
+  ownerName?: string;
 }
 
 export function spawnChampion(
@@ -100,6 +106,7 @@ export function spawnChampion(
         ? { ...passive.lowHealthBonus }
         : null,
       spawnX: x,
+      ownerName: options.ownerName,
     },
   };
   state.units.push(unit);
