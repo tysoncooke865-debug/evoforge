@@ -44,6 +44,46 @@ const SPRITES: Record<string, ImageSourcePropType> = {
   'champion-shredder--opponent': require('../sprites/px/champion-shredder--opponent.png'),
   'champion-cardio--player': require('../sprites/px/champion-cardio--player.png'),
   'champion-cardio--opponent': require('../sprites/px/champion-cardio--opponent.png'),
+  'champion-aesthetic--player--w0': require('../sprites/px/champion-aesthetic--player--w0.png'),
+  'champion-aesthetic--player--w1': require('../sprites/px/champion-aesthetic--player--w1.png'),
+  'champion-aesthetic--player--w2': require('../sprites/px/champion-aesthetic--player--w2.png'),
+  'champion-aesthetic--player--w3': require('../sprites/px/champion-aesthetic--player--w3.png'),
+  'champion-aesthetic--opponent--w0': require('../sprites/px/champion-aesthetic--opponent--w0.png'),
+  'champion-aesthetic--opponent--w1': require('../sprites/px/champion-aesthetic--opponent--w1.png'),
+  'champion-aesthetic--opponent--w2': require('../sprites/px/champion-aesthetic--opponent--w2.png'),
+  'champion-aesthetic--opponent--w3': require('../sprites/px/champion-aesthetic--opponent--w3.png'),
+  'champion-titan--player--w0': require('../sprites/px/champion-titan--player--w0.png'),
+  'champion-titan--player--w1': require('../sprites/px/champion-titan--player--w1.png'),
+  'champion-titan--player--w2': require('../sprites/px/champion-titan--player--w2.png'),
+  'champion-titan--player--w3': require('../sprites/px/champion-titan--player--w3.png'),
+  'champion-titan--opponent--w0': require('../sprites/px/champion-titan--opponent--w0.png'),
+  'champion-titan--opponent--w1': require('../sprites/px/champion-titan--opponent--w1.png'),
+  'champion-titan--opponent--w2': require('../sprites/px/champion-titan--opponent--w2.png'),
+  'champion-titan--opponent--w3': require('../sprites/px/champion-titan--opponent--w3.png'),
+  'champion-mass--player--w0': require('../sprites/px/champion-mass--player--w0.png'),
+  'champion-mass--player--w1': require('../sprites/px/champion-mass--player--w1.png'),
+  'champion-mass--player--w2': require('../sprites/px/champion-mass--player--w2.png'),
+  'champion-mass--player--w3': require('../sprites/px/champion-mass--player--w3.png'),
+  'champion-mass--opponent--w0': require('../sprites/px/champion-mass--opponent--w0.png'),
+  'champion-mass--opponent--w1': require('../sprites/px/champion-mass--opponent--w1.png'),
+  'champion-mass--opponent--w2': require('../sprites/px/champion-mass--opponent--w2.png'),
+  'champion-mass--opponent--w3': require('../sprites/px/champion-mass--opponent--w3.png'),
+  'champion-shredder--player--w0': require('../sprites/px/champion-shredder--player--w0.png'),
+  'champion-shredder--player--w1': require('../sprites/px/champion-shredder--player--w1.png'),
+  'champion-shredder--player--w2': require('../sprites/px/champion-shredder--player--w2.png'),
+  'champion-shredder--player--w3': require('../sprites/px/champion-shredder--player--w3.png'),
+  'champion-shredder--opponent--w0': require('../sprites/px/champion-shredder--opponent--w0.png'),
+  'champion-shredder--opponent--w1': require('../sprites/px/champion-shredder--opponent--w1.png'),
+  'champion-shredder--opponent--w2': require('../sprites/px/champion-shredder--opponent--w2.png'),
+  'champion-shredder--opponent--w3': require('../sprites/px/champion-shredder--opponent--w3.png'),
+  'champion-cardio--player--w0': require('../sprites/px/champion-cardio--player--w0.png'),
+  'champion-cardio--player--w1': require('../sprites/px/champion-cardio--player--w1.png'),
+  'champion-cardio--player--w2': require('../sprites/px/champion-cardio--player--w2.png'),
+  'champion-cardio--player--w3': require('../sprites/px/champion-cardio--player--w3.png'),
+  'champion-cardio--opponent--w0': require('../sprites/px/champion-cardio--opponent--w0.png'),
+  'champion-cardio--opponent--w1': require('../sprites/px/champion-cardio--opponent--w1.png'),
+  'champion-cardio--opponent--w2': require('../sprites/px/champion-cardio--opponent--w2.png'),
+  'champion-cardio--opponent--w3': require('../sprites/px/champion-cardio--opponent--w3.png'),
   'forge-core-player': require('../sprites/px/forge-core-player.png'),
   'forge-core-opponent': require('../sprites/px/forge-core-opponent.png'),
   'forge-core-player-damaged': require('../sprites/px/forge-core-player-damaged.png'),
@@ -65,6 +105,25 @@ export function championSprite(
   team: 'player' | 'opponent'
 ): ImageSourcePropType | null {
   return SPRITES[`${artKey}--${team}`] ?? null;
+}
+
+/**
+ * P4 champion walk cycle: the 4 team-outlined frames for a champion, or
+ * null when frames are missing (renderer then shows the static sprite).
+ * Frame 0 is anchored to the base sprite, so cycling always starts from the
+ * champion's canonical look.
+ */
+export function championWalkFrames(
+  artKey: string,
+  team: 'player' | 'opponent'
+): ImageSourcePropType[] | null {
+  const frames: ImageSourcePropType[] = [];
+  for (let i = 0; i < 4; i++) {
+    const frame = SPRITES[`${artKey}--${team}--w${i}`];
+    if (!frame) return null;
+    frames.push(frame);
+  }
+  return frames;
 }
 
 /** Forge Core art; swaps to the cracked variant once the core is battered. */

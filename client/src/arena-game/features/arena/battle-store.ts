@@ -64,6 +64,10 @@ import {
 const LOOP_INTERVAL_MS = 50;
 /** Ticks advanced per timer fire is capped here so a stall doesn't fast-forward the battle. */
 const MAX_CATCHUP_TICKS = 5;
+/** P4 combat feel: bounds on transient time dilation (hit-stop / slow-mo).
+ *  A dilation is a SHORT presentation beat — the cap keeps a buggy caller
+ *  from freezing the battle. Scale 0 = hit-stop, 0<scale<1 = slow motion. */
+const MAX_DILATION_MS = 450;
 /** Matches the default save's player id (see services/persistence/save.ts). */
 const DEFAULT_PLAYER_ID = 'local-player';
 
@@ -101,6 +105,14 @@ export interface BattleStoreState {
   chooseAugment(augmentId: string): void;
   /** Surface a UI-side rejection (e.g. tapping an unaffordable card). */
   flagRejection(reason: string): void;
+  /**
+   * P4 combat feel — briefly dilate battle time: scale 0 freezes the sim
+   * (hit-stop), 0<scale<1 plays it in slow motion. Purely presentational
+   * pacing: ticks are only DELAYED, never skipped or reordered, so command
+   * recording and replay digests are untouched. A stronger (slower) active
+   * dilation is never overridden by a weaker one.
+   */
+  applyTimeDilation(scale: number, durationMs: number): void;
   stop(): void;
   restart(seed: number, playerId?: string, options?: LiveBattleOptions, mode?: BattleMode): void;
   /** Stop the loop and return to idle — leaving the screen abandons the battle. */
@@ -127,7 +139,13 @@ export function createBattleStore(
   storageRef: StorageRef = { current: null }
 ) {
   let intervalId: ReturnType<typeof setInterval> | null = null;
-  let accumulatorLastTime = 0;
+  /** Wall-clock time of the last frame() — real elapsed time is measured
+   *  against this, then scaled by any active dilation into sim-time debt. */
+  let lastFrameRealMs = 0;
+  /** Scaled sim-time not yet consumed as whole ticks (the accumulator). */
+  let simTimeOwedMs = 0;
+  /** Active transient time dilation, or null at normal speed (P4). */
+  let dilation: { scale: number; untilMs: number } | null = null;
   let resultRecorded = false;
   let recordPersisted = false;
   let currentMode: BattleMode = 'standard';
@@ -316,11 +334,30 @@ export function createBattleStore(
       const { live } = get();
       if (!live) return;
       const now = Date.now();
-      const elapsedMs = now - accumulatorLastTime;
-      let ticks = Math.floor(elapsedMs / LOOP_INTERVAL_MS);
+      // Real elapsed time scaled by any active dilation becomes sim-time
+      // debt; whole ticks are consumed from the debt (remainder kept), with
+      // the same per-fire catch-up cap as before. At scale 1 this is exactly
+      // the old accumulator; at scale 0 (hit-stop) no debt accrues, so the
+      // sim resumes cleanly with no burst.
+      const delta = Math.max(0, now - lastFrameRealMs);
+      if (dilation) {
+        // Piecewise: the part of the elapsed span inside the dilation window
+        // is scaled, the remainder runs at full speed — a frame landing on
+        // (or past) the window's end must not retroactively undo the hold.
+        const dilatedMs = Math.max(
+          0,
+          Math.min(now, dilation.untilMs) - Math.min(lastFrameRealMs, dilation.untilMs)
+        );
+        simTimeOwedMs += dilatedMs * dilation.scale + (delta - dilatedMs);
+        if (now >= dilation.untilMs) dilation = null;
+      } else {
+        simTimeOwedMs += delta;
+      }
+      lastFrameRealMs = now;
+      let ticks = Math.floor(simTimeOwedMs / LOOP_INTERVAL_MS);
       if (ticks <= 0) return;
       if (ticks > MAX_CATCHUP_TICKS) ticks = MAX_CATCHUP_TICKS;
-      accumulatorLastTime += ticks * LOOP_INTERVAL_MS;
+      simTimeOwedMs -= ticks * LOOP_INTERVAL_MS;
 
       stepLiveBattle(live, ticks);
       set((s) => ({ version: s.version + 1 }));
@@ -338,7 +375,9 @@ export function createBattleStore(
       resultRecorded = false;
       recordPersisted = false;
       currentMode = mode;
-      accumulatorLastTime = Date.now();
+      lastFrameRealMs = Date.now();
+      simTimeOwedMs = 0;
+      dilation = null;
       set({
         status: 'running',
         live,
@@ -440,6 +479,19 @@ export function createBattleStore(
         set({ lastRejection: reason });
       },
 
+      applyTimeDilation(scale: number, durationMs: number) {
+        const { status } = get();
+        if (status !== 'running') return;
+        if (!Number.isFinite(scale) || !Number.isFinite(durationMs) || durationMs <= 0) return;
+        const now = Date.now();
+        const clampedScale = Math.min(1, Math.max(0, scale));
+        if (clampedScale >= 1) return;
+        // A slower active dilation wins — an ultimate's slow-mo shouldn't be
+        // cut short by a light hit-stop landing during it.
+        if (dilation && dilation.untilMs > now && dilation.scale <= clampedScale) return;
+        dilation = { scale: clampedScale, untilMs: now + Math.min(MAX_DILATION_MS, durationMs) };
+      },
+
       stop() {
         clearLoop();
       },
@@ -460,6 +512,8 @@ export function createBattleStore(
         recordPersisted = false;
         currentMode = 'standard';
         ghostSourceRecord = null;
+        dilation = null;
+        simTimeOwedMs = 0;
         set({
           status: 'idle',
           live: null,

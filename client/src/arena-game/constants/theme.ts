@@ -25,6 +25,9 @@ export const colors = {
   success: '#34D399',
   warning: '#FBBF24',
   danger: '#F87171',
+  /** Shield-absorbed damage (P4): pale steel-blue — cool like the team cyan
+   *  family but visibly "not a health hit" next to danger red / warn amber. */
+  shield: '#A9C6E8',
 
   // Team colors in battle
   player: '#22D3EE',

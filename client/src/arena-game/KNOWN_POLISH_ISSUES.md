@@ -11,18 +11,18 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 ## Visual identity
 - [x] A1 Battlefield is two empty flat boxes — no floor/environment/depth. DONE (Phase 2: PixelLab floor texture + center line + deploy boundary; tour-verified). Tuning note: floor amber strips slightly busy, deploy wash strength — judge in Phase 12.
 - [x] A2 Units/champions are flat-tinted static Kenney 1-bit tiles. DONE (Phase 3: PixelLab character set, 5 champions + 10 units + cores; team = baked outline + base plate). Frame ANIMATION remains B1.
-- [ ] A3 No audio or haptics anywhere. → Phase 4 (decision + SFX set). OPEN
+- [ ] A3 No audio or haptics anywhere. DEFERRED past Phase 4: adding an audio dependency (expo-audio) to a fitness app whose game is often played in public deserves Tyson's sign-off (default-muted? which SFX set?). All Phase 4 feedback shipped visual/temporal instead. Revisit at Phase 9 or on Tyson's call.
 - [ ] A4 Title/lobby/champion screens are bare text lists, no art. → Phase 7. OPEN
 - [ ] A5 Arena never uses the EvoForge pixel display font; theme values duplicated from tokens. → Phase 7 (font); token unification DEFERRED (product decision — two theme sources are pinned app-wide, see client/CLAUDE.md rarity-palette precedent). OPEN
 
 ## Combat feel
-- [ ] B1 No unit animation frames — units glide. PARTIAL (Phase 3: movement-driven walk-bob with per-unit phase, reduced-motion gated; white-silhouette hit flash). Full frame cycles DEFERRED: PixelLab animate-with-text degrades/turns the character on toward-camera walks (tested); revisit with skeleton animation or hand frames in Phase 4 only if bob reads as insufficient.
-- [ ] B2 No projectiles for ranged units. → Phase 4. OPEN
-- [ ] B3 No hit-stop / camera shake / slow-mo; core-sprite shake is the only screen response. → Phase 4 (impact tiers). OPEN
-- [ ] B4 No battle intro/countdown; result overlay pops the frame the core dies; core destruction has no climax. → Phases 4+9. OPEN
-- [ ] B5 Existing P6 FX (flash/floaters/telegraphs/poofs) read as small ticks, not impact. → Phase 4 (tier scaling). OPEN
+- [x] B1 Unit animation. DONE (Phase 4): champions have REAL 4-frame PixelLab walk cycles (frame-0 inpainting anchor + image_guidance 3.0 cracked the earlier turn-around failure); ALL units get sim-synced procedural attack animation (anticipation → strike lunge → lean), hit recoil, spawn drop-in, walk-bob. Unit walk frames remain optional future work (bob + attack cycle reads well at 26pt).
+- [x] B2 Projectiles. DONE (Phase 4): cooldown-reset detection → fast team-colored streak + trail to the target (visual-only, 110ms).
+- [x] B3 Hit-stop / screen shake / slow-mo. DONE (Phase 4): impact-tier table (TIER_FX); heavy hits 50ms hit-stop + shake, ultimates 0.35× slow-mo + path-color screen tint, severe core hits top-rung shake + 90ms stop. Store-level time dilation delays ticks, never skips (replay-safe, tested).
+- [x] B4 PARTIAL: core-destruction CLIMAX done (1.1s hold, winner-colored wash, top shake, then result overlay). Battle intro/countdown remains → Phase 9. 
+- [x] B5 Tier scaling. DONE (Phase 4): damage numbers size/weight by tier; light hits stay deliberately quiet.
 - [ ] B6 Zero per-champion FX differentiation beyond hue. → Phase 5. OPEN
-- [ ] B7 Hit fx entries carry no unit id (proximity-matched flash; P6 deferral). → Phase 4 engine log addition, replay-verified. OPEN
+- [x] B7 Hit fx entries carry unit id + shield flag. DONE (Phase 4, digest-inert, legacy fallback kept + tested).
 
 ## Readability
 - [ ] C1 Co-located units overprint into an unreadable pile (no stacking offset/draw order). → Phase 6. OPEN

@@ -50,7 +50,8 @@ export function buildUnitLookup(
 export type FloaterKind = 'hit' | 'heal' | 'death';
 
 /** Raw damage/heal/death signal — the caller turns this into a LaneFloater
- *  (adding key/topPct/bornAtMs) exactly as it always has. */
+ *  (adding key/topPct/bornAtMs) exactly as it always has. `amount` (P4) lets
+ *  the wiring scale the number's size/weight by impact tier; 0 for deaths. */
 export interface FloaterSignal {
   kind: FloaterKind;
   lane: LaneId;
@@ -58,15 +59,21 @@ export interface FloaterSignal {
   team: TeamId;
   text: string;
   color: string;
+  amount: number;
 }
 
 /** A landed hit, kept separately (alongside its floater) so the caller can
- *  match it against a unit's CURRENT position for a brief flash — the fx log
- *  entry carries no unit id, only lane/x/team, so matching is by proximity. */
+ *  match it against the struck unit for a flash + recoil. P4: the engine's
+ *  fx entry now carries the target unit id and a shield flag
+ *  (`hit|lane|x|amount|team|id|sh`); `targetId` is null for entries from
+ *  older records/replays, which fall back to proximity matching. */
 export interface HitSignal {
   lane: LaneId;
   x: number;
   team: TeamId;
+  targetId: number | null;
+  amount: number;
+  shielded: boolean;
 }
 
 export type TelegraphTier = 'ability' | 'ultimate';
@@ -134,25 +141,38 @@ export function deriveCombatSignals(
     const entry = log[i];
 
     if (entry.type === 'fx') {
-      const [kind, laneStr, xStr, amountStr, team] = entry.detail.split('|');
+      const [kind, laneStr, xStr, amountStr, team, idStr, shieldStr] = entry.detail.split('|');
       const lane = laneOf(laneStr);
       const x = Number(xStr);
       const amount = Number(amountStr);
       if (!Number.isFinite(x) || (team !== 'player' && team !== 'opponent')) continue;
       if (kind === 'hit') {
         if (!Number.isFinite(amount)) continue;
+        // P4 trailing fields (target unit id, shield flag) — absent in
+        // pre-polish records; parse fail-safe either way.
+        const targetId = idStr !== undefined && Number.isFinite(Number(idStr)) ? Number(idStr) : null;
+        const shielded = shieldStr === '1';
         floaters.push({
           kind: 'hit',
           lane,
           x,
           team,
           text: `-${amount}`,
-          color: team === 'player' ? colors.danger : colors.warning,
+          color: shielded ? colors.shield : team === 'player' ? colors.danger : colors.warning,
+          amount,
         });
-        hits.push({ lane, x, team });
+        hits.push({ lane, x, team, targetId, amount, shielded });
       } else if (kind === 'heal') {
         if (!Number.isFinite(amount)) continue;
-        floaters.push({ kind: 'heal', lane, x, team, text: `+${amount}`, color: colors.success });
+        floaters.push({
+          kind: 'heal',
+          lane,
+          x,
+          team,
+          text: `+${amount}`,
+          color: colors.success,
+          amount,
+        });
       } else if (kind === 'death') {
         floaters.push({
           kind: 'death',
@@ -161,6 +181,7 @@ export function deriveCombatSignals(
           team,
           text: '✕',
           color: team === 'player' ? colors.player : colors.opponent,
+          amount: 0,
         });
       }
       continue;
@@ -200,25 +221,31 @@ export function deriveCombatSignals(
 }
 
 /**
- * The most recent hit signal that lands within `toleranceX` of a unit's
- * current position, same lane and team (fx hit entries carry no unit id —
- * team is the DEFENDER's team, so this matches the unit that was actually
- * hit, not the attacker). Returns null when nothing recent enough matches;
- * ties (equally recent) resolve to the first match, which is harmless since
- * both would render an identical flash anyway.
+ * The most recent hit signal for a unit. P4: hits carrying a target id
+ * match EXACTLY (fixes the P6 proximity-overmatch deferral); id-less hits
+ * (older records/replays) fall back to the original lane/team/proximity
+ * match. Returns the matched hit itself (the renderer needs its amount and
+ * shield flag for recoil/flash-tint), or null when nothing recent matches.
  */
-export function latestMatchingHit<T extends { lane: LaneId; x: number; team: TeamId; bornAtMs: number }>(
+export function latestMatchingHit<
+  T extends { lane: LaneId; x: number; team: TeamId; bornAtMs: number; targetId?: number | null },
+>(
+  unitId: number,
   unitLane: LaneId,
   unitX: number,
   unitTeam: TeamId,
   hits: readonly T[],
   toleranceX: number
-): number | null {
-  let best: number | null = null;
+): T | null {
+  let best: T | null = null;
   for (const hit of hits) {
-    if (hit.lane !== unitLane || hit.team !== unitTeam) continue;
-    if (Math.abs(hit.x - unitX) > toleranceX) continue;
-    if (best === null || hit.bornAtMs > best) best = hit.bornAtMs;
+    if (hit.targetId !== undefined && hit.targetId !== null) {
+      if (hit.targetId !== unitId) continue;
+    } else {
+      if (hit.lane !== unitLane || hit.team !== unitTeam) continue;
+      if (Math.abs(hit.x - unitX) > toleranceX) continue;
+    }
+    if (best === null || hit.bornAtMs > best.bornAtMs) best = hit;
   }
   return best;
 }

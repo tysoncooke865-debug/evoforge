@@ -2,6 +2,7 @@
  * Arena pixel-art generation via PixelLab (polish pass Phases 2-3).
  *
  *   node scripts/arena-pixellab-gen.mjs generate   # API calls -> raw 64px sprites
+ *   node scripts/arena-pixellab-gen.mjs animate    # API calls -> champion walk frames
  *   node scripts/arena-pixellab-gen.mjs build      # raw -> team-outlined game PNGs
  *   node scripts/arena-pixellab-gen.mjs all
  *
@@ -191,6 +192,54 @@ async function call(route, body, key) {
 
 const stripB64 = (img) => (img.base64 ?? img).replace(/^data:image\/png;base64,/, '');
 
+/**
+ * Champion walk cycles (P4): 4 frames per champion via animate-with-text.
+ * The recipe that keeps character identity (found experimentally — plain
+ * animate-with-text turns a south-facing walker around): anchor frame 0 to
+ * the base sprite via inpainting_images AND raise image_guidance_scale to 3.
+ * Raw frames land in assets/arena-pixellab-src/anim/; idempotent per
+ * champion (delete its frame files to regenerate).
+ */
+const ANIM_DIR = path.join(RAW_DIR, 'anim');
+const WALK_FRAMES = 4;
+
+async function animate() {
+  const key = apiKey();
+  fs.mkdirSync(ANIM_DIR, { recursive: true });
+  const champions = Object.entries(MANIFEST).filter(([, s]) => s.kind === 'champion');
+  for (const [name, spec] of champions) {
+    const frame0 = path.join(ANIM_DIR, `${name}-walk-0.png`);
+    if (fs.existsSync(frame0)) {
+      console.log(`skip ${name} walk (frames exist)`);
+      continue;
+    }
+    const refB64 = fs.readFileSync(path.join(RAW_DIR, `${name}.png`)).toString('base64');
+    process.stdout.write(`animate ${name} walk... `);
+    const json = await call(
+      '/animate-with-text',
+      {
+        image_size: { width: 64, height: 64 },
+        description: spec.desc,
+        action: 'walking in place, marching, facing the camera the whole time',
+        view: 'low top-down',
+        direction: 'south',
+        image_guidance_scale: 3.0,
+        reference_image: { type: 'base64', base64: refB64 },
+        inpainting_images: [{ type: 'base64', base64: refB64 }, null, null, null],
+        seed: spec.seed,
+      },
+      key
+    );
+    (json.images ?? []).slice(0, WALK_FRAMES).forEach((img, i) => {
+      fs.writeFileSync(
+        path.join(ANIM_DIR, `${name}-walk-${i}.png`),
+        Buffer.from(stripB64(img), 'base64')
+      );
+    });
+    console.log('ok');
+  }
+}
+
 async function generate() {
   const key = apiKey();
   fs.mkdirSync(RAW_DIR, { recursive: true });
@@ -268,6 +317,19 @@ function build() {
       fs.writeFileSync(path.join(OUT_DIR, `${name}--${team}.png`), PNG.sync.write(img));
       count++;
     }
+    // Champion walk frames (P4): outline each frame per team when present.
+    if (spec.kind === 'champion') {
+      for (let i = 0; i < WALK_FRAMES; i++) {
+        const frameFile = path.join(ANIM_DIR, `${name}-walk-${i}.png`);
+        if (!fs.existsSync(frameFile)) continue;
+        const frame = PNG.sync.read(fs.readFileSync(frameFile));
+        for (const team of ['player', 'opponent']) {
+          const img = outline(frame, TEAM_RGB[team]);
+          fs.writeFileSync(path.join(OUT_DIR, `${name}--${team}--w${i}.png`), PNG.sync.write(img));
+          count++;
+        }
+      }
+    }
   }
   console.log(`built ${count} sprites -> ${OUT_DIR}`);
   console.log('now crush them:  npx pngquant --force --ext .png src/arena-game/features/arena/sprites/px/*.png');
@@ -275,8 +337,10 @@ function build() {
 
 const cmd = process.argv[2];
 if (cmd === 'generate') await generate();
+else if (cmd === 'animate') await animate();
 else if (cmd === 'build') build();
 else if (cmd === 'all') {
   await generate();
+  await animate();
   build();
-} else console.log('usage: arena-pixellab-gen.mjs generate | build | all');
+} else console.log('usage: arena-pixellab-gen.mjs generate | animate | build | all');

@@ -62,12 +62,23 @@ import { AugmentPicker } from './augment-picker';
 import { CardRow } from './card-row';
 import { ChampionHud } from './champion-hud';
 import { buildUnitLookup, deriveCombatSignals, deriveCoreHitIntensity } from './combat-fx';
+import {
+  detectFiredAttacks,
+  deriveProjectiles,
+  type ImpactTier,
+  PROJECTILE_TTL_MS,
+  shakeOffset,
+  STRIKE_MS,
+  TIER_FX,
+  tierForDamage,
+} from './impact';
 import { CoreBar, CoreHitFlash, CORE_HIT_TTL_MS } from './core-bar';
 import {
   FLOATER_TTL_MS,
   HIT_FLASH_TTL_MS,
   LaneFloater,
   LaneHitPing,
+  LaneProjectile,
   LaneSpawnPoof,
   LaneStrip,
   LaneTelegraph,
@@ -91,6 +102,18 @@ const FLOATER_CAP = 12;
 const HIT_PING_CAP = 12;
 const TELEGRAPH_CAP = 4;
 const SPAWN_POOF_CAP = 8;
+/** P4 caps/timings for the combat-feel additions. */
+const PROJECTILE_CAP = 10;
+/** How long the core-destruction climax holds before the result overlay
+ *  lands (Phase 4/9): long enough to register the moment, short enough to
+ *  never feel like a hang. */
+const CLIMAX_MS = 1100;
+/** Ultimate cast: full-screen tint fade + slow-motion emphasis. */
+const ULTIMATE_FLASH_MS = 420;
+const ULTIMATE_SLOWMO_SCALE = 0.35;
+const ULTIMATE_SLOWMO_MS = 380;
+/** Escalation rank so a weaker shake never replaces an active stronger one. */
+const SHAKE_RANK: Record<ImpactTier, number> = { light: 0, medium: 1, heavy: 2, ultimate: 3, core: 4 };
 
 const { laneLength } = BALANCE.arena;
 // P7: one divider per whole energy point on the energy bar (e.g. 9 dividers
@@ -113,6 +136,17 @@ interface FxState {
   prevCoreHealth: { player: number; opponent: number } | null;
   /** Most recent core-hit event per team, aged into CoreHitFlash below. */
   coreHitBornAt: { player: number | null; opponent: number | null; playerSevere: boolean; opponentSevere: boolean };
+  // --- P4 combat feel ---
+  /** Ranged shots in flight. */
+  projectiles: LaneProjectile[];
+  /** unit id → attack cooldown last frame, for fired-attack detection. */
+  prevAttackCooldowns: Map<number, number>;
+  /** unit id → strike start (ms), driving the attack lunge. */
+  strikes: Map<number, number>;
+  /** Active screen shake (strongest recent impact wins). */
+  screenShake: { bornAtMs: number; tier: ImpactTier } | null;
+  /** Full-screen tint from an ultimate cast, in the caster's path color. */
+  ultimateFlash: { bornAtMs: number; color: string } | null;
 }
 
 function topPctOf(x: number): number {
@@ -146,7 +180,22 @@ function collectCombatFx(
     fx.spawnPoofs = [];
     fx.prevCoreHealth = null;
     fx.coreHitBornAt = { player: null, opponent: null, playerSevere: false, opponentSevere: false };
+    fx.projectiles = [];
+    fx.prevAttackCooldowns = new Map();
+    fx.strikes = new Map();
+    fx.screenShake = null;
+    fx.ultimateFlash = null;
   }
+
+  /** Strongest-wins screen shake: a light rumble never cuts a big one short. */
+  const requestShake = (tier: ImpactTier) => {
+    const active =
+      fx.screenShake && nowMs - fx.screenShake.bornAtMs < TIER_FX[fx.screenShake.tier].shakeMs
+        ? fx.screenShake
+        : null;
+    if (active && SHAKE_RANK[active.tier] > SHAKE_RANK[tier]) return;
+    fx.screenShake = { bornAtMs: nowMs, tier };
+  };
 
   const units = buildUnitLookup(live.state.units);
   const { floaters, hits, telegraphs, spawns, nextIndex } = deriveCombatSignals(
@@ -166,6 +215,9 @@ function collectCombatFx(
       fx.floaters.filter((f) => f.lane === sig.lane).map((f) => f.topPct),
       topPct
     );
+    // P4 impact tiers: damage numbers scale with the hit's weight; heals sit
+    // at the light size, deaths keep their own glyph treatment.
+    const tierFx = sig.kind === 'hit' ? TIER_FX[tierForDamage(sig.amount)] : TIER_FX.light;
     fx.floaters.push({
       key: fx.nextKey++,
       lane: sig.lane,
@@ -175,6 +227,8 @@ function collectCombatFx(
       color: sig.color,
       bornAtMs: nowMs,
       staggerPx,
+      fontSize: tierFx.floaterFontSize,
+      fontWeight: tierFx.floaterWeight,
     });
   }
   fx.floaters = fx.floaters.filter((f) => nowMs - f.bornAtMs < FLOATER_TTL_MS);
@@ -183,7 +237,21 @@ function collectCombatFx(
   }
 
   for (const hit of hits) {
-    fx.hitPings.push({ lane: hit.lane, x: hit.x, team: hit.team, bornAtMs: nowMs });
+    fx.hitPings.push({
+      lane: hit.lane,
+      x: hit.x,
+      team: hit.team,
+      bornAtMs: nowMs,
+      targetId: hit.targetId,
+      amount: hit.amount,
+      shielded: hit.shielded,
+    });
+    // Heavy hits are the first rung of the escalation ladder that reaches
+    // beyond the struck unit: a screen bump + a blink of hit-stop.
+    if (tierForDamage(hit.amount) === 'heavy') {
+      requestShake('heavy');
+      battleStore.getState().applyTimeDilation(0, TIER_FX.heavy.hitStopMs);
+    }
   }
   fx.hitPings = fx.hitPings.filter((h) => nowMs - h.bornAtMs < HIT_FLASH_TTL_MS);
   if (fx.hitPings.length > HIT_PING_CAP) {
@@ -200,6 +268,13 @@ function collectCombatFx(
       color: sig.color,
       bornAtMs: nowMs,
     });
+    // Ultimates get the full presentation beat: path-colored screen tint,
+    // the strongest pre-core shake, and a short slow-motion emphasis.
+    if (sig.tier === 'ultimate') {
+      fx.ultimateFlash = { bornAtMs: nowMs, color: sig.color };
+      requestShake('ultimate');
+      battleStore.getState().applyTimeDilation(ULTIMATE_SLOWMO_SCALE, ULTIMATE_SLOWMO_MS);
+    }
   }
   fx.telegraphs = fx.telegraphs.filter((t) => nowMs - t.bornAtMs < TELEGRAPH_TTL_MS[t.tier]);
   if (fx.telegraphs.length > TELEGRAPH_CAP) {
@@ -244,7 +319,40 @@ function collectCombatFx(
     fx.coreHitBornAt.opponent = nowMs;
     fx.coreHitBornAt.opponentSevere = opponentIntensity === 'severe';
   }
+  // Core hits reach the whole screen: a bump normally, the top-rung shake +
+  // hit-stop when a core on the brink takes another hit.
+  if (playerIntensity === 'severe' || opponentIntensity === 'severe') {
+    requestShake('core');
+    battleStore.getState().applyTimeDilation(0, TIER_FX.core.hitStopMs);
+  } else if (playerIntensity !== 'none' || opponentIntensity !== 'none') {
+    requestShake('heavy');
+  }
   fx.prevCoreHealth = { player: playerHealth, opponent: opponentHealth };
+
+  // --- P4: fired-attack detection → strike lunges + ranged projectiles ---
+  const fired = detectFiredAttacks(live.state.units, fx.prevAttackCooldowns);
+  const unitById = new Map(live.state.units.map((u) => [u.id, u]));
+  for (const id of fired) fx.strikes.set(id, nowMs);
+  for (const [id, born] of fx.strikes) {
+    if (nowMs - born >= STRIKE_MS || !unitById.has(id)) fx.strikes.delete(id);
+  }
+  for (const shot of deriveProjectiles(fired, unitById)) {
+    fx.projectiles.push({
+      key: fx.nextKey++,
+      lane: shot.lane,
+      fromTopPct: topPctOf(shot.fromX),
+      toTopPct: topPctOf(shot.toX),
+      team: shot.team,
+      bornAtMs: nowMs,
+    });
+  }
+  fx.projectiles = fx.projectiles.filter((p) => nowMs - p.bornAtMs < PROJECTILE_TTL_MS);
+  if (fx.projectiles.length > PROJECTILE_CAP) {
+    fx.projectiles = fx.projectiles.slice(fx.projectiles.length - PROJECTILE_CAP);
+  }
+  fx.prevAttackCooldowns = new Map(
+    live.state.units.filter((u) => u.alive).map((u) => [u.id, u.attackCooldownTicks])
+  );
 
   return { floaters: fx.floaters, hitPings: fx.hitPings, telegraphs: fx.telegraphs, spawnPoofs: fx.spawnPoofs };
 }
@@ -301,7 +409,42 @@ export function ArenaScreen({
     spawnPoofs: [],
     prevCoreHealth: null,
     coreHitBornAt: { player: null, opponent: null, playerSevere: false, opponentSevere: false },
+    projectiles: [],
+    prevAttackCooldowns: new Map(),
+    strikes: new Map(),
+    screenShake: null,
+    ultimateFlash: null,
   });
+  // P4/P9 — core-destruction climax: when the battle finishes, hold the
+  // result overlay back for CLIMAX_MS while a final shake + flash lands. The
+  // battle loop stops on finish (no more version bumps), so a short local
+  // interval drives the climax frames, then reveals the overlay and stops.
+  const [resultRevealed, setResultRevealed] = useState(false);
+  const [, setClimaxFrame] = useState(0);
+  useEffect(() => {
+    if (status !== 'finished') {
+      setResultRevealed(false);
+      return;
+    }
+    // Seed the climax presentation: top-rung shake + a screen tint in the
+    // winner's color (cyan victory wash / red defeat wash).
+    const winner = battleStore.getState().live?.state.outcome?.winner;
+    fxRef.current.screenShake = { bornAtMs: Date.now(), tier: 'core' };
+    fxRef.current.ultimateFlash = {
+      bornAtMs: Date.now(),
+      color: winner === 'player' ? colors.player : winner === 'opponent' ? colors.opponent : colors.warning,
+    };
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - startedAt >= CLIMAX_MS) {
+        clearInterval(interval);
+        setResultRevealed(true);
+      } else {
+        setClimaxFrame((f) => f + 1);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [status]);
 
   const save = usePlayer((s) => s.save);
   // The player's active deck; falls back to the starter deck if the saved
@@ -523,6 +666,18 @@ export function ArenaScreen({
   const lane1Telegraphs = telegraphs.filter((t) => t.lane === 1);
   const lane0SpawnPoofs = spawnPoofs.filter((p) => p.lane === 0);
   const lane1SpawnPoofs = spawnPoofs.filter((p) => p.lane === 1);
+  const lane0Projectiles = fxRef.current.projectiles.filter((p) => p.lane === 0);
+  const lane1Projectiles = fxRef.current.projectiles.filter((p) => p.lane === 1);
+  // P4: screen shake (strongest recent impact; suppressed under reduced
+  // motion) and the ultimate/climax full-screen tint, both aged per frame.
+  const shake =
+    fxRef.current.screenShake && !reduceMotion
+      ? shakeOffset(nowMs - fxRef.current.screenShake.bornAtMs, fxRef.current.screenShake.tier)
+      : { dx: 0, dy: 0 };
+  const flashAge = fxRef.current.ultimateFlash ? nowMs - fxRef.current.ultimateFlash.bornAtMs : Infinity;
+  const flashWindowMs = status === 'finished' ? CLIMAX_MS : ULTIMATE_FLASH_MS;
+  const ultimateFlashOpacity =
+    flashAge < flashWindowMs ? (1 - flashAge / flashWindowMs) * 0.16 : 0;
   const playerCoreHit = coreHitFlashFor(
     fxRef.current.coreHitBornAt.player,
     fxRef.current.coreHitBornAt.playerSevere,
@@ -573,7 +728,14 @@ export function ArenaScreen({
         augmentId={state.teams.opponent.augment.chosenId}
       />
 
-      <View style={styles.arena}>
+      <View
+        style={[
+          styles.arena,
+          shake.dx !== 0 || shake.dy !== 0
+            ? { transform: [{ translateX: shake.dx }, { translateY: shake.dy }] }
+            : null,
+        ]}
+      >
         <LaneStrip
           lane={0}
           units={lane0Units}
@@ -581,6 +743,9 @@ export function ArenaScreen({
           hitPings={lane0HitPings}
           telegraphs={lane0Telegraphs}
           spawnPoofs={lane0SpawnPoofs}
+          projectiles={lane0Projectiles}
+          strikes={fxRef.current.strikes}
+          tick={state.tick}
           momentum={lane0Momentum}
           deployHighlight={selectedCardId !== null}
           reduceMotion={reduceMotion}
@@ -593,11 +758,23 @@ export function ArenaScreen({
           hitPings={lane1HitPings}
           telegraphs={lane1Telegraphs}
           spawnPoofs={lane1SpawnPoofs}
+          projectiles={lane1Projectiles}
+          strikes={fxRef.current.strikes}
+          tick={state.tick}
           momentum={lane1Momentum}
           deployHighlight={selectedCardId !== null}
           reduceMotion={reduceMotion}
           onDeployTap={handleDeployTap}
         />
+        {ultimateFlashOpacity > 0 && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.screenFlash,
+              { backgroundColor: fxRef.current.ultimateFlash!.color, opacity: ultimateFlashOpacity },
+            ]}
+          />
+        )}
 
       </View>
 
@@ -657,7 +834,7 @@ export function ArenaScreen({
         <TutorialOverlay commandLog={live.commandLog} onClose={() => setTutorialClosed(true)} />
       )}
 
-      {status === 'finished' && state.outcome && (
+      {status === 'finished' && state.outcome && resultRevealed && (
         <ResultOverlay
           outcome={state.outcome}
           mode={mode}
@@ -757,6 +934,9 @@ const styles = StyleSheet.create({
   ghostErrorTitle: { ...typography.heading, color: colors.danger, letterSpacing: 1.5 },
   ghostErrorText: { ...typography.body, color: colors.textDim, textAlign: 'center' },
   arena: { flex: 1, flexDirection: 'row', gap: spacing.sm },
+  // P4 — full-screen tint for ultimates (caster's path color) and the
+  // battle-end climax (winner's color); opacity is aged per frame.
+  screenFlash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   hudBottom: { gap: spacing.xs },
   energyRow: { gap: spacing.xs },
   energyLabel: { ...typography.mono, color: colors.cyan },

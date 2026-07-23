@@ -2066,6 +2066,22 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   KNOWN_POLISH_ISSUES.md): PixelLab walk-cycle/rotate animation unusable —
   the walk-bob carries motion; direction is still chevron-carried.
 
+- **2026-07-23 — Arena polish Phase 4 done: combat-feel system + character
+  animations.** One escalation ladder in `arena-game/features/arena/
+  components/impact.ts` (TIER_FX): tier-scaled damage numbers, screen
+  shake, hit-stop/slow-mo via a new store-level time dilation (ticks
+  delayed never skipped — replay digests untouched, fake-timer tested),
+  ranged projectiles, defender recoil, spawn drop-in, and a 1.1s
+  core-destruction climax before the result overlay. Engine's `fx hit`
+  log entries now carry target id + shield flag (digest-inert; legacy
+  fallback kept). CHAMPION WALK CYCLES ARE REAL now — the PixelLab
+  turn-around failure was cracked with a frame-0 inpainting anchor +
+  image_guidance 3.0 (`arena-pixellab-gen.mjs animate`); 4 frames × 5
+  champions × 2 team outlines, cycled while moving, reduced-motion gated.
+  Audio stayed out deliberately (public-gym context — Tyson's call,
+  see KNOWN_POLISH_ISSUES A3). Arena suite 504 (+17), full 1,575, all
+  guards green, export + tour verified the climax flow on screen.
+
 ---
 
 ## 3. The rules that cost real bugs

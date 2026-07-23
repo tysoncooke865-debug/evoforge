@@ -1892,3 +1892,49 @@ animation (frames degrade/turn the character — evidence in the Phase 1
 session; bob + hit-flash carry motion for now), north-facing back views
 (rotate returned another front view; chevron still carries direction),
 deploy-wash/floor-busyness tuning judged fine pending the Phase 12 review.
+
+## Phase 4 — combat-feel system + character animations (2026-07-23)
+
+One escalation ladder, one tuning table (components/impact.ts TIER_FX):
+light < medium < heavy < ultimate < core. Damage numbers size/weight by
+tier; light/medium hits deliberately do NOT shake the screen.
+
+Engine (sanctioned, digest-safe — computeDigest reads no log entries;
+replay-fidelity + engine-parity gates green): fx hit entries now carry
+target unit id + shield flag (combat.ts). Closes the P6 proximity-match
+deferral — flashes/recoil are id-matched exactly; legacy id-less records
+fall back to the old proximity rule (tested both ways).
+
+Battle store: transient time dilation (applyTimeDilation) — scale 0 =
+hit-stop (heavy hits 50ms, severe core hits 90ms), fractional = slow-mo
+(ultimates 0.35x for 380ms). Piecewise wall-clock accumulator: ticks are
+DELAYED never skipped; command recording + replay digests untouched;
+capped 450ms; slower active dilation never overridden by weaker; cleared
+on begin/reset. Pinned by 3 fake-timer store tests.
+
+Character animation (procedural, sim-synced): attackPose derives
+anticipation (pull-back in the last 3 cooldown ticks) -> strike lunge +
+swell (cooldown-reset detection, 160ms) -> fighting lean, all signed by
+facing; defender recoil scaled by tier while its flash is active; spawn
+drop-in scale from ticks-since-spawn; shield hits flash steel-blue.
+Champion REAL walk cycles: PixelLab animate-with-text finally works with
+frame-0 inpainting anchor + image_guidance 3.0 (the earlier turn-around
+failure documented in KNOWN_POLISH_ISSUES E1) — 4 frames x 5 champions x
+2 team outlines (75 px files total, 161KB crushed), cycled at 140ms/frame
+while moving, static in combat, reduced-motion gated, per-unit phase
+offset. Units keep the walk-bob.
+
+Also: ranged projectiles (cooldown-reset -> fast 110ms streak to target,
+visual-only, no engine change), screen shake on the arena container
+(strongest-wins rank, reduced-motion suppressed), ultimate full-screen
+path-color tint + slow-mo, and the core-destruction CLIMAX: result
+overlay held ~1.1s behind a top-tier shake + winner-colored wash (local
+50ms interval drives climax frames since the loop stops on finish;
+cleared on unmount/rematch).
+
+Verified: tsc clean; arena 27 files / 504 tests (+17 new impact tests:
+tier table monotonicity, shake decay, attackPose phases, spawn scale,
+fired-attack/projectile derivation, all 3 dilation behaviours); full
+suite 1,575; lint 0 errors; verify-motion/tokens/battle-engine OK; export
++ tour re-run — climax hold, defeat wash, delayed overlay, champion-duel
+readability all confirmed on screen.

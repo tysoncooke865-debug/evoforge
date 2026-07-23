@@ -23,8 +23,9 @@ import { BALANCE, getCardById, getChampionById } from '../../../content';
 import type { UnitState } from '../../../game-engine/simulation/state';
 import type { LaneId, TeamId } from '../../../game-engine/types';
 import { latestMatchingHit, type TelegraphTier } from './combat-fx';
+import { attackPose, spawnScale, tierForDamage, PROJECTILE_TTL_MS, STRIKE_MS, TIER_FX } from './impact';
 import { healthBarColor } from './readability';
-import { arenaFloorTexture, championSprite, unitSprite } from './sprites';
+import { arenaFloorTexture, championSprite, championWalkFrames, unitSprite } from './sprites';
 
 const { laneLength, deployZoneDepth } = BALANCE.arena;
 const DEPLOY_ZONE_HEIGHT_PCT = (deployZoneDepth / laneLength) * 100;
@@ -41,6 +42,8 @@ const PIXELATED =
  *  reduced-motion preference (see use-reduced-motion.ts). */
 const BOB_AMPLITUDE_PX = 1.6;
 const BOB_PERIOD_MS = 340;
+/** P4 champion walk cycle: ms per frame (4 frames ≈ 1.8 steps/second). */
+const WALK_FRAME_MS = 140;
 
 /** Deterministic per-unit phase offset so a pack of walkers doesn't bob in
  *  perfect sync (reads as one blob) — derived from the unit id, no state. */
@@ -70,6 +73,9 @@ export interface LaneFloater {
    *  other — see readability.ts's computeFloaterStagger. 0 for a floater
    *  with no nearby neighbor when it was created. */
   staggerPx: number;
+  /** P4 impact tiers: big hits print bigger/bolder numbers. */
+  fontSize: number;
+  fontWeight: '700' | '800' | '900';
 }
 
 /** Floater lifetime; the arena screen prunes with the same constant. */
@@ -85,6 +91,24 @@ export const FLOATER_TTL_MS = 700;
 export interface LaneHitPing {
   lane: LaneId;
   x: number;
+  team: TeamId;
+  bornAtMs: number;
+  /** P4: target unit id from the fx log entry (null on pre-P4 records —
+   *  those fall back to proximity matching, see latestMatchingHit). */
+  targetId: number | null;
+  /** Damage dealt — drives recoil strength via the impact tier table. */
+  amount: number;
+  /** True when the hit was (partly) absorbed by a shield — the flash tints
+   *  shield-blue instead of white. */
+  shielded: boolean;
+}
+
+/** P4: a ranged shot in flight — a fast streak from muzzle to target. */
+export interface LaneProjectile {
+  key: number;
+  lane: LaneId;
+  fromTopPct: number;
+  toTopPct: number;
   team: TeamId;
   bornAtMs: number;
 }
@@ -136,6 +160,13 @@ interface Props {
   telegraphs?: readonly LaneTelegraph[];
   /** Active spawn/summon arrival markers for this lane (already capped). */
   spawnPoofs?: readonly LaneSpawnPoof[];
+  /** P4: ranged shots currently in flight in this lane (already capped). */
+  projectiles?: readonly LaneProjectile[];
+  /** P4: unit id → strike start (ms) for attacks that just fired — drives
+   *  the attack lunge (see impact.ts's attackPose). */
+  strikes?: ReadonlyMap<number, number>;
+  /** Current sim tick — drives the spawn drop-in scale. */
+  tick?: number;
   /** P7: -1..1 signed lane momentum (see readability.ts's computeLaneMomentum)
    *  — which team currently has more living presence pushing this lane, and
    *  toward which core. Omit (or 0) for no edge indicator. */
@@ -156,6 +187,9 @@ export function LaneStrip({
   hitPings,
   telegraphs,
   spawnPoofs,
+  projectiles,
+  strikes,
+  tick = 0,
   momentum = 0,
   deployHighlight = false,
   reduceMotion = false,
@@ -211,13 +245,18 @@ export function LaneStrip({
         <UnitMarker
           key={unit.id}
           unit={unit}
+          tick={tick}
           reduceMotion={reduceMotion}
-          flashBornAtMs={
+          strikeBornAtMs={strikes?.get(unit.id) ?? null}
+          hitPing={
             hitPings?.length
-              ? latestMatchingHit(unit.lane, unit.x, unit.team, hitPings, HIT_FLASH_MATCH_RADIUS)
+              ? latestMatchingHit(unit.id, unit.lane, unit.x, unit.team, hitPings, HIT_FLASH_MATCH_RADIUS)
               : null
           }
         />
+      ))}
+      {projectiles?.map((shot) => (
+        <ProjectileMarker key={shot.key} shot={shot} />
       ))}
       {floaters?.map((floater) => (
         <Floater key={floater.key} floater={floater} />
@@ -288,12 +327,37 @@ function Floater({ floater }: { floater: LaneFloater }) {
           top: `${floater.topPct}%`,
           color: floater.color,
           opacity: 1 - t,
+          fontSize: floater.fontSize,
+          fontWeight: floater.fontWeight,
           transform: [{ translateY: -10 - t * 16 - stagger }],
         },
       ]}
     >
       {floater.text}
     </Text>
+  );
+}
+
+/** P4 — a ranged shot: a short team-colored streak racing from the muzzle
+ *  to the target with a fading trail, gone within PROJECTILE_TTL_MS (fast on
+ *  purpose — the sim applies damage at fire time). */
+function ProjectileMarker({ shot }: { shot: LaneProjectile }) {
+  const age = Math.min(PROJECTILE_TTL_MS, Math.max(0, Date.now() - shot.bornAtMs));
+  const t = age / PROJECTILE_TTL_MS;
+  const topPct = shot.fromTopPct + (shot.toTopPct - shot.fromTopPct) * t;
+  const tint = shot.team === 'player' ? colors.player : colors.opponent;
+  const movingUp = shot.toTopPct < shot.fromTopPct;
+  return (
+    <View pointerEvents="none" style={[styles.projectileWrap, { top: `${topPct}%` }]}>
+      <View style={[styles.projectileBolt, { backgroundColor: tint }]} />
+      <View
+        style={[
+          styles.projectileTrail,
+          { backgroundColor: tint, opacity: 0.4 * (1 - t) },
+          movingUp ? styles.projectileTrailBelow : styles.projectileTrailAbove,
+        ]}
+      />
+    </View>
   );
 }
 
@@ -419,26 +483,30 @@ function DirectionChevron({ team }: { team: TeamId }) {
 }
 
 /** A unit/champion marker: team base plate + PixelLab sprite + health bar +
- *  direction chevron. `flashBornAtMs` (null when no recent hit matched)
- *  drives a brief white silhouette flash (the sprite re-drawn tinted white),
- *  aged the same way as every other combat-feel effect here — no Animated
- *  value, no per-unit React state. While a unit is actually moving (no
- *  combat target) it carries a small walk-bob, movement-driven and gated
- *  behind reduced motion. */
+ *  direction chevron, carrying the P3/P4 procedural character animation:
+ *  walk-bob while moving, fighting lean / wind-up / strike lunge from the
+ *  sim's own attack cooldown (impact.ts's attackPose), hit recoil + white
+ *  (or shield-blue) silhouette flash on the struck unit, and a spawn
+ *  drop-in scale. Everything ages from the frame clock or derives from sim
+ *  state — no Animated values, no per-unit React state. */
 function UnitMarker({
   unit,
-  flashBornAtMs,
+  tick,
+  hitPing,
+  strikeBornAtMs,
   reduceMotion,
 }: {
   unit: UnitState;
-  flashBornAtMs: number | null;
+  tick: number;
+  hitPing: LaneHitPing | null;
+  strikeBornAtMs: number | null;
   reduceMotion: boolean;
 }) {
   const nowMs = Date.now();
   const topPct = (1 - unit.x / laneLength) * 100;
   const healthPct = Math.max(0, Math.min(1, unit.health / unit.baseMaxHealth));
   const tint = unit.team === 'player' ? colors.player : colors.opponent;
-  const flashAge = flashBornAtMs === null ? HIT_FLASH_TTL_MS : Math.max(0, nowMs - flashBornAtMs);
+  const flashAge = hitPing === null ? HIT_FLASH_TTL_MS : Math.max(0, nowMs - hitPing.bornAtMs);
   const flashOpacity = flashAge < HIT_FLASH_TTL_MS ? (1 - flashAge / HIT_FLASH_TTL_MS) * 0.75 : 0;
   const boxFlashOverlay = flashOpacity > 0 && (
     <View pointerEvents="none" style={[styles.hitFlashOverlay, { opacity: flashOpacity }]} />
@@ -449,19 +517,44 @@ function UnitMarker({
       ? Math.sin((nowMs / BOB_PERIOD_MS) * Math.PI * 2 + bobPhase(unit.id)) * BOB_AMPLITUDE_PX
       : 0;
 
-  /** Sprite + white-silhouette flash + team base plate, bobbing together. */
+  // P4 character animation: anticipation → strike → recovery from the sim's
+  // attack cooldown; recoil pushes the DEFENDER back (toward its own core)
+  // while its hit flash is active, scaled by the hit's impact tier.
+  const strikeAge = strikeBornAtMs === null ? null : Math.max(0, nowMs - strikeBornAtMs);
+  const pose = attackPose(unit, strikeAge !== null && strikeAge < STRIKE_MS ? strikeAge : null);
+  const recoilPx =
+    hitPing !== null && flashOpacity > 0
+      ? TIER_FX[tierForDamage(hitPing.amount)].recoilPx * (flashOpacity / 0.75)
+      : 0;
+  const backwardSign = unit.team === 'player' ? 1 : -1; // toward own core
+  const dropScale = spawnScale(tick - unit.spawnedAtTick);
+  const animOffsetY = bobY + pose.offsetY + backwardSign * recoilPx;
+  const animScale = pose.scale * dropScale;
+  const flashTint = hitPing?.shielded ? colors.shield : '#FFFFFF';
+
+  /** Sprite + silhouette flash + team base plate, animating together. */
   const spriteStack = (
     sprite: NonNullable<ReturnType<typeof unitSprite>>,
     sizeStyle: ImageStyle,
     plateStyle: object
   ) => (
-    <View style={[styles.spriteStack, { transform: [{ translateY: bobY }] }]}>
+    <View
+      style={[
+        styles.spriteStack,
+        { transform: [{ translateY: animOffsetY }, { scale: animScale }] },
+      ]}
+    >
       <View style={[styles.basePlate, plateStyle, { borderColor: tint, backgroundColor: `${tint}33` }]} />
       <Image source={sprite} style={[sizeStyle, PIXELATED]} fadeDuration={0} />
       {flashOpacity > 0 && (
         <Image
           source={sprite}
-          style={[sizeStyle, PIXELATED, styles.flashSilhouette, { opacity: flashOpacity }]}
+          style={[
+            sizeStyle,
+            PIXELATED,
+            styles.flashSilhouette,
+            { opacity: flashOpacity, tintColor: flashTint },
+          ]}
           fadeDuration={0}
         />
       )}
@@ -476,7 +569,16 @@ function UnitMarker({
     const fill = champion ? pathColor(champion.path) : tint;
     const initial = champion ? champion.name.charAt(0).toUpperCase() : '?';
     const borrowed = unit.champion ? !unit.champion.commandable : false;
-    const sprite = champion ? championSprite(champion.art, unit.team) : null;
+    // P4 real character animation: champions cycle their PixelLab walk
+    // frames while moving (frame 0 is anchored to the base sprite); static
+    // base sprite in combat / under reduced motion / when frames missing.
+    const walkFrames = champion ? championWalkFrames(champion.art, unit.team) : null;
+    const walking = moving && !reduceMotion && walkFrames !== null;
+    const sprite = walking
+      ? walkFrames![Math.floor((nowMs / WALK_FRAME_MS + bobPhase(unit.id)) % 4)]
+      : champion
+        ? championSprite(champion.art, unit.team)
+        : null;
     return (
       <View style={[styles.unitWrap, { top: `${topPct}%` }]} pointerEvents="none">
         <View
@@ -712,6 +814,13 @@ const styles = StyleSheet.create({
   // team's color.
   poofWrap: { position: 'absolute', left: '50%' },
   poofRing: { position: 'absolute', top: -14, borderWidth: 2 },
+  // P4 — projectile streak: a small bright bolt with a fading trail behind
+  // it, centered on the lane like the units it flies between.
+  projectileWrap: { position: 'absolute', left: '50%', alignItems: 'center' },
+  projectileBolt: { position: 'absolute', top: -5, width: 3, height: 8, borderRadius: 1.5, marginLeft: -1.5 },
+  projectileTrail: { position: 'absolute', width: 2, height: 12, borderRadius: 1, marginLeft: -1 },
+  projectileTrailAbove: { top: -18 },
+  projectileTrailBelow: { top: 3 },
   // P7 — lane momentum edge: a few stacked, decreasingly-opaque bands
   // against whichever edge is under pressure (see LaneMomentumEdge).
   momentumEdge: { position: 'absolute', left: 0, right: 0, height: 22 },

@@ -94,11 +94,14 @@ export function damageUnit(
   const dealt = toShield + toHealth;
   if (dealt > 0) {
     // Structured combat-feedback entry for the UI's floating numbers
-    // (kind|lane|x|amount|team). Log-only — never digested.
+    // (kind|lane|x|amount|team|targetId|shieldFlag). Log-only — never
+    // digested (computeDigest reads no log entries; polish P4 added the two
+    // trailing fields so the visual layer can id-match flashes/recoil and
+    // show shield absorption — older parsers ignore extra fields).
     logEvent(
       state,
       'fx',
-      `hit|${target.lane}|${Math.round(target.x)}|${Math.round(dealt)}|${target.team}`
+      `hit|${target.lane}|${Math.round(target.x)}|${Math.round(dealt)}|${target.team}|${target.id}|${toShield > 0 ? 1 : 0}`
     );
     if (source?.champion && source.alive && source.team !== target.team) {
       gainUltimateCharge(source.champion, dealt * source.champion.chargePerDamageDealt);

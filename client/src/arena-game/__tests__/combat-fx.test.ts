@@ -28,11 +28,25 @@ describe('deriveCombatSignals — fx (hit/heal/death) entries', () => {
     const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
     expect(out.nextIndex).toBe(1);
     expect(out.floaters).toEqual([
-      { kind: 'hit', lane: 0, x: 42, team: 'player', text: '-85', color: colors.danger },
+      { kind: 'hit', lane: 0, x: 42, team: 'player', text: '-85', color: colors.danger, amount: 85 },
     ]);
-    expect(out.hits).toEqual([{ lane: 0, x: 42, team: 'player' }]);
+    // Legacy 5-field entry (pre-P4 records): no target id, not shielded.
+    expect(out.hits).toEqual([
+      { lane: 0, x: 42, team: 'player', targetId: null, amount: 85, shielded: false },
+    ]);
     expect(out.telegraphs).toEqual([]);
     expect(out.spawns).toEqual([]);
+  });
+
+  it('P4: parses the extended hit entry (target id + shield flag); shielded hits tint shield-blue', () => {
+    const log = [entry('fx', 'hit|0|42|85|player|17|1'), entry('fx', 'hit|1|10|30|opponent|4|0')];
+    const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
+    expect(out.hits).toEqual([
+      { lane: 0, x: 42, team: 'player', targetId: 17, amount: 85, shielded: true },
+      { lane: 1, x: 10, team: 'opponent', targetId: 4, amount: 30, shielded: false },
+    ]);
+    expect(out.floaters[0].color).toBe(colors.shield);
+    expect(out.floaters[1].color).toBe(colors.warning);
   });
 
   it('an opponent-team hit uses the warning color (opponent units taking damage)', () => {
@@ -46,7 +60,7 @@ describe('deriveCombatSignals — fx (hit/heal/death) entries', () => {
     const log = [entry('fx', 'heal|0|5|40|player')];
     const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
     expect(out.floaters).toEqual([
-      { kind: 'heal', lane: 0, x: 5, team: 'player', text: '+40', color: colors.success },
+      { kind: 'heal', lane: 0, x: 5, team: 'player', text: '+40', color: colors.success, amount: 40 },
     ]);
     expect(out.hits).toEqual([]);
   });
@@ -55,7 +69,7 @@ describe('deriveCombatSignals — fx (hit/heal/death) entries', () => {
     const log = [entry('fx', 'death|1|88|0|opponent')];
     const out = deriveCombatSignals(log, 0, EMPTY_UNITS);
     expect(out.floaters).toEqual([
-      { kind: 'death', lane: 1, x: 88, team: 'opponent', text: '✕', color: colors.opponent },
+      { kind: 'death', lane: 1, x: 88, team: 'opponent', text: '✕', color: colors.opponent, amount: 0 },
     ]);
     expect(out.hits).toEqual([]);
   });
@@ -176,40 +190,64 @@ describe('deriveCombatSignals — incremental scanning and unrelated entries', (
 });
 
 describe('latestMatchingHit', () => {
+  // Legacy-shape hit (no targetId) — exercises the proximity fallback path
+  // used for pre-P4 records/replays.
   const hit = (lane: 0 | 1, x: number, team: 'player' | 'opponent', bornAtMs: number) => ({
     lane,
     x,
     team,
     bornAtMs,
   });
+  const idHit = (
+    lane: 0 | 1,
+    x: number,
+    team: 'player' | 'opponent',
+    bornAtMs: number,
+    targetId: number | null
+  ) => ({ lane, x, team, bornAtMs, targetId });
 
-  it('matches a hit in the same lane/team within tolerance', () => {
+  it('proximity fallback: matches a hit in the same lane/team within tolerance', () => {
     const hits = [hit(0, 40, 'player', 1000)];
-    expect(latestMatchingHit(0, 41, 'player', hits, 3)).toBe(1000);
+    expect(latestMatchingHit(7, 0, 41, 'player', hits, 3)?.bornAtMs).toBe(1000);
   });
 
-  it('rejects a hit in a different lane', () => {
+  it('proximity fallback: rejects a hit in a different lane', () => {
     const hits = [hit(1, 40, 'player', 1000)];
-    expect(latestMatchingHit(0, 40, 'player', hits, 3)).toBeNull();
+    expect(latestMatchingHit(7, 0, 40, 'player', hits, 3)).toBeNull();
   });
 
-  it('rejects a hit on a different team', () => {
+  it('proximity fallback: rejects a hit on a different team', () => {
     const hits = [hit(0, 40, 'opponent', 1000)];
-    expect(latestMatchingHit(0, 40, 'player', hits, 3)).toBeNull();
+    expect(latestMatchingHit(7, 0, 40, 'player', hits, 3)).toBeNull();
   });
 
-  it('rejects a hit outside the tolerance radius', () => {
+  it('proximity fallback: rejects a hit outside the tolerance radius', () => {
     const hits = [hit(0, 40, 'player', 1000)];
-    expect(latestMatchingHit(0, 50, 'player', hits, 3)).toBeNull();
+    expect(latestMatchingHit(7, 0, 50, 'player', hits, 3)).toBeNull();
   });
 
   it('picks the most recent among multiple matches', () => {
     const hits = [hit(0, 40, 'player', 1000), hit(0, 41, 'player', 2000), hit(0, 39, 'player', 500)];
-    expect(latestMatchingHit(0, 40, 'player', hits, 3)).toBe(2000);
+    expect(latestMatchingHit(7, 0, 40, 'player', hits, 3)?.bornAtMs).toBe(2000);
   });
 
   it('returns null with no hits', () => {
-    expect(latestMatchingHit(0, 40, 'player', [], 3)).toBeNull();
+    expect(latestMatchingHit(7, 0, 40, 'player', [], 3)).toBeNull();
+  });
+
+  it('P4 id match: an id-carrying hit matches ONLY its target unit, position-independent', () => {
+    const hits = [idHit(0, 40, 'player', 1000, 7)];
+    // The struck unit matches even far from the logged position (it moved)…
+    expect(latestMatchingHit(7, 0, 90, 'player', hits, 3)?.bornAtMs).toBe(1000);
+    // …while a same-team unit standing ON the logged spot does not (the P6
+    // proximity-overmatch deferral this closes).
+    expect(latestMatchingHit(8, 0, 40, 'player', hits, 3)).toBeNull();
+  });
+
+  it('P4: id-carrying and legacy hits mix — each matches by its own rule', () => {
+    const hits = [idHit(0, 40, 'player', 2000, 7), hit(0, 40, 'player', 1000)];
+    expect(latestMatchingHit(7, 0, 40, 'player', hits, 3)?.bornAtMs).toBe(2000);
+    expect(latestMatchingHit(9, 0, 40, 'player', hits, 3)?.bornAtMs).toBe(1000);
   });
 });
 
