@@ -1789,3 +1789,29 @@ Gates: `npx vitest run src/arena-game` 26 files / 487 tests green ·
 web` succeeded. Deep harness NOT re-run: no battle-affecting change (no
 game-engine/content/balance/AI edits; the new modules are display-only pure
 functions and battle-time squad fielding is byte-identical).
+
+## P13 — reward safety audit (2026-07-23, overnight hardening)
+
+PROTECTION audit (highest-priority constraint). Verdict: **CLEAN across all
+8 scope items + integration edges — no violations, no fixes, no CRITICAL
+flags.** Verified by reading source, not summaries. Full evidence trail
+(file:line per item) in `ARENA_BETA_AUDIT.md` § "P13 — reward safety audit".
+
+Key confirmations: the package's entire external surface is one READ-ONLY
+`@/data/supabase` client (only in supabase-provider.ts — all `.select`/read
+RPCs, no insert/update/upsert/delete/mutating-rpc) plus one pure domain fn
+(`forgeProgressFor`). No `xp_ledger`/`xp_events` writes; no
+`@/data/mutations`/`hooks` imports. All battle-completion paths
+(`battle-store.recordResult`, `local-mock-provider.recordBattleResult`,
+`applyGymWarResult`) write ONLY the per-user-namespaced local save. Arena
+Rating/stats/gym contribution are device-local (farming harms self only);
+avatar stage is the real provider derivation, Forge Level read-only. Sign-out
+teardown (`resetArenaSession`) stops the battle loop + drops in-memory state,
+wired into auth-context alongside `supabase.auth.signOut()` +
+`queryClient.clear()`; `u/<userId>/` namespacing blocks cross-account leakage.
+No camera/photo/media anywhere; feedback export is user-initiated Share only.
+Untrusted record/ghost parse is fail-safe + scaling-bounded and only drives
+offline replays (zero rank, no server write).
+
+Gates: docs-only change (no code touched) — tsc/vitest/lint unaffected;
+`npx vitest run src/arena-game` remains 487 green from P12.

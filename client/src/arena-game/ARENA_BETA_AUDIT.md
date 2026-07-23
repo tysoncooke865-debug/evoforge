@@ -106,6 +106,95 @@ against the working tree, not recalled.
 - **Isolation**: Arena touches no shared tables (read-only + RPCs); sign-out
   teardown registered; per-user storage namespacing; no XP minting.
 
+## P13 — reward safety audit (2026-07-23)
+
+Highest-priority PROTECTION audit. Every verdict below was verified by
+reading the actual source in the working tree, not summaries. **No
+violations found — no code changes required.** Verdict per scope item:
+
+1. **Zero server writes from the package — CLEAN.** The ONLY supabase
+   handle in the whole package is `@/data/supabase` imported once, in
+   `integration/evoforge/supabase-provider.ts:36`. Every call is a READ:
+   `.from('public_profile'/'profiles'/'evo_rating_current'/'user_progression'/'bodyfat_log').select(...)`
+   (lines 103-104, 131-133, 182-186) and RPC reads `xp_total` (169),
+   `my_gyms` (196, 245), `gym_detail` (207), `discover_gyms` (246). No
+   `.insert/.update/.upsert/.delete` and no mutating `.rpc` anywhere.
+   `recordBattleResult` (261-265) delegates to the local mock only. The
+   other `.update(`/`.delete(` grep hits are Zustand store `update()` and
+   `Map.delete()` — not Supabase.
+
+2. **No XP minting — CLEAN.** No `xp_ledger`/`xp_events`/`xp_awarded`
+   write anywhere; `xp_total` RPC is read-only and summed server-side into
+   a level derivation (`supabase-provider.ts:167-176`). Package imports
+   NOTHING from `@/data/mutations` or `@/data/hooks` (grep empty); the only
+   out-of-package imports are `@/data/supabase` (read) and
+   `@/domain/progression/forge-level` (pure `forgeProgressFor`). All three
+   completion paths write local-only: `battle-store.recordResult`
+   (battle-store.ts:165-213 → provider), `LocalMockPlayerProvider.recordBattleResult`
+   (local-mock-provider.ts:89-114, Zustand save update),
+   `applyGymWarResult` (contribution.ts:15-38, pure over `save.gym`).
+
+3. **No fabricated fitness data — CLEAN.** Nothing in the package writes to
+   any EvoForge fitness surface. `evo_rating_current`/`profiles`/
+   `bodyfat_log`/`user_progression` are read-only. The dev-mock fitness
+   editor (`screens/dev-fitness-editor.tsx:94-100`) mutates only
+   `save.fitness` (local Arena save); the integrated provider's
+   `getFitnessProfile` (supabase-provider.ts:122-163) reads live Supabase
+   data and never consults `save.fitness`, so the editor is inert in the
+   integrated app (banner at dev-fitness-editor.tsx:120-123). Reachable
+   only from the Debug screen (debug.tsx:132-136).
+
+4. **No duplicate progression systems — CLEAN.** Arena Rating is named
+   Arena-local and cosmetic throughout (`services/progression/rank.ts:1-42`
+   docstring + `ratingLineFor`); it never grants Forge XP. `avatarStage`
+   comes from the real derivation `deriveRealStage`/`estimateMemberStage`
+   in the provider (supabase-provider.ts:158, 231), not a parallel ladder.
+   Forge Level is only ever read (derived via `forgeProgressFor`, line 141).
+
+5. **Farm-proofing — CLEAN.** Arena Rating, battle stats and gym
+   contribution all live in the per-user save; farming affects only the
+   farmer's local device. Gym contribution is never sent to any RPC/
+   leaderboard (contribution.ts is pure; provider only READS gyms). Ghost
+   battles move zero rank and never reach the provider (battle-store.ts:170;
+   rank.ts:27). Feedback export ships nothing silently — user-initiated
+   `Share.share` only (feedback.tsx:72-78; feedback-log.ts is device-local).
+
+6. **Sign-out teardown — CLEAN.** `resetArenaSession`
+   (app-services.ts:112-119) drops the provider/storage back to non-
+   namespaced defaults, resets the battle loop FIRST (stops the setInterval
+   via `battleStore.reset()`), then idles the player store. Wired into
+   auth-context sign-out (`data/auth-context.tsx:110-112`) which also runs
+   `supabase.auth.signOut()` + `queryClient.clear()` (48-49) and every
+   Zustand store. Per-user namespacing `u/<userId>/` (app-services.ts:89)
+   means a second athlete's boot (`initArenaForUser` → `initialize` loads
+   the new namespace, player-store.ts:39-53) overwrites in-memory save and
+   reads only their own storage — no cross-account leakage of saves/records.
+
+7. **Photos/PII — CLEAN.** Zero camera/photo/media/image-picker references
+   in the package (grep empty). Feedback export contains only user-typed
+   notes + category + balance version (feedback-log.ts:80-97, 160-176).
+
+8. **Untrusted data paths — CLEAN.** Battle records and ghosts parse
+   fail-safe: `validateBattleRecordValue` (replay.ts:148) rejects bad
+   scaling via `isValidChampionScaling` (fitness-scaling.ts:78-89, bounds
+   `MIN_SCALING_MULT..MAX_SCALING_MULT`) and caps command padding.
+   Envelopes are corrupt-safe and refuse newer-build data
+   (battle-records.ts, feedback-log.ts). Records only ever drive offline
+   replays/ghosts (zero rank, no server write), so even a smuggled record
+   cannot reach anything real — validation is defense-in-depth.
+
+**Integration edges (read-only):** boot `_layout.tsx:38` calls
+`initArenaForUser` per signed-in athlete under the (main) session gate;
+sign-out teardown wired at `auth-context.tsx:110-112`; eslint scoping
+(`eslint.config.js:26-31`) only relaxes React-Compiler rules for the
+mutable sim — `react/no-danger`, `exhaustive-deps`, `rules-of-hooks` remain.
+
+**Isolation summary:** the package's total external surface is one
+read-only Supabase client + one pure domain function. No mutation reaches
+EvoForge; all Arena progress (rating, stats, contribution, records) is
+device-local and per-user namespaced. No fixes, no CRITICAL flags. Docs
+gates only (no code change): `tsc`/`vitest`/`lint` unaffected.
+
 ## Execution plan (this run)
 P2+P3 five-champion architecture + real progression (Fable xhigh) →
 P4 engine-reliability review (ultracode) → P5 stability @5 champions
