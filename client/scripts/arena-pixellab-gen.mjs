@@ -92,20 +92,28 @@ const MANIFEST = {
     seed: 27,
     desc: 'boxer with glowing neon gloves, athletic build, fighting stance, ' + STYLE,
   },
+  // P8 identity fix: the first generation read as a motorbike at 26pt —
+  // explicitly a HUMAN sprinter now (seed bumped to re-roll).
   'cardio-runner': {
     kind: 'unit',
-    seed: 29,
-    desc: 'fast sprinter with glowing shoes and headband, light running gear, mid-stride, ' + STYLE,
+    seed: 30,
+    desc:
+      'human athlete sprinting upright, runner in a racing singlet with glowing shoes and ' +
+      'headband, arms pumping, clearly a person running, ' + STYLE,
   },
   'shadow-striker': {
     kind: 'unit',
     seed: 31,
     desc: 'hooded assassin with twin energy daggers, dark cloak with purple glow, crouched, ' + STYLE,
   },
+  // P8 identity fix: the card is "Javelin Marksman" — a thrower, not a
+  // drone (the art key predates the fitness-terminology rename).
   'drone-archer': {
     kind: 'unit',
-    seed: 37,
-    desc: 'small hovering combat drone with energy bow launcher, sleek angular hull, ' + STYLE,
+    seed: 38,
+    desc:
+      'athletic javelin thrower winding up to hurl a glowing energy javelin, track and field ' +
+      'athlete physique, throwing stance, ' + STYLE,
   },
   'cyber-medic': {
     kind: 'unit',
@@ -117,10 +125,14 @@ const MANIFEST = {
     seed: 43,
     desc: 'bulky walking mech tank with thick armor plates and pistons, squat massive frame, ' + STYLE,
   },
+  // P8 identity fix: the card is "Spotter" — a gym spotter projecting a
+  // shield, not an orb drone.
   'support-drone': {
     kind: 'unit',
-    seed: 47,
-    desc: 'small floating support orb drone with glowing repair beam emitters, rounded hull, ' + STYLE,
+    seed: 48,
+    desc:
+      'gym spotter with arms raised ready to catch, sturdy training partner projecting a small ' +
+      'glowing blue energy shield from a wrist device, ' + STYLE,
   },
   'blade-runner': {
     kind: 'unit',

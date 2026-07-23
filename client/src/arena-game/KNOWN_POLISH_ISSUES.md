@@ -19,7 +19,7 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 - [x] B1 Unit animation. DONE (Phase 4): champions have REAL 4-frame PixelLab walk cycles (frame-0 inpainting anchor + image_guidance 3.0 cracked the earlier turn-around failure); ALL units get sim-synced procedural attack animation (anticipation → strike lunge → lean), hit recoil, spawn drop-in, walk-bob. Unit walk frames remain optional future work (bob + attack cycle reads well at 26pt).
 - [x] B2 Projectiles. DONE (Phase 4): cooldown-reset detection → fast team-colored streak + trail to the target (visual-only, 110ms).
 - [x] B3 Hit-stop / screen shake / slow-mo. DONE (Phase 4): impact-tier table (TIER_FX); heavy hits 50ms hit-stop + shake, ultimates 0.35× slow-mo + path-color screen tint, severe core hits top-rung shake + 90ms stop. Store-level time dilation delays ticks, never skips (replay-safe, tested).
-- [x] B4 PARTIAL: core-destruction CLIMAX done (1.1s hold, winner-colored wash, top shake, then result overlay). Battle intro/countdown remains → Phase 9. 
+- [x] B4 DONE: core-destruction CLIMAX (Phase 4) + battle INTRO (Phase 9: champions face-off + 3-2-1-FIGHT over a frozen sim via holdForIntro; plays on rematch too; tour-verified). Timer escalates amber <30s / red in sudden death.
 - [x] B5 Tier scaling. DONE (Phase 4): damage numbers size/weight by tier; light hits stay deliberately quiet.
 - [x] B6 Per-champion FX differentiation. DONE (Phase 5): per-path telegraph shapes (Titan shockwave+cracks / Mass pressure+dust / Shredder slashes / Cardio pulses / Aesthetics gold ring+sparks), Titan ability camera bump, Cardio speed afterimage, Shredder strike ghost.
 - [x] B7 Hit fx entries carry unit id + shield flag. DONE (Phase 4, digest-inert, legacy fallback kept + tested).
@@ -41,7 +41,7 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · DEFERRED (why).
 ## Pipeline / assets
 - [x] E1 PixelLab key validated and adopted (generate-image-pixflux at 64px low top-down is excellent; animate-with-text unusable for toward-camera walks; rotate south→north returned another front view). Pipeline: scripts/arena-pixellab-gen.mjs, pinned seeds, idempotent raws.
 - [x] E2 Sprites pngquant-crushed (175→59KB); runtime fallback = colored dot / letter glyph (unchanged, never a broken image); legacy Kenney set kept on disk as documented fallback source.
-- [ ] E3 NEW: unit sprites at 26pt occasionally read ambiguous at arm's length (cardio-runner reads bike-ish) — judge per-card during Phase 8 roster selection; regenerate individual raws (delete + re-run generate) where identity fails. OPEN
+- [x] E3 DONE (Phase 8): cardio-runner → human sprinter, drone-archer → javelin thrower (matches the Javelin Marksman rename), support-drone → gym spotter with shield. Deck composition deliberately untouched (AI plays the starter deck — balance-coupled; see PROGRESS P8 decision).
 
 ## Guardrails to re-verify after each phase (not issues — tripwires)
 - Replay digest parity (any engine log change), deep harness 0 defects,

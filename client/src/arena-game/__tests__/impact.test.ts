@@ -182,6 +182,20 @@ describe('battle store time dilation (hit-stop / slow-mo)', () => {
     store.getState().reset();
   });
 
+  it('holdForIntro (P9) freezes the sim through a countdown-length hold, then combat begins cleanly', async () => {
+    const store = createBattleStore({ current: null as never });
+    store.getState().holdForIntro(2450); // idle: no-op, no throw
+    store.getState().start(SEED, 'p1');
+    store.getState().holdForIntro(2450);
+    await vi.advanceTimersByTimeAsync(2450);
+    expect(store.getState().live!.state.tick).toBe(0); // frozen through the intro
+    await vi.advanceTimersByTimeAsync(500);
+    const after = store.getState().live!.state.tick;
+    expect(after).toBeGreaterThanOrEqual(9); // ~10 ticks at normal pace, no burst
+    expect(after).toBeLessThanOrEqual(11);
+    store.getState().reset();
+  });
+
   it('a slower active dilation is not overridden by a weaker one, durations are capped, and idle stores ignore it', async () => {
     const store = createBattleStore({ current: null as never });
     // Idle: no-op, no throw.

@@ -1977,3 +1977,41 @@ Playwright check capturing the reveal mid-stage (no buttons) and complete.
 Gates: tsc clean; arena 27 files / 510 tests; full suite 1,581; lint 0
 errors; verify-motion/tokens/battle-engine OK; export + full tour +
 ceremony check on the real build.
+
+## Phases 8-9 - slice roster + match flow (2026-07-23)
+
+P8 (roster). DECISION: the starter deck composition is KEPT UNCHANGED -
+the AI always fields DEFAULT_DECK_CARD_IDS (arena-screen battleOptions),
+so the deck is coupled to the deep-harness balance (45-54 percent band);
+churning it blind would violate the balance lesson in ARENA_BALANCE.md.
+Role audit of the featured 8: tank (Titan Guard), cheap cycle (Forge
+Recruit x2), bruiser dps (Cardio Boxer), ranged (Javelin Marksman),
+win-condition lane pressure (Cardio Runner), area+control (Overload),
+heal (Recovery Pulse), defensive response (Emergency Shield) - every
+required role covered, no always-optimal card. What P8 DID change: three
+sprite identity fixes (audit E3) - cardio-runner regenerated as an
+unmistakable human sprinter (was bike-ish), drone-archer as a javelin
+THROWER (card renamed to Javelin Marksman in P9-overnight but the art
+was still a drone), support-drone as a gym SPOTTER projecting a shield
+(was an orb). Raws deleted + reseeded in the manifest; the rest of the
+20-card set stays as collection content.
+
+P9 (match flow). Battle INTRO: every non-tutorial battle (standard,
+ghost, gym-war, and every Rematch) opens with battle-intro.tsx - the
+opponent line (difficulty/gym/ghost), both champions in team-framed
+84pt portraits, VS, then 3-2-1-FIGHT in 72pt pixel numerals with per-beat
+pops (suppressed under reduced motion; the count itself remains). The sim
+is FROZEN underneath via the store's new holdForIntro (same delay-only
+dilation mechanism, intro-sized 3.5s cap; ticks never skipped; player can
+pre-select a card during the countdown; fake-timer tested). The overlay
+is driven by a bounded local interval keyed on the live object (a frozen
+sim produces no version bumps). Timer tension: amber inside the final
+30s, danger red in sudden death. Tour-verified: countdown over a dimmed
+frozen arena at t=1s, combat underway by t=6s, two-way core damage.
+
+Gates: tsc clean; arena 27 files / 511 tests; full suite 1,582; lint 0
+errors; verify-motion/tokens/battle-engine OK; export + tour.
+
+GOTCHA (build tooling): PowerShell Select-Object -First N terminates the
+upstream native command early - it killed a pixellab generate run
+mid-way. Never pipe the generator through early-terminating filters.

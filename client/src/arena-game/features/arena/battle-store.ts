@@ -68,6 +68,9 @@ const MAX_CATCHUP_TICKS = 5;
  *  A dilation is a SHORT presentation beat — the cap keeps a buggy caller
  *  from freezing the battle. Scale 0 = hit-stop, 0<scale<1 = slow motion. */
 const MAX_DILATION_MS = 450;
+/** P9: cap for the pre-battle intro hold (countdown) — longer than a combat
+ *  beat, still bounded so a buggy caller cannot park the battle forever. */
+const MAX_INTRO_HOLD_MS = 3500;
 /** Matches the default save's player id (see services/persistence/save.ts). */
 const DEFAULT_PLAYER_ID = 'local-player';
 
@@ -113,6 +116,13 @@ export interface BattleStoreState {
    * dilation is never overridden by a weaker one.
    */
   applyTimeDilation(scale: number, durationMs: number): void;
+  /**
+   * P9 match flow — freeze the sim for the battle-intro countdown, right
+   * after start(). Same delay-only mechanism as applyTimeDilation (ticks
+   * are never skipped; replays unaffected) with a longer, intro-sized cap.
+   * Player commands queued during the hold apply on the first real tick.
+   */
+  holdForIntro(durationMs: number): void;
   stop(): void;
   restart(seed: number, playerId?: string, options?: LiveBattleOptions, mode?: BattleMode): void;
   /** Stop the loop and return to idle — leaving the screen abandons the battle. */
@@ -490,6 +500,13 @@ export function createBattleStore(
         // cut short by a light hit-stop landing during it.
         if (dilation && dilation.untilMs > now && dilation.scale <= clampedScale) return;
         dilation = { scale: clampedScale, untilMs: now + Math.min(MAX_DILATION_MS, durationMs) };
+      },
+
+      holdForIntro(durationMs: number) {
+        const { status } = get();
+        if (status !== 'running') return;
+        if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+        dilation = { scale: 0, untilMs: Date.now() + Math.min(MAX_INTRO_HOLD_MS, durationMs) };
       },
 
       stop() {

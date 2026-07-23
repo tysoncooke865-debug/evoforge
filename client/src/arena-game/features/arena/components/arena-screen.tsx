@@ -59,6 +59,7 @@ import { ratingDeltaForOutcome } from '../../../services/progression/rank';
 import { DEFAULT_DECK_CARD_IDS } from '../../../services/persistence/save';
 import { usePlayer } from '../../../services/player-data/use-player';
 import { AugmentPicker } from './augment-picker';
+import { BattleIntro, INTRO_TOTAL_MS } from './battle-intro';
 import { CardRow } from './card-row';
 import { ChampionHud } from './champion-hud';
 import { buildUnitLookup, deriveCombatSignals, deriveCoreHitIntensity } from './combat-fx';
@@ -422,6 +423,28 @@ export function ArenaScreen({
     screenShake: null,
     ultimateFlash: null,
   });
+  // P9 — battle intro: every non-tutorial battle opens with the champions
+  // facing off over a 3-2-1-FIGHT countdown while the sim is frozen via the
+  // store's intro hold. The frozen sim produces no version bumps, so a
+  // bounded local interval drives the intro frames (same pattern as the
+  // climax below). Keyed on the live object so a Rematch replays it.
+  const liveForIntro = useBattle((s) => s.live);
+  const introRef = useRef<{ startedAt: number; active: boolean }>({ startedAt: 0, active: false });
+  const [, setIntroFrame] = useState(0);
+  useEffect(() => {
+    if (!liveForIntro || tutorial) return;
+    introRef.current = { startedAt: Date.now(), active: true };
+    battleStore.getState().holdForIntro(INTRO_TOTAL_MS);
+    const interval = setInterval(() => {
+      if (Date.now() - introRef.current.startedAt >= INTRO_TOTAL_MS) {
+        introRef.current.active = false;
+        clearInterval(interval);
+      }
+      setIntroFrame((f) => f + 1); // the final bump un-renders the overlay
+    }, 50);
+    return () => clearInterval(interval);
+  }, [liveForIntro, tutorial]);
+
   // P4/P9 — core-destruction climax: when the battle finishes, hold the
   // result overlay back for CLIMAX_MS while a final shake + flash lands. The
   // battle loop stops on finish (no more version bumps), so a short local
@@ -717,10 +740,30 @@ export function ArenaScreen({
     battleStore.getState().selectCard(id === selectedCardId ? null : id);
   };
 
+  // P9 intro overlay state (elapsed drives the countdown component).
+  const introElapsed = introRef.current.active ? nowMs - introRef.current.startedAt : Infinity;
+  const introVisible = !tutorial && introElapsed < INTRO_TOTAL_MS;
+  const opponentIntroLabel =
+    mode === 'ghost'
+      ? `Ghost battle — ${live.opponentDisplayName ?? 'your past self'}`
+      : mode === 'gym-war'
+        ? `Gym War — ${live.opponentDisplayName ?? 'enemy gym'}`
+        : `${live.opponentDisplayName ?? `${live.aiDifficulty} AI`}`;
+
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.hudTop}>
-        <Text style={styles.timer}>{timerLabel}</Text>
+        <Text
+          style={[
+            styles.timer,
+            // P9 tension: the clock itself escalates — amber inside the
+            // final 30 seconds, danger red in sudden death.
+            remainingSeconds <= 30 && state.phase !== 'sudden-death' && styles.timerLow,
+            state.phase === 'sudden-death' && styles.timerSudden,
+          ]}
+        >
+          {timerLabel}
+        </Text>
         {state.phase === 'sudden-death' && <Text style={styles.phaseLabel}>SUDDEN DEATH</Text>}
         {tutorial && <Text style={styles.tutorialLabel}>TUTORIAL</Text>}
         {mode === 'ghost' && <Text style={styles.ghostLabel}>GHOST BATTLE</Text>}
@@ -842,6 +885,22 @@ export function ArenaScreen({
         />
       </View>
 
+      {introVisible && (
+        <BattleIntro
+          elapsedMs={introElapsed}
+          playerChampionId={
+            live.config.player.squad?.captain.championId ?? live.config.player.championId ?? null
+          }
+          opponentChampionId={
+            live.config.opponent.squad?.captain.championId ??
+            live.config.opponent.championId ??
+            null
+          }
+          opponentLabel={opponentIntroLabel}
+          reduceMotion={reduceMotion}
+        />
+      )}
+
       {pickerAvailable && (
         <AugmentPicker
           offeredIds={playerAugment.offeredIds ?? []}
@@ -939,6 +998,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontVariant: ['tabular-nums'],
   },
+  timerLow: { color: colors.warning },
+  timerSudden: { color: colors.danger },
   phaseLabel: {
     ...typography.label,
     color: colors.danger,

@@ -2100,6 +2100,22 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   by a dedicated Playwright check. Arena suite 510, full 1,581, all
   guards green.
 
+- **2026-07-23 — Arena polish Phases 8+9 done: roster identity + match
+  flow.** P8: starter-deck COMPOSITION deliberately unchanged (the AI
+  fields DEFAULT_DECK_CARD_IDS — the deck is coupled to the tuned
+  45–54% balance band; role audit in PROGRESS.md confirms full
+  coverage); three sprite identity fixes instead (human sprinter,
+  javelin thrower, gym spotter — art now matches the fitness-renamed
+  cards). P9: every non-tutorial battle (and every Rematch) opens with
+  `battle-intro.tsx` — opponent line, team-framed champion portraits,
+  VS, 3-2-1-FIGHT pixel countdown — over a sim FROZEN by the store's new
+  `holdForIntro` (delay-only, 3.5s cap, fake-timer tested; players can
+  pre-select a card during the count). Timer turns amber <30s, red in
+  sudden death. Tooling gotcha recorded in PROGRESS: PS `Select-Object
+  -First N` kills upstream native commands — never filter the pixellab
+  generator through it. Arena suite 511, full 1,582, all guards green,
+  tour-verified.
+
 ---
 
 ## 3. The rules that cost real bugs
