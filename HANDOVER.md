@@ -43,7 +43,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   library entries. **Hand-authored surface only — NOT the generated `catalogs.ts`
   EVOFORGE PLAN**, which stays contract-locked. Guards: `exercise-library.test.ts`
   35/35, full suite 1426 green, tsc + lint clean.
-- **ARENA GYM CHAMPIONS SLICE (2026-07-23, no migration — overnight
+- **OVERNIGHT ARENA HARDENING RUN COMPLETE — P1–P14 (2026-07-23, no
+  migration)**: the full 14-phase program executed in one autonomous run
+  (audit → five-champion rebuild → engine reliability → stability → FX →
+  readability → balance → cards → AI tendencies → journey → gym slice →
+  reward safety → final verification). Final state: five official
+  champions with passives/roles, 20 cards / 7 synergies, save v6,
+  Arena suite 487 (full suite 1,558), deep harness 362 matches with 0
+  defects and win rates [45%, 54%], P13 reward-safety audit CLEAN,
+  every guard green. **Read
+  `OVERNIGHT_ARENA_BUILD_REPORT.md` (repo root)** — phase table, final
+  state, and the decisions that need Tyson (XP reward policy,
+  `gym_detail origin_path` migration, on-device pass). Per-phase detail
+  in the entries below + `client/src/arena-game/` docs.
   hardening P12)**: official-path squad ROLES, data-driven from champion
   content (`features/gyms/path-roles.ts` — Titan Anchor, Mass Bulwark,
   Shredder Finisher, Cardio Pacer, Aesthetics Coach; team-aura flags

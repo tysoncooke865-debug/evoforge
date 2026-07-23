@@ -1815,3 +1815,37 @@ offline replays (zero rank, no server write).
 
 Gates: docs-only change (no code touched) — tsc/vitest/lint unaffected;
 `npx vitest run src/arena-game` remains 487 green from P12.
+
+## P14 — final verification + report (2026-07-23, overnight hardening) ✅ RUN COMPLETE
+
+Full independent gate sweep re-run from a clean tree (arena package untouched
+this phase; a concurrent session was editing `data/`/`domain/`/`today.tsx`,
+attributed separately). Every gate GREEN:
+
+- `npx tsc --noEmit` — clean, 0 errors.
+- `npx vitest run` (FULL) — 98 files / 1,558 tests passing (arena: 26 files /
+  487 tests; non-arena 1,069 → 1,071, the other session's muscle-lookup test).
+- `npx expo lint` — 0 errors (7 documented warnings: test unused-vars + inert
+  `no-console` disables).
+- `node scripts/verify-tokens.mjs` — OK (56 tokens + 2 overrides, 591 files clean).
+- `node scripts/verify-motion.mjs` — OK (14 looping components, all gated).
+- `node scripts/verify-battle-engine.mjs` — OK (parity 18026 bytes × 3).
+- `ARENA_STABILITY_DEEP=1` stability harness — 362 matches, 0 stalls / 0 errors /
+  0 invariant violations (304 checked every tick), 1 report-only rejected command,
+  30/30 ghosts digest-identical, 0 borrowed-champion ultimates. Win rates
+  [45, 54]: Shredder 54 · Mass 54 · Titan 50 · Cardio 47 · Aesthetics 45.
+- `npx expo export -p web` — 130 routes; all 25 `/forge-arena` routes emit incl.
+  all five champion pages.
+
+Audit closure: findings #1/#2/#3/#5/#6/#9 RESOLVED (spot-checked in source);
+#4 (gym-mate origin_path) OPEN by design — shared-schema migration left for Tyson;
+#7/#8/#11 deferred (perf/cosmetic); #10 addressed via P6/P7 reactive FX.
+Requirement sweep all PASS: exactly five official champions, no player-facing
+speedster/hybrid, real progression read-only (Evo cap 12%, Forge Level read-only,
+separate Arena Rating, real stages incl. Shredder body-fat), save v1→v6 migrations
+(not resets), P13 reward-safety clean, deterministic engine, 20 cards, tutorial +
+tier gating, gym slice with roles.
+
+Full report at repo root: `OVERNIGHT_ARENA_BUILD_REPORT.md`.
+
+# OVERNIGHT ARENA HARDENING RUN COMPLETE (P1–P14, 2026-07-23)
