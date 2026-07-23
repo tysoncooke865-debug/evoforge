@@ -116,6 +116,30 @@ const ULTIMATE_SLOWMO_MS = 380;
 /** Escalation rank so a weaker shake never replaces an active stronger one. */
 const SHAKE_RANK: Record<ImpactTier, number> = { light: 0, medium: 1, heavy: 2, ultimate: 3, core: 4 };
 
+/** Ceiling on any single pre-battle provider fetch — a hung request on a
+ *  flaky connection must degrade (neutral scaling / setup error), never
+ *  hold the battle loading spinner forever. */
+const NETWORK_TIMEOUT_MS = 6000;
+
+function withNetworkTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} request timed out — check your connection`)),
+      NETWORK_TIMEOUT_MS
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 const { laneLength } = BALANCE.arena;
 // P7: one divider per whole energy point on the energy bar (e.g. 9 dividers
 // for a max of 10) — a cheap "pip" affordance so a player can eyeball how
@@ -520,8 +544,19 @@ export function ArenaScreen({
     let cancelled = false;
     (async () => {
       try {
-        const player = await playerProvider.getCurrentPlayer();
-        const fitness = await playerProvider.getFitnessProfile(player.playerId);
+        // A hung network request must NEVER hold the battle spinner (the
+        // one in-arena path that could present as "stuck on a loading
+        // screen" on a flaky mobile connection — supabase fetches carry no
+        // timeout of their own). Timing out falls into the neutral-scaling
+        // catch below and the battle starts anyway.
+        const player = await withNetworkTimeout(
+          playerProvider.getCurrentPlayer(),
+          'current player'
+        );
+        const fitness = await withNetworkTimeout(
+          playerProvider.getFitnessProfile(player.playerId),
+          'fitness profile'
+        );
         scalingRef.current = computeFitnessScaling(
           {
             strength: fitness.strengthRating,
@@ -567,19 +602,31 @@ export function ArenaScreen({
         // provider boundary; failures show an error state — never a silent
         // standard battle.
         try {
-          const gymProfile = await playerProvider.getGymProfile(save.player.playerId);
+          // Same hung-request protection as the profile fetch: gym reads
+          // time out into the visible setup-error state, never a forever
+          // spinner.
+          const gymProfile = await withNetworkTimeout(
+            playerProvider.getGymProfile(save.player.playerId),
+            'gym profile'
+          );
           if (!gymProfile) {
             if (!cancelled) setSetupError('You are not a member of a gym.');
             return;
           }
-          const ownMembers = await playerProvider.getGymMembers(gymProfile.gymId);
-          const rivals = await playerProvider.listRivalGyms();
+          const ownMembers = await withNetworkTimeout(
+            playerProvider.getGymMembers(gymProfile.gymId),
+            'gym members'
+          );
+          const rivals = await withNetworkTimeout(playerProvider.listRivalGyms(), 'rival gyms');
           const enemyGym = rivals.find((g) => g.gymId === gymWarGymId);
           if (!enemyGym) {
             if (!cancelled) setSetupError(`Unknown rival gym '${gymWarGymId}'.`);
             return;
           }
-          const enemyMembers = await playerProvider.getGymMembers(gymWarGymId);
+          const enemyMembers = await withNetworkTimeout(
+            playerProvider.getGymMembers(gymWarGymId),
+            'rival gym members'
+          );
           if (cancelled) return;
           // Selected borrowed members, in selection order; stale ids skipped.
           const selected = save.gym.selectedSquad
