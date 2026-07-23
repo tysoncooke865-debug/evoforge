@@ -106,6 +106,12 @@ jobs:
       - name: verify-motion — every ambient loop honours reduced motion
         run: node scripts/verify-motion.mjs
 
+      # Premium program P2: the arena's deterministic engine must stay pure
+      # TS (no react/react-native/expo/zustand imports) — rendering derives
+      # from engine state, never the other way round. Falsified 2026-07-23.
+      - name: verify-arena-purity — arena game-engine imports no UI
+        run: node scripts/verify-arena-purity.mjs
+
       - name: Parity suite — TS domain reproduces every golden case exactly
         run: npx vitest run src/domain
 
