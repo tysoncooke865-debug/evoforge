@@ -2133,3 +2133,46 @@ baseline restored after stripping a BOM the PowerShell round-trip
 added); all verify scripts green incl. the new purity guard; deep
 harness green with DEEP confirmed by duration scaling (10.8s vs 5.4s);
 export green; visual tour unregressed; stress lab screenshot-verified.
+
+## Premium program Session 2 (Phase 4): renderer decision (Opus 4.8 xhigh)
+
+Independent review (do-not-trust-previous-conclusions). Doc:
+ARENA_RENDERER_DECISION.md. DECISION: stay on React Native views, do NOT
+migrate to Skia now; staged measured optimization with a BLOCKING
+real-device baseline first (Step 0, Tyson's device pass).
+
+Re-verified in source and corrected the Phase 3 framing:
+- The render is 20Hz, not 60fps - React re-renders only on the version
+  bump; the browser idles 60fps on a static DOM between ticks, so the rAF
+  avgFrameMs FLOORS at 16.67ms on a 60Hz display and can only reveal
+  DROPPED frames. Use CDP script% + framesOver16_7/33 for headroom, not
+  rAF fps. Phase 3's "60fps through 30/team" = "no drops", not "headroom".
+- Cost decomposes from the density sweep: ~12% fixed chrome floor (10u and
+  20u rows equal at ~12.6-12.9% despite doubling units) + ~0.5-0.7%/core
+  per active unit above ~40u. Chrome IS memoizable; actively-fighting units
+  are NOT (each recomputes x/health/bob/pose/recoil/dropScale from fields
+  that change every tick and allocates fresh style+transform arrays -
+  verified lane-strip.tsx:695-722). So memoizing UnitMarker (Phase 3's #1
+  lever) does not help the stress case; the unit-scaling term needs
+  cheaper-per-unit rendering or off-thread motion.
+- Naive React.memo is also defeated by prop-identity churn: ArenaScreen
+  passes fresh filtered arrays + fresh objects to every child each tick
+  (arena-screen.tsx:723-859), and the engine mutates unit objects in place
+  so the unit prop keeps the same reference (a comparator must diff fields).
+
+Why not Skia (each migration-gate condition assessed in the doc): the
+"multiple optimisation attempts have failed" condition fails outright (zero
+attempts); plus web output:"static" -> CanvasKit WASM on the PWA critical
+path, no native build, and a full determinism/FX-doctrine re-verification.
+Reanimated 4.5 + react-native-worklets 0.10 already installed = off-thread
+motion needs no new dep (the Step 3 lever before Skia is ever reconsidered).
+
+Ordered plan (each gated by the lab's throttle row + a real device, kept
+only if it measurably helps + passes all gates): Step 0 real-device
+baseline (BLOCKING, Tyson) -> Step 1 memoize chrome (~12% floor) -> Step 2
+cheaper-per-unit nodes/styles -> Step 3 Reanimated shared-value motion ->
+Step 4 contained Skia ONLY if 1-3 fail on hardware. Steps fold into Phase
+7/16, not a standalone phase. No code changed in Phase 4 (decision + doc).
+
+Next: Session 3 (Phases 5-7) on Fable 5 Ultracode; run Step 0 before any
+Phase 7 renderer change.

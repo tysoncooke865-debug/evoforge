@@ -2157,6 +2157,29 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   sampler. **Session stopped by design: Phase 4 (renderer decision) is
   scheduled for Opus 4.8 at xhigh, independent, on this evidence.**
 
+- **2026-07-23 — Arena PREMIUM Session 2 (Phase 4): renderer decision
+  (Opus 4.8 xhigh, independent).** Doc: `client/src/arena-game/
+  ARENA_RENDERER_DECISION.md`. **DECISION: stay on React Native views; do
+  NOT migrate the battlefield to Skia now.** The prompt's migration gate is
+  unmet (it needs "multiple optimisation attempts have failed" — zero
+  exist), and Skia on the static-web PWA means CanvasKit WASM (~1.5MB+
+  gzip) on the critical path with no native build to amortize it (Reanimated
+  4.5 + worklets 0.10 are already installed as the lighter off-thread
+  alternative). Independently re-verified in source and corrected the Phase 3
+  framing: the render is **20Hz** (browser idles 60fps between ticks; rAF
+  avgFrameMs floors at 16.67ms on 60Hz — use CDP script% + drop counts, not
+  rAF, for headroom). Cost decomposes as a **~12% fixed chrome floor
+  (memoizable) + ~0.5-0.7%/core per actively-fighting unit that changes
+  EVERY tick (NOT memoizable — memoizing UnitMarker, the Phase 3 top lever,
+  does not help the stress case)**. Ordered, measurement-gated plan: **Step 0
+  BLOCKING = real-device baseline via the lab (NEEDS-TYSON — recent+old
+  iPhone + ordinary Android, PWA + Expo Go, 30/team; may show the renderer is
+  already fine)** → Step 1 memoize chrome → Step 2 cheaper-per-unit →
+  Step 3 Reanimated off-thread motion (no new dep) → Step 4 Skia only if
+  1-3 fail on real hardware. Execution folds into Phase 7/16, not its own
+  phase. **Next: Session 3 (Phases 5-7, avatar source of truth) on Fable 5
+  Ultracode; run Step 0 before any Phase 7 renderer change.**
+
 ---
 
 ## 3. The rules that cost real bugs

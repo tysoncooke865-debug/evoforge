@@ -22,7 +22,7 @@ no real-time multiplayer, no progression duplication.
 | 1 Audit+gates | ARENA_PREMIUM_AUDIT / PERFORMANCE_BASELINE / QUALITY_GATES / AVATAR_VISUAL_SOURCE_MAP / KNOWN_ARENA_ISSUES + profiler infra | **DONE this session** |
 | 2 Render architecture | ARENA_RENDER_ARCHITECTURE.md + engine-purity CI guard; churn reductions deliberately deferred to evidence | **DONE this session** |
 | 3 Stress benchmark | Render Stress Lab (dev-stress mode/screen/driver) + headless bench + browser sweep + ARENA_STRESS_TEST_REPORT.md | **DONE this session** |
-| 4 Renderer decision | Independent review of the stress evidence → ARENA_RENDERER_DECISION.md. Options on the table: (a) targeted memoization/subscription-gating of the existing RN-view path (evidence: cost is script, layout <5%), (b) Skia canvas battlefield (new dep: native + CanvasKit WASM on web — weigh against the PWA delivery). | NEXT — Opus 4.8 xhigh |
+| 4 Renderer decision | Independent review → ARENA_RENDERER_DECISION.md. **DECISION: stay on React Native; do NOT migrate to Skia now** (migration gate unmet — zero optimization attempts; Skia = CanvasKit WASM on the static-web PWA critical path). Staged, measured plan; Step 0 = a BLOCKING real-device baseline (Tyson). Corrected finding: chrome is memoizable (~12% floor) but actively-fighting units are NOT (change every tick) — the unit-scaling term needs cheaper-per-unit or off-thread Reanimated motion (worklets already installed), not memoization. | **DONE** — Opus 4.8 xhigh |
 | 5 Avatar source of truth | ArenaAvatarProfile fed from useDisplayIdentity (see AVATAR_VISUAL_SOURCE_MAP §3); no arena-side ownership | open |
 | 6 Art bible | ARENA_ART_BIBLE.md — pixel rules already practiced by the PixelLab pipeline, formalized; champion-continuity sections keyed to the app's per-stage art | open |
 | 7 Cosmetic rendering | Palette-swap recolours (precompose at build/generation time via the pipeline — runtime layering likely unnecessary for recolour-class cosmetics) | open |
@@ -41,9 +41,13 @@ no real-time multiplayer, no progression duplication.
 
 ## Session grouping (per the operator prompt)
 
-- **Session 1 (this one, Fable 5): Phases 1-3. STOPS after the stress report.**
-- Session 2: Phase 4 — Opus 4.8, xhigh, independent.
-- Sessions 3+: as scheduled in the prompt; art production gated on Phase 4+8.
+- **Session 1 (Fable 5): Phases 1-3. DONE — stopped after the stress report.**
+- **Session 2 (Opus 4.8 xhigh): Phase 4 renderer decision. DONE — stay RN,
+  optimize in stages, real-device baseline first; Skia gated behind demonstrated
+  optimization failure on hardware.**
+- Sessions 3+: as scheduled; art production gated on Phase 8. **Before any
+  Phase 7 renderer change, run Step 0 (real-device baseline) from
+  ARENA_RENDERER_DECISION.md §6.**
 
 ## Standing constraints carried into every phase
 

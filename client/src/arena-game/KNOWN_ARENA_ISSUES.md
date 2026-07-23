@@ -29,12 +29,21 @@ Status: OPEN · IN PROGRESS (phase) · DONE (phase, commit) · NEEDS-TYSON.
 
 ## Premium program findings (Phase 1-3, 2026-07-23)
 
-- [ ] PR-1 **HIGH (the Phase 4 question): script-bound render path on
-  phone-class CPU.** Whole-tree un-memoized re-render at 20Hz = 9.0fps at
-  4× CPU throttle / 6.2fps at 6× (30/team + 150 particles), while layout+
-  style stay <5% and the sim holds 20Hz. Desktop is fine to 30/team.
-  Evidence: ARENA_PERFORMANCE_BASELINE.md, ARENA_STRESS_TEST_REPORT.md.
-  Candidates ranked in ARENA_RENDER_ARCHITECTURE.md §5. OPEN → Phase 4.
+- [ ] PR-1 **HIGH: script-bound render path on phone-class CPU (Phase 4
+  DECIDED, execution pending).** 20Hz whole-tree re-render = 9.0fps at 4×
+  CPU throttle / 6.2 at 6× (30/team + 150p); layout+style <5%, sim holds
+  20Hz. Desktop meets the slice's 30-combatant target. **Phase 4 decision
+  (ARENA_RENDERER_DECISION.md): stay on RN, do NOT migrate to Skia; staged
+  measured optimization. Corrected root cause — the cost is (a) a ~12%
+  fixed chrome floor (memoizable) + (b) N actively-fighting units that
+  change every tick (NOT memoizable; need cheaper-per-unit or off-thread
+  Reanimated motion).** Ordered plan in that doc §6. OPEN (execution folds
+  into Phase 7/16).
+- [ ] PR-7 **HIGH / BLOCKING: no real-device measurement exists.** Every
+  perf figure is desktop Chromium; the 4×/6× throttle is a synthetic proxy.
+  Phase 4 Step 0: open the Render Stress Lab on a recent iPhone + older
+  iPhone + ordinary Android (PWA + Expo Go) at 30/team, read the HUD.
+  Decides whether any renderer optimization is even needed. NEEDS-TYSON.
 - [ ] PR-2 MEDIUM: **Arena ignores the app's avatar identity** — path-only
   sprites; no stage/sex/skin/premium-character awareness
   (AVATAR_VISUAL_SOURCE_MAP.md §2). Phase 5 scope. OPEN.
