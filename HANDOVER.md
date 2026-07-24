@@ -26,6 +26,50 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE ALERTING SPINE (2026-07-25, migrations 083 + 084).** Nothing watched
+  production; time-to-detection was ~48 h. Now it is 5 minutes, in-database.
+  **The 2026-07-21 incident was a SPIN LOOP, not a slow retry** — the 46-hour
+  average (~7 writes/min) hid it. Per minute that client wrote **2,412 rows in
+  one minute** (08:49) and 60% of all 20,862 of its events inside the first 32
+  minutes: ~40 inserts/second.
+  - **083** — `exec_alerts` (partial-unique on `(kind, subject)` where unresolved,
+    so a 5-minute scan cannot stack 300 copies of one problem) · `exec_metric_daily`
+    · **the analytics throttle** (BEFORE INSERT trigger: 120/hour per
+    `(user, event_name)`, 1,500/day per athlete, **RETURN NULL not RAISE** —
+    `track()` swallows errors so an exception would be invisible, and dropping
+    quietly avoids teaching a retry loop to retry harder) · **`exec_watchdog_scan()`,
+    six rules IN SQL** so they can be replayed and re-tuned without a deploy:
+    error_burst · write_flood · onboarding_stall · **activation_stall** (the
+    current cliff) · activation_drop (needs ≥8 signups in the window — with 3
+    signups a week, one unlucky athlete is not a trend) · zero_training, plus
+    auto-resolve when the athlete moves on.
+  - **084** — enables **pg_cron + pg_net** (neither was installed) and schedules
+    `exec_watchdog_scan()` every 5 min, `exec-notify` every 5 min, and the daily
+    snapshot at 00:07 UTC **for the day that just CLOSED**, never a partial day.
+    Also **corrects 083 rather than editing it** (never edit a deployed
+    migration): three snapshot metrics were computed "as of now", so a backfill
+    would have written today's totals onto past dates — a trend line that looks
+    plausible and is fabricated. Every metric is now a function of its own day,
+    which is what makes the **14-day backfill honest** (it landed: 27 signups,
+    557 sets, 10 activated).
+  - **`supabase/functions/exec-notify`** — the only leg that cannot live in
+    Postgres (VAPID signing). Auth is a shared secret in `x-cron-secret`,
+    constant-time compared, **refusing to run if unset rather than defaulting
+    open**. Sends **ONE push per run, not per alert** (five alerts is one
+    incident to a human; five buzzes is how people learn to swipe notifications
+    away). Stamps `notified_at` even when nothing could be sent, so an alert
+    raised before any admin subscribed never arrives later as a burst of stale
+    pushes — the OPEN alert is the durable channel.
+  - **SECRETS ARE NOT IN THE REPO** (it is public): `CRON_SECRET` is an edge
+    secret, and the same value sits in **Vault** as `cron_secret`, read at fire
+    time by the cron job. To rotate, change both.
+  - **FALSIFIED, both directions.** Replaying the real 07-21 window
+    (`select exec_watchdog_scan('2026-07-21 09:05+00')` in a rolled-back txn)
+    opens `error_burst` (77 failures/15 min) AND `write_flood` (10,173
+    events/15 min) at **09:05 — 16 minutes after that athlete signed up, 46
+    hours before they gave up, 2 days before 082 shipped**. The throttle: 400
+    attempted inserts of one event name → **exactly 120 landed**. Both rolled
+    back, zero rows left.
 - **ACTIVATION FUNNEL INSTRUMENTATION (2026-07-25, no migration).** The origin
   program instrumented onboarding and stopped at `onboarding_completed`;
   everything after it was dark, and that is where athletes are actually lost.

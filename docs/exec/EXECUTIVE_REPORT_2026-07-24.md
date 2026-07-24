@@ -68,7 +68,7 @@ The *launch machinery* is not:
 On 2026-07-21 one real athlete signed up and hit a hard failure in Origin
 binding. Over the next **46 hours** their client emitted:
 
-- **20,051 `session_start` events** (≈ 7.3 per minute, sustained)
+- **20,051 `session_start` events** (20,862 events in total)
 - **146 `origin_binding_failed`** — a 100% failure rate across 142 attempts
 - **29 `origin_selected`** — they chose an origin twenty-nine times
 - **13 `onboarding_resumed`** — they came back and tried again, repeatedly
@@ -91,6 +91,14 @@ could have flagged in the first ninety seconds.
 Secondary risk from the same incident: **`analytics_events` has no write
 throttle.** One stuck client wrote 20k rows unbounded onto a FREE-plan database.
 That is a cost and abuse vector, not just noisy telemetry.
+
+> **CORRECTED 2026-07-25 — this was a spin loop, not a slow retry.** The 46-hour
+> average (~7 writes/minute) hid the shape. Per minute, that client wrote
+> **2,412 rows in a single minute** (08:49) and 60% of all 20,862 of its events
+> inside the first **32 minutes** — roughly 40 inserts per second. Both defences
+> shipped in migration 083 and were replayed against this exact window: the
+> watchdog opens `error_burst` **and** `write_flood` at 09:05, sixteen minutes
+> after that athlete signed up and 46 hours before they gave up.
 
 ### Related finding: a real user's email address is committed to a public repo
 
