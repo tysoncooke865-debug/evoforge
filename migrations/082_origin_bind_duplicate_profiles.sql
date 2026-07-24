@@ -1,4 +1,11 @@
--- 082 — Origin binding tolerates duplicate profile rows (the besnardslater bug).
+-- 082 — Origin binding tolerates duplicate profile rows (the 2026-07-21 bug).
+--
+-- NOTE (2026-07-25): this header named the affected athlete by email address.
+-- This repository is PUBLIC, so it has been redacted. Git history still
+-- contains the original line — removing it there means rewriting published
+-- history, which is a separate, deliberate act.
+-- THE RULE GOING FORWARD: describe incidents by BEHAVIOUR, never by identity.
+-- Every migration comment here is world-readable.
 --
 -- profile has ALWAYS allowed multiple rows per user — the app convention is
 -- "latest created_at wins" (client useProfile takes data[len-1]). But 048's
