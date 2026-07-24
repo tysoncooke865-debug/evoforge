@@ -101,6 +101,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
   - **SECRETS ARE NOT IN THE REPO** (it is public): `CRON_SECRET` is an edge
     secret, and the same value sits in **Vault** as `cron_secret`, read at fire
     time by the cron job. To rotate, change both.
+  - **086 — THE SPINE DID NOT ACTUALLY WORK UNTIL THIS.** 084/085 posted with
+    only `x-cron-secret`, and **every scheduled call returned
+    `401 UNAUTHORIZED_NO_AUTH_HEADER`**: Supabase's edge gateway verifies a JWT
+    *before* the function body runs, so the custom header was never reached. The
+    watchdog was writing correct alerts while the notification leg 401'd every
+    five minutes — an alerting system that could not alert, with three green
+    cron runs to its name. **A green schedule proves nothing; read
+    `net._http_response`.** Fix: send the PUBLISHABLE key (already public — it
+    ships in the browser bundle) as the `Authorization` bearer purely to pass
+    the gateway; `x-cron-secret` stays the real authorization. Verified live:
+    `200 {"ok":true,"sent":1,"alerts":6,"pruned":0}` — a real push delivered.
+  - **FIRST REAL FINDINGS, unprompted:** within 10 minutes of going live the
+    watchdog opened **5 `activation_stall` + 1 `onboarding_stall`** on real
+    athletes — exactly the cliff the funnel work identified, found by the
+    system rather than by a person running SQL.
   - **FALSIFIED, both directions.** Replaying the real 07-21 window
     (`select exec_watchdog_scan('2026-07-21 09:05+00')` in a rolled-back txn)
     opens `error_burst` (77 failures/15 min) AND `write_flood` (10,173
