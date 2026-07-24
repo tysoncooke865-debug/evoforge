@@ -159,7 +159,7 @@ Pre-existing, reproduced with zero code changes on 2026-07-24.
 | Metric | Today | 30-day target |
 |---|---|---|
 | Activation (signup → first set) | **37%** | 60% |
-| Time-to-first-set ≤5 min | **7%** | 50% |
+| Time-to-first-set ≤5 min | **3.7%** | 50% |
 | Trained on 2+ days | **22%** | 45% |
 | Trained on 4+ days | **7%** | 30% |
 | Time-to-detection, production anomaly | **~48 h** | <5 min |

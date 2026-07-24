@@ -31,14 +31,14 @@ reached.
 | Dimension | Weight | Actual | Target | Score |
 |---|---:|---|---|---:|
 | Activation — signup → first set | 20% | **37%** (10/27) | 60% | 62 |
-| Time-to-first-set ≤ 5 min *(constitution)* | 10% | **7%** (2/27) | 50% | 14 |
+| Time-to-first-set ≤ 5 min *(constitution)* | 10% | **3.7%** (1/27) | 50% | 7 |
 | Retention — trained on 2+ days | 25% | **22%** (6/27) | 45% | 49 |
 | Depth — trained on 4+ days | 15% | **7%** (2/27) | 30% | 25 |
 | Reliability & observability | 15% | no alerting; one 46 h user-blocking outage undetected | — | 30 |
 | Engineering quality | 10% | 1,633 tests green, CI green, guards falsified | — | 90 |
 | Revenue | 5% | **$0**, no billing rail exists | — | 0 |
 
-**Weighted total: 43.3 → 43/100.** The score is deliberately reproducible: same
+**Weighted total: 42.6 → 43/100.** The score is deliberately reproducible: same
 query, same formula, every morning.
 
 **Development Progress** · Version 1.0.0 (`app.json`), branch `expo-rewrite`,
@@ -128,9 +128,9 @@ The funnel, real users only (smoke accounts excluded):
 **Time-to-first-set among the ten who activated:** 3 min · 11 min · 195 min ·
 223 min · 1,355 min · 1,356 min · 1,663 min · 2,794 min · 2,892 min · 3,081 min.
 
-Seven of ten took **between 22 and 51 hours** to log their first set. The product
+Six of ten took **between 22 and 51 hours** to log their first set. The product
 constitution says *"users should complete their first workout within 5 minutes."*
-Two of twenty-seven did.
+**One of twenty-seven did.**
 
 Moving activation from 37% → 60% is worth **+6 activated athletes per 27 signups**
 — more real users than every non-training feature in the app has produced in its
