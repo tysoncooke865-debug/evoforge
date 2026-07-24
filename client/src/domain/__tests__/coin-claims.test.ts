@@ -39,6 +39,14 @@ describe('classifyClaimError', () => {
     );
   });
 
+  it('an unnamed guard refusal (still the trigger\'s own voice) stays silent, not an error', () => {
+    // e.g. a queued PR claim racing its own not-yet-synced workout_log row.
+    expect(classifyClaimError('coin_events: no matching owned set (abc-123).')).toEqual({
+      outcome: 'rejected',
+      reason: 'guard',
+    });
+  });
+
   it('an unexpected error keeps its message and is the ONLY toast-as-error case', () => {
     expect(classifyClaimError('Failed to fetch')).toEqual({
       outcome: 'error',

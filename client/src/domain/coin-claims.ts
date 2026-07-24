@@ -33,5 +33,14 @@ export function classifyClaimError(message: string): ClaimOutcome {
   if (/not a PR/i.test(m)) return { outcome: 'rejected', reason: 'not_a_pr' };
   if (/not proven|milestone/i.test(m)) return { outcome: 'rejected', reason: 'milestone_not_proven' };
   if (/check/i.test(m)) return { outcome: 'rejected', reason: 'guard' };
+  // Every literal the 013/033/061 guard raises is prefixed 'coin_events:' — a
+  // refusal this module doesn't yet name by reason (a malformed source_id, no
+  // matching owned row, a kind gated to the server, ...) is still the GUARD
+  // saying no, not a real failure. It fell through here silently as a false
+  // "COINS NOT BANKED" error before this case existed (2026-07-24) — a race
+  // between a queued set and its own PR claim hit exactly this path. Only a
+  // message that ISN'T the guard's own voice (RLS, network, a dropped column)
+  // is truly unexpected.
+  if (/^coin_events:/i.test(m)) return { outcome: 'rejected', reason: 'guard' };
   return { outcome: 'error', message: m };
 }

@@ -89,7 +89,7 @@ export function useSaveSet() {
           setNo: input.setNo,
           weight: input.weight,
           reps: input.reps,
-        }, timestamp, muscle);
+        }, timestamp, muscle, verdict.is_pr);
         verdict.rowId = id;
         (verdict as SetVerdict & { queued?: boolean }).queued = true;
         queryClient.setQueryData(
@@ -190,8 +190,14 @@ export function useSaveSet() {
         );
         // Coin claim (IMPROVEMENT_PLAN #12): fire-and-forget; the 013 guard
         // re-proves the PR server-side and the unique index absorbs repeats.
+        // QUEUED sets skip this entirely — the row doesn't exist server-side
+        // yet (it's still in the AsyncStorage queue), so claiming now races
+        // the 013 guard's `workout_log` lookup and loses almost every time
+        // ("no matching owned set", surfaced as a false COINS NOT BANKED
+        // error, 2026-07-24). set-queue.ts's flushQueue claims it instead,
+        // right after ITS insert is confirmed.
         const prRowId = verdict.action === 'insert' ? verdict.rowId : verdict.rowId ?? undefined;
-        if (prRowId) {
+        if (prRowId && !queued) {
           void import('./coins').then(({ claimCoin }) =>
             claimCoin('pr', prRowId).then((result) => {
               if (result.outcome === 'landed') {

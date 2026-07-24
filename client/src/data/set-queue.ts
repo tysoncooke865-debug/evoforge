@@ -6,6 +6,7 @@ import { libraryMuscleFor } from '@/domain/muscle-lookup';
 import { buildSetRow, type SetInput } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
+import { useToastStore } from '@/state/toast-store';
 
 import { supabase } from './supabase';
 
@@ -24,6 +25,11 @@ import { supabase } from './supabase';
  *    path; the (user_id, source_table, source_id) unique index absorbs
  *    re-grants on retry, and migration 002's re-runnable backfill remains
  *    the orphan collector of last resort.
+ *  - The PR coin claim (if any) ALSO fires only after that same confirmed
+ *    insert, for the same reason — firing it eagerly from the mutation
+ *    (mutations.ts, before this row exists server-side) raced the 013 guard's
+ *    `workout_log` lookup and lost almost every time, surfacing a false
+ *    "COINS NOT BANKED" error toast on ordinary PRs (2026-07-24).
  *  - Queue rows live in AsyncStorage (durable, <250ms) and are flushed on
  *    app start, on reconnect, after each enqueue, and every 30s while
  *    anything is pending.
@@ -47,6 +53,10 @@ export interface QueuedSet {
    *  cannot read). Absent on rows queued before this shipped: those fall back
    *  to inferMuscleGroup, exactly the behaviour they were enqueued under. */
   muscle?: string;
+  /** Decided at enqueue time (domain/set-save.ts); re-verified server-side by
+   *  the 013/061 coin guard on flush — a stale true costs nothing (the guard
+   *  just refuses it as "not a PR", absorbed silently like the direct path). */
+  isPr?: boolean;
   state: 'pending' | 'failed_permanent';
   attempts: number;
   lastError?: string;
@@ -85,10 +95,11 @@ export async function enqueueSet(
   id: string,
   input: SetInput,
   timestamp: string,
-  muscle?: string
+  muscle?: string,
+  isPr?: boolean
 ): Promise<void> {
   const rows = await readQueue();
-  rows.push({ id, input, timestamp, muscle, state: 'pending', attempts: 0 });
+  rows.push({ id, input, timestamp, muscle, isPr, state: 'pending', attempts: 0 });
   await writeQueue(rows);
   ensureTimer();
   void flushQueue();
@@ -133,6 +144,17 @@ export async function flushQueue(): Promise<void> {
         });
         if (grantError && !/duplicate|unique/i.test(grantError.message)) {
           // Set is safe; ledger will catch up via the 002 backfill.
+        }
+        if (row.isPr) {
+          // Only reachable now that the row is CONFIRMED present — the guard's
+          // `workout_log` lookup can no longer race it. Cache invalidation
+          // rides the same natural-refetch rule as workout_log/xp_total above
+          // (comment in mutations.ts onSuccess): no eager invalidate here.
+          const { claimCoin } = await import('./coins');
+          const result = await claimCoin('pr', row.id);
+          if (result.outcome === 'landed') {
+            useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
+          }
         }
         rows.splice(rows.indexOf(row), 1);
         changed = true;
