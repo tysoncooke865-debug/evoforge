@@ -26,6 +26,44 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **TRAINING REMINDERS — push finally has a reason to exist (2026-07-25,
+  migration 085).** The rail has worked since 053 and had **one subscriber**,
+  for two reasons: the only opt-in is buried in a modal behind the Social tab's
+  bell AND pitched as a social feature ("get pushed when friends react") on a
+  feed with 17 lifetime posts — and **nothing had ever SENT a training message**
+  (`send-push` fires only for social events), so even that one subscriber got
+  nothing worth returning for.
+  - **085 `training_reminder_due()`** decides WHO in SQL, so the rule is
+    falsifiable without a deploy. It refuses to nudge anyone whose nudge would
+    be noise: never someone who has **never logged a set** (a stranger is not
+    owed a notification), never twice a day, never on a day they already
+    trained, never on **their own scheduled Rest day**, and never after 21 days
+    of silence (that is a win-back campaign — different thing, different
+    consent). `push_reminder_log` PK `(user_id, day, kind)` makes a double-send
+    impossible **by construction**, and the sender **claims the day BEFORE
+    sending**: the failure mode of a reminder system must be silence, never a
+    double buzz.
+  - **TIMEZONE, stated not assumed:** there is no per-user timezone in the
+    schema, so the function uses `Australia/Sydney` explicitly. Cron fires
+    08:00 UTC = 18:00 AEST. Revisit when timezones are stored.
+  - The message **NAMES their session** ("PULL 1 — BACK THICKNESS is waiting").
+    "Time to train!" is spam; the difference is whether the athlete believes the
+    app knows anything about them.
+  - **Client:** `state/push-prompt-store.ts` + `ui/core/push-prompt.tsx` ask
+    after a workout — but **from the SECOND finish onward**, because a finish
+    already raises up to two other sheets (share, save-routine) and a third one
+    asked eagerly just teaches people to dismiss sheets. Mounted FIRST in
+    `(main)/_layout.tsx` so it stacks BENEATH those two (the convention they
+    already use). Never asked when permission is `denied` — a browser-level
+    block a sheet cannot undo.
+  - **`pushNeedsInstall()`**: iOS gives the Push API to home-screen apps only,
+    and the notifications card previously **hid itself entirely** on that
+    platform — telling the users most likely to be on it nothing at all. It now
+    says to Add to Home Screen.
+  - **FALSIFIED:** all five selection rules driven in a rolled-back txn
+    (rest-day → not picked · eligible → picked AND named · never-trained → not
+    picked · trained-today → not picked · already-reminded → not picked), plus
+    the first-finish suppression broken → red → restored. 7 store tests.
 - **THE ALERTING SPINE (2026-07-25, migrations 083 + 084).** Nothing watched
   production; time-to-detection was ~48 h. Now it is 5 minutes, in-database.
   **The 2026-07-21 incident was a SPIN LOOP, not a slow retry** — the 46-hour
