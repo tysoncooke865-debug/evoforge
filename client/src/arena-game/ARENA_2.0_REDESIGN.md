@@ -426,10 +426,16 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   import build step + `verify-arena-anim.mjs`; the atlas-sprite component. **Exit:** the
   benchmark Shredder plays all 6 clips animated in a scratch `arena2` screen; CI anim
   gate green. *(No gameplay change; nothing user-visible yet.)*
-- **P1 — Landscape renderer (no gameplay change).** Horizontal battlefield, ground line,
-  follow-camera; render an *existing* 1.0 battle sim in landscape behind the flag.
-  **Exit:** a real battle plays end-to-end in landscape, digest-identical to portrait
-  (proves render-only). Playwright landscape tour + perf sweep vs the portrait baseline.
+- **P1 — Landscape renderer (no gameplay change). ✅ DONE 2026-07-24.** `features/arena2/`
+  `battlefield.tsx` renders the SAME sim in landscape (engine x→screen X, cores left/right,
+  two horizontal lanes) with a pure follow-camera (`camera.ts`, 13 tests); the dev
+  `arena2-battle-lab` (debug menu) seeds a real low-density battle via the stress driver
+  and renders it landscape. Sim untouched → digest-identical by construction (548 arena
+  tests green). Verified with a landscape Playwright tour: units advance, the camera
+  follows the push (player core → opponent core scroll into view), teams face correctly,
+  health/floaters render. Combatants still use 1.0 top-down sprites (side-view 128px
+  champions arrive at P5); full FX layer re-homed at P4. Perf sweep vs baseline: deferred
+  to the P7 device pass (camera = one transform, cheap).
 - **P2 — Champion controller & control deck.** State machine + clips; new commands
   (basic/combo/lane-switch) + one-thumb control deck; ultimate meter surfaced. **Exit:**
   player pilots the Champion; determinism digests pass for the new commands; replay

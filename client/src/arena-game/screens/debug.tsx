@@ -144,6 +144,11 @@ export default function DebugScreen() {
           variant="secondary"
           onPress={() => router.push('/forge-arena/arena2-anim-lab')}
         />
+        <NeonButton
+          label="Arena 2.0 · Landscape Battle Lab"
+          variant="secondary"
+          onPress={() => router.push('/forge-arena/arena2-battle-lab')}
+        />
       </Panel>
 
       <NeonButton label={resetDone ? 'Data reset ✓' : 'Reset all data'} variant="danger" onPress={confirmReset} />
