@@ -40,6 +40,9 @@ export default function Arena2BattleLab() {
       autoRestart: true,
       simSpeed: 1,
       formation: arena2FlagEnabled('formationSim'),
+      // P5: field the Shredder — the one champion with an imported 128px
+      // AutoSprite set, so the lab shows benchmark-grade champion animation.
+      championId: arena2FlagEnabled('autoSpriteChampions') ? 'champion-shredder' : undefined,
     });
     return () => {
       stopStressDriver();

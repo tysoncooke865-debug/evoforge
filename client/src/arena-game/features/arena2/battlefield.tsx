@@ -45,7 +45,16 @@ import {
 } from '../arena/components/impact';
 import { healthBarColor } from '../arena/components/readability';
 import { arenaFloorTexture, coreSprite, unitSprite } from '../arena/components/sprites';
+import { AtlasSprite } from './atlas-sprite';
 import { actionCenterX, cameraTranslateX, easeCamera, pixelsPerUnit } from './camera';
+import {
+  championAnim,
+  championAnimKeyFor,
+  type ChampionAnim,
+  type ClipName,
+  clipSheet,
+} from './champion-anim';
+import { clipFinished, clipFrameIndex } from './champion-controller';
 
 const { laneLength } = BALANCE.arena;
 
@@ -102,6 +111,15 @@ interface ProjectileLite {
   bornAtMs: number;
 }
 
+/** P5: a one-shot champion clip currently playing, with the priority that
+ *  triggered it (a bigger beat interrupts a smaller one, never the reverse). */
+interface ChampClip {
+  clip: ClipName;
+  startedAtMs: number;
+  prio: number;
+}
+const CLIP_PRIO: Record<string, number> = { attack: 1, hit: 2, dash: 3, ultimate: 4 };
+
 interface FxRef {
   logIndex: number;
   floaters: FloaterLite[];
@@ -114,6 +132,10 @@ interface FxRef {
   prevCoreHealth: { player: number; opponent: number } | null;
   shake: { bornAtMs: number; tier: ImpactTier } | null;
   ultFlash: { bornAtMs: number; color: string } | null;
+  /** P5 champion animation: active one-shot clip per champion unit id. */
+  champClip: Map<number, ChampClip>;
+  prevAbilityCd: Map<number, number>;
+  prevUltCharge: Map<number, number>;
   nextKey: number;
   cameraX: number | null;
 }
@@ -130,9 +152,48 @@ const newFx = (): FxRef => ({
   prevCoreHealth: null,
   shake: null,
   ultFlash: null,
+  champClip: new Map(),
+  prevAbilityCd: new Map(),
+  prevUltCharge: new Map(),
   nextKey: 1,
   cameraX: null,
 });
+
+/** Start a one-shot champion clip unless a higher-priority one is still playing. */
+function triggerClip(fx: FxRef, id: number, clip: ClipName, nowMs: number, anim: ChampionAnim | null) {
+  if (!anim) return;
+  const prio = CLIP_PRIO[clip] ?? 0;
+  const active = fx.champClip.get(id);
+  if (active && active.prio > prio && !clipFinished(anim.clips[active.clip], active.startedAtMs, nowMs)) {
+    return;
+  }
+  fx.champClip.set(id, { clip, startedAtMs: nowMs, prio });
+}
+
+/**
+ * P5 — resolve which AutoSprite clip a champion should be showing from SIM
+ * state: an active one-shot (ultimate > dash/ability > hit > attack) until it
+ * finishes, then locomotion (run while advancing, idle while engaged). Loops
+ * free-run off a stable epoch so they never restart mid-stride.
+ */
+function resolveChampionClip(
+  fx: FxRef,
+  anim: ChampionAnim,
+  unitId: number,
+  moving: boolean,
+  nowMs: number
+): { clip: ClipName; frame: number } {
+  const active = fx.champClip.get(unitId);
+  if (active) {
+    const meta = anim.clips[active.clip];
+    if (meta && !clipFinished(meta, active.startedAtMs, nowMs)) {
+      return { clip: active.clip, frame: clipFrameIndex(meta, active.startedAtMs, nowMs) };
+    }
+    fx.champClip.delete(unitId);
+  }
+  const clip: ClipName = moving ? 'run' : 'idle';
+  return { clip, frame: clipFrameIndex(anim.clips[clip], 0, nowMs) };
+}
 
 /**
  * Pull every combat signal since the last frame and escalate it: damage/heal/
@@ -171,6 +232,13 @@ function pump(fx: FxRef, live: LiveBattle, nowMs: number, reduceMotion: boolean)
   }
   for (const h of hits) {
     fx.hits.push({ lane: h.lane, x: h.x, team: h.team, targetId: h.targetId, amount: h.amount, bornAtMs: nowMs });
+    // P5: a struck champion plays its hit-react clip.
+    if (h.targetId !== null) {
+      const target = state.units.find((u) => u.id === h.targetId);
+      if (target?.kind === 'champion') {
+        triggerClip(fx, target.id, 'hit', nowMs, championAnim(championAnimKeyFor(target.contentId)));
+      }
+    }
     // Heavy hits reach past the struck unit: a camera bump + a blink of hit-stop.
     if (tierForDamage(h.amount) === 'heavy') {
       requestShake('heavy');
@@ -204,7 +272,34 @@ function pump(fx: FxRef, live: LiveBattle, nowMs: number, reduceMotion: boolean)
   // Fired attacks → strike lunges + ranged projectile streaks.
   const fired = detectFiredAttacks(state.units, fx.prevCooldowns);
   const byId = new Map(state.units.map((u) => [u.id, u]));
-  for (const id of fired) fx.strikes.set(id, nowMs);
+  for (const id of fired) {
+    fx.strikes.set(id, nowMs);
+    // P5: a champion that just struck plays its attack clip.
+    const u = byId.get(id);
+    if (u?.kind === 'champion') {
+      triggerClip(fx, id, 'attack', nowMs, championAnim(championAnimKeyFor(u.contentId)));
+    }
+  }
+
+  // P5: detect ability / ultimate casts straight from champion sim state —
+  // the ability cooldown jumping back up means it fired; ultimate charge
+  // dropping to zero means the ultimate fired. (No log parsing needed, and it
+  // works for AI champions too.) Ability maps to the `dash` clip.
+  for (const u of state.units) {
+    const champ = u.champion;
+    if (u.kind !== 'champion' || !champ) continue;
+    const anim = championAnim(championAnimKeyFor(u.contentId));
+    const prevCd = fx.prevAbilityCd.get(u.id);
+    const prevUlt = fx.prevUltCharge.get(u.id);
+    if (prevCd !== undefined && champ.abilityCooldownTicks > prevCd) {
+      triggerClip(fx, u.id, 'dash', nowMs, anim);
+    }
+    if (prevUlt !== undefined && champ.ultimateCharge <= 0 && prevUlt > 0) {
+      triggerClip(fx, u.id, 'ultimate', nowMs, anim);
+    }
+    fx.prevAbilityCd.set(u.id, champ.abilityCooldownTicks);
+    fx.prevUltCharge.set(u.id, champ.ultimateCharge);
+  }
   for (const [id, born] of fx.strikes) {
     if (nowMs - born >= STRIKE_MS || !byId.has(id)) fx.strikes.delete(id);
   }
@@ -310,6 +405,12 @@ export function Arena2Battlefield({ live, reduceMotion = false }: { live: LiveBa
             .map((u) => {
               const hit = latestMatchingHit(u.id, u.lane, u.x, u.team, fx.hits, 3);
               const strikeBorn = fx.strikes.get(u.id) ?? null;
+              // P5: champions with an imported AutoSprite set animate from sim
+              // state; everyone else falls back to the Arena 1.0 sprite.
+              const anim = u.kind === 'champion' ? championAnim(championAnimKeyFor(u.contentId)) : null;
+              const clipFrame = anim
+                ? resolveChampionClip(fx, anim, u.id, u.targetId === null, nowMs)
+                : null;
               return (
                 <Combatant
                   key={u.id}
@@ -320,8 +421,9 @@ export function Arena2Battlefield({ live, reduceMotion = false }: { live: LiveBa
                   strikeAgeMs={strikeBorn === null ? null : nowMs - strikeBorn}
                   tick={state.tick}
                   nowMs={nowMs}
-                  ppu={ppu}
                   reduceMotion={reduceMotion}
+                  anim={anim}
+                  clipFrame={clipFrame}
                 />
               );
             })}
@@ -411,8 +513,9 @@ function Combatant({
   strikeAgeMs,
   tick,
   nowMs,
-  ppu,
   reduceMotion,
+  anim,
+  clipFrame,
 }: {
   unit: import('../../game-engine/simulation/state').UnitState;
   leftPx: number;
@@ -421,11 +524,14 @@ function Combatant({
   strikeAgeMs: number | null;
   tick: number;
   nowMs: number;
-  ppu: number;
   reduceMotion: boolean;
+  anim: ChampionAnim | null;
+  clipFrame: { clip: ClipName; frame: number } | null;
 }) {
   const isChampion = unit.kind === 'champion';
-  const spriteSize = isChampion ? 60 : 40;
+  // P5: an AutoSprite champion renders bigger (128px source art) than the
+  // legacy 1.0 sprite, and anchors by its feet rather than its box bottom.
+  const spriteSize = anim ? 88 : isChampion ? 60 : 40;
   const tint = unit.team === 'player' ? colors.player : colors.opponent;
   const healthPct = Math.max(0, Math.min(1, unit.health / unit.baseMaxHealth));
   const flashAge = hit === null ? HIT_FLASH_TTL_MS : Math.max(0, nowMs - hit.bornAtMs);
@@ -453,7 +559,12 @@ function Combatant({
     sprite = card ? unitSprite(card.art, unit.team) : null;
   }
   const mirror = unit.team === 'opponent';
-  void ppu;
+  // AutoSprite art anchors on the character's FEET inside the 128px cell;
+  // legacy sprites sit on the box bottom.
+  const footInset = anim ? spriteSize * (anim.refFeetY / anim.cell) : spriteSize;
+  const atlasSheet =
+    anim && clipFrame ? clipSheet(championAnimKeyFor(unit.contentId), clipFrame.clip) : null;
+  const atlasMeta = anim && clipFrame ? anim.clips[clipFrame.clip] : null;
 
   return (
     <View
@@ -461,7 +572,7 @@ function Combatant({
         styles.combatant,
         {
           left: leftPx - spriteSize / 2,
-          top: groundY - spriteSize,
+          top: groundY - footInset,
           width: spriteSize,
           transform: [{ translateX: lungeX + recoilX }, { scale: pose.scale * drop }],
         },
@@ -473,7 +584,18 @@ function Combatant({
       </View>
       <View style={{ width: spriteSize, height: spriteSize }}>
         <View style={[styles.plate, { borderColor: tint, backgroundColor: `${tint}22` }]} />
-        {sprite ? (
+        {atlasSheet && atlasMeta && clipFrame ? (
+          <AtlasSprite
+            sheet={atlasSheet}
+            cell={atlasMeta.cell}
+            cols={atlasMeta.cols}
+            rows={atlasMeta.rows}
+            frameIndex={clipFrame.frame}
+            size={spriteSize}
+            mirror={mirror}
+            anchorYOffset={atlasMeta.anchorYOffset}
+          />
+        ) : sprite ? (
           <>
             <Image source={sprite} style={[{ width: spriteSize, height: spriteSize }, PIXELATED, mirror && styles.mirror]} fadeDuration={0} />
             {flashOpacity > 0 && (

@@ -12,8 +12,8 @@
 export const arena2Flags = Object.freeze({
   /** P0 — the dev-only AutoSprite Anim Lab scratch screen (128px champion demo). */
   animLab: true,
-  /** P1+ — allow 128px atlas-backed champions in real battles. */
-  autoSpriteChampions: false,
+  /** P5 — allow 128px atlas-backed champions in real battles (sim-driven clips). */
+  autoSpriteChampions: true,
   /** P1 — landscape battlefield + follow-camera renderer. */
   arena2Renderer: false,
   /** P2 — manual champion control (basic/combo/lane-switch commands). */

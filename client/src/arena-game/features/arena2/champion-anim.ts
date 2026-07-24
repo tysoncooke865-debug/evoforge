@@ -64,3 +64,13 @@ export function clipSheet(champion: string, clip: ClipName): ImageSourcePropType
 }
 
 export const CLIP_ORDER: ClipName[] = ['idle', 'run', 'attack', 'hit', 'dash', 'ultimate'];
+
+/**
+ * Champion contentId → anim metadata key (`champion-shredder` → `shredder`).
+ * Champions without an imported AutoSprite set simply resolve null, and the
+ * renderer falls back to the Arena 1.0 sprite — so the roster lights up one
+ * champion at a time as their sets land.
+ */
+export function championAnimKeyFor(contentId: string): string {
+  return contentId.replace(/^champion-/, '');
+}
