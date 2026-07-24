@@ -124,10 +124,16 @@ Pre-existing, reproduced with zero code changes on 2026-07-24.
 
 ## LATER — once activation and retention are real
 
-- **Arena 2.0 P6 (meta / ranked ladder).** Deliberately deferred. It is retention
-  machinery for a mode five real users have played once, and the ranked ladder
-  needs a farm-proof server rule, a migration and Tyson's sign-off besides. It
-  becomes correct once players actually reach the Arena.
+- **Arena 2.0 P6 (meta / ranked ladder) — ⛔ PAUSED BY TYSON, 2026-07-25.**
+  Finish P5's champion kits, then stop. Retention machinery for a mode five real
+  athletes have played once each; the ranked ladder additionally needs a
+  farm-proof server rule, a migration and his sign-off. Marked in
+  `client/src/arena-game/ARENA_2.0_REDESIGN.md` §15 so no session resumes it by
+  accident.
+  **Resume when any of these is true:** activation clears 55%, or 2+ day
+  retention clears 40%, or ≥25% of activated athletes have played a battle.
+  Those are the numbers that would make Arena depth the constraint instead of
+  entry. Re-measure with `docs/ACTIVATION_ANALYTICS.md`'s funnel query.
 - **Arena 2.0 P7** — device pass and 1.0 cutover.
 - **Native builds (EAS).** Unblocks push, Sentry, and the LCP problem in one move.
   The largest single technical lever remaining — and the reason to do it is

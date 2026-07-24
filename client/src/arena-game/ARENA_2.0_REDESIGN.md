@@ -489,7 +489,19 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   KITS (§7 passives/primaries/ultimates) still need new engine ability handlers, since
   ability targeting is hardcoded per-id in `champion-abilities.ts`. Balance harness
   re-check belongs with the kits, not this render-only step.
-- **P6 — Meta & retention.** Mastery, cosmetics (energy-color skins), seasons; ranked
+- **⛔ PAUSED HERE — Tyson, 2026-07-25. Finish P5's kits, then STOP.**
+  Not a cancellation and not a judgement on the work: P0–P5a are excellent and
+  the determinism doctrine is exactly right. It is a sequencing call made on
+  evidence. The Arena has **32 lifetime battle participations, 25 of them Tyson,
+  one power user and the smoke accounts** — five other real athletes have each
+  played exactly once. Meanwhile **63% of signups never log a rep**, and of the
+  athletes who complete onboarding, 8 bind an origin and only 3 ever log a set.
+  P6 is retention machinery for a mode almost nobody reaches yet; it becomes the
+  right investment the moment activation is fixed, and is the wrong one until
+  then. **Do not resume P6 without Tyson saying so.** The reasoning and the
+  metrics that would justify resuming live in `docs/exec/ROADMAP_2026-07.md`.
+- **P6 — Meta & retention.** *(paused — see above.)* Mastery, cosmetics
+  (energy-color skins), seasons; ranked
   ladder *iff* §17-D approved (farm-proof server rule + migration). **Exit:** cosmetic
   reward-safety audit clean (the shipped invariant holds).
 - **P7 — Device pass & cutover.** The still-pending real-device perf baseline; make
