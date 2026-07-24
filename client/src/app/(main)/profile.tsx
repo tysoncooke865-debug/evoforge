@@ -123,18 +123,35 @@ export default function ProfileScreen() {
         </GlowCard>
 
         {admin.data === true ? (
-          <Pressable
-            onPress={() => router.push('/insights' as never)}
-            accessibilityRole="button"
-            testID="open-insights"
-            className="flex-row items-center justify-between rounded-lg border p-s3"
-            style={{ borderColor: 'rgba(34,211,238,0.35)', backgroundColor: 'rgba(34,211,238,0.06)' }}
-          >
-            <View className="flex-1">
-              <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>📊 INSIGHTS →</Text>
-              <Text className="mt-s1 text-2xs text-text-mute">Product metrics: active users, signups, retention, top pages.</Text>
-            </View>
-          </Pressable>
+          <>
+            {/* The founder's dashboard sits ABOVE Insights on purpose: it is the
+                one that answers "what should I do today", and it carries the
+                alerts. Insights stays as the raw metrics view underneath. */}
+            <Pressable
+              onPress={() => router.push('/exec' as never)}
+              accessibilityRole="button"
+              testID="open-exec"
+              className="flex-row items-center justify-between rounded-lg border p-s3"
+              style={{ borderColor: 'rgba(251,113,133,0.35)', backgroundColor: 'rgba(251,113,133,0.06)' }}
+            >
+              <View className="flex-1">
+                <Text className="text-danger" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>🧭 EXEC →</Text>
+                <Text className="mt-s1 text-2xs text-text-mute">Health score, activation funnel, live alerts and quick actions.</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/insights' as never)}
+              accessibilityRole="button"
+              testID="open-insights"
+              className="flex-row items-center justify-between rounded-lg border p-s3"
+              style={{ borderColor: 'rgba(34,211,238,0.35)', backgroundColor: 'rgba(34,211,238,0.06)' }}
+            >
+              <View className="flex-1">
+                <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>📊 INSIGHTS →</Text>
+                <Text className="mt-s1 text-2xs text-text-mute">Product metrics: active users, signups, retention, top pages.</Text>
+              </View>
+            </Pressable>
+          </>
         ) : null}
 
         <View className="flex-row flex-wrap items-center justify-center" style={{ gap: 14, paddingVertical: 4 }}>
