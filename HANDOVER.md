@@ -26,6 +26,30 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE NAV-FREEZE BEACON WAS MEASURING BACKGROUNDING, NOT JANK (2026-07-25,
+  no migration).** It shipped 2026-07-18 to hunt the iOS PWA freeze, has written
+  ~1,250 rows since, and taught nobody anything — because its data is noise:
+  ```
+    700–899 ms   12.8%
+    900–1099 ms  74.5%   <- browsers clamp timers to 1/sec while HIDDEN
+   1100–1999 ms  10.2%
+   2000–4999 ms   0.6%   <- the only plausibly-real bucket
+   5000+ ms       1.8%   <- suspended tab, up to 10 HOURS
+  ```
+  A 250 ms heartbeat clamped to 1 s produces a ~1,000 ms "gap", which is why the
+  **p50 was ~1001 ms on every single route** — real jank never distributes like
+  that. Fix: `domain/nav-stall.ts` (pure, 9 tests) refuses any window that
+  touched a hidden document (`visibilitychange` + `pagehide` + `freeze`, since
+  iOS PWAs often suspend without the first), floors at **1500 ms** so a
+  partially-throttled tick cannot masquerade, and ceilings at **15 s** because
+  beyond that nothing was blocking a thread — the tab was asleep. The
+  hidden-flag is **consumed every tick**, or one backgrounding would silence the
+  beacon for the rest of the session. **Why it matters:** performance is now the
+  leading hypothesis for the post-onboarding drop-off, and this is the only
+  instrument the app has for it — an instrument that reports noise is worse than
+  none, because it looks like evidence.
+  **Historical `pwa_nav_diag` rows before 2026-07-25 should be treated as
+  unusable.** Falsified: the hidden-document guard broken → 2 red → restored.
 - **TRAINING REMINDERS — push finally has a reason to exist (2026-07-25,
   migration 085).** The rail has worked since 053 and had **one subscriber**,
   for two reasons: the only opt-in is buried in a modal behind the Social tab's
