@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
+import { useActivationStep } from '@/data/activation';
 import { useAuth } from '@/data/auth-context';
 import { useClaimCoin } from '@/data/coins';
 import { useOriginStatus } from '@/data/origin';
@@ -95,6 +96,11 @@ export default function WorkoutScreen() {
    * entered from Train, so Train is where leaving it means.
    */
   const back = () => router.replace('/today' as never);
+
+  // ACTIVATION FUNNEL step 3 (docs/ACTIVATION_ANALYTICS.md) — the athlete
+  // opened a workout. The gap between this and step 4 is the one that says
+  // "they got all the way to the log screen and still did not log".
+  useActivationStep('workout_opened', { extra: { is_today: date === todayIso } });
 
   const workouts = useWorkoutLog();
   const schedule = useWorkoutSchedule();

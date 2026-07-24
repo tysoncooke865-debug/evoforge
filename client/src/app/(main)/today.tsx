@@ -2,6 +2,7 @@ import { Link, router } from 'expo-router';
 import { Fragment, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { useActivationStep } from '@/data/activation';
 import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
 import { useUserExercises } from '@/data/exercises';
 import { useExercisePrefs } from '@/data/exercise-prefs';
@@ -117,7 +118,7 @@ export default function TodayScreen() {
   const profile = useProfile();
   const bodyweights = useBodyweightLog();
   const userExercises = useUserExercises();
-  const { sources, resolveDay, preferredSource } = useDayPlan();
+  const { sources, resolveDay, preferredSource, loading: planLoading } = useDayPlan();
   const savePref = useSavePlanSourcePref();
   const saveSchedule = useSaveSchedule();
   // The header's LV. badge — FORGE LEVEL (earned XP only; Tyson 2026-07-16).
@@ -228,6 +229,26 @@ export default function TodayScreen() {
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
+
+  /**
+   * ACTIVATION FUNNEL step 2 (docs/ACTIVATION_ANALYTICS.md) — the one event
+   * that records what the athlete FOUND, not merely that they arrived. Five of
+   * the eight who bound an origin never logged a set, and nothing in the
+   * current rail can say whether they landed on a workout or on an empty rest
+   * day. `ready` waits out the plan queries deliberately: firing early would
+   * report the loading state instead of the screen they saw.
+   */
+  const activationDay = scheduledToday ? resolveDay(scheduledToday, preferredSource) : null;
+  useActivationStep('train_opened', {
+    ready: !planLoading && !schedule.isPending,
+    extra: {
+      has_plan: sources.has.myPlan || sources.has.aiPlan,
+      day_kind: scheduledToday ? 'workout' : 'rest',
+      exercise_count: activationDay?.entries.length ?? 0,
+      plan_source: preferredSource,
+      has_schedule: (schedule.data ?? []).length > 0,
+    },
+  });
 
   /** SWAP TODAY'S DAY — "save to my schedule": today's weekday's PRIMARY
    *  becomes `to` from now on, every extra riding along untouched (same shape

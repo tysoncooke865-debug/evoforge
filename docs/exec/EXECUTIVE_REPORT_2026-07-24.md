@@ -125,6 +125,22 @@ The funnel, real users only (smoke accounts excluded):
  2  trained on 4+ days
 ```
 
+> **CORRECTED 2026-07-25 — the −44% at Origin binding was cohort mixing, and the
+> real cliff is one step later.** The Origin flow only launched 2026-07-17;
+> athletes who signed up before it never had a flow to complete, so their absence
+> read as abandonment. Split at that date:
+>
+> | | post-Origin (10) | pre-Origin (17) |
+> |---|---:|---:|
+> | created a profile | **10** | 14 |
+> | bound an Origin | **8** | 4 |
+> | **logged a set** | **3** | 7 |
+>
+> **Onboarding works.** Ten of ten profiled, eight of ten bound an origin — and
+> then five of those eight never logged a single set. The loss is in the hand-off
+> *after* onboarding, not inside it. The priority (instrument first) was right;
+> the target moved. See `docs/ACTIVATION_ANALYTICS.md`.
+
 **Time-to-first-set among the ten who activated:** 3 min · 11 min · 195 min ·
 223 min · 1,355 min · 1,356 min · 1,663 min · 2,794 min · 2,892 min · 3,081 min.
 

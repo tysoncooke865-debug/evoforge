@@ -26,6 +26,48 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ACTIVATION FUNNEL INSTRUMENTATION (2026-07-25, no migration).** The origin
+  program instrumented onboarding and stopped at `onboarding_completed`;
+  everything after it was dark, and that is where athletes are actually lost.
+  **The cliff is NOT Origin binding** — that read was cohort mixing (the Origin
+  flow launched 2026-07-17, so earlier signups never had a flow to abandon).
+  Split at that date, the post-Origin cohort is **10 profiled → 8 bound an
+  origin → 3 logged a set**: onboarding works, the hand-off after it does not.
+  New event **`activation_step`**, one name with an ordered `index` so the funnel
+  is `max(index) per user` instead of hand-written route SQL: `home_reached`(1) ·
+  `train_opened`(2) · `workout_opened`(3) · `first_set_logged`(4). Every row
+  carries `ms_since_signup` + `ms_since_prev_step` (**null, never 0, when unknown
+  or when the device clock ran backwards** — a 0 would drag an average down), and
+  `train_opened` carries **the state the athlete FOUND** (`has_plan`, `day_kind`
+  workout|rest, `exercise_count`, `plan_source`, `has_schedule`) — the one signal
+  that separates "didn't want to train" from "nothing to tap", which nothing in
+  the rail could distinguish. **Why not just `page_view`:** it records the
+  PREVIOUS route on navigation, so an athlete who lands on Home out of onboarding
+  and quits emits *nothing* — exactly the population being measured — and it
+  never says what was on the page. **BOUNDED BY CONSTRUCTION: each step emits
+  once per athlete and the ladder switches OFF PERMANENTLY at step 4 — four rows
+  per athlete, lifetime.** It cannot repeat the 2026-07-21 flood (one stuck
+  client, 20,051 rows, unthrottled). Duplicates are harmless regardless: the
+  funnel query reads `max(index)` / `min(created_at) per step`, both idempotent,
+  which is *why* the local mark is cleared on sign-out with every other cache
+  rather than carving an exception out of the doctrine. `first_set_logged` has a
+  second guard — an EMPTY log — so a returning athlete on a new device stays
+  silent. Files: `domain/activation-funnel.ts` (pure, 14 tests, **two guards
+  falsified**: the terminal-step switch-off and the negative-clock clamp),
+  `data/activation.ts` (emitter + `useActivationStep`), wired in
+  `(main)/index.tsx`, `today.tsx`, `workout.tsx`, `mutations.ts::useSaveSet`,
+  cleared in `auth-context`. Doc: `docs/ACTIVATION_ANALYTICS.md` (carries the
+  funnel SQL). Gates: tsc, 1,647 tests, cold lint (0 errors — the first cut wrote
+  a ref during render, which the React Compiler rules reject), tokens/motion/
+  battle-engine/arena-purity/arena-anim, export, and a **Playwright tour of a
+  throwaway production account through all four steps** (fresh account → Home →
+  Train → add an exercise → log a set), confirming the wire, the props, the DB
+  rows, the documented funnel query, and that 3 Home↔Train round-trips plus a
+  hard reload emit **nothing extra**. Probe account and every row it created
+  deleted afterwards (verified 0 rows, user count back to 29). **Found en route,
+  not fixed:** a brand-new athlete with no schedule lands on Train showing a REST
+  day with nothing to do, and the workout page opens a 4-step first-run tour over
+  an empty workout — measured, not guessed at, and now instrumented.
 - **SWAP TODAY'S DAY (2026-07-24, no migration, Tyson-reported): trade a
   split day for a different one from the same plan** — "meant to be Push 1,
   want Pull 1 instead." Surfaced as a new section inside the existing CHANGE

@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
+import { useActivationStep } from '@/data/activation';
 import { useClaimCoin } from '@/data/coins';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
@@ -89,6 +90,12 @@ export default function HomeScreen() {
   const { summary, stats, bfMid, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
+
+  // ACTIVATION FUNNEL step 1 (docs/ACTIVATION_ANALYTICS.md). Fires on ARRIVAL,
+  // which is the whole point: page_view records the PREVIOUS route on
+  // navigation, so an athlete who lands here straight out of onboarding and
+  // quits without navigating emits nothing at all today.
+  useActivationStep('home_reached');
 
   // IMPROVEMENT_PLAN #12: the retroactive starting bonus — every onboarded
   // athlete claims it once; the unique index makes reloads a no-op.

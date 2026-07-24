@@ -33,13 +33,19 @@ Ordered by *evidence strength × leverage ÷ cost*, not by appeal:
 
 ## NOW — this week
 
-### N1 · Onboarding funnel instrumentation 🔴 blocking everything
+### N1 · Onboarding funnel instrumentation ✅ SHIPPED 2026-07-25
 One `funnel_step` event per step with an explicit abandonment reason, covering
 sign-up → consent → profile → assessment → Origin candidates → Origin bound →
 first workout opened → first set logged.
-**Problem:** we know 12 of 24 profiled users die at Origin binding; we do not know why.
-**Evidence:** funnel §"Current Biggest Opportunity".
-**Success:** the drop-off step and its top reason are visible within 48 h of a signup.
+**Shipped as `activation_step`** — an ordered 4-step ladder (home → train →
+workout → first set) carrying `ms_since_signup`, `ms_since_prev_step`, and **the
+state the athlete found on Train** (plan / no plan, workout / rest day). Bounded
+at four rows per athlete for life. `docs/ACTIVATION_ANALYTICS.md`.
+**Correction found while building it:** the cliff is NOT Origin binding — that
+was cohort mixing. Post-Origin cohort: 10 profiled → 8 bound → **3 logged a set**.
+Onboarding works; the hand-off after it does not.
+**Success:** the drop-off step and what the athlete saw are visible within 48 h.
+Needs ~2 weeks of new signups (~9/week) before the funnel is worth reading.
 **ROI:** ★★★★★ · **Effort:** 1 d · **Deps:** none
 
 ### N2 · Alerting spine + analytics write throttle 🔴

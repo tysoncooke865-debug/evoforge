@@ -53,6 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('./finish-queue').then(({ clearFinishQueue }) =>
       clearFinishQueue().catch(() => undefined)
     );
+    // The activation-funnel marks are keyed by user id and so could not leak
+    // between athletes — but the rule is every cache layer, no exceptions, and
+    // this one costs nothing to obey: duplicates are absorbed by the funnel
+    // query (max(index), min(created_at) per step), never by the mark.
+    void import('./activation').then(({ clearActivationMarks }) =>
+      clearActivationMarks().catch(() => undefined)
+    );
     // FUEL preview-mode entries (pre-migration, device-local) die with the
     // session too — same rule, same reason. So does the meal-count day store.
     void import('./nutrition').then(({ clearFuelPreview }) =>
