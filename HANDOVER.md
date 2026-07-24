@@ -26,6 +26,34 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **SWAP TODAY'S DAY (2026-07-24, no migration, Tyson-reported): trade a
+  split day for a different one from the same plan** — "meant to be Push 1,
+  want Pull 1 instead." Surfaced as a new section inside the existing CHANGE
+  WORKOUT modal (`today.tsx`, `swap-day-<name>` chips: every day in the
+  currently-active source's list, minus whatever's already showing today),
+  offering EVERY other day the CURRENT source knows (MY PLAN / AI PLAN /
+  BUILT-IN, whichever the athlete is on) — picking one asks the same
+  SAVE/JUST-TODAY question `workout.tsx` already asks for exercise edits:
+  **JUST TODAY** writes `daySwap` (new field) into `session-store.ts`, the
+  SAME self-expiring-at-midnight AsyncStorage store `adhoc` already lives in
+  — no network call, and `dayInSource` checks it BEFORE the schedule, so it
+  outranks everything and vanishes on its own tomorrow. **SAVE TO MY
+  SCHEDULE** goes through the existing `useSaveSchedule`, replacing just
+  today's weekday's PRIMARY in the latest row's `plan` (extras riding along
+  untouched) — same shape schedule.tsx's own SAVE writes, effective today
+  onward. Falsified live against ALPHA: the week-bar testID for today
+  flipped from `weekbar-2026-07-24` (Rest) to
+  `weekbar-2026-07-24-Pull 1 - Back Thickness` after JUST TODAY — no DB
+  writes, confirmed via network trace. **Found, not fixed (pre-existing, out
+  of scope): opening ANY Modal on Train — even the pre-existing CHANGE
+  WORKOUT source picker, no swap involved — shifts the daily hero
+  carousel's virtualized FlatList window left, dropping today's card out of
+  the DOM until the athlete manually scrolls back. Reproduced with zero code
+  changes; worth its own investigation (`ui/train/daily-workout-carousel.tsx`
+  + RN-Web's `Modal`), not chased here.** Files: `today.tsx`,
+  `state/session-store.ts`. Gates: tsc, 1,634 tests, cold lint (fixed two
+  `react/no-unescaped-entities` on the new copy), tokens/motion/battle-engine,
+  export, the live falsification above.
 - **TWO BUG FIXES: the plan-source dropdown going inert, and false "COINS NOT
   BANKED" errors on PRs (2026-07-24, no migration, Tyson-reported).**
   (1) **Plan-source dropdown**: Today's "CHANGE WORKOUT" modal (MY PLAN / AI
