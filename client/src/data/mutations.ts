@@ -16,6 +16,7 @@ import { announceXp, useToastStore } from '@/state/toast-store';
 import * as Crypto from 'expo-crypto';
 
 import { runAchievementSweep } from './achievement-sweep';
+import { markActivationStep } from './activation';
 import { invalidateTable } from './keys';
 import { useAuth } from './auth-context';
 import { fetchWorkoutLog } from './hooks';
@@ -56,6 +57,14 @@ export function useSaveSet() {
       if (verdict.action === 'reject' || verdict.action === 'noop') {
         return verdict;
       }
+
+      // ACTIVATION FUNNEL step 4 — the terminal step, and the only one that
+      // matters on its own. Decided HERE because `rows` (the athlete's whole
+      // log, cache or fresh read) is only in scope here; emitted in onSuccess
+      // so a failed write never reports an activation. An empty log is what
+      // makes this the FIRST set: a returning athlete on a new device has rows
+      // and stays silent, even though their local mark is gone.
+      (verdict as SetVerdict & { firstEver?: boolean }).firstEver = rows.length === 0;
 
       const timestamp = new Date().toISOString().slice(0, 19);
       // STAGE 1: an exercise the athlete CREATED carries the muscle they
@@ -137,6 +146,15 @@ export function useSaveSet() {
     },
     onSuccess: (verdict, input) => {
       const queued = Boolean((verdict as SetVerdict & { queued?: boolean }).queued);
+
+      // The set is logged from the athlete's side in BOTH paths — the durable
+      // queue is idempotent and syncs behind them — so both count as activated.
+      if (verdict.action === 'insert' && (verdict as SetVerdict & { firstEver?: boolean }).firstEver) {
+        void markActivationStep(userId, session?.user?.created_at ?? null, 'first_set_logged', {
+          durable: queued,
+        });
+      }
+
       if (!queued) {
         // A queued insert already updated the cache optimistically; an
         // immediate refetch would DROP the row (the server hasn't seen it
