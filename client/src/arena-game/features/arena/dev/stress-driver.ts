@@ -32,6 +32,8 @@ export interface StressConfig {
   autoCastChampion: boolean;
   /** Restart (fresh seed, same config) ~1s after a finish — memory-trend loops. */
   autoRestart: boolean;
+  /** Arena 2.0 (P3): run the formation anti-overlap sim. Default off (1.0 lab). */
+  formation?: boolean;
 }
 
 export const DEFAULT_STRESS_CONFIG: StressConfig = {
@@ -156,6 +158,7 @@ export function startStressBattle(cfg: Partial<StressConfig> = {}): void {
         playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
         opponentDeckCardIds: DEFAULT_DECK_CARD_IDS,
         aiDifficulty: 'standard',
+        formation: config.formation ?? false,
       },
       'dev-stress'
     );

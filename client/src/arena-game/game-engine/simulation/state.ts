@@ -234,6 +234,10 @@ export interface BattleState {
   outcome: BattleOutcome | null;
   /** Structured log of notable events for debugging/replay verification. */
   log: BattleLogEntry[];
+  /** Arena 2.0 (P3): whether the formation anti-overlap pass runs each tick.
+   *  Config-derived constant (from BattleConfig.formation) — NOT digested; its
+   *  effect (unit positions) is. False in Arena 1.0, so 1.0 is byte-identical. */
+  formation: boolean;
 }
 
 export interface BattleLogEntry {
@@ -314,6 +318,13 @@ export interface BattleConfig {
   seed: number;
   player: BattleTeamConfig;
   opponent: BattleTeamConfig;
+  /**
+   * Arena 2.0 (P3): enable the simulation-level formation pass — real 1-D
+   * anti-overlap spacing so combatants never stack. Default false = Arena 1.0
+   * behaviour (no spacing), which keeps 1.0 battles byte-identical. Part of the
+   * battle config so replays reproduce it deterministically.
+   */
+  formation?: boolean;
 }
 
 export const TEAMS: readonly TeamId[] = ['player', 'opponent'];
@@ -371,6 +382,7 @@ export function createBattle(config: BattleConfig, balance: BalanceConfig): Batt
     tick: 0,
     phase: 'main',
     suddenDeathEndsAtTick: null,
+    formation: config.formation ?? false,
     rng,
     nextEntityId: 3, // 1 and 2 are the cores
     units: [],

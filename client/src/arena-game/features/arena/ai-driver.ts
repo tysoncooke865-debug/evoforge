@@ -78,6 +78,7 @@ function mirroredView(state: BattleState): BattleState {
     tick: state.tick,
     phase: state.phase,
     suddenDeathEndsAtTick: state.suddenDeathEndsAtTick,
+    formation: state.formation,
     // Present for structural completeness only — the AI never consumes the
     // battle RNG (it uses the stream passed to runOpponentAi).
     rng: state.rng,

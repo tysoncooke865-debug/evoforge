@@ -98,6 +98,8 @@ export interface LiveBattleOptions {
   opponentPlayerId?: string;
   /** Opponent display name for records/UI (M9: the enemy gym's name). */
   opponentDisplayName?: string;
+  /** Arena 2.0 (P3): enable the formation anti-overlap sim. Default false (1.0). */
+  formation?: boolean;
 }
 
 export function createLiveBattle(
@@ -116,6 +118,7 @@ export function createLiveBattle(
   const aiDifficulty = options.aiDifficulty ?? 'standard';
   const config: BattleConfig = {
     seed,
+    formation: options.formation ?? false,
     player: options.playerSquad
       ? {
           playerId,
