@@ -471,9 +471,24 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   (ticks are only DELAYED — replays untouched), and the **ultimate ceremony** wash. Core
   hits diff core health (no log entry) to fire the top-rung shake. All effects age off the
   frame clock (no Animated, no per-unit state) and every motion is reduced-motion gated.
-- **P5 — The five champion kits + benchmark art.** Data + new ability handlers for each
-  kit (§7); generate + validate all five at benchmark grade. **Exit:** balance harness
-  green per champion; anim validation green for all five.
+- **P5 — Champion animation in battle ✅ / kits + remaining art ⏳ (2026-07-24).**
+  **DONE:** the P0 AutoSprite pipeline is now wired into real battles — a sim-state-driven
+  clip selector (`resolveChampionClip`) maps champion state to clips with a priority
+  ladder (**ultimate > ability→`dash` > hit > attack**, then locomotion `run`/`idle`),
+  rendered through `AtlasSprite` at 88pt with **feet-anchored** placement
+  (`refFeetY/cell`) and team mirroring. Ability/ultimate casts are detected straight from
+  sim state (ability cooldown jumping back up; ultimate charge hitting 0) so it works for
+  AI champions too — no log parsing. Fully generic via `championAnimKeyFor(contentId)`:
+  a champion without an imported set falls back to its 1.0 sprite, so the roster lights
+  up one champion at a time. The Shredder now fights at benchmark fidelity
+  (`autoSpriteChampions` flag ON; the battle lab fields it).
+  **BLOCKED / OUTSTANDING:** (a) the other four champions need AutoSprite sets — there is
+  no AutoSprite API in this repo (only `PIXELLAB_AI_KEY`), so those exports are Tyson's
+  step; PixelLab GIFs exist for Mass Monster (`Evo_Forge_Mass_Monster_*.gif`, partial
+  clips, different format — a GIF→atlas converter could bridge it). (b) the five champion
+  KITS (§7 passives/primaries/ultimates) still need new engine ability handlers, since
+  ability targeting is hardcoded per-id in `champion-abilities.ts`. Balance harness
+  re-check belongs with the kits, not this render-only step.
 - **P6 — Meta & retention.** Mastery, cosmetics (energy-color skins), seasons; ranked
   ladder *iff* §17-D approved (farm-proof server rule + migration). **Exit:** cosmetic
   reward-safety audit clean (the shipped invariant holds).

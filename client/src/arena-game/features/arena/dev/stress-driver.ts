@@ -34,6 +34,8 @@ export interface StressConfig {
   autoRestart: boolean;
   /** Arena 2.0 (P3): run the formation anti-overlap sim. Default off (1.0 lab). */
   formation?: boolean;
+  /** Arena 2.0 (P5): which champion the player fields (defaults to the first). */
+  championId?: string;
 }
 
 export const DEFAULT_STRESS_CONFIG: StressConfig = {
@@ -154,7 +156,7 @@ export function startStressBattle(cfg: Partial<StressConfig> = {}): void {
       randomSeed(),
       'local-player',
       {
-        playerChampionId: CHAMPIONS[0].id,
+        playerChampionId: config.championId ?? CHAMPIONS[0].id,
         playerDeckCardIds: DEFAULT_DECK_CARD_IDS,
         opponentDeckCardIds: DEFAULT_DECK_CARD_IDS,
         aiDifficulty: 'standard',
