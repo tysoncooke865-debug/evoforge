@@ -460,9 +460,17 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   40-match AI-vs-AI check stayed balanced (formation off 40/60, on 55/45, both in
   [40%,60%]); a full deep-harness re-baseline can follow if desired. Refinement noted:
   explicit role-priority slotting (tanks strictly front) beyond position-based queuing.
-- **P4 — Battle feel.** FX scaled to the big Champion + landscape; ultimate ceremony,
-  camera/screen shake, hitstop, crits, telegraphs, speed lines. **Exit:** feel review vs
-  the Supercell/Halfbrick bar; perf still in budget.
+- **P4 — Battle feel. ✅ DONE 2026-07-24.** Arena 1.0's combat-feel layer re-homed to
+  landscape and scaled for the big champion, reusing the PURE toolkit (`impact.ts` /
+  `combat-fx.ts`) so nothing was reinvented: impact-tiered damage floaters + crit sparks
+  (heavy tier), hit flash + tier-scaled directional recoil, procedural attack pose
+  (anticipation→strike→recovery, remapped portrait −Y → landscape ±X), spawn drop-in
+  scale, ranged **projectile streaks**, ability/ultimate **telegraphs** (expanding ring +
+  path-colored label), **spawn poofs**, decaying **screen shake** (strongest-wins ladder,
+  riding the camera transform), **hit-stop / slow-mo** via the store's time dilation
+  (ticks are only DELAYED — replays untouched), and the **ultimate ceremony** wash. Core
+  hits diff core health (no log entry) to fire the top-rung shake. All effects age off the
+  frame clock (no Animated, no per-unit state) and every motion is reduced-motion gated.
 - **P5 — The five champion kits + benchmark art.** Data + new ability handlers for each
   kit (§7); generate + validate all five at benchmark grade. **Exit:** balance harness
   green per champion; anim validation green for all five.
