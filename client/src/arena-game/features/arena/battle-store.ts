@@ -56,6 +56,8 @@ import {
   LiveBattle,
   LiveBattleOptions,
   queueChampionAbility,
+  queueChampionBasicAttack,
+  queueChampionLaneSwitch,
   queueChampionUltimate,
   queueChooseAugment,
   queuePlayerDeploy,
@@ -121,6 +123,10 @@ export interface BattleStoreState {
   championAbility(): void;
   /** Queue the player champion's ultimate for the next tick. */
   championUltimate(): void;
+  /** Arena 2.0: queue a player basic-attack tap on the champion (chains combo). */
+  championBasicAttack(): void;
+  /** Arena 2.0: queue a lane switch for the player champion. */
+  championLaneSwitch(): void;
   /** Queue the player's mid-match augment choice for the next tick. */
   chooseAugment(augmentId: string): void;
   /** Surface a UI-side rejection (e.g. tapping an unaffordable card). */
@@ -508,6 +514,20 @@ export function createBattleStore(
         const { live, status } = get();
         if (!live || status !== 'running') return;
         const result = queueChampionUltimate(live);
+        if (!result.ok) set({ lastRejection: result.reason });
+      },
+
+      championBasicAttack() {
+        const { live, status } = get();
+        if (!live || status !== 'running') return;
+        const result = queueChampionBasicAttack(live);
+        if (!result.ok) set({ lastRejection: result.reason });
+      },
+
+      championLaneSwitch() {
+        const { live, status } = get();
+        if (!live || status !== 'running') return;
+        const result = queueChampionLaneSwitch(live);
         if (!result.ok) set({ lastRejection: result.reason });
       },
 

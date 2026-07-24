@@ -436,10 +436,18 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   health/floaters render. Combatants still use 1.0 top-down sprites (side-view 128px
   champions arrive at P5); full FX layer re-homed at P4. Perf sweep vs baseline: deferred
   to the P7 device pass (camera = one transform, cheap).
-- **P2 — Champion controller & control deck.** State machine + clips; new commands
-  (basic/combo/lane-switch) + one-thumb control deck; ultimate meter surfaced. **Exit:**
-  player pilots the Champion; determinism digests pass for the new commands; replay
-  compatibility verified.
+- **P2 — Champion controller & control deck. ✅ DONE 2026-07-24.** New replay-safe engine
+  commands `champion-basic-attack` (rate-limited, chains a combo that boosts the next
+  strike) and `champion-lane-switch` (flip lane on a cooldown) — the manual ability +
+  ultimate already existed. `game-engine/commands/champion-control.ts` (pure) + store/
+  controller plumbing (`championBasicAttack`/`championLaneSwitch`). One-thumb
+  `features/arena2/control-deck.tsx` (Lane / Ability / Ultimate-with-meter / big Basic-
+  with-combo-counter) wired into the pilotable `arena2-battle-lab` (autoCast off).
+  **Determinism:** new ChampionState counters are NOT digested; their EFFECTS (lane,
+  attackCooldownTicks, combo damage→health) are — so 1.0 digests stay byte-identical
+  (558 arena tests + stability suite green) and arena2 records replay digest-identically
+  (proven: piloting with the new commands re-sims to the same digest). Movement stays
+  automatic. Champion still renders via 1.0 sprites (128px controller = P5).
 - **P3 — Formation sim.** Real 1-D spacing, melee slots, ranged standoff, tank-holds-front.
   **Exit:** no overlap in the deep harness; re-baselined win-rates in [45%,54%]; digest
   determinism holds.
