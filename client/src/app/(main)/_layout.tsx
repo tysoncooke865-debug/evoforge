@@ -26,6 +26,7 @@ import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { PageHelp } from '@/ui/help/page-help';
+import { PushPrompt } from '@/ui/core/push-prompt';
 import { SharePrompt } from '@/ui/social/share-prompt';
 import { SaveRoutinePrompt } from '@/ui/train/save-routine-prompt';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
@@ -328,6 +329,10 @@ export default function MainLayout() {
     <PageHelp />
     {/* ORIGIN (Tyson 2026-07-17): every sign-in without an origin asks for a scan. */}
     <OriginScanPrompt />
+    {/* Post-workout "want reminders?" offer — mounted FIRST so it stacks
+        BENEATH the two sheets below: nobody is asked three things at once.
+        Raised only from the second finished workout (push-prompt-store). */}
+    <PushPrompt />
     {/* Post-workout "share it?" offer (Social) — self-hides unless a finish
         raised it and the feed is on. Never auto-publishes. */}
     <SharePrompt />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { enablePush, pushPermission, type PushState } from '@/data/push';
+import { enablePush, pushNeedsInstall, pushPermission, type PushState } from '@/data/push';
 import { useMarkNotificationsRead, useNotifications, type NotificationRow } from '@/data/social-notifications';
 import { relativeTime } from '@/domain/social-feed';
 import { pixelFont } from '@/theme/fonts';
@@ -75,7 +75,7 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text className="text-2xs font-bold text-text">PHONE NOTIFICATIONS</Text>
                   <Text className="mt-s1 text-2xs text-text-mute">
-                    {push === 'granted' ? 'On — you’ll get pushes on this device.' : push === 'denied' ? 'Blocked in your browser settings.' : 'Get pushed when friends react, comment or add you.'}
+                    {push === 'granted' ? 'On — a nudge on your training days, plus friend activity.' : push === 'denied' ? 'Blocked in your browser settings.' : 'A reminder on the days you train, plus friend reactions.'}
                   </Text>
                 </View>
                 {push === 'granted' ? (
@@ -87,6 +87,16 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
                     <Text className="text-epic" allowFontScaling={false} style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}>{pushBusy ? '…' : 'ENABLE'}</Text>
                   </Pressable>
                 )}
+              </View>
+            ) : pushNeedsInstall() ? (
+              /* iOS gives the Push API to home-screen apps only. Hiding the card
+                 entirely told the platform most likely to be running this app
+                 nothing at all — say what the step is instead. */
+              <View className="mb-s3 rounded-lg border p-s3" style={{ borderColor: `${colors.epic}45`, backgroundColor: 'rgba(168,85,247,0.06)' }}>
+                <Text className="text-2xs font-bold text-text">PHONE NOTIFICATIONS</Text>
+                <Text className="mt-s1 text-2xs text-text-mute">
+                  Add EvoForge to your Home Screen (Share → Add to Home Screen), then open it from there. iPhone only allows notifications for installed apps.
+                </Text>
               </View>
             ) : null}
 

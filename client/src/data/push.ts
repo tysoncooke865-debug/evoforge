@@ -37,6 +37,22 @@ function pushSupported(): boolean {
   );
 }
 
+/**
+ * True when push is unavailable ONLY because the PWA is not installed — iOS
+ * exposes the Push API to home-screen apps and to nothing else. Worth knowing:
+ * otherwise the whole notifications card silently vanishes on the platform most
+ * likely to be running this app, and the athlete is never told there is a step
+ * they could take.
+ */
+export function pushNeedsInstall(): boolean {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  if (pushSupported()) return false;
+  const ua = navigator.userAgent || '';
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
+  const standalone = window.matchMedia?.('(display-mode: standalone)')?.matches ?? false;
+  return iOS && !standalone;
+}
+
 /** Current permission, without prompting. */
 export function pushPermission(): PushState {
   if (!pushSupported()) return 'unsupported';
