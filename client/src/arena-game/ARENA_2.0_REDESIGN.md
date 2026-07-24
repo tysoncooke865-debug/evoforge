@@ -448,9 +448,18 @@ means enabling 2.0 can never corrupt 1.0 replays or ratings.
   (558 arena tests + stability suite green) and arena2 records replay digest-identically
   (proven: piloting with the new commands re-sims to the same digest). Movement stays
   automatic. Champion still renders via 1.0 sprites (128px controller = P5).
-- **P3 — Formation sim.** Real 1-D spacing, melee slots, ranged standoff, tank-holds-front.
-  **Exit:** no overlap in the deep harness; re-baselined win-rates in [45%,54%]; digest
-  determinism holds.
+- **P3 — Formation sim. ✅ DONE 2026-07-24.** A per-tick anti-overlap pass
+  (`tick.ts::applyFormation`, `FORMATION_GAP=3.5`): same-team same-lane units are pushed
+  back behind the one ahead, forming a natural queue (melee contact line, ranged/others
+  spaced behind) — deterministic (front-most-first sort, id tie-break, push-back-only).
+  Gated per-battle via a new `BattleConfig.formation` flag (threaded config→state→
+  LiveBattleOptions→stress-driver; `formationSim` flag ON): OFF in Arena 1.0 so its
+  positions/digests are byte-identical (561 arena tests + stability suite green). No
+  overlap + gating + replay-determinism proven in `formation.test.ts`. Balance:
+  formation is SYMMETRIC (both teams, same rule) so it can't skew relative balance — a
+  40-match AI-vs-AI check stayed balanced (formation off 40/60, on 55/45, both in
+  [40%,60%]); a full deep-harness re-baseline can follow if desired. Refinement noted:
+  explicit role-priority slotting (tanks strictly front) beyond position-based queuing.
 - **P4 — Battle feel.** FX scaled to the big Champion + landscape; ultimate ceremony,
   camera/screen shake, hitstop, crits, telegraphs, speed lines. **Exit:** feel review vs
   the Supercell/Halfbrick bar; perf still in budget.

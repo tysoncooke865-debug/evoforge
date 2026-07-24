@@ -80,8 +80,46 @@ export function advanceTick(
     actUnit(state, balance, unit);
   }
 
+  // Arena 2.0 (P3): re-space combatants so none overlap (real 1-D formation).
+  // Runs after all movement, before the outcome check. Gated per-battle — off
+  // in Arena 1.0, so 1.0 positions/digests are byte-identical.
+  if (state.formation) applyFormation(state, balance);
+
   resolveOutcome(state, balance);
   recomputeAuras(state);
+}
+
+/** Formation gap in engine units — kept wider than a rendered sprite so combatants
+ *  never visually stack (a unit renders ~40px ≈ 3.5 units at the landscape zoom). */
+export const FORMATION_GAP = 3.5;
+
+/**
+ * Arena 2.0 (P3) formation pass: enforce a minimum gap between same-team units in
+ * the same lane so two never occupy the same spot. Trailing units are pushed BACK
+ * toward their own core behind the one ahead, forming a natural queue — a melee
+ * contact line at the front with ranged/others spaced behind. Deterministic: units
+ * are ordered front-most-first by position with a stable id tie-break, and only
+ * ever pushed backward (never forward), so it converges and never fights the
+ * movement pass. Only unit positions change — every one of them is digested.
+ */
+function applyFormation(state: BattleState, balance: BalanceConfig): void {
+  const { laneLength } = balance.arena;
+  for (const team of ['player', 'opponent'] as const) {
+    const dir = directionOf(team); // player +1 (front = high x); opponent -1 (front = low x)
+    for (const lane of [0, 1] as const) {
+      const row = state.units.filter((u) => u.alive && u.team === team && u.lane === lane);
+      if (row.length < 2) continue;
+      // Front-most first (closest to the enemy core), stable id tie-break.
+      row.sort((a, b) => (b.x - a.x) * dir || a.id - b.id);
+      for (let i = 1; i < row.length; i++) {
+        const limit = row[i - 1].x - dir * FORMATION_GAP; // one gap behind the unit ahead
+        const cur = row[i];
+        if (dir === 1 ? cur.x > limit : cur.x < limit) {
+          cur.x = clamp(limit, 0, laneLength);
+        }
+      }
+    }
+  }
 }
 
 /**

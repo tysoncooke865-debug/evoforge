@@ -39,6 +39,7 @@ export default function Arena2BattleLab() {
       autoCastChampion: false,
       autoRestart: true,
       simSpeed: 1,
+      formation: arena2FlagEnabled('formationSim'),
     });
     return () => {
       stopStressDriver();

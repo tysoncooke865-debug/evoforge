@@ -19,7 +19,7 @@ export const arena2Flags = Object.freeze({
   /** P2 — manual champion control (basic/combo/lane-switch commands). */
   championControl: false,
   /** P3 — real simulation-level formation (spacing / melee slots / standoff). */
-  formationSim: false,
+  formationSim: true,
   /** P6 — real seasonal ranked ladder (needs the farm-proof server rule). */
   rankedLadder: false,
 });
