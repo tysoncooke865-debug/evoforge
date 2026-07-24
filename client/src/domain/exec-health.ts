@@ -30,8 +30,15 @@ export interface ExecHealthInput {
   lifetime: ExecFunnel;
   /** Observability: is anything watching production? */
   watchdogHealthy: boolean;
-  /** Engineering: is the suite green? */
-  testsGreen: boolean;
+  /**
+   * Engineering: is the suite green? **`null` means NOT MEASURED**, which is
+   * the honest current answer — reading CI needs a GitHub token this project
+   * does not have. A not-measured dimension is dropped from the weighted total
+   * entirely rather than scored, because the first version of this file
+   * hardcoded `true` and silently handed the score 10 free points. A dashboard
+   * that inflates itself is worse than no dashboard.
+   */
+  testsGreen: boolean | null;
   /** Retention instrument: how many activated athletes can be reached? */
   pushSubscribers: number;
 }
@@ -42,8 +49,14 @@ export interface ExecDimension {
   weight: number;
   actual: string;
   target: string;
-  /** 0–100. */
+  /** 0–100. Meaningless when `measured` is false. */
   score: number;
+  /**
+   * False when nothing actually measures this yet. Unmeasured dimensions are
+   * excluded from the weighted total and must be rendered as such — never as a
+   * zero (which reads as failure) and never as a pass (which is a lie).
+   */
+  measured: boolean;
 }
 
 /** Safe ratio — an empty cohort scores 0, never NaN and never a divide-by-zero. */
@@ -77,6 +90,7 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: pct(activation),
       target: '60%',
       score: against(activation, 0.6),
+      measured: true,
     },
     {
       key: 'onboarding',
@@ -85,6 +99,7 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: pct(onboarding),
       target: '80%',
       score: against(onboarding, 0.8),
+      measured: true,
     },
     {
       key: 'retention',
@@ -93,6 +108,7 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: pct(depth2),
       target: '45%',
       score: against(depth2, 0.45),
+      measured: true,
     },
     {
       key: 'depth',
@@ -101,6 +117,7 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: pct(depth4),
       target: '30%',
       score: against(depth4, 0.3),
+      measured: true,
     },
     {
       key: 'reachable',
@@ -109,6 +126,7 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: pct(reachable),
       target: '50%',
       score: against(reachable, 0.5),
+      measured: true,
     },
     {
       key: 'observability',
@@ -117,21 +135,26 @@ export function execDimensions(input: ExecHealthInput): ExecDimension[] {
       actual: input.watchdogHealthy ? 'watched' : 'BLIND',
       target: 'watched',
       score: input.watchdogHealthy ? 100 : 0,
+      measured: true,
     },
     {
       key: 'engineering',
       label: 'Engineering — suite green',
       weight: 10,
-      actual: input.testsGreen ? 'green' : 'RED',
+      actual: input.testsGreen === null ? 'not measured' : input.testsGreen ? 'green' : 'RED',
       target: 'green',
-      score: input.testsGreen ? 100 : 0,
+      score: input.testsGreen === true ? 100 : 0,
+      measured: input.testsGreen !== null,
     },
   ];
 }
 
 /** The weighted total, 0–100. */
 export function execHealthScore(input: ExecHealthInput): number {
-  const dims = execDimensions(input);
+  // Only MEASURED dimensions count, in both the numerator and the denominator.
+  // Scoring an unmeasured dimension 0 would punish us for not having built the
+  // instrument; scoring it 100 would flatter us for the same reason.
+  const dims = execDimensions(input).filter((d) => d.measured);
   const totalWeight = dims.reduce((n, d) => n + d.weight, 0);
   if (totalWeight <= 0) return 0;
   const weighted = dims.reduce((n, d) => n + d.score * d.weight, 0);

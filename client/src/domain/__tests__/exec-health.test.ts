@@ -12,7 +12,7 @@ const today: ExecHealthInput = {
   post: { signed_up: 10, profiled: 10, origins: 8, activated: 3 },
   lifetime: { signed_up: 27, profiled: 24, origins: 12, activated: 10, trained_2d: 6, trained_4d: 2 },
   watchdogHealthy: true,
-  testsGreen: true,
+  testsGreen: null, // not measured — reading CI needs a token we do not have
   pushSubscribers: 1,
 };
 
@@ -54,7 +54,9 @@ describe('exec health — the score actually moves', () => {
   });
 
   it('falls when the suite goes red', () => {
-    expect(execHealthScore({ ...today, testsGreen: false })).toBeLessThan(execHealthScore(today));
+    expect(execHealthScore({ ...today, testsGreen: false })).toBeLessThan(
+      execHealthScore({ ...today, testsGreen: true })
+    );
   });
 });
 
@@ -94,5 +96,29 @@ describe('exec health — bands', () => {
     expect(healthBand(59)).toBe('poor');
     expect(healthBand(60)).toBe('fair');
     expect(healthBand(80)).toBe('good');
+  });
+});
+
+describe('exec health — an unmeasured dimension never flatters the score', () => {
+  it('is excluded from the weighted total, not scored 0 and not scored 100', () => {
+    // The first version of this file hardcoded `testsGreen: true` in the screen
+    // and quietly handed the score 10 free points. Unmeasured must mean absent.
+    const unmeasured = execHealthScore({ ...today, testsGreen: null });
+    const passing = execHealthScore({ ...today, testsGreen: true });
+    const failing = execHealthScore({ ...today, testsGreen: false });
+    expect(unmeasured).toBeGreaterThan(failing);
+    expect(unmeasured).toBeLessThan(passing);
+  });
+
+  it('marks the dimension so the UI cannot render it as a pass', () => {
+    const dim = execDimensions({ ...today, testsGreen: null }).find((d) => d.key === 'engineering');
+    expect(dim?.measured).toBe(false);
+    expect(dim?.actual).toBe('not measured');
+  });
+
+  it('still counts it once something measures it', () => {
+    const dim = execDimensions({ ...today, testsGreen: true }).find((d) => d.key === 'engineering');
+    expect(dim?.measured).toBe(true);
+    expect(dim?.score).toBe(100);
   });
 });

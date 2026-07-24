@@ -111,7 +111,7 @@ export default function ExecScreen() {
         post: o.post_origin_cohort,
         lifetime: o.lifetime,
         watchdogHealthy,
-        testsGreen: true,
+        testsGreen: null,
         pushSubscribers: o.push_subscribers,
       })
     : 0;
@@ -123,7 +123,7 @@ export default function ExecScreen() {
         post: o.post_origin_cohort,
         lifetime: o.lifetime,
         watchdogHealthy,
-        testsGreen: true,
+        testsGreen: null,
         pushSubscribers: o.push_subscribers,
       })
     : [];
@@ -169,14 +169,19 @@ export default function ExecScreen() {
                   {d.actual}
                 </Text>
                 <View style={{ width: 60, height: 6, borderRadius: 3, backgroundColor: `${colors.text}14`, overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      width: `${d.score}%`,
-                      height: '100%',
-                      borderRadius: 3,
-                      backgroundColor: d.score >= 80 ? colors.success : d.score >= 50 ? colors.warn : colors.danger,
-                    }}
-                  />
+                  {/* An unmeasured dimension gets NO bar — not a full one (a
+                      lie) and not an empty one (reads as failure). It is also
+                      excluded from the score itself. */}
+                  {d.measured ? (
+                    <View
+                      style={{
+                        width: `${d.score}%`,
+                        height: '100%',
+                        borderRadius: 3,
+                        backgroundColor: d.score >= 80 ? colors.success : d.score >= 50 ? colors.warn : colors.danger,
+                      }}
+                    />
+                  ) : null}
                 </View>
               </View>
             ))}
