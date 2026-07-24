@@ -58,6 +58,10 @@ jobs:
       # required only for a build that will actually be deployed.
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
       EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY || 'sb_publishable_placeholder' }}
+      # PAGE LAB (src/lab/README.md): the variant gallery compiles in ONLY on
+      # the lab branch's build. '' !== '1', so every other branch — including
+      # the production ones — pre-renders /lab as nothing.
+      EXPO_PUBLIC_PAGE_LAB: ${{ github.ref_name == 'lab' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
 
