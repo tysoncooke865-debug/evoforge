@@ -2473,6 +2473,16 @@ curl -s -X POST "https://api.supabase.com/v1/projects/rysbpwpvnqbngqncrfaa/datab
   -d @query.json     # {"query": "..."}
 ```
 
+**Confirming a deploy actually shipped** (a green CI run is not a deploy):
+grep the LIVE bundle for a marker string from the change. Two traps, both hit on
+2026-07-25:
+- **The code is usually NOT in `entry-*.js`.** Async routes split screens into
+  chunks and shared code into `__common-*.js`, which **`index.html` references
+  and the entry does not**. Get the asset list from `index.html`.
+- **Cloudflare Pages answers any unknown path with `200` and the HTML shell.**
+  A fetch that "succeeds" and contains no marker may never have been the file.
+  Check the first bytes — `<!DOCTYPE html>` means you grepped the fallback.
+
 **Commits:** one coherent change per commit, the full loop green before pushing.
 `migrations/`, `data/`, `auth/`, `domain/xp*`, `.github/` and friends are
 **protected paths** — the commit-msg hook demands `[architect]` in the message.
