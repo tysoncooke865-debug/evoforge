@@ -26,6 +26,46 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE EXEC DASHBOARD (2026-07-25, migration 087) — `/exec`, admin-only.**
+  Tyson's four decisions, implemented: **extend the app** (no Next.js project —
+  reuses `is_app_admin()`, the rollup RPCs, the tokens and the existing deploy),
+  **quick actions YES**, **AI Workforce built FOR REAL**, name redacted.
+  - `exec_overview()` returns the whole front page in ONE round trip, and its
+    funnel is **cohort-split at 2026-07-17** — mixing the cohorts is what
+    produced the wrong diagnosis on 07-24, so the split is baked into the RPC
+    rather than left to whoever writes the next query.
+  - `domain/exec-health.ts` (pure, 10 tests) holds the score: weights and
+    targets are DATA, so changing a target is a one-line diff. **Activation is
+    read from the post-Origin cohort, depth from lifetime** (two weeks cannot
+    show a 4-day habit). Falsification-by-construction: an empty product scores
+    0 without NaN, and beating a target caps at 100 rather than reporting 340%.
+  - **THE SCORE IS NOT THE 43 IN THE 07-24 REPORT.** Different model — this one
+    adds onboarding + reachability, drops revenue, and scores observability,
+    which we then fixed. It reads **58** live. The two are not comparable; the
+    dashboard's is the one that updates itself.
+  - **QUICK ACTIONS AND THE APPROVAL GATE:** a founder pressing a button *is*
+    the constitution's approval — the rule exists to stop an AGENT acting
+    unilaterally. So each action is admin-gated server-side, written to
+    `exec_action_log` **with who pressed it**, and reversible or read-only.
+    Pausing the watchdog is the only one that can HIDE a problem, so it
+    confirms. Deploy / merge / dispatch-CI are **deliberately absent** — they
+    need a GitHub token this project does not have, and a button that cannot
+    work is worse than no button.
+  - **`exec_agent_activity` is the real AI-Workforce rail.** Agent sessions
+    write it through the service role (an agent is not a signed-in user). The
+    page shows what actually ran, including the honest "no agent session has
+    reported yet" — never a simulated status.
+  - **`Date.now()` IS NOT ALLOWED IN RENDER** (React Compiler: "Cannot call
+    impure function during render"). Every relative time on the page is anchored
+    to the server's `generated_at`, which also stops a skewed device clock
+    mis-aging every row.
+  - Verified by a real admin tour of the built export against production; the
+    quick actions were run and their audit rows confirmed, then deleted.
+  - **TWO OPERATIONAL FINDINGS:** (1) `app_admins` holds **three** accounts —
+    `tysoncooke865@`, `newletterwhore@` and `charli.lachlan.davis@` — not just
+    Tyson, and admin now includes pausing alerting. Worth a deliberate decision.
+    (2) The smoke passwords in §5 had gone stale (400 on sign-in); ALPHA's was
+    reset back to the documented value.
 - **THE NAV-FREEZE BEACON WAS MEASURING BACKGROUNDING, NOT JANK (2026-07-25,
   no migration).** It shipped 2026-07-18 to hunt the iOS PWA freeze, has written
   ~1,250 rows since, and taught nobody anything — because its data is noise:

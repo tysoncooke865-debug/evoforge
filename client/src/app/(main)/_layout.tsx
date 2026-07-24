@@ -306,6 +306,8 @@ export default function MainLayout() {
       <Tabs.Screen name="streak" options={{ href: null }} />
       <Tabs.Screen name="coins" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />
+      {/* Admin-only founder dashboard — reachable by URL / debug menu, never a tab. */}
+      <Tabs.Screen name="exec" options={{ href: null }} />
       {/* PROGRESSION P5: the Evo Rating + Forge Level detail pages. */}
       <Tabs.Screen name="evo" options={{ href: null }} />
       <Tabs.Screen name="evo-scan" options={{ href: null }} />
