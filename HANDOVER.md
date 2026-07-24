@@ -2475,6 +2475,15 @@ Every one of these was a live bug. Do not relearn them.
 - **Falsify persistence bugs against production.** "It works" means: seed it,
   tour it in a browser, restart the app, read the row back from the database —
   then delete what you seeded.
+- **THIS REPOSITORY IS PUBLIC. Describe incidents by BEHAVIOUR, never by
+  identity.** Migration 082's header named a real athlete by email address and
+  sat on GitHub for two days (redacted at HEAD 2026-07-25, Tyson's call; the
+  original is still in git history, which only a published-history rewrite would
+  remove). Commit messages, migration comments and docs are all world-readable —
+  a user id is acceptable when it is genuinely needed, an email is never.
+- **Secrets belong in Vault or edge-function secrets, never in a migration.**
+  `cron_secret` and `edge_gateway_key` are read from `vault.decrypted_secrets`
+  at fire time for exactly this reason.
 
 ### Dates and time
 - **`domain/today.ts::todayIso()` is the ONLY source of "today"** — the athlete's
