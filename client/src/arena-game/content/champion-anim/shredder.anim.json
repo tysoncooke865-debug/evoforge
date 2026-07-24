@@ -1,0 +1,73 @@
+{
+  "champion": "shredder",
+  "cell": 128,
+  "refFeetY": 91,
+  "clips": {
+    "idle": {
+      "sheet": "idle.png",
+      "cols": 5,
+      "rows": 5,
+      "count": 25,
+      "cell": 128,
+      "fps": 12,
+      "loop": true,
+      "anchorYOffset": 0
+    },
+    "run": {
+      "sheet": "run.png",
+      "cols": 8,
+      "rows": 8,
+      "count": 64,
+      "cell": 128,
+      "fps": 30,
+      "loop": true,
+      "anchorYOffset": -1
+    },
+    "attack": {
+      "sheet": "attack.png",
+      "cols": 5,
+      "rows": 5,
+      "count": 25,
+      "cell": 128,
+      "fps": 30,
+      "loop": false,
+      "anchorYOffset": 2,
+      "hitFrame": 12
+    },
+    "hit": {
+      "sheet": "hit.png",
+      "cols": 5,
+      "rows": 5,
+      "count": 25,
+      "cell": 128,
+      "fps": 24,
+      "loop": false,
+      "anchorYOffset": -3
+    },
+    "dash": {
+      "sheet": "dash.png",
+      "cols": 5,
+      "rows": 5,
+      "count": 25,
+      "cell": 128,
+      "fps": 30,
+      "loop": false,
+      "anchorYOffset": -2,
+      "iFrames": [
+        2,
+        17
+      ]
+    },
+    "ultimate": {
+      "sheet": "ultimate.png",
+      "cols": 5,
+      "rows": 5,
+      "count": 25,
+      "cell": 128,
+      "fps": 20,
+      "loop": false,
+      "anchorYOffset": -5,
+      "hitFrame": 11
+    }
+  }
+}

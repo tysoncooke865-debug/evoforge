@@ -112,6 +112,12 @@ jobs:
       - name: verify-arena-purity — arena game-engine imports no UI
         run: node scripts/verify-arena-purity.mjs
 
+      # Arena 2.0 P0: every imported champion's AutoSprite animation metadata
+      # must satisfy the runtime contract (128px cells, required clips, feet
+      # anchors in tolerance, sheets present + sized). Falsified 2026-07-24.
+      - name: verify-arena-anim — champion animation atlases are consistent
+        run: node scripts/verify-arena-anim.mjs
+
       - name: Parity suite — TS domain reproduces every golden case exactly
         run: npx vitest run src/domain
 
