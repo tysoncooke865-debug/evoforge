@@ -101,6 +101,11 @@ export function spawnChampion(
       ),
       respawnDelayTicks: balance.champion.respawnTicks,
       stanceShifts: 0,
+      // Arena 2.0 player-control state (see ChampionState docs) — inert in 1.0.
+      comboCount: 0,
+      lastBasicAttackTick: -9999,
+      pendingComboMult: null,
+      laneSwitchReadyTick: 0,
       passiveArmorFlat: passive.selfArmorFlat ?? 0,
       passiveLowHealthBonus: passive.lowHealthBonus
         ? { ...passive.lowHealthBonus }

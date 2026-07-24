@@ -181,7 +181,14 @@ function actUnit(state: BattleState, balance: BalanceConfig, unit: UnitState): v
           }
         } else {
           // damageUnit clears every reference to the target if this kills it.
-          damageUnit(state, target.unit, stats.attackDamage, `${unit.contentId}#${unit.id}`, unit);
+          // Arena 2.0: a champion consumes any pending combo multiplier here.
+          damageUnit(
+            state,
+            target.unit,
+            championStrikeDamage(unit, stats.attackDamage),
+            `${unit.contentId}#${unit.id}`,
+            unit
+          );
         }
         unit.attackCooldownTicks = stats.attackIntervalTicks;
       }
@@ -195,12 +202,31 @@ function actUnit(state: BattleState, balance: BalanceConfig, unit: UnitState): v
   const dist = distanceBetween(unit.x, target.core.x);
   if (dist <= stats.attackRange) {
     if (unit.attackCooldownTicks === 0) {
-      damageCore(state, target.core, stats.attackDamage, `${unit.contentId}#${unit.id}`, unit);
+      damageCore(
+        state,
+        target.core,
+        championStrikeDamage(unit, stats.attackDamage),
+        `${unit.contentId}#${unit.id}`,
+        unit
+      );
       unit.attackCooldownTicks = stats.attackIntervalTicks;
     }
   } else {
     march(state, balance, unit, stats.moveSpeedPerTick);
   }
+}
+
+/** Arena 2.0: apply and consume a champion's pending combo multiplier on its
+ *  strike. A non-champion (or a champion with no pending combo — i.e. every
+ *  Arena 1.0 battle) returns the base damage unchanged, so 1.0 is untouched. */
+function championStrikeDamage(unit: UnitState, base: number): number {
+  const champ = unit.champion;
+  if (champ && champ.pendingComboMult != null) {
+    const mult = champ.pendingComboMult;
+    champ.pendingComboMult = null;
+    return base * mult;
+  }
+  return base;
 }
 
 /** March toward the enemy core along the lane. */

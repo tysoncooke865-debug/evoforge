@@ -66,6 +66,23 @@ export interface ChampionState {
   /** Stance Shift uses so far (Aesthetics): even = Bulwark next, odd = Assault. */
   stanceShifts: number;
   /**
+   * Arena 2.0 player-control runtime state (championControl). These are mutated
+   * ONLY by the arena2 `champion-basic-attack` / `champion-lane-switch` commands,
+   * which Arena 1.0 never issues — so in 1.0 they stay at their spawn defaults.
+   * They are deliberately NOT digested (like the config-derived fields above):
+   * their gameplay EFFECTS are already digested (combo damage → `health`,
+   * lane switch → `lane`, hastened attack → `attackCooldownTicks`), and keeping
+   * the raw counters out of the digest keeps 1.0 records byte-identical. See
+   * commands/champion-control.ts + ARENA_2.0_REDESIGN.md §14.
+   */
+  comboCount: number;
+  /** Sim tick of the last accepted basic-attack tap (combo window / rate-limit). */
+  lastBasicAttackTick: number;
+  /** Damage multiplier the next champion strike consumes (null = none pending). */
+  pendingComboMult: number | null;
+  /** First tick a lane-switch is allowed again (cooldown). */
+  laneSwitchReadyTick: number;
+  /**
    * P10 gym presentation: the owning gym member's display name for borrowed
    * champions — display/attribution metadata copied from the squad config at
    * spawn. Never feeds the simulation, never digested (like spawnX).

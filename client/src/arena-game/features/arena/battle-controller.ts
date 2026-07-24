@@ -297,6 +297,30 @@ export function queueChampionUltimate(live: LiveBattle): CommandResult {
   return queueChampionCommand(live, 'champion-ultimate');
 }
 
+/** Arena 2.0: queue a player basic-attack tap on the champion. The engine
+ *  re-validates the rate-limit authoritatively at apply time. */
+export function queueChampionBasicAttack(live: LiveBattle): CommandResult {
+  if (live.state.phase === 'finished') return { ok: false, reason: 'battle is over' };
+  const unit = findTeamCaptain(live.state, 'player');
+  if (!unit || !unit.champion) return { ok: false, reason: 'no champion in this battle' };
+  if (!unit.alive) return { ok: false, reason: 'Champion is down' };
+  live.commandLog.push({ tick: live.state.tick + 1, command: { type: 'champion-basic-attack', team: 'player' } });
+  return { ok: true };
+}
+
+/** Arena 2.0: queue a lane switch for the player champion (pre-checks cooldown). */
+export function queueChampionLaneSwitch(live: LiveBattle): CommandResult {
+  if (live.state.phase === 'finished') return { ok: false, reason: 'battle is over' };
+  const unit = findTeamCaptain(live.state, 'player');
+  if (!unit || !unit.champion) return { ok: false, reason: 'no champion in this battle' };
+  if (!unit.alive) return { ok: false, reason: 'Champion is down' };
+  if (live.state.tick < unit.champion.laneSwitchReadyTick) {
+    return { ok: false, reason: 'Lane switch on cooldown' };
+  }
+  live.commandLog.push({ tick: live.state.tick + 1, command: { type: 'champion-lane-switch', team: 'player' } });
+  return { ok: true };
+}
+
 /**
  * Deterministic default target for a technique/equipment card in a lane:
  *  - heal/shield cards → the most-wounded friendly unit in the lane

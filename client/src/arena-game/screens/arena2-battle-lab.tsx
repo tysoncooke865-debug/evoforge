@@ -21,6 +21,7 @@ import { battleStore } from '../features/arena/battle-store';
 import { startStressBattle, stopStressDriver } from '../features/arena/dev/stress-driver';
 import { useBattle } from '../features/arena/use-battle';
 import { Arena2Battlefield } from '../features/arena2/battlefield';
+import { ControlDeck } from '../features/arena2/control-deck';
 import { arena2FlagEnabled } from '../services/flags/arena-flags';
 
 export default function Arena2BattleLab() {
@@ -29,12 +30,13 @@ export default function Arena2BattleLab() {
   const router = useRouter();
 
   useEffect(() => {
-    // Low density so the landscape battlefield reads clearly (not a stress swarm).
+    // Low density so the landscape battlefield reads clearly (not a stress
+    // swarm). autoCast OFF — the PLAYER pilots the champion via the control deck.
     startStressBattle({
       targetPerTeam: 5,
       rangedFraction: 0.4,
       topUp: true,
-      autoCastChampion: true,
+      autoCastChampion: false,
       autoRestart: true,
       simSpeed: 1,
     });
@@ -46,18 +48,25 @@ export default function Arena2BattleLab() {
 
   const enabled = arena2FlagEnabled('arena2Renderer') || arena2FlagEnabled('animLab');
   const live = battleStore.getState().live;
+  const playerChampion =
+    live?.state.units.find(
+      (u) => u.kind === 'champion' && u.team === 'player' && u.champion?.commandable && u.alive
+    )?.champion ?? null;
 
   return (
     <View style={styles.root}>
       {!enabled ? (
         <Text style={styles.msg}>Landscape renderer disabled (arena2 flag `arena2Renderer`).</Text>
       ) : live ? (
-        <Arena2Battlefield live={live} />
+        <>
+          <Arena2Battlefield live={live} />
+          <ControlDeck champion={playerChampion} tick={live.state.tick} />
+        </>
       ) : (
         <Text style={styles.msg}>Starting battle…</Text>
       )}
       <View style={styles.overlay} pointerEvents="box-none">
-        <Text style={styles.badge}>Arena 2.0 · Landscape (P1) · render-only</Text>
+        <Text style={styles.badge}>Arena 2.0 · Pilot the Champion (P2)</Text>
         <Pressable style={styles.back} onPress={() => router.back()}>
           <Text style={styles.backText}>← Back</Text>
         </Pressable>

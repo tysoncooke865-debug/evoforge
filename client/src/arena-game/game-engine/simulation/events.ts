@@ -16,6 +16,7 @@ import {
   findTeamCaptain,
   validateChampionAbility,
 } from '../abilities/champion-abilities';
+import { applyChampionBasicAttack, applyChampionLaneSwitch } from '../commands/champion-control';
 import { applyAugmentChoice } from '../augments/augments';
 import { cycleCard } from '../cards/deck';
 import { applyCardEffects, CardTarget, validateCardTarget } from '../cards/effects';
@@ -47,6 +48,18 @@ export type BattleCommand =
   | {
       /** Trigger the team's champion ultimate (consumes full charge). */
       type: 'champion-ultimate';
+      team: TeamId;
+    }
+  | {
+      /** Arena 2.0: player basic-attack tap on the team's champion (chains a
+       *  combo, rate-limited). Arena 1.0 never issues this. */
+      type: 'champion-basic-attack';
+      team: TeamId;
+    }
+  | {
+      /** Arena 2.0: switch the team's champion to the other lane (cooldown).
+       *  Arena 1.0 never issues this. */
+      type: 'champion-lane-switch';
       team: TeamId;
     }
   | {
@@ -213,6 +226,18 @@ export function applyCommand(
       unit.champion.ultimateCharge = 0;
       applyChampionAbility(state, balance, unit, definition.ultimate);
       return { ok: true };
+    }
+
+    case 'champion-basic-attack':
+    case 'champion-lane-switch': {
+      // Arena 2.0 player-control verbs — route to the commandable captain, like
+      // champion-ability/ultimate. Arena 1.0 never emits these.
+      const unit = findTeamCaptain(state, command.team);
+      if (!unit || !unit.champion) return { ok: false, reason: 'no champion in this battle' };
+      if (!unit.alive) return { ok: false, reason: 'champion is down' };
+      return command.type === 'champion-basic-attack'
+        ? applyChampionBasicAttack(state, unit)
+        : applyChampionLaneSwitch(state, unit);
     }
 
     case 'choose-augment': {
