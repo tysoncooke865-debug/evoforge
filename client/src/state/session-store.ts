@@ -39,6 +39,12 @@ interface SessionState {
   date: string;
   days: Record<string, DayOverrides>;
   adhoc: AdhocWorkout | null;
+  /** DAY SWAP (2026-07-24): "just for today" only — trade today's scheduled
+   *  split day for a different one from the same plan without touching the
+   *  persisted weekly schedule. Same self-expiring date guard as `adhoc`; a
+   *  permanent swap goes through useSaveSchedule instead and needs no entry
+   *  here (the schedule itself already reflects it from today onward). */
+  daySwap: string | null;
   /**
    * Tyson, 2026-07-14: the workout IN PROGRESS. Set the moment a set lands,
    * cleared when the athlete finishes (the summary ceremony) or ends an ad-hoc
@@ -81,6 +87,9 @@ interface SessionState {
    *  a day name. There is deliberately no separate add-to-adhoc action. */
   startAdhoc: (w: AdhocWorkout) => void;
   endAdhoc: () => void;
+
+  /** Set (or clear, passing null) today's day swap. */
+  setDaySwap: (to: string | null) => void;
 
   markActive: (day: string, source?: number) => void;
   clearActive: () => void;
@@ -126,6 +135,7 @@ export const useSessionStore = create<SessionState>()(
       date: todayIso(),
       days: {},
       adhoc: null,
+      daySwap: null,
       activeDay: null,
       activeSource: null,
       _hydrated: false,
@@ -200,6 +210,17 @@ export const useSessionStore = create<SessionState>()(
           activeDay: s.activeDay === s.adhoc?.name ? null : s.activeDay,
         })),
 
+      setDaySwap: (to) =>
+        set((s) => {
+          const stale = s.date !== todayIso();
+          return {
+            date: todayIso(),
+            days: stale ? {} : s.days,
+            adhoc: stale ? null : s.adhoc,
+            daySwap: to,
+          };
+        }),
+
       markActive: (day, source) =>
         set((s) => {
           const stale = s.date !== todayIso();
@@ -251,7 +272,7 @@ export const useSessionStore = create<SessionState>()(
       clearActive: () => set({ activeDay: null, activeSource: null }),
 
       reset: () =>
-        set({ date: todayIso(), days: {}, adhoc: null, activeDay: null, activeSource: null }),
+        set({ date: todayIso(), days: {}, adhoc: null, daySwap: null, activeDay: null, activeSource: null }),
     }),
     {
       name: 'evoforge-session-v1',
@@ -260,6 +281,7 @@ export const useSessionStore = create<SessionState>()(
         date: s.date,
         days: s.days,
         adhoc: s.adhoc,
+        daySwap: s.daySwap,
         activeDay: s.activeDay,
         activeSource: s.activeSource,
       }),
@@ -271,6 +293,7 @@ export const useSessionStore = create<SessionState>()(
           state.date = todayIso();
           state.days = {};
           state.adhoc = null;
+          state.daySwap = null;
           state.activeDay = null;
           state.activeSource = null;
         }
@@ -290,6 +313,12 @@ export function overridesFor(state: SessionState, day: string): DayOverrides {
 export function adhocOf(state: SessionState): AdhocWorkout | null {
   if (state.date !== todayIso()) return null;
   return state.adhoc;
+}
+
+/** Today's "just for today" day swap, or null (also date-guarded). */
+export function daySwapOf(state: SessionState): string | null {
+  if (state.date !== todayIso()) return null;
+  return state.daySwap;
 }
 
 /** The workout in progress RIGHT NOW, or null. Date-guarded: an unfinished

@@ -35,7 +35,7 @@ import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
-import { adhocOf, useSessionStore } from '@/state/session-store';
+import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
 import { useThemeColors } from '@/theme/use-theme';
@@ -126,6 +126,8 @@ export default function TodayScreen() {
 
   const adhoc = useSessionStore(adhocOf);
   const startAdhoc = useSessionStore((s) => s.startAdhoc);
+  const daySwap = useSessionStore(daySwapOf);
+  const setDaySwap = useSessionStore((s) => s.setDaySwap);
   // Narrow selections (not the whole store): the hub re-renders on override
   // writes only because today's bars are judged against the EDITED plan.
   const sessionDate = useSessionStore((s) => s.date);
@@ -138,6 +140,8 @@ export default function TodayScreen() {
   const [sourceChoice, setSource] = useState<SourceIndex | null>(null);
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [changeOpen, setChangeOpen] = useState(false);
+  /** A day picked from "SWAP TODAY'S DAY", awaiting the just-today/save choice. */
+  const [swapPick, setSwapPick] = useState<string | null>(null);
 
   // The SAVED choice (migration 035) is the resting state; sourceChoice is
   // only the in-flight override so the modal responds instantly.
@@ -210,6 +214,11 @@ export default function TodayScreen() {
    *  MY PLAN / AI PLAN / BUILT-IN renames today and the upcoming week onto
    *  that plan's days (past days are history and keep theirs). */
   const dayInSource = (date: string): string | null => {
+    // DAY SWAP (2026-07-24): a "just for today" trade outranks the schedule
+    // entirely — it is deliberately today-only and self-expires at midnight
+    // (session-store), so tomorrow falls straight back through to whatever's
+    // below without a trace.
+    if (date === todayIso && daySwap) return daySwap;
     // A day with an EXPLICIT per-day source stores the name already correct for
     // that source (the editor picked it from that source's day list), so the
     // global positional remap must not touch it — return the stored name as-is.
@@ -219,6 +228,20 @@ export default function TodayScreen() {
 
   const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
   const scheduledToday = dayInSource(todayIso);
+
+  /** SWAP TODAY'S DAY — "save to my schedule": today's weekday's PRIMARY
+   *  becomes `to` from now on, every extra riding along untouched (same shape
+   *  schedule.tsx's own SAVE writes). No latest row yet means the athlete
+   *  never set up a week — nothing sensible to edit in place, so this stays a
+   *  no-op and the caller sends them to EDIT SCHEDULE instead. */
+  const swapDayPermanently = (to: string) => {
+    if (!latestSchedule) return;
+    const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
+    const cur = latestSchedule.plan[dow];
+    const extras = Array.isArray(cur) ? cur.slice(1) : [];
+    const nextPlan = { ...latestSchedule.plan, [dow]: extras.length > 0 ? [to, ...extras] : to };
+    saveSchedule.mutate({ plan: nextPlan, sources: latestSchedule.sources ?? undefined });
+  };
   // 065: the week's EXTRA scheduled workouts — each renders beneath its
   // day's primary bar; today's are in_progress so BOTH of today's bars light.
   const scheduledExtras = extraScheduledBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso);
@@ -944,6 +967,42 @@ export default function TodayScreen() {
                 );
               })}
 
+              {/* SWAP TODAY'S DAY (2026-07-24): trade today's split day for a
+                  different one from the SAME plan — "meant to be Push 1, want
+                  Pull 1 instead". Only the other days in the plan the source
+                  picker above is currently on; today's own day is excluded so
+                  there is nothing to swap to itself. */}
+              {planDays.filter((d) => d !== scheduledToday).length > 0 ? (
+                <View className="mb-s2 mt-s1">
+                  <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                    SWAP TODAY&apos;S DAY
+                  </Text>
+                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                    {planDays
+                      .filter((d) => d !== scheduledToday)
+                      .map((d) => (
+                        <Pressable
+                          key={d}
+                          onPress={() => setSwapPick(d)}
+                          accessibilityRole="button"
+                          testID={`swap-day-${d}`}
+                          className="rounded-md border px-s3 py-s2"
+                          style={{
+                            minHeight: 44,
+                            justifyContent: 'center',
+                            borderColor: colors.border,
+                            backgroundColor: 'rgba(13,21,36,0.6)',
+                          }}
+                        >
+                          <Text className="text-2xs font-bold text-text" style={{ letterSpacing: 0.5 }}>
+                            {splitWorkoutName(d).title}
+                          </Text>
+                        </Pressable>
+                      ))}
+                  </View>
+                </View>
+              ) : null}
+
               <View className="mt-s2" style={{ gap: 8 }}>
                 {scanRow('change-scan')}
                 <Pressable
@@ -984,6 +1043,54 @@ export default function TodayScreen() {
 
               <View className="mt-s2">
                 <NeonButton title="CANCEL" variant="ghost" onPress={() => setChangeOpen(false)} testID="change-close" />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
+      {/* SWAP TODAY'S DAY — just-today vs save-to-schedule, same choice
+          workout.tsx already offers for exercise edits (SAVE CHANGES / JUST
+          TODAY), so the pattern reads the same wherever it shows up. */}
+      {swapPick !== null ? (
+        <Modal transparent animationType="fade" onRequestClose={() => setSwapPick(null)}>
+          <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={() => setSwapPick(null)}>
+            <Pressable
+              onPress={() => undefined}
+              className="rounded-t-xl border-t p-s4"
+              style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface }}
+            >
+              <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+                SWAP {(scheduledToday ? splitWorkoutName(scheduledToday).title : 'TODAY').toUpperCase()} FOR{' '}
+                {splitWorkoutName(swapPick).title.toUpperCase()}
+              </Text>
+              <Text className="mb-s3 text-2xs text-text-mute">
+                Saving swaps this weekday&apos;s split from now on — every future week trains{' '}
+                {splitWorkoutName(swapPick).title} here instead. Just today trades it once;
+                tomorrow&apos;s schedule goes back to normal.
+              </Text>
+              <View style={{ gap: 8 }}>
+                <NeonButton
+                  title="SAVE TO MY SCHEDULE"
+                  onPress={() => {
+                    swapDayPermanently(swapPick);
+                    setDaySwap(null);
+                    setSwapPick(null);
+                    setChangeOpen(false);
+                  }}
+                  testID="swap-day-save"
+                />
+                <NeonButton
+                  title="JUST TODAY"
+                  variant="ghost"
+                  onPress={() => {
+                    setDaySwap(swapPick);
+                    setSwapPick(null);
+                    setChangeOpen(false);
+                  }}
+                  testID="swap-day-just-today"
+                />
+                <NeonButton title="CANCEL" variant="ghost" onPress={() => setSwapPick(null)} testID="swap-day-cancel" />
               </View>
             </Pressable>
           </Pressable>
