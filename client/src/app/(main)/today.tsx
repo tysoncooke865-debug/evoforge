@@ -8,7 +8,7 @@ import { useExercisePrefs } from '@/data/exercise-prefs';
 import { buildCorpus } from '@/data/exercise-corpus';
 import { buildSections } from '@/domain/exercise-sections';
 import { useDeleteRoutine, useRoutines, type Routine } from '@/data/routines';
-import { useWorkoutSchedule } from '@/data/schedule';
+import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
@@ -119,6 +119,7 @@ export default function TodayScreen() {
   const userExercises = useUserExercises();
   const { sources, resolveDay, preferredSource } = useDayPlan();
   const savePref = useSavePlanSourcePref();
+  const saveSchedule = useSaveSchedule();
   // The header's LV. badge — FORGE LEVEL (earned XP only; Tyson 2026-07-16).
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
@@ -899,6 +900,24 @@ export default function TodayScreen() {
                     onPress={() => {
                       setSource(i);
                       savePref.mutate(i); // fire-and-forget; error toast covers a failed sync
+                      // Schedule (2026-07-20) writes a UNIFORM per-day sources map that
+                      // Train's per-date reader (explicitSourceForDate) prefers over this
+                      // global preference. Left stale, that map outranks every future tap
+                      // here forever — the dropdown would keep "working" but never change
+                      // what's on screen. Re-stamp it to the new choice so the two stay in
+                      // sync, exactly like Schedule's own SAVE already does (schedule.tsx
+                      // onSave).
+                      if (latestSchedule) {
+                        // Same "trained day" test as schedule.tsx's onSave (primaryOf !==
+                        // 'Rest') — a Rest day with only an extra stays out of the map,
+                        // matching what Schedule itself would write for this same choice.
+                        const uniform: Record<string, number> = {};
+                        for (const [dow, v] of Object.entries(latestSchedule.plan)) {
+                          const primary = Array.isArray(v) ? (v[0] ?? 'Rest') : (v ?? 'Rest');
+                          if (primary !== 'Rest') uniform[dow] = i;
+                        }
+                        saveSchedule.mutate({ plan: latestSchedule.plan, sources: uniform });
+                      }
                       setChangeOpen(false);
                     }}
                     accessibilityRole="button"

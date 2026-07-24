@@ -26,6 +26,50 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **TWO BUG FIXES: the plan-source dropdown going inert, and false "COINS NOT
+  BANKED" errors on PRs (2026-07-24, no migration, Tyson-reported).**
+  (1) **Plan-source dropdown**: Today's "CHANGE WORKOUT" modal (MY PLAN / AI
+  PLAN / EVOFORGE PLAN, `today.tsx`'s `plan-dropdown`) stopped changing what
+  showed the moment the athlete had ever saved `/schedule` — `schedule.tsx`'s
+  2026-07-20 redesign started writing a UNIFORM per-day `sources` map on every
+  save (comment: "Train's per-date reader ... honours an explicit per-day
+  source"), and `today.tsx`'s `sourceForDate` gives that map priority over the
+  dropdown's own choice. Schedule's write kept `active_plan_source` (035) in
+  sync with its own map, but the dropdown only ever wrote
+  `active_plan_source` — never the map — so the FIRST schedule save froze
+  `sources` at whatever it was then, and it outranked every dropdown tap
+  forever after. Fix: the dropdown's `onPress` now re-stamps the latest
+  schedule row's `sources` uniformly to the tapped choice too (same
+  "trained day" test as `schedule.tsx`'s `onSave`), so the two writers stay
+  symmetric — exactly like `workout.tsx`'s existing built-in→MY-PLAN fork
+  write already does selectively. Falsified live against ALPHA: tapped MY
+  PLAN, confirmed via SQL the new `workout_schedule` row landed with
+  `sources` remapped and `profile.active_plan_source` updated; tapped back to
+  EVOFORGE PLAN and confirmed it reverted. (2) **False COINS NOT BANKED**: the
+  Today/Train exercise cards log every set through the `durable` (P2 offline)
+  queue — `mutations.ts` mints the row id, hands it to `enqueueSet`, and
+  returns immediately; the actual `workout_log` INSERT happens later in
+  `set-queue.ts`'s background `flushQueue`. The PR coin claim fired
+  EAGERLY, in the same tick as the (still-queued, not-yet-synced) row — the
+  013/061 guard's `pr` branch couldn't find the row yet and raised
+  `"coin_events: no matching owned set (...)"`, which `coin-claims.ts`
+  didn't recognise and surfaced as a scary "COINS NOT BANKED" error toast on
+  an ordinary PR. Fix: `enqueueSet`/`QueuedSet` now carry the verdict's
+  `isPr`, and the PR claim moved into `flushQueue` right after ITS insert is
+  confirmed (mirroring the XP grant, which already worked this way);
+  `mutations.ts`'s immediate claim now skips entirely when `queued`. Also
+  hardened `classifyClaimError` as a backstop: any `coin_events:`-prefixed
+  guard message not already named falls into the silent `guard` bucket
+  instead of `error` — only a message that ISN'T the guard's own voice
+  (network, RLS, a dropped column) should ever toast. Falsified live against
+  ALPHA: logged 220kg×10 Barbell Back Squat (prior best 200kg×9, e1RM
+  260→293.3) on the durable path, confirmed via network trace NEW PR fires
+  immediately, `workout_log`/`xp_events`/`coin_events` all POST 201 ~200-400ms
+  later from the flush, "COINS BANKED +50" toast lands, no error toast at any
+  point; seeded rows deleted after. Files: `today.tsx`, `mutations.ts`,
+  `set-queue.ts`, `domain/coin-claims.ts` (+1 test). Gates: tsc, 1,634 tests
+  (1 new), cold lint, tokens/motion/battle-engine, export, the two live
+  Playwright/SQL falsifications above.
 - **ARENA MARKSMAN MOB — first frame-animated combatant (2026-07-24, no
   migration)**: the `drone-archer` (Javelin Marksman) ranged unit now plays a
   full animation set sliced from a user-supplied external sheet
