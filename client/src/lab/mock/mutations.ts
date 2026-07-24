@@ -1,0 +1,154 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
+
+import { useActivationStep } from '@/data/activation';
+import { useSaveSet } from '@/data/mutations';
+import { useFinishWorkout, useReopenWorkout } from '@/data/sessions';
+import { libraryMuscleFor } from '@/domain/exercise-library';
+import { buildSetRow, decideSetSave, type SetInput, type SetVerdict } from '@/domain/set-save';
+import type { WorkoutRow } from '@/domain/summary';
+import type { SessionMarker } from '@/domain/week-status';
+import { inferMuscleGroup } from '@/domain/workouts';
+import { announceXp, useToastStore } from '@/state/toast-store';
+import { XP_PER_SET } from '@/domain/xp';
+
+import { useLabDataMode } from '../lab-data-provider';
+import { LAB_USER_ID } from '../lab-user';
+
+/**
+ * The write shims — the reason mock mode is SAFE to interact with.
+ *
+ * Faking the auth context does NOT make writes safe: the server stamps
+ * user_id from auth.uid() (never the payload), and useSaveSet enqueues into
+ * the DURABLE AsyncStorage set-queue before any network — so an un-shimmed
+ * LOG SET in mock mode would insert a real row under the real account (or
+ * strand junk in the queue signed out). These shims write the seeded cache
+ * instead: same verdict logic (decideSetSave), same announcements, zero
+ * durability, zero network.
+ *
+ * Each shim calls BOTH hooks unconditionally (rules of hooks) and returns
+ * whichever the enclosing LabDataProvider's mode selects — so a fork that
+ * swaps its import runs UNCHANGED in real mode.
+ *
+ * Fork usage (see src/lab/README.md):
+ *   import { useLabSaveSet as useSaveSet } from '@/lab/mock/mutations';
+ */
+
+/** The activation funnel fires ON MOUNT (useActivationStep), so the banner's
+ *  "heed the un-shimmed writes" rule cannot cover it — a mock variant would
+ *  emit activation_step into the REAL analytics_events rail under the fake
+ *  session (and pollute the funnel whenever a real session sits underneath).
+ *  `ready: false` keeps the real hook mounted but permanently inert. */
+export function useLabActivationStep(
+  ...args: Parameters<typeof useActivationStep>
+): ReturnType<typeof useActivationStep> {
+  const mode = useLabDataMode();
+  const [step, opts] = args;
+  useActivationStep(step, mode === 'mock' ? { ...(opts ?? {}), ready: false } : opts ?? {});
+}
+
+export function useLabSaveSet(): ReturnType<typeof useSaveSet> {
+  const real = useSaveSet();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    mutationFn: async (input: SetInput & { durable?: boolean }): Promise<SetVerdict> => {
+      const key = ['workout_log', LAB_USER_ID];
+      const rows = (queryClient.getQueryData(key) as WorkoutRow[] | undefined) ?? [];
+      const verdict = decideSetSave(rows, input);
+      if (verdict.action === 'reject' || verdict.action === 'noop') return verdict;
+
+      const timestamp = new Date().toISOString().slice(0, 19);
+      const muscle = libraryMuscleFor(input.exercise) ?? inferMuscleGroup(input.exercise);
+      const row = buildSetRow(input, muscle, timestamp);
+
+      if (verdict.action === 'update') {
+        queryClient.setQueryData(key, (old: WorkoutRow[] | undefined) =>
+          (old ?? []).map((r) => (r.id === verdict.rowId ? { ...r, ...row } : r))
+        );
+        return verdict;
+      }
+
+      const id = `lab-${Crypto.randomUUID()}`;
+      verdict.rowId = id;
+      queryClient.setQueryData(key, (old: WorkoutRow[] | undefined) => [
+        ...(old ?? []),
+        { id, ...row } as unknown as WorkoutRow,
+      ]);
+      return verdict;
+    },
+    onSuccess: (verdict, input) => {
+      // Same voice as the real path: a NEW set announces its XP; a PR toasts.
+      if (verdict.action === 'insert') announceXp(XP_PER_SET);
+      if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) {
+        useToastStore.getState().push({
+          kind: 'pr',
+          title: 'NEW PR',
+          subtitle: `${input.exercise} — e1RM ${verdict.current1rm.toFixed(1)}kg (prev ${verdict.previousBest.toFixed(1)}kg)`,
+        });
+      }
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}
+
+export function useLabFinishWorkout(): ReturnType<typeof useFinishWorkout> {
+  const real = useFinishWorkout();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    // The context type must match the real hook's (its onMutate returns the
+    // rollback snapshot) or the mode-select below fails to typecheck.
+    onMutate: async (): Promise<{ prev: SessionMarker[] }> => ({
+      prev:
+        (queryClient.getQueryData(['workout_sessions', LAB_USER_ID]) as
+          | SessionMarker[]
+          | undefined) ?? [],
+    }),
+    mutationFn: async (input: { date: string; workout: string }) => {
+      queryClient.setQueryData(
+        ['workout_sessions', LAB_USER_ID],
+        (old: SessionMarker[] | undefined) => {
+          const prev = old ?? [];
+          if (prev.some((m) => m.date === input.date && m.workout === input.workout)) return prev;
+          return [...prev, { id: `lab-finish-${input.date}-${input.workout}`, ...input }];
+        }
+      );
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}
+
+export function useLabReopenWorkout(): ReturnType<typeof useReopenWorkout> {
+  const real = useReopenWorkout();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    // Same context-shape alignment as the finish shim above.
+    onMutate: async (): Promise<{ prev: SessionMarker[] }> => ({
+      prev:
+        (queryClient.getQueryData(['workout_sessions', LAB_USER_ID]) as
+          | SessionMarker[]
+          | undefined) ?? [],
+    }),
+    mutationFn: async (marker: SessionMarker) => {
+      queryClient.setQueryData(
+        ['workout_sessions', LAB_USER_ID],
+        (old: SessionMarker[] | undefined) =>
+          (old ?? []).filter((m) => !(m.date === marker.date && m.workout === marker.workout))
+      );
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'REOPENED',
+        subtitle: 'Log away — the workout is unlocked.',
+      });
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}

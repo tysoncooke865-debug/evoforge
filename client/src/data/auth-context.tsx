@@ -18,7 +18,9 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthState>({
+/** Exported for ONE consumer: the Page Lab's mock provider (src/lab), which
+ *  substitutes a fake session under a variant. App code uses AuthProvider. */
+export const AuthContext = createContext<AuthState>({
   session: null,
   loading: true,
   signOut: async () => {},
