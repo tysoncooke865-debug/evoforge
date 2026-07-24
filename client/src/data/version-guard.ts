@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { navBeaconExhausted, shouldReportStall } from '@/domain/nav-stall';
+
 import { VERSION_GUARD_AT_KEY } from './cache-keys';
 import { supabase } from './supabase';
 
@@ -108,6 +110,24 @@ export function initNavFreezeBeacon(): void {
   let lastPath = location.pathname;
   let sent = 0;
   const startedAt = Date.now();
+
+  // 2026-07-25: the beacon was reporting BACKGROUNDING, not jank. 74.5% of
+  // every report it has ever sent sits in the 900–1099 ms bucket — browsers
+  // clamp timers to 1/second while hidden — and the p50 was ~1001 ms on every
+  // single route, which real jank never is. Track visibility and discard any
+  // window that touched a hidden document. See domain/nav-stall.ts.
+  let wasHiddenSinceLastBeat = document.hidden;
+  const markHidden = () => { if (document.hidden) wasHiddenSinceLastBeat = true; };
+  document.addEventListener('visibilitychange', markHidden);
+  // iOS PWAs often suspend without a visibilitychange; these do fire.
+  window.addEventListener('pagehide', () => { wasHiddenSinceLastBeat = true; });
+  window.addEventListener('freeze', () => { wasHiddenSinceLastBeat = true; });
+
+  const stop = () => {
+    clearInterval(timer);
+    document.removeEventListener('visibilitychange', markHidden);
+  };
+
   // AUDIT B5 (2026-07-19): this heartbeat used to run 4×/sec FOREVER. The
   // diagnostic served its purpose (the iOS-18 freeze hunt); it now stops
   // after its 3 reports or 10 minutes of clean running, whichever first.
@@ -115,15 +135,25 @@ export function initNavFreezeBeacon(): void {
     const now = Date.now();
     const gap = now - lastBeat;
     lastBeat = now;
-    if (sent >= 3 || now - startedAt > 10 * 60 * 1000) {
-      clearInterval(timer);
+    if (navBeaconExhausted(sent, now - startedAt)) {
+      stop();
       return;
     }
     if (location.pathname !== lastPath) {
       lastPath = location.pathname;
       lastNavAt = now;
     }
-    if (gap >= 700) {
+    const report = shouldReportStall({
+      gapMs: gap,
+      hidden: document.hidden,
+      wasHiddenSinceLastBeat,
+      sent,
+      elapsedMs: now - startedAt,
+    });
+    // Consume the flag every tick: it must describe THIS window only, or one
+    // backgrounding would silence the beacon for the rest of the session.
+    wasHiddenSinceLastBeat = document.hidden;
+    if (report) {
       sent += 1;
       void supabase.from('analytics_events').insert({
         event_name: 'pwa_nav_diag',
