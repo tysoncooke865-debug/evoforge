@@ -13,9 +13,11 @@ import {
   deviceClass,
   deviceTier,
   interactiveSpanMs,
+  reportedTrainDoor,
   type DeviceClass,
   type DeviceInput,
   type DeviceTier,
+  type TrainDoor,
 } from '@/domain/activation-tti';
 
 import { track } from './analytics';
@@ -140,10 +142,18 @@ export function readActivationSpan(key: string): number | null {
   return spanMeasured.get(key) ?? null;
 }
 
+/**
+ * Which door stamped the Train span, for as long as that span is the current
+ * one. It lives beside the span and is cleared with it: a door that outlived
+ * its span would file the next hand-off under the last one's press.
+ */
+let trainDoor: TrainDoor | null = null;
+
 function clearActivationSpans(): void {
   spanStart.clear();
   spanHidden.clear();
   spanMeasured.clear();
+  trainDoor = null;
 }
 
 /** The span names this rail measures. Strings in one place, not scattered. */
@@ -174,7 +184,13 @@ export const ACTIVATION_SPAN = {
  * a second hand-off, and the last press before the event is the one that
  * describes what the athlete just sat through.
  */
-export function startTrainHandoff(): void {
+export function startTrainHandoff(door: TrainDoor): void {
+  // `door` rides WITH the stamp rather than being read at emit time, for the
+  // same reason the span is re-stampable: the span belongs to the LAST press,
+  // so the door must too, or a hand-off is filed under a press that did not
+  // produce it. Still one definition and one span — the door is how the column
+  // is READ afterwards (domain/activation-tti.ts::TRAIN_DOORS).
+  trainDoor = door;
   startActivationSpan(ACTIVATION_SPAN.train);
 }
 
@@ -260,6 +276,13 @@ function ttiPropsFor(step: ActivationStep): Record<string, unknown> {
       // actually sat through. Null when they arrived without a press at all
       // (deep link, cold boot, the mid-workout resume redirect).
       ms_to_interactive: activationSpanMs(ACTIVATION_SPAN.train),
+      // WHICH of the three doors, because they are three populations: the tab
+      // is pressed by an athlete who has a plan, TRAIN ANYWAY only renders on a
+      // REST DAY and QUICK WORKOUT only with NO PLAN. Pooled, one percentile
+      // covers three different athletes — and `none` separates a span that was
+      // REFUSED from one that was never pressed at all, which a null
+      // `ms_to_interactive` alone cannot (domain/activation-tti.ts).
+      handoff_door: reportedTrainDoor(trainDoor),
       // The Home half, carried forward: Home has no emit point of its own at
       // the moment it becomes interactive, and adding a fifth step would break
       // the four-rows-per-athlete bound the rail is built on.

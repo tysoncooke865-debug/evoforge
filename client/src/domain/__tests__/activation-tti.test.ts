@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  NO_TRAIN_DOOR,
+  TRAIN_DOORS,
   TTI_CEILING_MS,
   deviceClass,
   deviceTier,
   interactiveSpanMs,
   isHomeHandoff,
+  reportedTrainDoor,
   type DeviceInput,
 } from '../activation-tti';
 
@@ -152,6 +155,41 @@ describe('activation TTI — the mid-range half', () => {
     for (const bad of [0, -4, NaN, Infinity]) {
       expect(deviceTier(device({ memoryGb: bad })), String(bad)).toBe('unknown');
     }
+  });
+});
+
+describe('activation TTI — which door the hand-off came through', () => {
+  it('files each of the three doors under its own name', () => {
+    // They stamp ONE span on purpose, but they are not one population: the tab
+    // belongs to an athlete with a plan, TRAIN ANYWAY only renders on a rest
+    // day, QUICK WORKOUT only with no plan. Pooled, one percentile covers all
+    // three — the `device_class` failure, one dimension over.
+    for (const door of TRAIN_DOORS) expect(reportedTrainDoor(door), door).toBe(door);
+    // The set itself is the contract the SQL reads — adding a door without
+    // updating docs/ACTIVATION_ANALYTICS.md should go red here.
+    expect([...TRAIN_DOORS]).toEqual(['tab', 'home_rest', 'home_quick']);
+  });
+
+  it('reports no press at all as `none`, which is a reading and not a gap', () => {
+    // A deep link, a cold boot straight into Train, the mid-workout resume
+    // redirect. This is the prop that separates a REFUSED span from one that was
+    // never started: both report `ms_to_interactive` null, and until now they
+    // landed in the same bucket. A door with a null span is a refusal.
+    expect(reportedTrainDoor(null)).toBe(NO_TRAIN_DOOR);
+    expect(reportedTrainDoor(undefined)).toBe(NO_TRAIN_DOOR);
+    expect(reportedTrainDoor('')).toBe(NO_TRAIN_DOOR);
+  });
+
+  it('refuses a door it does not recognise rather than passing it through', () => {
+    // Same asymmetry as every other rule here: a door invented by a future
+    // caller would be indistinguishable from a real one in the column, and the
+    // whole value of the column is that each bucket means exactly one thing.
+    for (const bad of ['home', 'Tab', 'mission-quick', 'workout']) {
+      expect(reportedTrainDoor(bad), bad).toBe(NO_TRAIN_DOOR);
+    }
+    // `none` is the ABSENCE bucket, so it must never also be a door — a door
+    // that collided with it would make "never pressed" unreadable.
+    expect((TRAIN_DOORS as readonly string[]).includes(NO_TRAIN_DOOR)).toBe(false);
   });
 });
 

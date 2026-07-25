@@ -300,7 +300,12 @@ export default function MainLayout() {
         // redirect — nothing stamps and `ms_to_interactive` is null. That is the
         // honest answer: unknown is not instant, and a mount-to-settled span is
         // not the hand-off this work order was asked to measure.
-        listeners={{ tabPress: startTrainHandoff }}
+        //
+        // 'tab' is the DOOR. This one is pressed by an athlete who has a plan
+        // and a schedule; the mission card's two doors only exist on a rest day
+        // / with no plan. They share the span deliberately and are not one
+        // population — `handoff_door` is what keeps them readable apart.
+        listeners={{ tabPress: () => startTrainHandoff('tab') }}
         options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
       />
       <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />

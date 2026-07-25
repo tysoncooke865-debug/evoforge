@@ -99,13 +99,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
     nothing else executable: `npm`, `npx` and `node <script>` are all refused, and
     `client/node_modules` is not installed.** tsc, lint, vitest, the verify
     scripts, `expo export` and the Playwright tour (`client/.claude/skills/verify`)
-    were all unavailable across ALL SIX passes, so nothing in this entry is
+    were all unavailable across ALL SEVEN passes, so nothing in this entry is
     falsified at the surface. **Run HANDOVER §5 before trusting it**, and drive a
     throwaway production account through onboarding → Home → Train to confirm
     `ms_to_interactive` lands non-null, that `train_opened` does NOT appear for an
     athlete who only sits on Home, and that BUILD MY OWN still lands in the
-    builder while a plain finish still lands on Home. **Five more to check on the
-    same tour:** that `train_opened` carries `device_class = 'desktop'` from the
+    builder while a plain finish still lands on Home. **Six more to check on the
+    same tour** — the sixth (seventh pass) being that `handoff_door` reads `tab`
+    off the tab press, `home_rest` / `home_quick` off the two mission-card
+    buttons and `none` when Train is reached by URL, **and that it AGREES with
+    the same row's `day_kind` / `has_plan`** (an all-`none` column means the door
+    is not riding the stamp): that `train_opened` carries `device_class = 'desktop'` from the
     Playwright browser and `'mobile'` from a phone-emulated context (if it reads
     `unknown` in both, `readDevice` is failing, and an all-`unknown` column is
     indistinguishable from having shipped nothing), that **`home_reached` now
@@ -236,6 +240,67 @@ Owner: Tyson. He works through other Claude sessions too — **always
       `user_id` (new query in the doc). Pinned both ways.
     - +3 tests. No new event, no fifth step, no schema change, four rows per
       athlete intact.
+  - **THE SIXTH PASS UNIFIED THE STAMP AND LEFT THE READING POOLED (2026-07-26,
+    seventh pass).** `startTrainHandoff` gives all three doors ONE definition,
+    which was right and was not enough: **TRAIN ANYWAY is only rendered on a
+    REST DAY and QUICK WORKOUT only with NO PLAN** — they are the cards Home
+    shows *instead of* the briefing, so an athlete arrives through exactly one
+    of the three and the three are not variants of each other. Pooled, one
+    `ms_to_interactive` percentile covers three different athletes, and because
+    those two doors began stamping spans that had been `null`, it absorbed a new
+    population MID-FLIGHT. The doc's own advice for reading that was "suspect the
+    newly-included population before you suspect the app" — i.e. guess. Same
+    argument as `device_class`, same fix: **`train_opened` now carries
+    `handoff_door`** (`tab` · `home_rest` · `home_quick` · `none`). Read `tab`
+    alone and the population is identical before and after the deploy, so
+    movement there is the app.
+    - **It also separates a REFUSAL from an ABSENCE**, which the rail could not
+      express: `ms_to_interactive` is null both when the span was refused
+      (hidden tab, backwards clock, past the ceiling) and when there was no
+      press at all (deep link, cold boot, resume redirect). A door with a null
+      span is a refusal; `none` is an athlete who pressed nothing.
+    - The door rides WITH the stamp (`startTrainHandoff(door)`), never read at
+      emit time — Train's span is re-stampable, so the door has to move with it
+      or a hand-off is filed under a press that did not produce it. Cleared with
+      the spans on sign-out. `reportedTrainDoor` refuses an unrecognised door
+      instead of passing it through: one invented by a future caller would be
+      indistinguishable from a real one in the column.
+    - No new event, no fifth step, no schema change, four rows per athlete
+      intact. +3 pure tests, +5 wiring tests. New by-door query in the doc with
+      a **cross-check built in**: `home_rest` must agree with `day_kind='rest'`
+      and `home_quick` with `has_plan=false`, or the door is being stamped by
+      something that is not the button it names.
+  - **STATED, NOT WIDENED — the cohort's dominant door has no stopwatch on it.**
+    All eight origin-bound athletes have a plan AND a schedule (that is what
+    killed the rest-day hypothesis), so Home renders the *scheduled* mission card
+    for them and its dominant CTA is **START MISSION → `/workout`**; neither
+    mission-card Train door is even rendered. Their expected ladder is step 1 →
+    step 3 with **no `train_opened` row at all**, so a small step-2 count is not
+    evidence the hand-off is broken. Instrumenting that door means a prop on
+    `workout_opened` — `(main)/workout.tsx`, outside the three screens this work
+    order is fenced to. **Left undone deliberately: it needs its own founder
+    vote, not a quiet widening of this one.** Recorded in the doc's "what this
+    does not do".
+  - **RE-VERIFIED THIS PASS rather than taken from the entry above:** every
+    importer of `exercise-library` / `-corpus` / `-sections` / `-search-bar` /
+    `-rank` / `-taxonomy` is still `onboarding.tsx`, `plan-import.tsx`,
+    `workout.tsx`, `routine.tsx`, `exercise-picker.tsx`, the lab variants, or the
+    lazy sheet — **none reachable from `(main)/today.tsx`**. Also looked for a
+    SECOND finding of that size on the paths the spans cover and there is not
+    one: the heaviest modules left on Home / Train / the shell are
+    `muscle-by-name.generated.ts` (44 KB — deliberately there since 2026-07-23;
+    it is what replaced the library on the boot chunk), `page-help.tsx` +
+    `help-content.ts` (39 KB together), `evo-review-io.ts` (18 KB),
+    `catalogs.ts` (15 KB). Nothing in the ~246 KB class. `data/origin.ts` already
+    reaches `exercise-library` through a DYNAMIC import, so the origin seed does
+    not put it on the shell chunk either. **`Tabs.Screen`'s `listeners` prop was
+    type-checked** against the installed `expo-router` d.ts (`ScreenProps.listeners`,
+    `tabPress` in `BottomTabNavigationEventMap`) — it compiles, which tsc could
+    not be run here to confirm.
+  - **THE WORKTREE REVERTED THIS PASS'S EDITS TWICE MID-SESSION** (files restored
+    to HEAD between a verified write and the next read). If any of the
+    `handoff_door` wiring above is missing from the commit, that is why — check
+    `git diff` covers all seven files before trusting this entry.
   - **FOUND, NOT FIXED — `client.yml` runs `npx vitest run src/domain`, so the
     emitter's wiring tests (`src/data/__tests__/activation.test.ts`) are NOT
     gated by the deploy.** The pure rules are (`domain/activation-tti.ts`,

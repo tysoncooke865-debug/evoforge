@@ -52,7 +52,7 @@ One name, `activation_step`, with an ordered `index`, so the funnel is
 | index | step | fired from | extra props |
 |---:|---|---|---|
 | 1 | `home_reached` | Home mount | `ms_to_mount`, `device_class`, `device_tier` |
-| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the press that led here) | `ms_to_interactive`, `ms_home_to_interactive`, `device_class`, `device_tier`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
+| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the press that led here) | `ms_to_interactive`, `handoff_door`, `ms_home_to_interactive`, `device_class`, `device_tier`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
 | 3 | `workout_opened` | workout page mount | `is_today` |
 | 4 | `first_set_logged` | `useSaveSet` onSuccess, insert only, empty log | `durable` |
 
@@ -223,11 +223,12 @@ instrument blind to the fix it exists to judge is the nav-stall beacon again.**
 (`data/activation.ts::startTrainHandoff`), because a number that means different
 things at different doors is not a number:
 
-| door | where | how |
-|---|---|---|
-| the Train tab | `(main)/_layout.tsx` | a per-screen `tabPress` listener |
-| TRAIN ANYWAY (rest day) | `ui/home/mission-card.tsx` | `router.push('/today')` |
-| QUICK WORKOUT (no plan) | `ui/home/mission-card.tsx` | `router.push('/today')` |
+| door | `handoff_door` | where | how | only rendered when |
+|---|---|---|---|---|
+| the Train tab | `tab` | `(main)/_layout.tsx` | a per-screen `tabPress` listener | always |
+| TRAIN ANYWAY | `home_rest` | `ui/home/mission-card.tsx` | `router.push('/today')` | **rest day** |
+| QUICK WORKOUT | `home_quick` | `ui/home/mission-card.tsx` | `router.push('/today')` | **no plan** |
+| no press at all | `none` | — | deep link · cold boot · resume redirect | — |
 
 The two mission-card doors were added on 2026-07-26 (sixth pass) and had been
 **silently reporting `null`**: `router.push` raises no `tabPress`, so the only
@@ -236,6 +237,30 @@ this card is the one dominant CTA on the page the hand-off is measured FROM, and
 a REST DAY is the state the funnel already flags for a brand-new athlete, i.e.
 exactly the athlete being lost. The tab-only stamp measured everybody except the
 population in question. Pinned by a test.
+
+### …and the door is on the row, because they are three populations
+
+Unifying the *stamp* was necessary and is not sufficient. Read the last column of
+that table: **TRAIN ANYWAY and QUICK WORKOUT are only ever rendered in the
+rest-day and no-plan states**, which the mission card shows *instead of* the
+normal briefing — so an athlete reaches Train through exactly one of the three,
+and the three are not variants of one another. Pooled into a single
+`ms_to_interactive` percentile they are three different athletes wearing one
+number, and because the mission-card pair began reporting spans that had until
+then been `null`, that percentile absorbed a new population **mid-flight**.
+Without the door on the row, the only guidance available to whoever reads this in
+two weeks was "if the p90 moves at that split, suspect the newly-included
+population before you suspect the app" — i.e. guess. That is the `device_class`
+argument one dimension over, and it takes the same fix: **one coarse enum on an
+event that already exists.** No new event name, no fifth step, no schema change,
+four rows per athlete intact.
+
+It buys a second thing the rail could not express at all. `ms_to_interactive` is
+`null` for two unrelated reasons — the span was **refused** (a hidden tab, a
+backwards clock, past the 60 s ceiling) or there was **no press at all** — and
+those were the same bucket. Now: a row with a door and a null span is a refusal;
+`handoff_door = 'none'` is an athlete who arrived without pressing anything.
+`none` is a reading, not a gap. Pinned by tests in both modules.
 
 START / RESUME MISSION deliberately stamps nothing: it opens `/workout`, which is
 step 3 and carries no span. Nor do CREATE PLAN, CREATE AI PLAN or SCAN WORKOUT —
@@ -364,6 +389,35 @@ where event_name = 'activation_step'
 group by 1 order by min((props->>'index')::int);
 ```
 
+**Then split it by door before you believe any movement in it.** The three doors
+are three populations (see the door table) and the mission-card pair started
+reporting spans mid-flight, so a p90 that moves can be the app or can be the mix.
+This is the query that tells you which — and `none` beside a null span is an
+athlete who arrived without pressing anything, not a refused measurement:
+
+```sql
+select props->>'handoff_door'                                      as door,
+       count(*)                                                    as athletes,
+       count(props->>'ms_to_interactive')                          as tti_measured,
+       percentile_disc(0.5) within group (
+         order by (props->>'ms_to_interactive')::numeric)          as tti_p50_ms,
+       percentile_disc(0.9) within group (
+         order by (props->>'ms_to_interactive')::numeric)          as tti_p90_ms,
+       count(*) filter (where props->>'day_kind' = 'rest')         as on_a_rest_day,
+       count(*) filter (where (props->>'has_plan')::boolean is false) as had_no_plan
+from analytics_events
+where event_name = 'activation_step'
+  and props->>'step' = 'train_opened'
+  and created_at >= '2026-07-26'          -- the deploy that added the door
+group by 1 order by 2 desc;
+```
+
+`home_rest` should agree with `on_a_rest_day` and `home_quick` with `had_no_plan`
+— those are the states those buttons are rendered in. **If they do not, the door
+is being stamped by something that is not the button it names**, and the whole
+column is suspect. That cross-check is why the two existing props are in this
+query rather than a tidier one.
+
 Because `max(index)` is a high-water mark, a deep link straight into a workout
 counts as having reached Train too. That is intended: the funnel measures how far
 an athlete got, not which doors they touched. `ms_since_prev_step` is measured
@@ -468,8 +522,22 @@ A p50 that improves while `tti_measured` falls is not evidence of anything.
 change, not a speed change.** Two more doors stamp the span from that point
 (TRAIN ANYWAY, QUICK WORKOUT — see the door table above), so athletes who used
 to report `null` now report a real number. They are rest-day and no-plan
-athletes, so if the p90 moves at that same split, suspect the newly-included
-population before you suspect the app.
+athletes. **From the seventh-pass deploy you no longer have to guess about this:**
+run the by-door query and read `tab` on its own — that is the same population
+before and after, so movement in `tab`'s p90 is the app, and movement in the
+pooled p90 that `tab` does not share is the mix.
+
+**A small `train_opened` count is not evidence that the hand-off is broken.**
+Every one of the eight origin-bound athletes in the cohort has a plan AND a
+schedule (that is what killed the rest-day hypothesis), so Home renders the
+*scheduled* mission card for them — whose dominant CTA is **START MISSION**,
+which opens `/workout` directly. Neither mission-card Train door is even rendered
+for that athlete. The expected shape of their ladder is therefore step 1 → step 3
+with no `train_opened` row at all, and `max(index)` counts them at step 3
+correctly. If you want the wait those athletes actually sat through, `ms_to_mount`
+on step 1 is the number you have; step 3 carries no span (see the last section),
+and putting one there means touching the workout page, which is outside WO-006's
+scope fence.
 
 Neither chunk change has been measured on a real mid-range phone yet — that is
 the outstanding half of WO-006, and it needs a device, not a desktop browser.
@@ -498,4 +566,10 @@ Unchanged from `analytics.ts` / `ORIGIN_ANALYTICS.md`:
   stopwatch section — that number rides `train_opened`).
 - **It does not measure the workout page or the first set.** Steps 3 and 4 carry
   no span. They were not the hand-off the drop-off points at, and every prop
-  added here is a prop somebody has to keep honest.
+  added here is a prop somebody has to keep honest. **Stated plainly because it
+  is the biggest remaining hole:** for the measured cohort — all of whom have a
+  plan and a schedule — Home's dominant CTA is START MISSION → `/workout`, so the
+  door most of them actually take is the one with no stopwatch on it.
+  Instrumenting it means a prop on `workout_opened`, which lives outside the
+  three screens WO-006 is fenced to (Onboarding, Home, Train). It needs its own
+  approval, not a quiet widening of this one.

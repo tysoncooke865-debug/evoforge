@@ -82,6 +82,66 @@ export function isHomeHandoff(destination: string): boolean {
 }
 
 /* ------------------------------------------------------------------------ */
+/* WHICH DOOR THE HAND-OFF CAME THROUGH                                      */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * THE THREE DOORS STAMP ONE SPAN, AND THEY ARE NOT ONE POPULATION.
+ *
+ * `data/activation.ts::startTrainHandoff` deliberately gives every press that
+ * leads to Train the SAME definition, because a number that starts at different
+ * moments at different doors is not a number. That fixed the stamp; it did not
+ * fix the READING, and the two are separate problems:
+ *
+ *   - the Train TAB is pressed by an athlete who has a plan and a schedule;
+ *   - **TRAIN ANYWAY** is only rendered on a REST DAY;
+ *   - **QUICK WORKOUT** is only rendered when there is NO PLAN.
+ *
+ * The last two are not variants of the first — they are the states
+ * `ui/home/mission-card.tsx` renders *instead of* the normal briefing, so an
+ * athlete can only ever arrive through one of them. They were wired on
+ * 2026-07-26 and began reporting spans that had until then been `null`, so the
+ * `ms_to_interactive` percentile absorbed a new population MID-FLIGHT. Without
+ * this prop, the only advice available to whoever reads the funnel in two weeks
+ * was "if the p90 moves at that split, suspect the newly-included population
+ * before you suspect the app" — i.e. guess. That is the `device_class` argument
+ * one dimension over, and it takes the same fix: ONE coarse enum on an event
+ * that already exists. No new event name, no fifth step, no schema change, four
+ * rows per athlete intact.
+ *
+ * It also separates a REFUSAL from an ABSENCE, which nothing else could.
+ * `ms_to_interactive` is `null` both when the span was refused (a hidden tab, a
+ * backwards clock, past the ceiling) and when there was NO PRESS AT ALL (a deep
+ * link, a cold boot into Train, the mid-workout resume redirect). Those are
+ * different facts about the app and they landed in the same bucket. A door with
+ * a null span is a refusal; `none` is an athlete who never pressed anything.
+ */
+export const TRAIN_DOORS = ['tab', 'home_rest', 'home_quick'] as const;
+
+export type TrainDoor = (typeof TRAIN_DOORS)[number];
+
+/** What is reported when no press stamped the span at all. */
+export const NO_TRAIN_DOOR = 'none';
+
+export type ReportedTrainDoor = TrainDoor | typeof NO_TRAIN_DOOR;
+
+/**
+ * The door a span is filed under, or `none`.
+ *
+ * Refuses anything it does not recognise rather than passing it through, for
+ * the reason every rule in this module refuses: a door invented by a future
+ * caller would be indistinguishable from a real one in the column, and the
+ * whole value of the column is that each bucket means exactly one thing.
+ * `none` is a reading, not a gap — an athlete who reached Train without
+ * pressing anything is a fact worth counting.
+ */
+export function reportedTrainDoor(door: string | null | undefined): ReportedTrainDoor {
+  // `find` rather than a cast: the returned value is one of TRAIN_DOORS by
+  // construction, so the enum in the column cannot drift from the enum here.
+  return TRAIN_DOORS.find((known) => known === door) ?? NO_TRAIN_DOOR;
+}
+
+/* ------------------------------------------------------------------------ */
 /* WHAT WAS HOLDING THE STOPWATCH                                            */
 /* ------------------------------------------------------------------------ */
 

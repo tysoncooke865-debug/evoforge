@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { startTrainHandoff } from '@/data/activation';
+import type { TrainDoor } from '@/domain/activation-tti';
 import type { Mission } from '@/domain/home-mission';
 import type { NextSession } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
@@ -33,9 +34,17 @@ const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDA
  * The two doors that do NOT lead to Train (CREATE PLAN, CREATE AI PLAN, SCAN
  * WORKOUT) stamp nothing, and neither does the START/RESUME MISSION button —
  * that one opens `/workout`, which is step 3 and carries no span.
+ *
+ * THEY NAME THEMSELVES, because they are not the same athlete as the tab.
+ * `mission-rest-train` is only ever rendered in the REST DAY state and
+ * `mission-quick` only in the NO PLAN state — these are the cards shown
+ * *instead of* the briefing, so an athlete reaches Train through exactly one of
+ * them. Pooled with the tab into one `ms_to_interactive` percentile they are
+ * three different populations wearing one number; `handoff_door` is the coarse
+ * enum that keeps them apart (domain/activation-tti.ts::TRAIN_DOORS).
  */
-const toTrain = () => {
-  startTrainHandoff();
+const toTrain = (door: TrainDoor) => {
+  startTrainHandoff(door);
   router.push('/today' as never);
 };
 
@@ -124,7 +133,7 @@ export function MissionCard({
             title="TRAIN ANYWAY"
             variant="ghost"
             pixel
-            onPress={toTrain}
+            onPress={() => toTrain('home_rest')}
             testID="mission-rest-train"
           />
         </View>
@@ -143,7 +152,7 @@ export function MissionCard({
         <View className="mt-s3 flex-row flex-wrap" style={{ gap: 8 }}>
           <Door label="CREATE PLAN" testID="mission-create-plan" onPress={() => router.push('/routine' as never)} />
           <Door label="CREATE AI PLAN" tint={colors.epic} testID="mission-ai-plan" onPress={() => router.push('/ai' as never)} />
-          <Door label="QUICK WORKOUT" testID="mission-quick" onPress={toTrain} />
+          <Door label="QUICK WORKOUT" testID="mission-quick" onPress={() => toTrain('home_quick')} />
           <Door label="SCAN WORKOUT" testID="mission-scan" onPress={() => router.push('/routine?import=1' as never)} />
         </View>
       </GlowCard>

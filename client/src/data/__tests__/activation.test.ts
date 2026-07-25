@@ -156,13 +156,50 @@ describe('activation emitter — the hand-off stopwatch', () => {
     // doors have to agree about what the number means.
     vi.useFakeTimers();
     try {
-      startTrainHandoff();
+      startTrainHandoff('home_rest');
       vi.advanceTimersByTime(2_100);
       await markActivationStep(USER, null, 'train_opened');
     } finally {
       vi.useRealTimers();
     }
     expect(lastProps().ms_to_interactive).toBe(2_100);
+  });
+
+  it('names the door the span came through — three doors are three populations', async () => {
+    // The three doors share ONE span definition on purpose, but they are not one
+    // athlete: the tab is pressed by someone with a plan and a schedule, TRAIN
+    // ANYWAY is only rendered on a REST DAY and QUICK WORKOUT only with NO PLAN.
+    // The mission-card pair started reporting spans that used to be null, so
+    // without this prop the percentile absorbed a new population mid-flight and
+    // the only advice available was "guess".
+    startTrainHandoff('home_quick');
+    await markActivationStep(USER, null, 'train_opened');
+    expect(lastProps().handoff_door).toBe('home_quick');
+  });
+
+  it('reports `none` when nothing pressed, so a REFUSAL is not read as an absence', async () => {
+    // `ms_to_interactive` is null both for a refused span (hidden tab, backwards
+    // clock, past the ceiling) and for an athlete who arrived without a press at
+    // all (deep link, cold boot, the mid-workout resume redirect). Those are
+    // different facts about the app; the door is what tells them apart.
+    await markActivationStep(USER, null, 'train_opened');
+    expect(lastProps().ms_to_interactive).toBeNull();
+    expect(lastProps().handoff_door).toBe('none');
+  });
+
+  it('carries the LAST door, because the span belongs to the last press', async () => {
+    // Train's span is re-stampable on purpose — a second visit is a second
+    // hand-off. The door has to move with it, or a hand-off is filed under a
+    // press that did not produce it.
+    startTrainHandoff('home_rest');
+    startTrainHandoff('tab');
+    await markActivationStep(USER, null, 'train_opened');
+    expect(lastProps().handoff_door).toBe('tab');
+  });
+
+  it('gives the other steps no door — it describes the Train span only', async () => {
+    await markActivationStep(USER, null, 'home_reached');
+    expect(lastProps()).not.toHaveProperty('handoff_door');
   });
 
   it('lets a caller-supplied prop win over a measured one', async () => {
@@ -221,6 +258,18 @@ describe('activation emitter — spans go with every other cache on sign-out', (
     // next one's first screen.
     expect(activationSpanMs(ACTIVATION_SPAN.train)).toBeNull();
     expect(readActivationSpan('home_interactive')).toBeNull();
+  });
+
+  it('drops the door with the span it described', async () => {
+    // A door that outlived its span would file the NEXT athlete's arrival under
+    // the last one's press — a row that reads like a measured hand-off and is
+    // not one. It goes with every other cache, no exception carved out.
+    startTrainHandoff('home_quick');
+    await clearActivationMarks();
+
+    await markActivationStep(USER, null, 'train_opened');
+    expect(lastProps().handoff_door).toBe('none');
+    expect(lastProps().ms_to_interactive).toBeNull();
   });
 
   it('re-arms the once-only hand-off stamp for the next athlete', async () => {
