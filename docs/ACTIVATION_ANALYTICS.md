@@ -398,6 +398,22 @@ about emit `home_reached` AND NOTHING ELSE, so it is the only span they ever
 write. The one span belonging exclusively to the lost cohort was the one without
 a denominator. Same failure as every other entry here, one column over.
 
+**AND EVERY QUERY BELOW EXCLUDES THE SMOKE ACCOUNTS, because the funnel it is
+read against does.** `## The funnel query` above filters `auth.users` on `email
+not like '%evoforge.internal'`; the first cut of these four did not, so the
+baseline and the re-measure were two different populations and any movement
+between them was partly a change of cohort. It is not a rounding error and it
+does not point in a neutral direction: **the verification tour this work order
+requires (HANDOVER §5) drives `smoke-test-claude@evoforge.internal` through
+onboarding → Home → Train on every pass**, from Playwright — a desktop browser,
+a warm cache, a fast connection. Those rows land in `tti_measured` and drag the
+percentile DOWN, they inflate the `device_class = 'desktop'` bucket the split
+below tells you to judge `mobile` against, and in the ladder query they are
+whole extra athletes in the denominator of `activation_rate`, the number this
+work order is scored on. Verifying the app would have made the app look faster.
+That is the house failure mode — a flattering number that looks like evidence —
+in the same section that has now produced it three times.
+
 ```sql
 select props->>'step'                                              as step,
        count(*)                                                    as athletes,
@@ -415,6 +431,9 @@ select props->>'step'                                              as step,
 from analytics_events
 where event_name = 'activation_step'
   and created_at >= '2026-07-25'
+  -- The smoke accounts tour this exact path on every verification pass.
+  and not exists (select 1 from auth.users u
+                  where u.id = user_id and u.email like '%evoforge.internal')
 group by 1 order by min((props->>'index')::int);
 ```
 
@@ -447,6 +466,8 @@ from analytics_events
 where event_name = 'activation_step'
   and props->>'step' = 'train_opened'
   and created_at >= '2026-07-26'          -- the deploy that added the door
+  and not exists (select 1 from auth.users u
+                  where u.id = user_id and u.email like '%evoforge.internal')
 group by 1 order by 2 desc;
 ```
 
@@ -482,6 +503,10 @@ from analytics_events
 where event_name = 'activation_step'
   and props->>'step' in ('home_reached', 'train_opened')
   and created_at >= '2026-07-26'          -- the deploy that added the dimension
+  -- Without this the tour's own desktop rows pad the very bucket you are
+  -- about to judge `mobile` against.
+  and not exists (select 1 from auth.users u
+                  where u.id = user_id and u.email like '%evoforge.internal')
 group by 1, 2, 3 order by 1, 2, 3;
 ```
 
@@ -513,11 +538,17 @@ with device as (          -- one device per athlete, from the row they all write
     and created_at >= '2026-07-26'
   order by user_id, created_at
 ),
-reached as (
+reached as (          -- the POPULATION, so the smoke-account filter belongs here:
+                      -- the left join below can only narrow it, never widen it
   select user_id, max((props->>'index')::int) as furthest
   from analytics_events
   where event_name = 'activation_step'
     and created_at >= '2026-07-26'
+    -- A smoke account driven to a logged set by the verification tour is a whole
+    -- extra athlete in `logged_a_set` — and in `activation_rate`, which is what
+    -- this work order is scored on. With a real cohort of ten, two of them move it.
+    and not exists (select 1 from auth.users u
+                    where u.id = user_id and u.email like '%evoforge.internal')
   group by user_id
 )
 select coalesce(d.device_class, 'unknown')                 as device_class,

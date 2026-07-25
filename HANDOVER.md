@@ -687,6 +687,62 @@ Owner: Tyson. He works through other Claude sessions too — **always
     as the real verification and stop dispatching this order to have it
     re-discover the same wall.** Re-dispatching the same quoted failure again
     will reproduce this entry, not a fix.
+  - **THE SIXTEENTH PASS: A SEVENTH DISPATCH ON THE SAME STALE QUOTE — AND THE
+    RE-MEASURE COUNTED THE STUDIO'S OWN SMOKE ACCOUNTS AS ATHLETES
+    (2026-07-26).** The allowlist reproduced a THIRTEENTH and FOURTEENTH time
+    (`npm --version` via Bash and via PowerShell; `client/node_modules` still
+    absent; `node --version` still the only execution permitted). Nothing was
+    changed to chase it, and the founder ask in the bullet above is unchanged.
+    - **WHAT IS ACTUALLY NEW, and it is a defect in the deliverable rather than
+      in the code.** `## The funnel query` — the ladder this work order's
+      `activation_rate` is read off — filters `auth.users` on `email not like
+      '%evoforge.internal'`. **None of the four WO-006 re-measure queries did**,
+      so the baseline and the re-measure were two different populations and any
+      movement between them was partly a change of cohort.
+    - **It runs the flattering way, and this order's own testing requirement is
+      what loads it.** HANDOVER §5 drives `smoke-test-claude@evoforge.internal`
+      through onboarding → Home → Train on every verification pass, under
+      Playwright: a desktop browser, warm cache, fast connection. Those rows sit
+      in `tti_measured` and pull the percentile DOWN; they pad the
+      `device_class = 'desktop'` bucket the split query tells the reader to judge
+      `mobile` against, widening the gap the work order is looking for; and in
+      the funnel-by-device query they are whole extra athletes in the denominator
+      of the success metric. A smoke account driven to a logged set counts as an
+      activation. **Verifying the app made the app look faster and more
+      activated.** House failure mode, eleventh costume, third time in this same
+      SQL section (passes 8 and 11 were the other two) — and, like those, it was
+      in the instructions rather than in the code, which is why ten passes of
+      re-auditing `client/` could not have found it.
+    - Fix: the same `not exists (… email like '%evoforge.internal')` guard the
+      funnel query already uses, added to all four — as a `where` clause on the
+      three flat queries and inside the `reached` CTE of the funnel-by-device one
+      (the POPULATION CTE, since the left join to `device` can only narrow it).
+      `not exists` rather than `not in`: NULL-safe, and it is the idiom this doc
+      already uses at `profiled`. `user_id` is unambiguous inside the subquery —
+      `auth.users` has `id`, not `user_id`.
+    - **Doc-only, inside a file already in this order's diff.** No code, no
+      schema, no new event, no fifth step; the emitter and the Train-chunk fix
+      are untouched. In scope because the objective ends "re-measure against the
+      `activation_step` funnel", and pass 11 already established these queries as
+      the deliverable.
+    - **NO CODE DEFECT FOUND — a sixth independent hand-audit**, run at the level
+      the unavailable gates work at rather than re-narrating passes 9–15: hook
+      order in `(main)/index.tsx` (`useHomeInteractive` is unconditional — the
+      `return` at line 81 is `DriftWarning`, a different component), `useState`
+      imported in `origin-flow.tsx`, `NeonButton.busy` real (`neon-button.tsx:37`,
+      feeding `disabled={disabled || busy}` at 163), `activationStepProps` spreads
+      `extra` at top level so every `lastProps().<prop>` assertion resolves,
+      `shouldEmitActivationStep` has no prerequisite so the wiring tests that emit
+      step 2 alone are valid, `ttiPropsFor` runs before the first `await` so the
+      fake-timer spans read the advanced clock, and `readActivationSpan`'s `?? null`
+      keeps the legitimate `0` at `activation.test.ts:253` from collapsing. Both
+      test files traced; all four SQL queries parsed by hand (`->>` on a JSON null
+      yields SQL NULL, so every `count(prop)` denominator is honest, and
+      `percentile_disc` ignores nulls).
+    - **STILL NOT RUN, unchanged:** tsc, lint, vitest, the verify scripts,
+      `expo export`, and the Playwright regression tour of Onboarding / Home /
+      Train. Add to the tour list: after any tour, the smoke rows it just wrote
+      must NOT appear in the re-measure queries.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
