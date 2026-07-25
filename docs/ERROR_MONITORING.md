@@ -144,7 +144,28 @@ the push they already have. If you also want Sentry's own email, the rule is
 A guard that cannot fail is not a guard. Each of these must be *seen*, not
 reasoned about:
 
-1. **The client reports.** In a browser console on the deployed build:
+**Two links were checked statically on 2026-07-26 and hold. They are recorded
+here because a silent break in either reproduces the 086 shape exactly — an
+alerting system that cannot alert, with nothing failing at either end:**
+
+- **`serveMonitored` has something to catch.** No edge function wraps its
+  handler in a top-level `try/catch`. All 12 `catch` blocks under
+  `supabase/functions/` are narrow — a per-subscription web-push failure, a
+  `req.json()` fallback, an AI non-JSON parse — so an unexpected throw still
+  reaches the wrapper instead of being turned into a tidy 500 nobody sees.
+- **`exec-notify` is kind-agnostic.** It selects on `resolved_at is null` and
+  `notified_at is null` only, with **no `kind` filter**, so a
+  `sentry_issue:<shortId>` row rides the existing spine to a founder's phone
+  with no change to it. Had it filtered on the six watchdog kinds,
+  `sentry-watch` would have written correct alerts forever and told nobody.
+
+The rest of this list still needs a run.
+
+1. **The client reports.** First confirm the DSN actually reached the bundle —
+   `grep -o 'ingest\.sentry\.io' dist/_expo/static/js/web/entry-*.js` — because
+   Metro inlines `EXPO_PUBLIC_` values and does not invalidate its transform
+   cache (§3.3), and a miss there reads exactly like a working monitor that
+   found nothing. Then, in a browser console on the deployed build:
    `setTimeout(() => { throw new Error('EVOFORGE monitoring probe'); })`.
    Expect one issue in Sentry within seconds, with a stack, `surface: client`,
    `release` equal to the `entry-<hash>.js` the page is running, and `user.id`
@@ -163,8 +184,13 @@ reasoned about:
    `kind = 'sentry_issue:…'`, then that `exec-notify` pushes it. Delete the row.
 6. **It alerts only once per issue.** Run `sentry-watch` twice: the second run
    must return `opened: []`. Resolve the alert, run again — still `[]`.
-7. **Off means off.** Unset `EXPO_PUBLIC_SENTRY_DSN`, rebuild `--clear`, confirm
-   zero network traffic to `ingest.sentry.io` and `monitoringStatus() === 'no-dsn'`.
+7. **Off means off.** Unset `EXPO_PUBLIC_SENTRY_DSN`, rebuild `--clear`, and
+   confirm the bundle no longer contains the DSN (the grep from #1, zero hits).
+   Then **force the probe throw from #1 and expect zero network requests to
+   `*.ingest.sentry.io`** — the absence of traffic only means something if you
+   made the app throw first. Check it that way round: `monitoringStatus()` is a
+   module export and not a global, so nothing can call it from a production
+   console.
 
 ---
 

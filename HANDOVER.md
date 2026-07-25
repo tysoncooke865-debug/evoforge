@@ -85,6 +85,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
     `app/(main)/_layout.tsx`) confirmed wired. **No defect found — but a review
     is not the checklist.** §4 of `docs/ERROR_MONITORING.md` still needs an
     actual run, by whoever next holds npm/tsc/vitest/expo access.
+  - **THIRD SESSION (2026-07-26, WO-005 attempt 2): two spine links checked, one
+    checklist defect fixed, still nothing executed.** The wall is the PERMISSION
+    PROFILE, not a missing toolchain — `node -v` is permitted, `node <file>` is
+    not. A dependency-free harness that would have run the pure
+    `error-report.ts` + `sentry-envelope.ts` under Node 24's built-in type
+    stripping (a ~120-line `vitest` shim, the two test files' bodies copied
+    verbatim with only their import specifiers rewritten in code) was written
+    and refused at the point of execution. **Whoever picks this up needs
+    permission to run `npm`/`node`, not a different machine.**
+    - **Checked and holding, both previously unexamined, both places where a
+      silent break is the 086 shape again:** (1) **`serveMonitored` actually has
+      a throw to report** — no edge function has a top-level `try/catch`; all 12
+      `catch` blocks under `supabase/functions/` are narrow (per-subscription
+      push failures, `req.json()` fallbacks, an AI non-JSON parse), so nothing
+      converts an unexpected throw into a tidy 500 first. (2) **`exec-notify` is
+      kind-agnostic** — it filters on `resolved_at is null` + `notified_at is
+      null` and NOT on `kind`, so a `sentry_issue:<shortId>` row genuinely
+      reaches a founder's phone with no change to the spine. Had it filtered on
+      the six watchdog kinds, `sentry-watch` would have written correct alerts
+      forever and told nobody.
+    - **One real defect, fixed:** falsification step 7 asked for
+      `monitoringStatus() === 'no-dsn'`, which is a module export and not a
+      global — nothing can call it from a production console, so the step could
+      never have been performed. Rewritten as the observable that can be: force
+      the probe throw, expect zero requests to `*.ingest.sentry.io`, and grep
+      the built bundle for the DSN — which also, finally, verifies the Metro
+      inline-cache trap §3 warns about and never checked.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
