@@ -522,6 +522,52 @@ Owner: Tyson. He works through other Claude sessions too — **always
     needs falsifying at the surface; add to it that the re-measure query now
     has three denominators and that **`home_mount_measured` must not be zero**
     on a cohort that reached Home.
+  - **THE TWELFTH PASS STOPPED INSPECTING THE TYPES AND READ THEM (2026-07-26).**
+    The dispatched order quoted the same verification failure a THIRD time (`npx
+    tsc` refusing without TypeScript, `vitest` "not recognized", a lint
+    `Module.require` crash). It reproduces a SEVENTH and EIGHTH time — direct
+    Bash and direct PowerShell — and the boundary is now exact: `node --version`
+    succeeds (v24.18.0), while **`node -e`, `node <script.mjs>`, `npm` and `npx`
+    are each refused before the binary runs**. It is the runner's executable
+    allowlist, not a missing install and not a code defect; `client.yml` runs
+    `npm ci` (line 75) ahead of every gate, so the CI this order deploys through
+    is unaffected. Nothing was changed to chase it.
+  - **WHAT WAS ACTUALLY NEW: the sibling checkout is READABLE even though it is
+    not EXECUTABLE.** `Previous_Code/evoforge/client/node_modules` carries a real
+    install, and Read/Glob reach it although `node <path>` does not — so claims
+    the prior passes could only make "by inspection" are now checked against the
+    shipped `.d.ts`, at a version confirmed to match (`expo-router` **57.0.4**,
+    the `~57.0.4` in `client/package.json`). **`Tabs.Screen`'s `listeners` is
+    real**: `build/layouts/TabsClient.d.ts:162` types `Screen` as
+    `ScreenProps<TabsProps, TabNavigationState<ParamListBase>,
+    BottomTabNavigationEventMap>`, and `build/useScreens.d.ts:27` declares
+    `listeners` on `ScreenProps`, so `tabPress` is in the map the prop accepts.
+    That was the single least-falsifiable line in the whole diff. **This is the
+    method to reuse** — the gates cannot run here, but the types can be read.
+  - **RE-CHECKED CONCRETELY, NOT NARRATED:** `today.tsx` has no dangling import
+    (`ScrollView` / `TextInput` gone; `inferMuscleGroup`, `useToastStore`,
+    `SessionExercise`, `ActivityIndicator` each still referenced — and tsconfig
+    sets no `noUnusedLocals`, so an unused one would have been lint noise, not a
+    red gate); all ten import paths in `ui/train/quick-workout-sheet.tsx` resolve
+    AND every named export they pull exists; `splitKey` really is `string | null`
+    (`onboarding.tsx:123`), matching `afterOnboardingHref`; `NeonButton` has
+    `busy?: boolean` feeding `disabled={disabled || busy}`; `useIsFocused` is
+    imported from `expo-router` by six other modules that already pass CI.
+  - **BOTH TEST FILES TRACED AGAIN, AND TWO TRAPS CONFIRMED AVOIDED.**
+    `readActivationSpan` uses `?? null`, not `|| null` — with `||` the
+    legitimate `0` at `data/__tests__/activation.test.ts:253` would collapse to
+    null and `.not.toBeNull()` would go red. And the `device_class === 'unknown'`
+    assertions are correct under vitest's default **node** environment for a
+    subtler reason than the eighth pass gave: **Node 24 DOES define
+    `globalThis.navigator`**, so `readDevice`'s `typeof navigator === 'undefined'`
+    branch is not taken — it reads a real navigator that exposes neither
+    `maxTouchPoints` nor `deviceMemory`, and with no `window` there is no
+    `matchMedia`, so all three inputs are null and both buckets refuse. The
+    jsdom warning still stands for the same reason.
+  - **NO CODE DEFECT FOUND, and no file was touched but this one.** Every
+    assertion in `domain/__tests__/activation-tti.test.ts` — the ONE new file
+    CI actually executes (`npx vitest run src/domain`), so the one whose failure
+    would block the deploy — was re-traced against the implementation and passes.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
