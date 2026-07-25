@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { Link, router, useIsFocused } from 'expo-router';
 import { Fragment, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -237,10 +237,26 @@ export default function TodayScreen() {
    * current rail can say whether they landed on a workout or on an empty rest
    * day. `ready` waits out the plan queries deliberately: firing early would
    * report the loading state instead of the screen they saw.
+   *
+   * FOCUS IS PART OF `ready` (WO-006). Home's idle-time tab preload
+   * (`(main)/_layout.tsx`) prefetches this route in the background, and a
+   * background mount runs mount effects like any other: without this guard the
+   * step could fire — with correct-looking `has_plan` / `day_kind` props — for
+   * an athlete who never pressed Train, quietly promoting the whole cohort to
+   * step 2 and deleting the very drop-off this funnel exists to measure. The
+   * guard is unconditionally correct whether or not the prefetch mounts on a
+   * given platform: `train_opened` should mean the athlete opened Train.
+   *
+   * The stopwatch it reports does NOT start here. Focus arrives after the
+   * route chunk has been fetched and this screen has rendered once, so a span
+   * stamped at focus would quietly exclude the slowest part of the hand-off. It
+   * starts at the tab press instead (`(main)/_layout.tsx`); this is only where
+   * it STOPS.
    */
+  const trainFocused = useIsFocused();
   const activationDay = scheduledToday ? resolveDay(scheduledToday, preferredSource) : null;
   useActivationStep('train_opened', {
-    ready: !planLoading && !schedule.isPending,
+    ready: trainFocused && !planLoading && !schedule.isPending,
     extra: {
       has_plan: sources.has.myPlan || sources.has.aiPlan,
       day_kind: scheduledToday ? 'workout' : 'rest',

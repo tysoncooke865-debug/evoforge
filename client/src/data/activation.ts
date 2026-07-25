@@ -9,6 +9,7 @@ import {
   type ActivationMarks,
   type ActivationStep,
 } from '@/domain/activation-funnel';
+import { interactiveSpanMs } from '@/domain/activation-tti';
 
 import { track } from './analytics';
 import { useAuth } from './auth-context';
@@ -25,6 +26,132 @@ import { useAuth } from './auth-context';
 
 const KEY_PREFIX = 'evoforge-activation-v1:';
 const keyFor = (userId: string) => `${KEY_PREFIX}${userId}`;
+
+/* ------------------------------------------------------------------------ */
+/* TIME-TO-INTERACTIVE (WO-006)                                              */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * The stopwatch half of the funnel. The RULES are pure and tested in
+ * `domain/activation-tti.ts`; everything here is the wiring they need — where a
+ * span starts, and whether the document went away while it ran.
+ *
+ * IN MEMORY ONLY, deliberately. A span that survived a reload would be
+ * measuring the reload. Nothing here is persisted, so a killed app simply has
+ * no measurement — which the rules already encode as `null`.
+ */
+const spanStart = new Map<string, number>();
+const spanHidden = new Set<string>();
+/** Measured spans kept so a LATER event can carry them (see `train_opened`). */
+const spanMeasured = new Map<string, number | null>();
+
+/**
+ * Every open span is poisoned the moment the document goes away, and a span
+ * stamped while already hidden is born poisoned. Three events, not one: iOS
+ * PWAs routinely suspend without a `visibilitychange` — the same reason
+ * `initNavFreezeBeacon` listens to all three (data/version-guard.ts).
+ */
+let hiddenWatchInstalled = false;
+function installHiddenWatch(): void {
+  // `typeof document` rather than `Platform.OS` on purpose: it is the exact
+  // condition (there is nothing to hide without a document), and it keeps this
+  // module importable by vitest, which has no react-native preset.
+  if (hiddenWatchInstalled || typeof document === 'undefined') return;
+  hiddenWatchInstalled = true;
+  const poison = () => {
+    for (const name of spanStart.keys()) spanHidden.add(name);
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) poison();
+  });
+  window.addEventListener('pagehide', poison);
+  window.addEventListener('freeze', poison);
+}
+
+/** Is the document hidden right now? (Always false with no document.) */
+function documentHidden(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.hidden === true;
+}
+
+/**
+ * Stamp the start of a span. Re-stamping restarts it — a second visit to Train
+ * is a second hand-off, and the last one before the event is the one that
+ * describes what the athlete just waited for.
+ */
+export function startActivationSpan(name: string): void {
+  installHiddenWatch();
+  spanStart.set(name, Date.now());
+  // Born hidden = born untrustworthy (a backgrounded tab's prefetch).
+  if (documentHidden()) spanHidden.add(name);
+  else spanHidden.delete(name);
+}
+
+/** Measure a span NOW, applying every refusal rule. Non-destructive. */
+export function activationSpanMs(name: string): number | null {
+  return interactiveSpanMs({
+    startedAt: spanStart.get(name) ?? null,
+    now: Date.now(),
+    hiddenDuringSpan: spanHidden.has(name) || documentHidden(),
+  });
+}
+
+/** Measure a span and keep the result for an event that fires later. */
+export function noteActivationSpan(key: string, name: string): number | null {
+  const ms = activationSpanMs(name);
+  spanMeasured.set(key, ms);
+  return ms;
+}
+
+/** Read a span measured earlier, or null if it was never taken. */
+export function readActivationSpan(key: string): number | null {
+  return spanMeasured.get(key) ?? null;
+}
+
+function clearActivationSpans(): void {
+  spanStart.clear();
+  spanHidden.clear();
+  spanMeasured.clear();
+}
+
+/** The span names this rail measures. Strings in one place, not scattered. */
+export const ACTIVATION_SPAN = {
+  /** Stamped when onboarding finishes; read when Home mounts and when it settles. */
+  home: 'home',
+  /** Stamped when the Train TAB IS PRESSED; read when its plan queries settle. */
+  train: 'train',
+} as const;
+
+/** Where a measured span is parked for a later event to carry. */
+const HOME_INTERACTIVE = 'home_interactive';
+
+/**
+ * The TTI props for a step, merged into the event at EMIT time.
+ *
+ * They live here rather than in the callers' `extra` because `extra` is built
+ * during render, and the interesting spans close in an effect — a render-time
+ * read would always be one tick stale, which for `train_opened` means always
+ * null.
+ */
+function ttiPropsFor(step: ActivationStep): Record<string, unknown> {
+  if (step === 'home_reached') {
+    // Onboarding finished -> Home painted. Null on a cold boot (never stamped).
+    return { ms_to_mount: activationSpanMs(ACTIVATION_SPAN.home) };
+  }
+  if (step === 'train_opened') {
+    return {
+      // Train TAB PRESSED -> Train's plan queries settled. THE hand-off number:
+      // chunk fetch, mount and data, which is what the athlete actually sat
+      // through. Null when they arrived without pressing the tab.
+      ms_to_interactive: activationSpanMs(ACTIVATION_SPAN.train),
+      // The Home half, carried forward: Home has no emit point of its own at
+      // the moment it becomes interactive, and adding a fifth step would break
+      // the four-rows-per-athlete bound the rail is built on.
+      ms_home_to_interactive: readActivationSpan(HOME_INTERACTIVE),
+    };
+  }
+  return {};
+}
 
 /**
  * In-memory guard against the same step firing twice before the first write
@@ -61,6 +188,10 @@ export async function markActivationStep(
   if (inFlight.has(guard)) return;
   inFlight.add(guard);
   try {
+    // The stopwatch stops HERE — at the moment the caller said "interactive" —
+    // not after the storage read below, which would fold a cache round trip
+    // into every measurement. Discarded if the step already fired.
+    const tti = ttiPropsFor(step);
     const marks = await readMarks(userId);
     if (!shouldEmitActivationStep(marks, step)) return;
 
@@ -71,7 +202,8 @@ export async function markActivationStep(
       activationStepProps(step, marks, {
         now,
         signupAtMs: Number.isFinite(signupAt) ? signupAt : null,
-        extra,
+        // TTI first so a caller could never shadow a measurement by accident.
+        extra: { ...tti, ...(extra ?? {}) },
       })
     );
 
@@ -93,6 +225,9 @@ export async function markActivationStep(
  * is absolute for a reason (root CLAUDE.md), and duplicates are harmless here.
  */
 export async function clearActivationMarks(): Promise<void> {
+  // The in-memory spans go with them — a span started by the last athlete must
+  // never be measured against the next one's first screen.
+  clearActivationSpans();
   try {
     const keys = await AsyncStorage.getAllKeys();
     const mine = keys.filter((k) => k.startsWith(KEY_PREFIX));
@@ -100,6 +235,20 @@ export async function clearActivationMarks(): Promise<void> {
   } catch {
     /* best-effort */
   }
+}
+
+/**
+ * Record the moment a screen became INTERACTIVE, once per mount, so a later
+ * step event can carry it. Used by Home, which has no event of its own at the
+ * moment its mission card stops loading.
+ */
+export function useHomeInteractive(interactive: boolean): void {
+  const noted = useRef(false);
+  useEffect(() => {
+    if (noted.current || !interactive) return;
+    noted.current = true;
+    noteActivationSpan(HOME_INTERACTIVE, ACTIVATION_SPAN.home);
+  }, [interactive]);
 }
 
 /**

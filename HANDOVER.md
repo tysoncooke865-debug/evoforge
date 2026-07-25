@@ -26,6 +26,75 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE POST-ONBOARDING HAND-OFF: A STOPWATCH, AND A FUNNEL BUG THAT WOULD HAVE
+  HIDDEN THE ANSWER (2026-07-25, WO-006, no migration).** The post-Origin cohort
+  is 10 profiled → 8 origin-bound → 3 who logged a set; the five lost between
+  binding an origin and logging a rep are the whole growth problem. The approved
+  work was "instrument, then fix the first 60 seconds".
+  - **THE EVIDENCE FOR THE PERF HYPOTHESIS WAS THIS REPO'S OWN NOISE.** The
+    stalls quoted for it — 1.0 s, 0.9 s, 1.1 s and one of 18.9 s — are
+    `pwa_nav_diag` rows, and the 2026-07-25 entry below declares every
+    `pwa_nav_diag` row before that date unusable: 74.5% of them sit in the
+    900–1099 ms bucket browsers produce by clamping timers on a HIDDEN tab, and
+    18.9 s is the "suspended tab" bucket. So the hypothesis is neither confirmed
+    nor refuted — it has never been measured. Instrument first was the right
+    call, and the instrument had to be one that cannot repeat that mistake.
+  - **`train_opened` COULD FIRE WITHOUT THE ATHLETE.** Home's idle tab preload
+    prefetches `/today` in the background, and a background mount runs mount
+    effects. The shipped step-2 emitter was gated only on its plan queries
+    settling — so it could fire, with correct-looking `has_plan`/`day_kind`, for
+    an athlete who never pressed Train, promoting the cohort to step 2 and
+    **deleting the exact drop-off the funnel exists to measure**. `ready` now
+    includes `useIsFocused()`. Read step-2 counts before this fix as suspect.
+  - **THE STOPWATCH, on the events that already shipped** — no new event name,
+    no fifth step, the four-rows-per-athlete bound intact. `home_reached` gains
+    `ms_to_mount`; `train_opened` gains `ms_to_interactive` (the hand-off
+    number) and `ms_home_to_interactive` (carried forward, because
+    `home_reached` fires at MOUNT on purpose: an athlete who lands and quits
+    must still be counted). The Home span starts at the tap that ends
+    onboarding, not at a component mount, so the profile refetch
+    `onboarding.tsx` awaits before it can navigate is inside the measurement.
+  - **THE TRAIN SPAN STARTS AT THE TAB PRESS, NOT AT FOCUS** — a `tabPress`
+    listener on the Train tab (`(main)/_layout.tsx`), not the Train screen. The
+    first cut of this work order stamped it at `useIsFocused()`, which is the
+    obvious place and is **wrong**: focus arrives AFTER the route chunk has been
+    fetched and the screen has rendered once, so it excludes most of what a
+    mid-range phone on mobile data actually waits for — and it is precisely what
+    the two-wave preload below removes. A focus-stamped span would have read
+    ~0 ms before and after that fix and declared the work done: **an instrument
+    blind to the fix it exists to judge is the nav-stall beacon again.** The
+    cost, stated: reaching Train without pressing the tab (deep link, cold boot,
+    the mid-workout resume redirect) stamps nothing and reports `null` rather
+    than a flattering 0. Pinned by a test.
+  - **`domain/activation-tti.ts` (pure, 9 tests; 7 more pin the emitter wiring
+    in `data/__tests__/activation.test.ts`) refuses what it cannot
+    trust**: never stamped · touched a hidden document (visibilitychange +
+    pagehide + freeze) · backwards clock · over 60 s. `null`, never 0 — but a
+    genuinely instant span IS 0, or every fast device reads as a missing
+    measurement. Refusal is not loss: the ladder is the census.
+  - **THE IDLE PRELOAD NOW GOES IN TWO WAVES, TRAIN ALONE IN THE FIRST.** All
+    five tabs used to warm in one pass — mounting Oracle, Social, Arena and Fuel
+    is ~15 further Supabase round trips and 4 more route chunks — and
+    `requestIdleCallback` on a thread still rendering Home fires at its 4 s
+    timeout, i.e. exactly while a new athlete is deciding whether to tap Train.
+    Only one of the five is on the measured path. Every tab still ends up warm.
+  - **GATES NOT RUN — this runner has no `npm`/`npx`/`node -e`.** tsc, lint,
+    vitest, the verify scripts, `expo export` and the Playwright tour were all
+    unavailable, so nothing here is falsified at the surface. **Run HANDOVER §5
+    before trusting it**, and drive a throwaway production account through
+    onboarding → Home → Train to confirm `ms_to_interactive` lands non-null and
+    that `train_opened` does NOT appear for an athlete who only sits on Home.
+  - **FOUND, NOT FIXED (would need the gates):** `today.tsx` statically imports
+    `@/data/exercise-corpus` and `ui/train/exercise-search-bar.tsx` does too, so
+    the whole ~1,109-entry `EXERCISE_LIBRARY` rides the TRAIN route chunk — the
+    chunk the preload fetches first — for a QUICK WORKOUT sheet behind two taps.
+    The 2026-07-23 perf pass deliberately kept that library out of the boot
+    chunk; it is back in the hand-off's critical path by a different door.
+    Splitting it is a bundle change that must not ship unmeasured.
+  - Files: `domain/activation-tti.ts` (+test), `data/activation.ts` (+test),
+    `ui/origin/origin-flow.tsx`, `(main)/index.tsx`, `(main)/today.tsx`,
+    `(main)/_layout.tsx`, `docs/ACTIVATION_ANALYTICS.md` (props table, the
+    stopwatch section, the re-measure percentile query).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

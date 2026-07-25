@@ -5,6 +5,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ACTIVATION_SPAN, startActivationSpan } from '@/data/activation';
 import { useAuth } from '@/data/auth-context';
 import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
@@ -149,23 +150,42 @@ export default function MainLayout() {
   // their queries share the already-warm cache — /ai included: Oracle photos
   // live in component state, nothing runs until the athlete acts. The
   // workout page is NOT preloaded — it is params-dependent.
+  //
+  // WO-006: IN TWO WAVES, TRAIN ALONE IN THE FIRST. All five used to warm in
+  // one pass, which mounts Oracle, Social, Arena and Fuel — roughly fifteen
+  // further Supabase round trips and four more route chunks — and it does NOT
+  // wait for real idle: `requestIdleCallback` on a main thread that is still
+  // rendering Home fires at its 4 s timeout, i.e. exactly while a newly
+  // onboarded athlete is deciding whether to tap Train. Only ONE of those five
+  // is on the path this work order measures. Splitting the wave costs the other
+  // four nothing they will notice (they still warm, seconds later, and none of
+  // them is the next tap after onboarding) and takes the burst off the
+  // hand-off. Behaviour is otherwise unchanged: every tab still ends up warm.
   const prefetchedRef = useRef(false);
   useEffect(() => {
     if (prefetchedRef.current || !session || profile.data === undefined) return;
     prefetchedRef.current = true;
-    const warm = () => {
-      for (const href of ['/today', '/ai', '/social', '/arena', '/fuel']) {
-        try {
-          router.prefetch(href as never);
-        } catch {
-          // Preload is an optimisation, never a failure mode.
-        }
+    const warm = (href: string) => {
+      try {
+        router.prefetch(href as never);
+      } catch {
+        // Preload is an optimisation, never a failure mode.
       }
     };
     type IdleWindow = { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
     const w = globalThis as IdleWindow;
-    if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(warm, { timeout: 4000 });
-    else setTimeout(warm, 2500);
+    const onIdle = (cb: () => void, timeout: number) => {
+      if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(cb, { timeout });
+      else setTimeout(cb, Math.min(timeout, 2500));
+    };
+    onIdle(() => {
+      warm('/today');
+      // The rest ride a SECOND idle pass, chained so it cannot start before
+      // Train's has been handed to the browser.
+      onIdle(() => {
+        for (const href of ['/ai', '/social', '/arena', '/fuel']) warm(href);
+      }, 10_000);
+    }, 4000);
   }, [session, profile.data]);
 
   // Level-up detector: compares the CONFIRMED Forge Level across refetches
@@ -260,6 +280,24 @@ export default function MainLayout() {
           keeps active/inactive colouring working exactly like the glyphs. */}
       <Tabs.Screen
         name="today"
+        // WO-006: THE HAND-OFF STOPWATCH STARTS AT THE PRESS. Starting it at
+        // Train's focus instead — the obvious place, and where the first cut of
+        // this work order put it — silently excludes everything between the tap
+        // and the mount: the route's chunk fetch and its first render. On the
+        // mid-range phone this measures, that is most of the wait, and it is
+        // exactly what the two-wave preload above exists to remove. An
+        // instrument blind to the fix it is meant to judge would have reported
+        // ~0 ms before and after and called the work done.
+        //
+        // A per-screen `listeners` rather than the navigator's `screenListeners`
+        // (which already carries the scroll-to-top): no route-name test to get
+        // wrong, and the scroll behaviour below stays untouched. Both fire.
+        //
+        // Reached any other way — a deep link, a cold boot straight into Train —
+        // nothing stamps and `ms_to_interactive` is null. That is the honest
+        // answer: unknown is not instant, and a mount-to-settled span is not the
+        // hand-off this work order was asked to measure.
+        listeners={{ tabPress: () => startActivationSpan(ACTIVATION_SPAN.train) }}
         options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
       />
       <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />

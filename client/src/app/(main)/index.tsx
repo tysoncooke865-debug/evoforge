@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 
 import { router } from 'expo-router';
 
-import { useActivationStep } from '@/data/activation';
+import { useActivationStep, useHomeInteractive } from '@/data/activation';
 import { useClaimCoin } from '@/data/coins';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
@@ -195,6 +195,12 @@ export default function HomeScreen() {
 
   const missionLoading = schedule.isPending || sessions.isPending || workouts.isPending || plansLoading;
   const missionError = schedule.isError || sessions.isError || workouts.isError;
+  // WO-006: Home is INTERACTIVE when the one dominant CTA stops saying
+  // "loading" — before that there is nothing on this page to act on. Recorded
+  // rather than emitted: `home_reached` has already fired by now, ON PURPOSE
+  // (it fires at mount so an athlete who lands here and quits is still
+  // counted), so the number rides the next step instead of costing a fifth row.
+  useHomeInteractive(!missionLoading);
   const retryMission = () => {
     void schedule.refetch();
     void sessions.refetch();
