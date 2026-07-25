@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { captureException } from '@/data/monitoring';
 import { colors, spacing } from '../constants/theme';
 import { NeonButton } from './ui';
 
@@ -27,6 +28,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Structured log — picked up by the debug panel / device logs.
     console.error(`[ErrorBoundary:${this.props.label ?? 'screen'}]`, error, info.componentStack);
+    // WO-005. This boundary STOPS the throw, so expo-router's route boundary
+    // never sees an arena crash — without this line the whole Forge Arena
+    // (its own _layout plus battle / profile / tutorial / gym-war) is a blind
+    // spot in the monitor, and a console.error nobody reads is the 48-hour
+    // detection this work order exists to end. Inert without a DSN, never
+    // throws, and the gate in domain/error-report.ts means a screen throwing
+    // on every render reports once rather than once per frame.
+    captureException(error, {
+      mechanism: 'arena-error-boundary',
+      handled: false,
+      tags: { arena_screen: this.props.label ?? 'screen' },
+    });
   }
 
   render() {

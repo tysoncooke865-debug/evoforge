@@ -40,6 +40,12 @@ edge copy — **35 new tests that have never been executed**, see §4).
 - `ui/core/route-error-boundary.tsx` reports every route crash. That is the
   highest-value capture point in the app: reaching it means an athlete is
   looking at SOMETHING BROKE instead of their workout.
+- `arena-game/components/error-boundary.tsx` reports too, because **it catches
+  first**. The Forge Arena wraps its layout and its battle / profile / tutorial
+  / gym-war screens in its own class boundary, and a React boundary STOPS the
+  throw — so every arena crash was landing in a `console.error` nobody reads
+  and never reaching the route boundary above it. Tagged
+  `mechanism: arena-error-boundary` with the screen in `arena_screen`.
 - `data/auth-context.tsx` sets the athlete's **user id and nothing else** on
   sign-in and **clears it on sign-out** (the every-cache-layer doctrine — a
   misattributed crash corrupts the exact count the founder alert fires on).
@@ -263,6 +269,15 @@ The rest of this list still needs a run.
    the `!dsn` early-out. `captureException` now self-starts. Break that
    (`if (!started)` → `if (false)`), watch this probe go silent while probe #1
    keeps working, restore.
+9. **An ARENA crash reports.** Throw inside any `/forge-arena` screen. Expect an
+   issue with `mechanism: arena-error-boundary` and `arena_screen` naming the
+   screen — **and confirm the arena's own "Something broke / Try again" panel
+   still renders and RETRY still works**, which is the property that change must
+   not cost. Probe #1 does NOT cover this: the arena's class boundary catches
+   before expo-router's does, so before 2026-07-26 the whole arena reported
+   nothing at all while every other route reported correctly. That is the shape
+   to watch for anywhere else a boundary is added — a monitor is only as wide as
+   the boundaries that let the throw reach it.
 
 ---
 

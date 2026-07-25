@@ -54,6 +54,16 @@ Owner: Tyson. He works through other Claude sessions too — **always
   - **`serveMonitored` REPORTS AND RETHROWS.** All 21 edge functions are wrapped
     and every status code, body and CORS header is unchanged — monitoring that
     alters what it monitors is not monitoring.
+  - **A MONITOR IS ONLY AS WIDE AS THE BOUNDARIES THAT LET THE THROW REACH IT
+    (2026-07-26).** The Forge Arena has its OWN class boundary
+    (`arena-game/components/error-boundary.tsx`) wrapping its layout and its
+    battle / profile / tutorial / gym-war screens, and a React boundary STOPS
+    the throw — so every arena crash died in a `console.error` nobody reads and
+    never reached `route-error-boundary`. The whole arena reported nothing while
+    every other route reported correctly. It now calls `captureException`
+    (`mechanism: arena-error-boundary`, screen in `arena_screen`) and still
+    renders its own "Something broke / Try again" panel unchanged. **Check this
+    shape whenever a boundary is added anywhere.**
   - **THE FOUNDER ALERT RIDES THE EXISTING SPINE.** `sentry-watch` polls Sentry
     (outbound — an inbound webhook cannot pass the edge gateway's JWT check,
     the 086 lesson) for unresolved issues affecting **≥ 2 athletes** and opens
@@ -64,12 +74,35 @@ Owner: Tyson. He works through other Claude sessions too — **always
   - **PRIVACY: the athlete's user id and nothing else.** Set on sign-in, cleared
     on sign-out with every other cache layer. Messages, tags and frame paths are
     redacted for emails/JWTs/bearer tokens before they leave the device.
-  - **NOTHING BELOW WAS RUN.** The session that wrote this had no permission to
-    execute npm/tsc/lint/vitest/expo or to reach the database, so **tsc, lint,
-    the suite, the export and every live falsification are still owed** — the
-    checklist is `docs/ERROR_MONITORING.md` §4. Two new test files (28 + 7
-    cases) exist and have never been executed. Treat this as reviewed code, not
-    as working software, until that list is green.
+  - **NOTHING HERE HAS EVER BEEN RUN — that is still true, and it is the ONLY
+    thing standing between this work order and done.** Every session that has
+    touched it has been an architect session without execution rights (the
+    Command 095 architect/runner split), so **tsc, lint, the suite, the export
+    and every live falsification are owed in full** — the checklist is
+    `docs/ERROR_MONITORING.md` §4, starting at step 0. Two new test files
+    (28 + 7 cases) have never been executed. Treat this as reviewed code, not as
+    working software, until that list is green.
+    - **The runner's three red messages are ONE fault and it is not in the
+      diff:** `client/node_modules` does not exist in a `git worktree` (it is
+      gitignored; a worktree is a fresh checkout). Each message identifies its
+      command exactly — *"use npm install typescript"* is `npx tsc --noEmit`
+      (npx fetched the `tsc` DECOY package), *"'vitest' is not recognized"* is
+      `npm test` (cmd.exe failing to find the bin), a bare `Module.require`
+      stack is `npx expo lint`.
+    - **`npm test` / `npm run lint` / `npm run typecheck` now repair their own
+      checkout** via `client/scripts/ensure-deps.mjs` on `pretest` / `prelint` /
+      `pretypecheck`; it also writes the gitignored `expo-env.d.ts` shim, a
+      SECOND cause of the typecheck red that `npm ci` alone never fixed. An
+      installed checkout pays one `existsSync` and prints nothing, so CI is
+      untouched.
+    - **The bare `npx` forms cannot be guarded from inside this repo** — `npx`
+      has no pre-hook, no config file and no non-interactive auto-install. If
+      the runner's fixed list uses `npx tsc --noEmit` / `npx expo lint`, the fix
+      is one line of RUNNER config (`npm ci` in `client/` first), and no edit to
+      `AGENTS.md` / `CLAUDE.md` / `HANDOVER.md` / `docs/` can substitute for it.
+      That has now been tried and failed across four attempts — **do not spend a
+      fifth attempt editing docs to chase this, and do not fake it by committing
+      anything into `node_modules/`.**
   - **STILL TRUE (2026-07-26, a second session, no code change).** Same sandbox,
     same wall: `npm install`/`npx`/anything but a bare `node -v` requires
     approval nobody was present to grant, so `client/node_modules` still does
@@ -321,6 +354,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
       calling `npm test` / `npm run lint` / `npm run typecheck` now repairs its
       own checkout instead of reporting three messages about a diff that was
       never broken.
+  - **TENTH SESSION (2026-07-26, WO-005 attempt 3 re-run): a SECOND real code
+    defect found and fixed — the Forge Arena was reporting nothing at all.**
+    The mandate was again the runner's three red messages. Those were
+    re-diagnosed and each one positively attributed to its command (see the
+    verification bullet above — the decoy-`tsc` message, the cmd.exe bin miss
+    and the `Module.require` stack are three different commands, not three
+    symptoms of one). The ninth session's `ensure-deps.mjs` mechanism is correct
+    and covers the `npm run` forms; nothing further can be done about the `npx`
+    forms from inside the repo, so **no doc was edited to chase this a fifth
+    time**. The execution wall was re-confirmed and then left alone
+    (`node --version` runs and prints `v24.18.0`; a bare `npm --version` is
+    refused with "this command requires approval" and no output — the
+    PowerShell attempt was additionally blocked for changing directory, so the
+    npm allowlist is the binding constraint, not the shell).
+    - **The defect.** `arena-game/components/error-boundary.tsx` catches every
+      arena screen crash — `forge-arena/_layout.tsx` plus battle, profile,
+      tutorial and gym-war all wrap in it — and a React boundary STOPS the
+      throw. So it never reached `route-error-boundary`, and the arena's crashes
+      went to a `console.error` and nowhere else. Five sessions of review walked
+      past it because every review traced the monitoring files and their known
+      callers; nothing asked the inverse question, **"what else already catches
+      before we do?"** Fixed by reporting from `componentDidCatch` with the
+      fallback panel and RETRY untouched. New falsification step 9.
+    - **Checked while there, holding:** `verify-arena-purity.mjs` scans only
+      `arena-game/game-engine/`, so a `@/data/monitoring` import in
+      `components/` does not trip it; `eslint.config.js`'s arena override only
+      disables three react-hooks rules, none of which touch a class method; and
+      `data/monitoring.ts` pulls in nothing but `react-native` + two `domain/`
+      modules already in the boot chunk, so the arena bundle does not grow.
+    - **Coverage re-confirmed independently, not from the note about it:** 22
+      function dirs under `supabase/functions/` (23 minus `_shared`),
+      `grep -L serveMonitored */index.ts` returns nothing, and no `index.ts`
+      contains a bare `Deno.serve`. The 35 test assertions were re-traced
+      against the real `tsconfig.json` (`strict`, no
+      `noUncheckedIndexedAccess`) and `vitest.config.ts` (defaults + the `@`
+      alias), and the cross-root import in `sentry-envelope-parity.test.ts`
+      matches the `food-match.test.ts` precedent that passes CI today.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
