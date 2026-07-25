@@ -4,6 +4,7 @@ import { BUILT_IN_DAYS } from '@/data/use-day-plan';
 
 import { LAB_PAGE_META } from './registry-meta';
 import type { LabPage, LabPageId, LabVariant } from './types';
+import { HomeBaseline } from './variants/home/baseline';
 import { TrainBaseline } from './variants/train/baseline';
 import { WorkoutBaseline } from './variants/workout/baseline';
 import { WorkoutCompact } from './variants/workout/compact';
@@ -21,6 +22,7 @@ import { WorkoutCompact } from './variants/workout/compact';
  * lab load — in the gated dev surface, loudly, never in production.
  */
 const COMPONENTS: Record<string, ComponentType> = {
+  'home/baseline': HomeBaseline,
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
   'workout/compact': WorkoutCompact,

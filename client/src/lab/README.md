@@ -39,25 +39,35 @@ AsyncStorage set-queue before any network. An un-shimmed write in mock mode
 is a REAL write (signed in) or junk in the durable queue (signed out). Hence:
 
 - shimmed in the baselines: **LOG SET** (via the forked exercise-logger),
-  **FINISH**, **REOPEN** — they write the seeded cache only — and
-  **useActivationStep**, which fires ON MOUNT and would otherwise emit
-  activation-funnel telemetry under the fake session;
-- NOT shimmed (v1): routine/schedule/plan saves, coin claims, cardio logging,
-  unit prefs, ghost publish. The orange banner appears in mock mode whenever
-  a real session exists underneath — heed it, or sign out;
+  **FINISH**, **REOPEN** — they write the seeded cache only — plus the two
+  writes that fire ON MOUNT, where the banner's "heed it" rule cannot help
+  because the developer never asked for them: **useActivationStep** (would
+  emit activation-funnel telemetry under the fake session) and
+  **useClaimCoin** (Home claims the retroactive starting bonus from an
+  effect; the shim answers `duplicate`, the way the lab wallet's server
+  already would);
+- NOT shimmed (v1): routine/schedule/plan saves, cardio logging, unit prefs,
+  ghost publish, and any coin claim that should LAND. The orange banner
+  appears in mock mode whenever a real session exists underneath — heed it,
+  or sign out;
 - Zustand stores are **never isolated** in either mode: skips/ad-hoc
   (session-store), the rest timer, toasts are shared with the live app.
 
 ## Forking a page (the recipe)
 
 1. Copy the screen: `src/app/(main)/today.tsx` →
-   `src/lab/variants/train/<variant-id>.tsx` (workout: →
+   `src/lab/variants/train/<variant-id>.tsx` (home: `(main)/index.tsx` →
+   `src/lab/variants/home/…`; workout: →
    `src/lab/variants/workout/<variant-id>.tsx`). Imports are `@/`-aliased and
    survive the move.
 2. Default export → **named** export (only `src/app/` files need defaults).
-3. Keep navigation inside the lab: a train fork's "open workout" push becomes
-   `labWorkoutHref(...)` (`links.ts`, needs `useLabDataMode()`); a workout
-   fork's back becomes `router.canGoBack() ? router.back() : router.replace('/lab')`.
+3. Keep navigation inside the lab: a train or home fork's "open workout" push
+   becomes `labWorkoutHref(...)` (`links.ts`, needs `useLabDataMode()`); a
+   workout fork's back becomes
+   `router.canGoBack() ? router.back() : router.replace('/lab')`. Links to
+   pages the lab does NOT hold (Home's `/evo`, `/rank`, avatar actions) stay
+   as they are — they leave the lab, which is honest and better than a dead
+   button.
 4. Mock-safe writes: swap the import, keep the call sites —
    `import { useLabSaveSet as useSaveSet } from '@/lab/mock/mutations';`
    (same for finish/reopen). LOG SET lives in `ui/train/exercise-logger.tsx`,
@@ -84,6 +94,11 @@ Promoting a variant = replacing the live screen's content with the fork's
   worker from the cached `/` shell (sw.js, cache-first navigations), so the
   console shows ONE recoverable React #418 per deep load while the router
   takes over. Cosmetic; in-app navigation from `/lab` is clean.
+- The leaderboard teaser's board polls every 60s while focused
+  (`useLeaderboardByMetric`, staleTime 30s), so the seeded rows are replaced
+  by a real read about a minute after the teaser is first expanded — empty
+  signed out. Cosmetic, and the same class as the invalidation note above.
 - Variants rot toward their source screens as the live pages evolve. The
   baselines are diff-anchors: `git diff --no-index src/app/\(main\)/today.tsx
-  src/lab/variants/train/baseline.tsx` should show ONLY the fork recipe.
+  src/lab/variants/train/baseline.tsx` should show ONLY the fork recipe
+  (same for `(main)/index.tsx` ⟷ `variants/home/baseline.tsx`).

@@ -24,6 +24,20 @@ export interface LabPageMeta {
 
 export const LAB_PAGE_META: readonly LabPageMeta[] = [
   {
+    id: 'home',
+    title: 'HOME',
+    variants: [
+      {
+        id: 'baseline',
+        title: 'BASELINE',
+        description:
+          'Verbatim fork of the live character hub — the mission door opens the lab workout, and both mount-time writes are shimmed.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
+    ],
+  },
+  {
     id: 'train',
     title: 'TRAIN',
     variants: [

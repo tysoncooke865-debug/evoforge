@@ -2,8 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 
 import { useActivationStep } from '@/data/activation';
+import { useClaimCoin, type CoinKind } from '@/data/coins';
 import { useSaveSet } from '@/data/mutations';
 import { useFinishWorkout, useReopenWorkout } from '@/data/sessions';
+import type { ClaimOutcome } from '@/domain/coin-claims';
 import { libraryMuscleFor } from '@/domain/exercise-library';
 import { buildSetRow, decideSetSave, type SetInput, type SetVerdict } from '@/domain/set-save';
 import type { WorkoutRow } from '@/domain/summary';
@@ -45,6 +47,31 @@ export function useLabActivationStep(
   const mode = useLabDataMode();
   const [step, opts] = args;
   useActivationStep(step, mode === 'mock' ? { ...(opts ?? {}), ready: false } : opts ?? {});
+}
+
+/** The retroactive starting bonus fires from a MOUNT effect on Home, so it
+ *  is in the same class as useActivationStep: the banner's "heed the
+ *  un-shimmed writes" rule cannot cover a write the developer never asked
+ *  for. Un-shimmed, merely OPENING the Home variant inserts a coin_events
+ *  row under whatever session sits underneath the fake one.
+ *
+ *  The mock answers what the server already would: the lab wallet
+ *  (LAB_COIN_TOTAL) includes every bonus the fixture athlete is owed, so
+ *  every kind comes back 'duplicate' — which the coins doctrine absorbs
+ *  silently, no toast, no invalidation, no network. A variant that wants a
+ *  claim to LAND has to teach this shim what landing means; inventing an
+ *  amount here would contradict the 013 guard, which recomputes it. */
+export function useLabClaimCoin(): ReturnType<typeof useClaimCoin> {
+  const real = useClaimCoin();
+  const mode = useLabDataMode();
+
+  const mock = useMutation({
+    mutationFn: async (_claim: { kind: CoinKind; sourceId: string }): Promise<ClaimOutcome> => ({
+      outcome: 'duplicate',
+    }),
+  });
+
+  return mode === 'mock' ? mock : real;
 }
 
 export function useLabSaveSet(): ReturnType<typeof useSaveSet> {

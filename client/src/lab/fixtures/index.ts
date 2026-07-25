@@ -8,12 +8,22 @@ import { todayIso } from '../../domain/today';
 import { LAB_USER_ID } from '../lab-user';
 import {
   LAB_BODYFAT_SERIES,
+  LAB_CHARACTER_UNLOCKS,
   LAB_COIN_TOTAL,
   LAB_FORGE,
   LAB_ORIGIN,
   LAB_PHYSIQUE,
   LAB_PROFILE,
+  LAB_SKIN_UNLOCKS,
+  labEvoRating,
+  labPendingEvoEvidence,
 } from './athlete';
+import {
+  LAB_BOARD_METRIC,
+  LAB_BOARD_ROWS,
+  LAB_LEADERBOARD,
+  LAB_PUBLIC_IDENTITY,
+} from './social';
 import {
   LAB_EXERCISE_PREFS,
   LAB_PLAN_SOURCE_PREF,
@@ -30,7 +40,8 @@ import {
 } from './training';
 
 /**
- * Seed the mock QueryClient at every key the Train and Workout screens read.
+ * Seed the mock QueryClient at every key the Home, Train and Workout screens
+ * read.
  * Keys mirror the hooks exactly: [name, LAB_USER_ID] — the fake session makes
  * every hook compute userId = LAB_USER_ID, so they hit these entries and
  * (staleTime: Infinity) never fire a queryFn. An UNSEEDED key still fetches
@@ -70,6 +81,20 @@ export function seedLabCache(queryClient: QueryClient): void {
   seed('user_progression', LAB_FORGE);
   seed('coin_total', LAB_COIN_TOTAL);
   seed('origin_status', LAB_ORIGIN);
+  // HOME's own surfaces: the EVO CORE card + radar (evo rating), the hero's
+  // display identity (cosmetic unlocks) and the leaderboard teaser.
+  seed('evo_rating_current', labEvoRating(today));
+  seed('pending_evo_evidence', labPendingEvoEvidence(today));
+  seed('user_skin_unlocks', LAB_SKIN_UNLOCKS);
+  seed('user_character_unlocks', LAB_CHARACTER_UNLOCKS);
+  seed('public_profile', LAB_PUBLIC_IDENTITY);
+
+  // Keys carrying params BEYOND the user id cannot use `seed` — plant them
+  // in full, and keep LAB_SEEDED_PARAM_KEYS below in step.
+  queryClient.setQueryData(
+    ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
+    LAB_LEADERBOARD
+  );
 }
 
 /** The contract the registry test pins: every key here must be planted by
@@ -93,4 +118,17 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
   'user_progression',
   'coin_total',
   'origin_status',
+  'evo_rating_current',
+  'pending_evo_evidence',
+  'user_skin_unlocks',
+  'user_character_unlocks',
+  'public_profile',
+];
+
+/** The other half of the contract: keys whose query params sit past the user
+ *  id, listed in FULL because [name, LAB_USER_ID] cannot express them. The
+ *  leaderboard's metric and row count are part of its key — seeding
+ *  ['leaderboard_metric', user] would plant an entry nothing ever reads. */
+export const LAB_SEEDED_PARAM_KEYS: readonly (readonly unknown[])[] = [
+  ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
 ];

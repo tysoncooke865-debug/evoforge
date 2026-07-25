@@ -13,7 +13,9 @@ import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
 import { todayIso } from '../../domain/today';
-import { LAB_SEEDED_KEYS, seedLabCache } from '../fixtures';
+import { LAB_SEEDED_KEYS, LAB_SEEDED_PARAM_KEYS, seedLabCache } from '../fixtures';
+import { labEvoRating } from '../fixtures/athlete';
+import { LAB_LEADERBOARD } from '../fixtures/social';
 import { labSessionMarkers, labWorkoutLog } from '../fixtures/training';
 import { LAB_USER_ID } from '../lab-user';
 import { labWorkoutHref } from '../links';
@@ -47,6 +49,37 @@ describe('seedLabCache', () => {
     for (const name of LAB_SEEDED_KEYS) {
       expect(qc.getQueryData([name, LAB_USER_ID]), name).not.toBeUndefined();
     }
+  });
+
+  it('plants the param-carrying keys in full', () => {
+    const qc = new QueryClient();
+    seedLabCache(qc);
+    for (const key of LAB_SEEDED_PARAM_KEYS) {
+      // A near-miss (right name, wrong metric or row count) is the failure
+      // this catches: the hook would silently fetch instead.
+      expect(qc.getQueryData([...key]), JSON.stringify(key)).not.toBeUndefined();
+    }
+  });
+});
+
+describe('lab home fixtures', () => {
+  const today = todayIso();
+
+  it('the evo review countdown stays ahead of today (a stale one reads REVIEW READY)', () => {
+    const row = labEvoRating(today);
+    const next = Date.parse(String(row.next_review_at));
+    const todayStart = Date.parse(`${today}T00:00:00Z`);
+    expect(next).toBeGreaterThan(todayStart);
+    expect(Date.parse(String(row.last_review_at))).toBeLessThan(todayStart);
+  });
+
+  it('the seeded board is numbered in the order it is rendered', () => {
+    // rank_position is the RPC's server-side window numbering; rankByMetric
+    // prefers it over array order, so a fixture that disagrees would paint a
+    // board whose numbers jump.
+    LAB_LEADERBOARD.forEach((row, i) => {
+      expect(row.rank_position, String(row.display_name)).toBe(i + 1);
+    });
   });
 });
 
