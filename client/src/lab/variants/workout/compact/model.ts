@@ -1,9 +1,3 @@
-// Relative imports on purpose: this module is pure (no React, no RN) so the
-// vitest suite can pin it without dragging the component graph into node —
-// the same convention domain/ modules follow.
-import type { LastPerformance } from '../../../../domain/last-performance';
-import { displayWeight, type WeightUnit } from '../../../../domain/units';
-
 /**
  * COMPACT variant — the pure decisions behind the redesigned card.
  *
@@ -36,20 +30,6 @@ export function logButtonState(
   if (loggedSetNos.includes(setNo)) return 'logged';
   if (isNextExercise && activeSetNo(loggedSetNos, targetSets) === setNo) return 'next';
   return 'idle';
-}
-
-const LAST_SEGMENT_CAP = 4;
-
-/** 'LAST · 14 KG × 12 · 14 KG × 10' from the most recent prior session.
- *  Weights arrive in kg (LastPerformance contract) and are painted in the
- *  exercise's unit lens. Capped so a 10-set history cannot blow the row. */
-export function lastSummary(last: LastPerformance | null, unit: WeightUnit): string | null {
-  if (!last || last.sets.length === 0) return null;
-  const segments = last.sets
-    .slice(0, LAST_SEGMENT_CAP)
-    .map((s) => `${displayWeight(s.weight, unit).toUpperCase()} ${unit.toUpperCase()} × ${s.reps}`);
-  const suffix = last.sets.length > LAST_SEGMENT_CAP ? ' · …' : '';
-  return segments.join(' · ') + suffix;
 }
 
 /** '01', '02', … — the two-digit exercise badge (1-based position). */

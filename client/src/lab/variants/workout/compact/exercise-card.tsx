@@ -255,7 +255,6 @@ export function CompactExerciseCard({
         <TargetLastRows
           exercise={exercise}
           scheme={scheme}
-          last={last}
           unit={unit}
           onToggleUnit={() => setExerciseUnit.mutate({ exercise, unit: unit === 'kg' ? 'lb' : 'kg' })}
         />
