@@ -319,14 +319,60 @@ Owner: Tyson. He works through other Claude sessions too — **always
     expo-router (`build/useScreens.js` destructures it onto the screen props), and
     a dynamic `import('@/…')` is an established pattern here (`auth-context.tsx`,
     `data/origin.ts`), so the alias resolves inside `lazy()`.
+  - **THE EIGHTH PASS WAS THE SENTINEL REVIEW, AND IT FOUND THE FLATTERING
+    NUMBER HAD MOVED INTO THE INSTRUCTIONS (2026-07-26).** No code defect: the
+    whole diff was re-read against the seven entries above and it is COMPLETE and
+    self-consistent — the `tabPress` listener, both mission-card doors, the
+    `handoff_door` stamp, the device pair on BOTH spans, `isHomeHandoff`,
+    `startActivationSpanOnce`, the busy ENTER THE FORGE, the lazy sheet and its
+    `adhoc-loading` fallback are all present, so **the "worktree reverted the
+    edits twice" warning above did NOT cost the commit anything**. The lazy
+    sheet's props were checked against `buildCorpus`'s signature (every field
+    optional) and against `today.tsx`'s locals — it type-checks by inspection.
+    The wiring tests were checked against the vitest environment: config sets no
+    `environment`, so it is **node**, where there is no `window` and no
+    `navigator.maxTouchPoints` — which is what makes the `device_class ===
+    'unknown'` assertions correct. **Under jsdom they would go red**, because
+    jsdom defines `maxTouchPoints = 0` and no `matchMedia`, so `deviceClass`
+    would read `desktop`. Worth knowing before anyone sets an environment.
+  - **WHAT IT DID FIND: the doc told the next reader to draw this work order's
+    central conclusion from a number that stops too early.** The re-measure
+    section said "if you want the wait those athletes actually sat through,
+    `ms_to_mount` on step 1 is the number you have" — and `ms_to_mount` stops at
+    Home's MOUNT, with the mission card still a skeleton, because the four
+    queries behind its one dominant CTA have not settled. The span that closes at
+    that CTA is `ms_home_to_interactive`, which rides `train_opened`, **which this
+    cohort never emits** — so for the five athletes the work order is about,
+    `useHomeInteractive` measures Home's real TTI on their device and then
+    THROWS IT AWAY. The doc's own "what this does not do" list already said that;
+    the re-measure section contradicted it, and the re-measure section is the one
+    somebody acts on. Both now agree. **This is the house failure mode in its
+    eighth costume** — a flattering number that looks like evidence — except it
+    had stopped being in the code and started being in the instructions.
+  - **NOT CLOSED, AND THE REASON IS THE FENCE, NOT AN OVERSIGHT.** `home_reached`
+    must keep firing at MOUNT (an athlete who lands and quits has to be counted —
+    that IS the population), so it cannot carry a number that is not known yet; a
+    second row breaks the four-rows-per-athlete bound; and the only other event
+    this cohort emits is `workout_opened`, the workout page, outside the three
+    screens WO-006 is fenced to. Same answer as START MISSION, and it wants the
+    same founder vote. **Deliberately not fixed by widening.**
+  - **"GATES STILL NOT RUN" IS NOW FALSIFIED RATHER THAN ASSUMED.** Directly
+    tested this pass: `node --version` succeeds (v24.18.0); `node <script.mjs>`,
+    `node -e`, `npm` and `npx` are ALL refused by the runner, and
+    `client/node_modules` does not exist. Node 24 strips TS types natively, so
+    `domain/activation-tti.ts` could have been falsified by hand if a script were
+    runnable — it is not. **Nothing in this whole WO-006 entry has been executed.**
+  - **NOT DONE, and it is a testing requirement of the order:** the regression
+    pass on Onboarding / Home / Train. It needs a browser and an install, neither
+    of which exists here. HANDOVER §5 plus the tour list above is the whole of it.
   - Files: `domain/activation-tti.ts` (+test), `data/activation.ts` (+test),
     `app/onboarding.tsx`, `ui/origin/origin-flow.tsx`, `(main)/index.tsx`,
     `(main)/today.tsx`, `(main)/_layout.tsx`, `ui/home/mission-card.tsx`,
     **`ui/train/quick-workout-sheet.tsx` (new)**, `docs/ACTIVATION_ANALYTICS.md`
     (props table, the stopwatch section, the Home hand-off rule, the device-split
     section, the Train-chunk note, the door table, the re-measure percentile
-    query + the by-device query + the funnel-by-device query, and what it is
-    pointed at).
+    query + the by-device query + the funnel-by-device query, what it is
+    pointed at, and — eighth pass — what `ms_to_mount` does NOT mean).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

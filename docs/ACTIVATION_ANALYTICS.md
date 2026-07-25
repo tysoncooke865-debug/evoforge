@@ -534,10 +534,29 @@ schedule (that is what killed the rest-day hypothesis), so Home renders the
 which opens `/workout` directly. Neither mission-card Train door is even rendered
 for that athlete. The expected shape of their ladder is therefore step 1 → step 3
 with no `train_opened` row at all, and `max(index)` counts them at step 3
-correctly. If you want the wait those athletes actually sat through, `ms_to_mount`
-on step 1 is the number you have; step 3 carries no span (see the last section),
-and putting one there means touching the workout page, which is outside WO-006's
-scope fence.
+correctly.
+
+**The number you have for them is `ms_to_mount` on step 1, and it is NOT the wait
+they sat through.** Read it as what it measures: it stops at Home's **mount** —
+the tap, the profile refetch `onboarding.tsx` awaits, the shell and Home chunks,
+the first render. At that instant the mission card is still a SKELETON, because
+the four queries behind the one dominant CTA (`schedule`, `sessions`, `workouts`,
+`plansLoading` — `(main)/index.tsx`) have not settled. The span that closes when
+that CTA becomes real is `ms_home_to_interactive`, and it rides `train_opened` —
+which this cohort never emits. So for them that measurement is taken on their
+device, parked in memory, and **discarded**.
+
+Reading `ms_to_mount` as Home's time-to-interactive therefore understates it by
+exactly the part a mid-range phone on mobile data is slowest at: its first round
+trips. That is the flattering-number failure this whole section exists to
+prevent — the same shape as the focus-stamped span, `isHomeHandoff` and the
+double-tapped stopwatch — so it is written down here rather than left for
+whoever reads the funnel to walk into. It is not closable inside this work
+order's fence: `home_reached` must keep firing at MOUNT (an athlete who lands and
+quits has to be counted, and they are the population in question), a second row
+would break the four-rows-per-athlete bound, and the only other event this cohort
+emits is `workout_opened` — the workout page, outside the fence. Step 3 carries
+no span for the same reason (see the last section).
 
 Neither chunk change has been measured on a real mid-range phone yet — that is
 the outstanding half of WO-006, and it needs a device, not a desktop browser.
@@ -562,8 +581,11 @@ Unchanged from `analytics.ts` / `ORIGIN_ANALYTICS.md`:
 - **It says nothing about pre-2026-07-25 athletes**, who never ran this code.
   Roughly two weeks of new signups are needed before the funnel is worth reading
   — at the current rate, about nine athletes a week.
-- **It cannot see Home's TTI for an athlete who never opened Train** (see the
-  stopwatch section — that number rides `train_opened`).
+- **It cannot see Home's TTI for an athlete who never opened Train.** The number
+  rides `train_opened`, so for a step-1-only athlete `useHomeInteractive` measures
+  it and then throws it away. **`ms_to_mount` is not a substitute** — it stops at
+  mount, with the mission card still a skeleton (see "A small `train_opened` count
+  is not evidence" above for why, and why it does not close inside this fence).
 - **It does not measure the workout page or the first set.** Steps 3 and 4 carry
   no span. They were not the hand-off the drop-off points at, and every prop
   added here is a prop somebody has to keep honest. **Stated plainly because it
