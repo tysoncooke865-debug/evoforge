@@ -12,6 +12,7 @@ import {
 import {
   deviceClass,
   deviceTier,
+  interactiveOutcome,
   interactiveSpanMs,
   reportedTrainDoor,
   type DeviceClass,
@@ -384,14 +385,24 @@ export async function clearActivationMarks(): Promise<void> {
  * Record the moment a screen became INTERACTIVE, once per mount, so a later
  * step event can carry it. Used by Home, which has no event of its own at the
  * moment its mission card stops loading.
+ *
+ * `failed` is the screen's ERROR state, and passing it is not optional
+ * bookkeeping: a mission card whose queries gave up stops "loading" like any
+ * other, so without it the span closes on a RETRY card and reports a broken
+ * Home as a fast one. The rule — including why an error is final for the mount
+ * rather than something to wait out — is
+ * `domain/activation-tti.ts::interactiveOutcome`. A refused mount parks
+ * nothing, so `readActivationSpan` reports null, which is the truth.
  */
-export function useHomeInteractive(interactive: boolean): void {
-  const noted = useRef(false);
+export function useHomeInteractive(interactive: boolean, failed = false): void {
+  const settled = useRef(false);
   useEffect(() => {
-    if (noted.current || !interactive) return;
-    noted.current = true;
-    noteActivationSpan(HOME_INTERACTIVE, ACTIVATION_SPAN.home);
-  }, [interactive]);
+    if (settled.current) return;
+    const outcome = interactiveOutcome({ interactive, failed });
+    if (outcome === 'pending') return;
+    settled.current = true;
+    if (outcome === 'measure') noteActivationSpan(HOME_INTERACTIVE, ACTIVATION_SPAN.home);
+  }, [interactive, failed]);
 }
 
 /**

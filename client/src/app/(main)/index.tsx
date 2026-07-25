@@ -200,7 +200,17 @@ export default function HomeScreen() {
   // rather than emitted: `home_reached` has already fired by now, ON PURPOSE
   // (it fires at mount so an athlete who lands here and quits is still
   // counted), so the number rides the next step instead of costing a fifth row.
-  useHomeInteractive(!missionLoading);
+  //
+  // THE ERROR STATE IS NOT AN INTERACTIVE STATE. `missionLoading` goes false
+  // when these queries FAIL as surely as when they succeed, and what renders
+  // then is the RETRY card below — so passing the loading flag alone timed a
+  // Home that never became usable and called it fast, on exactly the bad
+  // connection this work order is about. Refused instead, permanently for this
+  // mount (domain/activation-tti.ts::interactiveOutcome): waiting for a retry
+  // that needs a TAP would fold the athlete's own decision time into the span.
+  // `home_reached` is untouched by this — the ladder is the census, and it
+  // already counted them at mount.
+  useHomeInteractive(!missionLoading, missionError);
   const retryMission = () => {
     void schedule.refetch();
     void sessions.refetch();

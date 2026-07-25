@@ -218,6 +218,42 @@ export function deviceTier({ memoryGb }: DeviceInput): DeviceTier {
   return 'mid';
 }
 
+/* ------------------------------------------------------------------------ */
+/* WHEN A SCREEN HAS ACTUALLY BECOME INTERACTIVE                             */
+/* ------------------------------------------------------------------------ */
+
+export type InteractiveOutcome = 'pending' | 'measure' | 'refuse';
+
+/**
+ * Has the screen become interactive, is it still settling, or did it FAIL?
+ *
+ * A SCREEN THAT ERRORED NEVER BECAME INTERACTIVE. Home's mission card resolves
+ * to a loading skeleton, a real briefing, or a RETRY card, and the first cut of
+ * `useHomeInteractive` watched only the loading flag — so a Home whose queries
+ * gave up after their retries flipped "loading" off, and the stopwatch recorded
+ * the moment the ERROR appeared as the moment the athlete could act. A broken
+ * screen reporting a fast time-to-interactive is the flattering number this
+ * whole module exists to refuse, and it points the wrong way twice: the athlete
+ * whose queries fail is the one on the bad connection this work order is about.
+ *
+ * AND THE FAILURE IS FINAL FOR THAT MOUNT, which is the less obvious half.
+ * Simply waiting for the error to clear looks correct and is not: the RETRY card
+ * needs a TAP, so an athlete who eventually succeeds would have their own
+ * decision time folded into the span — the exact `ms_since_prev_step`
+ * conflation the stopwatch was built to undo. There is no honest number to be
+ * had after an error, so it refuses once rather than measuring late.
+ *
+ * `refuse` beats `interactive`: the two are true together the instant a query
+ * errors (an error is not pending), and the refusal has to win.
+ */
+export function interactiveOutcome(state: {
+  interactive: boolean;
+  failed: boolean;
+}): InteractiveOutcome {
+  if (state.failed) return 'refuse';
+  return state.interactive ? 'measure' : 'pending';
+}
+
 /**
  * The measured span in ms, or null when it cannot be trusted.
  *

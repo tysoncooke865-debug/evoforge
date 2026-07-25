@@ -164,7 +164,23 @@ the funnel already answers the question that matters — they stopped at step 1.
   `freeze`, because iOS PWAs suspend without the first);
 - ran backwards (a device clock correction);
 - exceeded **60 s**, the work order's own window — past that nothing was
-  blocking a thread, and a span of hours is a suspended tab.
+  blocking a thread, and a span of hours is a suspended tab;
+- **closed on a screen that ERRORED** (`ms_home_to_interactive` only) — see
+  below.
+
+**A screen that errored never became interactive.** Home's mission card resolves
+to a skeleton, a briefing, or a RETRY card, and `missionLoading`
+(`(main)/index.tsx`) goes false when its four queries GIVE UP exactly as it does
+when they succeed. Watching that flag alone timed the appearance of the error
+and filed it as time-to-interactive: **a broken Home reported as a fast one**,
+and reported by the athlete on the bad connection this work order is about — so
+the error ran the wrong way, as every one of these has. The failure is now final
+for that mount (`domain/activation-tti.ts::interactiveOutcome`) rather than
+something to wait out: the RETRY card needs a TAP, so measuring after a
+successful retry would fold the athlete's own decision time into the one span
+built to keep human time out of the number. `ms_home_to_interactive` is `null`
+for them. `home_reached` is untouched — the ladder is the census, and it counted
+them at mount.
 
 That second rule is the whole reason this is a module and not a subtraction. The
 nav-freeze beacon *was* the subtraction: ~1,250 rows, 74.5% of them in the

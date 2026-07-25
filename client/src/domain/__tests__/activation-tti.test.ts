@@ -6,6 +6,7 @@ import {
   TTI_CEILING_MS,
   deviceClass,
   deviceTier,
+  interactiveOutcome,
   interactiveSpanMs,
   isHomeHandoff,
   reportedTrainDoor,
@@ -190,6 +191,39 @@ describe('activation TTI — which door the hand-off came through', () => {
     // `none` is the ABSENCE bucket, so it must never also be a door — a door
     // that collided with it would make "never pressed" unreadable.
     expect((TRAIN_DOORS as readonly string[]).includes(NO_TRAIN_DOOR)).toBe(false);
+  });
+});
+
+describe('activation TTI — a screen that errored never became interactive', () => {
+  it('measures once the screen has settled', () => {
+    expect(interactiveOutcome({ interactive: true, failed: false })).toBe('measure');
+  });
+
+  it('waits while it is still settling', () => {
+    expect(interactiveOutcome({ interactive: false, failed: false })).toBe('pending');
+  });
+
+  it('REFUSES a screen whose queries failed, even though it stopped loading', () => {
+    // Home's `missionLoading` goes false when its four queries fail as surely as
+    // when they succeed, and what renders then is a RETRY card. Timing that and
+    // filing it as time-to-interactive reports a BROKEN Home as a fast one — the
+    // flattering number this module exists to refuse, aimed at the athlete on the
+    // bad connection the work order is about.
+    expect(interactiveOutcome({ interactive: true, failed: true })).toBe('refuse');
+    expect(interactiveOutcome({ interactive: false, failed: true })).toBe('refuse');
+  });
+
+  it('never reports `measure` for a failure, so a caller cannot park a number', () => {
+    // The refusal is FINAL for the mount, and this is the half that is easy to
+    // get wrong: waiting for the error to clear looks right, but the RETRY card
+    // needs a TAP, so a late measurement would fold the athlete's own decision
+    // time into a span built to keep human time out of the number. There is no
+    // honest reading available after an error — only null.
+    for (const interactive of [true, false]) {
+      expect(interactiveOutcome({ interactive, failed: true }), String(interactive)).not.toBe(
+        'measure'
+      );
+    }
   });
 });
 

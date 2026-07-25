@@ -120,6 +120,10 @@ Owner: Tyson. He works through other Claude sessions too — **always
     tapping the `adhoc-loading` card itself does NOT close the sheet, and that
     **ENTER THE FORGE spins and then lands** — throttle the network, tap it
     twice, and check production for exactly ONE `onboarding_completed` row.
+    **Ninth: kill the network so Home's mission card lands on its RETRY state,
+    then restore it, tap RETRY and open Train — `ms_home_to_interactive` on that
+    athlete's `train_opened` must be NULL, not a number.** A number there means
+    the error refusal did not ship.
   - **THE FIX THE MEASUREMENT NAMED: ≈246 KB OF EXERCISE LIBRARY LEAVES THE TRAIN
     CHUNK (2026-07-26, third pass).** `(main)/today.tsx` statically imported
     `@/data/exercise-corpus`, `@/domain/exercise-sections` and
@@ -356,12 +360,69 @@ Owner: Tyson. He works through other Claude sessions too — **always
     this cohort emits is `workout_opened`, the workout page, outside the three
     screens WO-006 is fenced to. Same answer as START MISSION, and it wants the
     same founder vote. **Deliberately not fixed by widening.**
+  - **THE NINTH PASS WAS A SECOND SENTINEL REVIEW, AND THE ONE THING IT FOUND
+    WAS A HOME THAT ERRORED REPORTING ITSELF AS FAST (2026-07-26).** The rest of
+    the diff was re-verified independently rather than taken from the entries
+    above and it holds (what was re-checked is listed below). The defect:
+    `useHomeInteractive(!missionLoading)` watched the LOADING flag only, and
+    `missionLoading` (`(main)/index.tsx`) goes false when its four queries GIVE
+    UP exactly as it does when they succeed — what renders then is the RETRY
+    card. So the stopwatch timed the appearance of an ERROR and filed it as
+    `ms_home_to_interactive`. **The error runs the wrong way, as every one of
+    these has**: the athlete whose queries fail is the athlete on the bad
+    connection this work order exists for, so the broken Homes were the ones
+    reporting the flattering numbers. Ninth costume of the house failure mode.
+    - **The failure is FINAL for the mount, and that is the half that is easy to
+      get wrong.** Simply waiting for the error to clear looks right and is not:
+      the RETRY card needs a TAP, so a late measurement folds the athlete's own
+      decision time into the ONE span built to keep human time out of the number
+      — the `ms_since_prev_step` conflation the stopwatch was built to undo.
+      There is no honest reading after an error, only `null`.
+    - New pure rule `activation-tti.ts::interactiveOutcome`
+      (`pending` · `measure` · `refuse`; refusal beats interactive, because an
+      error is not pending so both are true in the same render), +4 tests.
+      `useHomeInteractive(interactive, failed)` parks nothing on a refusal, so
+      `readActivationSpan` reports null by the existing path. **`home_reached`
+      is untouched** — the ladder is the census and it counted them at mount.
+    - Deliberately NOT extended to `train_opened`: gating step 2 on an error
+      would delete the athlete from the FUNNEL, not just from the stopwatch, and
+      the census outranks the measurement. Its cousin — a Train whose plan query
+      errored emitting `has_plan: false` / `day_kind: 'rest'`, indistinguishable
+      from a real empty state — is **found, not fixed**: it wants a new prop on
+      an event, which is what the last eight passes each talked themselves into.
+      Worth a vote, not a ninth quiet widening.
+  - **RE-VERIFIED INDEPENDENTLY THIS PASS (not read off the entries above):**
+    every importer of `exercise-library` / `-corpus` / `-sections` /
+    `-search-bar` / `-rank` / `-taxonomy` re-walked — `(main)/today.tsx` reaches
+    none of them, and `exercise-corpus.ts` / `exercises.ts` take `UserExercise`
+    as `import type`, which erases; `today.tsx` no longer references `ScrollView`
+    / `TextInput` / `buildCorpus` / `Routine` / `ExerciseSearchBar` anywhere, so
+    the trimmed import line leaves nothing dangling; `React.ReactNode` in the
+    moved sheet is a type-position UMD reference, which `today.tsx` itself
+    already relies on; `useIsFocused` from `expo-router` is used by six other
+    modules here; `NeonButton` really has a `busy` prop and it also disables;
+    `OriginFlow` has exactly ONE caller, so the never-cleared `finishing` latch
+    cannot strand a second one. The `train_opened` ordering was checked against
+    `shouldEmitActivationStep` — the ladder has no prerequisite, so the wiring
+    tests that emit step 2 without step 1 are valid.
+  - **THE LAZY SHEET'S RESIDUAL RISK, NAMED AND ACCEPTED.** `React.lazy` caches a
+    REJECTED import permanently, so a chunk fetch that fails once makes QUICK
+    WORKOUT throw to the route boundary for the rest of that session. The
+    boundary is real (`ui/core/route-error-boundary.tsx`, re-exported by
+    `(main)/_layout.tsx`, RETRY keeps the providers) and every tab already has
+    this exact shape, so it is not a new failure class. Left alone because the
+    only fix — retrying the `import()` — depends on whether Metro's async-require
+    evicts a failed chunk, and **no gate here can run to find out**; a guess
+    dressed as a guard is what this work order keeps deleting.
   - **"GATES STILL NOT RUN" IS NOW FALSIFIED RATHER THAN ASSUMED.** Directly
-    tested this pass: `node --version` succeeds (v24.18.0); `node <script.mjs>`,
-    `node -e`, `npm` and `npx` are ALL refused by the runner, and
-    `client/node_modules` does not exist. Node 24 strips TS types natively, so
-    `domain/activation-tti.ts` could have been falsified by hand if a script were
-    runnable — it is not. **Nothing in this whole WO-006 entry has been executed.**
+    tested on the eighth pass and **re-tested on the ninth**: `node --version`
+    succeeds (v24.18.0); `node -e`, `node <script.mjs>`, `npm` and `npx` are ALL
+    refused by the runner, and `client/node_modules` does not exist. Node 24
+    strips TS types natively, so `domain/activation-tti.ts` could have been
+    falsified by hand if a script were runnable — it is not. **Nothing in this
+    whole WO-006 entry has been executed.** The repo has no hook renderer either
+    (no `@testing-library`, no `renderHook`), which is why the ninth pass's rule
+    went into the PURE module and only its two-line wiring is unpinned.
   - **NOT DONE, and it is a testing requirement of the order:** the regression
     pass on Onboarding / Home / Train. It needs a browser and an install, neither
     of which exists here. HANDOVER §5 plus the tour list above is the whole of it.
@@ -372,7 +433,8 @@ Owner: Tyson. He works through other Claude sessions too — **always
     (props table, the stopwatch section, the Home hand-off rule, the device-split
     section, the Train-chunk note, the door table, the re-measure percentile
     query + the by-device query + the funnel-by-device query, what it is
-    pointed at, and — eighth pass — what `ms_to_mount` does NOT mean).
+    pointed at, eighth pass — what `ms_to_mount` does NOT mean, and ninth —
+    the errored-screen refusal in the rules list).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
