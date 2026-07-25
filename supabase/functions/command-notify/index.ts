@@ -25,6 +25,7 @@
  */
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { serveMonitored } from '../_shared/monitoring.ts'
 
 webpush.setVapidDetails(
   Deno.env.get('VAPID_SUBJECT') ?? 'mailto:tysoncooke865@gmail.com',
@@ -43,7 +44,7 @@ function secretsMatch(a: string, b: string) {
   return diff === 0
 }
 
-Deno.serve(async (req) => {
+serveMonitored('command-notify', async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405)
 
   const expected = Deno.env.get('CRON_SECRET') ?? ''

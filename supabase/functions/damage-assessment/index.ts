@@ -16,6 +16,7 @@
  */
 
 import { CORS_HEADERS, callOpenAiJson, json, sha256Hex } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { callerUserId, serviceClient } from '../_shared/battle/service.ts';
 
 function dataUriToBytes(uri: string): { bytes: Uint8Array; mime: string } | null {
@@ -41,7 +42,7 @@ async function blobToDataUri(blob: Blob): Promise<string> {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(bin)}`;
 }
 
-Deno.serve(async (req) => {
+serveMonitored('damage-assessment', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

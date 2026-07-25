@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/state/settings-store';
 import { useToastStore } from '@/state/toast-store';
 
 import { QUERY_CACHE_KEY } from './cache-keys';
+import { setMonitoringUser } from './monitoring';
 import { supabase } from './supabase';
 
 interface AuthState {
@@ -31,13 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
+  // WO-005: the crash reporter learns who this session belongs to here, and
+  // ONLY the user id — never the email, never the display name. It is what
+  // makes "an issue affecting more than one athlete" a countable thing, which
+  // is the founder-alert condition the vote approved.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setMonitoringUser(data.session?.user?.id ?? null);
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      setMonitoringUser(next?.user?.id ?? null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -49,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     queryClient.clear();
+    // The crash reporter's idea of "who" is a cache layer like any other, and
+    // this one would misattribute the next athlete's crash to the last one —
+    // corrupting the very count the founder alert fires on. onAuthStateChange
+    // clears it too; the doctrine says clear it HERE, so both do.
+    setMonitoringUser(null);
     void import('./set-queue').then(({ clearSetQueue }) => clearSetQueue().catch(() => undefined));
     // A pending FINISH belongs to the athlete who signed out (the
     // every-cache-layer doctrine — add a store, clear it here).

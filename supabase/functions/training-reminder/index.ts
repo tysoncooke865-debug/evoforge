@@ -19,6 +19,7 @@ import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 webpush.setVapidDetails(
   Deno.env.get('VAPID_SUBJECT') ?? 'mailto:tysoncooke865@gmail.com',
@@ -45,7 +46,7 @@ function bodyFor(d: Due): string {
   return 'Your next session is waiting.';
 }
 
-Deno.serve(async (req) => {
+serveMonitored('training-reminder', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

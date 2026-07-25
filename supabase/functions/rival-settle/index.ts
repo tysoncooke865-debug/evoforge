@@ -11,6 +11,7 @@
  */
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { serviceClient, callerUserId } from '../_shared/battle/service.ts';
 import { GLICKO_DEFAULT, glicko2Update, type GlickoRating } from '../_shared/rival/glicko2.ts';
 
@@ -18,7 +19,7 @@ const SEASON = 's1';
 const MODE = 'overall';
 const RULES_VERSION = '1.0.0';
 
-Deno.serve(async (req) => {
+serveMonitored('rival-settle', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
   const uid = await callerUserId(req);

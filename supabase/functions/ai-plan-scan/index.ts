@@ -18,6 +18,7 @@
  */
 
 import { CORS_HEADERS, FAST_MODEL, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 const MAX_IMAGES = 3;
 const MAX_TEXT = 4000;
@@ -91,7 +92,7 @@ function validateScan(data: Record<string, unknown>): { plan?: ScannedPlan; erro
   return { plan: { plan_name: planName, days } };
 }
 
-Deno.serve(async (req) => {
+serveMonitored('ai-plan-scan', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

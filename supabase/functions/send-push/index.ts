@@ -12,6 +12,7 @@ import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { callerUserId } from '../_shared/battle/service.ts';
 
 webpush.setVapidDetails(
@@ -28,7 +29,7 @@ const VERB: Record<string, string> = {
   pr_beaten: 'just destroyed your PR — reclaim your status',
 };
 
-Deno.serve(async (req) => {
+serveMonitored('send-push', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const actor = await callerUserId(req);

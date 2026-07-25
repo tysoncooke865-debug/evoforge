@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/data/auth-context';
 import { QUERY_CACHE_KEY } from '@/data/cache-keys';
+import { initMonitoring } from '@/data/monitoring';
 import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/version-guard';
 import { runningBuildId } from '@/domain/build-id';
 import { PIXEL_FONTS } from '@/theme/fonts';
@@ -72,7 +73,11 @@ export default function RootLayout() {
   // paints first and swaps in — a font must never block the app.
   useFonts(PIXEL_FONTS);
   // Stale-shell guard: one-shot per app instance (see data/version-guard.ts).
+  // Error monitoring goes FIRST so its global handlers are installed before
+  // anything else this effect starts can throw (WO-005). It is inert without
+  // EXPO_PUBLIC_SENTRY_DSN — see data/monitoring.ts for what it cannot catch.
   useEffect(() => {
+    initMonitoring();
     initVersionGuard();
     initNavFreezeBeacon();
     initSceneJanitor();

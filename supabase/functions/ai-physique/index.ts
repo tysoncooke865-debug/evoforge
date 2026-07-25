@@ -16,8 +16,9 @@ import {
   sha256Hex,
   storeCache,
 } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
-Deno.serve(async (req) => {
+serveMonitored('ai-physique', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

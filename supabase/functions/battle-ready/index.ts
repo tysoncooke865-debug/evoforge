@@ -6,12 +6,13 @@
  */
 
 import { CORS_HEADERS, json, sha256Hex } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { BATTLE_OBJECTS, ENGINE_VERSION, PICK_MINUTES, VOLUME_DUEL_MINUTES } from '../_shared/battle/engine.ts';
 import { callerUserId, participantsOf, serviceClient } from '../_shared/battle/service.ts';
 
 const BLITZ_STRENGTH_MINUTES = 12;
 
-Deno.serve(async (req) => {
+serveMonitored('battle-ready', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

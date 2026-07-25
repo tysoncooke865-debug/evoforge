@@ -23,6 +23,7 @@ import {
   sha256Hex,
   storeCache,
 } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 const MODEL_VERSION = '1.0.0';
 const ELIGIBLE_DAYS = 28;
@@ -34,7 +35,7 @@ const REGIONS = [
   'hamstrings', 'calves',
 ] as const;
 
-Deno.serve(async (req) => {
+serveMonitored('evo-scan', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
   const sb = callerClient(req);

@@ -17,6 +17,7 @@
  */
 
 import { CORS_HEADERS, callOpenAiJson, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { callerUserId } from '../_shared/battle/service.ts';
 import { matchFood, type Per100 } from './food-match.ts';
 
@@ -32,7 +33,7 @@ the stated state: a raw weight stays the raw weight (do not convert raw to
 cooked or vice versa), and your per-100g estimate must describe the SAME
 state as the name.`;
 
-Deno.serve(async (req) => {
+serveMonitored('meal-scan', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const userId = await callerUserId(req);

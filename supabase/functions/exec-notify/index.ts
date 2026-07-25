@@ -18,6 +18,7 @@ import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 webpush.setVapidDetails(
   Deno.env.get('VAPID_SUBJECT') ?? 'mailto:tysoncooke865@gmail.com',
@@ -35,7 +36,7 @@ function secretsMatch(a: string, b: string): boolean {
 
 const SEVERITY_RANK: Record<string, number> = { critical: 0, warning: 1, info: 2 };
 
-Deno.serve(async (req) => {
+serveMonitored('exec-notify', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

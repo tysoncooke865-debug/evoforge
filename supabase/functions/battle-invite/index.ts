@@ -6,6 +6,7 @@
  */
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import { callerUserId, cleanSnapshot, displayNameOf, serviceClient } from '../_shared/battle/service.ts';
 
 // No 0/O/1/I/L: codes get read aloud across a gym.
@@ -16,7 +17,7 @@ function mintCode(): string {
   return [...bytes].map((b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
 }
 
-Deno.serve(async (req) => {
+serveMonitored('battle-invite', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

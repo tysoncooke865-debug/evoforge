@@ -8,6 +8,7 @@
  */
 
 import { CORS_HEADERS, FAST_MODEL, callOpenAiJson, callerClient, cachedResult, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 // The six live training days — client/src/domain/catalogs.ts ROUTINE_ORDER
 // minus Rest. If the catalog ever changes these change with it (goldens pin
@@ -65,7 +66,7 @@ function validatePlan(data: Record<string, unknown>): { plan?: { plan_name: stri
   return { plan: { plan_name: planName, rationale: String(data.rationale ?? '').slice(0, 300), days: cleanDays } };
 }
 
-Deno.serve(async (req) => {
+serveMonitored('ai-plan', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

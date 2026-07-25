@@ -12,6 +12,7 @@
  */
 
 import { CORS_HEADERS, callOpenAiJson, callerClient, json, rateLimited, sha256Hex, storeCache } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 
 const ACTIVITIES = ['sedentary', 'light', 'moderate', 'active', 'very'] as const;
 const GOALS = ['lose', 'maintain', 'gain'] as const;
@@ -115,7 +116,7 @@ function validateVerdict(data: Record<string, unknown>): { verdict?: Verdict; er
   return { error: `unknown verdict type: ${type}` };
 }
 
-Deno.serve(async (req) => {
+serveMonitored('ai-nutrition', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

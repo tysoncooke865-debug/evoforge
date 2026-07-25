@@ -12,6 +12,7 @@
  */
 
 import { CORS_HEADERS, json, sha256Hex } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import {
   BATTLE_POSES,
   CARDIO_CHALLENGES,
@@ -56,7 +57,7 @@ const toCardio = (r: EventRow): CardioEvent => ({
   serverTs: r.server_ts,
 });
 
-Deno.serve(async (req) => {
+serveMonitored('battle-settle', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 

@@ -26,6 +26,50 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ERROR MONITORING — WRITTEN, NOT ENABLED (2026-07-25, WO-005, no migration).
+  The one entry in this section that is NOT live; read
+  `docs/ERROR_MONITORING.md` before touching it.** The founders voted to adopt
+  Sentry after the 2026-07-21 incident: the watchdog (083/084) checks six rules
+  in SQL and is structurally blind to an exception nobody told it about, and
+  that incident was diagnosed 48 hours late by counting analytics rows. This
+  ships the exception itself — type, message, parsed stack, and the deploy that
+  produced it.
+  - **NO DEPENDENCY WAS ADDED.** The Sentry SDK could not be installed or built
+    in the environment this was implemented in, and an unbuilt package in a
+    bundle already named as the app's main problem (§7) is not a trade worth
+    making unverified. `client/src/domain/error-report.ts` speaks Sentry's
+    documented envelope protocol directly — real DSN, real grouping, real
+    releases, real user counts. **The cost is source maps: web frames arrive
+    minified** until a `sentry-cli` upload step joins CI (deploy work, out of
+    WO-005's scope).
+  - **RELEASE = THE DEPLOY, not a version string.** On web the release is the
+    hashed `entry-<hash>.js` this session is running (`domain/build-id.ts`),
+    the same identity the cache buster and the stale-shell guard already trust.
+    Edge functions carry `SENTRY_RELEASE`, set at deploy.
+  - **THE REPORTER IS BOUNDED BY CONSTRUCTION**, because the failure it watches
+    for is a SPIN LOOP and a reporter wired naively into one becomes the second
+    outage: one report per distinct defect (ids and counters normalised out, so
+    "request 41 failed" and "request 42 failed" are one defect), 5 per rolling
+    minute, 20 per session, 50 per edge isolate.
+  - **`serveMonitored` REPORTS AND RETHROWS.** All 21 edge functions are wrapped
+    and every status code, body and CORS header is unchanged — monitoring that
+    alters what it monitors is not monitoring.
+  - **THE FOUNDER ALERT RIDES THE EXISTING SPINE.** `sentry-watch` polls Sentry
+    (outbound — an inbound webhook cannot pass the edge gateway's JWT check,
+    the 086 lesson) for unresolved issues affecting **≥ 2 athletes** and opens
+    an `exec_alerts` row; `exec-notify` already turns those into one push.
+    **No schema change:** `kind` is free text and its partial-unique index gives
+    `sentry_issue:<shortId>` its own alert. Once per issue, ever — including
+    after a founder resolves it, or the alert comes back and people mute it.
+  - **PRIVACY: the athlete's user id and nothing else.** Set on sign-in, cleared
+    on sign-out with every other cache layer. Messages, tags and frame paths are
+    redacted for emails/JWTs/bearer tokens before they leave the device.
+  - **NOTHING BELOW WAS RUN.** The session that wrote this had no permission to
+    execute npm/tsc/lint/vitest/expo or to reach the database, so **tsc, lint,
+    the suite, the export and every live falsification are still owed** — the
+    checklist is `docs/ERROR_MONITORING.md` §4. Two new test files (28 + 7
+    cases) exist and have never been executed. Treat this as reviewed code, not
+    as working software, until that list is green.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
@@ -2705,8 +2749,11 @@ grep the LIVE bundle for a marker string from the change. Two traps, both hit on
   Budgets are **ratchets** under the measured build: raise them when the
   build clears them, **never lower one to make a red run green**. The next
   big step remains native builds.
-- **Deferred deliberately:** Sentry/PostHog (they earn their weight on native, and
-  the bundle is already the problem), push notifications (need a native build).
+- **Deferred deliberately:** PostHog (it earns its weight on native, and the
+  bundle is already the problem). **Sentry is no longer deferred** — the
+  founders voted it in (WO-005) after the 2026-07-21 incident; it is written,
+  it adds no dependency for exactly the bundle reason above, and it is not yet
+  enabled (§2, `docs/ERROR_MONITORING.md`).
 - **Asked for, not built:** a strength percentile vs population ("top x% of
   lifters").
 - The picker's muscle subgroups are exactly the 17 tags that EXIST. Obliques /

@@ -20,6 +20,7 @@
  */
 
 import { CORS_HEADERS, json } from '../_shared/ai.ts';
+import { serveMonitored } from '../_shared/monitoring.ts';
 import {
   ENGINE_VERSION,
   HEADS_OR_TAILS_MINUTES,
@@ -31,7 +32,7 @@ import { callerUserId, participantsOf, serviceClient } from '../_shared/battle/s
 const randomOf = <T>(items: readonly T[]): T =>
   items[crypto.getRandomValues(new Uint8Array(1))[0] % items.length];
 
-Deno.serve(async (req) => {
+serveMonitored('battle-pick', async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
 
