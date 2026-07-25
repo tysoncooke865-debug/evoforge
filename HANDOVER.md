@@ -26,8 +26,9 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
-- **THE POST-ONBOARDING HAND-OFF: A STOPWATCH, AND A FUNNEL BUG THAT WOULD HAVE
-  HIDDEN THE ANSWER (2026-07-25, WO-006, no migration).** The post-Origin cohort
+- **THE POST-ONBOARDING HAND-OFF: A STOPWATCH, A FUNNEL BUG THAT WOULD HAVE
+  HIDDEN THE ANSWER, AND 208 KB OFF THE TRAIN CHUNK (2026-07-25 / 07-26, WO-006,
+  no migration).** The post-Origin cohort
   is 10 profiled → 8 origin-bound → 3 who logged a set; the five lost between
   binding an origin and logging a rep are the whole growth problem. The approved
   work was "instrument, then fix the first 60 seconds".
@@ -78,23 +79,75 @@ Owner: Tyson. He works through other Claude sessions too — **always
     `requestIdleCallback` on a thread still rendering Home fires at its 4 s
     timeout, i.e. exactly while a new athlete is deciding whether to tap Train.
     Only one of the five is on the measured path. Every tab still ends up warm.
-  - **GATES NOT RUN — this runner has no `npm`/`npx`/`node -e`.** tsc, lint,
-    vitest, the verify scripts, `expo export` and the Playwright tour were all
-    unavailable, so nothing here is falsified at the surface. **Run HANDOVER §5
-    before trusting it**, and drive a throwaway production account through
-    onboarding → Home → Train to confirm `ms_to_interactive` lands non-null and
-    that `train_opened` does NOT appear for an athlete who only sits on Home.
-  - **FOUND, NOT FIXED (would need the gates):** `today.tsx` statically imports
-    `@/data/exercise-corpus` and `ui/train/exercise-search-bar.tsx` does too, so
-    the whole ~1,109-entry `EXERCISE_LIBRARY` rides the TRAIN route chunk — the
-    chunk the preload fetches first — for a QUICK WORKOUT sheet behind two taps.
-    The 2026-07-23 perf pass deliberately kept that library out of the boot
-    chunk; it is back in the hand-off's critical path by a different door.
-    Splitting it is a bundle change that must not ship unmeasured.
+  - **THE HOME STOPWATCH WAS STARTED ON A TAP THAT DOES NOT ALWAYS LEAD HOME
+    (2026-07-26, second pass).** Act I step 6 offers **BUILD MY OWN** and **SCAN
+    MY PLAN**, and `onboarding.tsx` sends both to `/routine`. The stamp lived in
+    `origin-flow.tsx::finish`, which cannot see the destination, so for that
+    cohort `ms_to_mount` (and `ms_home_to_interactive`, which shares the span)
+    measured **the athlete building a plan** and filed it as app time — under 60 s
+    it is indistinguishable from a Home that spun, which is the exact
+    `ms_since_prev_step` conflation the stopwatch was built to undo. With ten
+    athletes in the cohort one such row moves the percentile. The stamp moved to
+    `onboarding.tsx`'s `onComplete` (same tick, so the awaited profile refetch is
+    still inside the measurement) behind the new pure
+    `activation-tti.ts::isHomeHandoff`; the builder/scan cohort now reports
+    `null`, which the re-measure query's `count(prop)` column shows. The
+    destination ternary was duplicated between the redirect and the navigation —
+    now ONE `afterOnboardingHref`, because the stopwatch and the redirect have to
+    agree. +4 tests.
+  - **GATES STILL NOT RUN (2026-07-26) — the runner allows `node --version` and
+    nothing else executable: `npm`, `npx` and `node <script>` are all refused, and
+    `client/node_modules` is not installed.** tsc, lint, vitest, the verify
+    scripts, `expo export` and the Playwright tour (`client/.claude/skills/verify`)
+    were all unavailable across BOTH passes, so nothing in this entry is falsified
+    at the surface. **Run HANDOVER §5 before trusting it**, and drive a throwaway
+    production account through onboarding → Home → Train to confirm
+    `ms_to_interactive` lands non-null, that `train_opened` does NOT appear for an
+    athlete who only sits on Home, and that BUILD MY OWN still lands in the
+    builder while a plain finish still lands on Home.
+  - **THE FIX THE MEASUREMENT NAMED: ≈246 KB OF EXERCISE LIBRARY LEAVES THE TRAIN
+    CHUNK (2026-07-26, third pass).** `(main)/today.tsx` statically imported
+    `@/data/exercise-corpus`, `@/domain/exercise-sections` and
+    `ui/train/exercise-search-bar.tsx`, and every one of them was reached ONLY
+    from the QUICK WORKOUT sheet — a modal two taps away, opened by an athlete who
+    has decided NOT to train their plan. The static closure is **251,762 B of
+    TypeScript source** (`exercise-library-imported` 164,637 · `exercise-library`
+    48,677 · `exercise-rank` 10,512 · `exercise-taxonomy` 8,447 ·
+    `exercise-search-bar` 8,024 · `exercise-sections` 4,884 · `exercise-history`
+    3,409 · `exercise-corpus` 3,172), sitting in the first chunk the two-wave
+    preload fetches and in the middle of the span `ms_to_interactive` measures.
+    The 2026-07-23 perf pass deliberately kept that library out of the BOOT chunk;
+    it was back on the hand-off's critical path through a different door.
+    Fix: the sheet moved verbatim (props, behaviour, every testID) to
+    `ui/train/quick-workout-sheet.tsx` and renders through `React.lazy` inside the
+    existing `{emptyOpen ? … : null}`, so **the chunk request is the tap**.
+    **NOT preloaded, on purpose** — the measured cohort all have a plan and a
+    schedule, so nobody reaches a set through this sheet, and warming it would put
+    the same bytes back beside the hand-off. `workout.tsx` and `routine.tsx` keep
+    the search bar on their own chunks — outside this work order, untouched.
+  - **THE SPLIT DISAGREEMENT, RECORDED RATHER THAN HIDDEN.** A parallel pass in
+    this same worktree wrote the finding up as *deliberately not fixed*, on the
+    grounds that ≈246 KB is SOURCE bytes rather than exported chunk bytes, that
+    this work order deploys on completion, and that a rejected chunk import
+    escapes to the route error boundary and takes Train with it. Two of those hold
+    and one does not: **every tab in this app is already an `import()`** (app.json
+    → expo-router `asyncRoutes.web`), behind the same `(main)/_layout.tsx` error
+    boundary, which auto-reloads once on a chunk-load failure — so this adds no
+    failure mode the shell does not already have six of. It was shipped because
+    **CI gates the deploy** (`deploy: needs: [client, fixtures]` — tsc, lint,
+    `vitest run src/domain`, the verify scripts and `expo export` all run first),
+    so the unverifiable residue is runtime-only, and because the work order's
+    second half is *fix what the measurement names*. **What CI still cannot see:
+    that the sheet opens.** Click `start-empty` on Train first thing.
+  - **`adhoc-loading` is new** — the Suspense fallback: the same scrim, dismissed
+    the same way, so a first tap on mobile data reads as OPENING rather than as a
+    dead button. Never seen once the chunk is cached.
   - Files: `domain/activation-tti.ts` (+test), `data/activation.ts` (+test),
-    `ui/origin/origin-flow.tsx`, `(main)/index.tsx`, `(main)/today.tsx`,
-    `(main)/_layout.tsx`, `docs/ACTIVATION_ANALYTICS.md` (props table, the
-    stopwatch section, the re-measure percentile query).
+    `app/onboarding.tsx`, `ui/origin/origin-flow.tsx`, `(main)/index.tsx`,
+    `(main)/today.tsx`, `(main)/_layout.tsx`, **`ui/train/quick-workout-sheet.tsx`
+    (new)**, `docs/ACTIVATION_ANALYTICS.md` (props table, the stopwatch section,
+    the Home hand-off rule, the Train-chunk note, the re-measure percentile query
+    and what it is pointed at).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

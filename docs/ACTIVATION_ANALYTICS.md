@@ -75,10 +75,27 @@ separate them, on the same events, with no new event name and no extra rows.
 | `ms_to_interactive` | `train_opened` | the Train TAB PRESS → Train's plan queries settled |
 
 The first two share a start deliberately: it is the moment the athlete finished
-onboarding (`origin-flow.tsx::finish`, where `onboarding_completed` is emitted),
-not the moment a React component happened to mount — the profile refetch that
-`onboarding.tsx` must await before it can navigate is part of what the athlete
-sits through, and hiding it would be measuring our own convenience.
+onboarding — the same tick `origin-flow.tsx::finish` emits `onboarding_completed`,
+stamped by `onboarding.tsx`'s `onComplete` — not the moment a React component
+happened to mount. The profile refetch that `onboarding.tsx` must await before it
+can navigate is part of what the athlete sits through, and hiding it would be
+measuring our own convenience.
+
+### …and only when onboarding hands off to HOME
+
+Act I step 6 offers **BUILD MY OWN** and **SCAN MY PLAN**, and those athletes were
+promised the routine builder, so that is where the tap sends them. `home_reached`
+then fires whenever they eventually reach Home — however many minutes of building
+a plan later. The first cut of this stopwatch stamped the span in
+`origin-flow.tsx::finish`, which cannot see the destination, so for that cohort
+`ms_to_mount` recorded **plan-building time as app time**: precisely the
+`ms_since_prev_step` conflation this whole section exists to undo, and invisibly,
+because a builder who finished in forty seconds looks identical to a Home that
+spun for forty. With a cohort of ten, one such row moves the percentile.
+
+The stamp is now guarded by `domain/activation-tti.ts::isHomeHandoff`, so those
+athletes report `null` — unknown, which is true. The `count(prop)` column in the
+re-measure query is what shows it, rather than a number that looks like evidence.
 
 Home's interactive span rides `train_opened` rather than its own event because
 `home_reached` has already fired by then, **on purpose**: it fires at mount so an
@@ -91,7 +108,8 @@ the funnel already answers the question that matters — they stopped at step 1.
 **Rules, pure and tested in `domain/activation-tti.ts`.** A span is reported as
 `null`, never as a number, when it:
 
-- was never stamped (a cold boot, a deep link) — unknown is not instant;
+- was never stamped (a cold boot, a deep link, or an onboarding tap that led to
+  the routine builder rather than Home) — unknown is not instant;
 - **touched a hidden document at any point** (`visibilitychange` + `pagehide` +
   `freeze`, because iOS PWAs suspend without the first);
 - ran backwards (a device clock correction);
@@ -125,6 +143,21 @@ cold boot straight into Train, the mid-workout resume redirect — stamps nothin
 so `ms_to_interactive` is `null`. That is the honest answer rather than a
 flattering one; a `0` there would drag the fleet average toward "we are fast".
 Pinned by a test.
+
+**What `ms_to_interactive` is expected to contain, so a high p90 can be read
+rather than guessed at.** The Train route chunk currently carries the whole
+~1,109-entry `EXERCISE_LIBRARY`, because `(main)/today.tsx` statically imports
+`@/data/exercise-corpus` and `ui/train/exercise-search-bar.tsx` — both reached
+only from the QUICK WORKOUT sheet, which is two taps away and usually never
+opened. That is **≈246 KB of TypeScript source** (`exercise-library-imported`
+164.6 KB · `exercise-library` 48.7 KB · `exercise-rank` 10.5 KB ·
+`exercise-taxonomy` 8.4 KB · `exercise-search-bar` 8.0 KB · `exercise-sections`
+4.9 KB · `exercise-history` 3.4 KB · `exercise-corpus` 3.2 KB) sitting in the
+first chunk the two-wave preload fetches. The 2026-07-23 perf pass deliberately
+kept that library out of the BOOT chunk; it is back on the hand-off's critical
+path through a different door. Splitting it is the obvious next fix and is
+**deliberately not shipped yet** — it is a bundle change, and no export has been
+run to measure it (see HANDOVER).
 
 ### `train_opened` also requires FOCUS
 
@@ -228,6 +261,36 @@ Because `max(index)` is a high-water mark, a deep link straight into a workout
 counts as having reached Train too. That is intended: the funnel measures how far
 an athlete got, not which doors they touched. `ms_since_prev_step` is measured
 from the latest mark for the same reason.
+
+### What `ms_to_interactive` is pointed at (2026-07-26)
+
+The stopwatch exists to judge a specific claim, and the claim is about the Train
+route chunk. Two changes have been made to it, both inside the span it measures:
+
+| shipped | change |
+|---|---|
+| 2026-07-25 | the idle tab preload warms **Train alone** in the first wave; the other four tabs ride a second, chained pass |
+| 2026-07-26 | the QUICK WORKOUT sheet moved to `ui/train/quick-workout-sheet.tsx` and is fetched **on the tap**, taking `EXERCISE_LIBRARY` (~1,109 entries, ~208 KB of source) and the ranking engine off the Train chunk |
+
+So the re-measure is not one before/after but two. Split `created_at` on the
+deploy that carries the second row — read the timestamp off the Cloudflare
+deploy, not off the commit date, because CI gates it. Before that split the
+Train chunk contains the library; after it, it does not. **Only
+`>= 2026-07-25` rows are usable at all** (see the focus guard above).
+
+Compare `ms_to_interactive` across that split — it is the prop the chunk change
+moves. Do **not** read `ms_to_mount` across it: the `isHomeHandoff` guard landed
+in the same window and deliberately changed which athletes report that prop at
+all, so a shift there is a population change, not a speed change.
+
+Read `tti_measured` next to `athletes` first, every time. If the measured count
+collapses, the story is the refusal rules, not the app: the spans that survive
+are the ones from a tab that stayed visible for the whole hand-off, and a change
+that makes the hand-off longer gives a backgrounded tab more chance to poison it.
+A p50 that improves while `tti_measured` falls is not evidence of anything.
+
+Neither change has been measured on a real mid-range phone yet — that is the
+outstanding half of WO-006, and it needs a device, not a desktop browser.
 
 ## Inherited rules
 

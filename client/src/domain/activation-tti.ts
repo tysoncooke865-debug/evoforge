@@ -52,6 +52,36 @@ export interface SpanInput {
 }
 
 /**
+ * Does the tap that ends onboarding hand the athlete straight to HOME?
+ *
+ * The two Home spans (`ms_to_mount`, `ms_home_to_interactive`) start at that tap
+ * rather than at a component mount on purpose: the profile refetch
+ * `onboarding.tsx` must await before it can navigate is part of what the athlete
+ * sits through, and starting later would be measuring our own convenience.
+ *
+ * BUT ONBOARDING DOES NOT ALWAYS HAND OFF TO HOME. Act I's step 6 offers BUILD
+ * MY OWN and SCAN MY PLAN, and those athletes were promised the routine builder
+ * — so `home_reached` fires whenever they eventually reach Home, which is
+ * however many minutes of building a plan later. A span stamped for them files
+ * HUMAN DECISION TIME under the very prop that exists because
+ * `ms_since_prev_step` already conflates the two, and it does it silently: a
+ * builder who finished in forty seconds is indistinguishable from a Home that
+ * spun for forty. With a cohort of ten, one such row moves the percentile.
+ *
+ * So the span is stamped only when Home is the destination. Everybody else
+ * reports `null` — unknown, which is true, and which the re-measure query's
+ * `count(prop)` column surfaces instead of burying.
+ */
+export function isHomeHandoff(destination: string): boolean {
+  // Query and hash are navigation detail, not destination — '/routine?import=1'
+  // is the builder, and stripping both means a later '/?from=onboarding' still
+  // reads as Home rather than quietly turning the stopwatch off. Then an
+  // EXPLICIT '/' only: an empty or unrecognised destination refuses, for the
+  // same reason every rule below refuses.
+  return destination.replace(/[?#].*$/, '') === '/';
+}
+
+/**
  * The measured span in ms, or null when it cannot be trusted.
  *
  * Deliberately conservative, for the nav-stall reason: a missed real span costs

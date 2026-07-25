@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { TTI_CEILING_MS, interactiveSpanMs } from '../activation-tti';
+import { TTI_CEILING_MS, interactiveSpanMs, isHomeHandoff } from '../activation-tti';
 
 describe('activation TTI — a span it can trust', () => {
   it('measures a plain span', () => {
@@ -51,6 +51,38 @@ describe('activation TTI — the refusals', () => {
   it('refuses non-finite clocks', () => {
     expect(interactiveSpanMs({ startedAt: NaN, now: 1_000, hiddenDuringSpan: false })).toBeNull();
     expect(interactiveSpanMs({ startedAt: 1_000, now: Infinity, hiddenDuringSpan: false })).toBeNull();
+  });
+});
+
+describe('activation TTI — the span only starts when onboarding hands off to Home', () => {
+  it('starts on the Home hand-off', () => {
+    expect(isHomeHandoff('/')).toBe(true);
+  });
+
+  it('refuses the routine builder — that tap was promised somewhere else', () => {
+    // Act I step 6: BUILD MY OWN and SCAN MY PLAN land in the builder, so
+    // `home_reached` fires however many minutes of plan-building later. A span
+    // stamped for them reports HUMAN time as `ms_to_mount`, which is the exact
+    // conflation this module exists to refuse — and it does it invisibly.
+    expect(isHomeHandoff('/routine')).toBe(false);
+    expect(isHomeHandoff('/routine?import=1')).toBe(false);
+  });
+
+  it('reads Home as Home even carrying a query or a hash', () => {
+    // The destination is the path. A later '/?from=onboarding' must not turn
+    // the stopwatch off by accident — silence is the failure mode that looks
+    // identical to a fast app.
+    expect(isHomeHandoff('/?from=onboarding')).toBe(true);
+    expect(isHomeHandoff('/#top')).toBe(true);
+  });
+
+  it('refuses an empty or unrecognised destination rather than assuming Home', () => {
+    // Same asymmetry as every rule above: a missed span costs one data point,
+    // a false one poisons the only performance signal the app has.
+    expect(isHomeHandoff('')).toBe(false);
+    for (const href of ['/today', '/workout', '/onboarding', '/sign-in', '/fuel']) {
+      expect(isHomeHandoff(href), href).toBe(false);
+    }
   });
 });
 

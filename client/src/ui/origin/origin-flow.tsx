@@ -21,7 +21,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
-import { ACTIVATION_SPAN, startActivationSpan } from '@/data/activation';
 import { ratingBand, track } from '@/data/analytics';
 import { useEvoRatingCurrent } from '@/data/progression/use-evo-rating';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
@@ -209,12 +208,14 @@ export function OriginFlow({
     if (userType === 'new') {
       track('onboarding_completed', { ...FLOW_PROPS, duration_ms: Date.now() - startedAt.current });
     }
-    // WO-006: the stopwatch for the first 60 seconds starts HERE — the tap that
-    // ends onboarding, not the moment Home's component happens to mount. The
-    // caller still has to await a profile refetch before it can navigate
-    // (onboarding.tsx), and that wait is part of what the athlete sits through.
-    // Read back as `ms_to_mount` on `home_reached` (docs/ACTIVATION_ANALYTICS.md).
-    startActivationSpan(ACTIVATION_SPAN.home);
+    // WO-006: the stopwatch for the first 60 seconds starts at THIS tap — but
+    // `onComplete` is what stamps it, because only the caller knows where the
+    // tap leads. BUILD MY OWN / SCAN MY PLAN land in the routine builder, not
+    // on Home, and a span started unconditionally here measured them BUILDING A
+    // PLAN and filed it under `ms_to_mount`. Same tick either way, so the
+    // profile refetch onboarding.tsx awaits before it can navigate is still
+    // inside the measurement — that wait is part of what the athlete sits
+    // through. See domain/activation-tti.ts::isHomeHandoff.
     onComplete();
   };
 

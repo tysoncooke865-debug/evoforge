@@ -4,6 +4,7 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { ACTIVATION_SPAN, startActivationSpan } from '@/data/activation';
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
@@ -12,6 +13,7 @@ import { useSavePublicIdentity } from '@/data/mutations';
 import { ORIGIN_FLAGS } from '@/data/origin';
 import { saveUserPlanDirect } from '@/data/user-plans';
 import { supabase } from '@/data/supabase';
+import { isHomeHandoff } from '@/domain/activation-tti';
 import { defaultScheduleFor, seedPlanForSplit, SPLITS } from '@/domain/exercise-library';
 import { nameError } from '@/domain/leaderboard';
 import type { BattleStylePref, PrimaryGoal } from '@/domain/origin/types';
@@ -70,6 +72,17 @@ const GOALS: { key: PrimaryGoal; label: string }[] = [
   { key: 'cardio', label: '🫀 Engine' },
   { key: 'aesthetics', label: '✨ Aesthetics' },
 ];
+
+/**
+ * Where Act I promised this athlete would land. BUILD MY OWN and SCAN MY PLAN
+ * asked for the routine builder and get it; everybody else lands on Home.
+ *
+ * ONE definition (WO-006): the redirect and the stopwatch have to agree, because
+ * the Home span may only be stamped when Home is where the tap actually leads.
+ * Two copies of this ternary is how they drift apart.
+ */
+const afterOnboardingHref = (splitKey: string | null): string =>
+  splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/';
 
 const BATTLE_STYLES: { key: BattleStylePref; label: string }[] = [
   { key: 'force', label: '▲ FORCE — overwhelm' },
@@ -145,15 +158,25 @@ export default function OnboardingScreen() {
         sex={profile.data?.sex ?? sex}
         userType="new"
         onComplete={() => {
+          // BUILD MY OWN / SCAN MY PLAN still land where Act I promised.
+          const href = afterOnboardingHref(splitKey);
+          // WO-006: the stopwatch for the first 60 seconds starts HERE — the tap
+          // that ends onboarding, not the moment Home's component happens to
+          // mount, so the refetch awaited below is inside the measurement. It is
+          // stamped ONLY on the Home hand-off: an athlete sent to the routine
+          // builder reaches Home minutes later, and stamping them would report
+          // plan-building as `ms_to_mount`
+          // (domain/activation-tti.ts::isHomeHandoff — unstamped reads as null,
+          // which is the truth). Read back as `ms_to_mount` on `home_reached`
+          // and `ms_home_to_interactive` on `train_opened`
+          // (docs/ACTIVATION_ANALYTICS.md).
+          if (isHomeHandoff(href)) startActivationSpan(ACTIVATION_SPAN.home);
           // AWAIT the refetch: navigating with a stale null profile makes
           // the (main) gate bounce the just-finished athlete straight back
           // to /onboarding (caught by the O-series tour).
           void (async () => {
             await queryClient.invalidateQueries({ queryKey: ['profile'] });
-            // BUILD MY OWN / SCAN MY PLAN still land where Act I promised.
-            router.replace(
-              (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never,
-            );
+            router.replace(href as never);
           })();
         }}
       />
@@ -162,14 +185,7 @@ export default function OnboardingScreen() {
   // An onboarded athlete who asked to BUILD MY OWN lands in the builder, not
   // on Home — that was the whole point of the tap. SCAN MY PLAN lands there
   // too, with the import sheet already open (PLAN SCAN).
-  if (profile.data)
-    return (
-      <Redirect
-        href={
-          (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never
-        }
-      />
-    );
+  if (profile.data) return <Redirect href={afterOnboardingHref(splitKey) as never} />;
 
   const nums = {
     height: pyFloat(height) ?? 0,
