@@ -51,8 +51,8 @@ One name, `activation_step`, with an ordered `index`, so the funnel is
 
 | index | step | fired from | extra props |
 |---:|---|---|---|
-| 1 | `home_reached` | Home mount | `ms_to_mount` |
-| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the tab press) | `ms_to_interactive`, `ms_home_to_interactive`, `device_class`, `device_tier`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
+| 1 | `home_reached` | Home mount | `ms_to_mount`, `device_class`, `device_tier` |
+| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the press that led here) | `ms_to_interactive`, `ms_home_to_interactive`, `device_class`, `device_tier`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
 | 3 | `workout_opened` | workout page mount | `is_today` |
 | 4 | `first_set_logged` | `useSaveSet` onSuccess, insert only, empty log | `durable` |
 
@@ -72,7 +72,7 @@ separate them, on the same events, with no new event name and no extra rows.
 |---|---|---|
 | `ms_to_mount` | `home_reached` | the tap that ENDS onboarding → Home mounted |
 | `ms_home_to_interactive` | `train_opened` | that same tap → Home's mission card stopped loading |
-| `ms_to_interactive` | `train_opened` | the Train TAB PRESS → Train's plan queries settled |
+| `ms_to_interactive` | `train_opened` | the PRESS that led to Train → Train's plan queries settled |
 
 The first two share a start deliberately: it is the moment the athlete finished
 onboarding — the same tick `origin-flow.tsx::finish` emits `onboarding_completed`,
@@ -91,12 +91,27 @@ the drop-off is actually happening on; with ten athletes in the cohort, one
 desktop row moves it. That is the same argument that forced `isHomeHandoff`
 below, and the same failure mode: a flattering number that looks like evidence.
 
-So `train_opened` — the event every span above rides — also carries:
+So **every step that carries a span** carries these two as well:
 
 | prop | values | from |
 |---|---|---|
 | `device_class` | `mobile` · `desktop` · `unknown` | `pointer: coarse` first, `maxTouchPoints` only where there is no media query |
 | `device_tier` | `low` · `mid` · `high` · `unknown` | `navigator.deviceMemory`, **already bucketed by the spec** to 0.25/0.5/1/2/4/8 |
+
+**On `home_reached` as well as `train_opened`, and that is the point of the pair
+(2026-07-26, sixth pass).** They shipped on `train_opened` alone, on the stated
+grounds that it is "the event every span rides" — which is not true, because
+`ms_to_mount` rides `home_reached`. The cost lands on precisely the population
+the work order is about: **the athletes lost between binding an origin and
+logging a rep emit `home_reached` and nothing else.** With the device on step 2
+only, every row those athletes ever wrote was undifferentiated, and their one
+span pooled a desktop with the mid-range Android — the same failure the
+dimension was added to prevent, aimed at the cohort it was added for.
+
+They stop there. Steps 3 and 4 carry no span, and a device on them would be
+redundant: every athlete now has one on their step-1 row, so the whole ladder
+splits by device with a join on `user_id` (query below). Pinned by a test in
+both directions.
 
 **Coarse on purpose.** A user-agent string would answer this and would also be a
 fingerprint, which the analytics doctrine forbids (categories, never values —
@@ -196,16 +211,37 @@ the two failures the gate's own bounce is the recoverable one.
 
 ### The Train span starts at the PRESS, not at focus
 
-`ms_to_interactive` is stamped by a `tabPress` listener on the Train tab
-(`(main)/_layout.tsx`), not by the Train screen. This is the difference between
-measuring the hand-off and measuring the tail of it: focus arrives **after** the
-route's chunk has been fetched and the screen has rendered once, and on a
-mid-range phone on mobile data that fetch is most of the wait. It is also exactly
-what the two-wave preload removes — so a focus-stamped span would have read ~0 ms
-both before and after the fix and declared the work done. **An instrument blind
-to the fix it exists to judge is the nav-stall beacon again.**
+`ms_to_interactive` is stamped by a press, never by the Train screen. This is the
+difference between measuring the hand-off and measuring the tail of it: focus
+arrives **after** the route's chunk has been fetched and the screen has rendered
+once, and on a mid-range phone on mobile data that fetch is most of the wait. It
+is also exactly what the two-wave preload removes — so a focus-stamped span would
+have read ~0 ms both before and after the fix and declared the work done. **An
+instrument blind to the fix it exists to judge is the nav-stall beacon again.**
 
-The cost, stated: reaching Train **without pressing the tab** — a deep link, a
+**There is more than one door, and they all stamp through one function**
+(`data/activation.ts::startTrainHandoff`), because a number that means different
+things at different doors is not a number:
+
+| door | where | how |
+|---|---|---|
+| the Train tab | `(main)/_layout.tsx` | a per-screen `tabPress` listener |
+| TRAIN ANYWAY (rest day) | `ui/home/mission-card.tsx` | `router.push('/today')` |
+| QUICK WORKOUT (no plan) | `ui/home/mission-card.tsx` | `router.push('/today')` |
+
+The two mission-card doors were added on 2026-07-26 (sixth pass) and had been
+**silently reporting `null`**: `router.push` raises no `tabPress`, so the only
+door the first cut covered was the tab. They are the doors that matter most —
+this card is the one dominant CTA on the page the hand-off is measured FROM, and
+a REST DAY is the state the funnel already flags for a brand-new athlete, i.e.
+exactly the athlete being lost. The tab-only stamp measured everybody except the
+population in question. Pinned by a test.
+
+START / RESUME MISSION deliberately stamps nothing: it opens `/workout`, which is
+step 3 and carries no span. Nor do CREATE PLAN, CREATE AI PLAN or SCAN WORKOUT —
+none of them leads to Train.
+
+The cost, stated: reaching Train through **no press at all** — a deep link, a
 cold boot straight into Train, the mid-workout resume redirect — stamps nothing,
 so `ms_to_interactive` is `null`. That is the honest answer rather than a
 flattering one; a `0` there would drag the fleet average toward "we are fast".
@@ -339,25 +375,67 @@ not a desktop browser". Read the fleet first so you know how many rows exist,
 then this, and expect the mobile p90 to be the ugly one:
 
 ```sql
-select props->>'device_class'                                      as device_class,
+select props->>'step'                                              as step,
+       props->>'device_class'                                      as device_class,
        props->>'device_tier'                                       as device_tier,
-       count(*)                                                    as opened_train,
+       count(*)                                                    as athletes,
        count(props->>'ms_to_interactive')                          as tti_measured,
        percentile_disc(0.5) within group (
          order by (props->>'ms_to_interactive')::numeric)          as tti_p50_ms,
        percentile_disc(0.9) within group (
-         order by (props->>'ms_to_interactive')::numeric)          as tti_p90_ms
+         order by (props->>'ms_to_interactive')::numeric)          as tti_p90_ms,
+       percentile_disc(0.9) within group (
+         order by (props->>'ms_to_mount')::numeric)                as home_mount_p90_ms
 from analytics_events
 where event_name = 'activation_step'
-  and props->>'step' = 'train_opened'
+  and props->>'step' in ('home_reached', 'train_opened')
   and created_at >= '2026-07-26'          -- the deploy that added the dimension
-group by 1, 2 order by 1, 2;
+group by 1, 2, 3 order by 1, 2, 3;
 ```
+
+**Read the `home_reached` rows, not only the `train_opened` ones.** The athletes
+this work order is about are the ones who never produced a `train_opened` row at
+all, so `home_mount_p90_ms` on step 1 — split by device — is the only span they
+ever reported. A mobile p90 there that dwarfs the desktop one is the finding.
+(The step-1 device split exists only from the sixth-pass deploy; before it, step
+1 has no device column and every row reads null.)
 
 `device_tier = 'unknown'` will be a large bucket and is not a defect — it is
 every iOS and Firefox athlete (see above). Judge those on `device_class` alone.
 A `device_class = 'unknown'` bucket that is anything but tiny IS a defect: it
 means the read is failing, not that the devices are exotic.
+
+**And the funnel itself, split by device** — the question the cohort numbers in
+the work order could never answer. Each athlete's device comes off their step-1
+row, so this covers athletes who dropped at every rung, not just the ones who
+reached Train:
+
+```sql
+with device as (          -- one device per athlete, from the row they all write
+  select distinct on (user_id)
+         user_id,
+         props->>'device_class' as device_class
+  from analytics_events
+  where event_name = 'activation_step'
+    and props->>'step' = 'home_reached'
+    and created_at >= '2026-07-26'
+  order by user_id, created_at
+),
+reached as (
+  select user_id, max((props->>'index')::int) as furthest
+  from analytics_events
+  where event_name = 'activation_step'
+    and created_at >= '2026-07-26'
+  group by user_id
+)
+select coalesce(d.device_class, 'unknown')                 as device_class,
+       count(*)                                            as athletes,
+       count(*) filter (where r.furthest >= 2)             as opened_train,
+       count(*) filter (where r.furthest >= 3)             as opened_workout,
+       count(*) filter (where r.furthest >= 4)             as logged_a_set
+from reached r left join device d using (user_id)
+group by 1 order by 2 desc;
+```
 
 ### What `ms_to_interactive` is pointed at (2026-07-26)
 
@@ -386,8 +464,15 @@ are the ones from a tab that stayed visible for the whole hand-off, and a change
 that makes the hand-off longer gives a backgrounded tab more chance to poison it.
 A p50 that improves while `tti_measured` falls is not evidence of anything.
 
-Neither change has been measured on a real mid-range phone yet — that is the
-outstanding half of WO-006, and it needs a device, not a desktop browser.
+**`tti_measured` should RISE at the sixth-pass deploy, and that is a coverage
+change, not a speed change.** Two more doors stamp the span from that point
+(TRAIN ANYWAY, QUICK WORKOUT — see the door table above), so athletes who used
+to report `null` now report a real number. They are rest-day and no-plan
+athletes, so if the p90 moves at that same split, suspect the newly-included
+population before you suspect the app.
+
+Neither chunk change has been measured on a real mid-range phone yet — that is
+the outstanding half of WO-006, and it needs a device, not a desktop browser.
 
 ## Inherited rules
 

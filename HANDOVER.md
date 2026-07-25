@@ -99,19 +99,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
     nothing else executable: `npm`, `npx` and `node <script>` are all refused, and
     `client/node_modules` is not installed.** tsc, lint, vitest, the verify
     scripts, `expo export` and the Playwright tour (`client/.claude/skills/verify`)
-    were all unavailable across ALL FIVE passes, so nothing in this entry is
+    were all unavailable across ALL SIX passes, so nothing in this entry is
     falsified at the surface. **Run HANDOVER §5 before trusting it**, and drive a
     throwaway production account through onboarding → Home → Train to confirm
     `ms_to_interactive` lands non-null, that `train_opened` does NOT appear for an
     athlete who only sits on Home, and that BUILD MY OWN still lands in the
-    builder while a plain finish still lands on Home. **Three more to check on the
+    builder while a plain finish still lands on Home. **Five more to check on the
     same tour:** that `train_opened` carries `device_class = 'desktop'` from the
     Playwright browser and `'mobile'` from a phone-emulated context (if it reads
     `unknown` in both, `readDevice` is failing, and an all-`unknown` column is
-    indistinguishable from having shipped nothing), that tapping the
-    `adhoc-loading` card itself does NOT close the sheet, and that **ENTER THE
-    FORGE spins and then lands** — throttle the network, tap it twice, and check
-    production for exactly ONE `onboarding_completed` row.
+    indistinguishable from having shipped nothing), that **`home_reached` now
+    carries the same two props** (sixth pass — an all-null pair there means the
+    step-1 device split shipped dead), that reaching Train through **Home's
+    `mission-rest-train` / `mission-quick` buttons** also lands a non-null
+    `ms_to_interactive` (force a rest day, or an account with no plan), that
+    tapping the `adhoc-loading` card itself does NOT close the sheet, and that
+    **ENTER THE FORGE spins and then lands** — throttle the network, tap it
+    twice, and check production for exactly ONE `onboarding_completed` row.
   - **THE FIX THE MEASUREMENT NAMED: ≈246 KB OF EXERCISE LIBRARY LEAVES THE TRAIN
     CHUNK (2026-07-26, third pass).** `(main)/today.tsx` statically imported
     `@/data/exercise-corpus`, `@/domain/exercise-sections` and
@@ -203,6 +207,42 @@ Owner: Tyson. He works through other Claude sessions too — **always
     measured from their own tap. `onComplete`'s navigation is now unconditional —
     a busy button that can never clear is worse than the dead one it replaced,
     and the gate's bounce is the recoverable failure of the two. +3 tests.
+  - **THE STOPWATCH MEASURED EVERY ATHLETE EXCEPT THE ONES BEING LOST
+    (2026-07-26, sixth pass).** Two holes, same shape, both aimed at the cohort
+    the work order is about — and both are the `isHomeHandoff` argument for the
+    fourth time: an instrument that is blind to the population it exists to see
+    reports a flattering number that looks like evidence.
+    - **HOME'S OWN TRAIN DOORS STAMPED NOTHING.** The span starts at a PRESS, and
+      the first cut listened on the Train TAB only — but `router.push('/today')`
+      raises no `tabPress`, and `ui/home/mission-card.tsx` pushes exactly that
+      from **TRAIN ANYWAY** (rest day) and **QUICK WORKOUT** (no plan). Those are
+      the most Home → Train doors in the product: the card is the one dominant
+      CTA on the page the hand-off is measured FROM, and a REST DAY is the state
+      the funnel already flags for a brand-new athlete. They reported `null`. Now
+      all three doors stamp through ONE `data/activation.ts::startTrainHandoff`
+      — same lesson as the single `afterOnboardingHref`: a number that means
+      different things at different doors is not a number. START MISSION still
+      stamps nothing on purpose (it opens `/workout`, step 3, which carries no
+      span). **`tti_measured` will RISE at this deploy — coverage, not speed.**
+    - **`device_class` / `device_tier` NOW RIDE `home_reached` TOO.** The fourth
+      pass put them on `train_opened` alone, reasoning it was "the event every
+      span rides". It is not: `ms_to_mount` rides `home_reached`. **The five
+      athletes lost between binding an origin and logging a rep emit
+      `home_reached` AND NOTHING ELSE**, so the device split covered everybody
+      except them, and their one span pooled a developer's desktop with the
+      mid-range Android. Steps 3 and 4 still get none — they carry no span, and
+      every athlete's device is now readable off their step-1 row, which also
+      makes the whole 8 → 3 ladder splittable by device with a join on
+      `user_id` (new query in the doc). Pinned both ways.
+    - +3 tests. No new event, no fifth step, no schema change, four rows per
+      athlete intact.
+  - **FOUND, NOT FIXED — `client.yml` runs `npx vitest run src/domain`, so the
+    emitter's wiring tests (`src/data/__tests__/activation.test.ts`) are NOT
+    gated by the deploy.** The pure rules are (`domain/activation-tti.ts`,
+    `domain/activation-funnel.ts`); the wiring that decides which step carries
+    which span is not. Left alone deliberately: widening the CI gate on a work
+    order that deploys on completion is a scope change, not a cleanup. Run
+    `npx vitest run src/data src/domain` by hand until someone decides.
   - **VERIFIED BY HAND, GATES STILL UNRUN:** the claim "the exercise library left
     the Train chunk" was checked by walking the static import graph rather than
     taken on trust — every importer of `exercise-library` / `-corpus` /
@@ -216,10 +256,12 @@ Owner: Tyson. He works through other Claude sessions too — **always
     `data/origin.ts`), so the alias resolves inside `lazy()`.
   - Files: `domain/activation-tti.ts` (+test), `data/activation.ts` (+test),
     `app/onboarding.tsx`, `ui/origin/origin-flow.tsx`, `(main)/index.tsx`,
-    `(main)/today.tsx`, `(main)/_layout.tsx`, **`ui/train/quick-workout-sheet.tsx`
-    (new)**, `docs/ACTIVATION_ANALYTICS.md` (props table, the stopwatch section,
-    the Home hand-off rule, the device-split section, the Train-chunk note, the
-    re-measure percentile query + the by-device query, and what it is pointed at).
+    `(main)/today.tsx`, `(main)/_layout.tsx`, `ui/home/mission-card.tsx`,
+    **`ui/train/quick-workout-sheet.tsx` (new)**, `docs/ACTIVATION_ANALYTICS.md`
+    (props table, the stopwatch section, the Home hand-off rule, the device-split
+    section, the Train-chunk note, the door table, the re-measure percentile
+    query + the by-device query + the funnel-by-device query, and what it is
+    pointed at).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

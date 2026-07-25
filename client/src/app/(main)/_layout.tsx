@@ -5,7 +5,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ACTIVATION_SPAN, startActivationSpan } from '@/data/activation';
+import { startTrainHandoff } from '@/data/activation';
 import { useAuth } from '@/data/auth-context';
 import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
@@ -293,11 +293,14 @@ export default function MainLayout() {
         // (which already carries the scroll-to-top): no route-name test to get
         // wrong, and the scroll behaviour below stays untouched. Both fire.
         //
-        // Reached any other way — a deep link, a cold boot straight into Train —
-        // nothing stamps and `ms_to_interactive` is null. That is the honest
-        // answer: unknown is not instant, and a mount-to-settled span is not the
-        // hand-off this work order was asked to measure.
-        listeners={{ tabPress: () => startActivationSpan(ACTIVATION_SPAN.train) }}
+        // THIS IS NOT THE ONLY DOOR — `router.push('/today')` does not raise
+        // `tabPress`, so Home's own mission card stamps through the same
+        // `startTrainHandoff` (ui/home/mission-card.tsx). Reached any other way
+        // — a deep link, a cold boot straight into Train, the mid-workout resume
+        // redirect — nothing stamps and `ms_to_interactive` is null. That is the
+        // honest answer: unknown is not instant, and a mount-to-settled span is
+        // not the hand-off this work order was asked to measure.
+        listeners={{ tabPress: startTrainHandoff }}
         options={{ title: 'Train', tabBarIcon: ({ color }) => <PixelDumbbell size={19} color={color as string} /> }}
       />
       <Tabs.Screen name="ai" options={{ title: 'Oracle', tabBarIcon: makeIcon('✦') }} />

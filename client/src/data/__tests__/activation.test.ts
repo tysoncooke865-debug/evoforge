@@ -21,6 +21,7 @@ import {
   readActivationSpan,
   startActivationSpan,
   startActivationSpanOnce,
+  startTrainHandoff,
 } from '../activation';
 
 const tracked: { name: string; props: Record<string, unknown> }[] = [];
@@ -123,12 +124,45 @@ describe('activation emitter — the hand-off stopwatch', () => {
     expect(lastProps().device_tier).toBe('unknown');
   });
 
+  it('files the HOME half under a device too — it is the only row the lost athletes write', async () => {
+    // The whole cohort this work order is about reaches Home and stops. They
+    // emit `home_reached` and nothing else, so a device that rides only
+    // `train_opened` describes every athlete EXCEPT the ones being lost, and
+    // `ms_to_mount` — their one span — pools a desktop with a mid-range Android.
+    // That is the same failure the dimension was added to prevent.
+    startActivationSpan(ACTIVATION_SPAN.home);
+    await markActivationStep(USER, null, 'home_reached');
+    expect(lastProps()).toHaveProperty('device_class');
+    expect(lastProps()).toHaveProperty('device_tier');
+  });
+
   it('gives the other two steps no TTI props at all', async () => {
     // They have no hand-off to describe; an always-null column reads as a
-    // broken measurement rather than as an absent one.
+    // broken measurement rather than as an absent one. The device buckets go
+    // with the spans for the same reason — every athlete's device is already
+    // readable off their step-1 row, joined on user_id.
     await markActivationStep(USER, null, 'workout_opened');
     expect(lastProps()).not.toHaveProperty('ms_to_interactive');
     expect(lastProps()).not.toHaveProperty('ms_to_mount');
+    expect(lastProps()).not.toHaveProperty('device_class');
+    expect(lastProps()).not.toHaveProperty('device_tier');
+  });
+
+  it('measures a hand-off that came through HOME, not only through the tab', async () => {
+    // `router.push('/today')` raises no `tabPress`, so Home's own TRAIN ANYWAY
+    // (rest day) and QUICK WORKOUT (no plan) doors used to reach Train with the
+    // stopwatch never started and report null. Both now stamp through the same
+    // `startTrainHandoff` the tab listener uses — one definition, because the
+    // doors have to agree about what the number means.
+    vi.useFakeTimers();
+    try {
+      startTrainHandoff();
+      vi.advanceTimersByTime(2_100);
+      await markActivationStep(USER, null, 'train_opened');
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(lastProps().ms_to_interactive).toBe(2_100);
   });
 
   it('lets a caller-supplied prop win over a measured one', async () => {

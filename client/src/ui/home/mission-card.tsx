@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
+import { startTrainHandoff } from '@/data/activation';
 import type { Mission } from '@/domain/home-mission';
 import type { NextSession } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
@@ -12,6 +13,31 @@ import { GlowCard } from '@/ui/core/shell';
 import type { HomeFeatures } from './home-features';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+/**
+ * WO-006: THIS CARD HOLDS TWO OF THE HAND-OFF DOORS, AND THEY WERE NOT MEASURED.
+ *
+ * `ms_to_interactive` on `activation_step`/`train_opened` is the Home → Train
+ * number this work order exists to produce, and its span is stamped by a PRESS.
+ * The Train tab's `tabPress` listener covers the tab; it does NOT cover
+ * `router.push('/today')`, which react-navigation raises no `tabPress` for — so
+ * TRAIN ANYWAY (rest day) and QUICK WORKOUT (no plan) navigated to Train with
+ * the stopwatch never started, and both reported `null`.
+ *
+ * They are the doors that matter most. This card is the one dominant CTA on the
+ * page the hand-off is measured FROM, and a REST DAY is the state the funnel
+ * already flags for a brand-new athlete — exactly the athlete who is lost
+ * between binding an origin and logging a rep. Leaving them unstamped measured
+ * everyone except the population in question.
+ *
+ * The two doors that do NOT lead to Train (CREATE PLAN, CREATE AI PLAN, SCAN
+ * WORKOUT) stamp nothing, and neither does the START/RESUME MISSION button —
+ * that one opens `/workout`, which is step 3 and carries no span.
+ */
+const toTrain = () => {
+  startTrainHandoff();
+  router.push('/today' as never);
+};
 
 /**
  * HOME_REDESIGN §4 — TODAY'S MISSION. One card, every honest state:
@@ -98,7 +124,7 @@ export function MissionCard({
             title="TRAIN ANYWAY"
             variant="ghost"
             pixel
-            onPress={() => router.push('/today' as never)}
+            onPress={toTrain}
             testID="mission-rest-train"
           />
         </View>
@@ -117,7 +143,7 @@ export function MissionCard({
         <View className="mt-s3 flex-row flex-wrap" style={{ gap: 8 }}>
           <Door label="CREATE PLAN" testID="mission-create-plan" onPress={() => router.push('/routine' as never)} />
           <Door label="CREATE AI PLAN" tint={colors.epic} testID="mission-ai-plan" onPress={() => router.push('/ai' as never)} />
-          <Door label="QUICK WORKOUT" testID="mission-quick" onPress={() => router.push('/today' as never)} />
+          <Door label="QUICK WORKOUT" testID="mission-quick" onPress={toTrain} />
           <Door label="SCAN WORKOUT" testID="mission-scan" onPress={() => router.push('/routine?import=1' as never)} />
         </View>
       </GlowCard>

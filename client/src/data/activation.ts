@@ -9,7 +9,14 @@ import {
   type ActivationMarks,
   type ActivationStep,
 } from '@/domain/activation-funnel';
-import { deviceClass, deviceTier, interactiveSpanMs, type DeviceInput } from '@/domain/activation-tti';
+import {
+  deviceClass,
+  deviceTier,
+  interactiveSpanMs,
+  type DeviceClass,
+  type DeviceInput,
+  type DeviceTier,
+} from '@/domain/activation-tti';
 
 import { track } from './analytics';
 import { useAuth } from './auth-context';
@@ -143,9 +150,33 @@ function clearActivationSpans(): void {
 export const ACTIVATION_SPAN = {
   /** Stamped when onboarding finishes; read when Home mounts and when it settles. */
   home: 'home',
-  /** Stamped when the Train TAB IS PRESSED; read when its plan queries settle. */
+  /** Stamped by every PRESS that leads to Train; read when its plan queries settle. */
   train: 'train',
 } as const;
+
+/**
+ * Stamp the Home → Train hand-off. EVERY press that leads to Train calls this.
+ *
+ * ONE DEFINITION because there is more than one door and they must agree. The
+ * first cut stamped only the Train TAB, which is the door an athlete uses once
+ * they know the app — but Home's own mission card pushes `/today` for a REST
+ * DAY ("TRAIN ANYWAY") and for an athlete with no plan ("QUICK WORKOUT"), and
+ * `router.push` does not raise `tabPress`. Those two are the most Home → Train
+ * of all the doors: they are on the page this work order measures the hand-off
+ * FROM, and a rest day is the state the funnel already flags for the cohort.
+ * Left unstamped they reported `null`, so the athletes most likely to be lost
+ * were the ones the stopwatch could not see.
+ *
+ * It stays a PRESS, never a focus: focus arrives after the route chunk has been
+ * fetched and the screen has rendered once, which is most of what a mid-range
+ * phone waits for and exactly what the two-wave preload exists to remove
+ * (`(main)/_layout.tsx`). Re-stampable on purpose — a second visit to Train is
+ * a second hand-off, and the last press before the event is the one that
+ * describes what the athlete just sat through.
+ */
+export function startTrainHandoff(): void {
+  startActivationSpan(ACTIVATION_SPAN.train);
+}
 
 /** Where a measured span is parked for a later event to carry. */
 const HOME_INTERACTIVE = 'home_interactive';
@@ -181,6 +212,29 @@ function readDevice(): DeviceInput {
 }
 
 /**
+ * WHAT WAS HOLDING THE STOPWATCH — the buckets a span is filed under.
+ *
+ * ON EVERY STEP THAT CARRIES A SPAN, not just the last one. The first cut put
+ * these on `train_opened` alone, on the stated grounds that it is "the event
+ * every span already rides" — and that is not true: `ms_to_mount` rides
+ * `home_reached`. The consequence is the exact failure the dimension exists to
+ * prevent, aimed at the exact population this work order is about. THE FIVE
+ * ATHLETES LOST BETWEEN BINDING AN ORIGIN AND LOGGING A REP EMIT `home_reached`
+ * AND NOTHING ELSE: with the device only on step 2, every row they ever wrote
+ * was undifferentiated, and `ms_to_mount` — the only span they report — pooled a
+ * developer's desktop with the mid-range Android the drop-off is on. One desktop
+ * row moves a ten-athlete percentile.
+ *
+ * It also makes the LADDER readable by device without a fifth prop anywhere:
+ * every athlete now has a device on their step-1 row, so the 8 → 3 funnel splits
+ * mobile from desktop by joining on `user_id` (docs/ACTIVATION_ANALYTICS.md).
+ */
+function devicePropsFor(): { device_class: DeviceClass; device_tier: DeviceTier } {
+  const device = readDevice();
+  return { device_class: deviceClass(device), device_tier: deviceTier(device) };
+}
+
+/**
  * The TTI props for a step, merged into the event at EMIT time.
  *
  * They live here rather than in the callers' `extra` because `extra` is built
@@ -190,28 +244,30 @@ function readDevice(): DeviceInput {
  */
 function ttiPropsFor(step: ActivationStep): Record<string, unknown> {
   if (step === 'home_reached') {
-    // Onboarding finished -> Home painted. Null on a cold boot (never stamped).
-    return { ms_to_mount: activationSpanMs(ACTIVATION_SPAN.home) };
+    return {
+      // Onboarding finished -> Home painted. Null on a cold boot (never stamped).
+      ms_to_mount: activationSpanMs(ACTIVATION_SPAN.home),
+      // The athletes who stop HERE are the whole growth problem, and this is the
+      // only row they write. Without it their half of the hand-off has no device
+      // on it at all — see devicePropsFor.
+      ...devicePropsFor(),
+    };
   }
   if (step === 'train_opened') {
-    const device = readDevice();
     return {
-      // Train TAB PRESSED -> Train's plan queries settled. THE hand-off number:
-      // chunk fetch, mount and data, which is what the athlete actually sat
-      // through. Null when they arrived without pressing the tab.
+      // A PRESS THAT LEADS TO TRAIN -> Train's plan queries settled. THE
+      // hand-off number: chunk fetch, mount and data, which is what the athlete
+      // actually sat through. Null when they arrived without a press at all
+      // (deep link, cold boot, the mid-workout resume redirect).
       ms_to_interactive: activationSpanMs(ACTIVATION_SPAN.train),
       // The Home half, carried forward: Home has no emit point of its own at
       // the moment it becomes interactive, and adding a fifth step would break
       // the four-rows-per-athlete bound the rail is built on.
       ms_home_to_interactive: readActivationSpan(HOME_INTERACTIVE),
-      // WHAT WAS HOLDING THE STOPWATCH. The work order asks for the hand-off
-      // "on a real mid-range phone, not a desktop browser", and every span
-      // above rides THIS event — so the dimension that makes them readable
-      // belongs here too, on the one event, rather than spread across the
-      // ladder. Coarse buckets, never a user agent
-      // (domain/activation-tti.ts).
-      device_class: deviceClass(device),
-      device_tier: deviceTier(device),
+      // The work order asks for the hand-off "on a real mid-range phone, not a
+      // desktop browser", and track() attaches nothing of its own. Coarse
+      // buckets, never a user agent (domain/activation-tti.ts).
+      ...devicePropsFor(),
     };
   }
   return {};
