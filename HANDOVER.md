@@ -658,6 +658,35 @@ Owner: Tyson. He works through other Claude sessions too — **always
     Onboarding / Home / Train. The order's two testing requirements cannot be
     discharged from inside this runner. **The ask in the bullet above is
     unchanged and is the only thing that moves this work order.**
+  - **THE FIFTEENTH PASS: A SIXTH DISPATCH ON THE SAME STALE QUOTE, AND THE
+    ONE ESCAPE ROUTE LEFT UNTRIED IS NOW ALSO CLOSED (2026-07-26).** Direct
+    Bash and PowerShell reproduced the identical `npm --version` / `npm ci` /
+    `npx` refusal an ELEVENTH and TWELFTH time — no new information there.
+    What's new: a **remote-isolated agent** (a separate cloud execution
+    environment, not this local runner) was dispatched to run the same six
+    gates read-only. It hit the identical "requires approval" refusal on
+    every `npm`/`npx` invocation, with only `node --version` permitted —
+    **the same allowlist, in a different execution environment.** That rules
+    out "it's this specific worktree/runner" as an explanation; it is a
+    property of the dispatch infrastructure itself, not of any one session.
+    (That agent also flagged a stray, unrelated leftover worktree at
+    `evoforge\.claude\worktrees\agent-a13d8df3027d37552` — old pre-Expo-rewrite
+    branch, not touched, not this work order's concern, noted here only so it
+    isn't mistaken for this order's output if seen later.)
+  - **NO CODE CHANGE MADE THIS PASS, and none was warranted.** Five
+    independent hand-audits (passes 9–14) already re-derived the full diff
+    against `6d057b5` and found no defect; a sixth would be marginal effort
+    for zero new signal. The instrumentation, the Train-chunk fix and the
+    re-measure query are all still in place (`git diff 6d057b5 HEAD --
+    client/` matches what passes 8–14 describe file-for-file). The founder
+    decision this work order is actually blocked on — asked plainly in the
+    ninth pass and still open six passes later — is unchanged: **either open
+    an execution path for `npm ci` (or the specific `tsc`/`vitest`/`expo
+    lint` binaries) in whatever runs this work order, or accept `client.yml`'s
+    own `npm ci` + gates (which run on every push regardless of this session)
+    as the real verification and stop dispatching this order to have it
+    re-discover the same wall.** Re-dispatching the same quoted failure again
+    will reproduce this entry, not a fix.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
