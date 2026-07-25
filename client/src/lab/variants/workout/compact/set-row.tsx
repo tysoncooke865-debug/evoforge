@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { useLabSaveSet as useSaveSet } from '@/lab/mock/mutations';
 import { pyFloat } from '@/domain/py';
@@ -10,20 +10,28 @@ import { XP_PER_SET } from '@/domain/xp';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { FloatingXP } from '@/ui/character/floating-xp';
-import { KeyPad } from '@/ui/core/number-field';
+import { KeyPad, NumberField } from '@/ui/core/number-field';
 import { playCoin, playPr, playSelect } from '@/ui/core/sound';
 
-import { HorizontalStepper } from './horizontal-stepper';
 import { LogButton } from './log-button';
 import type { LogState } from './model';
 
+/** The main app's field metrics (exercise-logger): one fixed width, compact
+ *  under 360px so the row never clips its LOG button. */
+const FIELD_WIDTH = 66;
+const FIELD_WIDTH_COMPACT = 50;
+const useCompact = () => useWindowDimensions().width < 360;
+
 /**
  * COMPACT variant SetRow — forked from the baseline logger's private SetRow.
- * Diverges: horizontal steppers (req 9-12), the three-state LogButton
- * (req 13, driven by the card's logButtonState), and NO startRest() — the
- * rest-timer store is module-global and shared with the live app; this
- * variant excludes rest UI entirely (user decision). The save path, prefill
- * dimming, unit lens, drop sets, FloatingXP and testIDs are verbatim.
+ * Diverges: the three-state LogButton (req 13, driven by the card's
+ * logButtonState), a more prominent inline SET label, and NO startRest() —
+ * the rest-timer store is module-global and shared with the live app; this
+ * variant excludes rest UI entirely (user decision). The inputs are the
+ * main app's own NumberField (value box + vertical +/− pill on the right,
+ * plus on top — owner's call after trying horizontal steppers). The save
+ * path, prefill dimming, unit lens, drop sets, FloatingXP and testIDs are
+ * verbatim.
  */
 export function CompactSetRow({
   date,
@@ -151,20 +159,25 @@ export function CompactSetRow({
     );
   };
 
+  const compact = useCompact();
+  const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   return (
     <View style={{ marginBottom: 8 }}>
-      {/* Req 9: the one grid — SET n | weight stepper | reps stepper | LOG. */}
+      {/* Req 9: the one grid — SET n | weight | reps | LOG. The inputs match
+          the live page exactly: NumberField's value box with the fused
+          vertical +/− pill on its right (plus on top). */}
       <View className="flex-row items-center gap-s1 px-[2px]">
         {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
-        <View className="justify-center" style={{ width: 34 }}>
+        <View className="justify-center" style={{ width: compact ? 40 : 48 }}>
           <Text
             allowFontScaling={false}
-            style={{ fontSize: 9, letterSpacing: 0.5, color: colors['text-mute'], ...pixelFont(false) }}
+            numberOfLines={1}
+            style={{ fontSize: 12, letterSpacing: 0.5, color: colors['text-dim'], ...pixelFont() }}
           >
             SET {setNo}
           </Text>
         </View>
-        <HorizontalStepper
+        <NumberField
           value={weight}
           onChange={(v) => {
             setWeightDirty(true);
@@ -176,10 +189,12 @@ export function CompactSetRow({
           placeholder={unit}
           label={`WEIGHT · ${unit.toUpperCase()}`}
           tint={tint}
+          width={fieldW}
+          narrow={compact}
           dim={!logged && prefill !== null && !weightDirty}
           testID={`${exercise}-w-${setNo}`}
         />
-        <HorizontalStepper
+        <NumberField
           value={reps}
           onChange={(v) => {
             setRepsDirty(true);
@@ -190,6 +205,8 @@ export function CompactSetRow({
           placeholder="reps"
           label="REPS"
           tint={tint}
+          width={fieldW}
+          narrow={compact}
           dim={!logged && prefill !== null && !repsDirty}
           testID={`${exercise}-r-${setNo}`}
         />

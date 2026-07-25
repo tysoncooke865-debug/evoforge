@@ -32,10 +32,13 @@ export function TargetLastRows({
 }) {
   const colors = useThemeColors();
   const lastText = lastSummary(last, unit);
+  // Inline, prominent labels (owner's call: the tiny mute caps read as
+  // furniture) — bold pixel face, text-dim, sized with the values they name.
   const label = (text: string) => (
     <Text
       allowFontScaling={false}
-      style={{ fontSize: 9, letterSpacing: 1, color: colors['text-mute'], width: 44, ...pixelFont(false) }}
+      numberOfLines={1}
+      style={{ fontSize: 12, letterSpacing: 0.5, color: colors['text-dim'], width: 56, ...pixelFont() }}
     >
       {text}
     </Text>
@@ -44,7 +47,7 @@ export function TargetLastRows({
     <View style={{ gap: 6 }}>
       <View className="flex-row items-center">
         {label('TARGET')}
-        <Text className="flex-1 text-xs" style={{ color: colors.accent }} numberOfLines={2}>
+        <Text className="flex-1 text-sm" style={{ color: colors.accent }} numberOfLines={2}>
           {schemeSentence(scheme)}
         </Text>
         <Pressable
@@ -68,7 +71,7 @@ export function TargetLastRows({
         <View className="flex-row items-center">
           {label('LAST')}
           <Text
-            className="flex-1 text-xs"
+            className="flex-1 text-sm"
             style={{ color: colors.accent, fontVariant: ['tabular-nums'] }}
             numberOfLines={1}
             testID={`${exercise}-last`}
