@@ -49,6 +49,14 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
+      {
+        id: 'compact',
+        title: 'COMPACT',
+        description:
+          'Density redesign — collapsible cards, horizontal steppers, three-state LOG, no rest timer.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
     ],
   },
 ];

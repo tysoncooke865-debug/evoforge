@@ -6,6 +6,7 @@ import { LAB_PAGE_META } from './registry-meta';
 import type { LabPage, LabPageId, LabVariant } from './types';
 import { TrainBaseline } from './variants/train/baseline';
 import { WorkoutBaseline } from './variants/workout/baseline';
+import { WorkoutCompact } from './variants/workout/compact';
 
 /**
  * THE REGISTRY — every page the lab can fork, every variant it holds.
@@ -22,6 +23,7 @@ import { WorkoutBaseline } from './variants/workout/baseline';
 const COMPONENTS: Record<string, ComponentType> = {
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
+  'workout/compact': WorkoutCompact,
 };
 
 /** Query params the gallery appends per page — the workout page's ONE-door
