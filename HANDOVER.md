@@ -112,6 +112,39 @@ Owner: Tyson. He works through other Claude sessions too — **always
       the probe throw, expect zero requests to `*.ingest.sentry.io`, and grep
       the built bundle for the DSN — which also, finally, verifies the Metro
       inline-cache trap §3 warns about and never checked.
+  - **FOURTH SESSION (2026-07-26, WO-005 attempt 3): ONE REAL CODE DEFECT FOUND
+    AND FIXED — the monitor could not see a crash on the first render, which is
+    the most valuable crash there is.** Same wall (`npm`/`node` still require an
+    approval nobody is present to grant), so the §4 checklist is STILL owed.
+    - **The defect.** `initMonitoring()` runs in `RootLayout`'s effect
+      (`app/_layout.tsx`); `ui/core/route-error-boundary` reports from an effect
+      DEEPER in the tree; React flushes passive effects **child-first within a
+      commit**. So when a route threw during its *initial* render, the boundary
+      reported before the DSN had been parsed and `captureException`'s `!dsn`
+      early-out dropped it — silently, which is the only failure mode a monitor
+      may never have. When the ROOT boundary is the one that catches it is worse
+      still: `RootLayout` never mounts, so its effect never runs at all. **This
+      is precisely the 2026-07-20 boot-lockout shape** (a stale persisted cache
+      rehydrating into a new bundle — permanent and hard-refresh-proof), i.e.
+      the app's own worst real incident would have gone unreported. Fix:
+      `captureException` self-starts (`if (!started) initMonitoring()`, wrapped,
+      idempotent — every other path pays one boolean). New falsification step 8
+      exists to SEE it; the previous seven probes all throw while the app is
+      already running, which is why three sessions of review walked past it.
+    - **Two more spine links checked, both holding, both recorded in §4:**
+      (1) `exec_watchdog_scan()`'s auto-resolve is gated on `subject_id is not
+      null` and `sentry-watch` writes NULL there, so the watchdog cannot resolve
+      a Sentry alert inside the same 5-minute window that `exec-notify` is
+      trying to push it — a decision taken for an unrelated reason that turns
+      out to be load-bearing. **Widening that `where` clause breaks WO-005.**
+      (2) `/exec` prints `a.kind` raw with no label map and no `kind` filter in
+      `exec_overview()`, so a `sentry_issue:` row shows, counts and RESOLVEs on
+      the founder dashboard with no client change.
+    - **All 35 new test assertions hand-traced on paper and agreeing** (both
+      frame grammars, the greedy-optional V8 capture group, all four gate cases,
+      redaction ordering). That is not a run: a hand trace cannot catch a bad
+      import path, a vitest resolution failure or a tsc error — the three most
+      likely ways this file set actually goes red.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

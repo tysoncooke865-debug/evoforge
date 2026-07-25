@@ -144,9 +144,9 @@ the push they already have. If you also want Sentry's own email, the rule is
 A guard that cannot fail is not a guard. Each of these must be *seen*, not
 reasoned about:
 
-**Two links were checked statically on 2026-07-26 and hold. They are recorded
-here because a silent break in either reproduces the 086 shape exactly — an
-alerting system that cannot alert, with nothing failing at either end:**
+**Four links were checked statically and hold. They are recorded here because a
+silent break in any of them reproduces the 086 shape exactly — an alerting
+system that cannot alert, with nothing failing at either end:**
 
 - **`serveMonitored` has something to catch.** No edge function wraps its
   handler in a top-level `try/catch`. All 12 `catch` blocks under
@@ -158,6 +158,29 @@ alerting system that cannot alert, with nothing failing at either end:**
   `sentry_issue:<shortId>` row rides the existing spine to a founder's phone
   with no change to it. Had it filtered on the six watchdog kinds,
   `sentry-watch` would have written correct alerts forever and told nobody.
+- **The watchdog cannot auto-resolve a Sentry alert out from under the push
+  (2026-07-26).** `exec_watchdog_scan()`'s auto-resolve (083 §4) is gated on
+  `a.subject_id is not null`. `sentry-watch` leaves `subject_id` NULL — a
+  decision made for a different reason (an issue is about several athletes, not
+  one) that turns out to be load-bearing here. Both jobs run every 5 minutes; if
+  that gate were ever widened, a Sentry alert could be opened and resolved
+  inside one window and `exec-notify` — which filters `resolved_at is null` —
+  would skip it forever. **Widening that `where` clause is a change to this
+  system, whatever else it is doing.**
+- **`/exec` renders an alert kind it has never seen (2026-07-26).** The
+  dashboard prints `{a.severity.toUpperCase()} · {a.kind}` raw with no label
+  map, and neither `exec_overview()`'s `alerts_open`/`alerts_critical` counts
+  nor the open-alert list filter on `kind`. So a `sentry_issue:<shortId>` row
+  appears on the founder dashboard, counts, and its RESOLVE button works
+  through the generic `exec_resolve_alert(id)` — no client change needed.
+
+**The 35 new test cases were hand-traced on 2026-07-26** (every assertion in
+`error-report.test.ts` and `sentry-envelope-parity.test.ts` evaluated on paper
+against the implementation, including both frame grammars, the greedy-optional
+V8 capture group, all four gate cases and the redaction ordering). All 35 agree
+with the implementation. **This is not a substitute for running them** — a hand
+trace cannot catch a bad import path, a vitest resolution failure or a tsc
+error, which are the three most likely ways this file set actually goes red.
 
 The rest of this list still needs a run.
 
@@ -170,6 +193,13 @@ The rest of this list still needs a run.
    Expect one issue in Sentry within seconds, with a stack, `surface: client`,
    `release` equal to the `entry-<hash>.js` the page is running, and `user.id`
    equal to the signed-in smoke account. **Delete the issue afterwards.**
+   If the DSN *is* in the bundle and the POST still does not produce an issue,
+   suspect the request's content type before anything else: `send()` posts a
+   bare string on purpose, so the browser labels it `text/plain` to keep the
+   report a SIMPLE request (no CORS preflight on a device already in trouble).
+   Check the network tab for the ingest response — that is the one part of the
+   wire format no unit test can pin, because it is set by the browser and
+   judged by Sentry.
 2. **The gate holds.** Throw the same error 50 times in a loop. Expect **one**
    event, not 50 — and no more than 5 distinct defects inside any minute.
    Break `createReportGate` to return `true`, watch the count explode, restore.
@@ -191,6 +221,19 @@ The rest of this list still needs a run.
    made the app throw first. Check it that way round: `monitoringStatus()` is a
    module export and not a global, so nothing can call it from a production
    console.
+8. **A crash on the FIRST render still reports.** Every other probe here throws
+   at a moment when the app is already running, which is the one case that was
+   never in doubt. Make a route throw during its *initial* render instead — the
+   honest way is the real shape: restore a stale persisted query cache under a
+   new bundle (the 2026-07-20 lockout), or temporarily throw at the top of a
+   route component's body and hard-refresh onto it. Expect an issue with
+   `mechanism: route-error-boundary`. **This is the probe that would have failed
+   before 2026-07-26**: `initMonitoring()` runs in RootLayout's effect, the
+   boundary reports from an effect DEEPER in the tree, and React flushes passive
+   effects child-first — so the report ran before the DSN was parsed and died on
+   the `!dsn` early-out. `captureException` now self-starts. Break that
+   (`if (!started)` → `if (false)`), watch this probe go silent while probe #1
+   keeps working, restore.
 
 ---
 

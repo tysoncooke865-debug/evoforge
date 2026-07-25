@@ -94,6 +94,23 @@ export interface CaptureContext {
 
 /** Report one exception. Safe to call from anywhere, including an error path. */
 export function captureException(error: unknown, context: CaptureContext): void {
+  // SELF-STARTING, and it has to be. initMonitoring() runs in RootLayout's
+  // effect; ui/core/route-error-boundary reports from an effect DEEPER in the
+  // tree, and React flushes passive effects child-first within a commit. So on
+  // a FIRST-RENDER crash the boundary reports before the layout has installed
+  // anything, and the `!dsn` early-out below would drop it silently — the
+  // 2026-07-20 boot-lockout shape (an old persisted cache rehydrating into a
+  // new bundle: permanent, hard-refresh-proof, and the single most valuable
+  // event this file exists to catch). When the root boundary is the one that
+  // catches, RootLayout never mounts at all and its effect never runs.
+  // initMonitoring() is idempotent, so every other path pays one boolean.
+  if (!started) {
+    try {
+      initMonitoring();
+    } catch {
+      /* init must never be the thing that breaks an error path */
+    }
+  }
   if (!dsn) return;
   try {
     const err = error instanceof Error ? error : undefined;
