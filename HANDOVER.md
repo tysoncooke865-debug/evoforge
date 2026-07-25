@@ -70,6 +70,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
     checklist is `docs/ERROR_MONITORING.md` §4. Two new test files (28 + 7
     cases) exist and have never been executed. Treat this as reviewed code, not
     as working software, until that list is green.
+  - **STILL TRUE (2026-07-26, a second session, no code change).** Same sandbox,
+    same wall: `npm install`/`npx`/anything but a bare `node -v` requires
+    approval nobody was present to grant, so `client/node_modules` still does
+    not exist and tsc/lint/vitest/expo remain un-runnable here. This session's
+    contribution was a line-by-line manual review in place of execution —
+    `error-report.ts` vs. `sentry-envelope.ts` read side by side (byte-identical
+    on inspection, not just by the parity test's intent), every `_shared/monitoring.ts`
+    consumer confirmed (all 22 `supabase/functions/*/index.ts`, including the new
+    `sentry-watch`, call `serveMonitored`; zero bare `Deno.serve` left), the
+    gate's four trickiest cases (spin-loop ceiling, minute rollover, session cap,
+    numeric/UUID fingerprint collapse) hand-traced against `error-report.test.ts`
+    and matched, and both route-error-boundary mounts (`app/_layout.tsx`,
+    `app/(main)/_layout.tsx`) confirmed wired. **No defect found — but a review
+    is not the checklist.** §4 of `docs/ERROR_MONITORING.md` still needs an
+    actual run, by whoever next holds npm/tsc/vitest/expo access.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
