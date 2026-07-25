@@ -465,6 +465,63 @@ Owner: Tyson. He works through other Claude sessions too — **always
     line-by-line against the implementation they pin. **Found nothing the ninth
     pass had not already caught and fixed.** Traced but not re-narrated here —
     the prior nine entries already state it correctly.
+  - **THE ELEVENTH PASS: THE RE-MEASURE QUERY UNDER-INSTRUMENTED THE ONLY SPAN
+    THE LOST COHORT EMITS (2026-07-26).** The dispatched order again quoted the
+    npm/npx verification failure. It reproduces a FIFTH and SIXTH time (direct
+    Bash, direct PowerShell), and this pass killed the last excuse for it: the
+    sibling checkout `Previous_Code/evoforge/client/node_modules` **does have a
+    real installed toolchain** (`typescript/lib/tsc.js` is on disk), and the
+    runner refuses `node <that path>` exactly as it refuses `npm` — so it is not
+    a missing install, it is the executable allowlist, which permits
+    `node --version` and nothing else. `client.yml` runs `npm ci` (line 75)
+    before tsc, lint, `vitest run src/domain`, the verify scripts and
+    `expo export`, so the REAL gate this work order deploys through is
+    unaffected. Nothing was changed to chase it.
+  - **WHAT THE PASS ACTUALLY FOUND, by auditing the deliverable instead of the
+    code.** Ten passes reviewed the instrument; none re-read the SQL that reads
+    it, and the work order's objective ends "re-measure against the
+    `activation_step` funnel". The re-measure query reported THREE spans and
+    carried ONE `count(prop)` denominator — `tti_measured`, over
+    `ms_to_interactive`. The doc's own prose says that column is "how you tell
+    'the app is fast' from 'the measurement is refusing everything'", and it was
+    absent from **`ms_to_mount`** — which, because the five athletes this work
+    order is about emit `home_reached` AND NOTHING ELSE, is the only span they
+    ever write. A `ms_to_mount` refusing most rows (a hidden tab, the
+    builder/scan cohort, a stamp that stopped landing) and measuring a few fast
+    ones would show a healthy `home_mount_p50_ms` with nothing beside it to
+    reveal the collapsed denominator. **The house failure mode in its tenth
+    costume, and again in the instructions rather than the code** — the eighth
+    pass found the same shape in the same section. Fix: `home_mount_measured`
+    and `home_tti_measured` added, plus which row each count belongs to (the
+    props are emitted on different steps, so a count read against the wrong
+    row's `athletes` is its own trap). `tti_measured` KEPT ITS NAME so the
+    entries above and the by-door query still refer to something real.
+  - **NO CODE DEFECT FOUND, and the audit behind that is independent.** The
+    whole diff was re-derived from the true base (`6d057b5` — note `3b5a833`
+    "WO-006 device" is also this order, so a diff from `ba142a5~1` silently
+    omits the two-wave preload and reads as if it never shipped; it did).
+    Hand-executed rather than inspected: **all 26 assertions in
+    `domain/__tests__/activation-tti.test.ts` and all 18 in
+    `data/__tests__/activation.test.ts` were traced against the implementation**
+    and every one passes, including the two that depend on `spanStart.get()`
+    returning a legitimate `0` under sinon's clock (`?? null`, not `|| null` —
+    the trap was avoided) and the fake-timer tests reading `Date.now()` before
+    the first `await` in `markActivationStep`. Type interfaces checked at every
+    new boundary: `missionError` is a `boolean`, `splitKey` is `string | null`
+    matching `afterOnboardingHref`, `NeonButton.busy` exists and disables,
+    `startEmpty`/`startRoutine`/`scanRow`/`routines.data ?? []` all match the
+    lazy sheet's props, and `today.tsx`'s six removed imports (`ScrollView`,
+    `TextInput`, `buildCorpus`, `buildSections`, `ExerciseSearchBar`, the
+    `Routine` TYPE — line 347's "Built-in Routine" is a string, not a
+    reference) leave nothing dangling while every retained one is still used.
+    The self-referencing `onIdle` in the two-wave preload is called from a
+    callback, not its own initializer, so it does not trip TS7022.
+  - **STILL NOT RUN, and still the honest caveat on all of the above:** tsc,
+    lint, vitest, the verify scripts, `expo export` and the Playwright tour.
+    The tour list earlier in this entry is unchanged and is the whole of what
+    needs falsifying at the surface; add to it that the re-measure query now
+    has three denominators and that **`home_mount_measured` must not be zero**
+    on a cohort that reached Home.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

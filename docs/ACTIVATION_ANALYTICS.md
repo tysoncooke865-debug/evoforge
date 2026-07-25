@@ -387,6 +387,17 @@ being lost, which is the whole failure mode here. `count(prop)` next to
 measurement is refusing everything", which is exactly how the nav-stall beacon
 fooled us for a week.
 
+**Every span in the query needs its own, and the first cut of this query only
+gave one to the Train span.** Each refusal rule in `domain/activation-tti.ts`
+fires per span, so the three denominators move independently: a hidden tab
+poisons `ms_to_mount` while `ms_to_interactive` is stamped fresh on a later
+press. A percentile with no count beside it cannot tell a fast Home from a Home
+that measured four athletes out of forty and threw the rest away — and that
+matters most for **`ms_to_mount`**, because the five athletes this work order is
+about emit `home_reached` AND NOTHING ELSE, so it is the only span they ever
+write. The one span belonging exclusively to the lost cohort was the one without
+a denominator. Same failure as every other entry here, one column over.
+
 ```sql
 select props->>'step'                                              as step,
        count(*)                                                    as athletes,
@@ -395,8 +406,10 @@ select props->>'step'                                              as step,
          order by (props->>'ms_to_interactive')::numeric)          as train_tti_p50_ms,
        percentile_disc(0.9) within group (
          order by (props->>'ms_to_interactive')::numeric)          as train_tti_p90_ms,
+       count(props->>'ms_home_to_interactive')                     as home_tti_measured,
        percentile_disc(0.5) within group (
          order by (props->>'ms_home_to_interactive')::numeric)     as home_tti_p50_ms,
+       count(props->>'ms_to_mount')                                as home_mount_measured,
        percentile_disc(0.5) within group (
          order by (props->>'ms_to_mount')::numeric)                as home_mount_p50_ms
 from analytics_events
@@ -404,6 +417,15 @@ where event_name = 'activation_step'
   and created_at >= '2026-07-25'
 group by 1 order by min((props->>'index')::int);
 ```
+
+Read the counts BEFORE the percentiles, and read each against the `athletes`
+column on its own row — `tti_measured` and `home_tti_measured` only apply to the
+`train_opened` row, `home_mount_measured` only to `home_reached`, because that is
+where each prop is emitted. A count far below its row's `athletes` is the
+instrument refusing, not the app performing; `home_mount_measured` at or near
+zero on `home_reached` means the stamp is not landing at all (check
+`isHomeHandoff` and the builder/scan cohort, which report `null` on purpose)
+rather than that Home is instant.
 
 **Then split it by door before you believe any movement in it.** The three doors
 are three populations (see the door table) and the mission-card pair started
