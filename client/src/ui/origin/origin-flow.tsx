@@ -204,7 +204,30 @@ export function OriginFlow({
     }
   }, [step, boundOrigin, userType]);
 
+  /**
+   * ENTER THE FORGE IS THE LAST TAP OF ONBOARDING AND IT USED TO LOOK DEAD.
+   *
+   * `onComplete` awaits a profile refetch before it can navigate
+   * (`onboarding.tsx` — the (main) gate bounces an athlete who arrives with a
+   * stale null profile), so on a mid-range phone on mobile data this button
+   * stayed lit and unchanged for the whole round trip. That is a dead tap at the
+   * exact moment WO-006 exists to fix, on the exact device it exists to fix it
+   * for, and it cost twice over: a second impatient tap re-emitted
+   * `onboarding_completed` AND restarted the hand-off stopwatch, so
+   * `ms_to_mount` reported only the time after the LAST tap. The slower the
+   * hand-off, the likelier the second tap — the instrument flattered itself in
+   * proportion to the problem it was measuring.
+   *
+   * Never cleared: this screen is on its way out, and `onComplete`'s navigation
+   * is now unconditional so it cannot fail to happen. The span carries its own
+   * guard (`startActivationSpanOnce`) because a busy flag lives only in this
+   * component, and components get rewritten.
+   */
+  const [finishing, setFinishing] = useState(false);
+
   const finish = () => {
+    if (finishing) return;
+    setFinishing(true);
     if (userType === 'new') {
       track('onboarding_completed', { ...FLOW_PROPS, duration_ms: Date.now() - startedAt.current });
     }
@@ -376,7 +399,12 @@ export function OriginFlow({
                 testID="origin-awakening"
               />
               <View className="mt-s4">
-                <NeonButton title="ENTER THE FORGE" onPress={finish} testID="origin-finish" />
+                <NeonButton
+                  title="ENTER THE FORGE"
+                  onPress={finish}
+                  busy={finishing}
+                  testID="origin-finish"
+                />
               </View>
             </>
           ) : null}

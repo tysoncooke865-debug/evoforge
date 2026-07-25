@@ -162,6 +162,38 @@ instrument that reports noise is worse than none, because it looks like evidence
 A refused span is not a lost athlete. The step ladder is the census; this is only
 the stopwatch.
 
+### …and it is stamped ONCE, because the last tap of onboarding looked dead
+
+`onComplete` cannot navigate until the profile refetch it awaits comes back — the
+`(main)` gate bounces an athlete who arrives with a stale null profile straight
+back to `/onboarding`. So **ENTER THE FORGE** sat lit and unchanged for a whole
+Supabase round trip, which on the mid-range phone this work order is about is
+long enough to read as a dead button. It cost twice:
+
+- a second impatient tap emitted a **second `onboarding_completed`**, with a
+  larger `duration_ms`;
+- and it **restarted the stopwatch**, so `ms_to_mount` (and
+  `ms_home_to_interactive`, which shares the span) reported only the time after
+  the LAST tap.
+
+The second is the one that matters here, and it is the house failure mode again:
+the slower the hand-off, the likelier the extra tap, **so the instrument
+flattered itself in proportion to the problem it was measuring** — the long spans
+it exists to see are exactly the ones it would have truncated.
+
+Two guards, because one of them lives in a component and components get rewritten:
+`origin-flow.tsx` marks the button `busy` for the duration (the same `NeonButton`
+state FORGE CHARACTER already uses), and the stamp goes through
+`data/activation.ts::startActivationSpanOnce`, which refuses to restart a span
+that is already running. Train's stamp is deliberately NOT once-only — a second
+visit to Train really is a second hand-off. The once-guard is cleared on sign-out
+with every other cache, so two athletes onboarding in the same tab are each
+measured from their own tap. +3 tests.
+
+The navigation is now unconditional — a rejected refetch no longer skips it — because
+a busy button that can never clear is worse than the dead one it replaced, and of
+the two failures the gate's own bounce is the recoverable one.
+
 ### The Train span starts at the PRESS, not at focus
 
 `ms_to_interactive` is stamped by a `tabPress` listener on the Train tab

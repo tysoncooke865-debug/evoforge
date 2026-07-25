@@ -99,17 +99,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
     nothing else executable: `npm`, `npx` and `node <script>` are all refused, and
     `client/node_modules` is not installed.** tsc, lint, vitest, the verify
     scripts, `expo export` and the Playwright tour (`client/.claude/skills/verify`)
-    were all unavailable across ALL FOUR passes, so nothing in this entry is
+    were all unavailable across ALL FIVE passes, so nothing in this entry is
     falsified at the surface. **Run HANDOVER §5 before trusting it**, and drive a
     throwaway production account through onboarding → Home → Train to confirm
     `ms_to_interactive` lands non-null, that `train_opened` does NOT appear for an
     athlete who only sits on Home, and that BUILD MY OWN still lands in the
-    builder while a plain finish still lands on Home. **Two more to check on the
+    builder while a plain finish still lands on Home. **Three more to check on the
     same tour:** that `train_opened` carries `device_class = 'desktop'` from the
     Playwright browser and `'mobile'` from a phone-emulated context (if it reads
     `unknown` in both, `readDevice` is failing, and an all-`unknown` column is
-    indistinguishable from having shipped nothing), and that tapping the
-    `adhoc-loading` card itself does NOT close the sheet.
+    indistinguishable from having shipped nothing), that tapping the
+    `adhoc-loading` card itself does NOT close the sheet, and that **ENTER THE
+    FORGE spins and then lands** — throttle the network, tap it twice, and check
+    production for exactly ONE `onboarding_completed` row.
   - **THE FIX THE MEASUREMENT NAMED: ≈246 KB OF EXERCISE LIBRARY LEAVES THE TRAIN
     CHUNK (2026-07-26, third pass).** `(main)/today.tsx` statically imported
     `@/data/exercise-corpus`, `@/domain/exercise-sections` and
@@ -181,6 +183,26 @@ Owner: Tyson. He works through other Claude sessions too — **always
       preset for it) — the read is `typeof window`/`typeof navigator`, in its own
       try/catch, because it runs inside `markActivationStep`'s swallow-everything
       block and a throw there would drop the step silently.
+  - **THE LAST TAP OF ONBOARDING LOOKED DEAD, AND THE STOPWATCH FLATTERED ITSELF
+    IN PROPORTION (2026-07-26, fifth pass).** `onComplete` cannot navigate until
+    the profile refetch it awaits returns — the `(main)` gate bounces an athlete
+    who arrives with a stale null profile — so **ENTER THE FORGE** stayed lit and
+    unchanged for a whole Supabase round trip, on the mid-range phone this work
+    order is about. A second impatient tap re-emitted `onboarding_completed`
+    **and re-stamped the Home span**, so `ms_to_mount` (and
+    `ms_home_to_interactive`, which shares it) reported only the time after the
+    LAST tap. **The error runs one way**: the slower the hand-off, the likelier
+    the extra tap — the instrument truncated exactly the long spans it exists to
+    see. Same argument as `isHomeHandoff` and the focus-stamped span, third time.
+    Two guards, because one lives in a component: the button is `busy` for the
+    duration (the `NeonButton` state FORGE CHARACTER already uses), and the stamp
+    goes through the new `startActivationSpanOnce`, which refuses to restart a
+    running span. **Train's stamp stays re-stampable on purpose** — a second visit
+    to Train IS a second hand-off — and the once-guard clears on sign-out with
+    every other cache, so two athletes onboarding in the same tab are each
+    measured from their own tap. `onComplete`'s navigation is now unconditional —
+    a busy button that can never clear is worse than the dead one it replaced,
+    and the gate's bounce is the recoverable failure of the two. +3 tests.
   - **VERIFIED BY HAND, GATES STILL UNRUN:** the claim "the exercise library left
     the Train chunk" was checked by walking the static import graph rather than
     taken on trust — every importer of `exercise-library` / `-corpus` /

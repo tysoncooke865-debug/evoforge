@@ -20,6 +20,7 @@ import {
   noteActivationSpan,
   readActivationSpan,
   startActivationSpan,
+  startActivationSpanOnce,
 } from '../activation';
 
 const tracked: { name: string; props: Record<string, unknown> }[] = [];
@@ -135,6 +136,43 @@ describe('activation emitter — the hand-off stopwatch', () => {
     await markActivationStep(USER, null, 'train_opened', { ms_to_interactive: 42 });
     expect(lastProps().ms_to_interactive).toBe(42);
   });
+
+  it('refuses to restart the hand-off span, so a second tap cannot shorten it', async () => {
+    // ENTER THE FORGE hands off to a profile refetch onboarding.tsx must await
+    // before it can navigate — an unchanged screen for the length of a round
+    // trip. An athlete who taps again inside that gap would, under a plain
+    // re-stamp, be measured from the SECOND tap. The error runs one way: the
+    // slower the hand-off, the likelier the extra tap, so it would shorten
+    // exactly the long spans this rail exists to see.
+    vi.useFakeTimers();
+    try {
+      startActivationSpanOnce(ACTIVATION_SPAN.home);
+      vi.advanceTimersByTime(600);
+      startActivationSpanOnce(ACTIVATION_SPAN.home); // the impatient second tap
+      vi.advanceTimersByTime(500);
+      await markActivationStep(USER, null, 'home_reached');
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(lastProps().ms_to_mount).toBe(1_100); // from the FIRST tap, not 500
+  });
+
+  it('still lets the Train span restart — a second visit IS a second hand-off', async () => {
+    // The once-only rule is the hand-off's, not the API's: Train is re-entered
+    // all day and the last press before the event is the one that describes
+    // what the athlete just waited for.
+    vi.useFakeTimers();
+    try {
+      startActivationSpan(ACTIVATION_SPAN.train);
+      vi.advanceTimersByTime(4_000);
+      startActivationSpan(ACTIVATION_SPAN.train);
+      vi.advanceTimersByTime(700);
+      await markActivationStep(USER, null, 'train_opened');
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(lastProps().ms_to_interactive).toBe(700);
+  });
 });
 
 describe('activation emitter — spans go with every other cache on sign-out', () => {
@@ -149,5 +187,24 @@ describe('activation emitter — spans go with every other cache on sign-out', (
     // next one's first screen.
     expect(activationSpanMs(ACTIVATION_SPAN.train)).toBeNull();
     expect(readActivationSpan('home_interactive')).toBeNull();
+  });
+
+  it('re-arms the once-only hand-off stamp for the next athlete', async () => {
+    // The once-only rule must not outlive the session that earned it: two
+    // athletes onboarding in the same tab is a real sequence (a shared phone,
+    // a support session), and the second one would otherwise report the FIRST
+    // one's start — a span of minutes or hours, silently ceilinged to null.
+    startActivationSpanOnce(ACTIVATION_SPAN.home);
+    await clearActivationMarks();
+
+    vi.useFakeTimers();
+    try {
+      startActivationSpanOnce(ACTIVATION_SPAN.home);
+      vi.advanceTimersByTime(900);
+      await markActivationStep(USER, null, 'home_reached');
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(lastProps().ms_to_mount).toBe(900);
   });
 });

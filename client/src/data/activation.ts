@@ -87,6 +87,31 @@ export function startActivationSpan(name: string): void {
   else spanHidden.delete(name);
 }
 
+/**
+ * Stamp a span only if nothing has stamped it yet this session.
+ *
+ * THE HAND-OFF SPAN IS STAMPED ONCE, where Train's is deliberately re-stampable
+ * (a second visit to Train really is a second hand-off). The tap that ends
+ * onboarding is followed by a profile refetch `onboarding.tsx` must await before
+ * it can navigate — on a mid-range phone on mobile data, up to a second of a
+ * screen that has not visibly changed. An athlete who taps ENTER THE FORGE again
+ * in that gap would, under a plain re-stamp, RESTART the stopwatch, so
+ * `ms_to_mount` would report only the remainder.
+ *
+ * The error runs ONE WAY. The slower the hand-off, the likelier the second tap,
+ * so a re-stamp shortens precisely the long spans this work order exists to see
+ * — a flattering number that looks like evidence, which is the failure mode the
+ * whole rail is built against. `origin-flow.tsx` also disables the button while
+ * the hand-off runs; this is the half a future caller cannot undo.
+ *
+ * Cleared by `clearActivationSpans` on sign-out with every other cache, so the
+ * next athlete to onboard in the same tab is measured from their own tap.
+ */
+export function startActivationSpanOnce(name: string): void {
+  if (spanStart.has(name)) return;
+  startActivationSpan(name);
+}
+
 /** Measure a span NOW, applying every refusal rule. Non-destructive. */
 export function activationSpanMs(name: string): number | null {
   return interactiveSpanMs({

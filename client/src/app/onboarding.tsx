@@ -4,7 +4,7 @@ import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import { ACTIVATION_SPAN, startActivationSpan } from '@/data/activation';
+import { ACTIVATION_SPAN, startActivationSpanOnce } from '@/data/activation';
 import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
@@ -170,12 +170,28 @@ export default function OnboardingScreen() {
           // which is the truth). Read back as `ms_to_mount` on `home_reached`
           // and `ms_home_to_interactive` on `train_opened`
           // (docs/ACTIVATION_ANALYTICS.md).
-          if (isHomeHandoff(href)) startActivationSpan(ACTIVATION_SPAN.home);
+          //
+          // ONCE, never re-stamped: the refetch below is a network round trip
+          // the athlete sits through on an unchanged screen, and a second tap
+          // inside it would restart the stopwatch and file only the remainder
+          // (data/activation.ts::startActivationSpanOnce).
+          if (isHomeHandoff(href)) startActivationSpanOnce(ACTIVATION_SPAN.home);
           // AWAIT the refetch: navigating with a stale null profile makes
           // the (main) gate bounce the just-finished athlete straight back
           // to /onboarding (caught by the O-series tour).
+          //
+          // THE NAVIGATION IS UNCONDITIONAL because the button is now BUSY until
+          // it happens (origin-flow.tsx): a rejected refetch would otherwise
+          // strand a just-forged athlete on a spinner with nothing to tap. Of
+          // the two failures, the gate's bounce is the recoverable one — it
+          // returns them here and this screen redirects again once the profile
+          // lands.
           void (async () => {
-            await queryClient.invalidateQueries({ queryKey: ['profile'] });
+            try {
+              await queryClient.invalidateQueries({ queryKey: ['profile'] });
+            } catch {
+              /* navigate anyway — see above */
+            }
             router.replace(href as never);
           })();
         }}
