@@ -435,6 +435,36 @@ Owner: Tyson. He works through other Claude sessions too — **always
     query + the by-device query + the funnel-by-device query, what it is
     pointed at, eighth pass — what `ms_to_mount` does NOT mean, and ninth —
     the errored-screen refusal in the rules list).
+  - **THE TENTH PASS FOUND NO DEFECT AND THAT IS THE WHOLE FINDING (2026-07-26).**
+    The dispatched work order quoted a prior run's verification failure — `npx
+    tsc` refusing to run without TypeScript installed, `vitest` "not recognized",
+    a lint `Module.require` crash — and asked for it to be fixed. **It is the
+    same constraint the ninth pass already falsified, reproduced a third and
+    fourth time**: direct Bash, direct PowerShell (with and without a sandbox
+    override), and a fresh subagent all hit the identical refusal on `npm
+    --version`, `npm install` and `npm ci` before npm ever ran — never a
+    partial install, never a different error. `client/node_modules` still does
+    not exist. **This is not a code defect** — `.github/workflows/client.yml`
+    already runs `npm ci` before every gate (tsc, vitest, lint, the verify
+    scripts, `expo export`), so the real CI this work order deploys through is
+    unaffected; the quoted failure is only what running those same commands
+    looks like in a worktree with no install and no npm, which is this runner,
+    always. Re-fixing it here would mean editing a CI file that is not broken —
+    the actual scope violation.
+  - **INDEPENDENT HAND-VERIFICATION, NOT TAKEN ON TRUST FROM THE NINTH PASS's
+    OWN.** Every file in the list below was re-read this pass with no memory of
+    the prior nine: `domain/activation-tti.ts` and `data/activation.ts` in full;
+    `app/onboarding.tsx` and `ui/origin/origin-flow.tsx` for the
+    `afterOnboardingHref` / `isHomeHandoff` / `startActivationSpanOnce` /
+    `finishing` wiring; `(main)/index.tsx` for `useHomeInteractive(!missionLoading,
+    missionError)`; `(main)/_layout.tsx` for the `tabPress` listener and the
+    two-wave preload; `ui/home/mission-card.tsx` for both `toTrain` doors;
+    `ui/train/quick-workout-sheet.tsx` and `(main)/today.tsx` for the `lazy` /
+    `Suspense` / `adhoc-loading` wiring and that no `ScrollView` / `TextInput` /
+    `buildCorpus` / `ExerciseSearchBar` import was left dangling; both test files
+    line-by-line against the implementation they pin. **Found nothing the ninth
+    pass had not already caught and fixed.** Traced but not re-narrated here —
+    the prior nine entries already state it correctly.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
