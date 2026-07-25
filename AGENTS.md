@@ -21,10 +21,14 @@ Pointer file for coding agents. The canonical instructions live in:
   code defect rather than a missing install: `npx tsc` → *"use npm install
   typescript"*, `npm test` → *"'vitest' is not recognized"*, `npx expo lint` →
   a `Module.require` stack. Symptom table in HANDOVER §5; this has already
-  cost one work order an attempt.
+  cost one work order two attempts, which is why the three npm-run checks
+  below now install for themselves via `scripts/ensure-deps.mjs` — you should
+  never see those messages again, but recognise them if you do.
 - Checks (run from `client/`, all must pass before commit):
-  `npx tsc --noEmit` · `npx expo lint` · `npm test` (vitest) ·
+  `npm run typecheck` · `npm run lint` · `npm test` (vitest) ·
   `node scripts/verify-motion.mjs` · `node scripts/verify-tokens.mjs`.
+  **Prefer these over `npx tsc --noEmit` / `npx expo lint`**: the `npm run`
+  forms carry the `pre*` install guard, the bare `npx` forms cannot.
 - Migrations in `migrations/` are applied via the Supabase management API
   (see HANDOVER.md); never edit an already-deployed migration file — add a
   corrective one. Highest applied: 046 (022 absent, 037 duplicated:

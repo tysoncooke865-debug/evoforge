@@ -186,22 +186,32 @@ The rest of this list still needs a run.
 
 0. **`cd client && npm ci` before anything else, and confirm it finished.**
    Not a formality — it is the step whose absence failed this work order
-   **twice**, with the identical three messages both times. The second time it
-   was because the fix went into HANDOVER §5, `client/CLAUDE.md` and this list
-   but **not into `AGENTS.md`** — which is the pointer file an agent or runner
-   opens first, and whose check list is the exact command triple that failed
-   (`npx tsc --noEmit` · `npx expo lint` · `npm test`). It carries the install
-   step now too. A required step is only required where it is actually read.
+   **three times**, with the identical three messages every time.
    `node_modules` is gitignored, so a `git worktree` checkout of this branch has
    none, and `npx tsc --noEmit` / `npm test` / `npx expo lint` then fail with
    *"use npm install typescript"*, *"'vitest' is not recognized"* and a bare
    `Module.require` stack respectively — three messages that read like a broken
-   diff and mean nothing but "no dependencies here". Attempt 2 reported exactly
-   those three and they were not about this code (see HANDOVER §5). Only once
-   `npm ci` is green do the failures below mean anything:
-   `npx tsc --noEmit` · `npm test` (the 35 new cases in `error-report.test.ts`
-   and `sentry-envelope-parity.test.ts` have still never been executed) ·
-   `npx expo lint` · `npx expo export -p web --clear`.
+   diff and mean nothing but "no dependencies here". Only once `npm ci` is green
+   do the failures below mean anything.
+
+   **Saying this in four files did not stop it happening again**, so as of
+   attempt 2's re-run it is a mechanism: `client/scripts/ensure-deps.mjs`
+   installs on demand and `pretest` / `prelint` / `pretypecheck` invoke it, so
+   **`npm test`, `npm run lint` and `npm run typecheck` now repair their own
+   checkout**. Use those three forms here. The bare `npx tsc --noEmit` /
+   `npx expo lint` forms are deliberately NOT used any more: `npx` has no
+   pre-hook and no non-interactive auto-install, so nothing in this repo can
+   guard them.
+
+   `npm run typecheck` also covers a **second cause that `npm ci` alone never
+   fixed**: `expo-env.d.ts` is gitignored and written by `expo start`, not by
+   `expo export`, so `tsc` on a fresh checkout goes red on the `@/global.css`
+   import no matter how the install went. The guard writes the same one-line
+   shim `client.yml` does.
+
+   So: `npm run typecheck` · `npm test` (the 35 new cases in
+   `error-report.test.ts` and `sentry-envelope-parity.test.ts` have still never
+   been executed) · `npm run lint` · `npx expo export -p web --clear`.
 
 1. **The client reports.** First confirm the DSN actually reached the bundle —
    `grep -o 'ingest\.sentry\.io' dist/_expo/static/js/web/entry-*.js` — because

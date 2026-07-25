@@ -20,10 +20,13 @@ npm ci                          # FIRST, in any fresh checkout — a git worktre
                                 # fail as if the code were broken (HANDOVER §5)
 npm test                        # Vitest parity suite vs contracts/fixtures/
 node scripts/verify-tokens.mjs  # tokens.js === assets/styles.css :root
-npx tsc --noEmit                # needs expo-env.d.ts: run an expo command first
-npx expo lint                   # includes react/no-danger (error)
+npm run typecheck               # tsc --noEmit; writes the expo-env.d.ts shim
+npm run lint                    # includes react/no-danger (error)
 npx expo start / export -p web  # dev / static build to dist/
 ```
+The three `npm`-run checks self-install via `scripts/ensure-deps.mjs`
+(`pretest`/`prelint`/`pretypecheck`) — prefer them over the bare `npx tsc` /
+`npx expo lint` forms, which `npx` gives no way to guard. HANDOVER §5.
 Setup: copy `.env.example` to `.env.local` (gitignored) and fill in the
 Supabase URL + PUBLISHABLE key. Never a secret key: EXPO_PUBLIC_ compiles into
 the shipped bundle. AI calls go through Edge Functions (Phase 4), never client-side.
