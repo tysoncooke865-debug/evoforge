@@ -252,6 +252,42 @@ Owner: Tyson. He works through other Claude sessions too — **always
       another attempt trying to find the command that works; there isn't one.
       The runner holds execution, and it needs exactly one thing: `npm ci` in
       `client/` before the checks.**
+  - **EIGHTH SESSION (2026-07-26, WO-005 attempt 4): proof that the doc-fix
+    avenue is closed, not just untried — stop editing docs to chase this.**
+    ac736db (the seventh session's commit) already carries the correct fix in
+    all four places, `AGENTS.md` included, and the runner still failed with
+    the **identical three messages** on the very next run. A doc a runner
+    would have to read to change its own behavior, and didn't, is not a gap in
+    the doc — **it is proof the runner does not read `AGENTS.md` /
+    `CLAUDE.md` / `HANDOVER.md` before deciding what to execute.** It is
+    presumably a fixed command sequence (`npx tsc --noEmit`, `npm test`, `npx
+    expo lint`), external to this repo. Confirmed independently, same wall as
+    the sixth/seventh sessions (`node --version` runs; `npm --version` — Bash
+    plain, Bash with sandbox disabled, and PowerShell — and any `npm`/`npx`
+    invocation are each refused with no output).
+    - **Why no repo file can fix this, structurally, not just practically:**
+      of the three failing commands, only `npm test` runs through npm's own
+      script runner, which is the ONLY one of the three with a lifecycle hook
+      (`pretest`) available to intercept it. `npx tsc --noEmit` and `npx expo
+      lint` are raw `npx` invocations — npx has no pre-hook, no config file,
+      and no environment variable that makes it install a missing package
+      non-interactively; its refusal message *is* that non-interactive
+      behavior, by design. So even a `pretest`-hook workaround would fix at
+      most one of the three gates, permanently leave the other two red, and
+      add a script the real CI (`client.yml`, which already runs `npm ci`
+      correctly at the top of its one job) does not need — not attempted, as
+      a partial, speculative fix to an external system is worse than an
+      honest non-fix. **This is a runner/harness change, not a repository
+      change.** Whoever configures what the runner executes for this branch
+      needs to add one line, `npm ci` in `client/`, before the checklist —
+      nothing in `client/`, `AGENTS.md`, `CLAUDE.md`, or `HANDOVER.md` can
+      substitute for it. No further architect attempt should touch these four
+      files for this reason again.
+    - **No code changed this session** (the tree was clean at ac736db); the
+      monitoring code itself has had four independent hand-trace reviews
+      (sessions 4-7) with one real defect found and fixed (the self-start
+      race, fourth session) and none since. §4 of `docs/ERROR_MONITORING.md`
+      remains owed in full, unchanged from every prior session's note.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
