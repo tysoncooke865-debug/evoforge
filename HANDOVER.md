@@ -224,6 +224,34 @@ Owner: Tyson. He works through other Claude sessions too — **always
       `CORS_HEADERS` and `json`. The 083 auto-resolve gate
       (`a.subject_id is not null`) was re-confirmed **in the migration**, not
       from the note about it.
+  - **SEVENTH SESSION (2026-07-26, WO-005 attempt 3): the sixth session's fix
+    was right and landed in three files — but not in the file the runner reads,
+    so the same three messages came back.** The reported red was again `npx tsc`
+    *"use npm install typescript"*, `npm test` *"'vitest' is not recognized"*,
+    `npx expo lint` a `Module.require` stack. Cause unchanged (no
+    `client/node_modules` in a worktree; confirmed present-tense here — `ls
+    client` shows no `node_modules`, and the repo-root one is an empty
+    directory). **What was missed: `AGENTS.md`.** Its "Quick reference" block
+    lists the checks agents run, its list is the exact failing triple
+    (`npx tsc --noEmit` · `npx expo lint` · **`npm test`**), and §5's loop says
+    `npx vitest run src` instead — so *"'vitest' is not recognized"* is
+    `npm test`, which names `AGENTS.md` (or `client/CLAUDE.md`, already fixed)
+    as the list being followed, not §5. `AGENTS.md` now carries `npm ci` ahead
+    of the checks with the three symptoms inline. `client/README.md` was left
+    alone deliberately — it is untouched create-expo-app boilerplate, not a
+    verification contract. **Nothing about the monitoring code changed in this
+    session, and §4 of `docs/ERROR_MONITORING.md` is still owed in full.**
+    - **The execution wall is now mapped precisely: it is a command allowlist,
+      not a role or a toolchain gap.** In this session `git log`, `ls` and
+      `node --version` (→ `v24.18.0`) all run and return output, while
+      `npm --version` (tried via both the Bash and PowerShell tools),
+      `node -e`, `node client/scripts/verify-tokens.mjs`, and any command using
+      a shell operator are each refused. So `node` is on the allowlist only
+      with `--version` — which is why the fifth session's dependency-free
+      type-stripping harness could be written but never run. **Do not spend
+      another attempt trying to find the command that works; there isn't one.
+      The runner holds execution, and it needs exactly one thing: `npm ci` in
+      `client/` before the checks.**
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
@@ -2869,6 +2897,16 @@ The loop above was written from the main checkout, where `node_modules` has
 existed for months — note that `rm -rf node_modules/.cache` on the next line
 quietly assumes it. **An agent working a WO in a worktree is the case that was
 never covered.** `npm ci` (not `install`) — the lockfile is the pin.
+
+**It is stated in FOUR places, and the fourth is the one that matters most:**
+this section, `client/CLAUDE.md`'s command block, `docs/ERROR_MONITORING.md`
+§4 step 0, and **`AGENTS.md`** — the pointer file an agent or runner opens
+before either of the others, and the only one whose check list is the exact
+triple that fails (`npx tsc --noEmit` · `npx expo lint` · `npm test`; note §5
+above says `npx vitest run src`, so *"'vitest' is not recognized"* identifies
+`AGENTS.md`'s list as the one being followed). It was missed on the first pass
+at this fix and WO-005 failed a second time with the identical three messages.
+**If you add a required step, add it where the command list actually lives.**
 
 Then **tour it in a browser** (Playwright, scripts in the session scratchpad):
 serve `client/dist` on a local port, sign in as a smoke account, drive the real

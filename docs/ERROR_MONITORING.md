@@ -185,7 +185,13 @@ error, which are the three most likely ways this file set actually goes red.
 The rest of this list still needs a run.
 
 0. **`cd client && npm ci` before anything else, and confirm it finished.**
-   Not a formality — it is the step whose absence failed this work order once.
+   Not a formality — it is the step whose absence failed this work order
+   **twice**, with the identical three messages both times. The second time it
+   was because the fix went into HANDOVER §5, `client/CLAUDE.md` and this list
+   but **not into `AGENTS.md`** — which is the pointer file an agent or runner
+   opens first, and whose check list is the exact command triple that failed
+   (`npx tsc --noEmit` · `npx expo lint` · `npm test`). It carries the install
+   step now too. A required step is only required where it is actually read.
    `node_modules` is gitignored, so a `git worktree` checkout of this branch has
    none, and `npx tsc --noEmit` / `npm test` / `npx expo lint` then fail with
    *"use npm install typescript"*, *"'vitest' is not recognized"* and a bare

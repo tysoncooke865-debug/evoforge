@@ -15,6 +15,13 @@ Pointer file for coding agents. The canonical instructions live in:
 
 - Product = Expo client in `client/` on branch `expo-rewrite`, auto-deploys
   to https://expo-rewrite.evoforge.pages.dev. Streamlit on `main` is retired.
+- **`npm ci` in `client/` BEFORE the checks, in any fresh checkout — and a
+  `git worktree` is one.** `node_modules` is gitignored, so a worktree starts
+  with none, and the checks below then fail three ways that each read like a
+  code defect rather than a missing install: `npx tsc` → *"use npm install
+  typescript"*, `npm test` → *"'vitest' is not recognized"*, `npx expo lint` →
+  a `Module.require` stack. Symptom table in HANDOVER §5; this has already
+  cost one work order an attempt.
 - Checks (run from `client/`, all must pass before commit):
   `npx tsc --noEmit` · `npx expo lint` · `npm test` (vitest) ·
   `node scripts/verify-motion.mjs` · `node scripts/verify-tokens.mjs`.
