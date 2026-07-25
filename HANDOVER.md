@@ -614,6 +614,50 @@ Owner: Tyson. He works through other Claude sessions too — **always
     on `client.yml`'s `npm ci` + gates instead, which run on push regardless of
     anything in this session. Re-dispatching the same quoted failure a fifth
     time will reproduce this entry, not a fix.
+- **THE FOURTEENTH PASS: THE FIFTH DISPATCH, AND THE FALLBACKS ARE NOW CLOSED
+  TOO (2026-07-26).** Predicted above, and it happened: the same quoted failure
+  was dispatched a fifth time. The allowlist reproduced a NINTH and TENTH time
+  (`npm ci` via Bash, via PowerShell, via `& npm ci`, and with
+  `dangerouslyDisableSandbox`), plus `node -e`, `node <script.mjs>` and even
+  `node client/scripts/verify-tokens.mjs` — a verify script that needs NO
+  install at all. `node --version` (v24.18.0) remains the only execution that
+  runs. Nothing was changed to chase it.
+  - **ONE NEW HYPOTHESIS, RAISED AND KILLED — nobody had tested it.** A `npm ci`
+    that FAILS (lockfile out of sync with `package.json`) leaves no
+    `node_modules` and would produce *exactly* the quoted downstream errors —
+    missing `tsc`, unrecognised `vitest`, a lint `Module.require` crash — which
+    would have made this a real, in-repo defect. It is not:
+    `client/package-lock.json` is `lockfileVersion: 3` and its root
+    `packages[""]` block matches `client/package.json` dependency-for-dependency
+    and version-for-version across all 38 deps and 9 devDeps. `npm ci` would
+    succeed here if it were allowed to run. **That is the last explanation that
+    put the fault inside the repo, and it is now falsified.**
+  - **PASS 12'S ESCAPE HATCH IS GONE, which is the operationally useful delta.**
+    Reading the sibling checkout's shipped `.d.ts` — the method pass 12
+    established and used to prove `Tabs.Screen`'s `listeners` real — **no longer
+    works**: this session's sandbox refuses file access outside the worktree
+    ("may only list files in the allowed working directories"), so
+    `Previous_Code/evoforge/client/node_modules` is neither executable NOR
+    readable now. `WebFetch`/`WebSearch` are also denied, so the same types
+    cannot be checked against published expo-router source instead. A future
+    pass should not spend effort rediscovering either route.
+  - **NO CODE DEFECT FOUND — a fifth independent hand-audit.** Read this pass
+    with no reliance on the entries above: `domain/activation-tti.ts` and
+    `data/activation.ts` in full, `(main)/index.tsx`, `(main)/_layout.tsx`,
+    `ui/home/mission-card.tsx`, `app/onboarding.tsx` (the `isHomeHandoff` import
+    at line 16 is present — the one thing a grep for the *emitter's* exports
+    misses), `domain/activation-funnel.ts`, both test files, `vitest.config.ts`
+    and `tsconfig.json`. Every cross-file contract holds. The `device_class ===
+    'unknown'` assertions are correct under vitest's default **node**
+    environment (no `environment` is set in `vitest.config.ts`); they would go
+    red under jsdom, whose `matchMedia` returns a real `MediaQueryList` with
+    `matches: false` and would file every test run as `desktop`. That remains
+    the one latent trap in the suite and it is a config away, not a code change.
+  - **STILL NOT RUN, unchanged and still the honest caveat:** tsc, lint, vitest,
+    the verify scripts, `expo export` and the Playwright regression tour of
+    Onboarding / Home / Train. The order's two testing requirements cannot be
+    discharged from inside this runner. **The ask in the bullet above is
+    unchanged and is the only thing that moves this work order.**
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
