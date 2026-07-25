@@ -1021,9 +1021,13 @@ insert into public.command_integrations (key,label,category,status,detail,setup_
   ('devlab_jobs','Dev Lab — execution worker','devlab','live',
    'scripts/lab-worker.mjs claims queued jobs on the local machine and performs the real work: Claude CLI runs with true token counts and cost, and Chromium sessions with true Web Vitals. The site itself executes nothing.',
    'Kept alive by the EvoForge Command Supervisor scheduled task.'),
-  ('devlab_multimodel','Dev Lab — non-Anthropic providers','devlab','absent',
-   'Claude runs through the local CLI. OpenAI, Gemini and Kimi comparisons need API keys this project does not hold, so no cross-provider number is shown rather than a comparison of Claude with itself.',
-   'Add OPENAI_API_KEY / GOOGLE_API_KEY / MOONSHOT_API_KEY to .env.local and the provider appears.')
+  -- Written 'absent' on the first pass and corrected once the worker actually
+  -- reported its providers: OPENAI_API_KEY is in the machine environment, not
+  -- .env.local, so the key was there all along and the registry was wrong about
+  -- its own capability. Reading what the worker reports beats assuming.
+  ('devlab_multimodel','Dev Lab — providers','devlab','live',
+   'Claude runs through the local CLI and reports true billed cost. OpenAI runs through /v1/responses — the same endpoint supabase/functions/_shared/ai.ts uses — so the five product prompts are benchmarked on the model that actually serves them; its API returns tokens but no price, so cost is recorded as unknown rather than guessed. Gemini and Kimi have no key and are reported as unavailable rather than compared.',
+   'Add GOOGLE_API_KEY / MOONSHOT_API_KEY to the environment and those providers appear.')
 on conflict (key) do update set status=excluded.status, label=excluded.label,
   detail=excluded.detail, setup_required=excluded.setup_required, updated_at=now();
 
