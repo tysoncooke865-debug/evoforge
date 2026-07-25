@@ -26,6 +26,32 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
+  at `C:\Users\tyson\evoforge-command`, not part of this app.**
+  Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
+  Charlie. It shares THIS Supabase project (same auth, same three admin
+  accounts) but nothing in it is reachable by an athlete: every `command_*`
+  table is founder-only RLS and every write goes through a SECURITY DEFINER
+  RPC that audits itself in the same transaction.
+  - **This supersedes the 07-25 decision "extend the app, not a Next.js
+    project" for the GOVERNANCE layer only.** `/exec` inside the app stays as
+    it is — it answers "how is the product doing". Command answers "what are
+    we building, who approved it, and what shipped".
+  - **Migrations 088/089/090 are applied. Next free number: 091.**
+  - `supabase/functions/command-notify` — phone push so a founder can vote
+    from anywhere. Cron `command-notify`, every minute. Same VAPID pair as
+    `send-push`; same gateway-auth pattern as 086 (publishable key as the
+    bearer to pass the gateway, `x-cron-secret` as the real authorisation).
+  - Cron `command-exec-cycle` runs the AI Exec every 10 minutes as PLAIN SQL,
+    so unlike 084/085 it has no edge gateway in front of it and cannot be
+    silently 401'd. It either raises a proposal or records why it did not.
+  - **The one rule to know if you touch it:** approving a proposal opens work,
+    it does not deploy. Deployment needs an explicit founder authorisation —
+    either a release vote, or a proposal the founders approved knowing it was
+    marked auto-deploy. Monetisation, ownership and privacy are forced to the
+    gated path by a TRIGGER, not by convention, so no UI change can lift it.
+
+
 - **THE EXEC DASHBOARD (2026-07-25, migration 087) — `/exec`, admin-only.**
   Tyson's four decisions, implemented: **extend the app** (no Next.js project —
   reuses `is_app_admin()`, the rollup RPCs, the tokens and the existing deploy),
