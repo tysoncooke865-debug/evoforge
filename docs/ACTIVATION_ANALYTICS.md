@@ -52,7 +52,7 @@ One name, `activation_step`, with an ordered `index`, so the funnel is
 | index | step | fired from | extra props |
 |---:|---|---|---|
 | 1 | `home_reached` | Home mount | `ms_to_mount` |
-| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the tab press) | `ms_to_interactive`, `ms_home_to_interactive`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
+| 2 | `train_opened` | Train mount, **focused**, after the plan queries settle (span starts at the tab press) | `ms_to_interactive`, `ms_home_to_interactive`, `device_class`, `device_tier`, `has_plan`, `day_kind` (`workout`\|`rest`), `exercise_count`, `plan_source`, `has_schedule` |
 | 3 | `workout_opened` | workout page mount | `is_today` |
 | 4 | `first_set_logged` | `useSaveSet` onSuccess, insert only, empty log | `durable` |
 
@@ -80,6 +80,41 @@ stamped by `onboarding.tsx`'s `onComplete` — not the moment a React component
 happened to mount. The profile refetch that `onboarding.tsx` must await before it
 can navigate is part of what the athlete sits through, and hiding it would be
 measuring our own convenience.
+
+### A span with no device is not the measurement that was asked for
+
+The work order does not say "measure the hand-off". It says measure it **on a
+real mid-range phone, not a desktop browser** — and `track()`
+(`data/analytics.ts`) attaches nothing but the event name and the props. Pooled,
+one percentile covers a developer's desktop, an iPhone and the mid-range Android
+the drop-off is actually happening on; with ten athletes in the cohort, one
+desktop row moves it. That is the same argument that forced `isHomeHandoff`
+below, and the same failure mode: a flattering number that looks like evidence.
+
+So `train_opened` — the event every span above rides — also carries:
+
+| prop | values | from |
+|---|---|---|
+| `device_class` | `mobile` · `desktop` · `unknown` | `pointer: coarse` first, `maxTouchPoints` only where there is no media query |
+| `device_tier` | `low` · `mid` · `high` · `unknown` | `navigator.deviceMemory`, **already bucketed by the spec** to 0.25/0.5/1/2/4/8 |
+
+**Coarse on purpose.** A user-agent string would answer this and would also be a
+fingerprint, which the analytics doctrine forbids (categories, never values —
+the same reason ratings ship as `ratingBand`). The raw readings never leave the
+device; only the bucket is emitted.
+
+Two things to know before reading the column:
+
+- **`device_class` beats `pad-env.ts` on touch-screen laptops.**
+  `ui/core/pad-env.ts` ORs the media query with the touch count because its
+  false positive is a spurious in-app keypad. Here it is precedence, not OR:
+  `pointer: coarse` describes the PRIMARY pointer, so a laptop with a digitiser
+  reads as the desktop it is. A desktop filed as a phone moves the percentile.
+- **`device_tier` is `unknown` on iOS Safari and Firefox**, which do not expose
+  `deviceMemory` at all. That is deliberate rather than patched over: inferring
+  a tier from `hardwareConcurrency` would call an iPhone low-end, and a tier
+  that is confidently wrong is the nav-stall beacon again. `device_class` still
+  splits phone from desktop there, which is the question that was asked.
 
 ### …and only when onboarding hands off to HOME
 
@@ -144,9 +179,9 @@ so `ms_to_interactive` is `null`. That is the honest answer rather than a
 flattering one; a `0` there would drag the fleet average toward "we are fast".
 Pinned by a test.
 
-**What `ms_to_interactive` is expected to contain, so a high p90 can be read
-rather than guessed at.** The Train route chunk currently carries the whole
-~1,109-entry `EXERCISE_LIBRARY`, because `(main)/today.tsx` statically imports
+**What `ms_to_interactive` contained, so a high p90 can be read rather than
+guessed at.** Until 2026-07-26 the Train route chunk carried the whole
+~1,109-entry `EXERCISE_LIBRARY`, because `(main)/today.tsx` statically imported
 `@/data/exercise-corpus` and `ui/train/exercise-search-bar.tsx` — both reached
 only from the QUICK WORKOUT sheet, which is two taps away and usually never
 opened. That is **≈246 KB of TypeScript source** (`exercise-library-imported`
@@ -154,10 +189,14 @@ opened. That is **≈246 KB of TypeScript source** (`exercise-library-imported`
 `exercise-taxonomy` 8.4 KB · `exercise-search-bar` 8.0 KB · `exercise-sections`
 4.9 KB · `exercise-history` 3.4 KB · `exercise-corpus` 3.2 KB) sitting in the
 first chunk the two-wave preload fetches. The 2026-07-23 perf pass deliberately
-kept that library out of the BOOT chunk; it is back on the hand-off's critical
-path through a different door. Splitting it is the obvious next fix and is
-**deliberately not shipped yet** — it is a bundle change, and no export has been
-run to measure it (see HANDOVER).
+kept that library out of the BOOT chunk; it came back on the hand-off's critical
+path through a different door.
+
+The sheet now lives in `ui/train/quick-workout-sheet.tsx` and is fetched through
+`React.lazy` **on the tap**, so none of that rides the hand-off. Stated honestly:
+those are SOURCE bytes from the static import graph, not exported chunk bytes —
+no `expo export` has been run against the change (see HANDOVER). The number that
+settles it is `ms_to_interactive` across the deploy split below.
 
 ### `train_opened` also requires FOCUS
 
@@ -261,6 +300,32 @@ Because `max(index)` is a high-water mark, a deep link straight into a workout
 counts as having reached Train too. That is intended: the funnel measures how far
 an athlete got, not which doors they touched. `ms_since_prev_step` is measured
 from the latest mark for the same reason.
+
+**Then run it again split by device — this is the number the work order asked
+for.** The query above is the fleet; the one below is "a real mid-range phone,
+not a desktop browser". Read the fleet first so you know how many rows exist,
+then this, and expect the mobile p90 to be the ugly one:
+
+```sql
+select props->>'device_class'                                      as device_class,
+       props->>'device_tier'                                       as device_tier,
+       count(*)                                                    as opened_train,
+       count(props->>'ms_to_interactive')                          as tti_measured,
+       percentile_disc(0.5) within group (
+         order by (props->>'ms_to_interactive')::numeric)          as tti_p50_ms,
+       percentile_disc(0.9) within group (
+         order by (props->>'ms_to_interactive')::numeric)          as tti_p90_ms
+from analytics_events
+where event_name = 'activation_step'
+  and props->>'step' = 'train_opened'
+  and created_at >= '2026-07-26'          -- the deploy that added the dimension
+group by 1, 2 order by 1, 2;
+```
+
+`device_tier = 'unknown'` will be a large bucket and is not a defect — it is
+every iOS and Firefox athlete (see above). Judge those on `device_class` alone.
+A `device_class = 'unknown'` bucket that is anything but tiny IS a defect: it
+means the read is failing, not that the devices are exotic.
 
 ### What `ms_to_interactive` is pointed at (2026-07-26)
 

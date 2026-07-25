@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { TTI_CEILING_MS, interactiveSpanMs, isHomeHandoff } from '../activation-tti';
+import {
+  TTI_CEILING_MS,
+  deviceClass,
+  deviceTier,
+  interactiveSpanMs,
+  isHomeHandoff,
+  type DeviceInput,
+} from '../activation-tti';
+
+/** Only the field under test needs stating; the rest read as "not reported". */
+const device = (over: Partial<DeviceInput> = {}): DeviceInput => ({
+  coarsePointer: null,
+  maxTouchPoints: null,
+  memoryGb: null,
+  ...over,
+});
 
 describe('activation TTI — a span it can trust', () => {
   it('measures a plain span', () => {
@@ -82,6 +97,60 @@ describe('activation TTI — the span only starts when onboarding hands off to H
     expect(isHomeHandoff('')).toBe(false);
     for (const href of ['/today', '/workout', '/onboarding', '/sign-in', '/fuel']) {
       expect(isHomeHandoff(href), href).toBe(false);
+    }
+  });
+});
+
+describe('activation TTI — phone or desktop, the split the work order names', () => {
+  it('reads a coarse primary pointer as a phone', () => {
+    expect(deviceClass(device({ coarsePointer: true }))).toBe('mobile');
+  });
+
+  it('reads a fine primary pointer as a desktop', () => {
+    expect(deviceClass(device({ coarsePointer: false }))).toBe('desktop');
+  });
+
+  it('calls a TOUCH-SCREEN LAPTOP a desktop, unlike pad-env', () => {
+    // The whole reason the media query takes precedence instead of being ORed
+    // with the touch count (ui/core/pad-env.ts does OR them, for a decision
+    // where a false positive is just a spurious keypad). A desktop filed as a
+    // phone moves the percentile this work order is judged on.
+    expect(deviceClass(device({ coarsePointer: false, maxTouchPoints: 10 }))).toBe('desktop');
+  });
+
+  it('falls back to the digitiser only when there is no media query', () => {
+    expect(deviceClass(device({ maxTouchPoints: 5 }))).toBe('mobile');
+    expect(deviceClass(device({ maxTouchPoints: 0 }))).toBe('desktop');
+  });
+
+  it('refuses rather than guessing when nothing is reported', () => {
+    // A native build, or a test with no DOM. `unknown` is filterable; a wrong
+    // guess is not distinguishable from a real reading afterwards.
+    expect(deviceClass(device())).toBe('unknown');
+  });
+});
+
+describe('activation TTI — the mid-range half', () => {
+  it('buckets the deviceMemory spec values', () => {
+    // The thresholds ARE the spec buckets (0.25|0.5|1|2|4|8) — nothing invented
+    // here. 4 GiB is where a mid-range phone lands.
+    expect(deviceTier(device({ memoryGb: 4 }))).toBe('mid');
+    expect(deviceTier(device({ memoryGb: 8 }))).toBe('high');
+    for (const gb of [0.25, 0.5, 1, 2]) {
+      expect(deviceTier(device({ memoryGb: gb })), String(gb)).toBe('low');
+    }
+  });
+
+  it('is unknown wherever the browser does not report it', () => {
+    // iOS Safari and Firefox never do. `device_class` still splits phone from
+    // desktop there, which is the question that was actually asked — inferring
+    // a tier from core counts instead would call an iPhone low-end.
+    expect(deviceTier(device())).toBe('unknown');
+  });
+
+  it('refuses nonsense rather than bucketing it', () => {
+    for (const bad of [0, -4, NaN, Infinity]) {
+      expect(deviceTier(device({ memoryGb: bad })), String(bad)).toBe('unknown');
     }
   });
 });

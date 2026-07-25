@@ -1190,7 +1190,13 @@ function QuickWorkoutLoading({ onClose }: { onClose: () => void }) {
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={onClose}>
-        <View
+        {/* The card swallows its own presses, exactly as the real sheet's does.
+            Without this a touch anywhere on the spinner bubbles to the scrim and
+            CANCELS the open — and the athlete most likely to tap a card that is
+            still loading is the one on the slow phone this state exists for.
+            The scrim around it still dismisses, so nothing is trapped. */}
+        <Pressable
+          onPress={() => undefined}
           testID="adhoc-loading"
           className="items-center rounded-t-xl border-t p-s4"
           style={{
@@ -1205,7 +1211,7 @@ function QuickWorkoutLoading({ onClose }: { onClose: () => void }) {
           <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
             QUICK WORKOUT
           </Text>
-        </View>
+        </Pressable>
       </Pressable>
     </Modal>
   );

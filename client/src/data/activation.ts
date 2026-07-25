@@ -9,7 +9,7 @@ import {
   type ActivationMarks,
   type ActivationStep,
 } from '@/domain/activation-funnel';
-import { interactiveSpanMs } from '@/domain/activation-tti';
+import { deviceClass, deviceTier, interactiveSpanMs, type DeviceInput } from '@/domain/activation-tti';
 
 import { track } from './analytics';
 import { useAuth } from './auth-context';
@@ -126,6 +126,36 @@ export const ACTIVATION_SPAN = {
 const HOME_INTERACTIVE = 'home_interactive';
 
 /**
+ * Read the device signals the span should be filed under. Same `typeof` style
+ * as the hidden watch above and for the same reason: it is the exact condition,
+ * and it keeps this module importable by vitest, which has no react-native
+ * preset. A native build simply has none of these and reports `unknown`.
+ *
+ * Its own try/catch rather than leaning on the caller's: `ttiPropsFor` runs
+ * inside `markActivationStep`'s swallow-everything block, so a throw here would
+ * drop the whole step — and a silently missing step is exactly the failure that
+ * looks identical to an app nobody had trouble with.
+ */
+function readDevice(): DeviceInput {
+  const blank: DeviceInput = { coarsePointer: null, maxTouchPoints: null, memoryGb: null };
+  try {
+    const nav: unknown = typeof navigator === 'undefined' ? null : navigator;
+    const touch = (nav as { maxTouchPoints?: unknown } | null)?.maxTouchPoints;
+    // `deviceMemory` is not in the DOM lib types — it is a Chromium extension.
+    const mem = (nav as { deviceMemory?: unknown } | null)?.deviceMemory;
+    const canMatch =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+    return {
+      coarsePointer: canMatch ? window.matchMedia('(pointer: coarse)').matches : null,
+      maxTouchPoints: typeof touch === 'number' ? touch : null,
+      memoryGb: typeof mem === 'number' ? mem : null,
+    };
+  } catch {
+    return blank;
+  }
+}
+
+/**
  * The TTI props for a step, merged into the event at EMIT time.
  *
  * They live here rather than in the callers' `extra` because `extra` is built
@@ -139,6 +169,7 @@ function ttiPropsFor(step: ActivationStep): Record<string, unknown> {
     return { ms_to_mount: activationSpanMs(ACTIVATION_SPAN.home) };
   }
   if (step === 'train_opened') {
+    const device = readDevice();
     return {
       // Train TAB PRESSED -> Train's plan queries settled. THE hand-off number:
       // chunk fetch, mount and data, which is what the athlete actually sat
@@ -148,6 +179,14 @@ function ttiPropsFor(step: ActivationStep): Record<string, unknown> {
       // the moment it becomes interactive, and adding a fifth step would break
       // the four-rows-per-athlete bound the rail is built on.
       ms_home_to_interactive: readActivationSpan(HOME_INTERACTIVE),
+      // WHAT WAS HOLDING THE STOPWATCH. The work order asks for the hand-off
+      // "on a real mid-range phone, not a desktop browser", and every span
+      // above rides THIS event — so the dimension that makes them readable
+      // belongs here too, on the one event, rather than spread across the
+      // ladder. Coarse buckets, never a user agent
+      // (domain/activation-tti.ts).
+      device_class: deviceClass(device),
+      device_tier: deviceTier(device),
     };
   }
   return {};

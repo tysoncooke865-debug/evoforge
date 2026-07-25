@@ -81,6 +81,83 @@ export function isHomeHandoff(destination: string): boolean {
   return destination.replace(/[?#].*$/, '') === '/';
 }
 
+/* ------------------------------------------------------------------------ */
+/* WHAT WAS HOLDING THE STOPWATCH                                            */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * WHY A SPAN WITHOUT A DEVICE IS NOT THE MEASUREMENT THAT WAS ASKED FOR.
+ *
+ * The work order does not say "measure the hand-off" — it says measure it "on a
+ * real mid-range phone, NOT a desktop browser". `track()` (data/analytics.ts)
+ * attaches nothing but the event name and the props, so without this the
+ * re-measure query pools Tyson's desktop, an iPhone and the mid-range Android
+ * the drop-off is actually happening on into ONE percentile. With ten athletes
+ * in the cohort, one desktop row moves it — the identical argument that made
+ * `isHomeHandoff` necessary, and the identical failure mode: a flattering
+ * number that looks like evidence.
+ *
+ * COARSE ON PURPOSE. A user-agent string would answer this and would also be a
+ * fingerprint; the analytics doctrine forbids it (no PII, categories not
+ * values — the same reason ratings ship as `ratingBand`). These are derived
+ * buckets, and the raw readings never leave the device.
+ */
+export type DeviceClass = 'mobile' | 'desktop' | 'unknown';
+export type DeviceTier = 'low' | 'mid' | 'high' | 'unknown';
+
+export interface DeviceInput {
+  /** `matchMedia('(pointer: coarse)').matches`, or null where unavailable. */
+  coarsePointer: boolean | null;
+  /** `navigator.maxTouchPoints`, or null where there is no navigator. */
+  maxTouchPoints: number | null;
+  /**
+   * `navigator.deviceMemory` in GiB — Chromium only, and already bucketed BY
+   * THE SPEC to 0.25 · 0.5 · 1 · 2 · 4 · 8 (it is capped deliberately so it
+   * cannot fingerprint). null everywhere else, notably iOS Safari.
+   */
+  memoryGb: number | null;
+}
+
+/**
+ * Phone-shaped or desktop-shaped — the split the work order names.
+ *
+ * The media query WINS over the touch count when both are known, which is
+ * deliberately NOT what `ui/core/pad-env.ts` does (it ORs them). `pointer:
+ * coarse` describes the PRIMARY pointer, so a touch-screen laptop reads as the
+ * desktop it is. pad-env can afford the OR because its false positive is a
+ * spurious in-app keypad; here a desktop counted as a phone moves the very
+ * percentile this work order is judged on.
+ */
+export function deviceClass({ coarsePointer, maxTouchPoints }: DeviceInput): DeviceClass {
+  if (coarsePointer !== null) return coarsePointer ? 'mobile' : 'desktop';
+  // No media query (older web view, or a native build): a digitiser is the only
+  // signal left. Weaker, but it only ever runs where the better one is absent.
+  if (maxTouchPoints !== null && Number.isFinite(maxTouchPoints)) {
+    return maxTouchPoints > 0 ? 'mobile' : 'desktop';
+  }
+  return 'unknown';
+}
+
+/**
+ * How much machine was behind the span — the "mid-range" half.
+ *
+ * The thresholds ARE the `deviceMemory` spec buckets, not thresholds invented
+ * here: 4 GiB is the bucket a mid-range phone lands in, 8 is the cap a desktop
+ * and a flagship share, ≤2 is the genuinely cheap hardware. Nothing is inferred
+ * from core counts — iOS reports 4 on phones that are not remotely low-end, and
+ * a tier that is confidently wrong is the nav-stall beacon again.
+ *
+ * So this is `unknown` on every non-Chromium browser, and that is the honest
+ * answer: `device_class` still splits phone from desktop there. Refusal is not
+ * loss — the same rule the spans above run on.
+ */
+export function deviceTier({ memoryGb }: DeviceInput): DeviceTier {
+  if (memoryGb === null || !Number.isFinite(memoryGb) || memoryGb <= 0) return 'unknown';
+  if (memoryGb <= 2) return 'low';
+  if (memoryGb >= 8) return 'high';
+  return 'mid';
+}
+
 /**
  * The measured span in ms, or null when it cannot be trusted.
  *

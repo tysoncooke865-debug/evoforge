@@ -106,6 +106,22 @@ describe('activation emitter — the hand-off stopwatch', () => {
     expect(lastProps().day_kind).toBe('workout');
   });
 
+  it('files the hand-off under a device, or the percentile is unreadable', async () => {
+    // The work order asks for the hand-off "on a real mid-range phone, not a
+    // desktop browser", and track() attaches nothing of its own — so without
+    // these two the re-measure pools a desktop and a mid-range Android into one
+    // percentile. Both must be PRESENT on the event that carries the spans;
+    // what they read is the pure module's business (activation-tti.test.ts).
+    startActivationSpan(ACTIVATION_SPAN.train);
+    await markActivationStep(USER, null, 'train_opened');
+    expect(lastProps()).toHaveProperty('device_class');
+    expect(lastProps()).toHaveProperty('device_tier');
+    // Node has a `navigator` but no matchMedia/maxTouchPoints/deviceMemory —
+    // the same shape a native build presents, and it must refuse, not guess.
+    expect(lastProps().device_class).toBe('unknown');
+    expect(lastProps().device_tier).toBe('unknown');
+  });
+
   it('gives the other two steps no TTI props at all', async () => {
     // They have no hand-off to describe; an always-null column reads as a
     // broken measurement rather than as an absent one.

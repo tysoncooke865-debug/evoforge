@@ -99,12 +99,17 @@ Owner: Tyson. He works through other Claude sessions too — **always
     nothing else executable: `npm`, `npx` and `node <script>` are all refused, and
     `client/node_modules` is not installed.** tsc, lint, vitest, the verify
     scripts, `expo export` and the Playwright tour (`client/.claude/skills/verify`)
-    were all unavailable across BOTH passes, so nothing in this entry is falsified
-    at the surface. **Run HANDOVER §5 before trusting it**, and drive a throwaway
-    production account through onboarding → Home → Train to confirm
+    were all unavailable across ALL FOUR passes, so nothing in this entry is
+    falsified at the surface. **Run HANDOVER §5 before trusting it**, and drive a
+    throwaway production account through onboarding → Home → Train to confirm
     `ms_to_interactive` lands non-null, that `train_opened` does NOT appear for an
     athlete who only sits on Home, and that BUILD MY OWN still lands in the
-    builder while a plain finish still lands on Home.
+    builder while a plain finish still lands on Home. **Two more to check on the
+    same tour:** that `train_opened` carries `device_class = 'desktop'` from the
+    Playwright browser and `'mobile'` from a phone-emulated context (if it reads
+    `unknown` in both, `readDevice` is failing, and an all-`unknown` column is
+    indistinguishable from having shipped nothing), and that tapping the
+    `adhoc-loading` card itself does NOT close the sheet.
   - **THE FIX THE MEASUREMENT NAMED: ≈246 KB OF EXERCISE LIBRARY LEAVES THE TRAIN
     CHUNK (2026-07-26, third pass).** `(main)/today.tsx` statically imported
     `@/data/exercise-corpus`, `@/domain/exercise-sections` and
@@ -141,13 +146,58 @@ Owner: Tyson. He works through other Claude sessions too — **always
     that the sheet opens.** Click `start-empty` on Train first thing.
   - **`adhoc-loading` is new** — the Suspense fallback: the same scrim, dismissed
     the same way, so a first tap on mobile data reads as OPENING rather than as a
-    dead button. Never seen once the chunk is cached.
+    dead button. Never seen once the chunk is cached. **Its card swallows its own
+    presses** (fourth pass) — it was a bare `View`, so a touch on the spinner
+    bubbled to the scrim and CANCELLED the open, and the athlete most likely to
+    tap a still-loading card is the one on the slow phone the state exists for.
+    The real sheet has always guarded this; the fallback now matches it.
+  - **THE SPAN HAD NO DEVICE ON IT, SO IT WAS NOT THE MEASUREMENT THAT WAS ASKED
+    FOR (2026-07-26, fourth pass).** The work order does not say "measure the
+    hand-off" — it says measure it **on a real mid-range phone, not a desktop
+    browser** — and `track()` attaches nothing but the event name and the props.
+    Pooled, ONE percentile covered a developer's desktop, an iPhone and the
+    mid-range Android the drop-off is actually on; with ten athletes in the
+    cohort one desktop row moves it. That is the `isHomeHandoff` argument
+    verbatim, and the same failure mode: a flattering number that looks like
+    evidence. `train_opened` — the event every span already rides, so no new
+    event, no fifth step, no schema change — now also carries **`device_class`**
+    (`mobile`/`desktop`/`unknown`) and **`device_tier`**
+    (`low`/`mid`/`high`/`unknown`). +8 pure tests, +1 wiring test.
+    - **Coarse by construction, never a user agent** — a UA string would answer
+      this and would also be a fingerprint, which the analytics doctrine forbids
+      (categories not values, the `ratingBand` rule). Only the bucket is emitted.
+    - **`device_class` deliberately disagrees with `ui/core/pad-env.ts` on a
+      touch-screen laptop.** pad-env ORs `pointer: coarse` with `maxTouchPoints`
+      because its false positive is a spurious keypad; here it is PRECEDENCE —
+      the media query describes the PRIMARY pointer, and a desktop filed as a
+      phone moves the percentile this work order is judged on.
+    - **`device_tier` is `unknown` on iOS Safari and Firefox** (neither exposes
+      `deviceMemory`) and that is left alone on purpose: the thresholds are the
+      `deviceMemory` SPEC buckets, and inferring a tier from
+      `hardwareConcurrency` instead would call an iPhone low-end — a tier that is
+      confidently wrong is the nav-stall beacon again. Judge those rows on
+      `device_class`. A large `device_class = 'unknown'` bucket IS a defect.
+    - `data/activation.ts` still must not import `react-native` (vitest has no
+      preset for it) — the read is `typeof window`/`typeof navigator`, in its own
+      try/catch, because it runs inside `markActivationStep`'s swallow-everything
+      block and a throw there would drop the step silently.
+  - **VERIFIED BY HAND, GATES STILL UNRUN:** the claim "the exercise library left
+    the Train chunk" was checked by walking the static import graph rather than
+    taken on trust — every importer of `exercise-library` / `-corpus` /
+    `-sections` / `-search-bar` / `-rank` / `-taxonomy`, in both `@/` and relative
+    form, is `onboarding.tsx`, `plan-import.tsx`, `workout.tsx`, `routine.tsx`,
+    `exercise-picker.tsx`, the lab variants, or the now-lazy sheet. **None is
+    reachable from `(main)/today.tsx`**; `data/exercises.ts`'s is `import type`,
+    which erases. Also confirmed: `listeners` really is forwarded by
+    expo-router (`build/useScreens.js` destructures it onto the screen props), and
+    a dynamic `import('@/…')` is an established pattern here (`auth-context.tsx`,
+    `data/origin.ts`), so the alias resolves inside `lazy()`.
   - Files: `domain/activation-tti.ts` (+test), `data/activation.ts` (+test),
     `app/onboarding.tsx`, `ui/origin/origin-flow.tsx`, `(main)/index.tsx`,
     `(main)/today.tsx`, `(main)/_layout.tsx`, **`ui/train/quick-workout-sheet.tsx`
     (new)**, `docs/ACTIVATION_ANALYTICS.md` (props table, the stopwatch section,
-    the Home hand-off rule, the Train-chunk note, the re-measure percentile query
-    and what it is pointed at).
+    the Home hand-off rule, the device-split section, the Train-chunk note, the
+    re-measure percentile query + the by-device query, and what it is pointed at).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
