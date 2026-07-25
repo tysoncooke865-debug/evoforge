@@ -184,6 +184,19 @@ error, which are the three most likely ways this file set actually goes red.
 
 The rest of this list still needs a run.
 
+0. **`cd client && npm ci` before anything else, and confirm it finished.**
+   Not a formality — it is the step whose absence failed this work order once.
+   `node_modules` is gitignored, so a `git worktree` checkout of this branch has
+   none, and `npx tsc --noEmit` / `npm test` / `npx expo lint` then fail with
+   *"use npm install typescript"*, *"'vitest' is not recognized"* and a bare
+   `Module.require` stack respectively — three messages that read like a broken
+   diff and mean nothing but "no dependencies here". Attempt 2 reported exactly
+   those three and they were not about this code (see HANDOVER §5). Only once
+   `npm ci` is green do the failures below mean anything:
+   `npx tsc --noEmit` · `npm test` (the 35 new cases in `error-report.test.ts`
+   and `sentry-envelope-parity.test.ts` have still never been executed) ·
+   `npx expo lint` · `npx expo export -p web --clear`.
+
 1. **The client reports.** First confirm the DSN actually reached the bundle —
    `grep -o 'ingest\.sentry\.io' dist/_expo/static/js/web/entry-*.js` — because
    Metro inlines `EXPO_PUBLIC_` values and does not invalidate its transform

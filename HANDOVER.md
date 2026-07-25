@@ -181,6 +181,49 @@ Owner: Tyson. He works through other Claude sessions too — **always
       one verification pass, or having the runner run `npm ci` in `client/`
       before `npx tsc --noEmit` / `npm test` / `npx expo lint` — whichever of
       those the runner already does for every other WO's checklist.
+  - **SIXTH SESSION (2026-07-26, WO-005 attempt 2 re-run): the verification
+    failure was diagnosed and fixed, and it was never in this code.** The
+    reported red — `npx tsc` "use npm install typescript", `npm test` "'vitest'
+    is not recognized", `npx expo lint` a `Module.require` stack — is one fault
+    with three faces: **`client/node_modules` does not exist in a git
+    worktree**, because it is gitignored and a worktree is a fresh checkout.
+    Every WO worked this way hits it; nothing about it is specific to error
+    monitoring. **The bug was in the instructions, not the diff:** HANDOVER §5,
+    "the loop, run this for every change", opened at `cd client` → `npx tsc
+    --noEmit` and never said to install — it was written from the main
+    checkout, where `node_modules` has existed for months, and its own
+    `rm -rf node_modules/.cache` line silently assumed it. Fixed at the three
+    places a runner or an agent actually reads: **§5 now begins with `npm ci`**
+    and carries a symptom→cause table so the three messages are recognisable on
+    sight, **`client/CLAUDE.md`'s command block** says the same, and
+    **`docs/ERROR_MONITORING.md` §4 gained a step 0** stating that nothing
+    below it means anything until the install is green.
+    - **Execution is still walled for the architect role, and the wall is now
+      precisely located: an allowlist, not a toolchain gap.** `node --version`
+      runs and prints `v24.18.0`; `npm ci`, `node -e`, and `node
+      scripts/verify-tokens.mjs` are each refused with "this command requires
+      approval" and no output. So the toolchain is present and the permission
+      profile is what blocks it — consistent with Command 095's architect/runner
+      split. **The runner, which does hold execution rights, needs only to run
+      `npm ci` in `client/` before the checklist.**
+    - **A static pass targeted at the three failure classes a hand trace cannot
+      catch** (the fourth session's own caveat: a bad import path, a vitest
+      resolution failure, a tsc error) **found no defect.** Checked against the
+      real configs rather than from memory: the cross-root import in
+      `sentry-envelope-parity.test.ts` follows a **proven** precedent
+      (`__tests__/food-match.test.ts` imports
+      `../../../../supabase/functions/meal-scan/food-match` and passes CI
+      today), and `_shared/sentry-envelope.ts` is import-free and `Deno.*`-free
+      so tsc pulls in nothing it cannot read; both new files match
+      `vitest`'s default `include` and `tsconfig`'s; import ORDER in all six
+      touched client files matches the repo's grouping and alphabetisation;
+      `sentry-watch`'s insert matches 083's `exec_alerts` columns exactly
+      (`severity` is one of the three the CHECK allows, `detail` is jsonb,
+      `subject_id` is nullable) and its `npm:@supabase/supabase-js@2` specifier
+      matches the other five functions'; `_shared/ai.ts` does export
+      `CORS_HEADERS` and `json`. The 083 auto-resolve gate
+      (`a.subject_id is not null`) was re-confirmed **in the migration**, not
+      from the note about it.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
@@ -2797,6 +2840,7 @@ test it instead.
 
 ```bash
 cd client
+npm ci                                       # FRESH CHECKOUT / WORKTREE ONLY — see below
 rm -rf .eslintcache node_modules/.cache      # WARM CACHES LIE
 npx tsc --noEmit
 npx expo lint                                # must be 0 problems
@@ -2806,6 +2850,25 @@ node scripts/verify-battle-engine.mjs
 node scripts/verify-motion.mjs
 npx expo export -p web --clear               # the build CI will do
 ```
+
+**`npm ci` FIRST IN ANY FRESH CHECKOUT, AND A GIT WORKTREE IS ONE**
+(2026-07-26, WO-005 attempt 2). `node_modules` is gitignored, so
+`git worktree add` produces a `client/` with no dependencies at all — and every
+line of this loop needs them. Skipping it does NOT fail with "install your
+dependencies": it fails three different ways that each look like a code defect,
+which is how one work order burned an attempt reading its own diff for a bug
+that was never there.
+
+| skipped-install symptom | what it actually means |
+|---|---|
+| `npx tsc` → *"To get access to the TypeScript compiler, tsc, … use npm install typescript"* | npx refusing to auto-install |
+| `npm test` → *"'vitest' is not recognized as an internal or external command"* | `node_modules/.bin` does not exist |
+| `npx expo lint` → a `Module.require` stack out of `cjs/loader` | `eslint.config.js` requiring `eslint/config` |
+
+The loop above was written from the main checkout, where `node_modules` has
+existed for months — note that `rm -rf node_modules/.cache` on the next line
+quietly assumes it. **An agent working a WO in a worktree is the case that was
+never covered.** `npm ci` (not `install`) — the lockfile is the pin.
 
 Then **tour it in a browser** (Playwright, scripts in the session scratchpad):
 serve `client/dist` on a local port, sign in as a smoke account, drive the real

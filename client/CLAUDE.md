@@ -15,6 +15,9 @@ supabase-js 2.110 · TanStack Query 5 · Zustand 5 · TypeScript 6.0.3 · Vitest
 
 ## Commands
 ```bash
+npm ci                          # FIRST, in any fresh checkout — a git worktree
+                                # has NO node_modules, and tsc/vitest/eslint all
+                                # fail as if the code were broken (HANDOVER §5)
 npm test                        # Vitest parity suite vs contracts/fixtures/
 node scripts/verify-tokens.mjs  # tokens.js === assets/styles.css :root
 npx tsc --noEmit                # needs expo-env.d.ts: run an expo command first
