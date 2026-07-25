@@ -14,6 +14,7 @@ import {
 import { execDimensions, execHealthScore, healthBand } from '@/domain/exec-health';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { CommandBridge } from '@/ui/exec/command-bridge';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -80,6 +81,7 @@ export default function ExecScreen() {
   if (admin.isPending) {
     return (
       <ScreenShell>
+      <CommandBridge />
         <ScreenHeader kicker="ADMIN" title="EXEC" onBack={() => router.back()} />
         <Text className="py-s5 text-center text-2xs text-text-mute">Checking access…</Text>
       </ScreenShell>

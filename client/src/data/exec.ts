@@ -178,3 +178,71 @@ export function useExecAction() {
 
   return { runWatchdog, snapshot, resolveAlert, setWatchdog };
 }
+
+/* ── the Command Centre bridge ────────────────────────────────────────────────
+ *
+ * /exec and /insights answer "how is the product doing". The Command Centre
+ * answers "what are we building, and who approved it". Until now those were
+ * separate tools, so a founder looking at a 0% activation figure here had no
+ * way to see that an opportunity had already been raised from that exact
+ * number, or that a work order was in flight against it — and the same fact got
+ * rediscovered, sometimes re-decided, in the other place.
+ *
+ * ONE read-only RPC does it. The command_* tables are governed (founders hold
+ * SELECT and nothing else, every mutation is an audited SECURITY DEFINER RPC);
+ * exposing them to the app would mean maintaining that boundary twice and
+ * getting it wrong once.
+ *
+ * command_app_summary() gates on is_founder() INSIDE the function and returns
+ * {available:false} for anyone else rather than raising — an athlete who is an
+ * app_admin but not a founder must see the panel absent, not a crash.
+ */
+export interface CommandSummary {
+  available: boolean
+  reason?: string
+  generated_at?: string
+  awaiting_founder?: { proposals: number; releases: number; tasks: number }
+  in_flight?: { work_orders: number; tasks_building: number; runner_online: boolean }
+  outcomes?: { measuring: number; validated: number; regressed: number; neutral: number }
+  experiments?: { running: number; total: number }
+  top_opportunities?: {
+    ref: string
+    title: string
+    classification: string
+    category: string | null
+    status: string
+    metric: string | null
+    baseline: string | null
+    target: string | null
+    score: number
+    evidence_count: number
+  }[]
+  recent_evidence?: {
+    kind: 'fact' | 'interpretation' | 'hypothesis'
+    summary: string
+    excerpt: string | null
+    confidence: number
+    collected_at: string
+  }[]
+}
+
+/** Command Centre state, for founders only. Never throws: a governance refusal
+ *  must render as an absent panel, not as a broken product screen. */
+export function useCommandSummary() {
+  const { session } = useAuth()
+  const userId = session?.user?.id ?? null
+  return useQuery({
+    queryKey: ['command_app_summary', userId],
+    enabled: userId !== null,
+    staleTime: 60_000,
+    queryFn: async (): Promise<CommandSummary> => {
+      try {
+        const { data, error } = await supabase.rpc('command_app_summary')
+        if (error) return { available: false, reason: error.message }
+        return (data ?? { available: false }) as CommandSummary
+      } catch {
+        return { available: false, reason: 'unreachable' }
+      }
+    },
+  })
+}

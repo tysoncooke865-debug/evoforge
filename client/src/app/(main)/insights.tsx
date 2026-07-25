@@ -11,6 +11,7 @@ import {
 } from '@/data/analytics-admin';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { CommandBridge } from '@/ui/exec/command-bridge';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
@@ -41,6 +42,7 @@ export default function InsightsScreen() {
   if (admin.isPending) {
     return (
       <ScreenShell>
+      <CommandBridge />
         <ScreenHeader kicker="ADMIN" title="INSIGHTS" onBack={() => router.back()} />
         <Text className="py-s5 text-center text-2xs text-text-mute">Checking access…</Text>
       </ScreenShell>
