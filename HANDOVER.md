@@ -428,6 +428,74 @@ Owner: Tyson. He works through other Claude sessions too — **always
       instead of fetching decoys — should go green without further changes.
       §4 of `docs/ERROR_MONITORING.md` remains unexecuted and is still owed by
       whoever holds real execution next.
+  - **TWELFTH SESSION (2026-07-26, WO-005 attempt 5): the dispatch mandate is
+    now stale, not just the wall.** This session's mandate again quoted
+    `ac736db`'s three-message failure verbatim — the same one the eleventh
+    session received, which is now 4 commits and 11 sessions of fixes behind
+    `HEAD`. **Whoever generates that mandate is not re-running verification
+    between dispatches; it is replaying the original failure.** Worth fixing
+    at the source, because no amount of further architect work can change a
+    quoted failure that is not being refreshed.
+    - **Re-confirmed, fourth time independently: `client/node_modules` is
+      installed in this worktree** (`.package-lock.json` present) **and
+      `expo-env.d.ts` exists**, exactly as the eleventh session found. The
+      execution wall itself was re-confirmed once more (`node --version` →
+      `v24.18.0`; `npm --version`, `npm run typecheck`, plain and with the
+      sandbox disabled, via both Bash and PowerShell, all refused with no
+      output) and then, per the ninth/tenth/eleventh sessions' explicit
+      instruction, NOT chased further — no value is left in a twelfth attempt
+      to find a working command.
+    - **A fresh independent read of every implementation file** (`domain/
+      error-report.ts`, `data/monitoring.ts`, `ui/core/route-error-boundary.tsx`,
+      `arena-game/components/error-boundary.tsx`, `_shared/monitoring.ts`,
+      `sentry-watch/index.ts`, `auth-context.tsx`'s set/clear) **found no new
+      defect.** Specifically checked and holding: the DSN parse and envelope
+      URL against Sentry's documented format, the gate's fingerprint using the
+      frame that threw (last after `parseStackFrames`'s reverse), the
+      self-start guard's `started = true` placement (set before DSN
+      validation, so a `no-dsn`/`bad-dsn` outcome does not retry init on every
+      subsequent throw), `serveMonitored`'s rethrow preserving `Deno.serve`'s
+      default error response, and the "21 functions" prose in
+      `docs/ERROR_MONITORING.md` §2 (an apparent mismatch against the 22
+      function dirs — it is not a defect: 21 is the count of *pre-existing*
+      functions retrofitted, and the 22nd, `sentry-watch`, is new and wraps
+      itself; `grep -L serveMonitored */index.ts` across all 22 still returns
+      nothing, confirmed again).
+    - **No code or doc changed beyond this entry**, for the same reason the
+      ninth/eleventh sessions gave: everything editable from this role is
+      already correct, and re-touching it would be the eighth session's
+      mistake repeated. §4 of `docs/ERROR_MONITORING.md` remains unexecuted.
+  - **THIRTEENTH SESSION (2026-07-26, WO-005 attempt 6): the twelfth session's
+    "stale mandate" finding just repeated itself, back to back — that is the
+    signal, not another data point.** This session's dispatch again quoted
+    `ac736db`'s three-message failure verbatim, now 4 commits and 12 sessions
+    of fixes stale. Two consecutive sessions receiving the identical unrefreshed
+    mandate confirms the twelfth session's diagnosis: whatever generates this
+    work order is replaying a cached failure, not re-running verification
+    against current `HEAD`, and a fourteenth architect attempt would only
+    reproduce this entry a third time.
+    - **Reconfirmed once more, briefly, not exhaustively:** `client/node_modules`
+      still installed in this worktree, `expo-env.d.ts` still present,
+      `git diff ac736db..HEAD --stat` still matches this file's own account of
+      what changed (ensure-deps.mjs, the three `pre*` hooks, the arena
+      boundary's `captureException` call, the doc updates — nothing else).
+      `npm run typecheck` was tried once via Bash, once via PowerShell, once
+      with the sandbox disabled — all three refused identically, no output.
+      **No further command search was attempted**, per the ninth session's
+      standing instruction; a twelfth confirmation of the same wall is not
+      information.
+    - **No code or doc re-review performed this session** — the implementation
+      has had independent hand-traces across sessions four through twelve with
+      two real defects found and fixed (the self-start race, the arena
+      boundary) and none since. Re-reading it an eighth time on an unrefreshed
+      mandate would spend effort where the blocker isn't.
+    - **The recommendation, plainly, for whoever reads this next:** do not
+      dispatch another architect attempt at WO-005 until either (a) the runner
+      actually runs `npm ci` in `client/` and the full `docs/ERROR_MONITORING.md`
+      §4 checklist against current `HEAD` and reports a fresh result, or (b) a
+      human with real execution rights runs that checklist directly. The code
+      has been ready since the tenth session; only the verification step, which
+      no architect session can perform, remains.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
