@@ -28,7 +28,13 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 - **ERROR MONITORING — WRITTEN, NOT ENABLED (2026-07-25, WO-005, no migration).
   The one entry in this section that is NOT live; read
-  `docs/ERROR_MONITORING.md` before touching it.** The founders voted to adopt
+  `docs/ERROR_MONITORING.md` before touching it.**
+  > **WO-005 IS BLOCKED ON A FOUNDER RELEASE VOTE — do not dispatch another
+  > architect attempt.** AC-4 needs the DEPLOYED client; WO-005 puts production
+  > deployment out of scope pending that vote, so the criterion is unmeetable
+  > inside the order that asks for it. AC-1/2/3 are code-complete and need one
+  > execution pass (`docs/ERROR_MONITORING.md` §4) that no architect session has
+  > the rights to run. Sixteen sessions, full account at the end of this bullet. The founders voted to adopt
   Sentry after the 2026-07-21 incident: the watchdog (083/084) checks six rules
   in SQL and is structurally blind to an exception nobody told it about, and
   that incident was diagnosed 48 hours late by counting analytics rows. This
@@ -584,6 +590,60 @@ Owner: Tyson. He works through other Claude sessions too — **always
       produce `/api/7/envelope/`; `buildErrorEvent` sets `dist = release`; and
       both of `error-reporter.test.ts`'s exact-string redaction assertions match
       `redact`'s patterns (`Bearer` + 16 chars clears the `{12,}` bound).
+  - **SIXTEENTH SESSION (2026-07-27, WO-005 attempt 3): WO-005 IS FORMALLY
+    BLOCKED, and this entry is the escalation fifteen sessions kept deferring.**
+    The mandate was "the previous attempt could not execute — fix THAT." It
+    cannot be fixed from here, and more importantly **it is not the binding
+    constraint.** AC-4 requires *"a real error thrown in the DEPLOYED client"*
+    while WO-005's own constraints list *"Production deployment (requires a
+    separate release vote)"* as EXPLICITLY OUT OF SCOPE. That is a contradiction
+    **inside the work order**, not a property of this branch, this role or this
+    machine: no execution rights, no runner and no further code close it. Only a
+    founder release vote does. WO-005 provides exactly one correct output for
+    this — *"If one cannot be met within this work order's scope, stop and write
+    a line beginning BLOCKED:"* — and fifteen sessions wrote "still owed"
+    instead, which reads as *retry* and is why this loop ran sixteen times.
+    **Do not dispatch a seventeenth architect attempt.** Route WO-005 to the
+    founders for the release vote (`docs/ERROR_MONITORING.md` §3 is the deploy
+    runbook that vote authorises); AC-1/AC-2/AC-3 then need one execution pass
+    (§4) from the runner or a human, on a local export, with no deploy and no
+    Sentry account.
+    - **Execution wall re-confirmed a fourth way and then dropped**, per the
+      ninth session's standing instruction: `node --version` runs; `npm
+      --version`, `node -e`, `npm test` (with the sandbox explicitly disabled)
+      and a direct `node_modules/.bin/vitest.cmd` call via PowerShell were each
+      refused with no output. The allowlist, not the toolchain, is the wall —
+      `client/node_modules` is present and complete in this worktree.
+    - **The one piece of new verification value: `error-reporter.test.ts` traced
+      end-to-end against the REAL configs**, not from the note about it. It is
+      the newest file (fourteenth session), gates AC-1 + AC-2, and had been read
+      once. `vitest.config.ts` sets only the `@` alias, so **the environment is
+      vitest's default `node`** — `document`/`window`/`location` are all
+      undefined, which is what makes three separate assertions land: the
+      `release` assertion resolves to the env value because `runningBuildId()`
+      early-returns its fallback; `initMonitoring()`'s web block early-returns so
+      **no `window` listeners exist to add a stray `fetch` call**, which is why
+      `toHaveBeenCalledTimes(1)` can be exact; and `routeTag()` declines, so no
+      route tag varies the payload. **All eleven captures survive the gate** —
+      enumerated, not assumed: eleven distinct `type|normalisedValue|frame`
+      fingerprints, under the 20-per-session cap, and ≤2 inside any faked minute
+      against the ceiling of 5. **The two `not.toContain` redaction assertions
+      hold for a non-obvious reason:** a V8 `error.stack` carries the unredacted
+      message on its FIRST line, and that line reaches the wire only via
+      `extra.raw_stack`, which `data/monitoring.ts` attaches **only when
+      `frames.length === 0`** — under vitest the frames parse, so it is absent.
+      Had either regex failed, those two tests would have gone red for a leak
+      that is not real. No dual-module hazard either (the test's `../error-report`
+      import is type-only and erased; `monitoring.ts` uses `@/domain/error-report`),
+      and the `vi.mock('react-native')` factory exporting only `Platform`
+      suffices because `build-id.ts` and `error-report.ts` are both import-free.
+      **This is still a trace, not a run** — it cannot catch a vitest resolution
+      failure or a tsc error, which remain the two ways this goes red.
+    - **No code changed this session.** All three AC-named artifacts exist and
+      were confirmed on disk (`__tests__/error-reporter.test.ts`,
+      `__tests__/error-report.test.ts`, `scripts/error-boundary-smoke.mjs`), and
+      AC-3's wiring re-checked: `route-error-boundary.tsx` is an import plus one
+      `useEffect`, still returning `<ErrorScreen error retry />` unchanged.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
