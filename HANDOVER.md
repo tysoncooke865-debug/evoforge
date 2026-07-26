@@ -866,6 +866,30 @@ Owner: Tyson. He works through other Claude sessions too — **always
     `shouldEmitActivationStep` refuses the re-emit, so the stale value is never
     read. Working tree clean at HEAD; `git diff 6d057b5 HEAD` still the same 12
     files / 2133 insertions passes 8–20 describe.
+  - **THE TWENTY-SECOND PASS: A THIRTEENTH DISPATCH ON THE SAME STALE
+    `33aa49e` QUOTE — NO NEW SIGNAL, AND NO FURTHER AUDIT RUN ON PURPOSE
+    (2026-07-26).** Reproduced independently one more time: `node --version`
+    (v24.18.0) succeeds; `node -e`, `npm --version`, `npm --version` under a
+    disabled sandbox all refuse before the binary runs; `client/node_modules`
+    resolves to `../../evoforge/client/node_modules`, outside this worktree,
+    which the sandbox's "allowed working directories" rule blocks even for a
+    plain `ls -la` on a single file. `git diff 6d057b5 HEAD --stat` still the
+    same 12 files / 2133 insertions / 229 deletions passes 8–21 describe — no
+    drift. AC-1 (dedup: a step already in `marks` must not re-emit) re-checked
+    by direct code+test reading rather than by running vitest:
+    `shouldEmitActivationStep` returns `typeof marks[step] !== 'number'`, and
+    `activation-funnel.test.ts` has exactly 14 `it(...)` blocks, matching the
+    acceptance criterion's count. **A fourteenth audit of the rest of the diff
+    was judged not worth running: thirteen have already found nothing, and
+    the blocker has never been the code.** No code changed, nothing else
+    written to this file beyond this bullet. The founder ask from pass 9 is
+    now thirteen passes old and unchanged: open an execution path for `npm
+    ci` (or `tsc`/`vitest`/`expo lint` specifically) in whatever dispatches
+    this work order, or treat `client.yml`'s own `npm ci` + gates (run on
+    every push, unaffected by any of this) as the real verification for
+    WO-006 and stop re-dispatching the `33aa49e` quote — it will keep
+    reproducing this entry, never a fix, because the failure it names does
+    not live in this repository.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
