@@ -818,6 +818,54 @@ Owner: Tyson. He works through other Claude sessions too — **always
     push, unaffected by any of this) as the real verification and stop
     re-dispatching this exact quoted failure. A twelfth dispatch will
     reproduce this entry, not a fix.
+  - **THE TWENTY-FIRST PASS: A TWELFTH DISPATCH ON THE SAME STALE `33aa49e`
+    QUOTE — AND THE AUDIT TOOL ITSELF PRODUCED A FLATTERING FALSE POSITIVE
+    (2026-07-26).** The wall reproduced a SEVENTEENTH and EIGHTEENTH time
+    (`npm --version` refused via Bash and via PowerShell). Three details are
+    new and worth not re-deriving: **`git` IS permitted this session** (pass 17
+    recorded `git --version` refused), so the allowlist is not identical across
+    dispatches and `node --version` is not always the whole of it — but `npm`
+    and `npx` have never once been in it; **`client/node_modules` is a symlink
+    OUT of the worktree** (`-> ../../evoforge/client/node_modules`), which is
+    why the sandbox's "allowed working directories" rule blocks it and why it
+    can read as both present and empty; and the **worktree-root `node_modules`
+    holds only a `.vite` cache**, so it is not a second install to try.
+    `client.yml` was re-read directly rather than quoted: `npm ci` is line 75,
+    ahead of the verify scripts, `npx vitest run src/domain` (126), `npx expo
+    lint` (129), `expo export` (139) and `npx tsc --noEmit` (158). The real
+    gate is unaffected, as it has been every pass. Nothing was changed to chase
+    it, and the pass-9 founder ask is unchanged.
+  - **WHAT IS ACTUALLY NEW, and it is about the ONLY verification this runner
+    has left: `Grep` content output is not byte-faithful here.** With the gates
+    unrunnable, every pass since the eighth has audited by reading — and this
+    pass's `Grep` rendered `(main)/today.tsx:84` as
+    `import('@\ui\train\quick-workout-sheet')`, backslashes, which in a JS
+    string literal is `\u` followed by a non-hex digit: **an invalid Unicode
+    escape, i.e. a hard SyntaxError in the one file the Train-chunk fix lives
+    in.** `Read` on the same line shows the real `'@/ui/train/quick-workout-sheet'`.
+    The mangling is inconsistent (some `/` survive, `//` comments render as
+    `\`), so it is a rendering artifact of this runner, not the file. **A pass
+    that reported it would have shipped a critical-bug finding that does not
+    exist** — the house failure mode in its twelfth costume, this time in the
+    instrument doing the auditing rather than in the code or the instructions.
+    **Rule for whoever audits next: any slash, escape or path anomaly seen
+    through `Grep` must be confirmed with `Read` before it is believed.**
+  - **NO CODE DEFECT FOUND — a twelfth independent hand-audit**, targeted
+    rather than re-narrated: `domain/activation-tti.ts` and `data/activation.ts`
+    read in full, `(main)/_layout.tsx` in full (the `tabPress` listener and both
+    idle waves present), and the remaining seams confirmed at their call sites —
+    `useHomeInteractive(!missionLoading, missionError)` (`(main)/index.tsx:213`),
+    both mission-card doors (`toTrain('home_rest')` at 136, `toTrain('home_quick')`
+    at 155), `isHomeHandoff(href)` + `startActivationSpanOnce` (`onboarding.tsx:178`)
+    behind the single `afterOnboardingHref` used by both the redirect (204) and
+    the navigation (162), and the `lazy` / `Suspense` / `adhoc-loading` wiring in
+    `today.tsx`. One seam checked that the prior audits did not name: **a second
+    Home mount re-parks `HOME_INTERACTIVE` from the original onboarding stamp**
+    (`settled` is a per-mount ref, `spanMeasured` is module-level) — harmless,
+    because `train_opened` has already fired by then and
+    `shouldEmitActivationStep` refuses the re-emit, so the stale value is never
+    read. Working tree clean at HEAD; `git diff 6d057b5 HEAD` still the same 12
+    files / 2133 insertions passes 8–20 describe.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
