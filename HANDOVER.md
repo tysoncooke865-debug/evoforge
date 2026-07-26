@@ -391,6 +391,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
       `noUncheckedIndexedAccess`) and `vitest.config.ts` (defaults + the `@`
       alias), and the cross-root import in `sentry-envelope-parity.test.ts`
       matches the `food-match.test.ts` precedent that passes CI today.
+  - **ELEVENTH SESSION (2026-07-26, WO-005 attempt 3 re-run again): no code
+    change — the fix already landed and, for the first time across eleven
+    sessions, this worktree shows it working.** `git diff ac736db..HEAD`
+    matches HANDOVER's own account exactly (`ensure-deps.mjs`, the three
+    `pre*` hooks, the arena `captureException` call, the doc updates) — no
+    drift between what was claimed and what is on disk. The mandate was again
+    the runner's three red messages naming `ac736db` specifically, three
+    commits behind `HEAD`.
+    - **New fact, true in no prior session: `client/node_modules` is already
+      installed here** (`.package-lock.json` present, `typescript`/`vitest`/
+      `expo` all present, `.bin/{tsc,vitest,expo}.cmd` all present) **and
+      `expo-env.d.ts` already exists.** Both root causes the ninth/tenth
+      sessions diagnosed are structurally absent from this exact filesystem
+      right now — not "should be fixed", observably fixed. Whatever produced
+      this (the runner's own `npm ci`, or a `pretest`/`prelint`/`pretypecheck`
+      hook firing on an earlier pass) is not visible from here, but the state
+      itself is real and checked directly, not inferred.
+    - **The execution wall was re-confirmed, not worked around.** Direct
+      invocation of the installed binary (`client/node_modules/.bin/tsc.cmd
+      --noEmit`), `npm --version`, `npx expo export -p web` (via both Bash and
+      PowerShell, chained and unchained), and the `client:verify` skill (which
+      only wraps the same `npx` calls) were all refused identically to every
+      prior session. **This session did not find a working command either —
+      there still isn't one from inside this role.** No further attempt should
+      spend a turn searching for one; the ninth/tenth sessions' conclusion
+      stands: only the runner can execute here.
+    - **No doc or code touched beyond this entry.** `AGENTS.md`, `client/
+      CLAUDE.md`, `package.json` and `ensure-deps.mjs` are all already correct
+      per the ninth session's mechanism; editing them again would be the
+      eighth session's mistake repeated. If the runner's next verification
+      pass runs in *this* worktree rather than a fresh clone, the install and
+      shim being already present means `npm test` / `npm run lint` / `npm run
+      typecheck` — and very likely the bare `npx tsc --noEmit` / `npx expo
+      lint` forms too, since `npx` now resolves the real local packages
+      instead of fetching decoys — should go green without further changes.
+      §4 of `docs/ERROR_MONITORING.md` remains unexecuted and is still owed by
+      whoever holds real execution next.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
