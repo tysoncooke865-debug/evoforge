@@ -201,6 +201,40 @@ asserts on the bytes handed to a stubbed `fetch` (no network). Note it mocks
 `react-native` and stubs `__DEV__` — Metro injects the latter and vitest does
 not, and `initMonitoring()` reads it.
 
+**THE BROWSER JOURNEY AC-3 NAMES NOW EXISTS: `client/scripts/error-boundary-smoke.mjs`
+(2026-07-26).** WO-005 verifies AC-3 by `browser_journey: error-boundary-smoke`,
+and no such artifact was on the branch — the same defect the acceptance criteria
+had for AC-1/AC-2 before `error-reporter.test.ts` was written, one criterion
+over, and with the same consequence: a verifier resolving that name finds
+nothing and reports AC-3 unmet however green everything else is. Both halves of
+AC-3 are browser properties — the report is a POST that only happens once React
+has caught a throw, and the fallback is what the athlete is looking at while it
+does — so neither is reachable from vitest.
+
+It needs **no Sentry project, no DSN secret and no deploy**: the ingest host is
+intercepted and fulfilled locally, so nothing leaves the machine and the
+reporter cannot tell the difference. Build with a well-formed fake DSN
+(`EXPO_PUBLIC_SENTRY_DSN=https://journey@o0.ingest.sentry.io/1`) and
+**`--clear`**, or Metro ships the old empty value and every assertion passes
+vacuously. Two design notes worth knowing before editing it:
+
+- **The crash is injected by RESPONSE, not by editing a route.** Every web route
+  is a lazy chunk (`asyncRoutes.web`), so serving one chunk a throwing body
+  makes that route throw on its *initial* render — probe 8's shape, the one the
+  self-start fix exists for — while the built bundle stays untouched.
+- **It pre-arms `CHUNK_RELOAD_AT_KEY`** so `tryAutoReload()` declines and the
+  fallback panel stays on screen to be asserted instead of racing a
+  `location.reload()`. Using the app's own one-reload-per-window guard rather
+  than fighting it is what makes the journey deterministic.
+
+It asserts the fallback is unchanged (`error-screen` + RETRY + CLEAR CACHE, the
+ordinary "SOMETHING BROKE" variant), that the report is attributed to
+`route-error-boundary` with a stack and the running `entry-<hash>` as its
+release, that the smoke account's address never reaches the wire, that a repeat
+of the same defect is **not** reported twice (the gate, in a browser), and that
+the fallback is an exit rather than a lockout. Boot-time reports from elsewhere
+are counted separately rather than failed on.
+
 The rest of this list still needs a run.
 
 0. **`cd client && npm ci` before anything else, and confirm it finished.**
@@ -231,7 +265,9 @@ The rest of this list still needs a run.
    So: `npm run typecheck` · `npm test` (the new cases in
    `error-report.test.ts`, `sentry-envelope-parity.test.ts` and
    `error-reporter.test.ts` have still never been executed) · `npm run lint` ·
-   `npx expo export -p web --clear`.
+   `npx expo export -p web --clear` · then `node scripts/error-boundary-smoke.mjs`
+   against the served export (AC-3; see the journey note above for the DSN it
+   needs at build time, and Playwright's out-of-tree install).
 
 1. **The client reports.** First confirm the DSN actually reached the bundle —
    `grep -o 'ingest\.sentry\.io' dist/_expo/static/js/web/entry-*.js` — because
@@ -308,3 +344,29 @@ Stated rather than papered over:
   queues. They are silent by design; making them loud is a different decision.
 - **Native builds** have no entry hash, so their release is whatever
   `EXPO_PUBLIC_SENTRY_RELEASE` says, or `unknown`.
+
+---
+
+## 6. AC-4 needs something this work order is not allowed to do
+
+Stated here because it is a property of the work order, not of the code, and
+every attempt that reads only the implementation will miss it.
+
+**AC-4 — "a real error thrown in the *deployed* client appears in the persisted
+store within one minute" — cannot be satisfied inside WO-005.** It requires a
+Sentry project to exist, `EXPO_PUBLIC_SENTRY_DSN` to be set in the deploy
+environment, and the client to be rebuilt and shipped with it: §3, steps 1–4.
+WO-005's own constraints put **production deployment explicitly out of scope**
+("requires a separate release vote"), and this document's first line says the
+same thing — implemented, not enabled, and turning it on is a deploy that needs
+its own founder authorisation.
+
+So AC-4 is not blocked by anything that can be written, reviewed or run on this
+branch. It is blocked on the **release vote** that §3 exists to be executed
+against, and it becomes verifiable the moment that vote passes and steps 1–4 are
+done — at which point it is probe 1 in §4, performed on production instead of a
+local export.
+
+The other three criteria are not in that position: AC-1 and AC-2 are unit tests
+that run offline, and AC-3's journey (above) intercepts the ingest host, so all
+three are verifiable on a local export **with no deploy and no Sentry account**.

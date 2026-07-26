@@ -74,14 +74,21 @@ Owner: Tyson. He works through other Claude sessions too — **always
   - **PRIVACY: the athlete's user id and nothing else.** Set on sign-in, cleared
     on sign-out with every other cache layer. Messages, tags and frame paths are
     redacted for emails/JWTs/bearer tokens before they leave the device.
-  - **NOTHING HERE HAS EVER BEEN RUN — that is still true, and it is the ONLY
-    thing standing between this work order and done.** Every session that has
-    touched it has been an architect session without execution rights (the
-    Command 095 architect/runner split), so **tsc, lint, the suite, the export
-    and every live falsification are owed in full** — the checklist is
-    `docs/ERROR_MONITORING.md` §4, starting at step 0. Two new test files
-    (28 + 7 cases) have never been executed. Treat this as reviewed code, not as
-    working software, until that list is green.
+  - **NOTHING HERE HAS EVER BEEN RUN.** Every session that has touched it has
+    been an architect session without execution rights (the Command 095
+    architect/runner split), so **tsc, lint, the suite, the export and every
+    live falsification are owed in full** — the checklist is
+    `docs/ERROR_MONITORING.md` §4, starting at step 0. Three test files
+    (28 + 7 + 10 cases) and one browser journey have never been executed. Treat
+    this as reviewed code, not as working software, until that list is green.
+    - **It is NOT the only thing standing between this work order and done —
+      that was wrong for fourteen sessions.** WO-005's **AC-4 requires the
+      DEPLOYED client** to report, which needs a Sentry project, the DSN in the
+      deploy environment and a shipped rebuild — and the same work order puts
+      production deployment explicitly out of scope pending a separate release
+      vote. AC-4 is blocked on that VOTE, not on execution and not on anything
+      writable here (`docs/ERROR_MONITORING.md` §6). AC-1/AC-2/AC-3 are all
+      verifiable on a local export with no deploy and no Sentry account.
     - **The runner's three red messages are ONE fault and it is not in the
       diff:** `client/node_modules` does not exist in a `git worktree` (it is
       gitignored; a worktree is a fresh checkout). Each message identifies its
@@ -534,6 +541,49 @@ Owner: Tyson. He works through other Claude sessions too — **always
       `npm test`, `npm test --prefix client` — each "requires approval", no
       output). **§4 is still owed in full.** What changed is that running it can
       now actually satisfy AC-1 and AC-2, which was not true before this session.
+  - **FIFTEENTH SESSION (2026-07-26, WO-005 attempt 3): the artifact audit the
+    fourteenth session started is now COMPLETE, and it found a second missing
+    one — AC-3's browser journey did not exist either.** WO-005 verifies AC-3 by
+    **`browser_journey: error-boundary-smoke`**, and nothing of that name was
+    anywhere in the repo (`grep` for it: zero hits; no journey/e2e/playwright
+    directory at all). Identical shape to the fourteenth session's finding one
+    criterion over: **a verifier resolving that name finds nothing and reports
+    AC-3 unmet no matter how green the suite is or who runs it.** Written as
+    `client/scripts/error-boundary-smoke.mjs`, matching the
+    `scripts/arena-visual-tour.mjs` convention (Playwright via `createRequire`,
+    installed out of tree; smoke account ALPHA; `TOUR_BASE_URL`).
+    **All four criteria have now been checked as a spec of ARTIFACTS, not just
+    of behaviour — AC-1/AC-2's file exists, AC-3's now does, AC-4 names none.**
+    - **Why it needs no deploy and no Sentry account:** it intercepts
+      `*.ingest.sentry.io` and fulfils locally, so nothing leaves the machine
+      and the reporter cannot tell. Build with a well-formed fake DSN and
+      **`--clear`** or Metro ships the old empty value and every assertion
+      passes vacuously.
+    - **Two things make it deterministic, both worth keeping if it is edited.**
+      The crash is injected **by response, not by editing a route** — every web
+      route is a lazy chunk (`asyncRoutes.web`), so serving one chunk a throwing
+      body makes that route throw on its *initial* render (probe 8's shape) with
+      the built bundle untouched. And it **pre-arms `CHUNK_RELOAD_AT_KEY`** so
+      `tryAutoReload()` declines and the fallback panel stays put instead of
+      racing a `location.reload()` — using the app's own one-reload-per-window
+      guard rather than fighting it. It also counts boot-time reports from
+      elsewhere separately, so known console noise cannot fail the run and get
+      blamed on this diff.
+    - **AC-4 IS OUT OF SCOPE BY THE WORK ORDER'S OWN CONSTRAINTS, and that is a
+      property of WO-005, not of the code** — new `docs/ERROR_MONITORING.md` §6.
+      It requires a Sentry project, `EXPO_PUBLIC_SENTRY_DSN` in the deploy
+      environment and a shipped rebuild (§3 steps 1-4), while WO-005 puts
+      production deployment explicitly out of scope pending a separate release
+      vote. It is blocked on that vote, not on anything writable here; the other
+      three are verifiable on a local export with no deploy and no account.
+    - **Execution wall unchanged and not chased** (per the ninth session's
+      standing instruction): `node --version` runs, `npm --version` and
+      `node <file>` are both refused. Re-verified while there, by reading:
+      `runningBuildId()` returns its fallback with or without a DOM, so AC-2's
+      release assertion holds under vitest either way; `envelopeUrl` really does
+      produce `/api/7/envelope/`; `buildErrorEvent` sets `dist = release`; and
+      both of `error-reporter.test.ts`'s exact-string redaction assertions match
+      `redact`'s patterns (`Bearer` + 16 chars clears the `{12,}` bound).
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
