@@ -761,6 +761,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
     every push, unaffected by any of this — as the real verification and stop
     re-dispatching this exact quoted failure. A ninth dispatch will reproduce
     this entry, not a fix.
+  - **THE EIGHTEENTH PASS: A NINTH DISPATCH ON THE SAME STALE `33aa49e` QUOTE —
+    NO NEW SIGNAL, AS PASS 17 PREDICTED (2026-07-26).** Reproduced
+    independently rather than trusted from the entry above: `npm --version`,
+    `git --version` and `node <script.js>` (a direct `tsc.js` invocation) all
+    refuse via Bash and PowerShell, including with the sandbox override
+    disabled; `node --version` (v24.18.0) remains the only execution
+    permitted; `client/node_modules` exists in this worktree but nothing in
+    it is executable. Working tree confirmed clean at `bd23847` (pass 17's
+    commit) — no drift, no reversion, nothing to re-fix. No code changed: an
+    eighth independent hand-audit of `domain/activation-tti.ts` /
+    `data/activation.ts` was judged not worth running when the last seven
+    found nothing and the blocker has never been the code. The founder ask
+    from pass 9 is unchanged: open an execution path for `npm ci` (or
+    `tsc`/`vitest`/`expo lint` specifically) in whatever dispatches this work
+    order, or treat `client.yml`'s own `npm ci` + gates — unaffected by any of
+    this, run on every push — as the real verification. Re-dispatching the
+    same quoted `33aa49e` failure will keep reproducing this entry, not fix it.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
