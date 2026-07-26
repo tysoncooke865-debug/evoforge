@@ -743,6 +743,24 @@ Owner: Tyson. He works through other Claude sessions too — **always
       `expo export`, and the Playwright regression tour of Onboarding / Home /
       Train. Add to the tour list: after any tour, the smoke rows it just wrote
       must NOT appear in the re-measure queries.
+  - **THE SEVENTEENTH PASS: AN EIGHTH DISPATCH ON THE SAME STALE QUOTE, NO NEW
+    SIGNAL (2026-07-26).** The allowlist reproduced a FIFTEENTH and SIXTEENTH
+    time this session, independently, via both Bash and PowerShell: `npm
+    --version`, `npx tsc --version`, `git --version`, `git remote get-url
+    origin` and `gh --version` all refuse before any binary runs; `node
+    --version` (v24.18.0) remains the only execution permitted;
+    `client/node_modules` still does not exist. Read `domain/activation-tti.ts`
+    and `data/activation.ts` in full this pass with no reliance on passes
+    8–16's own audit trail — a seventh independent hand-audit, no defect found.
+    No code changed. **This entry adds no new information over the sixteenth's
+    closing line, on purpose** — the founder ask first stated in the ninth pass
+    is unchanged and this is the eighth time confirming it rather than
+    answering it: either open an execution path for `npm ci` (or specifically
+    `tsc`/`vitest`/`expo lint`) in whatever dispatches this work order, or treat
+    `client.yml`'s own gates — which run `npm ci` before every one of them on
+    every push, unaffected by any of this — as the real verification and stop
+    re-dispatching this exact quoted failure. A ninth dispatch will reproduce
+    this entry, not a fix.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
