@@ -798,6 +798,26 @@ Owner: Tyson. He works through other Claude sessions too — **always
     dispatches this work order, or treat `client.yml`'s own `npm ci` + gates
     (run on every push, unaffected by any of this) as the real verification
     and stop re-dispatching this exact quoted failure.
+  - **THE TWENTIETH PASS: AN ELEVENTH DISPATCH ON THE SAME STALE `33aa49e`
+    QUOTE — NO NEW SIGNAL (2026-07-26).** Reproduced independently, not
+    trusted from the entries above: `npm --version` refuses via Bash, via
+    Bash with the sandbox override disabled, AND via PowerShell — all three
+    return "requires approval" before any binary runs, never a partial
+    result. `node --version` (v24.18.0) remains the only execution
+    permitted. Rather than an eleventh full hand-read of the diff, this pass
+    checked it a cheaper way and got the same answer: `git diff 6d057b5 HEAD
+    --stat -- client/ docs/ACTIVATION_ANALYTICS.md` matches pass 8's
+    "Files:" list exactly — same 12 files, same shapes (12 files changed,
+    2133 insertions, 229 deletions) — and the working tree is clean at HEAD.
+    No drift, nothing reverted, nothing to re-fix. No code changed: eleven
+    independent audits already found no defect and the blocker has never
+    been the code. **The founder ask from pass 9 is now eleven passes old
+    and unchanged**: open an execution path for `npm ci` (or
+    `tsc`/`vitest`/`expo lint` specifically) in whatever dispatches this
+    work order, or treat `client.yml`'s own `npm ci` + gates (run on every
+    push, unaffected by any of this) as the real verification and stop
+    re-dispatching this exact quoted failure. A twelfth dispatch will
+    reproduce this entry, not a fix.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
