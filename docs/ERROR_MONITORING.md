@@ -188,6 +188,19 @@ with the implementation. **This is not a substitute for running them** — a han
 trace cannot catch a bad import path, a vitest resolution failure or a tsc
 error, which are the three most likely ways this file set actually goes red.
 
+**A THIRD TEST FILE EXISTS AS OF 2026-07-26, and it is the one the acceptance
+criteria actually name: `__tests__/error-reporter.test.ts`.** WO-005 verifies
+AC-1 and AC-2 by an automated check against that exact path — which did not
+exist, so those two criteria could not have passed even on a green run, in any
+of the previous attempts. It is also the first test of `data/monitoring.ts`,
+which had none: the two files above cover the PURE half (envelope bytes, gate
+arithmetic), while "captures a thrown error", "never throws when the sink is
+unavailable" and "every report carries the release" are properties of the
+WIRING, and were untested everywhere. It drives `captureException` for real and
+asserts on the bytes handed to a stubbed `fetch` (no network). Note it mocks
+`react-native` and stubs `__DEV__` — Metro injects the latter and vitest does
+not, and `initMonitoring()` reads it.
+
 The rest of this list still needs a run.
 
 0. **`cd client && npm ci` before anything else, and confirm it finished.**
@@ -215,9 +228,10 @@ The rest of this list still needs a run.
    import no matter how the install went. The guard writes the same one-line
    shim `client.yml` does.
 
-   So: `npm run typecheck` · `npm test` (the 35 new cases in
-   `error-report.test.ts` and `sentry-envelope-parity.test.ts` have still never
-   been executed) · `npm run lint` · `npx expo export -p web --clear`.
+   So: `npm run typecheck` · `npm test` (the new cases in
+   `error-report.test.ts`, `sentry-envelope-parity.test.ts` and
+   `error-reporter.test.ts` have still never been executed) · `npm run lint` ·
+   `npx expo export -p web --clear`.
 
 1. **The client reports.** First confirm the DSN actually reached the bundle —
    `grep -o 'ingest\.sentry\.io' dist/_expo/static/js/web/entry-*.js` — because

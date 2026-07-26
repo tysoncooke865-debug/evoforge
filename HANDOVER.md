@@ -496,6 +496,44 @@ Owner: Tyson. He works through other Claude sessions too — **always
       human with real execution rights runs that checklist directly. The code
       has been ready since the tenth session; only the verification step, which
       no architect session can perform, remains.
+  - **FOURTEENTH SESSION (2026-07-26, WO-005 attempt 2): the work order's own
+    acceptance check pointed at a file that did not exist — so AC-1 and AC-2
+    could not have passed even on a fully green run.** Thirteen sessions read
+    the implementation and none read the ACCEPTANCE CRITERIA as a spec of
+    artifacts. WO-005 verifies AC-1 and AC-2 by `automated_test:
+    client/src/domain/__tests__/**error-reporter**.test.ts`; the branch carried
+    `error-report.test.ts`. A verifier resolving the named path finds nothing
+    and reports the criteria unmet no matter who runs it or how green the suite
+    is. **This was the live blocker underneath the execution wall, and it was
+    invisible from the implementation side.**
+    - **Fixed by writing the named file, not by renaming.** `error-report.test.ts`
+      tests the PURE module and keeps its 28 cases; the new
+      `__tests__/error-reporter.test.ts` is the first test of `data/monitoring.ts`,
+      which had **none**. That gap was real and not merely nominal: AC-1's
+      "captures a thrown error" and "never throws when the sink is unavailable",
+      and AC-2's "every report carries the release", are properties of the
+      WIRING, and the pure tests cannot reach them. It drives `captureException`
+      for real against a stubbed `fetch` and asserts on the bytes that would
+      have left the device. Placement in `domain/__tests__/` while testing
+      `data/` is the AC's requirement and follows the `finish-queue.test.ts`
+      precedent, which does exactly that today.
+    - **Two traps worth knowing before touching that file:** `data/monitoring.ts`
+      reads `__DEV__`, which **Metro injects and vitest does not** — an
+      un-stubbed run raises ReferenceError inside `initMonitoring()`, where
+      `captureException`'s own try/catch would swallow it and quietly leave
+      `environment` wrong. And the gate is MODULE state with a five-per-minute
+      ceiling, so a test file asserting on more than five reports silences
+      itself unless it steps the clock; this one does, and gives every case a
+      distinct message because a repeat fingerprint is dropped forever by design.
+    - **AC-3 re-confirmed statically while there:** `route-error-boundary.tsx`
+      adds an import and one `useEffect` and still returns
+      `<ErrorScreen error retry />` unchanged, and `error-screen.tsx` — the
+      fallback UI itself — contains no monitoring reference at all.
+    - **Execution wall unchanged, confirmed three distinct ways and then left
+      alone** per the ninth session's standing instruction (`npm --version`,
+      `npm test`, `npm test --prefix client` — each "requires approval", no
+      output). **§4 is still owed in full.** What changed is that running it can
+      now actually satisfy AC-1 and AC-2, which was not true before this session.
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and
