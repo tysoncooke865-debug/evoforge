@@ -21,6 +21,16 @@ module.exports = {
   // no style rather than an error.
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
+  // DEV LAB (sandbox preview support): NativeWind defaults darkMode to 'media',
+  // and react-native-css-interop's web runtime THROWS
+  // "Cannot manually set color scheme, as dark mode is type 'media'" the moment
+  // anything calls colorScheme.set(). Under `expo export` that throw is
+  // invisible, so the deployed site looks fine; under `expo start --web` LogBox
+  // paints it over the whole app and the Dev Lab preview shows an error card
+  // instead of EvoForge. This app uses ZERO `dark:` variants (grep src: 0 hits),
+  // so 'class' resolves every utility exactly as 'media' did -- it only stops
+  // the throw. Pinned by src/theme/__tests__/palettes.test.ts.
+  darkMode: 'class',
   theme: {
     extend: {
       // Every value comes from src/theme/tokens.js -- one copy, verified against
