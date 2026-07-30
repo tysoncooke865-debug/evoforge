@@ -2714,6 +2714,17 @@ grep the LIVE bundle for a marker string from the change. Two traps, both hit on
   chips would always return nothing. Adding them means re-tagging ~960 exercises
   and migrating history the append-only ledger cannot survive — a **data** change,
   not a UI one.
+- **Nothing verifies RLS any more, and this is a real gap** (2026-07-30).
+  `.github/workflows/verify-rls.yml` was deleted because it had been unrunnable
+  since `e347839` deleted the `tools/verify_rls.py` it invoked. It was not
+  restored: that script wrote to **12** tables — including `custom_workout_plan`,
+  retired by migration 062 — while the schema is now 132 migrations wide, so a
+  green run would have certified a stale subset and ignored the entire
+  Command/social/battle surface. The check worth rebuilding is the one that
+  mattered: **a client holding only the publishable key, with no session, reads
+  ZERO rows** from the current table list. Note the old file's own warning —
+  `--anon-only` reads zero from an empty table too, so it must run against a
+  project that HAS rows or the green means nothing.
 
 ---
 
