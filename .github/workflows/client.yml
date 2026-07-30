@@ -130,6 +130,19 @@ jobs:
       - name: Parity suite — TS domain reproduces every golden case exactly
         run: npx vitest run src/domain
 
+      # The parity step above gates src/domain only, which left the other 41
+      # test files ungated for the whole life of this workflow -- hooks, ui,
+      # data and the battle engine could go red without CI noticing.
+      #
+      # It re-runs src/domain as a subset, which costs ~15s and is worth it: the
+      # named parity step fails with its own message on goldens drift instead of
+      # burying it among 1,692 tests.
+      #
+      # Landed only after a full local run on a clean `npm ci` proved it green:
+      # 110 files passed, 1 skipped, 1,692 tests, exit 0.
+      - name: Unit suite — every test file, not just the goldens
+        run: npx vitest run
+
       - name: Lint — includes react/no-danger as an error
         run: npx expo lint
 
