@@ -34,6 +34,10 @@ on:
       - "config/constants.py"
       - "assets/styles.css"
       - ".github/workflows/client.yml"
+      # Top-level, 132 files, and NOT covered by "supabase/**". The five commits
+      # before 2026-07-30 touched only migrations/ -- so the entire schema and
+      # RLS surface changed without CI running once.
+      - "migrations/**"
   pull_request:
     paths:
       - "client/**"
@@ -44,6 +48,7 @@ on:
       - "config/constants.py"
       - "assets/styles.css"
       - ".github/workflows/client.yml"
+      - "migrations/**"
 
 jobs:
   client:
@@ -300,12 +305,30 @@ jobs:
 
       # Edge functions ride the same push (SUPABASE_SETUP.md step 3, wired
       # 2026-07-15). Gated on its own secret, skip-clean like the CF steps.
-      - name: Check Supabase deploy secrets
+      #
+      # AND GATED ON THE BRANCH, since 2026-07-30. There is exactly one Supabase
+      # project: `supabase functions deploy` has no preview target, so it
+      # overwrites all 21 LIVE functions no matter which ref asked for it. Until
+      # this gate, any branch whose push touched supabase/** shipped straight to
+      # production -- and the Command runner's entire job is pushing branches.
+      #
+      # The gate is on the STEP and not on the `push:` trigger on purpose: that
+      # trigger also drives the per-branch Cloudflare Pages previews, which
+      # should keep running everywhere.
+      #
+      # The branch is `expo-rewrite`, NOT `main`. main is 498 commits behind and
+      # has not moved since 2026-07-11; CLAUDE.md names expo-rewrite as the
+      # product branch. Gating on main would read as safe and would silently
+      # stop edge functions from ever deploying again.
+      - name: Check Supabase deploy gate
         id: sbgate
         env:
           SB_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          if [ -n "$SB_TOKEN" ]; then
+          if [ "$GITHUB_REF_NAME" != "expo-rewrite" ]; then
+            echo "ref is '$GITHUB_REF_NAME', not the production branch expo-rewrite; skipping edge function deploy."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SB_TOKEN" ]; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "SUPABASE_ACCESS_TOKEN not configured; skipping edge function deploy."
