@@ -29,7 +29,9 @@ describe('lastPerformance', () => {
     ];
     const last = lastPerformance(rows, 'Bench', TODAY);
     expect(last?.date).toBe('2026-07-08');
-    expect(last?.sets).toEqual([
+    // 133: each set now also carries its canonical `load`; the set/weight/
+    // reps contract asserted here is unchanged.
+    expect(last?.sets).toMatchObject([
       { set: 1, weight: 70, reps: 5 },
       { set: 2, weight: 72.5, reps: 5 },
     ]);
@@ -62,11 +64,14 @@ describe('prefillForSet', () => {
   };
 
   it('same set number wins', () => {
-    expect(prefillForSet(last, 2)).toEqual({ weight: 72.5, reps: 4 });
+    // 133: the prefill now also carries the set's canonical `load`, so a
+    // copied bodyweight/assisted set reopens as what it was. The weight and
+    // reps contract below is unchanged.
+    expect(prefillForSet(last, 2)).toMatchObject({ weight: 72.5, reps: 4 });
   });
 
   it('fewer prior sets than target → falls back to the last set', () => {
-    expect(prefillForSet(last, 4)).toEqual({ weight: 72.5, reps: 4 });
+    expect(prefillForSet(last, 4)).toMatchObject({ weight: 72.5, reps: 4 });
   });
 
   it('null history → null', () => {

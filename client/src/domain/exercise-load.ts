@@ -409,6 +409,59 @@ export const MODE_LABEL: Record<ExerciseLoadMode, string> = {
 };
 
 /* ------------------------------------------------------------------ */
+/* Reading a stored row                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A `workout_log` row -> the canonical set.
+ *
+ * TOLERANT OF MISSING COLUMNS BY DESIGN. Migration 133 is applied by hand,
+ * separately from the client deploy, so this must read correctly against a
+ * database that has not got the columns yet: a row with no `load_mode` is
+ * ordinary external load, which is exactly what every pre-133 row was.
+ * That is also what makes the migration rollback-safe with the app live.
+ */
+export function canonicalFromRow(row: Record<string, unknown>): CanonicalSet {
+  const n = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  };
+  const mode = (row.load_mode as ExerciseLoadMode) ?? 'external';
+  return {
+    loadMode: mode,
+    weightKg: mode === 'external' ? n(row.weight) : null,
+    externalLoadKg: mode === 'weighted_bodyweight' ? (n(row.external_load_kg) ?? n(row.weight)) : null,
+    assistanceKg: mode === 'assisted_bodyweight' ? n(row.assistance_kg) : null,
+    assistanceType: (row.assistance_type as AssistanceType) ?? null,
+    assistanceDescription: (row.assistance_description as string) ?? null,
+    bodyweightSnapshotKg: n(row.bodyweight_snapshot_kg),
+    reps: n(row.reps),
+    durationSeconds: n(row.duration_seconds),
+    distanceMeters: n(row.distance_meters),
+    repsPerSide: (row.reps_per_side as boolean) ?? null,
+  };
+}
+
+/**
+ * The number the keypad's load field should show for a set — the PART that
+ * belongs to its mode, never the effective total. This is what makes
+ * "copy the previous weighted pull-up" hand back 20 kg and not 96.
+ */
+export function loadFieldValue(set: CanonicalSet): number | null {
+  switch (set.loadMode) {
+    case 'external':
+      return set.weightKg;
+    case 'weighted_bodyweight':
+      return set.externalLoadKg;
+    case 'assisted_bodyweight':
+      return set.assistanceKg;
+    default:
+      return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Copying a previous set                                              */
 /* ------------------------------------------------------------------ */
 

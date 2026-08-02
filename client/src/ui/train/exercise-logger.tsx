@@ -1,9 +1,19 @@
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { useExercisePrefs, unitFor, useSetExerciseUnit } from '@/data/exercise-prefs';
 import { useSaveSet } from '@/data/mutations';
+import {
+  defaultModeForModel,
+  loadFieldLabel,
+  loadFieldSign,
+  modesForModel,
+  type ExerciseLoadMode,
+} from '@/domain/exercise-load';
+import { loadModelFor } from '@/domain/exercise-load-models';
+import { pixelFont } from '@/theme/fonts';
+import { LoadModeSelector } from '@/ui/train/load-mode-selector';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
 import { pyFloat, pyInt } from '@/domain/py';
 import type { SetVerdict } from '@/domain/set-save';
@@ -399,6 +409,8 @@ function SetRow({
   initialReps,
   initialNotes = '',
   prefill = null,
+  initialLoadMode,
+  initialDurationSeconds = null,
   onPr,
   tint,
   onLogged,
@@ -414,7 +426,12 @@ function SetRow({
   /** The row's saved notes — DROPS ride here ("DROPS: 50x6, 40x5"). */
   initialNotes?: string;
   /** Last session's numbers for this set — shown editable, saved only on LOG. */
-  prefill?: { weight: number; reps: number } | null;
+  prefill?: { weight: number; reps: number; load?: import('@/domain/exercise-load').CanonicalSet } | null;
+  /** 133: the saved row's load mode, so editing a logged bodyweight set
+   *  reopens in the mode it was logged in rather than snapping to the
+   *  exercise default and quietly rewriting it. */
+  initialLoadMode?: ExerciseLoadMode;
+  initialDurationSeconds?: number | null;
   onPr: () => void;
   tint: string;
   onLogged?: (verdict: SetVerdict) => void;
@@ -423,6 +440,23 @@ function SetRow({
   unit: WeightUnit;
 }) {
   const colors = useThemeColors();
+  // 133 — BODYWEIGHT LOAD MODES. The model comes from the canonical exercise
+  // metadata, never from matching this component's `exercise` string: the
+  // rule lives in one place so history, PRs and the AI parser cannot drift
+  // from what the keypad believes.
+  const loadModel = useMemo(() => loadModelFor(exercise).model, [exercise]);
+  const modes = useMemo(() => modesForModel(loadModel), [loadModel]);
+  // Precedence: the SAVED row's mode (editing must reopen as what it was) >
+  // the previous session's mode (copying an assisted set keeps it assisted) >
+  // the exercise default.
+  const [loadMode, setLoadMode] = useState<ExerciseLoadMode>(
+    initialLoadMode ?? prefill?.load?.loadMode ?? defaultModeForModel(loadModel)
+  );
+  // Does this mode want a load typed at all?
+  const wantsLoad = loadMode === 'external' || loadMode === 'weighted_bodyweight' || loadMode === 'assisted_bodyweight';
+  const wantsDuration = loadMode === 'duration';
+  const wantsReps = loadMode !== 'duration' && loadMode !== 'distance';
+
   // Seeds arrive as kg (log rows / last-session prefill) and are painted in
   // the exercise's unit. Typed state lives in that unit until save.
   const [weight, setWeight] = useState(
@@ -433,6 +467,7 @@ function SetRow({
         : ''
   );
   const [reps, setReps] = useState(initialReps !== '' ? initialReps : prefill ? String(prefill.reps) : '');
+  const [duration, setDuration] = useState(initialDurationSeconds != null ? String(initialDurationSeconds) : '');
   // Flipping the toggle converts the string UNDER the athlete, in place —
   // dirty flags untouched, half-typed garbage left alone (convertTyped).
   // Render-time adjustment, not an effect: set-state-in-effect is a lint
@@ -456,19 +491,56 @@ function SetRow({
   const save = useSaveSet();
   const logged = initialWeight !== '';
 
-  const saveDrops = (next: string[]) => {
-    setDrops(next);
+  /**
+   * 133: what a set NEEDS depends on its mode.
+   *
+   * The old gate demanded a weight for everything, which is precisely why a
+   * bodyweight set had to be typed as `0 kg` — a lie the athlete was forced
+   * to tell to get past validation. Bodyweight and repetition-only sets now
+   * need reps and nothing else; duration needs seconds; only the loaded
+   * modes need a number in the load field.
+   */
+  const gateOk = () => {
     const w = pyFloat(weight);
     const r = pyFloat(reps);
-    // 061: 0 kg is a valid (bodyweight) set — only reps still gate.
-    if (w === null || r === null || w < 0 || r <= 0) return;
+    const s = pyFloat(duration);
+    if (wantsDuration) return s !== null && s > 0;
+    if (wantsReps && (r === null || r <= 0)) return false;
+    if (wantsLoad && (w === null || w < 0)) return false;
+    return true;
+  };
+
+  /** The canonical load payload — mode plus PARTS, never a total. */
+  const loadPayload = () => {
+    const w = pyFloat(weight);
+    const kg = w === null ? null : toKgForSave(w, unit);
+    const s = pyFloat(duration);
+    return {
+      loadMode,
+      weightKg: loadMode === 'external' ? kg : null,
+      externalLoadKg: loadMode === 'weighted_bodyweight' ? kg : null,
+      assistanceKg: loadMode === 'assisted_bodyweight' ? kg : null,
+      // The keypad's assistance is a machine stack. Bands carry no honest
+      // kilogram value and are entered through the transcript review flow,
+      // never invented here.
+      assistanceType: loadMode === 'assisted_bodyweight' ? ('machine' as const) : null,
+      durationSeconds: wantsDuration && s !== null ? Math.trunc(s) : null,
+      reps: wantsReps ? Math.trunc(pyFloat(reps) ?? 0) : null,
+    };
+  };
+
+  const saveDrops = (next: string[]) => {
+    setDrops(next);
+    if (!gateOk()) return;
     save.mutate({
       workoutDate: date,
       workout,
       exercise,
       setNo,
-      weight: toKgForSave(w, unit),
-      reps: Math.trunc(r),
+      weight: toKgForSave(pyFloat(weight) ?? 0, unit),
+      reps: Math.trunc(pyFloat(reps) ?? 0),
+      load: loadPayload(),
+      loadModel,
       notes: next.length ? `DROPS: ${next.join(', ')}` : '',
       durable,
     });
@@ -477,8 +549,7 @@ function SetRow({
   const onSave = () => {
     const w = pyFloat(weight);
     const r = pyFloat(reps);
-    // 061: 0 kg is a valid (bodyweight) set — only reps still gate.
-    if (w === null || r === null || w < 0 || r <= 0) return;
+    if (!gateOk()) return;
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Logging a prefill as-is whitens both fields immediately (before the
     // refetch flips `logged`).
@@ -492,8 +563,12 @@ function SetRow({
         setNo,
         // THE conversion boundary: pounds become kilograms here and nowhere
         // else. kg mode passes through verbatim (no new rounding on metric).
-        weight: toKgForSave(w, unit),
-        reps: Math.trunc(r),
+        // A mode with no load field (bodyweight, reps-only, duration) has no
+        // `w` to convert — the canonical payload below carries the truth.
+        weight: toKgForSave(w ?? 0, unit),
+        reps: Math.trunc(r ?? 0),
+        load: loadPayload(),
+        loadModel,
         notes: drops.length ? `DROPS: ${drops.join(', ')}` : '',
         durable,
       },
@@ -521,8 +596,26 @@ function SetRow({
   const standardTint = tint === colors.accent;
   const compact = useCompact();
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
+  const sign = loadFieldSign(loadMode);
+  const fieldLabel = loadFieldLabel(loadMode);
   return (
     <View className="mb-s2">
+    {/* 133: only rendered when the exercise offers a choice — an ordinary
+        lift has none, and a one-option selector is noise mid-set. */}
+    <LoadModeSelector
+      modes={modes}
+      value={loadMode}
+      onChange={(m) => {
+        setLoadMode(m);
+        // Flipping the mode CLEARS the load. Carrying 20 kg from "weighted"
+        // into "assisted" would silently turn added weight into assistance —
+        // the same class of lie this release exists to remove.
+        setWeight('');
+        setWeightDirty(true);
+      }}
+      tint={tint}
+      testID={`${exercise}-mode-${setNo}`}
+    />
     <View className="flex-row items-center gap-s1 px-[2px] py-s1">
       {floatXp ? <FloatingXP amount={XP_PER_SET} onDone={() => setFloatXp(false)} /> : null}
       <View className="justify-center" style={{ width: compact ? 30 : 40 }}>
@@ -530,39 +623,73 @@ function SetRow({
           {compact ? `S${setNo}` : `SET ${setNo}`}
         </Text>
       </View>
-      <NumberField
-        value={weight}
-        onChange={(v) => {
-          setWeightDirty(true);
-          setWeight(v);
-        }}
-        step={WEIGHT_STEP[unit].step}
-        bigStep={WEIGHT_STEP[unit].bigStep}
-        quickSteps={WEIGHT_STEP[unit].quick}
-        placeholder={unit}
-        label={`WEIGHT · ${unit.toUpperCase()}`}
-        tint={tint}
-        width={fieldW}
-        narrow={compact}
-        dim={!logged && prefill !== null && !weightDirty}
-        testID={`${exercise}-w-${setNo}`}
-      />
-      <NumberField
-        value={reps}
-        onChange={(v) => {
-          setRepsDirty(true);
-          setReps(v);
-        }}
-        step={1}
-        integer
-        placeholder="reps"
-        label="REPS"
-        tint={tint}
-        width={fieldW}
-        narrow={compact}
-        dim={!logged && prefill !== null && !repsDirty}
-        testID={`${exercise}-r-${setNo}`}
-      />
+      {wantsLoad ? (
+        <NumberField
+          value={weight}
+          onChange={(v) => {
+            setWeightDirty(true);
+            setWeight(v);
+          }}
+          step={WEIGHT_STEP[unit].step}
+          bigStep={WEIGHT_STEP[unit].bigStep}
+          quickSteps={WEIGHT_STEP[unit].quick}
+          placeholder={unit}
+          // The sign is IN THE LABEL, so "+ ADDED WEIGHT · KG" and
+          // "− ASSISTANCE · KG" are distinguishable without seeing colour.
+          label={`${sign ? `${sign} ` : ''}${(fieldLabel ?? 'WEIGHT').toUpperCase()} · ${unit.toUpperCase()}`}
+          tint={tint}
+          width={fieldW}
+          narrow={compact}
+          dim={!logged && prefill !== null && !weightDirty}
+          testID={`${exercise}-w-${setNo}`}
+        />
+      ) : wantsDuration ? (
+        <NumberField
+          value={duration}
+          onChange={setDuration}
+          step={5}
+          bigStep={30}
+          integer
+          placeholder="sec"
+          label="SECONDS"
+          tint={tint}
+          width={fieldW}
+          narrow={compact}
+          testID={`${exercise}-d-${setNo}`}
+        />
+      ) : (
+        /* BODYWEIGHT: no weight field at all, and a BW badge in its place —
+           the athlete is never asked to type their own bodyweight, and never
+           has to type 0 to get past a gate. Reps stay immediately editable. */
+        <View
+          className="items-center justify-center rounded-md border"
+          style={{ width: fieldW, minHeight: 48, borderColor: `${tint}59`, backgroundColor: `${tint}14` }}
+          accessibilityLabel="Bodyweight set — no external load"
+          testID={`${exercise}-bw-${setNo}`}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 16, color: tint, ...pixelFont() }}>
+            BW
+          </Text>
+        </View>
+      )}
+      {wantsReps ? (
+        <NumberField
+          value={reps}
+          onChange={(v) => {
+            setRepsDirty(true);
+            setReps(v);
+          }}
+          step={1}
+          integer
+          placeholder="reps"
+          label="REPS"
+          tint={tint}
+          width={fieldW}
+          narrow={compact}
+          dim={!logged && prefill !== null && !repsDirty}
+          testID={`${exercise}-r-${setNo}`}
+        />
+      ) : null}
       <Pressable
         onPress={onSave}
         disabled={save.isPending}

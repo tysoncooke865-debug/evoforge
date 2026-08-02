@@ -6,7 +6,9 @@ import { cardioEventAmount } from '@/domain/cardio';
 import { libraryMuscleFor, userMuscleFor, type UserExercise } from '@/domain/muscle-lookup';
 import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
-import { decideSetSave, buildSetRow, type SetInput, type SetVerdict } from '@/domain/set-save';
+import { currentBodyweightKg } from '@/domain/bodyweight-current';
+import { isBodyweightMode } from '@/domain/exercise-load';
+import { decideSetSave, buildSetRow, canonicalSetFor, type SetInput, type SetVerdict } from '@/domain/set-save';
 import { localIso } from '@/domain/today';
 import { kgToLb } from '@/domain/units';
 import { inferMuscleGroup } from '@/domain/workouts';
@@ -17,6 +19,7 @@ import * as Crypto from 'expo-crypto';
 
 import { runAchievementSweep } from './achievement-sweep';
 import { markActivationStep } from './activation';
+import { trackError } from './analytics';
 import { invalidateTable } from './keys';
 import { useAuth } from './auth-context';
 import { fetchWorkoutLog } from './hooks';
@@ -38,6 +41,41 @@ import { supabase } from './supabase';
  *
  * Every path invalidates workout_log + xp_total, the invalidate-on-write rule.
  */
+/**
+ * THE BODYWEIGHT SNAPSHOT (133) — captured HERE, at save time, once.
+ *
+ * A bodyweight set's resistance is the athlete's weight ON THE DAY. Reading
+ * current bodyweight at DISPLAY time would silently rewrite history: weigh in
+ * at 80 kg in August and every pull-up you did at 76 kg in March would
+ * retroactively claim you were lifting 80. So the number is frozen into the
+ * row and never consulted again.
+ *
+ * NO BODYWEIGHT ON FILE IS A VALID STATE. The snapshot stays null, the set
+ * saves normally, it displays as `BW × reps`, and calculations that need a
+ * weight exclude it. We never invent one and we never block logging — the
+ * athlete is mid-set.
+ *
+ * Reads the CACHE, exactly like the muscle lookup above: LOG SET must not
+ * wait on a network round-trip.
+ */
+function attachBodyweightSnapshot(
+  input: SetInput,
+  queryClient: ReturnType<typeof useQueryClient>,
+  userId: string | null
+): SetInput {
+  if (!input.load) return input; // legacy external-load path, untouched
+  const { set } = canonicalSetFor(input);
+  if (!isBodyweightMode(set.loadMode)) return input;
+  if (input.load.bodyweightSnapshotKg != null) return input; // already carried
+
+  const log = queryClient.getQueryData(['bodyweight_log', userId]) as
+    | { date?: string; bodyweight?: number }[]
+    | undefined;
+  const profile = queryClient.getQueryData(['profile', userId]) as { bodyweight_kg?: number } | undefined;
+  const kg = currentBodyweightKg(log, profile?.bodyweight_kg);
+  return kg == null ? input : { ...input, load: { ...input.load, bodyweightSnapshotKg: kg } };
+}
+
 export function useSaveSet() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -81,7 +119,8 @@ export function useSaveSet() {
         userMuscleFor(input.exercise, userExercises) ??
         libraryMuscleFor(input.exercise) ??
         inferMuscleGroup(input.exercise);
-      const row = buildSetRow(input, muscle, timestamp);
+      const withSnapshot = attachBodyweightSnapshot(input, queryClient, userId);
+      const row = buildSetRow(withSnapshot, muscle, timestamp);
 
       // TRANSFORM P2: durable INSERTS never wait for the network. The row id
       // is minted HERE (idempotency key — a retried insert collides on the
@@ -91,14 +130,20 @@ export function useSaveSet() {
       // row inside the round window.
       if (input.durable && verdict.action === 'insert') {
         const id = Crypto.randomUUID();
-        await enqueueSet(id, {
-          workoutDate: input.workoutDate,
-          workout: input.workout,
-          exercise: input.exercise,
-          setNo: input.setNo,
-          weight: input.weight,
-          reps: input.reps,
-        }, timestamp, muscle, verdict.is_pr);
+        // ENQUEUE THE WHOLE INPUT, not a hand-picked subset.
+        //
+        // 133: the subset dropped `load`, so an offline bodyweight set would
+        // have flushed as plain external load — the exact ambiguity this
+        // release fixes, reintroduced by the offline path alone. It also
+        // dropped `notes`, which silently lost drop-set detail ("DROPS: 50x6,
+        // 40x5") on every set logged without a connection — a pre-existing
+        // bug this fixes in passing.
+        //
+        // The snapshot rides along already resolved, so a set performed
+        // offline keeps the bodyweight it was performed at, not the one the
+        // athlete happens to have when the queue finally flushes.
+        const { durable: _durable, ...queued } = withSnapshot as SetInput & { durable?: boolean };
+        await enqueueSet(id, queued, timestamp, muscle, verdict.is_pr);
         verdict.rowId = id;
         (verdict as SetVerdict & { queued?: boolean }).queued = true;
         queryClient.setQueryData(
@@ -135,6 +180,10 @@ export function useSaveSet() {
         created_at: data.timestamp ?? timestamp,
       });
       if (grantError) {
+        // The toast tells the athlete. This tells us. Until now a ledger
+        // falling behind for EVERY athlete on a bad deploy looked identical, in
+        // the data, to a day where nothing went wrong.
+        trackError('xp_grant', grantError, { queued: verdict.action === 'insert' });
         useToastStore.getState().push({
           kind: 'error',
           title: 'XP GRANT FAILED',

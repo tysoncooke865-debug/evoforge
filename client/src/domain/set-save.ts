@@ -11,6 +11,12 @@
  * the XP or strand the grant. Never reintroduce it.
  */
 
+import {
+  type CanonicalSet,
+  calculateEffectiveResistanceKg,
+  normaliseExerciseSet,
+} from './exercise-load';
+import { type ExerciseLoadModel, loadModelFor } from './exercise-load-models';
 import { pyFloat, pyInt } from './py';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
 import { estimated1rm } from './workouts';
@@ -25,6 +31,53 @@ export interface SetInput {
   /** DROP SETS (2026-07-18): back-off mini-sets ride the SET's notes column
    *  ("DROPS: 50x6, 40x5") — one set row, one XP grant, honest storage. */
   notes?: string;
+  /**
+   * BODYWEIGHT LOAD MODES (133). OPTIONAL, and absence is the legacy path:
+   * a caller that passes only `weight` gets exactly the behaviour it always
+   * had (external load), so every weighted exercise — bench, squat,
+   * dumbbell, cable, machine — is untouched by this feature.
+   *
+   * When present, `load` carries the set's MODE and PARTS and `weight`
+   * becomes derived rather than authoritative.
+   */
+  load?: Partial<CanonicalSet>;
+  /** Resolved by the caller (it holds the library + custom exercises). */
+  loadModel?: ExerciseLoadModel;
+}
+
+/**
+ * The set's canonical form. Legacy callers (weight only) resolve to plain
+ * external load, which is why this feature cannot regress ordinary lifting.
+ */
+export function canonicalSetFor(input: SetInput): { set: CanonicalSet; model: ExerciseLoadModel } {
+  const model = input.loadModel ?? (input.load ? loadModelFor(input.exercise).model : 'external_load');
+  const set = normaliseExerciseSet(
+    input.load
+      ? { ...input.load, reps: input.load.reps ?? input.reps }
+      : { loadMode: 'external', weightKg: input.weight, reps: input.reps },
+    model
+  );
+  return { set, model };
+}
+
+/**
+ * What goes in the legacy `weight` column.
+ *
+ * EXTERNAL LOAD ONLY, never bodyweight and never a computed total. A
+ * weighted pull-up stores its ADDED 20 kg, an assisted pull-up and a plain
+ * bodyweight set store 0. That keeps `weight` meaning exactly what it has
+ * always meant to every reader in the app, so nothing that aggregates it
+ * silently changes meaning under them.
+ */
+export function legacyWeightFor(set: CanonicalSet): number {
+  switch (set.loadMode) {
+    case 'external':
+      return set.weightKg ?? 0;
+    case 'weighted_bodyweight':
+      return set.externalLoadKg ?? 0;
+    default:
+      return 0;
+  }
 }
 
 export type SetVerdict =
@@ -80,8 +133,18 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
     return { action: 'reject' };
   }
 
+  const { set } = canonicalSetFor(input);
+  // 133: the e1RM of a bodyweight-family set is computed from EFFECTIVE
+  // resistance, which is what fixes "a bodyweight set can never set a
+  // record" — `estimated1rm(0, reps)` was always 0, so twelve strict
+  // pull-ups were permanently invisible to PR detection. With no bodyweight
+  // on file the effective resistance is null and we fall back to 0, which
+  // keeps the old (silent) behaviour rather than inventing a weight.
+  const effective = calculateEffectiveResistanceKg(set);
+  const loadForRm = effective ?? legacyWeightFor(set);
+
   const previousBest = previousBest1rm(rows, input.exercise, input.workoutDate, input.setNo);
-  const current1rm = estimated1rm(input.weight, Math.trunc(input.reps));
+  const current1rm = estimated1rm(loadForRm, Math.trunc(input.reps));
   const is_pr = current1rm > previousBest && previousBest > 0;
 
   const normalised = normaliseWorkoutLog(rows);
@@ -95,9 +158,17 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
 
   if (existing.length > 0) {
     const old = existing[existing.length - 1];
-    const sameWeight = (pyFloat(old.weight) ?? NaN) === input.weight;
+    // 133: compare the LEGACY weight (external load) and the MODE. Editing
+    // a set from `bodyweight` to `assisted 30 kg` leaves the legacy weight
+    // at 0 in both cases, so weight-and-reps alone would call a real edit a
+    // no-op and silently discard it.
+    const sameWeight = (pyFloat(old.weight) ?? NaN) === legacyWeightFor(set);
+    const oldMode = (old as WorkoutRow & { load_mode?: string }).load_mode ?? 'external';
+    const sameMode = oldMode === set.loadMode;
+    const oldAssist = pyFloat((old as WorkoutRow & { assistance_kg?: number }).assistance_kg) ?? null;
+    const sameAssist = oldAssist === (set.assistanceKg ?? null);
     const sameReps = Math.trunc(pyFloat(old.reps) ?? NaN) === Math.trunc(input.reps);
-    if (sameWeight && sameReps) {
+    if (sameWeight && sameReps && sameMode && sameAssist) {
       return { action: 'noop', is_pr: false, current1rm, previousBest };
     }
     const rowId = old.id;
@@ -113,19 +184,52 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
   return { action: 'insert', is_pr, current1rm, previousBest };
 }
 
-/** The row shape both write paths send; mirrors save_set_auto's supabase_row. */
+/**
+ * The row shape both write paths send; mirrors save_set_auto's supabase_row.
+ *
+ * 133 adds the canonical load columns. A caller that passes no `load` emits
+ * `load_mode: 'external'` with the weight it always sent — byte-identical
+ * behaviour for every ordinary lift.
+ */
 export function buildSetRow(input: SetInput, muscle: string, timestamp: string) {
+  const { set, model } = canonicalSetFor(input);
+  const reps = Math.trunc(input.reps);
+  const legacyWeight = legacyWeightFor(set);
+  const effective = calculateEffectiveResistanceKg(set);
+
+  // TONNAGE. Only movements whose effective resistance is honestly ~the
+  // athlete's bodyweight contribute it (pull-ups, chin-ups, dips). A push-up
+  // does NOT move ~100% of bodyweight, so it contributes its external load —
+  // zero — rather than a fabricated fraction. Unknown bodyweight also
+  // contributes zero: excluded, never guessed.
+  const counts = loadModelFor(input.exercise, {}).contributesToTonnage;
+  const volumeLoad = counts ? (effective ?? legacyWeight) : legacyWeight;
+
   return {
     date: input.workoutDate,
     workout: input.workout,
     exercise: input.exercise,
     set: Math.trunc(input.setNo),
-    weight: input.weight,
-    reps: Math.trunc(input.reps),
+    weight: legacyWeight,
+    reps,
     timestamp,
     muscle,
-    estimated_1rm: estimated1rm(input.weight, Math.trunc(input.reps)),
-    volume: input.weight * Math.trunc(input.reps),
+    estimated_1rm: estimated1rm(effective ?? legacyWeight, reps),
+    volume: volumeLoad * reps,
     notes: input.notes ?? '',
+    // ---- 133 canonical load columns ----
+    load_mode: set.loadMode,
+    external_load_kg: set.externalLoadKg,
+    assistance_kg: set.assistanceKg,
+    assistance_type: set.assistanceType,
+    assistance_description: set.assistanceDescription,
+    bodyweight_snapshot_kg: set.bodyweightSnapshotKg,
+    duration_seconds: set.durationSeconds,
+    distance_meters: set.distanceMeters,
+    reps_per_side: set.repsPerSide ?? null,
+    // The load MODEL is deliberately not persisted: it belongs to the
+    // EXERCISE, not the set. Storing it per row would let a set disagree
+    // with its own exercise's definition.
+    load_migration_status: 'untouched' as const,
   };
 }
