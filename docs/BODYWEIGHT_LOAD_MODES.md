@@ -103,26 +103,40 @@ The database now enforces the invariant that caused the bug:
 `workout_log_load_parts_check` refuses a row carrying both added weight
 and assistance, and refuses either being negative.
 
-## 5. Remaining work (not yet done)
+## 5. What is wired (as of `4efe076`)
 
-The canonical core is complete and tested. **These are outstanding and the
-user-visible behaviour has not changed yet:**
+- **Persistence** — `buildSetRow` emits the 133 columns. `weight` keeps
+  meaning *external load only*, so every existing reader of that column
+  keeps its meaning. e1RM uses effective resistance, which is what finally
+  lets a bodyweight set score a record.
+- **Bodyweight snapshot** — captured at save time from the cache, never at
+  display time. Null when unknown; never invented, never blocking.
+- **Keypad** — segmented Bodyweight/Weighted/Assisted, rendered only when
+  the exercise offers a choice. Selected state is fill + border + ●/○ and
+  `accessibilityState`, not colour. Bodyweight mode shows a `BW` badge in
+  place of the weight field. Switching modes clears the load.
+- **History / previous-set** — `lastPerformance` and `prefillForSet` carry
+  the canonical load, so copying a weighted pull-up returns the added
+  20 kg and an assisted set stays assisted. The snapshot is dropped on
+  copy.
+- **Personal records** — `bodyweight-records.ts`, separated by mode with
+  their own directions (lowest assistance wins).
+- **Tonnage** — `buildSetRow` consults `contributesToTonnage`: pull-ups
+  count effective resistance, push-ups count zero.
 
-1. **Persistence wiring** — `set-save.ts` / `useSaveSet` still write only
-   `weight`. They need to carry the new columns and capture the
-   bodyweight snapshot at save time.
-2. **Active-workout keypad** — the segmented Bodyweight/Weighted/Assisted
-   control in `exercise-logger.tsx`.
-3. **History and previous-set formatting** — call sites must route through
-   `formatExerciseSet`.
-4. **Personal records** — separate record types (most unweighted reps,
-   highest added load, lowest assistance, longest duration).
-5. **Transcript review UI** — the ambiguity prompt and per-set editing.
-6. **Tonnage call sites** — `summary.ts` / `progress-aggregates.ts` must
-   consult `contributesToTonnage`.
+### Still outstanding
 
-Until 1–3 land, the migration is safe to apply but changes nothing an
-athlete sees.
+1. **Transcript review UI** — `parseTranscript` and `validateParsedSet`
+   are built and tested, and `ambiguityPrompt()` supplies the question,
+   but the review *screen* (per-set editing, the three-way load-mode
+   prompt) is not built. Nothing in the app calls the parser yet, so this
+   is inert rather than half-live.
+2. **Aggregate call sites** — `summary.ts` / `progress-aggregates.ts` read
+   the stored `volume`, which is now correct at write time. Historical
+   rows keep their original values by design (see §4), so old push-up
+   tonnage stays as it was until those rows are revisited.
+3. **Optional post-workout bodyweight prompt** — permitted by the brief,
+   not built.
 
 ## 6. Rollout
 
