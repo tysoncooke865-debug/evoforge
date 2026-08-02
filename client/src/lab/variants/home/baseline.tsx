@@ -51,6 +51,7 @@ import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { EvoCore } from '@/ui/home/evo-core';
+import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
@@ -294,6 +295,12 @@ export function HomeBaseline() {
         onOpen={openMission}
         features={homeFeatures}
       />
+
+      {/* 2.5 THE EVOLUTION PATH (beta flag). Directly under the mission
+          because it answers "what did that workout buy me" — and never
+          competes with START WORKOUT: no button, no glow, one tap target.
+          Self-hides when the flag is off or no path exists. */}
+      <PathSummary />
 
       {/* 3. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero

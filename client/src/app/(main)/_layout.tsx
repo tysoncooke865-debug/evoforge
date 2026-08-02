@@ -10,7 +10,6 @@ import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useOnlinePresence } from '@/data/presence';
-import { useAnalytics } from '@/data/use-analytics';
 import { useMfaGate } from '@/data/mfa';
 import { MfaChallenge } from '@/ui/auth/mfa-challenge';
 import { migrateForgeHistory } from '@/data/progression/award-xp';
@@ -63,8 +62,11 @@ export default function MainLayout() {
   // Join the global presence channel so this player is counted as online for as
   // long as the app is open (the count surfaces on Arena / Quick Match).
   useOnlinePresence();
-  // Product telemetry: sessions, page dwell, time-on-app (migration 080).
-  useAnalytics(session?.user?.id ?? null);
+  // Product telemetry MOVED UP to the root layout (ui/core/telemetry.tsx),
+  // 2026-07-31. Mounted here it only armed once an athlete had a profile row,
+  // so /onboarding emitted no session_start and no page_view — the screen the
+  // 63% who never log a rep are lost on was invisible. It must not be mounted
+  // in both places: two rails means two session_start rows per session.
   // 2FA gate: an aal1 session on an account with a verified TOTP factor must
   // pass a code before ANY of the app renders (covers fresh sign-in and a
   // restored session alike). Fails open if the check errors — never a lockout.
@@ -299,6 +301,10 @@ export default function MainLayout() {
       <Tabs.Screen name="routine" options={{ href: null }} />
       <Tabs.Screen name="goals" options={{ href: null }} />
       <Tabs.Screen name="awards" options={{ href: null }} />
+      {/* The Evolution Path — a pushed screen, never a tab: it is a
+          destination you arrive at from Home or the Forge, and the tab bar
+          is already full. */}
+      <Tabs.Screen name="evolution" options={{ href: null }} />
       <Tabs.Screen name="rank" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="data" options={{ href: null }} />
