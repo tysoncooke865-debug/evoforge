@@ -49,13 +49,23 @@ import { ScreenShell } from '@/ui/core/shell';
 import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
- * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22).
- * Hierarchy: identity → THE CHARACTER (hero, badges incl. the streak,
- * actions) → evo core → today's mission → training overview → PR + next
- * evolution → the build → leaderboard. The status grid and schedule door
- * are gone (their surviving values live on the hero and Train). Every value
- * is real state; systems without backends are hidden by home-features,
- * never mocked.
+ * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
+ * re-stacked 2026-08-02).
+ * Hierarchy: identity → TODAY'S MISSION → THE CHARACTER (hero, badges incl.
+ * the streak, actions) → evo core → training overview → PR + next evolution
+ * → the build → leaderboard. The status grid and schedule door are gone
+ * (their surviving values live on the hero and Train). Every value is real
+ * state; systems without backends are hidden by home-features, never mocked.
+ *
+ * WHY THE MISSION SITS ABOVE THE CHARACTER (Tyson 2026-08-02: "make it so
+ * the todays mission is viewable on the app without scrolling"): it cannot
+ * be done any other way. The hero rig is a PLACE, not a card — even 20%
+ * down it is ~360pt, and header + hero + evo core alone overran the fold on
+ * a 390×844 phone before the mission card's first pixel. Shrinking bought
+ * ~160pt of a ~330pt deficit, and on a 375×667 phone nothing would have
+ * been enough. So the page's one dominant CTA now leads and the character
+ * follows it — still ON the first screen (the podium lands at the fold),
+ * just no longer standing in front of the thing the athlete came to do.
  *
  * The mission card computes its ingredients EXACTLY the way the Train hub
  * does (same source resolution, same setsFor predicate, same estimates), so
@@ -254,7 +264,24 @@ export default function HomeScreen() {
         xpNeeded={forgeProgress.xpForNextLevel}
       />
 
-      {/* 2. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
+      {/* 2. Today's mission — the one dominant CTA on the page, and the
+          reason the page exists. Above the fold by construction. */}
+      <MissionCard
+        mission={mission}
+        title={missionName.title}
+        sub={missionName.sub}
+        pills={pills}
+        minutes={estimateMinutes(targetSets)}
+        kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
+        next={nextSession}
+        loading={missionLoading}
+        error={missionError && !missionLoading}
+        onRetry={retryMission}
+        onOpen={openMission}
+        features={homeFeatures}
+      />
+
+      {/* 3. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
       <AvatarHero
         originUnset={originUnset}
         originChoiceReady={originChoiceReady}
@@ -272,25 +299,9 @@ export default function HomeScreen() {
         streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
         features={homeFeatures}
       />
-      {/* 2.5 THE EVO CORE (spec §30) — renders only when the new
+      {/* 3.5 THE EVO CORE (spec §30) — renders only when the new
           progression is enabled; self-hides otherwise. */}
       <EvoCore />
-
-      {/* 3. Today's mission — the one dominant CTA on the page. */}
-      <MissionCard
-        mission={mission}
-        title={missionName.title}
-        sub={missionName.sub}
-        pills={pills}
-        minutes={estimateMinutes(targetSets)}
-        kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
-        next={nextSession}
-        loading={missionLoading}
-        error={missionError && !missionLoading}
-        onRetry={retryMission}
-        onOpen={openMission}
-        features={homeFeatures}
-      />
 
       <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
 

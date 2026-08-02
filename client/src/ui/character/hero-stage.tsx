@@ -75,7 +75,12 @@ export function HeroStage({
   // AvatarStage ground shadow) land on the deck, not float above it.
   const podiumW = size * 1.5;
   const podiumH = podiumW * (385 / 720);
-  const stageHeight = size + Math.round(podiumH * 0.78) + 60;
+  // The headroom above the champion's head (aura bloom + particle travel) is
+  // PROPORTIONAL to the character, not a constant (Tyson 2026-08-02: "make
+  // the AI avatar and the podium 20% smaller"). A fixed 60 meant a smaller
+  // character bought back none of its own empty sky — the rig has to scale
+  // as ONE thing or "20% smaller" only shrinks the art, not the space.
+  const stageHeight = size + Math.round(podiumH * 0.78) + Math.round(size * 0.25);
 
   return (
     <View style={{ height: stageHeight }} className="items-center justify-end">

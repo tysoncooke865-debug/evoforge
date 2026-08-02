@@ -26,6 +26,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **HOME RE-STACKED FOR THE FOLD (2026-08-02, no migration).** Tyson: shrink
+  the avatar + podium 20%, simplify the Evo Rating, and make TODAY'S MISSION
+  viewable without scrolling. Measured on the built export at 390×844 and
+  375×667 (Playwright, smoke ALPHA):
+  - **The hero rig scales from ONE number.** `avatar-hero.tsx` passes
+    `HOME_HERO_SIZE = 192` (was the 240 default) and `hero-stage.tsx` now
+    derives its headroom as `size * 0.25` instead of a constant 60 — so the
+    champion, the 1.5× podium and the sky above them shrink together.
+    Verified: podium 360×193 → 288×154, champion 357 → 285, stage 450 → 360.
+    All exactly 80%. The other stages (`/avatar` 230, customise 190) pass
+    their own sizes and only lose ≤12pt of empty headroom.
+  - **The Evo card says three things, not eight.** Rating + descriptor, a
+    progress bar, and a review door only when a review is actually
+    actionable. The four pillar scores, the limiting pillar and the
+    "Next review: 8d" countdown were NOT deleted — they live on `/evo`,
+    which the card is the door to. 175pt → 113pt.
+  - **THE MISSION CARD NOW LEADS THE PAGE, above the hero.** Shrinking alone
+    could not do it: on production the mission's CTA sat at y=981 against a
+    fold at y=786, and the two size cuts bought ~160pt of a ~330pt deficit.
+    On a 375×667 phone nothing would have been enough. Order is now
+    identity → mission → character → evo core → …; the CTA lands at y=308,
+    fully above the fold on both sizes, and the podium still meets the fold
+    so the champion is on the first screen. Mirrored into the Page Lab
+    fork (`src/lab/variants/home/baseline.tsx`) — its diff against
+    `(main)/index.tsx` is still exactly the three-item fork recipe.
+  - **FOUND EN ROUTE — the "1px transparent" origin placeholder was a
+    HALF-OPAQUE BLUE PIXEL.** `avatar-hero.tsx`'s `BLANK` data URI decoded
+    to filter-Sub + RGBA(0,0,255,127); AvatarStage stretches the champion
+    source to size×1.35, so every athlete WITHOUT an Origin met a 325×323
+    blue slab hanging over the podium behind the gold FORGE YOUR ORIGIN
+    button — on the first screen of their first session. Replaced with a
+    decoded-and-checked transparent pixel. **Lesson: decode a data URI
+    before trusting the comment next to it** (`zlib.inflateSync` over the
+    IDAT is four lines).
+  - Smoke ALPHA's password had gone stale again (400 on sign-in, same as
+    2026-07-25); reset to the §5 documented value via the admin API.
+
 - **EVOFORGE COMMAND (2026-07-25, migrations 088-090) — a SEPARATE Next.js site
   at `C:\Users\tyson\evoforge-command`, not part of this app.**
   Tyson's founder-council / autonomous-studio platform for Tyson, Jesse and

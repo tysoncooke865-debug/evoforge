@@ -1,9 +1,17 @@
 /**
  * PROGRESSION_OVERHAUL P5 — the EVO CORE (spec §30). Home's window into
- * the new progression: rating + descriptor, Evolution Progress, the four
- * pillars, the limiting pillar, next review, pending evidence. Flag-off
- * or no data → renders nothing (never a mocked state). No confirmed
- * rating yet → the DISCOVER door runs the first official review.
+ * the new progression. Flag-off or no data → renders nothing (never a
+ * mocked state). No confirmed rating yet → the DISCOVER door runs the
+ * first official review.
+ *
+ * SIMPLIFIED 2026-08-02 (Tyson: "make the evo rating display more simple").
+ * The card used to say eight things at once — rating, descriptor, status,
+ * four pillar scores, a progress bar with two captions, the limiting
+ * pillar and a review countdown — so the one number it exists to show had
+ * to compete with seven others. It now says THREE: the rating, where it is
+ * heading, and (only when there is something to act on) the review door.
+ * The pillars, the limiting pillar and the countdown were not deleted —
+ * they live on /evo, which this whole card is the door to.
  */
 
 import { router } from 'expo-router';
@@ -21,13 +29,6 @@ import { useThemeColors } from '@/theme/use-theme';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard } from '@/ui/core/shell';
 import { NeonButton } from '@/ui/core/neon-button';
-
-const PILLAR_ROWS: readonly (readonly [key: string, label: string])[] = [
-  ['size_score', 'SIZE'],
-  ['aesthetics_score', 'AESTHETICS'],
-  ['strength_score', 'STRENGTH'],
-  ['cardio_score', 'CARDIO'],
-];
 
 export function EvoCore() {
   const colors = useThemeColors();
@@ -66,10 +67,11 @@ export function EvoCore() {
   const rating = Number(row.displayed_rating ?? 1);
   const progress = Number(row.evolution_progress ?? 0);
   const descriptor = String(row.descriptor ?? 'Untrained').toUpperCase();
-  const limiting = row.limiting_pillar ? String(row.limiting_pillar).toUpperCase() : null;
   const status = String(row.status ?? 'provisional');
   // Day-resolution countdown off the local calendar day (todayIso is the
   // app-wide clock seam; Date.now() in render trips the compiler's purity).
+  // Only its ZERO matters to this card now — the door lights up the day a
+  // review is available; the countdown itself reads on /evo.
   const nextReviewAt = row.next_review_at ? Date.parse(String(row.next_review_at)) : null;
   const todayStart = Date.parse(`${calendarToday()}T00:00:00Z`);
   const daysToReview =
@@ -84,77 +86,58 @@ export function EvoCore() {
       accessibilityLabel={`Evo Rating ${rating}, ${descriptor}. ${progress} of 100 toward ${Math.min(rating + 1, 100)}. Opens the Evo Rating page.`}
       testID="evo-core"
     >
-      <GlowCard glow={colors.epic} padding={16}>
-        <View className="flex-row items-start justify-between">
-          <View style={{ flex: 1, minWidth: 0 }}>
-            {/* The title never carries the status (HOME v2, 2026-07-22):
-                "EVO RATING · PROVISIONAL" read as a different, lesser stat.
-                The status is a quiet tag beside the descriptor instead,
-                where it pairs with the next-review countdown. */}
-            <SectionLabel size="lg">EVO RATING</SectionLabel>
-            <View className="flex-row items-baseline" style={{ gap: 8 }}>
-              <Text
-                allowFontScaling={false}
-                style={{ fontSize: 44, lineHeight: 50, letterSpacing: 0, color: colors.epic, textShadowColor: 'rgba(168,85,247,0.5)', textShadowRadius: 14, ...pixelFont() }}
-              >
-                {rating}
-              </Text>
-              <Text className="text-text" allowFontScaling={false} style={{ fontSize: 12, letterSpacing: 0, ...pixelFont() }}>
-                {descriptor}
-              </Text>
-              {status === 'provisional' ? (
-                <Text
-                  className="text-2xs text-text-mute"
-                  allowFontScaling={false}
-                  style={{ letterSpacing: 1 }}
-                >
-                  PROVISIONAL
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          <View className="items-end">
-            {PILLAR_ROWS.map(([key, label]) => (
-              <View key={key} className="flex-row items-baseline" style={{ gap: 6 }}>
-                <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 0.5, ...pixelFont(false) }}>
-                  {label}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={{ fontSize: 13, letterSpacing: 0, minWidth: 26, textAlign: 'right', color: limiting === label ? colors.warn : colors.text, ...pixelFont() }}
-                >
-                  {Math.floor(Number(row[key] ?? 1))}
-                </Text>
-              </View>
-            ))}
-          </View>
+      <GlowCard glow={colors.epic} padding={14}>
+        {/* Line 1 — the label, and the ONLY status worth a pixel here: a
+            review you can act on right now. A countdown to one you can't
+            ("Next review: 5d") is not a thing to do, so it stays on /evo. */}
+        <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
+            EVO RATING
+          </Text>
+          {reviewDue || pendingCount > 0 ? (
+            <Text
+              className="text-2xs"
+              numberOfLines={1}
+              style={{ letterSpacing: 1, color: colors.accent }}
+              testID="evo-review-ready"
+            >
+              {reviewDue ? 'EVO REVIEW READY ›' : `${pendingCount} PENDING ›`}
+            </Text>
+          ) : status === 'provisional' ? (
+            <Text className="text-2xs text-text-mute" numberOfLines={1} style={{ letterSpacing: 1 }}>
+              PROVISIONAL
+            </Text>
+          ) : null}
         </View>
 
-        {/* Evolution Progress toward the next rating. */}
-        <View className="mt-s3">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xs text-text-dim" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }}>
-              EVOLUTION {progress}/100
-            </Text>
-            <Text className="text-2xs text-text-mute" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }}>
-              TOWARD {Math.min(rating + 1, 100)}
-            </Text>
-          </View>
-          <View className="mt-s1 overflow-hidden rounded-pill" style={{ height: 6, backgroundColor: colors['surface-3'] }}>
+        {/* Line 2 — the number, and the word for it. Nothing else. */}
+        <View className="mt-s1 flex-row items-baseline" style={{ gap: 10 }}>
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 40, lineHeight: 44, letterSpacing: 0, color: colors.epic, textShadowColor: 'rgba(168,85,247,0.5)', textShadowRadius: 14, ...pixelFont() }}
+          >
+            {rating}
+          </Text>
+          <Text
+            className="text-text"
+            numberOfLines={1}
+            allowFontScaling={false}
+            style={{ flex: 1, fontSize: 12, letterSpacing: 0, ...pixelFont() }}
+          >
+            {descriptor}
+          </Text>
+        </View>
+
+        {/* Line 3 — where it is heading. The bar and its caption share a row
+            (they were two stacked rows saying the same thing twice). */}
+        <View className="mt-s2 flex-row items-center" style={{ gap: 10 }}>
+          <View className="flex-1 overflow-hidden rounded-pill" style={{ height: 6, backgroundColor: colors['surface-3'] }}>
             <View style={{ width: `${progress}%`, minWidth: progress > 0 ? 4 : 0, height: '100%', borderRadius: 999, backgroundColor: colors.epic }} />
           </View>
-        </View>
-
-        <View className="mt-s2 flex-row items-center justify-between">
-          <Text className="text-2xs text-text-mute" numberOfLines={1}>
-            {limiting ? `Limiting pillar: ${limiting.toLowerCase()}` : ' '}
-          </Text>
-          <Text className="text-2xs" style={{ color: reviewDue || pendingCount > 0 ? colors.accent : colors['text-mute'] }} numberOfLines={1}>
-            {reviewDue
-              ? 'EVO REVIEW READY ›'
-              : daysToReview !== null
-                ? `Next review: ${daysToReview}d${pendingCount > 0 ? ` · ${pendingCount} pending` : ''}`
-                : ''}
+          {/* "TO", not "→": Jersey10's cmap has no U+2192 (checked), and a
+              missing glyph in a pixel face renders as tofu on web. */}
+          <Text className="text-2xs text-text-mute" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }}>
+            {progress}/100 TO {Math.min(rating + 1, 100)}
           </Text>
         </View>
       </GlowCard>

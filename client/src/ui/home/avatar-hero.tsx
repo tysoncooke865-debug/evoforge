@@ -19,6 +19,13 @@ import { PixelShirt } from '@/ui/core/pixel-icons';
 
 import type { HomeFeatures } from './home-features';
 
+/** Home's champion size (Tyson 2026-08-02): 20% down from the stage's 240
+ *  default. HeroStage derives the podium (1.5×) and the headroom (0.25×) from
+ *  this ONE number, so the character, the disc and the sky it stands in all
+ *  shrink together — 450pt of rig becomes 360pt. The other stages
+ *  (/avatar 230, customise 190) pass their own sizes and are untouched. */
+const HOME_HERO_SIZE = 192;
+
 /**
  * HOME_REDESIGN §2 — the avatar hero: the character owns the first screen.
  * HeroStage (podium, aura, particles, XP-reactive bloom) centred, with the
@@ -91,10 +98,18 @@ export function AvatarHero({
     // A 1px transparent source lets HeroStage render its podium + gold aura
     // with an invisible character; the gold FORGE YOUR ORIGIN button stands
     // where the champion usually does.
-    const BLANK = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
+    //
+    // THIS PIXEL WAS NEVER TRANSPARENT (found 2026-08-02, fixed here). The
+    // old data URI decoded to RGBA(0, 0, 255, 127) — a HALF-OPAQUE BLUE
+    // pixel — and AvatarStage stretches the champion source to
+    // size × 1.35, so every athlete without an Origin met a 325×323 blue
+    // slab hanging over the podium behind the gold button. It reads as a
+    // broken image, and it is the first screen a new signup sees. Decoded
+    // and re-checked: the bytes below are filter 0 + RGBA(0,0,0,0).
+    const BLANK = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAABzenr0AAAAC0lEQVR4nGNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=' };
     return (
       <View testID="hero-origin-empty">
-        <HeroStage branch={branch} stage={1} auraColour={colors.legendary} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
+        <HeroStage branch={branch} stage={1} auraColour={colors.legendary} size={HOME_HERO_SIZE} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
             onPress={() => router.push((originChoiceReady ? '/avatar' : '/evo-scan') as never)}
@@ -191,7 +206,7 @@ export function AvatarHero({
           accessibilityLabel={`Your character: ${formName}, ${tierName} tier, ${evolutionPercent} percent to the next evolution. Opens the Forge.`}
           testID="hero-avatar"
         >
-          <HeroStage branch={branch} stage={stage} auraColour={auraColour} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
+          <HeroStage branch={branch} stage={stage} auraColour={auraColour} size={HOME_HERO_SIZE} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
         </Pressable>
       </Animated.View>
       {silhouette ? (
