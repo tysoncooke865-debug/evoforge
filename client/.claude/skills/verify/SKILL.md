@@ -40,9 +40,21 @@ Flow that reaches the Train page:
    The workout page is pushed OVER the tabs (no tab bar there) — use
    `page.goBack()` to return.
 5. RN-web maps `testID` → `data-testid`. Useful ones on Train: `hero-card`,
-   `hero-start`, `map-rotate` (flips front/back), `start-empty`, `change-workout`,
-   `edit-week`, `adhoc-name`, `adhoc-search-input`,
+   `hero-start`, `map-rotate` (flips front/back), `mission-objective`,
+   `mission-difficulty`, `mission-time`, `mission-rewards`, `mission-evo-gain`,
+   `mission-xp`, `mission-benefit`, `hero-progress`, `champion-charge`,
+   `plan-rail-name`, `adhoc-name`, `adhoc-search-input`,
    `adhoc-search-hit-<name>`, `adhoc-start`.
+   **Since 2026-08-03, `start-empty` / `edit-week` / `change-scan` /
+   `today-source-N` / `swap-day-*` / `forge-ai-plan` live INSIDE the MANAGE
+   PLAN sheet** — click `manage-plan` (or `change-workout`, the plan rail's
+   left half) first. The ids themselves are unchanged.
+6. **Several testIDs exist on more than one screen** (`mission-rewards`,
+   `mission-evo-gain`, `mission-xp`, `profile-menu` are on both Home and
+   Train), and the idle tab preload keeps Home MOUNTED behind Train. A bare
+   `document.querySelector` finds Home's hidden copy and measures 0×0 at y=0,
+   which reads exactly like "missing". **Take the first node with a non-zero
+   box.**
 
 ## Gotchas
 
