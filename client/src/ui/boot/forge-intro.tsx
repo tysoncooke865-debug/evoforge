@@ -45,7 +45,7 @@
 
 import * as Haptics from 'expo-haptics';
 import { memo, useEffect, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -121,12 +121,9 @@ const SPARKS = Array.from({ length: 10 }, (_, i) => ({
 
 export const ForgeIntro = memo(function ForgeIntro({
   reduced,
-  onSkip,
 }: {
   /** The athlete asked for less motion — a different sequence, not a faster one. */
   reduced: boolean;
-  /** Tapping anywhere ends the intro early. */
-  onSkip: () => void;
 }) {
   const colors = useThemeColors();
   /**
@@ -262,10 +259,35 @@ export const ForgeIntro = memo(function ForgeIntro({
   });
 
   return (
-    <Pressable
-      onPress={onSkip}
-      accessibilityRole="button"
-      accessibilityLabel="skip intro"
+    <View
+      // NEVER A TOUCH TARGET (2026-08-03). This was a full-screen Pressable
+      // with tap-to-skip: an athlete reported "it won't let me type my email
+      // or password" after the intro, every launch, on both Safari and the
+      // installed PWA. It could not be reproduced in Playwright on Chromium OR
+      // WebKit — with a mouse, with real touch emulation, tapping mid-intro to
+      // trigger the skip path, waiting the full sequence out, against the
+      // local build and the live site. That absence of a repro is itself the
+      // signal: a full-screen element that intercepts touches for ~2.7s over
+      // an app that is ALREADY MOUNTED AND INTERACTIVE underneath (by design —
+      // see boot-gate.tsx) is exactly the shape of a class of real-device touch
+      // bugs neither engine's automation layer reproduces faithfully: if the
+      // element holding an in-progress touch is removed from the tree before
+      // the browser delivers that touch's `touchend` (which a TIMER-driven
+      // dismissal can do at any instant, unlike a user's own tap-release),
+      // some engines retarget or drop the remaining events, and native touch/
+      // responder tracking can be left believing something still holds the
+      // gesture — silently swallowing the athlete's very next tap on the
+      // field now revealed underneath.
+      //
+      // Rather than chase a mechanism no test harness here can observe, the
+      // fix removes the risk entirely: `pointerEvents="none"` for the intro's
+      // WHOLE life, not just after it. It was never asked to be skippable —
+      // that was an escape hatch added for politeness, and it is exactly the
+      // element that could have been swallowing input on a device this repo
+      // has no way to test against. The sequence still ends on its own via
+      // boot-gate.tsx's timer (and its independent hard-cap deadline), so
+      // nothing is lost except a tap that was never required.
+      pointerEvents="none"
       testID="forge-intro"
       onLayout={(e) => {
         const { width: w, height: h } = e.nativeEvent.layout;
@@ -422,7 +444,7 @@ export const ForgeIntro = memo(function ForgeIntro({
         />
       ) : null}
 
-    </Pressable>
+    </View>
   );
 });
 

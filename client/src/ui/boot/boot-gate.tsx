@@ -26,9 +26,22 @@
  *      requestAnimationFrame does not.
  *   3. There is a SECOND, independent deadline (BOOT_HARD_CAP_MS) whose only
  *      job is to be the thing that cannot be reasoned wrong.
- *   4. Tapping anywhere dismisses it — the athlete's own escape hatch.
+ *   4. THE OVERLAY NEVER RECEIVES A TOUCH (2026-08-03 — see forge-intro.tsx's
+ *      root node). It shipped with a tap-to-skip Pressable; an athlete
+ *      reported being unable to type into the sign-in fields afterwards, every
+ *      launch, on Safari and the installed PWA, and it could not be
+ *      reproduced in automation on either engine. A full-screen touch
+ *      interceptor sitting over an app that is already mounted and
+ *      interactive underneath, removed at an arbitrary instant by a TIMER
+ *      rather than by the user's own tap-release, is exactly the shape of a
+ *      real-device touch/responder bug that in-process test harnesses do not
+ *      faithfully reproduce. Rather than keep chasing an unreproducible
+ *      mechanism, the risk was removed at its root: the overlay is
+ *      `pointerEvents="none"` for its entire life. It was never required to
+ *      be skippable.
  *   5. When it ends it UNMOUNTS. An overlay parked at opacity 0 still eats
- *      every tap underneath it (the overflowing-box lesson).
+ *      every tap underneath it (the overflowing-box lesson) — moot now that
+ *      it never took one, but true regardless.
  *
  * ================================================================
  *  ONCE PER LAUNCH
@@ -103,5 +116,5 @@ export function BootGate() {
   }, []);
 
   if (!playing) return null;
-  return <ForgeIntro reduced={reduced} onSkip={() => setPlaying(false)} />;
+  return <ForgeIntro reduced={reduced} />;
 }

@@ -44,10 +44,36 @@ Owner: Tyson. He works through other Claude sessions too — **always
   frame never ticked). So: it is the LAST SIBLING in `_layout.tsx`, not a
   wrapper — the app paints underneath it from frame one; dismissal is a plain
   `setTimeout`, not an animation callback; there is a SECOND independent
-  deadline (`BOOT_HARD_CAP_MS`); a tap skips it; and it UNMOUNTS rather than
-  sitting at opacity 0. **Falsified by killing `requestAnimationFrame` before
-  any app code runs** (`scratchpad/boot_intro.mjs`): the intro still clears and
-  the app is still reachable, on Chromium AND WebKit.
+  deadline (`BOOT_HARD_CAP_MS`); and it UNMOUNTS rather than sitting at
+  opacity 0. **Falsified by killing `requestAnimationFrame` before any app
+  code runs** (`scratchpad/boot_intro.mjs`): the intro still clears and the
+  app is still reachable, on Chromium AND WebKit.
+
+  **CORRECTED THE SAME DAY: THE OVERLAY IS `pointerEvents="none"` FOR ITS
+  ENTIRE LIFE, NOT JUST AFTER IT.** It shipped with a tap-to-skip
+  `Pressable` covering the full screen. Tyson reported he could not type into
+  the sign-in email/password fields afterwards — every launch, on Safari AND
+  the installed PWA, not fixed by reopening or hard-refreshing (ruling out a
+  stale cache). It could not be reproduced in Playwright on Chromium OR
+  WebKit — mouse, real touch emulation, tapping mid-intro to trigger the skip
+  path, waiting the full sequence out, local build and live site, all clean.
+  **That absence of a repro is itself the signal**: a full-screen element
+  intercepting touches for ~2.7s over an app that is already mounted and
+  interactive underneath (by design), removed at an arbitrary instant by a
+  TIMER rather than the user's own tap-release, is exactly the shape of a
+  real-device touch/responder bug neither engine's automation faithfully
+  reproduces — if the element holding an in-progress touch is torn out of the
+  tree before the browser delivers that touch's `touchend`, some engines
+  retarget or drop the remaining events, and native touch tracking can be left
+  believing something still holds the gesture, silently swallowing the very
+  next tap on whatever is now revealed underneath. Rather than keep chasing an
+  unreproducible mechanism, the risk was removed at its root instead of
+  patched around: **`pointerEvents="none"` for the whole overlay, the whole
+  time.** It was never required to be skippable — that was an added-for-
+  politeness escape hatch, and it was exactly the one element positioned to
+  swallow input on a device this repo has no way to test against. Re-verified
+  end to end: typing now succeeds even WHILE the intro is still visually
+  playing, on both engines (`scratchpad/type_repro3.mjs`).
 
   **TWO BUGS THE BROWSER FOUND THAT tsc AND LINT COULD NOT:**
   * `useWindowDimensions()` returns **0x0** inside the overlay on the web
@@ -3156,6 +3182,20 @@ Every one of these was a live bug. Do not relearn them.
   values. The launch wordmark shipped at `font-size: 0`. **Measure with
   `onLayout` and floor every derived size** — a zero here is an invisible
   element that tsc, lint and the type system all consider perfectly fine.
+- **A full-screen element that intercepts touches, over an app that is
+  already interactive underneath, and is removed by a TIMER rather than by
+  the user's own gesture, is a real-device bug risk that Playwright — on
+  Chromium OR WebKit — will not reliably reproduce.** The forge intro's
+  tap-to-skip overlay caused "can't type into sign-in" on Safari and the
+  installed PWA, every launch; automation found nothing wrong on either
+  engine, with a mouse, with touch emulation, tapping mid-sequence, waiting it
+  out, local and live. **When a bug is reported as reliably reproducible on
+  device but the same interaction cannot be made to fail in the test harness,
+  don't keep hunting the mechanism — remove the risky element's ability to
+  intercept anything at all** (`pointerEvents="none"`) rather than trying to
+  time its removal more carefully. A decoration that was never required to be
+  interactive should never have a way to become the thing standing between an
+  athlete and their own keyboard.
 - **A tap target's SIZE is a feature, and a miss's CONSEQUENCE is part of it.**
   Train's card figure gave each muscle a 15-30pt target and made a miss FLIP
   the view, so the common outcome of aiming at a muscle was the figure spinning
