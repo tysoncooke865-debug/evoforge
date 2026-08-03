@@ -40,9 +40,11 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'YOUR CHAMPION',
     tagline: 'Home is your character. Everything you do in the gym forges it.',
     sections: [
-      { heading: 'XP & Level', target: 'home-level-module', body: 'This is your level and the bar toward the next one. Every working set is worth 10 XP; every minute of cardio is worth 2. Levelling up costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
+      { heading: 'Your Evo Rating', target: ['evo-hero', 'evo-hero-empty'], body: 'This is your overall power level — one number, 1 to 100, from Size, Aesthetics, Strength and Cardio. It is the headline of your character: remember "I am Evo 51", not "I bench 90kg". The card under it names the rank you are heading for and how many Evo points are left to reach it. Tap either to see the full breakdown.' },
       { heading: 'Your champion evolves', target: ['hero-avatar', 'hero-origin-empty', 'hero-form'], body: 'This is you. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
       { heading: "Today's mission", target: ['mission-progress', 'mission-start', 'mission-rest-train', 'mission-view'], body: 'This shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level.' },
+      { heading: 'Your week', target: 'week-strip', body: 'Seven days, Monday first. A day glows once you have logged a counted set on it, today wears a ring, and the number on the right is your current streak. Rest days never break it.' },
+      { heading: 'XP & Level', target: 'home-level-module', body: 'This is your level and the bar toward the next one. Every working set is worth 10 XP; every minute of cardio is worth 2. Levelling up costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
       { heading: 'Your menu lives here', target: 'profile-menu', body: 'Tap the animated fighter in the top-right of any screen to open your bag — progress, awards, coins, schedule, profile and everything else.' },
     ],
   },

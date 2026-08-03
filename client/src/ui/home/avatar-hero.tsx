@@ -18,27 +18,29 @@ import { CoinIcon } from '@/ui/core/coin-icon';
 import { PixelShirt } from '@/ui/core/pixel-icons';
 
 import type { HomeFeatures } from './home-features';
-
-/** Home's champion size (Tyson 2026-08-02): 20% down from the stage's 240
- *  default. HeroStage derives the podium (1.5×) and the headroom (0.25×) from
- *  this ONE number, so the character, the disc and the sky it stands in all
- *  shrink together — 450pt of rig becomes 360pt. The other stages
- *  (/avatar 230, customise 190) pass their own sizes and are untouched. */
-const HOME_HERO_SIZE = 192;
+import { HOME_ART_SCALE, useHomeScale } from './home-scale';
 
 /**
- * HOME_REDESIGN §2 — the avatar hero: the character owns the first screen.
- * HeroStage (podium, aura, particles, XP-reactive bloom) centred, with the
- * mock's side modules flanking it — LEFT the identity badges (tier, current
- * form, next evolution), RIGHT the avatar actions (loadout, customise).
+ * HOME §2 (redesigned 2026-08-03) — THE CHAMPION, and nothing else.
  *
- * Every badge value is real (rarity from level, form from the V2 resolver,
- * readiness from live requirements). LOADOUT has no backing system and is
- * hidden by its flag — never a dead button.
+ * The page now has ONE focal point, so this section lost the five modules
+ * that used to flank it. What went where, and why nothing was deleted:
  *
- * RESPONSIVE: the columns overlay the stage only where they fit beside the
- * character (>=414pt); narrower screens get the same modules as a compact
- * row under the stage — the brief's own fallback, chosen over shrinking.
+ *  - THE FORGE HINT moved ABOVE the rating (ui/home/forge-hint.tsx) — the
+ *    brief puts the page's central interaction directly under the masthead,
+ *    and it is now visible even for an athlete whose form has no art yet.
+ *  - THE STREAK BADGE moved to the WEEK STRIP, where the seven pips it was
+ *    counting already live. Two flames on one page was the duplicate.
+ *  - NEXT EVOLUTION % left the fold: the EvolutionTeaser below it shows the
+ *    same readiness with the silhouette of the form it buys.
+ *
+ * CURRENT FORM, CUSTOMISE and the coin balance stay, as floating chips in
+ * the stage's dead corners — they cost ZERO vertical budget there, which is
+ * the whole reason the champion, the rating and the mission can share one
+ * screen. The champion itself scales with the viewport (home-scale.ts) and
+ * keeps every living detail it already had: the breathing float, the aura
+ * pulse, the podium's neon, the contact shadow, the drifting motes and the
+ * XP-reactive spotlight bloom — all already gated by useAmbient.
  */
 export function AvatarHero({
   branch,
@@ -50,9 +52,6 @@ export function AvatarHero({
   silhouette,
   tierName,
   formName,
-  evolutionPercent,
-  streakCurrent,
-  streakLabel,
   features,
   originUnset = false,
   originChoiceReady = false,
@@ -68,12 +67,6 @@ export function AvatarHero({
    *  removed from Home 2026-07-19 (Tyson). */
   tierName: string;
   formName: string;
-  evolutionPercent: number;
-  /** HOME v2 (2026-07-22): the workout streak badge rides the hero column
-   *  (the old status grid is gone). Label is FORGE STREAK when a schedule
-   *  drives the streak, DAY STREAK otherwise. */
-  streakCurrent: number;
-  streakLabel: string;
   features: HomeFeatures;
   /** ORIGIN (Tyson 2026-07-18): no Origin selected → BLANK podium, no avatar,
    *  no rating — just the gold FORGE YOUR ORIGIN button on the stage. */
@@ -84,10 +77,19 @@ export function AvatarHero({
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
-  const overlay = width >= 380;
+  const scale = useHomeScale();
+  // The chips overlay the stage's dead corners wherever they FIT beside the
+  // champion. 320 is the new floor (it was 380, written for the 192pt rig),
+  // and it matters more than it looks: below the threshold the chips wrap
+  // into a stacked row UNDER the stage that costs ~200pt of the first
+  // screen — on a 375pt phone that was the single biggest thing pushing
+  // START MISSION off it. Checked at 320 against the sprite's own transparent
+  // side margin (~25% of the frame), which is wider than the overlap.
+  const overlay = width >= 320;
+  const sideWidth = Math.max(80, Math.min(104, Math.round(width * 0.26)));
 
-  const scale = useSharedValue(1);
-  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const press = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
   const openCharacter = () => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/avatar' as never);
@@ -109,8 +111,11 @@ export function AvatarHero({
     const BLANK = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAABzenr0AAAAC0lEQVR4nGNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=' };
     return (
       <View testID="hero-origin-empty">
-        <HeroStage branch={branch} stage={1} auraColour={colors.legendary} size={HOME_HERO_SIZE} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
-        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <HeroStage branch={branch} stage={1} auraColour={colors.legendary} size={scale.champion} headroom={scale.headroom} source={BLANK} stillSource={BLANK} animatedSource={BLANK} silhouette={false} />
+        {/* The button group centres in the sky ABOVE the deck, not in the
+            whole rig: with the 2026-08-03 rig being shorter, centring on the
+            full height ran the caption straight across the podium art. */}
+        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: Math.round(scale.champion * 0.55), alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
             onPress={() => router.push((originChoiceReady ? '/avatar' : '/evo-scan') as never)}
             accessibilityRole="button"
@@ -137,51 +142,26 @@ export function AvatarHero({
     );
   }
 
+  // ONE identity chip. (TIER left Home 2026-07-19; STREAK and NEXT EVOLUTION
+  // left 2026-08-03 — see the header note.)
   const badges = (
-    // Tyson 2026-07-19: the TIER badge is gone from Home — FORM and NEXT
-    // EVOLUTION moved up into its place. (Tier still lives on /rank and the
-    // hero's accessibility label.)
-    <>
-      {/* ◈ not 🔥 (HOME v2): the flame belongs to the STREAK badge below —
-          two flames in one column read as the same stat twice. */}
-      <StatusBadge
-        icon={<Text style={{ fontSize: 14, color: colors.accent }}>◈</Text>}
-        value={formName}
-        label="CURRENT FORM"
-        tint={colors.accent}
-        testID="hero-form"
-        onPress={openCharacter}
-      />
-      <StatusBadge
-        icon={<Text style={{ fontSize: 14 }}>🔥</Text>}
-        value={`${streakCurrent} DAY${streakCurrent === 1 ? '' : 'S'}`}
-        label={streakLabel}
-        tint={streakCurrent > 0 ? colors.legendary : colors['text-mute']}
-        testID="hero-streak"
-        onPress={() => router.push('/streak' as never)}
-      />
-      <StatusBadge
-        icon={<Text style={{ fontSize: 14, color: colors.epic }}>▲</Text>}
-        value={`${evolutionPercent}%`}
-        label="NEXT EVOLUTION"
-        tint={colors.epic}
-        testID="hero-evolution"
-        onPress={openCharacter}
-      />
-    </>
+    <StatusBadge
+      icon={<Text style={{ fontSize: 13, color: colors.accent }}>◈</Text>}
+      value={formName}
+      label="CURRENT FORM"
+      tint={colors.accent}
+      testID="hero-form"
+      onPress={openCharacter}
+    />
   );
 
   const actions = (
     <>
       {/* (LOADOUT deleted 2026-07-19 — its flag was permanently false; D4.) */}
       {features.showCustomise ? (
-        // Tyson 2026-07-19: "make the customise tab bigger and more
-        // prominent — approximately 4x" → the hero size (same design,
-        // scaled) + the coin balance riding beneath it.
         <QuickAction
-          icon={<PixelShirt size={27} color={colors.accent} />}
+          icon={<PixelShirt size={22} color={colors.accent} />}
           label="CUSTOMISE"
-          size="hero"
           testID="hero-customise"
           onPress={() => router.push('/customise' as never)}
           accessibilityHint="Opens the champion select and customiser"
@@ -197,55 +177,39 @@ export function AvatarHero({
         <Pressable
           onPress={openCharacter}
           onPressIn={() => {
-            scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
+            press.value = withSpring(0.985, { damping: 20, stiffness: 300 });
           }}
           onPressOut={() => {
-            scale.value = withSpring(1, { damping: 16, stiffness: 260 });
+            press.value = withSpring(1, { damping: 16, stiffness: 260 });
           }}
           accessibilityRole="button"
-          accessibilityLabel={`Your character: ${formName}, ${tierName} tier, ${evolutionPercent} percent to the next evolution. Opens the Forge.`}
+          accessibilityLabel={`Your champion: ${formName}, ${tierName} tier. Opens the Forge.`}
           testID="hero-avatar"
         >
-          <HeroStage branch={branch} stage={stage} auraColour={auraColour} size={HOME_HERO_SIZE} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
+          <HeroStage branch={branch} stage={stage} auraColour={auraColour} size={scale.champion} headroom={scale.headroom} artScale={HOME_ART_SCALE} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
         </Pressable>
       </Animated.View>
       {silhouette ? (
-        <Text className="-mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
+        <Text className="text-center text-2xs text-text-mute" style={{ letterSpacing: 2 }}>
           FORM NOT YET FORGED — ART INCOMING
         </Text>
-      ) : (
-        // Make the Forge door discoverable — the champion IS the button.
-        <Pressable
-          onPress={openCharacter}
-          accessibilityRole="button"
-          accessibilityLabel="open the Forge"
-          testID="hero-forge-hint"
-          className="-mt-s1 self-center"
-          style={{ minHeight: 28, justifyContent: 'center' }}
-        >
-          <Text className="text-center text-2xs" style={{ letterSpacing: 2, color: colors.accent }}>
-            ◈ TAP YOUR CHAMPION TO ENTER THE FORGE ›
-          </Text>
-        </Pressable>
-      )}
+      ) : null}
 
       {overlay ? (
         <>
-          {/* Side columns float over the stage's dead corners. The action
-              column is 140 wide since the CUSTOMISE hero size (2026-07-19);
-              the stage keeps clear of it at ≥380 — verified 390/320 shots. */}
-          <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, left: 0, gap: 8, width: Math.min(128, Math.round(width * 0.3)) }}>
+          {/* The chips float over the stage's dead corners. Both columns are
+              narrower than the champion's transparent sprite margin, so they
+              never crowd the art at the sizes home-scale.ts hands out. */}
+          <View pointerEvents="box-none" style={{ position: 'absolute', top: 4, left: 0, gap: 8, width: sideWidth }}>
             {badges}
           </View>
-          <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, right: 0, gap: 8, width: 140, alignItems: 'stretch' }}>
+          <View pointerEvents="box-none" style={{ position: 'absolute', top: 4, right: 0, gap: 8, width: sideWidth, alignItems: 'stretch' }}>
             {actions}
           </View>
         </>
       ) : (
         <View className="mt-s2 flex-row flex-wrap justify-center" style={{ gap: 8 }}>
           {badges}
-          {/* Narrow screens: the hero CUSTOMISE owns a full row under the
-              badges so its 4x size never squeezes the badge wrap. */}
           <View style={{ flexBasis: '100%', alignItems: 'stretch', gap: 8 }}>{actions}</View>
         </View>
       )}
@@ -276,9 +240,9 @@ function StatusBadge({
       accessibilityLabel={`${label}: ${value}`}
       testID={testID}
       className="rounded-md border px-s2 py-s2"
-      style={{ minHeight: 48, borderColor: `${tint}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+      style={{ minHeight: 44, borderColor: `${tint}38`, backgroundColor: 'rgba(13,21,36,0.66)' }}
     >
-      <View className="flex-row items-center" style={{ gap: 6 }}>
+      <View className="flex-row items-center" style={{ gap: 5 }}>
         {icon}
         <View style={{ flexShrink: 1 }}>
           {/* Two lines before any truncation — form names ("Elite
@@ -286,7 +250,7 @@ function StatusBadge({
           <Text
             numberOfLines={2}
             allowFontScaling={false}
-            style={{ fontSize: 10, lineHeight: 13, letterSpacing: 0, color: tint, ...pixelFont() }}
+            style={{ fontSize: 10, lineHeight: 12, letterSpacing: 0, color: tint, ...pixelFont() }}
           >
             {value.toUpperCase()}
           </Text>
@@ -304,25 +268,23 @@ function StatusBadge({
   );
 }
 
-/** The hero's right-hand door: icon over a pixel label. `size="hero"` is the
- *  ~4x CUSTOMISE treatment (Tyson 2026-07-19) — same design, scaled. */
+/** The champion's right-hand door: icon over a pixel label. Sized to the
+ *  smaller 2026-08-03 champion — still far bigger than the pre-2026-07-19
+ *  chip (Tyson's "~4x" ask), just no longer taller than the athlete. */
 function QuickAction({
   icon,
   label,
   onPress,
   testID,
   accessibilityHint,
-  size = 'default',
 }: {
   icon: ReactNode;
   label: string;
   onPress: () => void;
   testID: string;
   accessibilityHint?: string;
-  size?: 'default' | 'hero';
 }) {
   const colors = useThemeColors();
-  const hero = size === 'hero';
   return (
     <Pressable
       onPress={onPress}
@@ -332,16 +294,15 @@ function QuickAction({
       testID={testID}
       className="items-center rounded-md border px-s2 py-s2"
       style={{
-        // Both hero dims trimmed 15% (Tyson 2026-07-19): 112→95, 132→112.
-        minHeight: hero ? 95 : 56,
-        minWidth: hero ? 112 : 96,
+        minHeight: 72,
         justifyContent: 'center',
-        gap: hero ? 7 : 4,
+        gap: 6,
+        borderWidth: 1.5,
         borderColor: `${colors.accent}45`,
         backgroundColor: 'rgba(13,21,36,0.72)',
-        ...(hero
-          ? { borderWidth: 1.5, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 12 }
-          : null),
+        shadowColor: colors.accent,
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
       }}
     >
       {icon}
@@ -349,7 +310,7 @@ function QuickAction({
         className="text-accent"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: hero ? 14 : 9, letterSpacing: 0, ...pixelFont() }}
+        style={{ fontSize: 12, letterSpacing: 0, ...pixelFont() }}
       >
         {label}
       </Text>
@@ -371,13 +332,13 @@ function CoinRow() {
       accessibilityLabel={`${total.data} forge coins — view rewards`}
       testID="hero-coins"
       className="flex-row items-center justify-center rounded-md border px-s2 py-s2"
-      style={{ minHeight: 34, gap: 7, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
+      style={{ minHeight: 32, gap: 6, borderColor: `${colors.legendary}45`, backgroundColor: 'rgba(13,21,36,0.72)' }}
     >
-      <CoinIcon size={17} />
+      <CoinIcon size={15} />
       <Text
         allowFontScaling={false}
         numberOfLines={1}
-        style={{ fontSize: 12, color: colors.legendary, letterSpacing: 0.5, ...pixelFont() }}
+        style={{ fontSize: 11, color: colors.legendary, letterSpacing: 0.5, ...pixelFont() }}
       >
         {formatCompact(total.data)}
       </Text>

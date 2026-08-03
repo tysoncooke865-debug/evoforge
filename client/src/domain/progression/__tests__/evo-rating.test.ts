@@ -8,6 +8,7 @@ import {
   calculateRawEvoRating,
   deriveEvoDisplay,
   descriptorFor,
+  evoTierStanding,
   limitingPillarOf,
   qualifiesForLevel100,
 } from '../evo-rating';
@@ -162,5 +163,63 @@ describe('assembleEvoRating — limits, confidence, explanations travel together
   it('limitingPillarOf weighs the drag, not just the minimum', () => {
     // Size 60 at weight .30 drags more than cardio 55 at weight .15.
     expect(limitingPillarOf({ size: 60, aesthetics: 90, strength: 90, cardio: 55 })).toBe('size');
+  });
+});
+
+describe('evoTierStanding (Home §3 — the next rank)', () => {
+  it('names the next tier and the whole Evo points to it', () => {
+    // 51 sits in Trained (40–54); Developed opens at 55.
+    const s = evoTierStanding(51, 43);
+    expect(s.tier).toBe('Trained');
+    expect(s.nextTier).toBe('Developed');
+    expect(s.evoToGo).toBe(4); // 55 − 51.43 = 3.57, ceil'd
+  });
+
+  it('never reports 0 to go while a next tier exists', () => {
+    // A hair under the gate is still a point of work, not an arrival.
+    expect(evoTierStanding(54, 99).evoToGo).toBe(1);
+  });
+
+  it('measures progress across the whole tier band, sub-integer included', () => {
+    // Trained spans 40 → 55 (15 wide). 47.5 is exactly halfway.
+    expect(evoTierStanding(47, 50).progress).toBeCloseTo(0.5, 5);
+    expect(evoTierStanding(40, 0).progress).toBe(0);
+  });
+
+  it('tops out honestly at The Standard', () => {
+    const s = evoTierStanding(100, 100);
+    expect(s.tier).toBe('The Standard');
+    expect(s.nextTier).toBeNull();
+    expect(s.evoToGo).toBeNull();
+    expect(s.progress).toBe(1);
+  });
+
+  it('every tier below the summit names a real successor', () => {
+    for (const tier of EVO_RATING_TIERS.slice(0, -1)) {
+      const s = evoTierStanding(tier.min);
+      expect(s.tier).toBe(tier.name);
+      expect(s.nextTier).not.toBeNull();
+      expect(s.evoToGo).toBeGreaterThan(0);
+    }
+  });
+
+  it('a rounded-up evolution_progress of 100 still agrees with the displayed rating', () => {
+    // deriveEvoDisplay(51.996) stores {51, 100}, so this row is reachable.
+    // Home shows "51" over "N EVO TO GO" — 51 + N must land ON the next tier,
+    // or the two numbers contradict each other on one screen.
+    expect(evoTierStanding(51, 100).evoToGo).toBe(4);
+    for (const [i, tier] of EVO_RATING_TIERS.slice(0, -1).entries()) {
+      const next = EVO_RATING_TIERS[i + 1];
+      for (let r = tier.min; r <= tier.max; r++) {
+        expect(r + (evoTierStanding(r, 100).evoToGo ?? 0)).toBe(next.min);
+        expect(r + (evoTierStanding(r, 0).evoToGo ?? 0)).toBe(next.min);
+      }
+    }
+  });
+
+  it('survives garbage input rather than rendering NaN', () => {
+    expect(evoTierStanding(Number.NaN, Number.NaN).tier).toBe('Untrained');
+    expect(evoTierStanding(-40, 500).progress).toBeGreaterThanOrEqual(0);
+    expect(evoTierStanding(180, -10).nextTier).toBeNull();
   });
 });

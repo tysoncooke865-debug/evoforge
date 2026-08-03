@@ -74,6 +74,52 @@ export function descriptorFor(displayedRating: number): string {
   return tier?.name ?? 'Untrained';
 }
 
+export interface EvoTierStanding {
+  /** The tier the rating sits in right now. */
+  tier: string;
+  /** The next tier up, or null at the top of the ladder. */
+  nextTier: string | null;
+  /** WHOLE Evo points still to earn to enter it — never 0 while a next tier
+   *  exists (a rating one hundredth short still has one point to go), null
+   *  at the top. */
+  evoToGo: number | null;
+  /** 0..1 through the current tier's band, sub-integer precision included. */
+  progress: number;
+}
+
+/**
+ * HOME §3 (2026-08-03) — where the rating sits on the descriptor ladder.
+ *
+ * Home's next-rank card needs the question the displayed integer cannot
+ * answer on its own: how far to the next NAME. `evolutionProgress` is the
+ * hundredths the review already computed (spec §5), so the position between
+ * tiers is exact rather than a guess off the floored integer.
+ */
+export function evoTierStanding(displayedRating: number, evolutionProgress = 0): EvoTierStanding {
+  const rating = Math.max(1, Math.min(Number.isFinite(displayedRating) ? displayedRating : 1, 100));
+  const fraction = Math.max(0, Math.min(Number.isFinite(evolutionProgress) ? evolutionProgress : 0, 100)) / 100;
+  const index = EVO_RATING_TIERS.findIndex((t) => rating >= t.min && rating <= t.max);
+  const tier = EVO_RATING_TIERS[index === -1 ? 0 : index];
+  const next = EVO_RATING_TIERS[(index === -1 ? 0 : index) + 1] ?? null;
+  if (!next) return { tier: tier.name, nextTier: null, evoToGo: null, progress: 1 };
+
+  const position = Math.min(rating + fraction, next.min);
+  const band = next.min - tier.min;
+  return {
+    tier: tier.name,
+    nextTier: next.name,
+    // The COUNTDOWN comes off the DISPLAYED integer, not the sub-integer
+    // position, so the two numbers on Home can never contradict each other:
+    // "Evo 51" over "3 EVO TO GO" would put Developed at 54, and it opens at
+    // 55. It only differs from ceil(next.min - position) when
+    // evolution_progress is exactly 100 — which is reachable, because the
+    // review ROUNDS the hundredths (raw 51.996 stores {51, 100}).
+    evoToGo: Math.max(1, next.min - Math.floor(rating)),
+    // The BAR keeps the sub-integer position — it is a picture, not a claim.
+    progress: band > 0 ? Math.max(0, Math.min(1, (position - tier.min) / band)) : 0,
+  };
+}
+
 /** Anti-specialist gates (spec §8): entering `rating` requires the minima. */
 export const EVO_TIER_REQUIREMENTS = [
   { rating: 70, minSize: 60, minAesthetics: 55, minStrength: 50, minCardio: 35 },

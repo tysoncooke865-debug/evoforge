@@ -13,7 +13,12 @@ import { PixelBars, PixelClock, PixelDumbbell, PixelHeart } from '@/ui/core/pixe
  * no fabricated goals, no calorie-goal fiction (only per-session estimates
  * exist). Empty week reads 0, honest; no data at all reads —.
  *
- * Plain views, no chart library. The M–S pips reuse the contract's states.
+ * Plain views, no chart library.
+ *
+ * 2026-08-03: THE M–S PIP ROW LEFT THIS CARD. It now lives once, above the
+ * fold, on ui/home/week-strip.tsx — the two drew the same seven days from
+ * the same contract on the same page. This card kept the four NUMBERS,
+ * which is what it is for, and moved below the fold with them.
  */
 export function TrainingOverview({
   contract,
@@ -74,13 +79,6 @@ export function TrainingOverview({
         />
       </View>
 
-      {hasSchedule ? (
-        <View className="mt-s3 flex-row justify-between">
-          {contract.pips.map((pip, i) => (
-            <DayDot key={pip.date} letter={'MTWTFSS'[i]} state={pip.state} />
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -128,27 +126,6 @@ function Metric({
           />
         </View>
       ) : null}
-    </View>
-  );
-}
-
-/** One day of the week strip — the contract's own state palette. */
-function DayDot({ letter, state }: { letter: string; state: string }) {
-  const colors = useThemeColors();
-  const palette: Record<string, { border: string; bg: string; text: string }> = {
-    completed: { bg: `${colors.success}26`, border: colors.success, text: colors.success },
-    missed: { bg: 'transparent', border: `${colors.danger}66`, text: `${colors.danger}99` },
-    pending: { bg: `${colors.accent}1f`, border: colors.accent, text: colors.accent },
-    rest: { bg: 'transparent', border: colors.border, text: colors['text-mute'] },
-    future: { bg: 'transparent', border: colors.border, text: colors['text-dim'] },
-  };
-  const c = palette[state] ?? palette.future;
-  return (
-    <View
-      className="items-center justify-center rounded-pill"
-      style={{ width: 28, height: 28, borderWidth: 1, borderColor: c.border, backgroundColor: c.bg }}
-    >
-      <Text style={{ fontSize: 9, color: c.text, fontWeight: '700' }}>{state === 'completed' ? '✓' : letter}</Text>
     </View>
   );
 }

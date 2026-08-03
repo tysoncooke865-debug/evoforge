@@ -26,6 +26,92 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **HOME REDESIGNED AS A GAME HOME SCREEN (2026-08-03, no migration).**
+  Tyson's brief: the page must answer *who am I / what do I do next / why
+  care* in two seconds, with ONE focal point — the champion — and feel like
+  Clash Royale rather than a dashboard. New order: masthead → forge hint →
+  **EVO RATING hero** → **the champion** → **NEXT RANK** → **TODAY'S MISSION**
+  → **THIS WEEK** → the fold → everything else.
+  - **The order reversed back, and the 2026-08-02 constraint was removed
+    rather than ignored.** That commit put the mission FIRST because the hero
+    rig was 360pt and nothing else fit. Now `ui/home/home-scale.ts` sizes the
+    champion to the viewport, `hero-stage.tsx` takes a `headroom` multiplier
+    (0.25 default, Home passes 0.08), and the rig is ~198pt on a 390×844
+    phone — so the character, the rating and the next rank all sit ABOVE
+    START MISSION and the button still clears the tab bar. **If a future
+    change pushes the CTA under the nav, shrink the rig; do not re-order.**
+  - **`artScale` (new, `avatar-stage.tsx`): grow the ART, not the rig.** A
+    rotation frame is ~59% transparent (24% under the feet, ~35% over the
+    head), so a champion drawn at `size` reads only ~0.58×`size` tall —
+    raising `size` buys podium and empty sky at the same rate. Home passes
+    1.5, which puts the athlete back at ~100pt inside a 198pt rig. The feet
+    never move: SPRITE_BOTTOM_PAD is a fraction of the drawn height, so the
+    contact line is scale-invariant. Painted fallback art is deliberately
+    NOT rescaled (it is framed differently). Every other stage passes 1.
+  - **MEASURE AGAINST THE PHONE'S FOLD, NOT THE BROWSER'S.** A desktop export
+    gives `paddingTop 14` + a 58pt tab bar; an iPhone PWA gives 47 + 88. The
+    device is **63pt meaner**, which is the difference between "CTA above the
+    fold" in a screenshot and under the nav on Tyson's phone. The tour script
+    reads every section's rect and reports both. Result: CTA clears by 15pt
+    at 390×844 and 44pt at 430×932. A 375×667 SE cannot fit this hierarchy at
+    any size — it shows through the mission card's title and needs one flick.
+  - **Four duplicates merged, nothing deleted.** The M–S pips left
+    TrainingOverview (the new `week-strip.tsx` owns them); the streak badge
+    left the champion's flank (it counts the same days); NEXT EVOLUTION % left
+    the fold (EvolutionTeaser already shows it, with the silhouette);
+    "PROVISIONAL" folded into the descriptor pill; the mission's `sub` folded
+    into its kicker; the reward box + muscle pills became one reward row and
+    the three metric towers became one estimates line. `evo-core.tsx` is gone,
+    replaced by `evo-hero.tsx` with every one of its states intact (flag off,
+    loading, no rating = the DISCOVER door, review-ready, provisional).
+  - **NEXT RANK is real ladder arithmetic**, not a motivational number:
+    `evoTierStanding()` in `domain/progression/evo-rating.ts` reads
+    EVO_RATING_TIERS and the review's own `evolution_progress` hundredths, so
+    "9 EVO TO GO" is `ceil(nextTier.min − (rating + progress/100))`. Six new
+    goldens pin the boundaries, the summit and garbage input.
+  - **NO "+0.4 EVO" REWARD, and there never can be one.** The mock showed a
+    per-workout Evo grant; no such grant exists — the rating is recomputed
+    from pillar evidence at review time, so no workout can promise a delta in
+    advance. XP (10/set) and the muscle read are real and shown; the Evo line
+    is omitted, per "a system without a backend is hidden, never mocked".
+  - **Below the fold is deferred, not dropped.** `below-fold.tsx` mounts the
+    path summary, weekly numbers, PR, evolution teaser, radar, leaderboard and
+    drift warning after `InteractionManager.runAfterInteractions`, behind a
+    placeholder of the same slot so the sections above never re-flow.
+  - **The overlay threshold moved 380 → 320.** Below it the champion's chips
+    wrap into a stacked row UNDER the stage that costs ~200pt of first
+    screen — on a 375pt phone that was the single biggest thing pushing the
+    CTA off. Checked at 320 against the sprite's own ~25% transparent side
+    margin, which is wider than the overlap.
+  - Copy note: the card is still **TODAY'S MISSION / START MISSION**, not
+    "QUEST" as the brief's mock reads. "Mission" is the app-wide term (push
+    notifications, `domain/origin/first-mission.ts`, Train, help, the legal
+    copy); renaming Home alone would make Home and Train disagree. One-line
+    change if Tyson wants the rename done properly across all of them.
+  - **A 30-agent adversarial review (6 lenses, every finding sent to an
+    independent skeptic) confirmed 8 defects; all 8 are fixed here.** The four
+    worth remembering are now rules in §3: InteractionManager is a no-op stub
+    in RN 0.86; an overflowing box still eats taps; the SVG a11y props are
+    inert on web; and `aria-hidden` on an `<Svg>` made the crest vanish because
+    the scene janitor's size guard read `offsetHeight` (undefined on
+    SVGElement) and failed open — that guard is fixed for the whole app. The
+    other four: `evoTierStanding` under-counted by one when
+    `evolution_progress` rounded to 100 (the countdown now comes off the
+    DISPLAYED integer, so Home's two numbers can never disagree — new golden
+    walks every tier at progress 0 and 100); the seven week pips overflowed the
+    divider below ~357pt (now flex squares capped at 30); and the mission
+    kicker could cut the section label itself (label and qualifier are separate
+    Texts, only the qualifier shrinks).
+  - **Both tap-theft and the pip overflow were FALSIFIED**: broken on purpose,
+    watched go red in a browser tour (`elementFromPoint` over the rating
+    returned `hero-avatar`; the last pip's right edge crossed the streak
+    column), then restored and watched go green.
+  - Verified: tsc, cold lint (0 errors), 1796 vitest, verify-tokens,
+    verify-motion (16 loops, all gated — the two new ones ride `useAmbient`),
+    verify-battle-engine, verify-glicko, `expo export -p web`, and a Playwright
+    tour at 390×844 / 430×932 / 375×667 / 360×720 / 320×720 in both the
+    with-Origin and no-Origin states.
+
 - **HOME RE-STACKED FOR THE FOLD (2026-08-02, no migration).** Tyson: shrink
   the avatar + podium 20%, simplify the Evo Rating, and make TODAY'S MISSION
   viewable without scrolling. Measured on the built export at 390×844 and
@@ -2630,6 +2716,33 @@ Every one of these was a live bug. Do not relearn them.
   from. Navigate explicitly.
 - A tab screen with `href: null` **stays mounted**. Per-mount refs are NOT
   per-workout — reset them on the params.
+- **`InteractionManager` is a DEPRECATED NO-OP in RN 0.86.** `runAfterInteractions`
+  is a bare `setImmediate`, which bridgeless polyfills to `queueMicrotask` — the
+  callback, the state update and the re-render all land in the SAME task as the
+  first render, so it defers NOTHING on native (and warns on every run). Use
+  feature-detected `requestIdleCallback` **with a `timeout`**, the way
+  `(main)/_layout.tsx`'s route warmer and `ui/home/below-fold.tsx` do. The
+  timeout is not optional on web: a page booted in a hidden tab is never given
+  an idle slot at all.
+- **An overflowing box still eats taps.** A child drawn larger than its parent
+  (Home's champion at `artScale`, whose sprite frame reaches ~48pt above the rig)
+  is invisible up there but fully hit-testable, and it silently stole every tap
+  meant for the section ABOVE it. Mark decorative overflow `pointerEvents="none"`
+  at its source; a `zIndex` on the neighbour is the second line, not the first.
+
+### Accessibility on web
+- **`accessibilityElementsHidden` / `importantForAccessibility` do nothing on
+  web** — react-native-svg forwards them straight to the DOM as invalid
+  attributes (React warns on the boolean) and the element stays fully announced.
+  Use `aria-hidden` on web, the native pair elsewhere: `ui/home/evo-emblem.tsx`
+  exports `DECORATIVE` for exactly this.
+- **Never put `aria-hidden` on an `<Svg>` — put it on a wrapping `<View>`.**
+  `initSceneJanitor` (version-guard.ts) `display:none`s aria-hidden nodes under
+  an absolute parent unless they are short, and its size test read
+  `offsetHeight`, which **does not exist on SVGElement** — so `undefined < half`
+  was false and the guard failed OPEN. Home's Evo Rating crest vanished the
+  moment it was correctly marked decorative. The janitor is fixed (`?? 0`), but
+  a View keeps any future SVG correct regardless.
 
 ### Storage / caches
 - **Sign-out must clear EVERY cache layer** (auth-context): React Query, the

@@ -45,11 +45,28 @@ export function AvatarStage({
   animatedSource,
   stillSource,
   silhouette = false,
+  artScale = 1,
 }: {
   branch: Branch;
   stage: number;
   auraColour: string;
   size?: number;
+  /**
+   * Multiplies the SPRITE draw only — never the layout box, never the podium.
+   *
+   * WHY IT EXISTS (2026-08-03): a rotation frame is mostly air. Measured on
+   * the shipped sets, the character occupies ~41% of its frame's height (24%
+   * transparent below the feet, ~35% above the head), so a champion drawn at
+   * `size` reads about 0.58x `size` tall. Home's redesign needed the athlete
+   * BIGGER inside a SHORTER rig, and growing `size` cannot do that — it grows
+   * the podium and the empty sky at the same rate. This grows the art alone.
+   *
+   * The feet stay planted at any scale: SPRITE_BOTTOM_PAD is a FRACTION of
+   * the drawn height, so the translate scales with the image and the deck
+   * contact line never moves. The extra pixels spill upward into transparent
+   * sky, which is exactly the space being reclaimed.
+   */
+  artScale?: number;
   /** Override the art (v2 map); defaults to the branch/stage lookup. */
   source?: ImageSourcePropType;
   /** The rotating sprite GIF (Tyson, 2026-07-16). An animated GIF is an
@@ -137,9 +154,10 @@ export function AvatarStage({
   // visible in stature, not just art. Stage 1 = base, stage 4 = +15%.
   const growth = 1 + 0.05 * (Math.max(1, Math.min(4, Math.trunc(stage))) - 1);
   // The shadow's footprint tracks the champion's actual size (bigger evolved
-  // forms cast a bigger shadow). Width scales with growth; the ellipse is
-  // squashed to ~1/3 height for a floor-plane read.
-  const shadowW = Math.round(size * 0.66 * growth);
+  // forms cast a bigger shadow). Width scales with growth AND artScale — a
+  // champion drawn 1.5x with a 1x shadow casts a puddle narrower than its own
+  // stance. The ellipse is squashed to ~1/3 height for a floor-plane read.
+  const shadowW = Math.round(size * 0.66 * growth * artScale);
   const shadowH = Math.round(shadowW * 0.34);
 
   return (
@@ -162,7 +180,14 @@ export function AvatarStage({
           auraStyle,
         ]}
       />
-      <Animated.View style={bodyStyle}>
+      {/* pointerEvents none (2026-08-03): at artScale the sprite BOX is much
+          taller than the stage that holds it and overflows upward — on web
+          that transparent overflow was swallowing taps meant for whatever
+          sits above the stage (on Home, the Evo Rating's own doors). Every
+          screen that makes the champion pressable wraps the WHOLE stage, and
+          that Pressable still covers the rig, so nothing visible loses its
+          hit area. Same prop, same reason, as the ground shadow below. */}
+      <Animated.View pointerEvents="none" style={bodyStyle}>
         <Image
           source={spriteSource ?? source ?? avatarImage(branch, stage)}
           tintColor={silhouette ? '#070d1a' : undefined}
@@ -176,12 +201,15 @@ export function AvatarStage({
             // gating motion never jumps or swaps bodies.
             ...(spriteSource
               ? {
-                  width: size * SPRITE_SCALE * growth,
-                  height: size * SPRITE_SCALE * growth,
-                  transform: [{ translateY: size * SPRITE_SCALE * growth * SPRITE_BOTTOM_PAD }],
+                  width: size * SPRITE_SCALE * growth * artScale,
+                  height: size * SPRITE_SCALE * growth * artScale,
+                  transform: [{ translateY: size * SPRITE_SCALE * growth * artScale * SPRITE_BOTTOM_PAD }],
                   ...({ imageRendering: 'pixelated' } as object),
                 }
-              : { width: size * growth, height: size * growth }),
+              : // The painted fallback art is framed differently (a portrait
+                // that fills its box), so it is NOT rescaled — the measurement
+                // above is a property of the rotation sprites only.
+                { width: size * growth, height: size * growth }),
           }}
           contentFit="contain"
           accessibilityLabel={silhouette ? 'Unforged form silhouette' : 'Current form'}

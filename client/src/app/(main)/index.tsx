@@ -18,7 +18,6 @@ import { raritySlug } from '@/domain/avatar-stats';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { nextEvolutionV2 } from '@/domain/branches-v2';
-import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { deriveMission } from '@/domain/home-mission';
 import { libraryMuscleFor, userMuscleFor } from '@/domain/muscle-lookup';
 import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
@@ -37,36 +36,46 @@ import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
 import { AvatarHero } from '@/ui/home/avatar-hero';
-import { EvoCore } from '@/ui/home/evo-core';
+import { BelowFold } from '@/ui/home/below-fold';
+import { EvoHero } from '@/ui/home/evo-hero';
+import { ForgeHint } from '@/ui/home/forge-hint';
+import { NextRankCard } from '@/ui/home/next-rank-card';
+import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { TrainingOverview } from '@/ui/home/training-overview';
-import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
+import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
- * re-stacked 2026-08-02).
- * Hierarchy: identity → TODAY'S MISSION → THE CHARACTER (hero, badges incl.
- * the streak, actions) → evo core → training overview → PR + next evolution
- * → the build → leaderboard. The status grid and schedule door are gone
- * (their surviving values live on the hero and Train). Every value is real
- * state; systems without backends are hidden by home-features, never mocked.
+ * re-stacked 2026-08-02; REDESIGNED 2026-08-03).
  *
- * WHY THE MISSION SITS ABOVE THE CHARACTER (Tyson 2026-08-02: "make it so
- * the todays mission is viewable on the app without scrolling"): it cannot
- * be done any other way. The hero rig is a PLACE, not a card — even 20%
- * down it is ~360pt, and header + hero + evo core alone overran the fold on
- * a 390×844 phone before the mission card's first pixel. Shrinking bought
- * ~160pt of a ~330pt deficit, and on a 375×667 phone nothing would have
- * been enough. So the page's one dominant CTA now leads and the character
- * follows it — still ON the first screen (the podium lands at the fold),
- * just no longer standing in front of the thing the athlete came to do.
+ * The page answers three questions in two seconds, in this order:
+ *   WHO AM I      the Evo Rating, then the champion standing under it
+ *   WHY CARE      NEXT RANK — the name the rating is about to become
+ *   WHAT NEXT     TODAY'S MISSION, the one dominant CTA
+ * and then THIS WEEK, which is the promise the athlete made to themselves.
+ * Everything that reads rather than acts — the evolution path, the weekly
+ * numbers, the PR, the next form, the radar, the leaderboard — lives below
+ * the fold in BelowFold, mounted after the first paint. Nothing was deleted.
+ *
+ * THE ORDER REVERSED ON 2026-08-03. Between 2026-08-02 and this commit the
+ * mission led the page, because the old hero rig (a 192pt champion inside a
+ * 450pt stage) could not fit above it. That constraint is gone rather than
+ * ignored: home-scale.ts sizes the champion to the viewport and HeroStage
+ * takes a `headroom` multiplier, so the whole rig is ~205pt on the phones
+ * that matter and the mission card still lands on the first screen — with
+ * the character, the rating and the next rank above it. If a future change
+ * pushes START MISSION off the fold again, shrink the rig; do not re-order.
+ *
+ * Every value is real state; systems without backends are hidden by
+ * home-features / progressionFeatures, never mocked.
  *
  * The mission card computes its ingredients EXACTLY the way the Train hub
  * does (same source resolution, same setsFor predicate, same estimates), so
@@ -241,7 +250,6 @@ export default function HomeScreen() {
     totalSets: summary.totalSets,
     cardioMinutes: summary.cardioMinutes,
   });
-  const readiness = evolutionReadiness(evolution.requirements);
   const stage = identity.display.stage;
   const slug = raritySlug(summary.level);
   const rarityColour = (colors as Record<string, string>)[slug] ?? colors.common;
@@ -265,8 +273,47 @@ export default function HomeScreen() {
         xpNeeded={forgeProgress.xpForNextLevel}
       />
 
-      {/* 2. Today's mission — the one dominant CTA on the page, and the
-          reason the page exists. Above the fold by construction. */}
+      {/* 2. THE IDENTITY BLOCK — the forge hint, the Evo Rating and the
+          champion are ONE thing on the page, so they are one slot in the
+          shell's gap stack and set their own tighter internal rhythm. Three
+          separate slots spent 24pt of the fold on air between parts of the
+          same sentence. */}
+      <View className="w-full items-center">
+        {originUnset ? null : <ForgeHint />}
+        {/* zIndex, for the same reason HomeHeader carries one: the champion's
+            rig is taller than its own box and reaches up under whatever sits
+            above it. AvatarStage's sprite is pointerEvents:none now, and this
+            is the belt to that brace — the rating's doors must win. */}
+        <View className="mt-s1 w-full items-center" style={{ zIndex: 1 }}>
+          <EvoHero suppressEmptyState={originUnset} />
+        </View>
+        {/* 10pt, not 0: at HOME_ART_SCALE the champion's head reaches ABOVE
+            the rig's own top edge (the sprite frame overflows into the sky it
+            reclaimed), and without this it crowds the descriptor pill. */}
+        <View className="w-full" style={{ marginTop: 10 }}>
+          <AvatarHero
+            originUnset={originUnset}
+            originChoiceReady={originChoiceReady}
+            branch={identity.display.donor}
+            stage={stage}
+            auraColour={auraColour}
+            source={identity.paintedSource}
+            animatedSource={identity.animatedSource}
+            stillSource={identity.stillSource}
+            silhouette={!identity.hasArt}
+            tierName={slug.toUpperCase()}
+            formName={formName}
+            features={homeFeatures}
+          />
+        </View>
+      </View>
+
+      {/* 3. NEXT RANK — the anticipation, in ~70pt. Self-hides until a
+          review has run. */}
+      <NextRankCard />
+
+      {/* 4. TODAY'S MISSION — the one dominant CTA on the page, and the
+          reason the page exists. */}
       <MissionCard
         mission={mission}
         title={missionName.title}
@@ -282,75 +329,62 @@ export default function HomeScreen() {
         features={homeFeatures}
       />
 
-      {/* 2.5 THE EVOLUTION PATH (beta flag). Directly under the mission
-          because it answers "what did that workout buy me" — and never
-          competes with START WORKOUT: no button, no glow, one tap target.
-          Self-hides when the flag is off or no path exists. */}
-      <PathSummary />
-
-      {/* 3. THE CHARACTER — tier/form/evolution left, avatar actions right. */}
-      <AvatarHero
-        originUnset={originUnset}
-        originChoiceReady={originChoiceReady}
-        branch={identity.display.donor}
-        stage={stage}
-        auraColour={auraColour}
-        source={identity.paintedSource}
-        animatedSource={identity.animatedSource}
-        stillSource={identity.stillSource}
-        silhouette={!identity.hasArt}
-        tierName={slug.toUpperCase()}
-        formName={formName}
-        evolutionPercent={readiness.percent}
-        streakCurrent={streak.current}
+      {/* 5. THIS WEEK — seven days and a streak, nothing else. */}
+      <WeekStrip
+        pips={contract.pips}
+        todayIso={todayIso}
+        streak={streak.current}
         streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
-        features={homeFeatures}
-      />
-      {/* 3.5 THE EVO CORE (spec §30) — renders only when the new
-          progression is enabled; self-hides otherwise. */}
-      <EvoCore />
-
-      <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
-
-      {/* 4. This week. */}
-      <TrainingOverview
-        contract={contract}
-        weekSets={weekTotals.sets}
-        weekCardioMinutes={weekTotals.cardioMinutes}
-        weekXp={weekTotals.xp}
-        hasSchedule={hasSchedule}
       />
 
-      {/* 5. Recent PR + next evolution. Always stacked: EvolutionTeaser's
-          silhouette + readiness columns need the full width — at half width
-          "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
-      <RecentPrCard pr={pr} unit={prUnit} />
-      <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+      {/* ---- THE FOLD. Everything below still exists, still reads live
+          state, and still opens the same doors — it just no longer competes
+          for the first screen. Mounted after the first paint. ---- */}
+      <BelowFold>
+        {/* THE EVOLUTION PATH (beta flag) — self-hides when the flag is off
+            or no path exists. */}
+        <PathSummary />
 
-      <DividerGlow />
+        {/* This week, by the numbers (the pips live above now). */}
+        <TrainingOverview
+          contract={contract}
+          weekSets={weekTotals.sets}
+          weekCardioMinutes={weekTotals.cardioMinutes}
+          weekXp={weekTotals.xp}
+          hasSchedule={hasSchedule}
+        />
 
-      {/* 6. Character build — the radar. Sourced from the Evo Rating's four
-          pillars so the wheel LINES UP with the EVO CORE card (Tyson
-          2026-07-19), with a dashed projection of where they head after a
-          block of consistent training. Falls back to the legacy live stats
-          before the first Evo review. */}
-      <View>
-        <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
-        <View className="mt-s3">
-          <EvoRadar
-            fallbackStats={[
-              { label: 'STR', value: stats.strengthScore },
-              { label: 'SIZE', value: stats.sizeScore },
-              { label: 'LEAN', value: stats.leannessScore },
-              { label: 'COND', value: stats.conditioningScore },
-              { label: 'AES', value: stats.aestheticScore },
-            ]}
-          />
+        {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
+            silhouette + readiness columns need the full width — at half width
+            "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
+        <RecentPrCard pr={pr} unit={prUnit} />
+        <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+
+        {/* Character build — the radar. Sourced from the Evo Rating's four
+            pillars so the wheel LINES UP with the rating above (Tyson
+            2026-07-19), with a dashed projection of where they head after a
+            block of consistent training. Falls back to the legacy live stats
+            before the first Evo review. */}
+        <View>
+          <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
+          <View className="mt-s3">
+            <EvoRadar
+              fallbackStats={[
+                { label: 'STR', value: stats.strengthScore },
+                { label: 'SIZE', value: stats.sizeScore },
+                { label: 'LEAN', value: stats.leannessScore },
+                { label: 'COND', value: stats.conditioningScore },
+                { label: 'AES', value: stats.aestheticScore },
+              ]}
+            />
+          </View>
         </View>
-      </View>
 
-      {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
-      <LeaderboardTeaser />
+        {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
+        <LeaderboardTeaser />
+
+        <DriftWarning drift={summary.xpDrift} source={summary.xpSource} />
+      </BelowFold>
     </ScreenShell>
   );
 }

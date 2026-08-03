@@ -37,11 +37,21 @@ export function HeroStage({
   animatedSource,
   stillSource,
   silhouette = false,
+  headroom = 0.25,
+  artScale = 1,
 }: {
   branch: Branch;
   stage: number;
   auraColour: string;
   size?: number;
+  /** Sky above the champion's head (aura bloom + particle travel), as a
+   *  multiple of `size`. 0.25 is the stage's own proportion; HOME 2026-08-03
+   *  passes 0.08 because the Evo Rating now occupies that band and the rig
+   *  would otherwise push the mission card off the first screen. */
+  headroom?: number;
+  /** Grows the CHAMPION ART inside an unchanged rig — see AvatarStage's own
+   *  note. Home passes 1.5; every other stage keeps 1. */
+  artScale?: number;
   source?: import('react-native').ImageSourcePropType;
   /** The rotating sprite GIF — AvatarStage gates it on reduced motion. */
   animatedSource?: import('react-native').ImageSourcePropType;
@@ -80,7 +90,7 @@ export function HeroStage({
   // the AI avatar and the podium 20% smaller"). A fixed 60 meant a smaller
   // character bought back none of its own empty sky — the rig has to scale
   // as ONE thing or "20% smaller" only shrinks the art, not the space.
-  const stageHeight = size + Math.round(podiumH * 0.78) + Math.round(size * 0.25);
+  const stageHeight = size + Math.round(podiumH * 0.78) + Math.round(size * headroom);
 
   return (
     <View style={{ height: stageHeight }} className="items-center justify-end">
@@ -133,7 +143,7 @@ export function HeroStage({
 
       {/* The living character, feet on the deck (float/breathe/aura inside). */}
       <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.58) }}>
-        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
+        <AvatarStage branch={branch} stage={stage} auraColour={auraColour} size={size} artScale={artScale} source={source} animatedSource={animatedSource} stillSource={stillSource} silhouette={silhouette} />
       </View>
 
       {/* Fog rising from the floor. */}

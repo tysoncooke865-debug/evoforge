@@ -196,9 +196,16 @@ export function initSceneJanitor(): void {
       if (hiddenByUs.has(el)) return;
       const parent = el.parentElement;
       if (!parent) return;
-      if (el.offsetHeight < window.innerHeight * 0.5 && !hiddenByUs.has(el)) {
+      // `?? 0`: offsetHeight is an HTMLElement property and is UNDEFINED on an
+      // SVGElement, so `undefined < half` was false and the size guard FAILED
+      // OPEN — every aria-hidden <svg> under an absolute parent got
+      // display:none'd. That is how Home's Evo Rating crest disappeared the
+      // moment it was correctly marked decorative (2026-08-03). Scenes are
+      // Views; nothing this janitor is FOR reports an undefined height.
+      const h = el.offsetHeight ?? 0;
+      if (h < window.innerHeight * 0.5 && !hiddenByUs.has(el)) {
         // display:none'd elements report 0 height — only size-check new ones
-        if (el.style.display !== 'none' && el.offsetHeight < window.innerHeight * 0.5) return;
+        if (el.style.display !== 'none' && h < window.innerHeight * 0.5) return;
       }
       if (getComputedStyle(parent).position !== 'absolute') return;
       el.style.setProperty('display', 'none', 'important');
