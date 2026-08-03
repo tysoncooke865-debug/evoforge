@@ -13,6 +13,7 @@ import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/
 import { runningBuildId } from '@/domain/build-id';
 import { PIXEL_FONTS } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { BootGate } from '@/ui/boot/boot-gate';
 import { Telemetry } from '@/ui/core/telemetry';
 import { ThemeRoot } from '@/ui/core/theme-root';
 import { ToastHost } from '@/ui/core/toast-host';
@@ -106,6 +107,12 @@ export default function RootLayout() {
   // blue/grey blank screen" — home-screen only, web was fine). Visibility must
   // never depend on an animation firing; the CSS fade rests at opacity 1 and
   // is skipped entirely under reduced motion.
+  //
+  // THE FORGE INTRO (2026-08-03) obeys that same rule by construction: it is
+  // the LAST CHILD here, a sibling of the app rather than a wrapper around it,
+  // so the whole app paints underneath it from the first frame and it removes
+  // itself on a timer. See ui/boot/boot-gate.tsx — the reasoning there is the
+  // reason this is safe to have at all.
   return (
     // GestureHandlerRootView (2026-07-19): required for drag-to-reorder
     // (react-native-gesture-handler) to receive pointer/touch events — on web
@@ -126,6 +133,8 @@ export default function RootLayout() {
             <Telemetry />
             <ThemedStack />
             <ToastHost />
+            {/* LAST, and a SIBLING — the app above it is already painted. */}
+            <BootGate />
           </ThemeRoot>
         </AuthProvider>
       </PersistQueryClientProvider>

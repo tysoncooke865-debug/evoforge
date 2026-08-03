@@ -26,6 +26,59 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE FORGE INTRO — the launch sequence (2026-08-03, no migration).** Tyson:
+  "feel like opening Destiny, Diablo IV or Clash Royale, NOT a normal fitness
+  app." ~2.7s, procedural, every launch: embers drift inward -> they spiral and
+  a forge sigil resolves -> a hammer falls and STRIKES an anvil (flash, impact
+  bloom, sparks, camera shake, one heavy haptic) -> EVOFORGE is assembled
+  letter by letter from converging molten fragments, white hot cooling to
+  electric blue -> an energy pulse crosses the wordmark and FORGE YOUR
+  ASCENSION is etched behind it, plasma-bright then crisp white -> the plate
+  rises and dissolves into the app. `domain/boot-sequence.ts` owns the timeline
+  (25 goldens); `ui/boot/` owns the rest. **It replaced a bare
+  `ActivityIndicator`**, which was the app's entire loading experience.
+
+  **IT IS AN OVERLAY, NEVER A GATE — and that is the whole design.** This is
+  the exact shape of the July 16 bug that stranded the installed iPhone PWA on
+  a blank screen (a Reanimated opacity gate around the app whose animation
+  frame never ticked). So: it is the LAST SIBLING in `_layout.tsx`, not a
+  wrapper — the app paints underneath it from frame one; dismissal is a plain
+  `setTimeout`, not an animation callback; there is a SECOND independent
+  deadline (`BOOT_HARD_CAP_MS`); a tap skips it; and it UNMOUNTS rather than
+  sitting at opacity 0. **Falsified by killing `requestAnimationFrame` before
+  any app code runs** (`scratchpad/boot_intro.mjs`): the intro still clears and
+  the app is still reachable, on Chromium AND WebKit.
+
+  **TWO BUGS THE BROWSER FOUND THAT tsc AND LINT COULD NOT:**
+  * `useWindowDimensions()` returns **0x0** inside the overlay on the web
+    build. Expo STATICALLY PRE-RENDERS every route in Node, where
+    react-native-web's Dimensions has no window, and hydration does not re-run
+    the render with corrected values. The wordmark shipped at `font-size: 0` —
+    eight one-pixel letters, invisible, on an otherwise perfect animation. It
+    measures the plate with `onLayout` now, with non-zero fallbacks.
+  * **A Reanimated style applies on the worklet's FIRST EVALUATION, not on the
+    first paint.** Any layer whose opacity lived only in its worklet painted at
+    OPACITY 1 until the engine ran — the strike's full-screen flash washed the
+    entire launch screen pale cyan. Every timed layer now carries `...HIDDEN`
+    in its STATIC style.
+
+  **What the brief asked for and did NOT get, with reasons.** SKIA: not in this
+  project, and it is a native module — adding it means a prebuild for an app
+  whose primary surface is an installed PWA. Bloom, motion blur and trails are
+  approximated with layered shadows and stretched squares. PIXELLAB: the key is
+  a BUILD-TIME secret (`PIXELLAB_AI_KEY`, not `EXPO_PUBLIC_`), so shipping it
+  to the client would publish it to every visitor, and generated backdrops are
+  exactly the heavy assets the brief bans. The five rotating environments are
+  procedural palettes instead, chosen by CALENDAR DAY (`forgeEnvironmentFor`) —
+  no storage, no `Math.random()` in render, and "the forge changes each day"
+  beats "the forge is random", which reads as a glitch.
+
+  Reduced motion gets a different, calmer 900ms sequence — no shake, no spiral,
+  no particle fields. `/lab` and `?nointro=1` suppress it (the Dev Lab
+  photographs the real app). **The native splash background was `#208AEF`, a
+  bright blue against the app's `#04070e`** — a hard cut on every native
+  launch, now matched.
+
 - **TRAIN — THE MISSION BRIEFING (2026-08-03, no migration).** Tyson: "the page
   should feel like beginning a mission. Not filling out a form." Not a redesign:
   every value, every door and every resolution rule is the one that was already
@@ -3090,6 +3143,19 @@ Every one of these was a live bug. Do not relearn them.
   hidden copy and measured 0×0 at y=0 — which reads exactly like "the element is
   missing" and nearly sent a real layout pass chasing a phantom. **Measure the
   first node with a non-zero box, not the first node.**
+- **A Reanimated style applies on the worklet's FIRST EVALUATION, not on the
+  first paint.** Until then only the BASE style object exists, so a layer whose
+  opacity lives solely in its animated style paints at opacity 1 — the forge
+  intro's full-screen strike flash washed the whole launch screen pale cyan on
+  the static pre-render and on every slow first frame. **Put the resting value
+  in the static style** (`...HIDDEN` in ui/boot/forge-intro.tsx). Same family as
+  the July PWA bug, one level down: never let an animation own a resting state.
+- **`useWindowDimensions()` returns 0x0 on the web build outside a screen.**
+  Expo statically pre-renders every route in Node, where react-native-web's
+  Dimensions has no window, and hydration does not re-render with corrected
+  values. The launch wordmark shipped at `font-size: 0`. **Measure with
+  `onLayout` and floor every derived size** — a zero here is an invisible
+  element that tsc, lint and the type system all consider perfectly fine.
 - **A tap target's SIZE is a feature, and a miss's CONSEQUENCE is part of it.**
   Train's card figure gave each muscle a 15-30pt target and made a miss FLIP
   the view, so the common outcome of aiming at a muscle was the figure spinning

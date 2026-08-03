@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { Redirect, Tabs, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +12,7 @@ import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useOnlinePresence } from '@/data/presence';
 import { useMfaGate } from '@/data/mfa';
+import { BootHold } from '@/ui/boot/boot-hold';
 import { MfaChallenge } from '@/ui/auth/mfa-challenge';
 import { migrateForgeHistory } from '@/data/progression/award-xp';
 import { ORIGIN_FLAGS } from '@/data/origin';
@@ -193,12 +194,14 @@ export default function MainLayout() {
     prevLevelRef.current = level;
   }, [forge.data, ready]);
 
+  // THE HOLD, not a spinner (2026-08-03). This was a bare ActivityIndicator on
+  // a flat background — the app's entire "loading experience", and it read
+  // like a form submitting rather than like a forge warming up. It is also
+  // rarely seen now: the launch overlay covers the first ~2.7s, which is
+  // longer than a warm session restore, so this only surfaces on a genuinely
+  // slow network and should look like the same app when it does.
   if (loading || (session && profile.isPending)) {
-    return (
-      <View className="flex-1 items-center justify-center bg-bg">
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
+    return <BootHold />;
   }
 
   if (!session) {
