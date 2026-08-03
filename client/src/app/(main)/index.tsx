@@ -22,6 +22,7 @@ import { deriveMission } from '@/domain/home-mission';
 import { libraryMuscleFor, userMuscleFor } from '@/domain/muscle-lookup';
 import { muscleIdsFor, pillLabelsFor } from '@/domain/muscle-map';
 import { daysForSource } from '@/domain/plan-sources';
+import { estimateEvoPerSession } from '@/domain/progression/evo-per-session';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
@@ -35,9 +36,12 @@ import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
+import { useEvoRatingCurrent, useEvoSnapshots } from '@/data/progression/use-evo-rating';
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { BelowFold } from '@/ui/home/below-fold';
 import { EvoHero } from '@/ui/home/evo-hero';
+import { ForgeHint } from '@/ui/home/forge-hint';
+import { HomeAmbience } from '@/ui/home/home-ambience';
 import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
@@ -273,13 +277,34 @@ export default function HomeScreen() {
   const auraColour = identity.display.auraColour ?? rarityColour;
   const formName = identity.display.formName;
 
+  // ---- "+0.4 EVO" — the athlete's OWN measured rate, never a forecast.
+  // Rating gain across a window divided by the training days that produced it
+  // (domain/progression/evo-per-session.ts). Returns null — and the mission
+  // card shows no Evo number at all — until there is enough history for the
+  // average to mean something. Both reads are already warm on this screen.
+  const evoCurrent = useEvoRatingCurrent();
+  const evoSnapshots = useEvoSnapshots(26);
+  const evoRow = (evoCurrent.data ?? null) as Record<string, unknown> | null;
+  const evoPerSession =
+    evoRow === null
+      ? null
+      : (estimateEvoPerSession({
+          currentRating: Number(evoRow.displayed_rating ?? 0),
+          snapshots: (evoSnapshots.data ?? []).map((r) => ({
+            displayedRating: Number((r as Record<string, unknown>).displayed_rating ?? 0),
+            atIso: String((r as Record<string, unknown>).calculated_at ?? ''),
+          })),
+          trainingDates: [...(workoutIndex.data?.byDate.keys() ?? [])],
+          todayIso,
+        })?.perSession ?? null);
+
   const pr = recentPr(workouts.data);
   const prUnit = pr ? unitFor(prefs.data, pr.exercise) : ('kg' as const);
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
   return (
-    <ScreenShell>
+    <ScreenShell backdrop={<HomeAmbience />}>
       {/* 1. Identity + the level module — FORGE LEVEL (Tyson, 2026-07-16:
           the game level starts from zero and holds ONLY earned XP; the old
           onboarding-seeded level is retired from display, avatar stages
@@ -298,17 +323,23 @@ export default function HomeScreen() {
           champion's podium now (ui/home/forge-hint.tsx), which costs no
           vertical budget and teaches the tap where the tap happens. */}
       <View className="w-full items-center">
+        {/* THE FORGE HINT IS BACK ON TOP (Tyson, third brief): "it teaches
+            interaction before the user sees the Champion." An athlete who has
+            not learned that the champion is a button never scrolls far enough
+            to find a hint sitting under it. The podium's plaque keeps the form
+            NAME and dropped the instruction, so the two no longer repeat. */}
+        {originUnset ? null : <ForgeHint />}
         {/* zIndex, for the same reason HomeHeader carries one: the champion's
             rig is taller than its own box and reaches up under whatever sits
             above it. AvatarStage's sprite is pointerEvents:none now, and this
             is the belt to that brace — the rating's doors must win. */}
-        <View className="w-full items-center" style={{ zIndex: 1 }}>
+        <View className="mt-s1 w-full items-center" style={{ zIndex: 1 }}>
           <EvoHero suppressEmptyState={originUnset} />
         </View>
         {/* 10pt, not 0: at HOME_ART_SCALE the champion's head reaches ABOVE
             the rig's own top edge (the sprite frame overflows into the sky it
             reclaimed), and without this it crowds the descriptor pill. */}
-        <View className="w-full" style={{ marginTop: 10 }}>
+        <View className="w-full" style={{ marginTop: 6 }}>
           <AvatarHero
             originUnset={originUnset}
             originChoiceReady={originChoiceReady}
@@ -344,6 +375,7 @@ export default function HomeScreen() {
         onRetry={retryMission}
         onOpen={openMission}
         features={homeFeatures}
+        evoPerSession={evoPerSession}
       />
 
       {/* 4. THIS WEEK — seven days and a streak, nothing else. */}

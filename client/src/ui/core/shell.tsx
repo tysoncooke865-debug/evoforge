@@ -27,11 +27,21 @@ import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registr
 export function ScreenShell({
   children,
   refreshControl,
+  backdrop,
 }: {
   children: ReactNode;
   /** Optional pull-to-refresh element, passed straight to the ScrollView
    *  (first consumer: /rank, 2026-07-19). */
   refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl'];
+  /**
+   * An extra layer drawn BEHIND the ScrollView (first consumer: Home's
+   * ambience, 2026-08-03). It is a prop rather than a change to the two static
+   * glows below because those render on EVERY screen, and the idle tab preload
+   * keeps five mounted at once — animating them here would put five copies of
+   * the same loop on the main JS thread, which is the "everything lags" bug
+   * the ambient gate exists to prevent. Opt in per screen, never by default.
+   */
+  backdrop?: ReactNode;
 }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -74,6 +84,7 @@ export function ScreenShell({
       {/* Quiet ambient light — recessive enough that the header owns the top. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+      {backdrop}
       <ScrollView
         ref={scrollRef}
         className="flex-1"

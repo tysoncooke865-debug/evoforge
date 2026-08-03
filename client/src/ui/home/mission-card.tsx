@@ -1,7 +1,17 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { Mission } from '@/domain/home-mission';
+import { formatEvoEstimate } from '@/domain/progression/evo-per-session';
 import { evoEvidenceFor, evoEvidenceLabel } from '@/domain/progression/session-evidence';
 import type { NextSession } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
@@ -38,13 +48,24 @@ const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDA
  *   DURATION    the estimates line, ~ marked, same honesty as the Train hero
  *   CTA         a hero button with a light sweep across it
  *
- * THE EVO PILL IS THE BRIEF'S "+0.4 EVO", REBUILT AS SOMETHING TRUE. There is
- * no per-workout Evo grant and there cannot be one — see the long note in
- * `domain/progression/session-evidence.ts` for the arithmetic reason. What IS
- * true is which PILLARS the session becomes evidence for, read straight off
- * the review's own inputs, so the card promises the link (train → the rating
- * moves) without inventing the magnitude. XP is real (10/set), the muscle read
- * is real, and coins are still never implied per-workout.
+ * ---- ESTIMATED REWARDS, WITH EVO FIRST (2026-08-03, third brief) ----
+ *
+ * Tyson asked three times for "+0.4 EVO", ranked ABOVE the XP. It is here, and
+ * it is a MEASUREMENT rather than the forecast the mock implied:
+ * `domain/progression/evo-per-session.ts` divides the athlete's real rating
+ * gain by the training days that produced it, so "+0.4" is *their own recent
+ * rate*, personal and checkable against their own history. A forecast of what
+ * this specific session will be worth still cannot exist — the rating is
+ * recomputed from the whole evidence base at review time (see
+ * `session-evidence.ts`) — which is why the block is headed ESTIMATED and why
+ * the number DISAPPEARS entirely rather than degrading to a default when the
+ * athlete has too little history to have a rate. A new athlete sees the pillar
+ * benefit only, until they have earned a number of their own.
+ *
+ * PRIMARY BENEFIT is the pillar read, which needs no history and is true from
+ * the first session: a logged resistance set is Strength and Size evidence,
+ * straight off the review's own inputs. XP is real (10/set) and now sits
+ * second by size and by colour. Coins are still never implied per-workout.
  */
 export function MissionCard({
   mission,
@@ -59,6 +80,7 @@ export function MissionCard({
   onRetry,
   onOpen,
   features,
+  evoPerSession,
 }: {
   mission: Mission;
   /** splitWorkoutName over the mission's workout. */
@@ -74,6 +96,10 @@ export function MissionCard({
   /** Opens the workout page for (today, mission.workout) with the source. */
   onOpen: () => void;
   features: HomeFeatures;
+  /** The athlete's OWN measured Evo-per-training-day, or null when they have
+   *  too little history for the average to mean anything. Never defaulted —
+   *  see domain/progression/evo-per-session.ts. */
+  evoPerSession: number | null;
 }) {
   const colors = useThemeColors();
   const scale = useHomeScale();
@@ -164,6 +190,7 @@ export function MissionCard({
             Said once, at the moment it becomes true. */}
         <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
           ◈ BANKED AS EVIDENCE FOR YOUR NEXT EVO REVIEW
+          {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
         </Text>
         <View className="mt-s3">
           <NeonButton title="VIEW SUMMARY" variant="ghost" pixel onPress={onOpen} testID="mission-view" />
@@ -172,14 +199,17 @@ export function MissionCard({
     );
   }
 
-  // scheduled / in_progress — the briefing card.
+  // scheduled / in_progress — the briefing card. Its padding is 14 rather
+  // than the card default 16: the CTA inside it is the page's one dominant
+  // action and has to clear the PHONE's fold, and 2pt of inner air is a
+  // cheaper thing to spend than the champion's size.
   const inProgress = mission.status === 'in_progress';
   const showRewards = features.showMissionRewards && mission.xpReward > 0 && !inProgress;
   const evoLabel = evoEvidenceLabel(evoEvidenceFor({ sets: mission.targetSets, cardioMinutes: 0 }));
   const muscles = pills.slice(0, 3);
 
   return (
-    <GlowCard glow={colors.accent} padding={16}>
+    <GlowCard glow={colors.accent} padding={14}>
       <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           {/* The qualifier ("Strength") rides the kicker rather than owning a
@@ -204,7 +234,7 @@ export function MissionCard({
             ) : null}
           </View>
           <Text
-            className="mt-s2 text-text"
+            className="mt-s1 text-text"
             numberOfLines={1}
             ellipsizeMode="tail"
             allowFontScaling={false}
@@ -219,37 +249,53 @@ export function MissionCard({
         </View>
       </View>
 
-      {/* REWARD — what this session pays, and what it proves. Gold is
-          currency, purple is the rating: the same two meanings those colours
-          carry everywhere else on the page. */}
-      {showRewards || evoLabel ? (
-        <View className="mt-s2 flex-row flex-wrap items-center" style={{ gap: 6 }} testID="mission-rewards">
-          {showRewards ? (
-            <RewardPill
-              icon={<PixelBolt size={12} color={colors.legendary} />}
-              label={`+${mission.xpReward} XP`}
-              tint={colors.legendary}
-            />
-          ) : null}
+      {/* ESTIMATED REWARDS — the Evo gain is the biggest thing in the block,
+          XP is second, and the pillar benefit names what it buys. Purple is
+          the rating, gold is currency: the same meanings those colours carry
+          everywhere else on the page. */}
+      {showRewards || evoPerSession !== null || evoLabel ? (
+        <View className="mt-s2" testID="mission-rewards">
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 9, letterSpacing: 1.8, ...pixelFont(false) }}
+          >
+            ESTIMATED REWARDS
+          </Text>
+          <View className="mt-s1 flex-row flex-wrap items-center" style={{ gap: 8 }}>
+            {evoPerSession !== null ? (
+              <RewardPill
+                label={`◈ ${formatEvoEstimate(evoPerSession)} EVO`}
+                tint={colors.epic}
+                size="lead"
+                delay={0}
+                testID="mission-evo-gain"
+              />
+            ) : null}
+            {showRewards ? (
+              <RewardPill
+                icon={<PixelBolt size={11} color={colors.legendary} />}
+                label={`+${mission.xpReward} XP`}
+                tint={colors.legendary}
+                delay={90}
+                testID="mission-xp"
+              />
+            ) : null}
+          </View>
           {evoLabel ? (
-            <RewardPill label={`◈ BUILDS ${evoLabel}`} tint={colors.epic} testID="mission-evo" />
+            <Text
+              className="mt-s2"
+              numberOfLines={1}
+              allowFontScaling={false}
+              style={{ fontSize: 10, letterSpacing: 1.2, color: colors['text-mute'], ...pixelFont(false) }}
+              testID="mission-evo"
+            >
+              {'PRIMARY BENEFIT  '}
+              <Text style={{ color: colors['text-dim'], ...pixelFont() }}>{evoLabel}</Text>
+              {muscles.length > 0 ? `  ·  ${muscles.join(' · ').toUpperCase()}` : ''}
+            </Text>
           ) : null}
         </View>
-      ) : null}
-
-      {/* MUSCLES — a line, not a row of chips. Three outlined pills for three
-          words was chrome competing with the reward above it. */}
-      {muscles.length > 0 ? (
-        <Text
-          className="mt-s2 text-text-dim"
-          numberOfLines={1}
-          allowFontScaling={false}
-          style={{ fontSize: 10, letterSpacing: 1.2, ...pixelFont(false) }}
-          testID="mission-muscles"
-        >
-          {muscles.join('  ·  ').toUpperCase()}
-          {pills.length > muscles.length ? `  +${pills.length - muscles.length}` : ''}
-        </Text>
       ) : null}
 
       {/* DURATION — ~ marks estimates, same honesty as the Train hero. */}
@@ -306,34 +352,76 @@ function Kicker({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** One token on the mission's reward row. */
+/**
+ * One token on the mission's reward row.
+ *
+ * `lead` is the Evo gain: bigger type, a heavier outline and a soft bloom, so
+ * the reward the whole app is about outranks the XP beside it at a glance
+ * rather than by reading order alone.
+ *
+ * Each pill POPS IN once, staggered — the brief's "tiny pulse when appearing".
+ * It is a ONE-SHOT (not perf-gated, per the animations.ts doctrine) and
+ * reduced motion pins it at rest, fully visible: a reward chip that never
+ * arrives is worse than one that does not bounce.
+ */
 function RewardPill({
   icon,
   label,
   tint,
   testID,
+  size = 'base',
+  delay = 0,
 }: {
   icon?: React.ReactNode;
   label: string;
   tint: string;
   testID?: string;
+  size?: 'base' | 'lead';
+  delay?: number;
 }) {
+  const reduced = useReducedMotion();
+  const lead = size === 'lead';
+  const pop = useSharedValue(reduced ? 1 : 0);
+
+  useEffect(() => {
+    if (reduced) return;
+    pop.value = withDelay(delay, withTiming(1, { duration: 320, easing: Easing.out(Easing.back(2)) }));
+  }, [reduced, delay, pop]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pop.value * 1.6),
+    transform: [{ scale: 0.86 + pop.value * 0.14 }],
+  }));
+
   return (
-    <View
+    <Animated.View
       testID={testID}
-      className="flex-row items-center rounded-pill border px-s2"
-      style={{ gap: 5, minHeight: 24, borderColor: `${tint}45`, backgroundColor: `${tint}12` }}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: 999,
+          borderWidth: lead ? 1.5 : 1,
+          paddingHorizontal: lead ? 12 : 8,
+          gap: 5,
+          minHeight: lead ? 32 : 26,
+          borderColor: lead ? `${tint}8c` : `${tint}45`,
+          backgroundColor: lead ? `${tint}1f` : `${tint}12`,
+          ...(lead ? { shadowColor: tint, shadowOpacity: 0.45, shadowRadius: 12, elevation: 4 } : null),
+        },
+        style,
+      ]}
     >
       {icon}
       <Text
         className="text-center"
         numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 11, letterSpacing: 0, color: tint, ...pixelFont() }}
+        style={{ fontSize: lead ? 15 : 11, letterSpacing: 0, color: tint, ...pixelFont() }}
       >
         {label.toUpperCase()}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -90,3 +90,58 @@ export const EvoEmblem = memo(function EvoEmblem({
     </View>
   );
 });
+
+/**
+ * THE ENERGY RING (2026-08-03, third brief) — the crest's slowly rotating
+ * outer band. Static geometry only: the ROTATION is applied by the caller's
+ * animated wrapper, so this component re-renders never and the whole effect
+ * costs one transform on a driver the hero already runs.
+ *
+ * Broken into four arcs with index ticks rather than drawn as a closed circle:
+ * a solid ring reads as a loading spinner the moment it turns, and a spinner
+ * on an athlete's identity is the wrong idea entirely. Gaps make it read as
+ * machined hardware.
+ */
+export const EvoEnergyRing = memo(function EvoEnergyRing({
+  size,
+  colour,
+}: {
+  size: number;
+  colour: string;
+}) {
+  const R = 46;
+  const arc = (from: number, to: number): string => {
+    const p = (deg: number) => {
+      const a = (deg * Math.PI) / 180;
+      return `${(50 + R * Math.cos(a)).toFixed(2)} ${(50 + R * Math.sin(a)).toFixed(2)}`;
+    };
+    return `M ${p(from)} A ${R} ${R} 0 0 1 ${p(to)}`;
+  };
+  return (
+    <View pointerEvents="none" style={{ width: size, height: size }} {...DECORATIVE}>
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        {/* Four arcs, unequal, so the gaps never line up into a symmetry that
+            reads as a dial. */}
+        <Path d={arc(-84, -20)} stroke={colour} strokeOpacity={0.24} strokeWidth={1.1} fill="none" />
+        <Path d={arc(4, 76)} stroke={colour} strokeOpacity={0.13} strokeWidth={1.1} fill="none" />
+        <Path d={arc(98, 154)} stroke={colour} strokeOpacity={0.24} strokeWidth={1.1} fill="none" />
+        <Path d={arc(176, 256)} stroke={colour} strokeOpacity={0.13} strokeWidth={1.1} fill="none" />
+        {[-84, 4, 98, 176].map((deg) => {
+          const a = (deg * Math.PI) / 180;
+          return (
+            <Line
+              key={deg}
+              x1={50 + (R - 4) * Math.cos(a)}
+              y1={50 + (R - 4) * Math.sin(a)}
+              x2={50 + (R + 3) * Math.cos(a)}
+              y2={50 + (R + 3) * Math.sin(a)}
+              stroke={colour}
+              strokeOpacity={0.34}
+              strokeWidth={1.4}
+            />
+          );
+        })}
+      </Svg>
+    </View>
+  );
+});

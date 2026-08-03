@@ -67,11 +67,25 @@ export interface HomeScale {
   heroGap: number;
 }
 
+/**
+ * 2026-08-03, THIRD BRIEF — the champion gave back most of the 8% it gained.
+ *
+ * That pass had ~29pt of slack at 390×844. This one spends it on things the
+ * brief ranked higher than champion size: the forge hint returned to the strip
+ * above the rating (+24pt with its slot) and ESTIMATED REWARDS became a
+ * labelled block with the Evo gain leading it (+45pt). Both were explicit
+ * asks; a bigger sprite was not.
+ *
+ * The rig is ~1.7× `champion`, so every point here is ~1.7pt of fold. These
+ * numbers are what makes START MISSION clear the PHONE's fold again — they are
+ * MEASURED against the built export, not chosen. Raise them and re-measure, or
+ * the CTA lands under the nav on the device and above it in the screenshot.
+ */
 const TIERS: Record<HomeSizeTier, Omit<HomeScale, 'tier'>> = {
-  compact: { champion: 100, headroom: 0.08, rating: 55, ratingSub: 8.5, missionTitle: 19, heroGap: 2 },
-  regular: { champion: 114, headroom: 0.08, rating: 64, ratingSub: 9, missionTitle: 21, heroGap: 3 },
-  tall: { champion: 126, headroom: 0.08, rating: 71, ratingSub: 9.5, missionTitle: 23, heroGap: 4 },
-  xl: { champion: 152, headroom: 0.08, rating: 85, ratingSub: 11, missionTitle: 25, heroGap: 6 },
+  compact: { champion: 96, headroom: 0.08, rating: 55, ratingSub: 8.5, missionTitle: 19, heroGap: 2 },
+  regular: { champion: 108, headroom: 0.08, rating: 64, ratingSub: 9, missionTitle: 21, heroGap: 3 },
+  tall: { champion: 112, headroom: 0.08, rating: 71, ratingSub: 9.5, missionTitle: 23, heroGap: 4 },
+  xl: { champion: 134, headroom: 0.08, rating: 85, ratingSub: 11, missionTitle: 25, heroGap: 6 },
 };
 
 /**

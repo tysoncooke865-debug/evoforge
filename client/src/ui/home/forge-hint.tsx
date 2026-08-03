@@ -1,40 +1,117 @@
 /**
- * HOME — THE CHAMPION'S NAMEPLATE (rewritten 2026-08-03, premium pass).
+ * HOME — THE FORGE DOOR, in two parts.
  *
- * WHAT THIS FILE USED TO BE: a full-width breathing line of cyan text sitting
- * between the masthead and the Evo Rating — "◈ TAP YOUR CHAMPION TO ENTER THE
- * FORGE ›". Two things were wrong with it, and both are hierarchy problems
- * rather than styling ones:
+ * `ForgeHint` sits directly under the masthead, ABOVE the Evo Rating. Tyson
+ * (2026-08-03, third brief): "it teaches interaction before the user sees the
+ * Champion." It moved to the podium for one revision and moved back — the
+ * argument for the top is stronger than the argument against, because an
+ * athlete who has not yet learned the champion is a button never scrolls far
+ * enough to find out.
  *
- *   1. It spent the most valuable strip on the page — the one directly under
- *      the masthead, where the athlete's eye lands first — on an INSTRUCTION.
- *      That strip belongs to identity. Nothing may compete with the rating
- *      there.
- *   2. It taught the interaction from 200pt away from the thing it described.
+ * `ForgeNameplate` is the plate across the podium's front face, and it is now
+ * a STATE, not an instruction: it carries the champion's form name and nothing
+ * else. "Tap to enter the Forge" left it, because the hint above already says
+ * that and a plaque that repeats it is a label arguing with itself. THE GRIND
+ * is who the champion is right now.
  *
- * WHAT IT IS NOW: a plaque across the podium's front face, carrying the
- * champion's FORM NAME with the hint beneath it. It costs ZERO vertical
- * budget (it is an overlay on art that was already there), it teaches the tap
- * at the exact place the tap happens, and it gives the champion the one thing
- * a trophy has and a sprite does not — a name on a plate.
+ * MOTION (the hint only, one driver): the whole line breathes between 0.9 and
+ * 1.0 opacity — a wider swing reads as a fault rather than a pulse — and the
+ * chevron nudges right once per cycle, which is the part the eye actually
+ * reads as "this goes somewhere". Both derive from one 4.4s clock, and it
+ * rides `useAmbient` like every other loop: an unfocused tab, reduced motion
+ * or perf mode all hold it still and fully lit.
  *
- * IT ALSO ABSORBED THE "CURRENT FORM" CHIP that floated on the champion's left
- * flank. That chip was the brief's "THE GRIND card" — audited and judged worth
- * KEEPING (the form name is real identity and the door to the Forge) but not
- * worth a floating card competing with the rating. Same words, same door,
- * integrated with the champion instead of orbiting it, and the left flank is
- * now empty on purpose. See avatar-hero.tsx.
- *
- * Deliberately STILL. The deck below it already carries a rotating ring, a
- * light sweep and three chasing LEDs; a breathing label on top of that is the
- * "busy" the brief bans. Prestige is stillness next to motion.
+ * The plate is deliberately STILL. The deck below it already carries a
+ * rotating ring, a light sweep and three chasing LEDs; a breathing label on
+ * top of that is the "busy" the brief bans. Prestige is stillness next to
+ * motion.
  */
 
-import { Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform, Pressable, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { playSelect } from '@/ui/core/sound';
+import { useAmbient } from '@/ui/core/use-ambient';
 
+export function ForgeHint() {
+  const colors = useThemeColors();
+  const ambient = useAmbient();
+  const t = useSharedValue(0);
+
+  useEffect(() => {
+    if (!ambient) {
+      t.value = 0;
+      return;
+    }
+    t.value = 0;
+    t.value = withRepeat(withTiming(1, { duration: 4400, easing: Easing.linear }), -1);
+  }, [ambient, t]);
+
+  // ANIMATED NODES CARRY INLINE STYLES ONLY (the xp-bar lesson): className
+  // interop drops composed styles on Animated.View on web.
+  const breath = useAnimatedStyle(() => ({
+    opacity: 0.9 + 0.1 * ((1 + Math.cos(t.value * Math.PI * 2)) / 2),
+  }));
+
+  // The nudge occupies the last 18% of the cycle — a beat of movement, then
+  // ~3.6s of stillness, so it reads as an invitation rather than a twitch.
+  const chevron = useAnimatedStyle(() => {
+    const p = (t.value - 0.82) / 0.18;
+    if (p < 0) return { transform: [{ translateX: 0 }] };
+    return { transform: [{ translateX: Math.sin(p * Math.PI) * 3 }] };
+  });
+
+  return (
+    <Pressable
+      onPress={() => {
+        if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        playSelect();
+        router.push('/avatar' as never);
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Enter the Forge"
+      testID="hero-forge-hint"
+      style={{ minHeight: 20, justifyContent: 'center', alignSelf: 'center' }}
+    >
+      <Animated.View style={[{ flexDirection: 'row', alignItems: 'center' }, breath]}>
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{
+            fontSize: 10,
+            letterSpacing: 1.6,
+            color: colors.accent,
+            textShadowColor: 'rgba(34,211,238,0.45)',
+            textShadowRadius: 10,
+          }}
+        >
+          ◈ TAP YOUR CHAMPION TO ENTER THE FORGE
+        </Text>
+        <Animated.View style={chevron}>
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.6, color: colors.accent, paddingLeft: 4 }}
+          >
+            ›
+          </Text>
+        </Animated.View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+/** The champion's current STATE, engraved on the podium. No instruction. */
 export function ForgeNameplate({ formName }: { formName: string }) {
   const colors = useThemeColors();
   return (
@@ -64,9 +141,9 @@ export function ForgeNameplate({ formName }: { formName: string }) {
         <Text
           numberOfLines={1}
           allowFontScaling={false}
-          style={{ fontSize: 8, letterSpacing: 1.4, color: colors['text-mute'], ...pixelFont(false) }}
+          style={{ fontSize: 7, letterSpacing: 1.4, color: colors['text-mute'], ...pixelFont(false) }}
         >
-          TAP TO ENTER THE FORGE ›
+          CURRENT FORM
         </Text>
       </View>
     </View>

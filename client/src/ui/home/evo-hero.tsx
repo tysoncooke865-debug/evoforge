@@ -1,51 +1,66 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are
+   mutated inside effects and focus callbacks by design; the compiler lint
+   cannot see that .value writes are UI-thread animation state, not render
+   state, and it treats a shared value in a useCallback dep list as an
+   argument it must protect. (The same documented exception as
+   neon-button.tsx and avatar-hero.tsx.) */
 /**
  * HOME §1 — THE EVO RATING HERO.
  *
- * The brief's whole thesis is that the rating IS the product ("I'm Evo 51",
- * not "I bench 90kg"), so it is the first thing on the page, rendered on a
- * crest, with nothing beside it. Every state the old EVO CORE card had
- * survives: flag off renders nothing, loading holds the block's height so the
- * champion never jumps, no rating yet is the DISCOVER door that runs the first
- * official review, and a review you can act on right now still lights up.
- * Nothing is mocked — no row, no number.
+ * The brief's thesis is that the rating IS the product ("I'm Evo 51", not "I
+ * bench 90kg"), so it is the first thing on the page, on a crest, with nothing
+ * beside it. Every state the old EVO CORE card had survives: flag off renders
+ * nothing, loading holds the block's height so the champion never jumps, no
+ * rating yet is the DISCOVER door that runs the first official review, and a
+ * review you can act on right now still lights up. Nothing is mocked.
  *
- * ---- PREMIUM PASS (2026-08-03, second brief) ----
+ * ---- THE ENTRANCE (2026-08-03, third brief) ----
  *
- * FOUR THINGS CHANGED, and each answers a specific line of the brief:
+ * "Do not let it behave like ordinary text." Every time Home is focused the
+ * rating assembles itself over ~700ms, in the order the brief describes, all
+ * of it derived from ONE 0→1 clock inside worklets:
  *
- * 1. IT SAYS WHAT IT IS. "OVERALL FITNESS SCORE" sits under the numeral. The
- *    page used to assume the athlete already knew, which is the single
- *    biggest reason a new signup bounces off their own identity.
- * 2. IT IS THE LOUDEST THING ON THE PAGE. The numeral grew ~15% and the
- *    masthead's wordmark gave up its glow to make room in the visual budget —
- *    "prestige" is a contrast relationship, not a font size.
- * 3. NEXT RANK MOVED IN. It was a second purple module a section below; it is
- *    now the crest's bottom rail, so one block answers who-am-I and why-care
- *    together and there is ONE tap target for the whole identity.
- * 4. TAPPING OPENS THE SHEET, not a page. `evo-detail.tsx` explains the four
- *    pillars, the ladder and the five levers in place; /evo is one tap
- *    further for the history and the forecasts. The athlete never has to
- *    leave their champion to find out what their number means.
+ *     0–140ms   the energy ring fades in and settles from 0.9 scale
+ *   100–280ms   the crest glyphs illuminate
+ *   170–410ms   the purple glow expands
+ *   270–530ms   the digits materialise — twelve pixel shards converge on the
+ *               numeral as it resolves from 1.18 scale
+ *   530–620ms   it locks, with one soft overshoot
+ *   620–700ms   the ambient glow takes over
  *
- * MOTION — ONE LOOP for the whole hero (`pulse`, 7s). The breathing bloom and
- * the crest's light sweep are both derived from it inside worklets, because on
- * web every Reanimated loop runs on the main JS thread and the "everything
- * lags" rule is that you pay per DRIVER, not per effect. It rides `useAmbient`
- * like every other loop: an unfocused tab, reduced motion or perf mode all
- * hold it still and lit. The rating-increase burst is a ONE-SHOT and is
- * deliberately not gated (the animations.ts doctrine).
+ * It is a ONE-SHOT, so perf mode does not disable it (the animations.ts
+ * doctrine); reduced motion pins it complete on the first frame, because an
+ * athlete who asked for less movement should still see their number instantly.
+ *
+ * ---- THE LEVEL-UP (≤1s) ----
+ *
+ * On a real increase: the digits COUNT (51 → 52), a soft camera emphasis
+ * scales the crest and dims its surroundings, twelve shards burst outward, a
+ * success haptic fires, and an achievement toast goes up — which is what makes
+ * the CHAMPION bloom and the PLATFORM brighten, because both subscribe to that
+ * same store. One event, four surfaces reacting, no new plumbing.
+ *
+ * ---- MOTION BUDGET ----
+ *
+ * THREE drivers for everything above: `intro` (one-shot), `pulse` (the only
+ * ambient loop — bloom breath, crest sweep and ring rotation all derive from
+ * it) and `emphasis` (one-shot). On web every Reanimated loop runs on the main
+ * JS thread, so the count that matters is DRIVERS, not effects.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -66,12 +81,16 @@ import { useAmbient } from '@/ui/core/use-ambient';
 import { EvoBurst } from './evo-burst';
 import { EvoCoachMark } from './evo-coach-mark';
 import { EvoDetailSheet } from './evo-detail';
-import { EvoEmblem } from './evo-emblem';
+import { EvoEmblem, EvoEnergyRing } from './evo-emblem';
 import { useHomeScale } from './home-scale';
 import { NextRankRail } from './next-rank-card';
 
 /** The rating this DEVICE last showed. One integer; see useRatingCelebration. */
 const SEEN_RATING_KEY = 'evoforge-evo-seen-rating-v1';
+
+const INTRO_MS = 700;
+/** The count-up. Short enough to finish inside the brief's one second. */
+const COUNT_MS = 620;
 
 /** The identity block's height at a given scale — loading reserves it so the
  *  champion below never jumps when the rating lands. Kept in step with the
@@ -79,9 +98,16 @@ const SEEN_RATING_KEY = 'evoforge-evo-seen-rating-v1';
 const blockHeight = (rating: number, gap: number) =>
   13 + gap + Math.round(rating * 1.06) + gap + 13 + 6 + 26 + 12 + 22;
 
+interface Celebration {
+  /** Bumped once per real increase. */
+  fire: number;
+  from: number | null;
+  to: number | null;
+}
+
 /**
  * Fires once when the athlete's rating has genuinely gone UP since the last
- * time this device rendered it. Returns a counter the burst keys off.
+ * time this device rendered it.
  *
  * The baseline is written on the FIRST reading and celebrates nothing — there
  * is no achievement in arriving, and a burst on every fresh install would
@@ -89,8 +115,8 @@ const blockHeight = (rating: number, gap: number) =>
  * recorded silently: the number moving down is a conversation for /evo, not a
  * moment on Home.
  */
-function useRatingCelebration(rating: number | null): number {
-  const [fire, setFire] = useState(0);
+function useRatingCelebration(rating: number | null): Celebration {
+  const [state, setState] = useState<Celebration>({ fire: 0, from: null, to: null });
   /** undefined = not read from storage yet; null = no baseline stored. */
   const seenRef = useRef<number | null | undefined>(undefined);
 
@@ -115,14 +141,14 @@ function useRatingCelebration(rating: number | null): number {
       void AsyncStorage.setItem(SEEN_RATING_KEY, String(rating)).catch(() => undefined);
       if (prev === null || rating <= prev) return;
 
-      setFire((n) => n + 1);
+      setState((s) => ({ fire: s.fire + 1, from: prev, to: rating }));
       playPowerUp();
       if (Platform.OS !== 'web') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      // The toast is also what makes the CHAMPION react: HeroStage blooms its
-      // stage light on every xp/pr/achievement toast, so the athlete's own
-      // character visibly answers the rating going up.
+      // This toast is the SIGNAL the rest of the screen listens to: HeroStage
+      // blooms the champion's spotlight on it and PlatformTech surges the
+      // podium. One real event, three surfaces reacting.
       useToastStore.getState().push({
         kind: 'achievement',
         title: `EVO ${rating}`,
@@ -134,7 +160,7 @@ function useRatingCelebration(rating: number | null): number {
     };
   }, [rating]);
 
-  return fire;
+  return state;
 }
 
 export function EvoHero({
@@ -149,6 +175,7 @@ export function EvoHero({
   const colors = useThemeColors();
   const scale = useHomeScale();
   const ambient = useAmbient();
+  const reduced = useReducedMotion();
   const current = useEvoRatingCurrent();
   const pending = usePendingEvoEvidence();
   const review = useRunEvoReview();
@@ -156,11 +183,27 @@ export function EvoHero({
 
   const row = (current.data ?? null) as Record<string, unknown> | null;
   const ratingValue = row ? Number(row.displayed_rating ?? 1) : null;
-  const fire = useRatingCelebration(current.isPending ? null : ratingValue);
+  const celebration = useRatingCelebration(current.isPending ? null : ratingValue);
 
-  // ---- The hero's ONE ambient driver. 7s: the bloom breathes twice inside
-  // it (3.5s in/out, the same tempo as the champion's own float) and the
-  // crest catches the light once. ----
+  // ---- THE ENTRANCE. Replays on every focus, because the brief asks the
+  // athlete to look at this number *every time they open the app*. ----
+  const intro = useSharedValue(reduced ? 1 : 0);
+  const [converge, setConverge] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (reduced) {
+        intro.value = 1;
+        return;
+      }
+      intro.value = 0;
+      intro.value = withTiming(1, { duration: INTRO_MS, easing: Easing.out(Easing.cubic) });
+      // The shards fly in as the digits resolve — 270ms into the sequence.
+      const t = setTimeout(() => setConverge((n) => n + 1), 250);
+      return () => clearTimeout(t);
+    }, [reduced, intro])
+  );
+
+  // ---- The ONE ambient driver: bloom breath, crest sweep, ring rotation. ----
   const pulse = useSharedValue(0);
   useEffect(() => {
     if (!ambient) {
@@ -171,27 +214,99 @@ export function EvoHero({
     pulse.value = withRepeat(withTiming(1, { duration: 7000, easing: Easing.linear }), -1);
   }, [ambient, pulse]);
 
+  // ---- THE LEVEL-UP: soft camera emphasis, and the digits counting. ----
+  const emphasis = useSharedValue(0);
+  const [counting, setCounting] = useState<number | null>(null);
+  useEffect(() => {
+    if (celebration.fire === 0 || celebration.from === null || celebration.to === null) return;
+    const from = celebration.from;
+    const to = celebration.to;
+    if (!reduced) {
+      emphasis.value = withSequence(
+        withTiming(1, { duration: 260, easing: Easing.out(Easing.back(1.6)) }),
+        withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) })
+      );
+    }
+    if (reduced || to <= from) return;
+    // No clock call anywhere: the first rAF timestamp IS the start.
+    let raf = 0;
+    let start = 0;
+    const step = (now: number) => {
+      if (start === 0) start = now;
+      const p = Math.min(1, (now - start) / COUNT_MS);
+      setCounting(Math.round(from + (to - from) * p));
+      if (p < 1) raf = requestAnimationFrame(step);
+      else setCounting(null);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      setCounting(null);
+    };
+  }, [celebration.fire, celebration.from, celebration.to, reduced, emphasis]);
+
   const crestW = Math.round(scale.rating * 3.4);
   const crestH = Math.round((crestW * 156) / 240);
+  // 0.64, not 0.78, and lifted 6pt: anything centred on the numeral that is
+  // taller than the numeral's own box overflows into the subtitle below it.
+  // The emblem does too, but at ≤0.26 opacity it reads as a halo; the ring at
+  // foreground weight read as a line struck through the text. Inside the
+  // emblem's outer arcs and at the emblem's own opacities, the two read as one
+  // concentric crest.
+  const ringW = Math.round(crestW * 0.64);
+  const SHEEN_W = 96;
 
-  const bloomStyle = useAnimatedStyle(() => {
-    // Two full breaths per loop, eased by the sine itself.
-    const breath = (1 - Math.cos(pulse.value * Math.PI * 4)) / 2; // 0..1..0..1..0
-    return { opacity: 0.5 + breath * 0.5, transform: [{ scale: 0.94 + breath * 0.1 }] };
+  /** A 0→1 ramp across [a,b] of the entrance clock. */
+  const seg = (t: number, a: number, b: number): number => {
+    'worklet';
+    return Math.max(0, Math.min(1, (t - a) / (b - a)));
+  };
+
+  const ringStyle = useAnimatedStyle(() => {
+    const e = seg(intro.value, 0, 0.2);
+    // A third of a turn per 7s loop — ~21s per revolution. Any faster and an
+    // identity crest reads as a loading spinner.
+    return {
+      opacity: e * (0.85 + 0.15 * Math.sin(pulse.value * Math.PI * 2)),
+      transform: [{ translateY: -6 }, { scale: 0.9 + e * 0.1 }, { rotate: `${pulse.value * 120}deg` }],
+    };
   });
 
-  const SHEEN_W = 96;
+  const glyphStyle = useAnimatedStyle(() => ({ opacity: seg(intro.value, 0.14, 0.4) }));
+
+  const bloomStyle = useAnimatedStyle(() => {
+    const e = seg(intro.value, 0.24, 0.58);
+    const breath = (1 - Math.cos(pulse.value * Math.PI * 4)) / 2; // two breaths per loop
+    return {
+      opacity: e * (0.5 + breath * 0.5 + emphasis.value * 0.6),
+      transform: [{ scale: (0.72 + e * 0.22) * (0.94 + breath * 0.1 + emphasis.value * 0.18) }],
+    };
+  });
+
+  const digitsStyle = useAnimatedStyle(() => {
+    const e = seg(intro.value, 0.38, 0.76);
+    // The lock: one soft overshoot as the number seats itself.
+    const lock = Math.sin(seg(intro.value, 0.76, 0.94) * Math.PI) * 0.05;
+    return {
+      opacity: e,
+      transform: [{ scale: 1.18 - e * 0.18 + lock + emphasis.value * 0.1 }],
+    };
+  });
+
   const sweepStyle = useAnimatedStyle(() => {
     // The sweep owns the first 16% of the loop; the remaining ~5.9s is
     // stillness, so the crest "occasionally catches the light" instead of
-    // strobing. Travel is crest-width plus the bar, so it enters and leaves.
+    // strobing. It waits for the entrance to finish.
     const p = pulse.value / 0.16;
-    if (p > 1) return { opacity: 0, transform: [{ translateX: -SHEEN_W }] };
+    if (p > 1 || intro.value < 0.9) return { opacity: 0, transform: [{ translateX: -SHEEN_W }] };
     return {
       opacity: Math.sin(p * Math.PI) * 0.9,
       transform: [{ translateX: -SHEEN_W + p * (crestW + SHEEN_W) }],
     };
   });
+
+  /** The soft camera emphasis: everything around the crest dips as it swells. */
+  const vignetteStyle = useAnimatedStyle(() => ({ opacity: emphasis.value * 0.55 }));
 
   if (!progressionFeatures.newProgressionEnabled) return null;
 
@@ -230,12 +345,11 @@ export function EvoHero({
           Your real-world gym level from Size, Physique, Strength and Cardio.
         </Text>
         <View className="mt-s3 w-full">
-          {/* EPIC, NOT PRIMARY (fixed after the browser tour). As a cyan
-              gradient this was pixel-for-pixel the same button as START
-              MISSION one section below it, so an athlete with no rating met
-              TWO identical dominant CTAs and the page had no answer to "what
-              do I do next". Purple makes it unmistakably the RATING's door
-              and lets the cyan CTA stay the page's one dominant action —
+          {/* EPIC, NOT PRIMARY. As a cyan gradient this was pixel-for-pixel the
+              same button as START MISSION one section below, so an athlete
+              with no rating met TWO identical dominant CTAs and the page had
+              no answer to "what do I do next". Purple makes it the RATING's
+              door and lets the cyan CTA stay the page's one dominant action —
               which is right, because a first review needs training evidence
               to read anyway. */}
           <NeonButton
@@ -252,6 +366,7 @@ export function EvoHero({
   }
 
   const rating = ratingValue ?? 1;
+  const shown = counting ?? rating;
   const descriptor = String(row.descriptor ?? 'Untrained').toUpperCase();
   const status = String(row.status ?? 'provisional');
   const evolutionProgress = Number(row.evolution_progress ?? 0);
@@ -278,6 +393,17 @@ export function EvoHero({
 
   return (
     <View className="w-full items-center">
+      {/* The camera emphasis' vignette. pointerEvents none and drawn behind
+          the crest, so it dips the page without ever blocking a tap — a UI
+          that freezes on a reward is a UI that dropped your input. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', top: -400, bottom: -900, left: -400, right: -400, backgroundColor: '#04070e' },
+          vignetteStyle,
+        ]}
+      />
+
       <Pressable
         onPress={() => {
           playSelect();
@@ -292,8 +418,12 @@ export function EvoHero({
         <Label colour={colors.epic}>EVO RATING</Label>
 
         <View className="items-center justify-center" style={{ marginTop: scale.heroGap }}>
-          {/* The breathing bloom, BEHIND the crest — the rating's own light,
-              not a border effect. */}
+          {/* 1. THE ENERGY RING — first in, and the only thing that turns. */}
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute' }, ringStyle]}>
+            <EvoEnergyRing size={ringW} colour={colors.epic} />
+          </Animated.View>
+
+          {/* 2. THE GLOW, behind the crest — the rating's own light. */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -311,10 +441,12 @@ export function EvoHero({
               bloomStyle,
             ]}
           />
-          {/* The crest sits BEHIND the number, centred on it. */}
-          <View pointerEvents="none" style={{ position: 'absolute' }}>
+
+          {/* 3. THE GLYPHS. */}
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute' }, glyphStyle]}>
             <EvoEmblem width={crestW} colour={colors.epic} />
-          </View>
+          </Animated.View>
+
           {/* The light sweep, clipped to the crest's own box. It crosses the
               EMBLEM rather than the glyph: masking a shimmer to text needs
               MaskedView, and an unmasked bar over the numeral would read as a
@@ -334,26 +466,34 @@ export function EvoHero({
             </Animated.View>
           </View>
 
-          <Text
-            allowFontScaling={false}
-            testID="evo-hero-rating"
-            style={{
-              fontSize: scale.rating,
-              lineHeight: Math.round(scale.rating * 1.06),
-              letterSpacing: 0,
-              color: colors.text,
-              // The one place on Home where a glow is loud: this number is the
-              // athlete's identity, and the neon policy allows it on exactly
-              // this kind of moment.
-              textShadowColor: 'rgba(168,85,247,0.6)',
-              textShadowRadius: Math.round(scale.rating * 0.32),
-              ...pixelFont(),
-            }}
-          >
-            {rating}
-          </Text>
+          {/* 4. THE DIGITS, materialising. */}
+          <Animated.View style={digitsStyle}>
+            <Text
+              allowFontScaling={false}
+              testID="evo-hero-rating"
+              style={{
+                fontSize: scale.rating,
+                lineHeight: Math.round(scale.rating * 1.06),
+                letterSpacing: 0,
+                color: colors.text,
+                // The one place on Home where a glow is loud: this number is
+                // the athlete's identity, and the neon policy allows it on
+                // exactly this kind of moment.
+                textShadowColor: 'rgba(168,85,247,0.6)',
+                textShadowRadius: Math.round(scale.rating * 0.32),
+                ...pixelFont(),
+              }}
+            >
+              {shown}
+            </Text>
+          </Animated.View>
 
-          <EvoBurst fire={fire} colour={colors.epic} radius={Math.round(crestW * 0.44)} />
+          <EvoBurst
+            fire={celebration.fire}
+            converge={converge}
+            colour={colors.epic}
+            radius={Math.round(crestW * 0.44)}
+          />
         </View>
 
         {/* THE LINE THAT STOPS THE PAGE ASSUMING. Understated on purpose —
@@ -397,12 +537,10 @@ export function EvoHero({
           </Text>
         ) : null}
 
-        {/* WHY CARE — the name the number is about to become.
-            WIDTH IS THE CREST'S, NOT THE COLUMN'S (fixed after the first
-            browser tour). At 320 the rail spanned nearly the full page and
-            read as a divider between the rating and the champion — an orphan
-            bar belonging to neither. Matched to the crest it is unmistakably
-            the bottom line of the same object. */}
+        {/* WHY CARE — the name the number is about to become. The rail's width
+            is the CREST'S, not the column's: spanning the page it read as a
+            divider between the rating and the champion, an orphan bar
+            belonging to neither. */}
         <View style={{ marginTop: 10, width: crestW }}>
           <NextRankRail rating={rating} evolutionProgress={evolutionProgress} />
         </View>

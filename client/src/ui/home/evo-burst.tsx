@@ -1,27 +1,24 @@
 /**
- * HOME (PREMIUM PASS, 2026-08-03) — the Evo Rating's celebration burst.
+ * HOME — the Evo Rating's pixel shards, in both directions.
  *
- * The brief: "tiny particle burst when rating increases". The rating is the
- * product, and until now it changed SILENTLY — an athlete who trained for six
- * weeks to go from 51 to 52 got a different numeral and nothing else. This is
- * the moment that was missing.
+ * OUT (`fire`): the celebration. The rating is the product, and until this
+ * existed it changed SILENTLY — an athlete who trained six weeks to go from
+ * 51 to 52 got a different numeral and nothing else.
  *
- * IT FIRES ON A REAL EVENT ONLY. The caller compares the live
- * `displayed_rating` against the last one this DEVICE saw (a single
- * AsyncStorage integer) and bumps `fire` when it has genuinely gone up. A
- * first-ever reading writes the baseline and celebrates nothing — there is no
- * achievement in arriving.
+ * IN (`converge`): the entrance. The brief asks for "digits materialise from
+ * tiny pixels", so the same twelve shards run in reverse, arriving on the
+ * numeral as it resolves. Same geometry, same cost, one component.
  *
- * ONE SHARED VALUE, TWELVE SHARDS. Each shard derives its own trajectory from
- * the same 0→1 clock inside its worklet, so the whole burst costs one
- * animation driver, not twelve. Pixel SQUARES, not circles — this is a pixel
- * game, and a round particle reads as a different app's confetti.
+ * ONE SHARED VALUE, TWELVE SHARDS. Each derives its own trajectory from the
+ * same 0→1 clock inside its worklet, so a burst costs one animation driver,
+ * not twelve. Pixel SQUARES, never circles — this is a pixel game, and a round
+ * particle reads as another app's confetti.
  *
- * NOT gated on perf mode or focus: it is a ONE-SHOT that ends at opacity 0
+ * NOT gated on perf mode or focus: these are ONE-SHOTS that end at opacity 0
  * (the animations.ts doctrine — never disable one-shots, they are the reward).
- * Reduced motion IS honoured, because an unrequested burst of movement is
- * exactly what that setting is for; those athletes still get the toast, the
- * haptic and the number.
+ * Reduced motion IS honoured, because unrequested movement is exactly what
+ * that setting is for; those athletes still get the toast, the haptic and the
+ * number.
  */
 
 import { useEffect } from 'react';
@@ -35,25 +32,44 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const SHARDS = 12;
-const DURATION = 900;
+const OUT_MS = 900;
+const IN_MS = 420;
 
-export function EvoBurst({ fire, colour, radius }: { fire: number; colour: string; radius: number }) {
+export function EvoBurst({
+  fire,
+  colour,
+  radius,
+  converge = 0,
+}: {
+  /** Bump to play the outward celebration. */
+  fire: number;
+  colour: string;
+  radius: number;
+  /** Bump to play the inward materialise (the entrance). */
+  converge?: number;
+}) {
   const reduced = useReducedMotion();
-  const t = useSharedValue(0);
+  const out = useSharedValue(0);
+  const inward = useSharedValue(0);
 
   useEffect(() => {
     if (fire === 0 || reduced) return;
-    t.value = 0;
-    t.value = withTiming(1, { duration: DURATION, easing: Easing.out(Easing.cubic) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fire, reduced]);
+    out.value = 0;
+    out.value = withTiming(1, { duration: OUT_MS, easing: Easing.out(Easing.cubic) });
+  }, [fire, reduced, out]);
+
+  useEffect(() => {
+    if (converge === 0 || reduced) return;
+    inward.value = 0;
+    inward.value = withTiming(1, { duration: IN_MS, easing: Easing.out(Easing.quad) });
+  }, [converge, reduced, inward]);
 
   if (reduced) return null;
 
   return (
     <View pointerEvents="none" style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
       {Array.from({ length: SHARDS }, (_, i) => (
-        <Shard key={i} index={i} t={t} colour={colour} radius={radius} />
+        <Shard key={i} index={i} out={out} inward={inward} colour={colour} radius={radius} />
       ))}
     </View>
   );
@@ -61,26 +77,43 @@ export function EvoBurst({ fire, colour, radius }: { fire: number; colour: strin
 
 function Shard({
   index,
-  t,
+  out,
+  inward,
   colour,
   radius,
 }: {
   index: number;
-  t: { value: number };
+  out: { value: number };
+  inward: { value: number };
   colour: string;
   radius: number;
 }) {
-  // Deterministic scatter: the angle is evenly spaced with a fixed per-index
-  // wobble, and the distance alternates — no Math.random(), which would make
-  // the burst impossible to reproduce in a tour screenshot.
+  // Deterministic scatter: evenly spaced angles with a fixed per-index wobble,
+  // alternating reach — no Math.random(), which would make the burst
+  // impossible to reproduce in a tour screenshot.
   const angle = (index / SHARDS) * Math.PI * 2 + (index % 3) * 0.21;
   const reach = radius * (index % 2 === 0 ? 1 : 0.68);
   const size = index % 3 === 0 ? 4 : 3;
 
   const style = useAnimatedStyle(() => {
-    const p = t.value;
+    // The inward run owns the node whenever it is mid-flight; otherwise the
+    // outward one does. They can never overlap in practice (an entrance and a
+    // level-up are 700ms apart at worst) and this keeps it to one node.
+    const i = inward.value;
+    if (i > 0 && i < 1) {
+      const d = 1 - i; // 1 = far out, 0 = arrived on the glyph
+      return {
+        opacity: Math.min(1, i * 3) * (1 - i * 0.15),
+        transform: [
+          { translateX: Math.cos(angle) * reach * d },
+          { translateY: Math.sin(angle) * reach * d },
+          { scale: 0.6 + d * 0.5 },
+        ],
+      };
+    }
+    const p = out.value;
     return {
-      opacity: p === 0 ? 0 : 1 - p,
+      opacity: p === 0 || p === 1 ? 0 : 1 - p,
       transform: [
         { translateX: Math.cos(angle) * reach * p },
         // A touch of lift: shards drift up as they fade, like sparks.

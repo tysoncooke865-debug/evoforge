@@ -16,7 +16,7 @@ character, plus 1v1 battles. **One app now:**
 
 | | |
 |---|---|
-| **Expo client** (`client/`) | THE product. Branch **`expo-rewrite`**, auto-deploys to https://expo-rewrite.evoforge.pages.dev (~5 min per push). Everything below is about this. |
+| **Expo client** (`client/`) | THE product. Branch **`expo-rewrite`**, auto-deploys to **https://evoforge.pages.dev** (~5 min per push). **NOT `expo-rewrite.evoforge.pages.dev`** — that branch alias is stale (see §3). Everything below is about this. |
 | **Streamlit** (`app.py`, Python) | **RETIRED (Tyson, 2026-07-16)** — no support, no optimising around it. The code stays on `main` as reference; its `domain/` goldens remain the pinned correctness contract for `client/src/domain/`. The pre-push hook now skips the Python suite for client/docs-only pushes. |
 
 Owner: Tyson. He works through other Claude sessions too — **always
@@ -25,6 +25,93 @@ Owner: Tyson. He works through other Claude sessions too — **always
 ---
 
 ## 2. State (all shipped, CI-green, deployed)
+
+- **HOME — THE AAA PASS (2026-08-03, third brief, no migration).** Tyson:
+  "elevate it from a polished beta into a premium AAA mobile game experience
+  through refinement, clarity, motion, delight and microinteractions… the page
+  should feel alive, not busy." Layout and hierarchy were declared close to
+  final, so nothing was re-laid-out; everything below is motion, reward
+  hierarchy and polish.
+
+  **"+0.4 EVO" SHIPPED — AS A MEASUREMENT, NOT A FORECAST.** Asked for three
+  times and declined twice; the third ask got a version that is true.
+  `domain/progression/evo-per-session.ts` divides the athlete's REAL rating
+  gain by the training days that produced it, so "+0.4" is *their own recent
+  rate* off `evo_rating_snapshots` and the workout log — personal, checkable,
+  and it moves when their training moves. A per-session FORECAST still cannot
+  exist (see `session-evidence.ts`: the rating is recomputed from the whole
+  evidence base at review time, so a session's delta is path-dependent). The
+  module therefore REFUSES rather than defaults — null on fewer than two
+  snapshots in the window, on a flat or falling rating, or on fewer than four
+  training days — and the pill disappears entirely rather than showing a
+  fabricated number. 10 goldens pin every refusal. On the card: `ESTIMATED
+  REWARDS` → the Evo gain as the LEAD pill (bigger, purple, bloomed) → XP
+  second in gold → `PRIMARY BENEFIT  STRENGTH & SIZE · <muscles>`.
+
+  **THE RATING NOW ASSEMBLES ITSELF, every time Home is focused** (~700ms, one
+  `intro` clock, all layers derived in worklets): energy ring in → crest glyphs
+  illuminate → purple glow expands → digits materialise as twelve pixel shards
+  converge → lock with one overshoot → ambient takes over. `evo-burst.tsx`
+  gained a `converge` direction so the entrance and the celebration are one
+  component.
+
+  **THE LEVEL-UP IS A ≤1s SEQUENCE.** Digits COUNT (51 → 52, off rAF
+  timestamps — no clock call anywhere), a soft camera emphasis swells the crest
+  and dips a non-blocking vignette behind it, shards burst, a success haptic
+  fires, `playPowerUp()` sounds, and an achievement toast goes up. That toast
+  is the SIGNAL: HeroStage already blooms the champion from it, and
+  `platform-tech.tsx` now subscribes to the same store and surges the deck. One
+  real event, four surfaces reacting, no new plumbing. **The UI is never
+  actually frozen** — the vignette is `pointerEvents="none"`; a reward that
+  eats input is a dropped tap.
+
+  **THE FORGE HINT WENT BACK ABOVE THE RATING** (Tyson: "it teaches interaction
+  before the user sees the Champion"), breathing 0.9→1.0 with a chevron nudge
+  once per 4.4s cycle. The podium plaque kept the form NAME and dropped the
+  instruction — `JUGGERNAUT / CURRENT FORM` is a STATE, not a label arguing
+  with the hint above it.
+
+  **WHAT PAID FOR IT.** The hint costs 24pt with its slot and the rewards block
+  45pt — both explicit asks, neither free. Reclaimed: the `RISE · TRANSFORM ·
+  CONQUER` creed was deleted (a static tagline nothing could act on, 14pt), the
+  PRIMARY BENEFIT label and value share a row, the mission card's padding is 14
+  and two of its internal gaps dropped a step, and **the champion gave back the
+  8% it gained last pass (126 → 112 at `tall`)**. Net measured against the
+  PHONE's fold: START MISSION clears by **18pt at 390×844** and **48pt at
+  430×932**. If Tyson wants the champion bigger, the levers are the hint or the
+  rewards block — not the CTA.
+
+  **NEW MOTION, and the driver budget it cost.** `home-ambience.tsx` (three
+  drifting fog masses on unequal Lissajous periods + six rising pixel motes,
+  every opacity under 0.05) mounts behind the ScrollView through a new
+  `ScreenShell backdrop` prop — a PROP, not a change to the shell's own glows,
+  because those render on every screen and the tab preload keeps five mounted.
+  The podium gained an energy pulse every 4s, three steam wisps and the reward
+  surge, all off its existing clock. The crest gained the rotating ring off the
+  hero's existing clock. Reward chips pop in staggered; tab presses tick
+  (`Haptics.selectionAsync` + `playSelect`). `verify-motion`: **22 looping
+  components, all 22 gated**.
+
+  **WHAT COULD NOT BE BUILT: the champion's blink and cloak movement.** The
+  champion is a rotating sprite GIF; a blink or a cloak needs ART FRAMES, not a
+  transform. What shipped instead is everything that is achievable without new
+  art — breathing, the weight shift with its 0.35° roll, floating pixels, the
+  contact shadow tracking the float, and the platform's life underneath. New
+  frames would need to come out of the AESTHETICS pipeline.
+
+  **Two defects the browser caught, both invisible to tsc and lint:** the crest's
+  energy ring was drawn at foreground opacity and 0.78× the crest, so its lower
+  arc ran straight through "OVERALL FITNESS SCORE" and read as a line struck
+  through the text (now 0.64× and at the emblem's own opacities); and the
+  reward block pushed START MISSION under the fold before the reclaims above.
+
+  Verified: tsc, cold lint (0 errors), **1816 vitest**, verify-tokens,
+  verify-motion, verify-battle-engine, verify-glicko, `expo export -p web`, and
+  a Playwright tour at 390×844 / 430×932 / 375×667 / 320×720 across
+  with-Origin and no-Origin, reduced motion (every section present, nothing
+  stuck at opacity 0, the entrance pinned complete), the no-rating DISCOVER
+  state, the coach mark, the Evo sheet, the "+N EVO" pill with a seeded rating
+  history, and the tap-theft regression.
 
 - **HOME — THE PREMIUM PASS (2026-08-03, no migration).** Tyson's second Home
   brief: refine, do not redesign; make it feel like a AAA mobile game
@@ -2774,6 +2861,17 @@ Every one of these was a live bug. Do not relearn them.
   once sat undeployed because CI (cold) refused what passed locally (warm).
 - **A green local build is not a deploy.** After pushing, grep the LIVE bundle
   for a marker string from your change.
+- **THE LIVE HOST IS `evoforge.pages.dev`, NOT `expo-rewrite.evoforge.pages.dev`**
+  (found 2026-08-03). Every doc named the branch alias, and that alias is
+  FROZEN several deploys back — it was serving `__common-53d1b05c…` while the
+  last three expo-rewrite deploys produced `2022d76a`, `0ddbf499` and
+  `5e537c56`. The root host tracks the latest deploy; the branch alias does
+  not (the project's production branch was changed in the Cloudflare dashboard
+  after `wrangler pages project create --production-branch=main` ran, so
+  `--branch=expo-rewrite` deploys land on the ROOT and the preview alias is
+  orphaned). **Verify against `evoforge.pages.dev`, and cross-check the
+  per-deployment URL the workflow logs (`https://<hash>.evoforge.pages.dev`)
+  when the two disagree.**
 - **A guard that cannot fail is not a guard.** The motion guard's first version
   matched a bare identifier, so `const reducedMotion = false` passed it. **Break
   every guard, watch it go red, restore it.** Do this before you trust it.

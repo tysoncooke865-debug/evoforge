@@ -32,17 +32,20 @@
  */
 
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Line } from 'react-native-svg';
 
+import { useToastStore } from '@/state/toast-store';
+import { durations } from '@/theme/animations';
 import { useThemeColors } from '@/theme/use-theme';
 import { DECORATIVE } from '@/ui/home/evo-emblem';
 import { useAmbient } from '@/ui/core/use-ambient';
@@ -52,6 +55,13 @@ const DECK_SQUASH = 0.34;
 const TICKS = 18;
 const SWEEP_WINDOW = 0.22;
 const SPARK_WINDOW = 0.18;
+/** Three energy pulses per 12s revolution — one every four seconds. */
+const PULSES = 3;
+const STEAM = [
+  { x: -0.3, delay: 0.0, rise: 26, size: 9 },
+  { x: 0.16, delay: 0.42, rise: 34, size: 12 },
+  { x: 0.34, delay: 0.71, rise: 22, size: 8 },
+] as const;
 
 export const PlatformTech = memo(function PlatformTech({
   /** The podium image's rendered width; the deck is a fraction of it. */
@@ -69,6 +79,9 @@ export const PlatformTech = memo(function PlatformTech({
   // draws, and the aura stays the champion's alone.
   const colour = useThemeColors().accent;
   const t = useSharedValue(0);
+  /** THE SURGE — a one-shot brighten on every real reward. */
+  const surge = useSharedValue(0);
+  const lastToastId = useRef(0);
 
   useEffect(() => {
     if (!ambient) {
@@ -78,6 +91,24 @@ export const PlatformTech = memo(function PlatformTech({
     t.value = 0;
     t.value = withRepeat(withTiming(1, { duration: 12000, easing: Easing.linear }), -1);
   }, [ambient, t]);
+
+  useEffect(() => {
+    // THE PLATFORM POWERS UP ON REAL EVENTS ONLY — the same store HeroStage
+    // blooms its spotlight from, so an Evo increase (which pushes an
+    // achievement toast) lights the champion AND the deck from one event, with
+    // no new plumbing between them. A one-shot, so it plays under perf mode.
+    const unsub = useToastStore.subscribe((state) => {
+      const latest = state.toasts[state.toasts.length - 1];
+      if (!latest || latest.id <= lastToastId.current) return;
+      if (latest.kind !== 'xp' && latest.kind !== 'pr' && latest.kind !== 'achievement') return;
+      lastToastId.current = latest.id;
+      surge.value = withSequence(
+        withTiming(1, { duration: durations.micro, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: durations.reward })
+      );
+    });
+    return unsub;
+  }, [surge]);
 
   // The ring sits inside the disc's top face, clear of its lit rim.
   const ringW = Math.round(podiumWidth * 0.54);
@@ -109,6 +140,22 @@ export const PlatformTech = memo(function PlatformTech({
     };
   });
 
+  /** THE ENERGY PULSE — a ring that expands off the deck and fades, three
+   *  times per revolution. It is the deck's heartbeat; the surge rides it, so
+   *  a reward reads as the platform beating harder rather than as a separate
+   *  effect bolted on top. */
+  const pulseStyle = useAnimatedStyle(() => {
+    const p = (t.value * PULSES) % 1;
+    return {
+      opacity: (1 - p) * 0.5 * (1 + surge.value * 1.6),
+      transform: [{ scaleX: 0.55 + p * 0.75 }, { scaleY: 0.55 + p * 0.75 }],
+    };
+  });
+
+  /** The deck's own lift under a reward — everything on it brightens together
+   *  rather than each part animating its own way. */
+  const surgeStyle = useAnimatedStyle(() => ({ opacity: surge.value * 0.55 }));
+
   if (!ambient) return null;
 
   return (
@@ -122,6 +169,36 @@ export const PlatformTech = memo(function PlatformTech({
           sits 0.64 × 0.535 ≈ 0.342 × podiumW up from the stage floor. The box
           is centred on that, which is also where the champion's feet land. */}
       <View style={{ position: 'absolute', bottom: Math.round(podiumWidth * 0.342 - boxH / 2), alignItems: 'center', justifyContent: 'center', height: boxH, width: podiumWidth }}>
+        {/* ENERGY PULSE — behind everything, so it reads as the deck emitting
+            rather than as a ring drawn over it. */}
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              width: sweepW,
+              height: sweepH,
+              borderRadius: sweepH / 2,
+              borderWidth: 1.5,
+              borderColor: colour,
+            },
+            pulseStyle,
+          ]}
+        />
+
+        {/* The deck's flood, lit only by a real reward. */}
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              width: sweepW,
+              height: sweepH,
+              borderRadius: sweepH / 2,
+              backgroundColor: colour,
+            },
+            surgeStyle,
+          ]}
+        />
+
         {/* ROTATING INNER RING */}
         <Animated.View style={[{ position: 'absolute', width: ringW, height: ringW }, ringStyle]}>
           <Svg width={ringW} height={ringW} viewBox="0 0 100 100">
@@ -172,6 +249,13 @@ export const PlatformTech = memo(function PlatformTech({
           <Led key={i} t={t} phase={i} colour={colour} x={Math.round(sweepW * offset)} y={Math.round(sweepH * 0.42)} />
         ))}
 
+        {/* FAINT STEAM off the deck — three slow wisps, each phase-shifted on
+            the same clock. Kept under 0.1 opacity: it should register as the
+            deck being WARM, never as smoke. */}
+        {STEAM.map((w, i) => (
+          <Steam key={i} t={t} {...w} colour={colour} x={Math.round(sweepW * w.x)} />
+        ))}
+
         {/* THE OCCASIONAL SPARK, off the left rim. */}
         <Animated.View
           style={[
@@ -193,6 +277,50 @@ export const PlatformTech = memo(function PlatformTech({
     </View>
   );
 });
+
+/** One wisp of steam: rises, spreads and fades on its own phase of the shared
+ *  clock. A soft circle rather than a sprite — at this opacity the shape is
+ *  never legible, only the movement is. */
+function Steam({
+  t,
+  delay,
+  rise,
+  size,
+  colour,
+  x,
+}: {
+  t: { value: number };
+  delay: number;
+  rise: number;
+  size: number;
+  colour: string;
+  x: number;
+}) {
+  const style = useAnimatedStyle(() => {
+    const raw = t.value + delay;
+    const p = raw - Math.floor(raw);
+    return {
+      // In over the first fifth, out across the rest — never a hard edge.
+      opacity: (p < 0.2 ? p * 5 : (1 - p) * 1.25) * 0.09,
+      transform: [{ translateX: x }, { translateY: -p * rise }, { scale: 0.7 + p * 0.9 }],
+    };
+  });
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          bottom: 0,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: colour,
+        },
+        style,
+      ]}
+    />
+  );
+}
 
 /** One rim light. Its brightness is a phase-shifted cosine off the shared
  *  clock — four beats per revolution, so the three chase each other. */

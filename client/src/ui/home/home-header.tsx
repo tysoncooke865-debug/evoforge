@@ -76,16 +76,12 @@ export function HomeHeader({
         >
           EVOFORGE
         </Text>
-        {width >= 360 ? (
-          <Text
-            className="mt-s1 text-accent"
-            allowFontScaling={false}
-            numberOfLines={1}
-            style={{ fontSize: 10, letterSpacing: 0.5, ...pixelFont(false) }}
-          >
-            RISE · TRANSFORM · CONQUER
-          </Text>
-        ) : null}
+        {/* THE CREED WAS REMOVED (2026-08-03, third brief). "RISE · TRANSFORM
+            · CONQUER" was a static tagline that cost 14pt of the fold and said
+            nothing an athlete could act on — and the strip directly under the
+            masthead now carries the forge hint, which teaches the page's
+            central interaction. The brief's rule for this pass: remove
+            anything that does not contribute to motivation. */}
       </View>
 
       {/* The level module — mirrors the mock's top-right chip. */}

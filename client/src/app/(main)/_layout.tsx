@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { Redirect, Tabs, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,6 +30,7 @@ import { PushPrompt } from '@/ui/core/push-prompt';
 import { SharePrompt } from '@/ui/social/share-prompt';
 import { SaveRoutinePrompt } from '@/ui/train/save-routine-prompt';
 import { scrollActiveToTop } from '@/ui/core/scroll-registry';
+import { playSelect } from '@/ui/core/sound';
 import { PIXEL } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
@@ -236,7 +238,17 @@ export default function MainLayout() {
       // P2 C4: EVERY tab press scrolls the focused screen to the top. The
       // deferred call lets a cross-tab press land focus first, so one code
       // path covers re-pressing the current tab AND navigating to a page.
-      screenListeners={{ tabPress: () => setTimeout(scrollActiveToTop, 0) }}
+      // Every tab press also gets a SELECTION tick on native — the lightest
+      // haptic there is, and the one iOS itself uses for segmented controls.
+      // Web stays silent (no vibration API worth using in a PWA tab bar) and
+      // the retro blip carries the feedback there instead.
+      screenListeners={{
+        tabPress: () => {
+          if (Platform.OS !== 'web') void Haptics.selectionAsync();
+          playSelect();
+          setTimeout(scrollActiveToTop, 0);
+        },
+      }}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.bg },

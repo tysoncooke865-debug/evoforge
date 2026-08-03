@@ -1,7 +1,9 @@
 # EvoForge — project memory
 
 > **THE PRODUCT is the Expo client in `client/` on branch `expo-rewrite`**
-> (auto-deploys to https://expo-rewrite.evoforge.pages.dev). Read
+> (auto-deploys to **https://evoforge.pages.dev** — NOT
+> `expo-rewrite.evoforge.pages.dev`, which is a stale branch alias frozen
+> several deploys back; see HANDOVER §3 "Confirming a deploy"). Read
 > `HANDOVER.md` at the repo root and work there.
 >
 > **The Python/Streamlit app was retired (Tyson, 2026-07-16) and DELETED
