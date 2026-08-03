@@ -26,6 +26,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE FORGE LOADER — one loading mark for the whole app (2026-08-04, no
+  migration).** `ui/core/forge-loader.tsx`: the same broken-ring sigil the
+  launch sequence resolves and `boot-hold.tsx` already held still, extracted
+  into a reusable, captioned, `useAmbient()`-gated primitive so a SCREEN or a
+  SECTION waiting on something reaches for one recognisable shape instead of a
+  bare `ActivityIndicator` on empty space. Replaced five: the Arena's own boot
+  screen ("ENTERING THE ARENA"), Customise while skins resolve ("Reading your
+  loadout"), the leaderboard while identity loads ("Reading the leaderboard"),
+  and both origin-flow waits ("Reading your training profile" /
+  "Forging your candidates" / "Calibrating"). **Deliberately NOT applied to
+  button busy-states** (SAVE, EXPORT, LOG, the arena's own in-button spinner) —
+  those stay a plain small `ActivityIndicator` sized to the control; a full
+  sigil inside a 44pt button is the tail wagging the dog. Caught live in a
+  browser mid-load on both the Arena boot and Customise
+  (`scratchpad/loader_check2.mjs`) — correct caption, clears once real data
+  arrives, page usable after.
+
 - **THE FORGE INTRO — the launch sequence (2026-08-03, no migration).** Tyson:
   "feel like opening Destiny, Diablo IV or Clash Royale, NOT a normal fitness
   app." ~2.7s, procedural, every launch: embers drift inward -> they spiral and

@@ -8,6 +8,7 @@ import { METRIC_LABEL, rankByMetric, type LeaderboardMetric } from '@/domain/lea
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Chip } from '@/ui/core/neon-button';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -63,9 +64,15 @@ export default function RankScreen() {
   }
 
   if (identity.isPending) {
+    // NOT `fill`: Shell's content lives inside a ScrollView, whose content
+    // sizes to its own height rather than stretching to the viewport — a
+    // `flex: 1` child there has no extra space to grow into. A fixed box
+    // matches what the bare spinner it replaces actually occupied.
     return (
       <Shell>
-        <ActivityIndicator color={colors.accent} />
+        <View className="items-center py-s8">
+          <ForgeLoader label="Reading the leaderboard" />
+        </View>
       </Shell>
     );
   }

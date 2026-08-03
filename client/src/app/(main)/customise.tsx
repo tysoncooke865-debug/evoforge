@@ -1,7 +1,8 @@
 import { router, useIsFocused } from 'expo-router';
 import { useSkinsReady } from '@/ui/character/avatar-skins';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 
 import { useCharacterUnlocks, usePurchaseCharacter } from '@/data/characters';
 import { useCoinTotal } from '@/data/coins';
@@ -128,7 +129,7 @@ export default function CustomiseScreen() {
       <ScreenShell>
         <ScreenHeader kicker="SELECT YOUR CHAMPION" title="CUSTOMISE" onBack={() => router.back()} />
         <View className="items-center p-s6" style={{ minHeight: 240, justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.accent} />
+          <ForgeLoader label="Reading your loadout" />
         </View>
       </ScreenShell>
     );

@@ -19,11 +19,12 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { ratingBand, track } from '@/data/analytics';
 import { useEvoRatingCurrent } from '@/data/progression/use-evo-rating';
 import { runDueEvoReview } from '@/data/progression/evo-review-io';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import {
   PATH_NAMES,
   seedFirstMissionIfNeeded,
@@ -271,8 +272,7 @@ export function OriginFlow({
                 </>
               ) : (
                 <View className="items-center py-s6">
-                  <ActivityIndicator color={colors.accent} />
-                  <Text className="mt-s3 text-xs text-text-mute">Reading your training profile…</Text>
+                  <ForgeLoader label="Reading your training profile" />
                 </View>
               )}
             </>
@@ -282,10 +282,7 @@ export function OriginFlow({
             <>
               {candidates.isPending || (result && !result.ok && !candidates.isError) ? (
                 <View className="items-center py-s6">
-                  <ActivityIndicator color={colors.accent} />
-                  <Text className="mt-s3 text-xs text-text-mute">
-                    {result && !result.ok ? 'Calibrating…' : 'Forging your candidates…'}
-                  </Text>
+                  <ForgeLoader label={result && !result.ok ? 'Calibrating' : 'Forging your candidates'} />
                 </View>
               ) : candidateList ? (
                 <>

@@ -7,8 +7,9 @@
  */
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ErrorBoundary } from '@/arena-game/components/error-boundary';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/arena-game/components/ui';
 import { colors, spacing } from '@/arena-game/constants/theme';
 import { validateAllContent } from '@/arena-game/content';
@@ -91,7 +92,7 @@ export default function ForgeArenaLayout() {
     return (
       <View style={styles.boot}>
         <Text style={styles.bootTitle}>EVOFORGE ARENA</Text>
-        <ActivityIndicator color={colors.cyan} size="large" />
+        <ForgeLoader label="Entering the arena" tint={colors.cyan} halo={colors.cyanDim} />
       </View>
     );
   }

@@ -11,10 +11,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { track } from '@/data/analytics';
 import { useProfile } from '@/data/hooks';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import {
   PATH_NAMES,
   useBindOrigin,
@@ -95,8 +96,7 @@ export function CandidateReveal() {
     return (
       <GlowCard glow={colors.legendary} padding={16}>
         <View className="items-center py-s3">
-          <ActivityIndicator color={colors.accent} />
-          <Text className="mt-s2 text-xs text-text-mute">Forging your candidates…</Text>
+          <ForgeLoader label="Forging your candidates" />
         </View>
       </GlowCard>
     );
