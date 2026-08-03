@@ -60,7 +60,7 @@ export function RatingReveal({ row, testID }: { row: Record<string, unknown>; te
           </Text>
         </View>
         <Text className="mt-s2 text-xs text-text-dim">
-          This is where you stand today — from your real Size, Aesthetics, Strength and Cardio.
+          This is where you stand today — from your real Size, Physique, Strength and Cardio.
           It rises and falls with your training. Now let&apos;s find what you could become.
         </Text>
         <View className="mt-s3">

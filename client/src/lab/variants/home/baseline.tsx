@@ -51,8 +51,6 @@ import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin'
 import { AvatarHero } from '@/ui/home/avatar-hero';
 import { BelowFold } from '@/ui/home/below-fold';
 import { EvoHero } from '@/ui/home/evo-hero';
-import { ForgeHint } from '@/ui/home/forge-hint';
-import { NextRankCard } from '@/ui/home/next-rank-card';
 import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
@@ -67,28 +65,47 @@ import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
- * re-stacked 2026-08-02; REDESIGNED 2026-08-03).
+ * re-stacked 2026-08-02; REDESIGNED 2026-08-03; PREMIUM PASS 2026-08-03).
  *
- * The page answers three questions in two seconds, in this order:
- *   WHO AM I      the Evo Rating, then the champion standing under it
- *   WHY CARE      NEXT RANK — the name the rating is about to become
- *   WHAT NEXT     TODAY'S MISSION, the one dominant CTA
- * and then THIS WEEK, which is the promise the athlete made to themselves.
- * Everything that reads rather than acts — the evolution path, the weekly
- * numbers, the PR, the next form, the radar, the leaderboard — lives below
- * the fold in BelowFold, mounted after the first paint. Nothing was deleted.
+ * The page answers three questions in two seconds, and it now does it in
+ * THREE sections instead of five:
+ *   WHO AM I / WHY CARE   the Evo Rating crest — the number, what it means
+ *                         ("OVERALL FITNESS SCORE"), the rank it is about to
+ *                         become — and the champion standing under it
+ *   WHAT NEXT             TODAY'S MISSION, the one dominant CTA
+ * and then THIS WEEK, the promise the athlete made to themselves. Everything
+ * that reads rather than acts — the evolution path, the weekly numbers, the
+ * PR, the next form, the radar, the leaderboard — lives below the fold in
+ * BelowFold, mounted after the first paint. Nothing was deleted.
  *
- * THE ORDER REVERSED ON 2026-08-03. Between 2026-08-02 and this commit the
+ * WHAT THE PREMIUM PASS MERGED, AND WHY IT IS NOT SIMPLY "LESS":
+ *   - NEXT RANK stopped being its own card and became the crest's bottom rail
+ *     (next-rank-card.tsx). Two purple modules about ONE number meant neither
+ *     could be the page's answer to "who am I".
+ *   - THE FORGE HINT stopped being a line under the masthead and became the
+ *     plaque on the champion's podium (forge-hint.tsx), which is where the tap
+ *     it describes actually happens — and it took the CURRENT FORM chip with
+ *     it, so the champion's left flank is now deliberately empty.
+ *   - The masthead gave up its glow. Prestige is a contrast relationship: the
+ *     rating cannot be the loudest thing on the page while a glowing wordmark
+ *     sits above it.
+ * Those three bought ~78pt of fold, which paid for a 15% bigger numeral, the
+ * subtitle that stops the page assuming, and an 8% bigger champion — and the
+ * CTA still clears the PHONE's fold (paddingTop 47 + an 88pt tab bar) with
+ * more room than it had before.
+ *
+ * THE ORDER REVERSED ON 2026-08-03. Between 2026-08-02 and that commit the
  * mission led the page, because the old hero rig (a 192pt champion inside a
  * 450pt stage) could not fit above it. That constraint is gone rather than
  * ignored: home-scale.ts sizes the champion to the viewport and HeroStage
- * takes a `headroom` multiplier, so the whole rig is ~205pt on the phones
- * that matter and the mission card still lands on the first screen — with
- * the character, the rating and the next rank above it. If a future change
- * pushes START MISSION off the fold again, shrink the rig; do not re-order.
+ * takes a `headroom` multiplier. If a future change pushes START MISSION off
+ * the fold again, shrink the rig; do not re-order.
  *
  * Every value is real state; systems without backends are hidden by
- * home-features / progressionFeatures, never mocked.
+ * home-features / progressionFeatures, never mocked. In particular there is
+ * no per-workout Evo grant on the mission card and there cannot be one — see
+ * domain/progression/session-evidence.ts for the arithmetic reason and for
+ * what the card says instead.
  *
  * The mission card computes its ingredients EXACTLY the way the Train hub
  * does (same source resolution, same setsFor predicate, same estimates), so
@@ -287,18 +304,19 @@ export function HomeBaseline() {
         xpNeeded={forgeProgress.xpForNextLevel}
       />
 
-      {/* 2. THE IDENTITY BLOCK — the forge hint, the Evo Rating and the
-          champion are ONE thing on the page, so they are one slot in the
-          shell's gap stack and set their own tighter internal rhythm. Three
-          separate slots spent 24pt of the fold on air between parts of the
-          same sentence. */}
+      {/* 2. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
+          thing on the page, so they are one slot in the shell's gap stack and
+          set their own tighter internal rhythm. Separate slots spent 24pt of
+          the fold on air between parts of the same sentence.
+          The forge hint left this block on 2026-08-03: it is the plaque on the
+          champion's podium now (ui/home/forge-hint.tsx), which costs no
+          vertical budget and teaches the tap where the tap happens. */}
       <View className="w-full items-center">
-        {originUnset ? null : <ForgeHint />}
         {/* zIndex, for the same reason HomeHeader carries one: the champion's
             rig is taller than its own box and reaches up under whatever sits
             above it. AvatarStage's sprite is pointerEvents:none now, and this
             is the belt to that brace — the rating's doors must win. */}
-        <View className="mt-s1 w-full items-center" style={{ zIndex: 1 }}>
+        <View className="w-full items-center" style={{ zIndex: 1 }}>
           <EvoHero suppressEmptyState={originUnset} />
         </View>
         {/* 10pt, not 0: at HOME_ART_SCALE the champion's head reaches ABOVE
@@ -322,12 +340,11 @@ export function HomeBaseline() {
         </View>
       </View>
 
-      {/* 3. NEXT RANK — the anticipation, in ~70pt. Self-hides until a
-          review has run. */}
-      <NextRankCard />
-
-      {/* 4. TODAY'S MISSION — the one dominant CTA on the page, and the
-          reason the page exists. */}
+      {/* 3. TODAY'S MISSION — the one dominant CTA on the page, and the
+          reason the page exists.
+          NEXT RANK used to sit here as its own card. It is the bottom rail of
+          the Evo crest now (ui/home/next-rank-card.tsx): one purple identity
+          block instead of two competing ones, and ~58pt of fold back. */}
       <MissionCard
         mission={mission}
         title={missionName.title}
@@ -343,7 +360,7 @@ export function HomeBaseline() {
         features={homeFeatures}
       />
 
-      {/* 5. THIS WEEK — seven days and a streak, nothing else. */}
+      {/* 4. THIS WEEK — seven days and a streak, nothing else. */}
       <WeekStrip
         pips={contract.pips}
         todayIso={todayIso}

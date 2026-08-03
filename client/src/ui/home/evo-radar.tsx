@@ -35,7 +35,7 @@ const HORIZONS = [8, 12, 16] as const;
 // Same axis order as EvoCore's PILLAR_ROWS so the two read as one system.
 const AXES: readonly (readonly [key: keyof PillarScores, label: string])[] = [
   ['size', 'SIZE'],
-  ['aesthetics', 'AES'],
+  ['aesthetics', 'PHYS'],
   ['strength', 'STR'],
   ['cardio', 'CARDIO'],
 ];

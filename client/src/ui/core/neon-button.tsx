@@ -3,20 +3,33 @@
    that .value writes are UI-thread animation state, not render state. */
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { playPress, playSelect } from '@/ui/core/sound';
 import { PIXEL_BOLD } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { useAmbient } from '@/ui/core/use-ambient';
 
 type Variant = 'primary' | 'ghost' | 'danger' | 'epic';
 
 /**
  * The one button. Gradient fill (primary), thin neon outline (ghost),
- * press = scale 0.97 + glow bloom + a light haptic tick on native.
- * Disabled reads quiet, never broken.
+ * press = scale 0.97 + a 1px sink + glow bloom + a light haptic tick on
+ * native. Disabled reads quiet, never broken.
+ *
+ * THE 1PX SINK (2026-08-03) is what the brief calls "press depth": the scale
+ * alone read as the button shrinking, and shrink-plus-sink reads as the button
+ * being physically pushed into the page. It is a composited transform on a
+ * node that already animates, so it costs nothing.
  */
 export function NeonButton({
   title,
@@ -29,6 +42,7 @@ export function NeonButton({
   pixel = true,
   testID,
   size = 'base',
+  sweep = false,
 }: {
   title: string;
   onPress: () => void;
@@ -46,13 +60,21 @@ export function NeonButton({
   /** TRAIN_OVERHAUL `hero`: the page's ONE dominant action — taller, bigger
    *  label, stronger glow. Everything else keeps `base`. */
   size?: 'base' | 'hero';
+  /** A slow light sweep across the fill — reserved for a screen's single
+   *  most important action (Home's START MISSION). It is an AMBIENT LOOP, so
+   *  it only renders inside a navigator screen: `ButtonSweep` calls
+   *  useAmbient, and useIsFocused throws in a root-level overlay. Never pass
+   *  it from something mounted outside the navigator (LevelUpOverlay et al). */
+  sweep?: boolean;
 }) {
   const colors = useThemeColors();
   const hero = size === 'hero';
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    // The sink is derived from the SAME press value as the scale, so the two
+    // can never disagree about whether the button is down.
+    transform: [{ scale: scale.value }, { translateY: (1 - scale.value) * 40 }],
     shadowOpacity: 0.2 + glow.value * 0.45,
   }));
 
@@ -125,8 +147,11 @@ export function NeonButton({
           flexDirection: 'row',
           justifyContent: 'center',
           gap: 8,
+          // Clips the sweep to the button's own corners.
+          overflow: 'hidden',
         }}
       >
+        {sweep && !disabled && !busy ? <ButtonSweep /> : null}
         {busy ? <ActivityIndicator color={palette.text} /> : icon}
         {!busy ? (
           <Text
@@ -173,6 +198,56 @@ export function NeonButton({
       >
         {inner}
       </Pressable>
+    </Animated.View>
+  );
+}
+
+/**
+ * THE HERO SWEEP — a highlight that crosses the fill once every 4.2 seconds,
+ * occupying only the first 30% of the loop so it reads as "the button catches
+ * the light" rather than a barber's pole. It exists to make one action on a
+ * screen impossible to miss without shouting; if two buttons wear it, neither
+ * is dominant and it should be removed from both.
+ *
+ * Rendered only when `sweep` is set, which is what keeps `useAmbient` legal:
+ * an unfocused tab, reduced motion or perf mode all hold it still, and a
+ * button outside a navigator never mounts this at all.
+ */
+function ButtonSweep() {
+  const ambient = useAmbient();
+  const t = useSharedValue(0);
+
+  useEffect(() => {
+    if (!ambient) {
+      t.value = 0;
+      return;
+    }
+    t.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.linear }), -1);
+  }, [ambient, t]);
+
+  const style = useAnimatedStyle(() => {
+    const p = t.value / 0.3;
+    if (p > 1) return { opacity: 0, transform: [{ translateX: -140 }] };
+    return {
+      opacity: Math.sin(p * Math.PI) * 0.85,
+      // -140 → +140% of a phone-width button: it enters and fully leaves.
+      transform: [{ translateX: -140 + p * 420 }],
+    };
+  });
+
+  if (!ambient) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 120 }, style]}
+    >
+      <LinearGradient
+        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.28)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{ flex: 1 }}
+      />
     </Animated.View>
   );
 }

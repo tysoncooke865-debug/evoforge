@@ -100,7 +100,7 @@ export function BodyfatScanCard() {
     <GlowCard glow={state === 'complete' ? colors.success : colors.accent}>
       <SectionLabel size='lg'>AI BODY FAT ESTIMATE</SectionLabel>
       <Text className="mb-s3 text-2xs text-text-mute">
-        Front and back photos in similar conditions. Optional — it sharpens your Size and Aesthetics
+        Front and back photos in similar conditions. Optional — it sharpens your Size and Physique
         evidence.
       </Text>
       <BodyScanner

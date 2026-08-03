@@ -28,6 +28,13 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { DividerGlow, EdgeLabel } from '@/ui/core/hud';
 
@@ -46,6 +53,8 @@ export function BelowFold({
   placeholderHeight?: number;
 }) {
   const [ready, setReady] = useState(false);
+  const reduced = useReducedMotion();
+  const enter = useSharedValue(0);
 
   useEffect(() => {
     const w = globalThis as IdleGlobal;
@@ -57,6 +66,17 @@ export function BelowFold({
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!ready) return;
+    enter.value = reduced ? 1 : withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) });
+  }, [ready, reduced, enter]);
+
+  // ANIMATED NODES CARRY INLINE STYLES ONLY (the xp-bar lesson).
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 10 }],
+  }));
+
   return (
     // ONE slot in the shell's gap stack whether or not the content is up yet,
     // so mounting never re-flows the sections above.
@@ -65,7 +85,22 @@ export function BelowFold({
         <DividerGlow />
       </View>
       <EdgeLabel>YOUR PROGRESS</EdgeLabel>
-      {ready ? children : <View style={{ height: placeholderHeight }} testID="below-fold-pending" />}
+      {/* The deferred half fades and rises in ONCE, on mount.
+       *
+       * WHY NOT SCROLL PARALLAX, which the brief asks for: a parallax needs
+       * the ScrollView's live offset, and on web that arrives on the MAIN JS
+       * THREAD as an onScroll event — the exact thread every Reanimated loop
+       * on this screen already shares, on the exact device the "everything
+       * lags" rule came from. A scroll-linked transform there buys a subtle
+       * depth cue and risks the one thing that must never regress: the feel
+       * of the scroll itself. A mount entrance reads as the same depth and
+       * costs a single 340ms one-shot. If native builds ever become the
+       * primary target, revisit this with useAnimatedScrollHandler. */}
+      {ready ? (
+        <Animated.View style={[{ width: '100%', gap: 12 }, enterStyle]}>{children}</Animated.View>
+      ) : (
+        <View style={{ height: placeholderHeight }} testID="below-fold-pending" />
+      )}
     </View>
   );
 }

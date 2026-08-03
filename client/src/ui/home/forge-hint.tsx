@@ -1,84 +1,74 @@
 /**
- * HOME (2026-08-03) — the Forge door hint.
+ * HOME — THE CHAMPION'S NAMEPLATE (rewritten 2026-08-03, premium pass).
  *
- * It used to sit UNDER the champion, where it competed with the podium's own
- * neon and only rendered when the athlete had art. The brief puts it
- * immediately under the masthead and asks for it always visible: it is the
- * one line that teaches the page's central interaction (the champion is a
- * button), and a new athlete has about two seconds to learn it.
+ * WHAT THIS FILE USED TO BE: a full-width breathing line of cyan text sitting
+ * between the masthead and the Evo Rating — "◈ TAP YOUR CHAMPION TO ENTER THE
+ * FORGE ›". Two things were wrong with it, and both are hierarchy problems
+ * rather than styling ones:
  *
- * The breath is the smallest ambient loop in the app — 0.7 to 1.0 opacity
- * over five seconds — and it obeys useAmbient like every other loop, so an
- * unfocused tab, reduced motion or perf mode all hold it still and lit.
+ *   1. It spent the most valuable strip on the page — the one directly under
+ *      the masthead, where the athlete's eye lands first — on an INSTRUCTION.
+ *      That strip belongs to identity. Nothing may compete with the rating
+ *      there.
+ *   2. It taught the interaction from 200pt away from the thing it described.
+ *
+ * WHAT IT IS NOW: a plaque across the podium's front face, carrying the
+ * champion's FORM NAME with the hint beneath it. It costs ZERO vertical
+ * budget (it is an overlay on art that was already there), it teaches the tap
+ * at the exact place the tap happens, and it gives the champion the one thing
+ * a trophy has and a sprite does not — a name on a plate.
+ *
+ * IT ALSO ABSORBED THE "CURRENT FORM" CHIP that floated on the champion's left
+ * flank. That chip was the brief's "THE GRIND card" — audited and judged worth
+ * KEEPING (the form name is real identity and the door to the Forge) but not
+ * worth a floating card competing with the rating. Same words, same door,
+ * integrated with the champion instead of orbiting it, and the left flank is
+ * now empty on purpose. See avatar-hero.tsx.
+ *
+ * Deliberately STILL. The deck below it already carries a rotating ring, a
+ * light sweep and three chasing LEDs; a breathing label on top of that is the
+ * "busy" the brief bans. Prestige is stillness next to motion.
  */
 
-import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { Platform, Pressable, Text } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { Text, View } from 'react-native';
 
+import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { useAmbient } from '@/ui/core/use-ambient';
 
-export function ForgeHint() {
+export function ForgeNameplate({ formName }: { formName: string }) {
   const colors = useThemeColors();
-  const ambient = useAmbient();
-  const breath = useSharedValue(1);
-
-  useEffect(() => {
-    if (!ambient) {
-      breath.value = 1;
-      return;
-    }
-    const ease = Easing.inOut(Easing.quad);
-    breath.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 2500, easing: ease }),
-        withTiming(1, { duration: 2500, easing: ease })
-      ),
-      -1
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ambient]);
-
-  // ANIMATED NODES CARRY INLINE STYLES ONLY (the xp-bar lesson): className
-  // interop drops composed styles on Animated.View on web.
-  const style = useAnimatedStyle(() => ({ opacity: breath.value }));
-
   return (
-    <Pressable
-      onPress={() => {
-        if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push('/avatar' as never);
-      }}
-      accessibilityRole="button"
-      accessibilityLabel="Enter the Forge"
-      testID="hero-forge-hint"
-      style={{ minHeight: 20, justifyContent: 'center', alignSelf: 'center' }}
+    <View
+      pointerEvents="none"
+      testID="hero-form"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}
     >
-      <Animated.View style={style}>
+      <View
+        className="items-center rounded-md border px-s3 py-s1"
+        style={{
+          maxWidth: '86%',
+          borderColor: `${colors.accent}3d`,
+          // Darker than the surrounding fog so the plate reads as machined
+          // metal set INTO the podium, not a chip floating over it.
+          backgroundColor: 'rgba(4,7,14,0.72)',
+        }}
+      >
         <Text
-          allowFontScaling={false}
           numberOfLines={1}
-          style={{
-            fontSize: 10,
-            letterSpacing: 1.6,
-            color: colors.accent,
-            textShadowColor: 'rgba(34,211,238,0.45)',
-            textShadowRadius: 10,
-          }}
+          ellipsizeMode="tail"
+          allowFontScaling={false}
+          style={{ fontSize: 13, letterSpacing: 1.2, color: colors.accent, ...pixelFont() }}
         >
-          ◈ TAP YOUR CHAMPION TO ENTER THE FORGE ›
+          {formName.toUpperCase()}
         </Text>
-      </Animated.View>
-    </Pressable>
+        <Text
+          numberOfLines={1}
+          allowFontScaling={false}
+          style={{ fontSize: 8, letterSpacing: 1.4, color: colors['text-mute'], ...pixelFont(false) }}
+        >
+          TAP TO ENTER THE FORGE ›
+        </Text>
+      </View>
+    </View>
   );
 }

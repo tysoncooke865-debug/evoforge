@@ -45,8 +45,18 @@ export function HomeHeader({
   // adjustsFontSizeToFit does not exist on RN-web — the wordmark's size is
   // a pure width rule so it can never wrap ("EVOFORG / E" is exactly the
   // broken fragment the brief bans). Jersey 25 is condensed; these fit.
+  //
+  // 2026-08-03 PREMIUM PASS — THE WORDMARK WAS DEMOTED, and it is the single
+  // highest-leverage change on the page. It used to render at 30pt with an
+  // 18px cyan bloom, directly above a 62pt purple rating, and the two fought:
+  // "prestige" is a CONTRAST relationship, so the rating cannot be the loudest
+  // thing on the page while a glowing wordmark sits above it. The glow is gone
+  // (the neon policy reserves glow for CTAs, progress fills, rarity, the aura
+  // and unlock moments — a brand name is none of those) and the sizes came
+  // down a step. The name is still the first thing read; it is no longer the
+  // loudest thing seen.
   const { width } = useWindowDimensions();
-  const brandSize = width >= 460 ? 34 : width >= 390 ? 30 : 24;
+  const brandSize = width >= 460 ? 30 : width >= 390 ? 26 : 22;
   return (
     // zIndex: the AvatarHero's oversized pressable (its 450px stage rig)
     // reaches up under this masthead; without the lift, the masthead's taps
@@ -61,8 +71,6 @@ export function HomeHeader({
             fontSize: brandSize,
             lineHeight: brandSize + 6,
             letterSpacing: 0,
-            textShadowColor: 'rgba(34, 211, 238, 0.55)',
-            textShadowRadius: 18,
             ...pixelFont(),
           }}
         >
@@ -104,7 +112,9 @@ export function HomeHeader({
             <Text
               className="text-accent"
               allowFontScaling={false}
-              style={{ fontSize: 18, letterSpacing: 0, textShadowColor: 'rgba(34,211,238,0.5)', textShadowRadius: 10, ...pixelFont() }}
+              // Softened with the wordmark, and for the same reason: two cyan
+              // blooms in the masthead is two things competing with the rating.
+              style={{ fontSize: 18, letterSpacing: 0, textShadowColor: 'rgba(34,211,238,0.35)', textShadowRadius: 6, ...pixelFont() }}
             >
               {level}
             </Text>

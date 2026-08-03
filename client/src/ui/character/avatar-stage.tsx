@@ -92,6 +92,8 @@ export function AvatarStage({
   const breatheY = useSharedValue(1);
   const auraOpacity = useSharedValue(0.42);
   const auraScale = useSharedValue(0.97);
+  /** THE WEIGHT SHIFT (2026-08-03). See the note above `swayStyle`. */
+  const sway = useSharedValue(0);
 
   useEffect(() => {
     if (!animate) {
@@ -100,6 +102,7 @@ export function AvatarStage({
       breatheY.value = 1;
       auraOpacity.value = 0.42;
       auraScale.value = 0.97;
+      sway.value = 0;
       return;
     }
     const ease = Easing.bezier(...(animations.idleFloat.easing as readonly [number, number, number, number]));
@@ -125,15 +128,39 @@ export function AvatarStage({
       withSequence(withTiming(1.06, { duration: auraHalf, easing: ease }), withTiming(0.97, { duration: auraHalf, easing: ease })),
       -1
     );
+    // THE WEIGHT SHIFT (2026-08-03 premium pass). The float and the breath
+    // share one 4600ms period, so before this the champion moved on a single
+    // beat and read as a bobbing sprite rather than a person standing still.
+    // 7300ms is deliberately NOT a multiple of 4600: the two cycles drift in
+    // and out of phase over ~37 seconds and never resync, which is what makes
+    // a two-loop idle read as organic instead of mechanical. One driver, one
+    // linear clock — the lean is derived from it in the worklet below.
+    sway.value = withRepeat(withTiming(1, { duration: 7300, easing: Easing.linear }), -1);
     // The ground shadow is no longer an independent pulse — it is DRIVEN by the
     // float below (groundStyle), so it tightens and lightens as the champion
     // rises and spreads as it lands. A real cast shadow, not a loose loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate]);
 
-  const bodyStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: floatY.value }, { scaleX: breatheX.value }, { scaleY: breatheY.value }],
-  }));
+  /**
+   * The idle: float + breathe + a slow transfer of weight from one leg to the
+   * other. The lean is a ±1.6px slide with a ±0.35° roll on the same phase —
+   * the roll is what sells it, because a body that slides without tilting
+   * reads as a sprite being dragged. Both are composited transforms; neither
+   * touches layout.
+   */
+  const bodyStyle = useAnimatedStyle(() => {
+    const lean = Math.sin(sway.value * Math.PI * 2);
+    return {
+      transform: [
+        { translateY: floatY.value },
+        { translateX: lean * 1.6 },
+        { rotate: `${lean * 0.35}deg` },
+        { scaleX: breatheX.value },
+        { scaleY: breatheY.value },
+      ],
+    };
+  });
   const auraStyle = useAnimatedStyle(() => ({
     opacity: auraOpacity.value,
     transform: [{ scale: auraScale.value }],

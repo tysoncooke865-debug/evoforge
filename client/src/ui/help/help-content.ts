@@ -40,8 +40,9 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'YOUR CHAMPION',
     tagline: 'Home is your character. Everything you do in the gym forges it.',
     sections: [
-      { heading: 'Your Evo Rating', target: ['evo-hero', 'evo-hero-empty'], body: 'This is your overall power level — one number, 1 to 100, from Size, Aesthetics, Strength and Cardio. It is the headline of your character: remember "I am Evo 51", not "I bench 90kg". The card under it names the rank you are heading for and how many Evo points are left to reach it. Tap either to see the full breakdown.' },
-      { heading: 'Your champion evolves', target: ['hero-avatar', 'hero-origin-empty', 'hero-form'], body: 'This is you. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
+      { heading: 'Your Evo Rating', target: ['evo-hero', 'evo-hero-empty'], body: 'This is your overall fitness score — one number, 1 to 100, from Size, Physique, Strength and Cardio. It is the headline of your character: remember "I am Evo 51", not "I bench 90kg". The rail beneath it names the rank you are heading for and how many Evo points are left to reach it. Tap the rating for the full breakdown: every pillar, and exactly what raises each one.' },
+      { heading: 'Your champion evolves', target: ['hero-avatar', 'hero-origin-empty', 'hero-form'], body: 'This is you, standing on your podium with your current form on the plate. As you level and your stats shift, your champion visibly evolves down one of five paths (Titan, Mass, Apex, Aesthetic, Shredded). Tap it to enter the Forge and see the full evolution.' },
+      { heading: 'Your champion’s controls', target: 'hero-controls', body: 'CUSTOMISE opens the champion select and the customiser — skins, palettes and emotes. The coin balance under it opens the Vault, where you can see every coin you have earned and what it came from.' },
       { heading: "Today's mission", target: ['mission-progress', 'mission-start', 'mission-rest-train', 'mission-view'], body: 'This shows the XP waiting in the sets your plan has for today. Clear it to keep your streak and push your level.' },
       { heading: 'Your week', target: 'week-strip', body: 'Seven days, Monday first. A day glows once you have logged a counted set on it, today wears a ring, and the number on the right is your current streak. Rest days never break it.' },
       { heading: 'XP & Level', target: 'home-level-module', body: 'This is your level and the bar toward the next one. Every working set is worth 10 XP; every minute of cardio is worth 2. Levelling up costs 500 + (level − 1) × 25 XP, so each level asks a little more than the last. Level caps at 100.' },
@@ -71,7 +72,7 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'EVO RATING',
     tagline: 'One number for your whole physique — and why a weak spot hurts.',
     sections: [
-      { heading: 'Four weighted pillars', target: 'evo-pillars', body: 'These bars are your rating’s four pillars: Size (30%), Strength (30%), Aesthetics (25%) and Cardio (15%). Each is scored 0–100 from your logged evidence.' },
+      { heading: 'Four weighted pillars', target: 'evo-pillars', body: 'These bars are your rating’s four pillars: Size (30%), Strength (30%), Physique (25%) and Cardio (15%). Each is scored 0–100 from your logged evidence.' },
       { heading: 'Why balance wins', target: 'evo-pillars', body: 'The pillars combine as a weighted GEOMETRIC mean, not an average — so one neglected pillar (your shortest bar here) drags the whole rating down. You cannot rank up by maxing a single quality; well-rounded athletes rate highest.' },
       { heading: 'Confidence', target: 'evo-pillars', body: 'Each pillar carries a confidence that grows as you log more evidence. A high score with low confidence is provisional; keep logging and it firms up. The pillar marked LIMITING is the one holding you back most.' },
       { heading: 'Evolution & peak', target: 'evo-rating-card', body: 'Your displayed rating eases toward your true rating over time, and your peak is remembered — if you slip, RECLAIM YOUR PEAK is the target to chase back.' },
@@ -191,7 +192,7 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'ATHLETE PROFILE',
     tagline: 'Another athlete’s stats, measured against yours.',
     sections: [
-      { heading: 'Evo pillars vs you', target: 'pillar-', body: 'Their Size / Aesthetics / Strength / Cardio pillars show as bars with a "vs you" delta — green where you lead, red where they do — computed on the same scale as your own.' },
+      { heading: 'Evo pillars vs you', target: 'pillar-', body: 'Their Size / Physique / Strength / Cardio pillars show as bars with a "vs you" delta — green where you lead, red where they do — computed on the same scale as your own.' },
       { heading: 'Only what they share', body: 'Stats and lifts appear only if the athlete opted to show them. A private profile you are not friends with shows a locked card with an add path.' },
     ],
   },

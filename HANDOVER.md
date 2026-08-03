@@ -26,6 +26,122 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **HOME — THE PREMIUM PASS (2026-08-03, no migration).** Tyson's second Home
+  brief: refine, do not redesign; make it feel like a AAA mobile game
+  (Supercell / Clash Royale / Diablo, with Duolingo's clarity); make the EVO
+  RATING the product rather than a statistic; make it understandable without
+  documentation; bring the page to life without making it busy.
+
+  **THE HIERARCHY DIAGNOSIS.** The first screen had FOUR elements at roughly
+  equal weight, all glowing: the wordmark (30pt + an 18px cyan bloom), the
+  rating, the NEXT RANK card and the mission CTA. Nothing dominated, so the
+  page had no two-second answer to *who am I*. Three merges fixed it and paid
+  for everything else:
+  - **NEXT RANK became a rail inside the crest** (`next-rank-card.tsx` now
+    exports `NextRankRail`). Two purple modules about ONE number meant neither
+    could be the identity. Same tier name, same countdown, same sub-integer
+    bar, same door — **−58pt**, and the whole crest is one tap target.
+  - **The forge hint became the podium's plaque** (`forge-hint.tsx` now
+    exports `ForgeNameplate`), carrying the CURRENT FORM name with it. That
+    chip was the brief's **"THE GRIND card"** — audited and judged worth
+    keeping (real identity, the only door to the Forge) but not worth a card
+    orbiting the champion. **−20pt**, and it teaches the tap where the tap
+    happens. The champion's left flank is now deliberately empty.
+  - **The masthead gave up its glow.** Prestige is a CONTRAST relationship:
+    the rating cannot be loudest while a glowing wordmark sits above it. The
+    neon policy already reserved glow for CTAs / progress / rarity / aura /
+    unlock moments — a brand name is none of those.
+
+  Spent on: **+15% numeral**, the **"OVERALL FITNESS SCORE"** subtitle, and an
+  **8% bigger champion**. Net result measured on the built export against the
+  PHONE's fold: **START MISSION clears by 29pt at 390×844 (was 15) and 53pt at
+  430×932 (was 44)** — better than before, not worse. 375×667 and 320×720 still
+  cannot fit the hierarchy (they show through the estimates line, which is
+  further down than the old title-line cut).
+
+  **THE EVO RATING IS NOW SELF-EXPLANATORY.** Three new pieces:
+  - `evo-detail.tsx` — tapping the rating opens a SHEET, not a page: the four
+    pillars in plain English with animated bars and their weights, the two
+    ladders (next integer, next rank), the five levers, and a **proven**
+    momentum badge (`+N Evo in 90 days`, a real subtraction over
+    `evo_rating_snapshots`, hidden when there is no gain). `/evo` is one more
+    tap for history and forecasts.
+  - `evo-coach-mark.tsx` — the one-time "⭐ EVO RATING / this is your overall
+    fitness score" card, dismissed forever. It **waits behind** the first-run
+    tutorial AND the home help tour so it can never be the second overlay in a
+    session (three stacked overlays is how athletes learn to dismiss overlays
+    unread).
+  - `evo-burst.tsx` — twelve pixel shards when the rating goes UP, keyed off a
+    real change against a stored per-device baseline. It also pushes an
+    achievement toast, which is what makes the CHAMPION bloom (HeroStage
+    subscribes to the toast store) — the character answers the number.
+
+  **"+0.4 EVO" WAS ASKED FOR AGAIN, AND IS STILL IMPOSSIBLE — but the intent
+  shipped.** `domain/progression/session-evidence.ts` carries the full reason
+  (the rating is RECOMPUTED from the whole evidence base at review time, so a
+  session's delta is path-dependent and unknowable in advance; the
+  `projected_impact_low/high` columns exist and nothing writes them). What the
+  mission card says instead is true and tested: **`◈ BUILDS STRENGTH & SIZE`**
+  — which pillars the session becomes evidence for, read straight off the
+  review's own inputs. The completed card closes the loop with `◈ BANKED AS
+  EVIDENCE FOR YOUR NEXT EVO REVIEW`. 13 new goldens pin the claim.
+
+  **THREE COLOUR MEANINGS, HELD EVERYWHERE.** purple = the Evo Rating and
+  everything about it (including the rank ladder) · cyan = training, action
+  and machinery · gold = CURRENCY, i.e. XP and coins and nothing else. This is
+  why the rank rail is purple (it was briefly gold and disagreed with itself),
+  why the mission's XP pill went gold, and why `RUN FIRST EVO REVIEW` is now
+  `epic` — as a cyan gradient it was pixel-for-pixel the same button as START
+  MISSION one section below, so a rating-less athlete met two identical
+  dominant CTAs.
+
+  **MOTION: PAY PER DRIVER, NOT PER EFFECT.** On web every Reanimated loop runs
+  on the main JS thread, so the count that matters is animation DRIVERS. Home
+  went from 13 to 11 while gaining far more life:
+  - `particle-layer.tsx` — 6 drivers → **1** (phases folded into the worklets),
+    and the motes are square now: it is a pixel game.
+  - `platform-tech.tsx` (new) — **1** driver for the rotating deck ring, the
+    light sweep, three chasing rim LEDs and an occasional spark.
+  - `evo-hero.tsx` — **1** driver for the breathing bloom and the crest sweep.
+  - `avatar-stage.tsx` — a weight shift on a **7300ms** clock, deliberately not
+    a multiple of the 4600ms float, so the two drift in and out of phase over
+    ~37s and the idle never reads as mechanical.
+  - `neon-button.tsx` — `sweep` (hero CTAs only) + a 1px press SINK derived
+    from the same shared value as the scale.
+  - `week-strip.tsx` — one one-shot pops the completed days in on mount (the
+    day flips on the workout screen, so this mount IS the completion moment)
+    and one ambient pulse rings TODAY.
+  - Coin balance shines once every 24s. Every loop rides `useAmbient`;
+    `verify-motion` reports **20 looping components, all 20 gated**, and the
+    guard was falsified against the new podium layer (gate removed → red →
+    restored → green).
+
+  **SCROLL PARALLAX WAS DELIBERATELY NOT BUILT.** It needs the ScrollView's
+  live offset, which on web arrives on the same main JS thread every loop
+  already shares — on the exact device the "everything lags" rule came from.
+  `below-fold.tsx` does a 340ms mount entrance instead, which reads as the same
+  depth for one one-shot. Revisit only if native builds become primary.
+
+  **"Aesthetics" is now "PHYSIQUE" in every DISPLAY string** (Home sheet,
+  `/evo`, the radar, help, the Oracle cards, the origin reveal). The stored
+  column keeps its name; the word an athlete reads does not, because a pillar
+  must never be two names in two places.
+
+  **Found by the browser tour, invisible to tsc and lint:** the week pips
+  rendered as SQUARES because `className="rounded-pill"` on an `Animated.View`
+  is dropped by the NativeWind interop (the xp-bar lesson, §3) — and the podium
+  ring was drawn in the champion's rarity colour, which for a COMMON athlete is
+  a grey stroke at 0.2 opacity on a purple disc, i.e. nothing. Both fixed;
+  neither was findable without looking at a real build.
+
+  Verified: tsc, cold lint (0 errors), 1806 vitest, verify-tokens,
+  verify-motion (falsified), verify-battle-engine, verify-glicko,
+  `expo export -p web`, and a Playwright tour at 390×844 / 430×932 / 375×667 /
+  320×720 covering the with-Origin and no-Origin states, reduced motion (every
+  section present, nothing stuck at opacity 0), the no-rating DISCOVER state,
+  the coach mark, the Evo sheet, and the tap-theft regression (a press over the
+  rating still lands on the rating, not on the champion's overflowing sprite).
+
 - **HOME REDESIGNED AS A GAME HOME SCREEN (2026-08-03, no migration).**
   Tyson's brief: the page must answer *who am I / what do I do next / why
   care* in two seconds, with ONE focal point — the champion — and feel like
@@ -2724,6 +2840,19 @@ Every one of these was a live bug. Do not relearn them.
   `(main)/_layout.tsx`'s route warmer and `ui/home/below-fold.tsx` do. The
   timeout is not optional on web: a page booted in a hidden tab is never given
   an idle slot at all.
+- **`className` on an `Animated.View` is DROPPED on web.** The NativeWind
+  interop does not compose class styles onto Reanimated nodes, so
+  `className="rounded-pill items-center justify-center"` on an animated pip
+  silently rendered SEVEN SQUARE DAYS on Home's week strip — green in tsc,
+  green in lint, wrong in the browser. **Animated nodes carry inline styles
+  only.** (Known since the xp-bar; it bit again the moment a static View was
+  made animated. When you animate an existing node, move its classes inline in
+  the same edit.)
+- **A decorative colour that is DERIVED can evaluate to invisible.** The
+  podium's tech ring was drawn in `auraColour`, which for a COMMON athlete is
+  `#94a3b8` — a grey stroke at 0.2 opacity on a purple-lit disc, i.e. nothing
+  at all. Tune opacity against the REAL art and the WORST-CASE colour the prop
+  can take, not against the one the design was mocked in.
 - **An overflowing box still eats taps.** A child drawn larger than its parent
   (Home's champion at `artScale`, whose sprite frame reaches ~48pt above the rig)
   is invisible up there but fully hit-testable, and it silently stole every tap

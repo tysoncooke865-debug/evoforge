@@ -1,25 +1,31 @@
 /**
- * HOME §3 (2026-08-03) — NEXT RANK.
+ * HOME §1a — NEXT RANK, as a rail inside the Evo crest.
  *
- * One compact horizontal card between the champion and the mission, and the
- * only place on Home that answers "why should I care": the rating is a
- * number, this is the NAME it is about to become. It creates the pull
- * without spending vertical budget — ~70pt, no button, one tap target.
+ * It shipped on 2026-08-03 as a standalone card between the champion and the
+ * mission. The PREMIUM PASS the same day merged it INTO the rating block, and
+ * the reason is hierarchy, not space (though it bought ~58pt of fold, which is
+ * what paid for the bigger numeral and its subtitle):
+ *
+ *   The card was a second purple module, with its own 20pt tier name, its own
+ *   40pt badge and its own tap target, sitting one section below a purple
+ *   rating with the same accent. Two modules about ONE number is exactly the
+ *   duplicate the brief asks to merge — and while both were on screen neither
+ *   could be the page's single answer to "who am I".
+ *
+ * Nothing was lost. The tier name, the countdown, the sub-integer bar and the
+ * door to /evo all survive; they are now the bottom line of the crest, which
+ * is where the sentence they finish begins. `testID="next-rank-card"` is kept
+ * on the rail so existing tours and help targeting still find it.
  *
  * Every value is real: the ladder is EVO_RATING_TIERS (the same descriptors
- * /evo and the leaderboard use) and the position between tiers comes from
- * the review's own `evolution_progress` hundredths, so "4 EVO TO GO" is
- * arithmetic on the athlete's actual rating, not a motivational number.
- *
- * Self-hides when the progression flag is off or no review has run — the
- * EVO HERO above owns that empty state, and two invitations to run the same
- * review is one too many.
+ * /evo and the leaderboard use) and the position between tiers comes from the
+ * review's own `evolution_progress` hundredths, so "4 EVO TO GO" is arithmetic
+ * on the athlete's actual rating, not a motivational number.
  */
 
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -27,103 +33,59 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Path, Polygon } from 'react-native-svg';
 
-import { progressionFeatures } from '@/data/progression/features';
-import { useEvoRatingCurrent } from '@/data/progression/use-evo-rating';
 import { evoTierStanding } from '@/domain/progression/evo-rating';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { useAmbient } from '@/ui/core/use-ambient';
 
-import { DECORATIVE } from './evo-emblem';
-
-export function NextRankCard() {
+/**
+ * The rail. Renders NOTHING of its own chrome — no border, no background, no
+ * press handler: it is drawn inside the crest's own Pressable, so the whole
+ * identity block is one tap target instead of two.
+ */
+export function NextRankRail({
+  rating,
+  evolutionProgress,
+}: {
+  rating: number;
+  /** The review's stored hundredths toward the next integer. */
+  evolutionProgress: number;
+}) {
   const colors = useThemeColors();
-  const current = useEvoRatingCurrent();
-
-  if (!progressionFeatures.newProgressionEnabled) return null;
-  if (current.isPending) return null;
-  const row = current.data as Record<string, unknown> | null;
-  if (!row) return null;
-
-  const rating = Number(row.displayed_rating ?? 1);
-  const standing = evoTierStanding(rating, Number(row.evolution_progress ?? 0));
+  const standing = evoTierStanding(rating, evolutionProgress);
   const maxed = standing.nextTier === null;
 
   return (
-    <Pressable
-      onPress={() => router.push('/evo' as never)}
-      accessibilityRole="button"
-      accessibilityLabel={
-        maxed
-          ? `You have reached ${standing.tier}, the top of the Evo ladder. Opens the Evo Rating page.`
-          : `You are ${standing.evoToGo} Evo away from ${standing.nextTier}. Opens the Evo Rating page.`
-      }
-      testID="next-rank-card"
-      className="w-full flex-row items-center rounded-xl border px-s3 py-s2"
-      style={{
-        gap: 12,
-        borderColor: `${colors.epic}3d`,
-        backgroundColor: 'rgba(13,21,36,0.62)',
-        shadowColor: colors.epic,
-        shadowOpacity: 0.18,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 4,
-      }}
-    >
-      <RankCrest colour={colors.epic} />
-
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          className="text-text-mute"
-          numberOfLines={1}
-          allowFontScaling={false}
-          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
-        >
-          {maxed ? 'YOU HAVE REACHED THE SUMMIT' : `YOU'RE ${standing.evoToGo} EVO AWAY FROM`}
-        </Text>
+    <View className="w-full" testID="next-rank-card">
+      <View className="mb-s1 flex-row items-end justify-between" style={{ gap: 8 }}>
         <Text
           numberOfLines={1}
           allowFontScaling={false}
           style={{
-            fontSize: 20,
-            lineHeight: 22,
-            letterSpacing: 0,
-            color: colors.epic,
-            textShadowColor: 'rgba(168,85,247,0.45)',
-            textShadowRadius: 10,
-            ...pixelFont(),
+            flex: 1,
+            fontSize: 10,
+            letterSpacing: 1.4,
+            color: colors['text-dim'],
+            ...pixelFont(false),
           }}
         >
-          {(maxed ? standing.tier : standing.nextTier ?? '').toUpperCase()}
-        </Text>
-        <ProgressBar value={standing.progress} colour={colors.epic} track={colors['surface-3']} />
-      </View>
-
-      <View className="items-center" style={{ width: 56 }}>
-        <View
-          className="items-center justify-center rounded-pill border"
-          style={{ width: 40, height: 40, borderColor: `${colors.epic}66`, backgroundColor: 'rgba(168,85,247,0.1)' }}
-        >
-          <Text
-            allowFontScaling={false}
-            style={{ fontSize: maxed ? 14 : 18, letterSpacing: 0, color: colors.text, ...pixelFont() }}
-          >
-            {maxed ? 'MAX' : standing.evoToGo}
+          {maxed ? 'THE SUMMIT' : 'NEXT RANK'}
+          <Text style={{ color: colors.epic }}>
+            {`  ·  ${(maxed ? standing.tier : standing.nextTier ?? '').toUpperCase()}`}
           </Text>
-        </View>
+        </Text>
         <Text
-          className="mt-s1 text-center text-text-mute"
           numberOfLines={1}
           allowFontScaling={false}
-          style={{ fontSize: 8, letterSpacing: 0.5, ...pixelFont(false) }}
+          testID="next-rank-togo"
+          style={{ fontSize: 12, letterSpacing: 0.5, color: colors.epic, ...pixelFont() }}
         >
-          {maxed ? 'EVO RANK' : 'EVO TO GO'}
+          {maxed ? 'MAX' : `${standing.evoToGo} TO GO`}
         </Text>
       </View>
-    </Pressable>
+      <ProgressBar value={standing.progress} colour={colors.epic} track={colors['surface-3']} />
+    </View>
   );
 }
 
@@ -159,10 +121,7 @@ function ProgressBar({ value, colour, track }: { value: number; colour: string; 
   });
 
   return (
-    <View
-      className="mt-s2 w-full overflow-hidden rounded-pill"
-      style={{ height: 6, backgroundColor: track }}
-    >
+    <View className="w-full overflow-hidden rounded-pill" style={{ height: 6, backgroundColor: track }}>
       <View
         onLayout={(e) => setFillW(Math.round(e.nativeEvent.layout.width))}
         className="overflow-hidden rounded-pill"
@@ -185,31 +144,6 @@ function ProgressBar({ value, colour, track }: { value: number; colour: string; 
           />
         </Animated.View>
       </View>
-    </View>
-  );
-}
-
-/** The rank sigil: a shield, a star, a pair of chevrons. Geometry, not an
- *  asset — it tints to whatever accent the card is drawn in. */
-function RankCrest({ colour }: { colour: string }) {
-  return (
-    <View style={{ width: 34, height: 38 }} {...DECORATIVE}>
-    <Svg width={34} height={38} viewBox="0 0 40 44">
-      <Polygon
-        points="20,2 37,10 37,26 20,42 3,26 3,10"
-        fill={colour}
-        fillOpacity={0.13}
-        stroke={colour}
-        strokeOpacity={0.55}
-        strokeWidth={1.4}
-      />
-      <Polygon
-        points="20,11.5 21.9,16.4 27.1,16.7 23,20 24.4,25.1 20,22.2 15.6,25.1 17,20 12.9,16.7 18.1,16.4"
-        fill={colour}
-        fillOpacity={0.85}
-      />
-      <Path d="M 10 31 L 20 36 L 30 31" stroke={colour} strokeOpacity={0.5} strokeWidth={1.6} fill="none" />
-    </Svg>
     </View>
   );
 }

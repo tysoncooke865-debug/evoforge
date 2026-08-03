@@ -11,7 +11,7 @@ import { GlowCard } from '@/ui/core/shell';
 
 /**
  * ORACLE_REDESIGN — YOUR CHAMPION EVOLUTION. The honest tie between a scan and
- * progression: a physique verdict is EVIDENCE that re-derives the Aesthetics
+ * progression: a physique verdict is EVIDENCE that re-derives the Physique
  * and Size pillars at the next scheduled Evo Review — it does not mint a
  * rating on the spot, and this card never pretends it does. It shows the REAL
  * current rating + those two pillars + when the evidence applies.
@@ -42,7 +42,7 @@ export function EvolutionImpactCard() {
           </Text>
           <Text className="mt-s2 text-sm text-text-dim">
             Run your first Evo Review to see how each Oracle scan shapes your champion&apos;s
-            Aesthetics and Size. ›
+            Physique and Size. ›
           </Text>
         </GlowCard>
       </Pressable>
@@ -63,7 +63,7 @@ export function EvolutionImpactCard() {
     <Pressable
       onPress={() => router.push('/evo' as never)}
       accessibilityRole="button"
-      accessibilityLabel={`Evo Rating ${rating}, ${descriptor}. This scan feeds Aesthetics and Size. Opens the Evo Rating page.`}
+      accessibilityLabel={`Evo Rating ${rating}, ${descriptor}. This scan feeds Physique and Size. Opens the Evo Rating page.`}
       testID="evo-impact"
     >
       <GlowCard glow={colors.epic}>
@@ -107,7 +107,7 @@ export function EvolutionImpactCard() {
         </View>
 
         <Text className="mt-s3 text-2xs text-text-dim">
-          This verdict updates your Aesthetics and Size evidence.{' '}
+          This verdict updates your Physique and Size evidence.{' '}
           {reviewDue
             ? 'Your Evo Review is ready now ›'
             : daysToReview !== null

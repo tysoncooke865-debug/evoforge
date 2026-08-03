@@ -85,7 +85,11 @@ const PILLARS: readonly (readonly [
   colour: 'epic' | 'mythic' | 'accent' | 'rare',
 ])[] = [
   ['size_score', 'size_confidence', 'SIZE', 'Size', 'epic'],
-  ['aesthetics_score', 'aesthetics_confidence', 'AES', 'Aesthetics', 'mythic'],
+  // PHYSIQUE, not "Aesthetics" (2026-08-03). The stored column keeps its name;
+  // the DISPLAY word does not, because "Aesthetics" is jargon to somebody who
+  // only wants to know why their rating is 51. Home's Evo sheet uses the same
+  // word for the same pillar — a pillar must never be two names in two places.
+  ['aesthetics_score', 'aesthetics_confidence', 'PHYS', 'Physique', 'mythic'],
   ['strength_score', 'strength_confidence', 'STR', 'Strength', 'accent'],
   ['cardio_score', 'cardio_confidence', 'CARDIO', 'Cardio', 'rare'],
 ];

@@ -17,16 +17,24 @@ import { durations } from '@/theme/animations';
 
 import { AvatarStage } from './avatar-stage';
 import { ParticleLayer } from './particle-layer';
+import { PlatformTech } from './platform-tech';
 
 /**
  * The character stage: not a card — a place. Layers, back to front:
- * spotlight radial · fog · holographic platform (SVG ellipses) · particles ·
- * the living AvatarStage (float/breathe/aura/ground) · floor reflection.
+ * spotlight radial · particles · the podium art · its deck light pool · the
+ * podium's LIVE tech layer · the living AvatarStage (float/breathe/sway/aura/
+ * ground) · rising fog.
  *
  * REACTIVE: subscribes to the toast store and blooms the stage light whenever
  * an XP or achievement toast lands — the character visibly responds to every
  * real grant. No fake events: the bloom keys off the same store the real
- * reward pipeline feeds.
+ * reward pipeline feeds, which is also how the Evo Rating going up makes the
+ * champion light up (evo-hero.tsx pushes an achievement toast).
+ *
+ * 2026-08-03 PREMIUM PASS: `platform-tech.tsx` draws the rotating ring, the
+ * deck sweep, the rim LEDs and the occasional spark on top of the podium art.
+ * It is one animation driver for all four, gated by useAmbient, and it sits
+ * UNDER the champion so the athlete is always the thing in front.
  */
 export function HeroStage({
   branch,
@@ -140,6 +148,11 @@ export function HeroStage({
           <Ellipse cx="50%" cy="50%" rx="49%" ry="40%" fill="url(#deckpool)" />
         </Svg>
       </View>
+
+      {/* THE DECK'S LIVE PARTS — rotating ring, light sweep, rim LEDs, the
+          occasional spark. Drawn over the podium art and under the champion,
+          so the platform reads as machinery the athlete is standing ON. */}
+      <PlatformTech podiumWidth={podiumW} />
 
       {/* The living character, feet on the deck (float/breathe/aura inside). */}
       <View style={{ zIndex: 2, marginBottom: Math.round(podiumH * 0.58) }}>

@@ -3,11 +3,11 @@
  *
  * The redesign asks four things to share one screen: the Evo Rating (big
  * enough to become the athlete's identity), the champion (the visual reward),
- * the next-rank card, and a START button that cannot be ignored. On a
- * 390x844 phone the content viewport is only ~709pt once the safe area and
- * the 54+inset tab bar are gone, so those four have a REAL budget and the
- * old constants (a 192pt champion inside a 360pt rig) spent all of it on the
- * rig alone.
+ * the rank rail, and a START button that cannot be ignored. On a 390x844
+ * phone the content viewport is only ~709pt once the safe area and the
+ * 54+inset tab bar are gone, so those four have a REAL budget and the old
+ * constants (a 192pt champion inside a 360pt rig) spent all of it on the rig
+ * alone.
  *
  * So the rig scales with the viewport instead of being a constant. Four
  * tiers, and the numbers are MEASURED, not guessed — the tour in
@@ -26,6 +26,22 @@
  * Width is a second ceiling: HeroStage draws its podium at 1.5x the champion
  * size, so a narrow screen clamps the champion rather than letting the disc
  * run under the page padding.
+ *
+ * ---- PREMIUM PASS (2026-08-03, second brief) ----
+ *
+ * Two structural merges bought the budget this pass spends, so the CTA still
+ * clears the phone's fold with MORE room than before, not less:
+ *
+ *   −58pt  NEXT RANK stopped being a card and became a rail inside the Evo
+ *          crest (one purple identity block instead of two).
+ *   −20pt  the forge hint stopped owning a slot and became an overlay on the
+ *          podium's front face, where it costs nothing vertically.
+ *   +9pt   the rating numeral grew ~15% (the brief's ask: the rating IS the
+ *          product, so it must out-weigh everything else on the page).
+ *   +16pt  the "OVERALL FITNESS SCORE" subtitle — the one line that stops the
+ *          page assuming the athlete already knows what the number means.
+ *   +8%    the champion, because the brief asks for MORE emotional emphasis
+ *          on it and the merges finally paid for it.
  */
 
 import { useWindowDimensions } from 'react-native';
@@ -42,6 +58,9 @@ export interface HomeScale {
   headroom: number;
   /** The Evo Rating numeral — the single loudest thing on the page. */
   rating: number;
+  /** "OVERALL FITNESS SCORE" under the numeral. Small on purpose: it is a
+   *  gloss on the number, never a competitor to it. */
+  ratingSub: number;
   /** The mission card's workout name. */
   missionTitle: number;
   /** Vertical rhythm inside the identity block (label -> number -> tier). */
@@ -49,10 +68,10 @@ export interface HomeScale {
 }
 
 const TIERS: Record<HomeSizeTier, Omit<HomeScale, 'tier'>> = {
-  compact: { champion: 94, headroom: 0.08, rating: 48, missionTitle: 19, heroGap: 2 },
-  regular: { champion: 106, headroom: 0.08, rating: 56, missionTitle: 21, heroGap: 3 },
-  tall: { champion: 116, headroom: 0.08, rating: 62, missionTitle: 23, heroGap: 4 },
-  xl: { champion: 140, headroom: 0.08, rating: 74, missionTitle: 25, heroGap: 6 },
+  compact: { champion: 100, headroom: 0.08, rating: 55, ratingSub: 8.5, missionTitle: 19, heroGap: 2 },
+  regular: { champion: 114, headroom: 0.08, rating: 64, ratingSub: 9, missionTitle: 21, heroGap: 3 },
+  tall: { champion: 126, headroom: 0.08, rating: 71, ratingSub: 9.5, missionTitle: 23, heroGap: 4 },
+  xl: { champion: 152, headroom: 0.08, rating: 85, ratingSub: 11, missionTitle: 25, heroGap: 6 },
 };
 
 /**
