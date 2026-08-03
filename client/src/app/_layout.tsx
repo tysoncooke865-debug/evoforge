@@ -13,6 +13,7 @@ import { initNavFreezeBeacon, initSceneJanitor, initVersionGuard } from '@/data/
 import { runningBuildId } from '@/domain/build-id';
 import { PIXEL_FONTS } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { Telemetry } from '@/ui/core/telemetry';
 import { ThemeRoot } from '@/ui/core/theme-root';
 import { ToastHost } from '@/ui/core/toast-host';
 
@@ -119,6 +120,10 @@ export default function RootLayout() {
               themed background); its View replaces the old hardcoded #070b14
               wrapper. ToastHost rides inside so toasts theme too. */}
           <ThemeRoot>
+            {/* Product telemetry for the WHOLE app, not just the tabs. Mounted
+                inside (main) it never saw /onboarding at all — see
+                ui/core/telemetry.tsx. Renders nothing. */}
+            <Telemetry />
             <ThemedStack />
             <ToastHost />
           </ThemeRoot>

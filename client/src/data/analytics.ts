@@ -35,6 +35,41 @@ export function track(eventName: string, props: Record<string, unknown> = {}): v
 }
 
 /**
+ * The one event name for "something broke in front of an athlete".
+ *
+ * WHY IT EXISTS. Failures were visible to the person and to nobody else: the
+ * XP-grant failure in mutations.ts raised a toast and stopped there, so a
+ * ledger falling behind for every athlete on a bad deploy looked, in the data,
+ * exactly like a good day. There is no crash reporter in this build (Sentry is
+ * deferred to native — HANDOVER §7), and "we will notice" is not monitoring.
+ *
+ * `area` IS THE PRIMARY KEY OF THE ALERT, not the message. It is a short stable
+ * slug chosen at the call site ('xp_grant', 'route_crash'), so the same failure
+ * groups across builds even when its wording changes. Free-text messages are
+ * what make an error dashboard unqueryable.
+ *
+ * PRIVACY, per this file's contract: the reason is a CATEGORY-ISH STRING, never
+ * a payload. It is truncated hard, and anything shaped like a uuid or an email
+ * is redacted before it leaves the device — error text is the classic accidental
+ * carrier of both (a failed insert loves to quote the row it refused).
+ */
+export function errorReason(e: unknown): string {
+  const raw =
+    e instanceof Error ? e.message
+    : typeof e === 'string' ? e
+    : e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message)
+    : 'unknown';
+  return raw
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id')
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, ':email')
+    .slice(0, 160);
+}
+
+export function trackError(area: string, e: unknown, extra: Record<string, unknown> = {}): void {
+  track('app_error', { area, reason: errorReason(e), ...extra });
+}
+
+/**
  * Update the caller's activity summary (migration 080): `login` marks a fresh
  * session (bumps sessions + last_login); `ms` accrues time-on-app; every call
  * refreshes last_seen. Fire-and-forget, same contract as track().

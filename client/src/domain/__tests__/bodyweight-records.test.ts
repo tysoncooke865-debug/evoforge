@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { bodyweightRecords, isModeRecord } from '../bodyweight-records';
 import { canonicalFromRow } from '../exercise-load';
-import { buildSetRow, canonicalSetFor, legacyWeightFor, type SetInput } from '../set-save';
+import {
+  buildSetRow,
+  canonicalSetFor,
+  isMissingLoadColumn,
+  legacyWeightFor,
+  stripLoadColumns,
+  type SetInput,
+} from '../set-save';
 
 const row = (o: Record<string, unknown>) => ({ exercise: 'Pull-Up', date: '2026-01-01', ...o });
 
@@ -120,5 +127,33 @@ describe('the stored row keeps mode and parts', () => {
   it('legacyWeightFor never emits a bodyweight-inclusive total', () => {
     const { set } = canonicalSetFor({ ...base, load: { loadMode: 'weighted_bodyweight', externalLoadKg: 20, bodyweightSnapshotKg: 76 }, loadModel: 'bodyweight_weighted_or_assisted' });
     expect(legacyWeightFor(set)).toBe(20);
+  });
+});
+
+describe('the client ships before the migration does', () => {
+  it('recognises a missing-load-column error', () => {
+    expect(isMissingLoadColumn("Could not find the 'load_mode' column of 'workout_log' in the schema cache")).toBe(true);
+    expect(isMissingLoadColumn('column workout_log.assistance_kg does not exist')).toBe(true);
+  });
+
+  it('does NOT mistake an unrelated failure for a missing column', () => {
+    expect(isMissingLoadColumn('duplicate key value violates unique constraint')).toBe(false);
+    expect(isMissingLoadColumn('column workout_log.nickname does not exist')).toBe(false);
+    expect(isMissingLoadColumn(null)).toBe(false);
+  });
+
+  it('the stripped row is a valid pre-133 row — the set survives intact', () => {
+    const input: SetInput = {
+      workoutDate: '2026-01-01', workout: 'Pull', exercise: 'Pull-Up', setNo: 1, weight: 0, reps: 8,
+      load: { loadMode: 'weighted_bodyweight', externalLoadKg: 20, bodyweightSnapshotKg: 76 },
+      loadModel: 'bodyweight_weighted_or_assisted',
+    };
+    const stripped = stripLoadColumns(buildSetRow(input, 'Back Width', '2026-01-01T00:00:00'));
+    expect(stripped.load_mode).toBeUndefined();
+    expect(stripped.assistance_kg).toBeUndefined();
+    // The legacy meaning is untouched: added weight, reps, and a real e1RM.
+    expect(stripped.weight).toBe(20);
+    expect(stripped.reps).toBe(8);
+    expect(stripped.estimated_1rm).toBeGreaterThan(0);
   });
 });

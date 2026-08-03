@@ -5,10 +5,20 @@ import { AppState, Platform } from 'react-native';
 import { track, touchActivity } from './analytics';
 
 /**
- * PRODUCT TELEMETRY (migration 080) — session, page-view timing, and time-on-app,
- * mounted ONCE at the authed root. Emits via the existing `track()` rail
- * (analytics_events) + `touch_activity`. Best-effort and privacy-safe: routes
- * only (dynamic id segments normalised to `:id`), never PII, never blocks a flow.
+ * PRODUCT TELEMETRY (migration 080) — session, page-view timing, and time-on-app.
+ *
+ * MOUNTED ONCE, ABOVE THE `(main)` GROUP (see ui/core/telemetry.tsx). It used to
+ * be mounted inside `(main)/_layout.tsx`, which meant it only armed once an
+ * athlete had a profile row and had reached the tabs. Everything before that —
+ * the whole of `/onboarding` — emitted no `session_start` and no `page_view` at
+ * all. Someone who signed up, opened onboarding and never finished was not a
+ * short session in the data; they were NOT A SESSION. That is precisely the
+ * population behind the 63% who never log a rep, and it was invisible by
+ * construction.
+ *
+ * Emits via the existing `track()` rail (analytics_events) + `touch_activity`.
+ * Best-effort and privacy-safe: routes only (dynamic id segments normalised to
+ * `:id`), never PII, never blocks a flow.
  *
  * - session_start / session_end (with duration) bracket each app session.
  * - page_view carries the previous route's dwell time on every navigation.
@@ -47,15 +57,30 @@ export function useAnalytics(userId: string | null): void {
     track('session_start', { session_id: sessionRef.current });
     touchActivity(true, 0);
 
+    /**
+     * SESSION LENGTH, NOT TIME SINCE THE LAST BACKGROUNDING.
+     *
+     * This used to reset `sessionStartRef` after every flush, and flush runs on
+     * EVERY visibilitychange. So the second `session_end` of a session reported
+     * the gap since the previous backgrounding, the third the gap since that
+     * one, and so on — an athlete who tabbed away six times looked like six
+     * short sessions instead of one long one. `avg_session_min` on the Insights
+     * page was therefore measuring "average time between tab-switches".
+     *
+     * The start is now written once and never moved, so every row carries the
+     * time since the session actually began. Rows for one session_id form a
+     * non-decreasing series, and the session's true length is
+     * `max(duration_ms) per session_id` — which is what analytics_overview now
+     * takes (product migration 133). Averaging the rows themselves would
+     * over-weight whoever tabs away most.
+     */
     const flush = () => {
       const now = Date.now();
       if (prevPageRef.current) {
         track('page_view', { page: prevPageRef.current, duration_ms: now - pageStartRef.current, session_id: sessionRef.current });
         pageStartRef.current = now; // don't double-count the same dwell on re-flush
       }
-      const elapsed = now - sessionStartRef.current;
-      track('session_end', { session_id: sessionRef.current, duration_ms: elapsed });
-      sessionStartRef.current = now;
+      track('session_end', { session_id: sessionRef.current, duration_ms: now - sessionStartRef.current });
     };
 
     const heartbeat = setInterval(() => {

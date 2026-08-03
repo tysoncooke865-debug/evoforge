@@ -205,9 +205,17 @@ export function OriginFlow({
   }, [step, boundOrigin, userType]);
 
   const finish = () => {
-    if (userType === 'new') {
-      track('onboarding_completed', { ...FLOW_PROPS, duration_ms: Date.now() - startedAt.current });
-    }
+    // EVERY ATHLETE, not only `new` ones. The `userType === 'new'` gate meant a
+    // migrated athlete could complete the entire flow and emit nothing, so the
+    // funnel's terminal step under-counted by exactly the migrated cohort and
+    // the completion rate read low for a reason that was not real. The
+    // distinction is worth keeping — so it is kept as a PROP, where it can be
+    // filtered, instead of as an absence, where it cannot be seen.
+    track('onboarding_completed', {
+      ...FLOW_PROPS,
+      user_type: userType,
+      duration_ms: Date.now() - startedAt.current,
+    });
     onComplete();
   };
 

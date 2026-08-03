@@ -184,6 +184,50 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
   return { action: 'insert', is_pr, current1rm, previousBest };
 }
 
+/** The columns migration 133 adds. Named once so the fallback below and the
+ *  migration can be checked against each other by eye. */
+export const LOAD_COLUMNS = [
+  'load_mode',
+  'external_load_kg',
+  'assistance_kg',
+  'assistance_type',
+  'assistance_description',
+  'bodyweight_snapshot_kg',
+  'duration_seconds',
+  'distance_meters',
+  'reps_per_side',
+  'load_migration_status',
+] as const;
+
+/**
+ * THE CLIENT SHIPS BEFORE THE MIGRATION DOES.
+ *
+ * Migrations here are applied BY HAND, separately from the deploy, so there
+ * is always a window where this build is live against a database without the
+ * 133 columns. PostgREST rejects an INSERT that names a column it cannot
+ * find (PGRST204), which would fail EVERY set save — the release-critical
+ * regression this whole feature exists to avoid.
+ *
+ * So a write that fails on an unknown column is retried once without them.
+ * The set lands with its legacy meaning intact (weight/reps/e1RM/volume are
+ * all still correct — see legacyWeightFor) and only the new detail is lost,
+ * which is exactly the pre-133 behaviour. Applying the migration turns the
+ * detail on with no further deploy.
+ */
+export function isMissingLoadColumn(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return (
+    /PGRST204|schema cache|does not exist|could not find/i.test(message) &&
+    LOAD_COLUMNS.some((c) => message.includes(c))
+  );
+}
+
+export function stripLoadColumns<T extends Record<string, unknown>>(row: T): Partial<T> {
+  const out: Record<string, unknown> = { ...row };
+  for (const c of LOAD_COLUMNS) delete out[c];
+  return out as Partial<T>;
+}
+
 /**
  * The row shape both write paths send; mirrors save_set_auto's supabase_row.
  *

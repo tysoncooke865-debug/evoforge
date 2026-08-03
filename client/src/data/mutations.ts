@@ -8,7 +8,15 @@ import { nameError } from '@/domain/leaderboard';
 import { safeNum } from '@/domain/physique-ratings';
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { isBodyweightMode } from '@/domain/exercise-load';
-import { decideSetSave, buildSetRow, canonicalSetFor, type SetInput, type SetVerdict } from '@/domain/set-save';
+import {
+  decideSetSave,
+  buildSetRow,
+  canonicalSetFor,
+  isMissingLoadColumn,
+  stripLoadColumns,
+  type SetInput,
+  type SetVerdict,
+} from '@/domain/set-save';
 import { localIso } from '@/domain/today';
 import { kgToLb } from '@/domain/units';
 import { inferMuscleGroup } from '@/domain/workouts';
@@ -156,17 +164,35 @@ export function useSaveSet() {
 
       if (verdict.action === 'update') {
         const { error } = await supabase.from('workout_log').update(row).eq('id', verdict.rowId);
+        // 133 lands by hand, after the deploy. A database without the load
+        // columns must not fail the save — retry with the legacy row.
+        if (error && isMissingLoadColumn(error.message)) {
+          const { error: retry } = await supabase
+            .from('workout_log')
+            .update(stripLoadColumns(row))
+            .eq('id', verdict.rowId);
+          if (retry) throw retry;
+          return verdict;
+        }
         if (error) throw error;
         return verdict;
       }
 
       // insert: user_id comes from DEFAULT auth.uid(), never the payload.
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('workout_log')
         .insert(row)
         .select('id,timestamp')
         .single();
+      if (error && isMissingLoadColumn(error.message)) {
+        ({ data, error } = await supabase
+          .from('workout_log')
+          .insert(stripLoadColumns(row))
+          .select('id,timestamp')
+          .single());
+      }
       if (error) throw error;
+      if (!data) throw new Error('workout_log insert returned no row');
       verdict.rowId = String(data.id); // the confirmed row, for battle events
 
       // The grant, keyed to the new row. Idempotence lives in Postgres: the
