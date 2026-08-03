@@ -69,7 +69,7 @@ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ManagePlanSheet, type LoadoutSource } from '@/ui/train/manage-plan-sheet';
 import { MissionBriefCard } from '@/ui/train/mission-brief';
 import { MissionLaunch } from '@/ui/train/mission-launch';
-import { MuscleDetailSheet } from '@/ui/train/muscle-detail';
+import { MuscleBoard, type MuscleLoad } from '@/ui/train/muscle-board';
 import { PlanRail } from '@/ui/train/plan-rail';
 import { TRAIN_CLOCK_MS, TRAIN_INTRO_MS, useTrainScale } from '@/ui/train/train-scale';
 import { bestViewFor } from '@/ui/muscle-map/muscle-map';
@@ -101,9 +101,15 @@ import { WeekBarRow } from '@/ui/train/week-bar';
  *   the muscles in domain/mission-brief.ts) and WHAT IT PAYS — Evo first, XP
  *   second, the same numbers from the same modules Home's card uses.
  *
- *   THE FIGURE became a READOUT (ui/train/muscle-hologram.tsx) and a DOOR:
- *   tapping a lit muscle opens what it is for and how much of it this week has
- *   had. The art is untouched.
+ *   THE FIGURE became a READOUT (ui/train/muscle-hologram.tsx) and a DOOR to
+ *   the MUSCLE LOAD BOARD (ui/train/muscle-board.tsx). The art is untouched.
+ *   It is a door rather than a control because at 130pt an individual muscle
+ *   is a ~4mm target: tapping the figure ANYWHERE opens the board, where the
+ *   same figure is drawn at the full width of the sheet and every region is
+ *   comfortably pressable. The PRIMARY MUSCLES chips open it too — they are a
+ *   labelled list of exactly those regions, and three of them (front traps,
+ *   the adductors, the abductors) have mask artwork but NO hit geometry, so
+ *   the figure alone could never reach them at any size.
  *
  *   THREE GREY UTILITY CARDS became ONE PLAN RAIL (ui/train/plan-rail.tsx),
  *   with every door they held moved into MANAGE PLAN. Nothing was deleted; the
@@ -194,7 +200,11 @@ export default function TodayScreen() {
   const [changeOpen, setChangeOpen] = useState(false);
   /** A day picked from "SWAP TODAY'S DAY", awaiting the just-today/save choice. */
   const [swapPick, setSwapPick] = useState<string | null>(null);
-  /** The tapped muscle's detail sheet — never navigates, never blocks. */
+  /** THE MUSCLE BOARD. `open` is the sheet's visibility; `pick` is which
+   *  muscle it starts on (null = show them all). Two fields rather than one
+   *  nullable id because "opened from the figure" and "closed" are different
+   *  states that a single `MuscleId | null` cannot tell apart. */
+  const [boardOpen, setBoardOpen] = useState(false);
   const [musclePick, setMusclePick] = useState<MuscleId | null>(null);
   /** The workout START WORKOUT is launching into, for the ENTERING MISSION veil. */
   const [launching, setLaunching] = useState<string | null>(null);
@@ -500,6 +510,13 @@ export default function TodayScreen() {
     return n;
   };
 
+  /** One muscle's whole story, resolved on demand by the board. */
+  const loadForMuscle = (muscle: MuscleId): MuscleLoad => ({
+    muscle,
+    exercises: todaysExercisesForMuscle(muscle),
+    weekSets: weekSetsForMuscle(muscle),
+  });
+
   /** Today's planned exercises that tag the muscle, with their set counts. */
   const todaysExercisesForMuscle = (muscle: MuscleId): { exercise: string; sets: number }[] => {
     const out: { exercise: string; sets: number }[] = [];
@@ -649,7 +666,14 @@ export default function TodayScreen() {
         // A muscle only opens its own readout on TODAY's card: the sheet talks
         // about this week's volume and today's exercises, and neither of those
         // is about the Thursday you swiped to.
-        onMusclePress={isToday ? (m) => setMusclePick(m) : undefined}
+        onMusclePress={
+          isToday
+            ? (m) => {
+                setMusclePick(m);
+                setBoardOpen(true);
+              }
+            : undefined
+        }
         onStart={() => launch(date, data.workout)}
         isToday={isToday}
         intro={intro}
@@ -1066,15 +1090,19 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {/* A TAPPED MUSCLE — what it does, what hits it today, and how much of
-          it this week has actually had. It answers and leaves; it never
-          navigates ("do not interrupt workflow"). */}
-      {musclePick !== null ? (
-        <MuscleDetailSheet
-          muscle={musclePick}
-          exercises={todaysExercisesForMuscle(musclePick)}
-          weekSets={weekSetsForMuscle(musclePick)}
-          onClose={() => setMusclePick(null)}
+      {/* THE MUSCLE BOARD — the figure at full sheet width (where a muscle is
+          finally a real target), every targeted region as a row, and the
+          selected one expanded. It answers and leaves; it never navigates
+          ("do not interrupt workflow"). */}
+      {boardOpen ? (
+        <MuscleBoard
+          muscles={todayCard?.muscles ?? []}
+          initialMuscle={musclePick}
+          loadFor={loadForMuscle}
+          onClose={() => {
+            setBoardOpen(false);
+            setMusclePick(null);
+          }}
         />
       ) : null}
     </ScreenShell>

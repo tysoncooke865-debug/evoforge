@@ -36,7 +36,7 @@
  * readable the instant it exists.
  */
 
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import type { Difficulty } from '@/domain/mission-brief';
@@ -103,7 +103,9 @@ export function MissionBriefCard({
   mapView: MuscleView;
   focus: MapFocus;
   onFlip: () => void;
-  onMusclePress?: (muscle: MuscleId) => void;
+  /** Opens the muscle board. `null` = opened from the figure or the `+N` chip,
+   *  i.e. show everything; a MuscleId = opened from a named chip. */
+  onMusclePress?: (muscle: MuscleId | null) => void;
   onStart: () => void;
   isToday: boolean;
   intro: SharedValue<number>;
@@ -207,32 +209,54 @@ export function MissionBriefCard({
               )}
 
               {/* PRIMARY MUSCLES — labelled, so the chips read as an answer to
-                  a question rather than as loose decoration. */}
+                  a question rather than as loose decoration.
+                  EACH CHIP IS A DOOR (2026-08-03). The figure beside them is
+                  130pt wide, which makes an individual muscle on it a ~4mm
+                  target; these are already a labelled list of exactly the
+                  regions the day hits, so they became the reliable way in and
+                  a hitSlop takes them past the 44pt floor without costing the
+                  card a single point of height. The `+N` chip opens the board
+                  with nothing pre-selected — it means "and more", so it cannot
+                  name one. */}
               {chips.length > 0 ? (
                 <View className="mt-s3">
                   <Label>PRIMARY MUSCLES</Label>
                   <View className="mt-s1 flex-row flex-wrap" style={{ gap: 5 }}>
-                    {chips.map((p) => (
-                      <View
-                        key={p}
-                        className="rounded-pill border px-s2"
-                        style={{
-                          minHeight: 22,
-                          justifyContent: 'center',
-                          borderColor: `${colors.accent}33`,
-                          backgroundColor: 'rgba(34,211,238,0.06)',
-                        }}
-                      >
-                        <Text
-                          className="text-center text-text-dim"
-                          numberOfLines={1}
-                          allowFontScaling={false}
-                          style={{ fontSize: 10, letterSpacing: 0.4, ...pixelFont(false) }}
+                    {chips.map((p, i) => {
+                      const muscle = data.muscles[i] ?? null;
+                      const overflow = i >= MAX_CHIPS;
+                      return (
+                        <Pressable
+                          key={p}
+                          onPress={onMusclePress ? () => onMusclePress(overflow ? null : muscle) : undefined}
+                          disabled={onMusclePress === undefined}
+                          accessibilityRole={onMusclePress ? 'button' : undefined}
+                          accessibilityLabel={overflow ? 'show all muscles' : `${p} load`}
+                          hitSlop={{ top: 11, bottom: 11, left: 4, right: 4 }}
+                          testID={overflow ? 'muscle-chip-more' : `muscle-chip-${muscle ?? p}`}
+                          className="flex-row items-center rounded-pill border px-s2"
+                          style={{
+                            minHeight: 22,
+                            gap: 4,
+                            borderColor: onMusclePress ? `${colors.accent}59` : `${colors.accent}33`,
+                            backgroundColor: 'rgba(34,211,238,0.06)',
+                          }}
                         >
-                          {p}
-                        </Text>
-                      </View>
-                    ))}
+                          <Text
+                            className="text-center text-text-dim"
+                            numberOfLines={1}
+                            allowFontScaling={false}
+                            style={{ fontSize: 10, letterSpacing: 0.4, ...pixelFont(false) }}
+                          >
+                            {p}
+                          </Text>
+                          {/* The one pixel that says "this opens something". */}
+                          {onMusclePress ? (
+                            <View style={{ width: 3, height: 3, backgroundColor: colors.accent, opacity: 0.9 }} />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               ) : null}
@@ -284,7 +308,7 @@ export function MissionBriefCard({
               intro={intro}
               clock={clock}
               onFlip={onFlip}
-              onMusclePress={onMusclePress}
+              onOpen={onMusclePress ? () => onMusclePress(null) : undefined}
             />
           </View>
 

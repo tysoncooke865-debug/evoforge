@@ -55,7 +55,7 @@ export const MuscleHologram = memo(function MuscleHologram({
   intro,
   clock,
   onFlip,
-  onMusclePress,
+  onOpen,
   testID = 'map-rotate',
 }: {
   muscles: readonly MuscleId[];
@@ -71,9 +71,18 @@ export const MuscleHologram = memo(function MuscleHologram({
   intro: SharedValue<number>;
   /** The page's ambient clock, 0→1 on a 5.5s repeat. */
   clock: SharedValue<number>;
+  /** The ⟳ button only — never the figure (see the note on `onOpen`). */
   onFlip: () => void;
-  /** Tapping a LIT muscle opens its detail; tapping anywhere else flips. */
-  onMusclePress?: (muscle: MuscleId) => void;
+  /**
+   * Tapping the FIGURE — anywhere on it — opens the muscle board.
+   *
+   * It used to open a tapped muscle's detail and flip the view on a miss,
+   * which at this size meant the common outcome of aiming at a muscle was the
+   * figure spinning. A 15pt target that punishes a near-miss is worse than no
+   * target: the whole box is one door now, and the precision work happens on
+   * the board's full-width figure (ui/train/muscle-board.tsx).
+   */
+  onOpen?: () => void;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -106,9 +115,10 @@ export const MuscleHologram = memo(function MuscleHologram({
 
   return (
     <Pressable
-      onPress={onFlip}
+      onPress={onOpen}
+      disabled={onOpen === undefined}
       accessibilityRole="button"
-      accessibilityLabel={`show ${view === 'front' ? 'back' : 'front'} view`}
+      accessibilityLabel="open muscle load"
       testID={testID}
       // STRETCH, CAPPED — not a fixed height. The card's own height is a fixed
       // budget (the equal-cards rule) and the blocks below this one GROW when a
@@ -175,15 +185,10 @@ export const MuscleHologram = memo(function MuscleHologram({
           ]}
         />
 
-        <MuscleMap
-          selectedMuscles={muscles}
-          view={view}
-          width={width}
-          pulse
-          focus={focus}
-          interactive={onMusclePress !== undefined}
-          onMusclePress={onMusclePress}
-        />
+        {/* NOT interactive at this size — see `onOpen`. The per-muscle press
+            targets exist on the board's figure, where they are big enough to
+            aim at. */}
+        <MuscleMap selectedMuscles={muscles} view={view} width={width} pulse focus={focus} />
 
         {/* THE SCAN — one band, pointerEvents off so it can never eat the tap
             that flips the figure (the overflowing-box lesson). */}
@@ -222,29 +227,51 @@ export const MuscleHologram = memo(function MuscleHologram({
         ))}
       </View>
 
-      {/* The flip affordance. Small, quiet, and it says which way it turns —
-          the old bare Pressable gave no hint that the figure had two sides.
-          CENTRED at the foot rather than tucked into a corner: at bottom-right
-          it sat on top of the bracket and the two read as one broken shape. */}
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', bottom: 2, left: 0, right: 0, alignItems: 'center' }}
-      >
-        <View
+      {/* FLIP IS ITS OWN BUTTON NOW. It was the figure's fallback action, which
+          made it the thing that happened whenever an athlete missed a muscle.
+          A hitSlop takes the visual 22pt chip past the 44pt target floor
+          without spending card height on it. */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' }}>
+        <Pressable
+          onPress={onFlip}
+          accessibilityRole="button"
+          accessibilityLabel={`show ${view === 'front' ? 'back' : 'front'} view`}
+          hitSlop={{ top: 12, bottom: 12, left: 22, right: 22 }}
+          testID="map-flip"
           style={{
-            paddingHorizontal: 5,
-            paddingVertical: 2,
+            paddingHorizontal: 7,
+            paddingVertical: 4,
+            marginBottom: 2,
             borderRadius: 4,
             borderWidth: 1,
-            borderColor: `${colors.accent}40`,
-            backgroundColor: 'rgba(2,5,11,0.55)',
+            borderColor: `${colors.accent}59`,
+            backgroundColor: 'rgba(2,5,11,0.72)',
           }}
         >
           <Text allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 0.5, color: colors.accent }}>
             {view === 'front' ? '⟳ BACK' : '⟳ FRONT'}
           </Text>
-        </View>
+        </Pressable>
       </View>
+
+      {/* The figure says what it opens. Without this, a box that used to flip
+          on tap and now opens a sheet is just a changed behaviour.
+          SHORT ON PURPOSE: the box is only ~130pt wide, and "TAP FOR MUSCLE
+          LOAD" overhung it on both sides and crossed the HUD brackets. */}
+      {onOpen ? (
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 3, left: 0, right: 0, alignItems: 'center' }}
+        >
+          <Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ fontSize: 7.5, letterSpacing: 1, color: `${colors.accent}b3` }}
+          >
+            TAP FOR LOAD
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 });

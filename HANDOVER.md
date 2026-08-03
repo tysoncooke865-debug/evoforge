@@ -59,13 +59,37 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
   **THE FIGURE IS A READOUT AND A DOOR** (`ui/train/muscle-hologram.tsx`):
   blueprint grid, ambient bloom under the lit regions, a scan that crosses once
-  per 5.5s, HUD brackets, a centred ⟳ flip affordance, and a POWER-ON on the
-  0.30–0.62 window of the page's entrance clock. The art is untouched. Tapping a
-  lit muscle opens `muscle-detail.tsx`: what the region DOES (`MUSCLE_FUNCTION`,
-  17 lines of anatomy), today's exercises that hit it with their sets, and THIS
-  WEEK'S REAL VOLUME against the 10-set growth floor. **"Estimated growth" was
-  refused** — it is not predictable from a plan, and "you are three sets short
-  on lats" is a decision where "+0.3 cm" would have been a lie.
+  per 5.5s, HUD brackets, and a POWER-ON on the 0.30-0.62 window of the page's
+  entrance clock. The art is untouched.
+
+  **TAPPING A MUSCLE ON THE CARD WAS FIXED SEPARATELY (Tyson: "it's hard to
+  press on the individual muscles on phone").** The first version put per-muscle
+  press targets on the card's 130pt figure, which makes an individual region a
+  15-30pt blob - about four millimetres - and, worse, a MISS flipped the view,
+  so the usual outcome of aiming at a muscle was the figure spinning. Neither
+  bigger hit paths (they overlap each other long before they are comfortable)
+  nor nearest-muscle resolution (the athlete cannot tell what they are about to
+  open) fixes that. **The card's figure is now ONE DOOR** - tap it anywhere -
+  and the precision work happens on the **MUSCLE LOAD BOARD**
+  (`ui/train/muscle-board.tsx`), where the same figure is drawn at the sheet's
+  full width: measured 8/10/31/31/37/37pt per region against the card's
+  15-30pt, and every muscle also has a **358x58 row**. Selecting one ISOLATES
+  it on the figure, which is the payoff the small card could never give.
+  The PRIMARY MUSCLES chips open the board too (hitSlop takes them to 44pt) and
+  **flipping got its own button** (`map-flip`) instead of being the figure's
+  fallback action.
+
+  **THE LIST IS NOT A FALLBACK - IT IS THE ONLY WAY IN FOR THREE REGIONS.**
+  Front traps, the adductors and the abductors have hand-painted mask artwork
+  but NO entry in `front-muscle-paths.ts`, so they can be LIT and never TAPPED,
+  at any figure size. Anything that makes the figure the sole control surface is
+  wrong for them by construction.
+
+  Each muscle shows what the region DOES (`MUSCLE_FUNCTION`, 17 lines of
+  anatomy), today's exercises that hit it with their sets, and THIS WEEK'S REAL
+  VOLUME against the 10-set growth floor. **"Estimated growth" was refused** -
+  it is not predictable from a plan, and "you are three sets short on lats" is a
+  decision where "+0.3 cm" would have been a lie.
 
   **THE MISSION GRADE** (`domain/progression/mission-grade.ts`, 26 goldens):
   S / A+ / A / B / C from COMPLETION (55) + OVERLOAD (25: this session's tonnage
@@ -3066,6 +3090,19 @@ Every one of these was a live bug. Do not relearn them.
   hidden copy and measured 0×0 at y=0 — which reads exactly like "the element is
   missing" and nearly sent a real layout pass chasing a phantom. **Measure the
   first node with a non-zero box, not the first node.**
+- **A tap target's SIZE is a feature, and a miss's CONSEQUENCE is part of it.**
+  Train's card figure gave each muscle a 15-30pt target and made a miss FLIP
+  the view, so the common outcome of aiming at a muscle was the figure spinning
+  - which reads as the app being broken, not as a near miss. **When a control
+  is too small, move the control; do not make the tap cleverer.** The card's
+  figure became one door to a full-width figure, and the fallback action got its
+  own button. Check hit rects in a real build (`scratchpad/train_muscles.mjs`
+  prints them against the 44pt floor); tsc and lint cannot see this.
+- **Some lit regions have NO hit geometry at all.** Front traps, the adductors
+  and the abductors have Krita masks but no path in `front-muscle-paths.ts`, so
+  they light up and can never be pressed at any size. Any per-muscle
+  interaction needs a non-figure path in for them - a labelled list, not a
+  bigger figure.
 - **An overflowing box still eats taps.** A child drawn larger than its parent
   (Home's champion at `artScale`, whose sprite frame reaches ~48pt above the rig)
   is invisible up there but fully hit-testable, and it silently stole every tap
