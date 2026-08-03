@@ -1,10 +1,20 @@
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
-import { Modal, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Platform, Text, TextInput, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { evolutionReadiness, requirementProgress } from '@/domain/evolution-readiness';
+import type { MissionGrade } from '@/domain/progression/mission-grade';
 import type { NextEvolution } from '@/domain/next-evolution';
 import type { NextSession } from '@/domain/scheduled-streak';
+import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
@@ -26,6 +36,11 @@ export interface WorkoutSummaryData {
   evolution: NextEvolution;
   /** TRANSFORM P4: the next scheduled session, for the confirm phase. */
   nextSession: NextSession | null;
+  /** 2026-08-03: the mission's grade and what earned it. */
+  grade: MissionGrade;
+  /** First set to last set, from the log's own timestamps. Null when the
+   *  session was typed in afterwards and its timestamps say nothing. */
+  minutes: number | null;
 }
 
 type PhaseKey = 'summary' | 'pr' | 'path' | 'evolution' | 'next';
@@ -280,21 +295,214 @@ function Ceremony({
   );
 }
 
+/**
+ * THE GRADE, REVEALED (2026-08-03, TRAIN brief). "Show: Mission Grade / A+ /
+ * Workout Time / XP / Evo gained / PRs / Consistency / Streak. Confetti is NOT
+ * appropriate. Use premium sci-fi effects instead."
+ *
+ * So: no confetti. The letter materialises inside a ring that opens around it,
+ * a scan crosses the plate once, and the factor bars fill left to right. Three
+ * windows on ONE 900ms one-shot value — the reveal costs one driver, and
+ * reduced motion pins the whole thing arrived and readable.
+ *
+ * It sits at the TOP OF THE EXISTING PHASE rather than becoming a phase of its
+ * own on purpose: the ceremony is already five taps deep at its longest, and
+ * "increase workout completion" is not served by making finishing longer.
+ */
+function GradePlate({ grade, tint }: { grade: MissionGrade; tint: string }) {
+  const colors = useThemeColors();
+  const reduced = useReducedMotion();
+  const t = useSharedValue(reduced ? 1 : 0);
+
+  useEffect(() => {
+    // "Mission Grade" is on the brief's haptics list, and it is the one moment
+    // in the ceremony that is a VERDICT rather than a number — a medium tick
+    // timed to the letter landing, not to the sheet opening. It fires even
+    // under reduced motion: that setting is about movement, not about touch.
+    const tick = setTimeout(() => {
+      if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }, reduced ? 0 : 300);
+    if (!reduced) t.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
+    return () => clearTimeout(tick);
+  }, [reduced, t]);
+
+  const letter = useAnimatedStyle(() => {
+    const p = Math.max(0, Math.min(1, (t.value - 0.1) / 0.45));
+    return { opacity: p, transform: [{ scale: 1.5 - p * 0.5 }] };
+  });
+  const ring = useAnimatedStyle(() => {
+    const p = Math.max(0, Math.min(1, t.value / 0.55));
+    return { opacity: p * 0.8, transform: [{ scale: 0.7 + p * 0.3 }] };
+  });
+  const sweep = useAnimatedStyle(() => {
+    const p = Math.max(0, Math.min(1, (t.value - 0.3) / 0.5));
+    return { opacity: Math.sin(p * Math.PI) * 0.55, transform: [{ translateY: -50 + p * 130 }] };
+  });
+
+  return (
+    <View className="mb-s3 items-center">
+      <View style={{ width: 108, height: 88, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              width: 84,
+              height: 84,
+              borderRadius: 42,
+              borderWidth: 2,
+              borderColor: `${tint}59`,
+              shadowColor: tint,
+              shadowOpacity: 0.8,
+              shadowRadius: 22,
+            },
+            ring,
+          ]}
+        />
+        <Animated.Text
+          allowFontScaling={false}
+          testID="mission-grade"
+          style={[
+            {
+              fontSize: 52,
+              lineHeight: 60,
+              letterSpacing: 0,
+              color: tint,
+              textShadowColor: `${tint}b3`,
+              textShadowRadius: 24,
+              ...pixelFont(),
+            },
+            letter,
+          ]}
+        >
+          {grade.grade}
+        </Animated.Text>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            { position: 'absolute', left: 0, right: 0, height: 3, backgroundColor: tint },
+            sweep,
+          ]}
+        />
+      </View>
+      <Text
+        allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 2.4, color: colors['text-mute'], ...pixelFont(false) }}
+      >
+        MISSION GRADE · {grade.score}
+      </Text>
+    </View>
+  );
+}
+
+/** One judged factor. "NOT MEASURED" is said out loud — the athlete is told
+ *  which parts of their grade were judged and which were filled neutral. */
+function FactorRow({ label, detail, earned, measured, tint }: {
+  label: string;
+  detail: string;
+  earned: number;
+  measured: boolean;
+  tint: string;
+}) {
+  const colors = useThemeColors();
+  const colour = measured ? tint : colors['text-mute'];
+  return (
+    <View className="mb-s2">
+      <View className="flex-row items-center justify-between">
+        <Text
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1.4, color: colors['text-dim'], ...pixelFont(false) }}
+        >
+          {label}
+        </Text>
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{ fontSize: 9, letterSpacing: 0.6, color: measured ? colors['text-dim'] : colors['text-mute'], ...pixelFont(false) }}
+        >
+          {detail}
+        </Text>
+      </View>
+      <View className="mt-s1 h-[4px] overflow-hidden rounded-pill bg-surface-3">
+        <View
+          style={{
+            width: `${Math.round(earned * 100)}%`,
+            height: '100%',
+            borderRadius: 999,
+            backgroundColor: colour,
+            opacity: measured ? 1 : 0.45,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
 function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: string }) {
   const colors = useThemeColors();
+  // The grade's colour is the verdict's, not the session's: S and A+ are gold,
+  // A is the app's own cyan, B and C are quiet. Colour is never the only cue —
+  // the letter and the score are right there.
+  const gradeTint =
+    data.grade.grade === 'S' || data.grade.grade === 'A+'
+      ? colors.legendary
+      : data.grade.grade === 'A'
+        ? accent
+        : colors['text-dim'];
+
+  const cells: { value: string; label: string; tint?: string }[] = [
+    { value: `${data.setsDone}/${data.setsTarget}`, label: 'SETS' },
+    ...(data.minutes !== null ? [{ value: `${data.minutes}`, label: 'MINUTES' }] : []),
+    { value: `+${data.xpBanked}`, label: 'XP BANKED', tint: colors.accent },
+    { value: String(data.prCount), label: data.prCount === 1 ? 'NEW PR' : 'NEW PRS', tint: colors.legendary },
+    { value: `${data.streak}🔥`, label: 'STREAK', tint: colors.legendary },
+  ];
+
   return (
     <View>
+      <GradePlate grade={data.grade} tint={gradeTint} />
       <Text
-        className="mb-s4 text-2xl font-bold text-text"
+        className="mb-s3 text-center text-xl font-bold text-text"
+        numberOfLines={1}
         style={{ textShadowColor: `${accent}80`, textShadowRadius: 14 }}
       >
         {data.day}
       </Text>
-      <View className="mb-s5 flex-row justify-between">
-        <Cell value={`${data.setsDone}/${data.setsTarget}`} label="SETS" />
-        <Cell value={`+${data.xpBanked}`} label="XP BANKED" tint={colors.accent} />
-        <Cell value={String(data.prCount)} label={data.prCount === 1 ? 'NEW PR' : 'NEW PRS'} tint={colors.legendary} />
-        <Cell value={`${data.streak}🔥`} label="STREAK" tint={colors.legendary} />
+      {data.grade.factors.map((f) => (
+        <FactorRow
+          key={f.key}
+          label={f.label}
+          detail={f.detail}
+          earned={f.earned}
+          measured={f.measured}
+          tint={gradeTint}
+        />
+      ))}
+      {data.grade.bonuses.length > 0 ? (
+        <View className="mb-s2 flex-row flex-wrap" style={{ gap: 6 }}>
+          {data.grade.bonuses.map((b) => (
+            <View
+              key={b.label}
+              className="rounded-pill border px-s2"
+              style={{ minHeight: 22, justifyContent: 'center', borderColor: `${colors.legendary}45`, backgroundColor: `${colors.legendary}12` }}
+            >
+              <Text className="text-2xs font-bold" style={{ color: colors.legendary, letterSpacing: 0.6 }}>
+                +{b.points} {b.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {/* CENTRED WITH A REAL COLUMN GAP, not space-between: the grade pass
+          added MINUTES, and five cells edge-to-edge welded their labels into
+          "XP BANKEDNEW PRSSTREAK". Wrapping is allowed and looks deliberate. */}
+      <View
+        className="mb-s5 mt-s2 flex-row flex-wrap justify-center"
+        style={{ columnGap: 16, rowGap: 12 }}
+      >
+        {cells.map((c) => (
+          <Cell key={c.label} value={c.value} label={c.label} tint={c.tint} />
+        ))}
       </View>
     </View>
   );
@@ -409,11 +617,11 @@ function Cell({ value, label, tint }: { value: string; label: string; tint?: str
   const colors = useThemeColors();
   const tintColor = tint ?? colors.text;
   return (
-    <View className="items-center">
-      <Text className="text-xl font-bold" style={{ color: tintColor }}>
+    <View className="items-center" style={{ minWidth: 54 }}>
+      <Text className="text-lg font-bold" numberOfLines={1} style={{ color: tintColor }}>
         {value}
       </Text>
-      <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+      <Text className="text-2xs text-text-mute" numberOfLines={1} style={{ letterSpacing: 0.6 }}>
         {label}
       </Text>
     </View>

@@ -1,6 +1,14 @@
-import { Link, router } from 'expo-router';
-import { Fragment, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Link, router, useFocusEffect } from 'expo-router';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  Easing,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { useActivationStep } from '@/data/activation';
 import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
@@ -15,12 +23,24 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { useSavePlanSourcePref } from '@/data/plan-source-pref';
 import { useUserPlans } from '@/data/user-plans';
+import { useEvoRatingCurrent, useEvoSnapshots } from '@/data/progression/use-evo-rating';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
 import { CARDIO_TYPES } from '@/domain/cardio';
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
+import { difficultyFor, missionObjectiveFor } from '@/domain/mission-brief';
 import { libraryMuscleFor, userMuscleFor } from '@/domain/muscle-lookup';
-import { focusFor, muscleIdsFor, pillLabelsFor, type MuscleView } from '@/domain/muscle-map';
+import {
+  focusFor,
+  muscleIdsFor,
+  normaliseMuscleGroup,
+  pillLabelsFor,
+  type MuscleId,
+  type MuscleView,
+} from '@/domain/muscle-map';
 import { daysForSource, type SourceIndex } from '@/domain/plan-sources';
+import { estimateEvoPerSession } from '@/domain/progression/evo-per-session';
+import { evoEvidenceFor, evoEvidenceLabel } from '@/domain/progression/session-evidence';
+import { weekStart } from '@/domain/progress-aggregates';
 import {
   adhocNameError,
   dayProgress,
@@ -35,35 +55,68 @@ import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
-import { inferMuscleGroup } from '@/domain/workouts';
+import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
+import { activityXp } from '@/domain/xp';
 import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
 import { useToastStore } from '@/state/toast-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { CardioDashboard } from '@/ui/train/cardio/cardio-dashboard';
 import { cardioAnim } from '@/ui/train/cardio/activities';
-import { CompanionMenuButton } from '@/ui/character/companion-menu';
+import { ChampionCharge } from '@/ui/train/champion-charge';
 import { DailyWorkoutCarousel, type DailyCarouselHandle } from '@/ui/train/daily-workout-carousel';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
-import { MuscleMap, bestViewFor } from '@/ui/muscle-map/muscle-map';
+import { ManagePlanSheet, type LoadoutSource } from '@/ui/train/manage-plan-sheet';
+import { MissionBriefCard } from '@/ui/train/mission-brief';
+import { MissionLaunch } from '@/ui/train/mission-launch';
+import { MuscleDetailSheet } from '@/ui/train/muscle-detail';
+import { PlanRail } from '@/ui/train/plan-rail';
+import { TRAIN_CLOCK_MS, TRAIN_INTRO_MS, useTrainScale } from '@/ui/train/train-scale';
+import { bestViewFor } from '@/ui/muscle-map/muscle-map';
+import { ScreenAmbience } from '@/ui/core/ambience';
+import { useAmbient } from '@/ui/core/use-ambient';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
-import { PixelBars, PixelClock, PixelCurvedArrow, PixelDumbbell, PixelFlame, PixelHeart, PixelPencil, PixelPlusSquare, PixelSwap } from '@/ui/core/pixel-icons';
+import { PixelDumbbell, PixelHeart } from '@/ui/core/pixel-icons';
 import { SegmentedTabs } from '@/ui/core/segmented-tabs';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { WeekBarRow } from '@/ui/train/week-bar';
 
 /**
- * TRAIN — THE HUB, AS A MISSION BRIEFING (TRAIN_OVERHAUL).
+ * TRAIN — THE HUB, AS A MISSION BRIEFING (TRAIN_OVERHAUL; elevated 2026-08-03).
  *
  * One dominant question, answered before anything scrolls: WHAT AM I DOING
- * TODAY, AND HOW DO I START. The hero card carries today's workout (name,
- * muscle pills, sets/time/kcal, the pixel body map) under an unmissable
- * START/RESUME bar. Three grey utility buttons carry everything the old
- * pill-row and scattered links did — change workout (source switching + plan
- * doors + PLAN SCAN), empty workout, edit my week. THIS WEEK keeps the doors,
- * now with status circles and an honest PARTIAL state.
+ * TODAY, AND HOW DO I START. The logging UI stays its own page (`/workout`) —
+ * Train briefs, it never logs.
  *
- * The logging UI stays its own page (`/workout`) — Train briefs, it never logs.
+ * ---- WHAT THE 2026-08-03 PASS CHANGED, AND WHAT IT DID NOT ----
+ *
+ * Not a redesign. Every value on this page is the same value, from the same
+ * resolution, with the same doors: the source picker, the per-day source rule,
+ * SWAP TODAY'S DAY, PLAN SCAN, quick workouts, routines, extras and the week
+ * bars all behave exactly as they did. What changed is the ORDER and the
+ * LANGUAGE, against the brief's hierarchy — mission ▸ muscle ▸ rewards ▸ CTA:
+ *
+ *   THE HERO became a BRIEFING (ui/train/mission-brief.tsx). It gained the two
+ *   things it never said: WHY this session exists (the objective, derived from
+ *   the muscles in domain/mission-brief.ts) and WHAT IT PAYS — Evo first, XP
+ *   second, the same numbers from the same modules Home's card uses.
+ *
+ *   THE FIGURE became a READOUT (ui/train/muscle-hologram.tsx) and a DOOR:
+ *   tapping a lit muscle opens what it is for and how much of it this week has
+ *   had. The art is untouched.
+ *
+ *   THREE GREY UTILITY CARDS became ONE PLAN RAIL (ui/train/plan-rail.tsx),
+ *   with every door they held moved into MANAGE PLAN. Nothing was deleted; the
+ *   page simply stopped offering six administrative choices beside its one
+ *   action.
+ *
+ * ---- THE ENTRANCE, AND WHY IT IS ONE VALUE ----
+ *
+ * `intro` is the page's entrance clock and `clock` its ambient one. Every
+ * staged animation on this screen — header, mission, hologram power-on, reward
+ * chips, CTA glow, the scan sweep, the progress shimmer — is a WINDOW on one of
+ * those two, because on web every Reanimated loop runs on the main JS thread
+ * and the cost of motion is the number of DRIVERS, not the number of effects.
  */
 
 
@@ -83,13 +136,10 @@ const cardDate = (iso: string, todayIso: string): string => {
 };
 
 /** EQUAL CARDS (Tyson, 2026-07-15): every carousel card — and the carousel
- *  itself — is exactly CARD_HEIGHT tall. Content NEVER sizes a card: the
- *  figure lives in a fixed box, the chips in a fixed two-row area, the
- *  footer rides marginTop:auto. */
-const CARD_HEIGHT = 396;
-const MAP_AREA_HEIGHT = 196;
-const CHIP_AREA_HEIGHT = 56;
-const MAX_CHIPS = 3;
+ *  itself — is exactly one height. Content NEVER sizes a card: the figure
+ *  lives in a fixed box and the rewards block rides marginTop:auto. The height
+ *  itself moved to ui/train/train-scale.ts on 2026-08-03, because the briefing
+ *  needs more room on a Pro Max than an SE can spare. */
 
 /** today ±N as ISO dates — cached per today so the array is referentially
  *  stable across renders (the FlatList must never see a fresh array). */
@@ -107,6 +157,7 @@ const datesAround = (todayIso: string): string[] => {
 export default function TodayScreen() {
   const colors = useThemeColors();
   const todayIso = calendarToday();
+  const scale = useTrainScale();
 
   const workouts = useWorkoutLog();
   const exercisePrefs = useExercisePrefs();
@@ -143,6 +194,51 @@ export default function TodayScreen() {
   const [changeOpen, setChangeOpen] = useState(false);
   /** A day picked from "SWAP TODAY'S DAY", awaiting the just-today/save choice. */
   const [swapPick, setSwapPick] = useState<string | null>(null);
+  /** The tapped muscle's detail sheet — never navigates, never blocks. */
+  const [musclePick, setMusclePick] = useState<MuscleId | null>(null);
+  /** The workout START WORKOUT is launching into, for the ENTERING MISSION veil. */
+  const [launching, setLaunching] = useState<string | null>(null);
+
+  // ---- THE TWO CLOCKS (see the header note) ----
+  //
+  // `intro` replays the 660ms briefing entrance on every FOCUS, which is what
+  // makes it an entrance rather than a mount effect: this is a tab screen and
+  // it stays mounted, so a mount-driven animation would fire once per app
+  // launch and never again. It is a ONE-SHOT, so per the animations doctrine it
+  // is not perf-gated — but reduced motion pins it at 1, fully arrived.
+  //
+  // `clock` is the ambient one (scan sweep, hologram bloom, progress shimmer)
+  // and IS gated, on the full ambient rule: focus + reduced motion + perf mode.
+  const reduced = useReducedMotion();
+  const ambient = useAmbient();
+  const intro = useSharedValue(1);
+  const clock = useSharedValue(0);
+  useFocusEffect(
+    useCallback(() => {
+      // Clearing the veil on FOCUS, not on blur. Blur fires within a frame of
+      // router.push on web, which killed the veil before it ever painted — and
+      // the whole point of it is to cover the frames where the /workout route
+      // is still arriving. It is inside this screen's view tree, so the pushed
+      // page draws over it anyway; the only thing that must be true is that
+      // coming BACK to Train finds it gone, and that is this line.
+      setLaunching(null);
+      if (!reduced) {
+        intro.value = 0;
+        intro.value = withTiming(1, { duration: TRAIN_INTRO_MS, easing: Easing.out(Easing.cubic) });
+      } else {
+        intro.value = 1;
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reduced])
+  );
+  useEffect(() => {
+    if (!ambient) {
+      clock.value = 0;
+      return;
+    }
+    clock.value = 0;
+    clock.value = withRepeat(withTiming(1, { duration: TRAIN_CLOCK_MS, easing: Easing.linear }), -1);
+  }, [ambient, clock]);
 
   // The SAVED choice (migration 035) is the resting state; sourceChoice is
   // only the in-flight override so the modal responds instantly.
@@ -292,6 +388,29 @@ export default function TodayScreen() {
     currentBodyweightKg(bodyweights.data, profile.data?.bodyweight_kg) ??
     (profile.data?.sex === 'female' ? FEMALE_CALIBRATION : MALE_CALIBRATION).defaultBodyweight;
 
+  // ---- "+0.4 EVO" — the athlete's OWN measured rate, never a forecast.
+  //
+  // The SAME module Home's mission card reads (evo-per-session.ts): real
+  // rating gain across a window divided by the training days that produced it.
+  // It returns null — and the briefing shows no Evo number at all rather than
+  // a default — until there is enough history for the average to mean
+  // anything. Two screens, one number, one refusal.
+  const evoCurrent = useEvoRatingCurrent();
+  const evoSnapshots = useEvoSnapshots(26);
+  const evoRow = (evoCurrent.data ?? null) as Record<string, unknown> | null;
+  const evoPerSession =
+    evoRow === null
+      ? null
+      : (estimateEvoPerSession({
+          currentRating: Number(evoRow.displayed_rating ?? 0),
+          snapshots: (evoSnapshots.data ?? []).map((r) => ({
+            displayedRating: Number((r as Record<string, unknown>).displayed_rating ?? 0),
+            atIso: String((r as Record<string, unknown>).calculated_at ?? ''),
+          })),
+          trainingDates: [...(workoutIndex.data?.byDate.keys() ?? [])],
+          todayIso,
+        })?.perSession ?? null);
+
   /** EVERYTHING one day's card needs, computed from ITS date — progress is
    *  keyed (date, workout), so a set completed on one day can never appear on
    *  another. Null = nothing assigned (rest, or no schedule at all). */
@@ -334,8 +453,17 @@ export default function TodayScreen() {
       workout,
       title: name.title,
       sub: name.sub ?? planName,
+      planName,
       pills: pillLabelsFor(muscles),
       muscles,
+      /** The day's plan, kept so a tapped muscle can name the exercises that
+       *  hit it — the same entries the pills and the map were built from, so
+       *  the sheet can never disagree with the figure it opened from. */
+      entries,
+      /** The briefing's WHY, derived from the muscles rather than the day's
+       *  name (athletes name days anything; the muscles are the fact). */
+      objective: missionObjectiveFor(muscles),
+      difficulty: difficultyFor(sets),
       sets,
       minutes: estimateMinutes(sets),
       kcal: estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg),
@@ -343,6 +471,46 @@ export default function TodayScreen() {
       target: progress.target,
       finished: marker,
     };
+  };
+
+  /** Today's card, computed once for the header champion and the launch veil. */
+  const todayCard = cardDataFor(todayIso);
+
+  /**
+   * A tapped muscle's real weekly volume: sets LOGGED since Monday whose
+   * exercise resolves to that muscle through the same ladder the pills and the
+   * map use. Computed on TAP, never per render — it walks the week's rows, and
+   * the hub already re-renders on every override write.
+   */
+  const weekSetsForMuscle = (muscle: MuscleId): number => {
+    const from = weekStart(todayIso);
+    let n = 0;
+    for (const [date, rows] of workoutIndex.data?.byDate ?? new Map()) {
+      if (date < from || date > todayIso) continue;
+      for (const r of rows) {
+        if (!isCountedSet(r.weight, r.reps)) continue;
+        const exercise = String(r.exercise);
+        const label =
+          userMuscleFor(exercise, userExercises.data ?? []) ??
+          libraryMuscleFor(exercise) ??
+          inferMuscleGroup(exercise);
+        if (normaliseMuscleGroup(label) === muscle) n += 1;
+      }
+    }
+    return n;
+  };
+
+  /** Today's planned exercises that tag the muscle, with their set counts. */
+  const todaysExercisesForMuscle = (muscle: MuscleId): { exercise: string; sets: number }[] => {
+    const out: { exercise: string; sets: number }[] = [];
+    for (const [exercise, sets] of todayCard?.entries ?? []) {
+      const label =
+        userMuscleFor(exercise, userExercises.data ?? []) ??
+        libraryMuscleFor(exercise) ??
+        inferMuscleGroup(exercise);
+      if (normaliseMuscleGroup(label) === muscle) out.push({ exercise, sets });
+    }
+    return out;
   };
 
   const carouselRef = useRef<DailyCarouselHandle>(null);
@@ -356,6 +524,20 @@ export default function TodayScreen() {
         workout
       )}&source=${sourceForDate(date)}` as never
     );
+
+  /**
+   * START WORKOUT. The veil and the navigation go up on the SAME frame — see
+   * ui/train/mission-launch.tsx for why the transition must never be something
+   * the athlete waits through. This is still the one door: `open` is unchanged.
+   */
+  const launch = (date: string, workout: string) => {
+    // MISSION START gets a MEDIUM tick, not the button's default light one:
+    // this is the page's one committing action and it should feel heavier in
+    // the hand than switching a plan does.
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLaunching(workout);
+    open(date, workout);
+  };
 
   /** ONE day of the carousel — always the same card shell, five states. */
   const renderDayCard = (date: string) => {
@@ -398,7 +580,7 @@ export default function TodayScreen() {
       // Rest day / nothing planned: same shell, honest content, no fake stats.
       const hasSchedule = (schedule.data ?? []).length > 0;
       return (
-        <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
+        <View style={{ height: scale.cardHeight, paddingHorizontal: 2 }}>
           <GlowCard glow={colors.accent} padding={14} fill>
             <View testID={`hero-card-${date}`} style={{ flex: 1 }}>
               <View className="flex-row items-center justify-between">
@@ -432,169 +614,50 @@ export default function TodayScreen() {
     }
 
     const mapView = mapViewChoice ?? bestViewFor(data.muscles);
-    const buttonTitle = data.finished
-      ? 'VIEW WORKOUT'
-      : data.done > 0
-        ? 'CONTINUE WORKOUT'
-        : 'START WORKOUT';
+    // THE BRIEFING. Every value below is the same value this card always
+    // carried; ui/train/mission-brief.tsx only decides the order they are
+    // read in and what arrives when.
     return (
-      <View style={{ height: CARD_HEIGHT, paddingHorizontal: 2 }}>
-      <GlowCard glow={colors.accent} padding={14} fill>
-        <View testID={isToday ? 'hero-card' : `hero-card-${date}`} style={{ flex: 1 }}>
-          {/* HEADER - fixed. */}
-          <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+      <MissionBriefCard
+        data={{
+          workout: data.workout,
+          title: data.title,
+          sub: data.sub,
+          objective: data.objective,
+          pills: data.pills,
+          muscles: data.muscles,
+          difficulty: data.difficulty,
+          sets: data.sets,
+          minutes: data.minutes,
+          done: data.done,
+          finished: data.finished,
+        }}
+        header={
+          <>
             {dropdown}
             {dateTag}
-          </View>
-          {/* CONTENT - flexible middle; nothing inside may grow the card. */}
-          <View className="flex-row items-center" style={{ gap: 10, flex: 1 }}>
-            <View className="items-start" style={{ flex: 1, minWidth: 0 }}>
-              <Text
-                className="mt-s2 text-text"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                allowFontScaling={false}
-                style={{ fontSize: 21, lineHeight: 28, letterSpacing: 0, ...pixelFont() }}
-              >
-                {data.title.toUpperCase()}
-              </Text>
-              <Text
-                className="text-text-dim"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                allowFontScaling={false}
-                style={{ fontSize: 13, letterSpacing: 0, ...pixelFont(false) }}
-                testID="hero-sub"
-              >
-                {data.sub}
-              </Text>
-              {/* Fixed two-row chip area: 3 chips + a compact +N — a chip
-                  count must never resize the card. */}
-              <View
-                className="mt-s2 flex-row flex-wrap gap-s1 self-stretch"
-                style={{ height: CHIP_AREA_HEIGHT, alignContent: 'flex-start', overflow: 'hidden' }}
-              >
-                {[
-                  ...data.pills.slice(0, MAX_CHIPS),
-                  ...(data.pills.length > MAX_CHIPS ? [`+${data.pills.length - MAX_CHIPS}`] : []),
-                ].map((p) => (
-                  <View
-                    key={p}
-                    className="rounded-pill border bg-surface-2 px-s2 py-s1"
-                    style={{ borderColor: colors.border }}
-                  >
-                    <Text
-                      className="text-center text-text-dim"
-                      numberOfLines={1}
-                      allowFontScaling={false}
-                      style={{ fontSize: 10, letterSpacing: 0.5, ...pixelFont(false) }}
-                    >
-                      {p}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              {/* ~ marks estimates — honest numbers only. */}
-              <View className="mt-s3 flex-row items-center self-stretch" style={{ gap: 10, rowGap: 4, flexWrap: 'wrap' }}>
-                {(
-                  [
-                    [<PixelBars key="sets" size={16} color={colors['text-dim']} />, String(data.sets), 'SETS'],
-                    [<PixelClock key="min" size={16} color={colors['text-dim']} />, String(data.minutes), 'EST. MIN'],
-                    [<PixelFlame key="kcal" size={16} color={colors['text-dim']} />, String(data.kcal), 'EST. CAL'],
-                  ] as const
-                ).map(([icon, value, label]) => (
-                  <View key={label} className="flex-row items-center" style={{ gap: 6 }}>
-                    {icon}
-                    <View className="items-start">
-                      <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
-                        {value}
-                      </Text>
-                      <Text
-                        className="text-text-mute"
-                        numberOfLines={1}
-                        allowFontScaling={false}
-                        style={{ fontSize: 8, letterSpacing: 0, ...pixelFont(false) }}
-                      >
-                        {label}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-            {/* The character owns the right 40%. TAP flips front/back —
-                horizontal swipes belong to the day carousel. */}
-            <Pressable
-              onPress={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
-              accessibilityRole="button"
-              accessibilityLabel={`show ${mapView === 'front' ? 'back' : 'front'} view`}
-              testID="map-rotate"
-              className="items-center justify-center"
-              // FIXED figure box: same spot, same size, every card — the
-              // focus crop scales the figure INSIDE it, never the card.
-              style={{ width: '40%', height: MAP_AREA_HEIGHT, overflow: 'hidden' }}
-            >
-              <MuscleMap
-                selectedMuscles={data.muscles}
-                view={mapView}
-                // Zoomed (upper/lower) renders ~25% larger than the full view —
-                // the crop already trims it, so use the height headroom to make
-                // the silhouette read bigger on the card (Tyson 2026-07-17).
-                width={focusFor(data.muscles) === 'full' ? MAP_AREA_HEIGHT / 2 : 158}
-                pulse
-                focus={focusFor(data.muscles)}
-              />
-            </Pressable>
-          </View>
-          {/* FOOTER — pinned: progress bar and button sit at the same
-              height on every card. */}
-          <View style={{ marginTop: 'auto' }}>
-            <Text
-              className="text-2xs text-text-dim"
-              numberOfLines={1}
-              allowFontScaling={false}
-              style={{ letterSpacing: 0, ...pixelFont(false) }}
-              testID={isToday ? 'hero-progress' : `hero-progress-${date}`}
-            >
-              {data.done} / {data.sets} SETS COMPLETED
-            </Text>
-            <View
-              className="mt-s1 self-stretch overflow-hidden rounded-pill"
-              style={{ height: 4, backgroundColor: colors['surface-3'] }}
-            >
-              <View
-                style={{
-                  width: `${data.sets > 0 ? Math.min(100, (data.done / data.sets) * 100) : 0}%`,
-                  height: '100%',
-                  borderRadius: 999,
-                  backgroundColor: colors.accent,
-                }}
-              />
-            </View>
-          </View>
-          <View className="mt-s3">
-            <NeonButton
-              title={buttonTitle}
-              pixel
-              onPress={() => open(date, data.workout)}
-              rightIcon={
-                // The › is system-font beside a pixel-font title; their line
-                // boxes differ and the row's center put the glyph visibly low
-                // (Tyson 2026-07-19). Pin its line box and lift it onto the
-                // title's optical centerline.
-                <Text
-                  allowFontScaling={false}
-                  style={{ color: colors['accent-ink'], fontSize: 16, lineHeight: 16, marginTop: -2, fontWeight: '800' }}
-                >
-                  ›
-                </Text>
-              }
-              testID={isToday ? 'hero-start' : `hero-start-${date}`}
-            />
-          </View>
-        </View>
-      </GlowCard>
-      </View>
+          </>
+        }
+        // The Evo rate and the XP are the athlete's, not the day's — the same
+        // pair Home's mission card shows, so the two screens agree.
+        evoPerSession={evoPerSession}
+        xpReward={activityXp(data.sets, 0)}
+        benefit={evoEvidenceLabel(evoEvidenceFor({ sets: data.sets, cardioMinutes: 0 }))}
+        mapView={mapView}
+        focus={focusFor(data.muscles)}
+        onFlip={() => setMapViewChoice(mapView === 'front' ? 'back' : 'front')}
+        // A muscle only opens its own readout on TODAY's card: the sheet talks
+        // about this week's volume and today's exercises, and neither of those
+        // is about the Thursday you swiped to.
+        onMusclePress={isToday ? (m) => setMusclePick(m) : undefined}
+        onStart={() => launch(date, data.workout)}
+        isToday={isToday}
+        intro={intro}
+        clock={clock}
+        testID={isToday ? 'hero-card' : `hero-card-${date}`}
+        progressTestID={isToday ? 'hero-progress' : `hero-progress-${date}`}
+        startTestID={isToday ? 'hero-start' : `hero-start-${date}`}
+      />
     );
   };
 
@@ -664,40 +727,54 @@ export default function TodayScreen() {
     </Pressable>
   );
 
-  // Compact icon-left / two-line-text-right quick action (target layout).
-  const utilityButton = (
-    icon: React.ReactNode,
-    label: string,
-    subtitle: string,
-    onPress: () => void,
-    testID: string
-  ) => (
-    <Pressable
-      accessibilityRole="button"
-      testID={testID}
-      onPress={onPress}
-      className="flex-1 flex-row items-center rounded-md border px-s2"
-      style={{ minHeight: 46, gap: 7, borderColor: colors.border, backgroundColor: colors['surface-2'] }}
-    >
-      {icon}
-      <View style={{ flexShrink: 1 }}>
-        <Text
-          className="text-text-dim"
-          allowFontScaling={false}
-          style={{ fontSize: 9, letterSpacing: 0, ...pixelFont(false) }}
-          numberOfLines={2}
-        >
-          {label.replace(' ', '\n')}
-        </Text>
-        <Text className="text-text-mute" style={{ fontSize: 8 }} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      </View>
-    </Pressable>
-  );
+  /**
+   * THE PLAN SWITCHER'S DATA. The sheet renders it; the RULE stays here,
+   * because it is the same rule the carousel resolves days with.
+   */
+  const loadouts: LoadoutSource[] = ([0, 1, 2] as SourceIndex[]).map((i) => ({
+    index: i,
+    label: SOURCE_LABEL[i],
+    hint:
+      i === 0
+        ? sources.has.myPlan
+          ? 'Workouts you built yourself'
+          : 'Nothing saved yet — create one below'
+        : i === 1
+          ? sources.has.aiPlan
+            ? 'Personalised by EvoForge around your goals'
+            : 'Not forged yet — create one below'
+          : 'The ready-made EvoForge program',
+    days: daysForSource(i, sources, BUILT_IN_DAYS),
+    empty: (i === 0 && !sources.has.myPlan) || (i === 1 && !sources.has.aiPlan),
+  }));
+
+  /** Picking a loadout. Byte-for-byte the old handler, including the
+   *  re-stamp of the per-day sources map (without it, a map Schedule wrote
+   *  outranks this choice forever and the picker "works" while changing
+   *  nothing on screen). */
+  const pickSource = (i: SourceIndex) => {
+    setSource(i);
+    savePref.mutate(i); // fire-and-forget; the error toast covers a failed sync
+    if (latestSchedule) {
+      // Same "trained day" test as schedule.tsx's onSave (primaryOf !== 'Rest')
+      // — a Rest day with only an extra stays out of the map, matching what
+      // Schedule itself would write for this same choice.
+      const uniform: Record<string, number> = {};
+      for (const [dow, v] of Object.entries(latestSchedule.plan)) {
+        const primary = Array.isArray(v) ? (v[0] ?? 'Rest') : (v ?? 'Rest');
+        if (primary !== 'Rest') uniform[dow] = i;
+      }
+      saveSchedule.mutate({ plan: latestSchedule.plan, sources: uniform });
+    }
+    setChangeOpen(false);
+  };
+
 
   return (
-    <ScreenShell>
+    <ScreenShell
+      backdrop={<ScreenAmbience />}
+      overlay={launching !== null ? <MissionLaunch workout={launching} /> : null}
+    >
       {/* COMPACT HEADER (Tyson's target layout, 2026-07-15): the title rides
           the top safe area, the date sits UNDER it, and the companion lives
           in a small outlined profile container with the level beneath. */}
@@ -728,12 +805,17 @@ export default function TodayScreen() {
           </View>
         </View>
         <View className="items-center">
-          <View
-            className="rounded-lg border p-s1"
-            style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
-          >
-            <CompanionMenuButton anim={mode === 1 ? cardioAnim(cardioType) : 'idle'} height={44} />
-          </View>
+          {/* THE CHAMPION READS TODAY (ui/train/champion-charge.tsx): idle at
+              zero, working while the day fills, victorious once it is done.
+              Same sprite, same profile-menu tap — it just stopped being
+              wallpaper. CARDIO mode keeps its activity animation. */}
+          <ChampionCharge
+            done={todayCard?.done ?? 0}
+            target={todayCard?.target ?? 0}
+            finished={todayCard?.finished ?? false}
+            overrideAnim={mode === 1 ? cardioAnim(cardioType) : undefined}
+            height={44}
+          />
           <Pressable
             onPress={() => router.push('/profile' as never)}
             accessibilityRole="button"
@@ -769,44 +851,18 @@ export default function TodayScreen() {
           ref={carouselRef}
           dates={dates}
           initialIndex={CAROUSEL_REACH}
-          cardHeight={CARD_HEIGHT}
+          cardHeight={scale.cardHeight}
           renderDay={renderDayCard}
         />
 
-        {/* The three grey utilities — everything the old pill-row and links did. */}
-
-        {/* The three grey utilities — everything the old pill-row and links did. */}
-        <View>
-          <View className="flex-row gap-s2">
-            {utilityButton(
-              <PixelSwap size={17} color={colors['text-dim']} />,
-              'CHOOSE/UPLOAD MY WORKOUT',
-              'Switch or scan today\u2019s session',
-              () => setChangeOpen(true),
-              'change-workout'
-            )}
-            {utilityButton(
-              <PixelPlusSquare size={16} color={colors['text-dim']} />,
-              'QUICK WORKOUT',
-              'Train without a plan',
-              () => setEmptyOpen(true),
-              'start-empty'
-            )}
-            {utilityButton(
-              <PixelPencil size={16} color={colors['text-dim']} />,
-              'EDIT SCHEDULE',
-              'Set your training week',
-              () => router.push('/schedule' as never),
-              'edit-week'
-            )}
-          </View>
-          <View className="mt-s2 flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
-            <PixelCurvedArrow size={16} color={colors.accent} />
-            <Text className="text-2xs text-accent" style={{ flexShrink: 1 }}>
-              Switch between My Plan, AI Plan or the EvoForge Plan
-            </Text>
-          </View>
-        </View>
+        {/* ONE PLAN RAIL where three grey utility cards and their explanatory
+            line used to be. Every door they held moved into MANAGE PLAN — see
+            ui/train/plan-rail.tsx for what that trade buys and what it costs. */}
+        <PlanRail
+          planName={todayCard?.planName ?? SOURCE_LABEL[source]}
+          onSwitch={() => setChangeOpen(true)}
+          onManage={() => setChangeOpen(true)}
+        />
 
         {/* THIS WEEK — the doors. */}
         {weekBars ? (
@@ -912,162 +968,35 @@ export default function TodayScreen() {
         <CardioDashboard type={cardioType} setType={setCardioType} />
       </View>
 
-      {/* CHANGE WORKOUT — the one source switcher, plus every plan door. */}
+      {/* MANAGE PLAN — the loadout picker plus every plan door that used to be
+          a grey card above the fold (ui/train/manage-plan-sheet.tsx). */}
       {changeOpen ? (
-        <Modal transparent animationType="fade" onRequestClose={() => setChangeOpen(false)}>
-          <Pressable className="flex-1 justify-end" style={{ backgroundColor: 'rgba(2,5,11,0.72)' }} onPress={() => setChangeOpen(false)}>
-            <Pressable
-              onPress={() => undefined}
-              className="rounded-t-xl border-t p-s4"
-              style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface, maxHeight: 560 }}
-            >
-              <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                CHOOSE OR UPLOAD MY WORKOUT
-              </Text>
-              {([0, 1, 2] as SourceIndex[]).map((i) => {
-                const label = SOURCE_LABEL[i];
-                const empty = (i === 0 && !sources.has.myPlan) || (i === 1 && !sources.has.aiPlan);
-                const active = i === source;
-                const hint =
-                  i === 0
-                    ? sources.has.myPlan
-                      ? 'Your scheduled workouts'
-                      : 'Nothing saved yet — create one below'
-                    : i === 1
-                      ? sources.has.aiPlan
-                        ? 'Personalised by EvoForge'
-                        : 'Not forged yet — create one below'
-                      : 'Ready-made training program';
-                return (
-                  <Pressable
-                    key={label}
-                    onPress={() => {
-                      setSource(i);
-                      savePref.mutate(i); // fire-and-forget; error toast covers a failed sync
-                      // Schedule (2026-07-20) writes a UNIFORM per-day sources map that
-                      // Train's per-date reader (explicitSourceForDate) prefers over this
-                      // global preference. Left stale, that map outranks every future tap
-                      // here forever — the dropdown would keep "working" but never change
-                      // what's on screen. Re-stamp it to the new choice so the two stay in
-                      // sync, exactly like Schedule's own SAVE already does (schedule.tsx
-                      // onSave).
-                      if (latestSchedule) {
-                        // Same "trained day" test as schedule.tsx's onSave (primaryOf !==
-                        // 'Rest') — a Rest day with only an extra stays out of the map,
-                        // matching what Schedule itself would write for this same choice.
-                        const uniform: Record<string, number> = {};
-                        for (const [dow, v] of Object.entries(latestSchedule.plan)) {
-                          const primary = Array.isArray(v) ? (v[0] ?? 'Rest') : (v ?? 'Rest');
-                          if (primary !== 'Rest') uniform[dow] = i;
-                        }
-                        saveSchedule.mutate({ plan: latestSchedule.plan, sources: uniform });
-                      }
-                      setChangeOpen(false);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    testID={`today-source-${i}`}
-                    className="mb-s2 rounded-md border px-s3 py-s2"
-                    style={{
-                      minHeight: 52,
-                      justifyContent: 'center',
-                      borderColor: active ? `${colors.accent}8c` : colors.border,
-                      backgroundColor: active ? 'rgba(34,211,238,0.10)' : 'rgba(13,21,36,0.6)',
-                      opacity: empty && !active ? 0.65 : 1,
-                    }}
-                  >
-                    <Text
-                      className="text-2xs font-bold"
-                      style={{ letterSpacing: 1, color: active ? colors.accent : colors.text }}
-                    >
-                      {active ? '✓ ' : ''}
-                      {label}
-                    </Text>
-                    <Text className="text-2xs text-text-mute">{hint}</Text>
-                  </Pressable>
-                );
-              })}
-
-              {/* SWAP TODAY'S DAY (2026-07-24): trade today's split day for a
-                  different one from the SAME plan — "meant to be Push 1, want
-                  Pull 1 instead". Only the other days in the plan the source
-                  picker above is currently on; today's own day is excluded so
-                  there is nothing to swap to itself. */}
-              {planDays.filter((d) => d !== scheduledToday).length > 0 ? (
-                <View className="mb-s2 mt-s1">
-                  <Text className="mb-s2 text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-                    SWAP TODAY&apos;S DAY
-                  </Text>
-                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                    {planDays
-                      .filter((d) => d !== scheduledToday)
-                      .map((d) => (
-                        <Pressable
-                          key={d}
-                          onPress={() => setSwapPick(d)}
-                          accessibilityRole="button"
-                          testID={`swap-day-${d}`}
-                          className="rounded-md border px-s3 py-s2"
-                          style={{
-                            minHeight: 44,
-                            justifyContent: 'center',
-                            borderColor: colors.border,
-                            backgroundColor: 'rgba(13,21,36,0.6)',
-                          }}
-                        >
-                          <Text className="text-2xs font-bold text-text" style={{ letterSpacing: 0.5 }}>
-                            {splitWorkoutName(d).title}
-                          </Text>
-                        </Pressable>
-                      ))}
-                  </View>
-                </View>
-              ) : null}
-
-              <View className="mt-s2" style={{ gap: 8 }}>
-                {scanRow('change-scan')}
-                <Pressable
-                  accessibilityRole="button"
-                  testID={sources.has.myPlan ? 'build-routine' : 'create-my-plan'}
-                  onPress={() => {
-                    setChangeOpen(false);
-                    router.push('/routine' as never);
-                  }}
-                  className="items-center"
-                  style={{ minHeight: 44, justifyContent: 'center' }}
-                >
-                  <View className="items-center">
-                    <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1.5 }}>
-                      ⚒ {sources.has.myPlan ? 'EDIT PLAN' : 'CREATE PLAN'} →
-                    </Text>
-                    <Text className="text-2xs text-text-mute">Manage your scheduled workouts</Text>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  testID="forge-ai-plan"
-                  onPress={() => {
-                    setChangeOpen(false);
-                    router.push('/ai' as never);
-                  }}
-                  className="items-center"
-                  style={{ minHeight: 44, justifyContent: 'center' }}
-                >
-                  <View className="items-center">
-                    <Text className="text-2xs font-bold text-epic" style={{ letterSpacing: 1.5 }}>
-                      ✦ CREATE AI PLAN →
-                    </Text>
-                    <Text className="text-2xs text-text-mute">Forge a program around your goals</Text>
-                  </View>
-                </Pressable>
-              </View>
-
-              <View className="mt-s2">
-                <NeonButton title="CANCEL" variant="ghost" onPress={() => setChangeOpen(false)} testID="change-close" />
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
+        <ManagePlanSheet
+          sources={loadouts}
+          active={source}
+          onPickSource={pickSource}
+          swapDays={planDays.filter((d) => d !== scheduledToday)}
+          onPickSwapDay={(d) => setSwapPick(d)}
+          onScan={goScan}
+          onQuickWorkout={() => {
+            setChangeOpen(false);
+            setEmptyOpen(true);
+          }}
+          onEditSchedule={() => {
+            setChangeOpen(false);
+            router.push('/schedule' as never);
+          }}
+          onEditPlan={() => {
+            setChangeOpen(false);
+            router.push('/routine' as never);
+          }}
+          onAiPlan={() => {
+            setChangeOpen(false);
+            router.push('/ai' as never);
+          }}
+          hasMyPlan={sources.has.myPlan}
+          onClose={() => setChangeOpen(false)}
+        />
       ) : null}
 
       {/* SWAP TODAY'S DAY — just-today vs save-to-schedule, same choice
@@ -1134,6 +1063,18 @@ export default function TodayScreen() {
           onStartRoutine={startRoutine}
           onDeleteRoutine={(id) => deleteRoutine.mutate(id)}
           onClose={() => setEmptyOpen(false)}
+        />
+      ) : null}
+
+      {/* A TAPPED MUSCLE — what it does, what hits it today, and how much of
+          it this week has actually had. It answers and leaves; it never
+          navigates ("do not interrupt workflow"). */}
+      {musclePick !== null ? (
+        <MuscleDetailSheet
+          muscle={musclePick}
+          exercises={todaysExercisesForMuscle(musclePick)}
+          weekSets={weekSetsForMuscle(musclePick)}
+          onClose={() => setMusclePick(null)}
         />
       ) : null}
     </ScreenShell>

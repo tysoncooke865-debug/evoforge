@@ -28,6 +28,7 @@ export function ScreenShell({
   children,
   refreshControl,
   backdrop,
+  overlay,
 }: {
   children: ReactNode;
   /** Optional pull-to-refresh element, passed straight to the ScrollView
@@ -42,6 +43,17 @@ export function ScreenShell({
    * the ambient gate exists to prevent. Opt in per screen, never by default.
    */
   backdrop?: ReactNode;
+  /**
+   * A layer drawn OVER the ScrollView, inside this screen's own view tree
+   * (first consumer: Train's ENTERING MISSION veil, 2026-08-03). Inside the
+   * tree is the point: a pushed route draws over it automatically, so a
+   * transition cover never has to be raced off the page it was covering — a
+   * Modal would have floated above the new screen instead.
+   *
+   * It fills the shell and is NOT inset-padded: a veil that stops at the
+   * notch is not a veil.
+   */
+  overlay?: ReactNode;
 }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -103,6 +115,7 @@ export function ScreenShell({
           <View className="w-full max-w-[560px] gap-s3">{children}</View>
         </Animated.View>
       </ScrollView>
+      {overlay}
     </View>
   );
 }

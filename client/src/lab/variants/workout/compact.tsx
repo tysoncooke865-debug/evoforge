@@ -41,6 +41,7 @@ import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
+import { gradeMission, sessionPace, sessionVolumeKg } from '@/domain/progression/mission-grade';
 import { applyEditsToDay, diffDayEdits, mergeDayIntoCustomPlan } from '@/domain/plan-edits';
 import type { PlanDay } from '@/domain/custom-plan';
 import { pyInt } from '@/domain/py';
@@ -240,6 +241,57 @@ export function WorkoutCompact() {
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
 
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
+  /**
+   * THE MISSION GRADE (domain/progression/mission-grade.ts). Built at FINISH
+   * from this session's own rows — nothing here is stored, sampled or guessed:
+   *
+   *   volume     Σ weight × reps over the counted sets of this session
+   *   previous   the same total for the athlete's last session of THIS
+   *              workout, found by walking back through their log; null when
+   *              this is the first one, which the grade handles by scoring
+   *              OVERLOAD neutral and SAYING SO on the card
+   *   pace       the median gap between set timestamps, which refuses
+   *              (returns null) for a session typed in afterwards
+   *
+   * Read at build time rather than kept in state so a reopened workout that is
+   * finished again re-grades against what is actually logged now.
+   */
+  const gradeForSession = () => {
+    const counted = dayRows.filter((r) => isCountedSet(r.weight, r.reps));
+    // The last date STRICTLY BEFORE this one that has counted sets of this
+    // workout. An in-progress session today is not "last time".
+    let prevDate = '';
+    for (const r of allRows) {
+      if (String(r.workout) !== workoutName) continue;
+      const d = String(r.date ?? '');
+      if (d === '' || d >= date) continue;
+      if (!isCountedSet(r.weight, r.reps)) continue;
+      if (d > prevDate) prevDate = d;
+    }
+    const previousRows =
+      prevDate === ''
+        ? null
+        : allRows.filter(
+            (r) =>
+              String(r.workout) === workoutName &&
+              String(r.date) === prevDate &&
+              isCountedSet(r.weight, r.reps)
+          );
+    const pace = sessionPace(counted.map((r) => (r.timestamp ?? null) as string | null));
+    return {
+      grade: gradeMission({
+        setsDone: totalDone,
+        setsTarget: totalTarget,
+        volumeKg: sessionVolumeKg(counted),
+        previousVolumeKg: previousRows === null ? null : sessionVolumeKg(previousRows),
+        medianGapSeconds: pace?.medianGapSeconds ?? null,
+        prCount: prCountRef.current,
+        streakDays: computeStreak(workouts.data ?? [], todayIso).current,
+      }),
+      minutes: pace?.minutes ?? null,
+    };
+  };
+
   const buildSummary = (): WorkoutSummaryData => ({
     day: workoutName,
     setsDone: totalDone,
@@ -248,6 +300,7 @@ export function WorkoutCompact() {
     prCount: prCountRef.current,
     prExercises: [...new Set(prNamesRef.current)],
     streak: computeStreak(workouts.data ?? [], todayIso).current,
+    ...gradeForSession(),
     // The ceremony's LEVEL PATH is the FORGE level now (earned XP only —
     // Tyson 2026-07-16); evolution below keeps its own legacy-level track.
     level: forgeProgress.level,

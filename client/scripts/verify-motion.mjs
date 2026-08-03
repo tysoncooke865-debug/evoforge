@@ -49,6 +49,63 @@ const LOOP = /withRepeat\s*\(/;
 // consulting either honours the setting.
 const GATE = /(useReducedMotion|useAmbient)\s*\(/;
 
+/**
+ * PER-COMPONENT, NOT PER-FILE (tightened 2026-08-03).
+ *
+ * The file-wide test had a false negative that a falsification run caught:
+ * `ui/train/week-bar.tsx` holds a gated one-shot (the completed day's tick)
+ * AND a looping one (today's row breathing). Deleting the LOOP's gate left the
+ * one-shot's `useReducedMotion` in the file, and the guard stayed green on a
+ * genuinely broken loop. Any file that mixes a one-shot with a loop had the
+ * same hole.
+ *
+ * So the scope is now the enclosing TOP-LEVEL declaration. `componentSlices`
+ * walks back from a `withRepeat(` to the nearest COLUMN-ZERO `function` /
+ * `const X =` / `class`, and forward to the next one; the gate must appear
+ * inside THAT slice. Column zero is load-bearing: an indented `const beat =
+ * useSharedValue(0)` sits between a component's gate and its loop, and
+ * treating that as a boundary cut every component in half and made the guard
+ * report that nothing was gated at all.
+ *
+ * ---- THE PARENT-GATES-CHILD ESCAPE ----
+ *
+ * Three files legitimately put the gate in the EXPORTED component and the loop
+ * in a private child it decides whether to render at all (`CoinFlip` →
+ * `NativeSpin`, `SpriteAvatar` → `NativeSprite`, `MoveFxLayer` → its effect
+ * views). Those are correct, so a loop also counts as gated when any EXPORTED
+ * declaration in the same file consults a gate — the exported thing is the
+ * only way in.
+ *
+ * That escape is deliberately narrow, and it does NOT reopen the hole this
+ * tightening closed: week-bar's gate lived in a PRIVATE helper (`StatusCircle`)
+ * while the loop lived in the exported component, so an ungated loop there is
+ * still red.
+ *
+ * It is a heuristic, not a parser — a loop inside a nested helper is attributed
+ * to the top-level declaration that contains it, which is the right answer for
+ * every case in this codebase.
+ */
+const DECL = /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s+\w+|const\s+\w+\s*=|class\s+\w+)/;
+const EXPORTED_DECL = /^export\s+(?:default\s+)?(?:async\s+)?(?:function\s+\w+|const\s+\w+\s*=|class\s+\w+)/;
+
+const componentSlices = (lines, loopLineIdx) => {
+  let start = 0;
+  for (let i = loopLineIdx; i >= 0; i--) {
+    if (DECL.test(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  let end = lines.length;
+  for (let i = loopLineIdx + 1; i < lines.length; i++) {
+    if (DECL.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n');
+};
+
 const loopers = [];
 const gated = [];
 const offenders = [];
@@ -57,8 +114,15 @@ for (const file of sources) {
   const text = readFileSync(file, 'utf8');
   if (!LOOP.test(text)) continue;
   loopers.push(file);
-  if (GATE.test(text)) gated.push(file);
-  else offenders.push(file);
+  const lines = text.split(/\r?\n/);
+  // Does any EXPORTED declaration in this file consult a gate? If so the loop
+  // may live in a private child it renders (the parent-gates-child escape).
+  const exportedGated = lines.some((line, i) => EXPORTED_DECL.test(line) && GATE.test(componentSlices(lines, i)));
+  const ungated = lines.some(
+    (line, i) => LOOP.test(line) && !GATE.test(componentSlices(lines, i)) && !exportedGated
+  );
+  if (ungated) offenders.push(file);
+  else gated.push(file);
 }
 
 // Positive controls: the scan must actually have found loops, and at least

@@ -26,6 +26,97 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **TRAIN — THE MISSION BRIEFING (2026-08-03, no migration).** Tyson: "the page
+  should feel like beginning a mission. Not filling out a form." Not a redesign:
+  every value, every door and every resolution rule is the one that was already
+  there — the source picker, the per-day source rule, SWAP TODAY'S DAY, PLAN
+  SCAN, quick workouts, routines, extras and the week bars all behave exactly as
+  before. What changed is ORDER, LANGUAGE and MOTION.
+
+  **THE HERO IS A BRIEFING** (`ui/train/mission-brief.tsx`), in the brief's own
+  hierarchy: TODAY'S MISSION ▸ name ▸ **objective** ▸ PRIMARY MUSCLES ▸
+  DIFFICULTY · EST. TIME ▸ **MISSION REWARDS (Evo first)** ▸ progress ▸ the one
+  CTA. Two things the card never said are now on it, and both are derived:
+  * **MISSION OBJECTIVE** — `domain/mission-brief.ts::missionObjectiveFor`
+    scores the day's MUSCLES into a theme and names it ("Build width &
+    V-taper"). Derived from muscles, never from the day's NAME: athletes call
+    days anything, and the muscles are the only fact the app always has. Returns
+    null on an unrecognised/empty day rather than inventing a purpose.
+  * **DIFFICULTY** — `difficultyFor(plannedSets)`, banded volume, and that is
+    all it claims to be. Nothing in a plan carries load intensity before the
+    sets exist, so a difficulty that read "effort" would be inventing it. Zero
+    sets returns null: an unplanned day is not an easy day.
+  22 goldens.
+
+  **"+N EVO" ON TRAIN IS THE SAME NUMBER HOME SHOWS** — `evo-per-session.ts`,
+  the athlete's own measured rate, with the same refusals. The mock's "After
+  this workout: Strength +0.3 · Size +0.2 · Evo +0.4" was NOT built: per-pillar
+  per-session forecasts do not exist (`session-evidence.ts`). What is true from
+  the first session is WHICH pillars it becomes evidence for — the PRIMARY
+  BENEFIT line, which the progress row replaces once a set is logged (same line
+  of the block; before you start, what it buys is the news, mid-session how far
+  you have to go is).
+
+  **THE FIGURE IS A READOUT AND A DOOR** (`ui/train/muscle-hologram.tsx`):
+  blueprint grid, ambient bloom under the lit regions, a scan that crosses once
+  per 5.5s, HUD brackets, a centred ⟳ flip affordance, and a POWER-ON on the
+  0.30–0.62 window of the page's entrance clock. The art is untouched. Tapping a
+  lit muscle opens `muscle-detail.tsx`: what the region DOES (`MUSCLE_FUNCTION`,
+  17 lines of anatomy), today's exercises that hit it with their sets, and THIS
+  WEEK'S REAL VOLUME against the 10-set growth floor. **"Estimated growth" was
+  refused** — it is not predictable from a plan, and "you are three sets short
+  on lats" is a decision where "+0.3 cm" would have been a lie.
+
+  **THE MISSION GRADE** (`domain/progression/mission-grade.ts`, 26 goldens):
+  S / A+ / A / B / C from COMPLETION (55) + OVERLOAD (25: this session's tonnage
+  vs the athlete's own last session of the same workout) + PACE (20: the median
+  gap between set timestamps). The brief also listed intensity and rest-timer
+  adherence; there is no RPE column and the timer persists nothing, so those are
+  NOT read and not pretended. An unmeasurable factor scores NEUTRAL (0.6) and
+  the card SAYS "NOT MEASURED" — a disclosed convention, not a hidden fill.
+  `sessionPace` refuses outright (null) for a session typed in afterwards, one
+  with out-of-order stamps, or fewer than four sets. **A COMPLETION CEILING
+  (40 + 60 × completion) exists because three PRs and a 30-day streak lifted a
+  session abandoned after four of twenty sets to a B**; the records are real but
+  they did not happen to that mission. Rendered at the top of the existing
+  summary phase (no extra tap): letter materialising inside an opening ring, one
+  scan sweep, factor bars, bonus chips, then SETS · MINUTES · XP · PRS · STREAK.
+  No confetti.
+
+  **THREE GREY UTILITY CARDS → ONE PLAN RAIL.** `plan-rail.tsx` is
+  `CURRENT PLAN / <name>` + `MANAGE PLAN ›`; `manage-plan-sheet.tsx` holds every
+  door they carried (switch loadout, import, quick workout, edit schedule, edit
+  plan, create AI plan) plus SWAP TODAY'S DAY. **Every testID is verbatim** —
+  `today-source-0/1/2`, `swap-day-*`, `change-scan`, `start-empty`, `edit-week`,
+  `build-routine`/`create-my-plan`, `forge-ai-plan`, `change-close`,
+  `change-workout`. The loadout rows show what a plan IS and how many days it
+  holds; **the mock's ★★★★★ was not built** — nothing rates a plan, and five
+  stars on every row teaches athletes the real numbers are decoration too.
+
+  **ENTERING MISSION** (`mission-launch.tsx`) covers the /workout route's
+  arrival. It NEVER delays navigation — `router.push` fires on the same frame —
+  and it renders inside Train's own view tree via the new `ScreenShell overlay`
+  prop, so the pushed page draws over it and it is cleared on the next FOCUS
+  (clearing on blur killed it before it painted, because blur fires within a
+  frame of the push on web).
+
+  **THE CHAMPION READS TODAY** (`champion-charge.tsx`): idle at zero, the punch
+  cycle while the day fills with the glow rising, victory once it is done, and a
+  charge plate under it. Same sprite, same profile-menu tap. **THE WEEK IS A
+  CAMPAIGN** (`week-bar.tsx`): today breathes (the ONE loop in the list),
+  completed days glow and pop their tick once, future days read locked (0.72 +
+  a ▮▯ glyph). The rows survived rather than becoming the mock's seven-column
+  strip — a strip cannot carry the sets fraction, PARTIAL, a day's EXTRA
+  workouts or EDIT.
+
+  **THE FOLD, MEASURED (`ui/train/train-scale.ts`, `scratchpad/train_tour.mjs`)**:
+  START WORKOUT clears the PHONE's fold at all four sizes — **+114 at 390×844,
+  +170 at 430×932, +11 at 375×667, +14 at 320×720**. 375×667 is the first time
+  the Train CTA has fitted an SE without a flick. `RewardPill` moved to
+  `ui/core/` and Home's card now imports it; `HomeAmbience` became
+  `ui/core/ambience.tsx::ScreenAmbience` (Home keeps the alias) and Train
+  mounts it too.
+
 - **HOME — THE AAA PASS (2026-08-03, third brief, no migration).** Tyson:
   "elevate it from a polished beta into a premium AAA mobile game experience
   through refinement, clarity, motion, delight and microinteractions… the page
@@ -2875,6 +2966,17 @@ Every one of these was a live bug. Do not relearn them.
 - **A guard that cannot fail is not a guard.** The motion guard's first version
   matched a bare identifier, so `const reducedMotion = false` passed it. **Break
   every guard, watch it go red, restore it.** Do this before you trust it.
+- **A guard can pass on a file and still be wrong about the LINE.**
+  `verify-motion` tested for a gate anywhere in a FILE. `ui/train/week-bar.tsx`
+  holds a gated one-shot (a completed day's tick) and a looping one (today's
+  row breathing); deleting the LOOP's gate left the one-shot's
+  `useReducedMotion` behind and the guard stayed GREEN on a genuinely broken
+  loop. Found by falsifying it, 2026-08-03. It now scopes to the enclosing
+  COLUMN-ZERO declaration, with one narrow escape for the parent-gates-child
+  shape (`CoinFlip` → `NativeSpin`, `SpriteAvatar` → `NativeSprite`,
+  `MoveFxLayer`): a gate on an EXPORTED declaration covers a loop in a private
+  child it decides whether to render. **When a falsification passes, the guard
+  is the thing that is broken.**
 - **Falsify persistence bugs against production.** "It works" means: seed it,
   tour it in a browser, restart the app, read the row back from the database —
   then delete what you seeded.
@@ -2951,6 +3053,19 @@ Every one of these was a live bug. Do not relearn them.
   `#94a3b8` — a grey stroke at 0.2 opacity on a purple-lit disc, i.e. nothing
   at all. Tune opacity against the REAL art and the WORST-CASE colour the prop
   can take, not against the one the design was mocked in.
+- **A FIXED height inside a fixed-height card cannot give space back.** The
+  Train briefing's figure had `height: mapHeight`; when a set is logged the
+  progress row appears and the blocks below it grew, so on a compact screen the
+  rewards block was pushed under the card's own `overflow: hidden`. A card whose
+  height is a budget (the equal-cards rule) needs at least one child that
+  YIELDS: the figure is `alignSelf: 'stretch'` with `maxHeight`/`minHeight` now,
+  and the crop it already ran makes losing its edges harmless.
+- **The same testID lives on more than one screen, and preloaded tabs stay
+  MOUNTED.** Home and Train both render `mission-rewards` / `mission-evo-gain` /
+  `mission-xp` / `profile-menu`. A tour's `document.querySelector` found Home's
+  hidden copy and measured 0×0 at y=0 — which reads exactly like "the element is
+  missing" and nearly sent a real layout pass chasing a phantom. **Measure the
+  first node with a non-zero box, not the first node.**
 - **An overflowing box still eats taps.** A child drawn larger than its parent
   (Home's champion at `artScale`, whose sprite frame reaches ~48pt above the rig)
   is invisible up there but fully hit-testable, and it silently stole every tap

@@ -1,14 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
 
 import type { Mission } from '@/domain/home-mission';
 import { formatEvoEstimate } from '@/domain/progression/evo-per-session';
@@ -18,6 +9,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { PixelBolt, PixelDumbbell } from '@/ui/core/pixel-icons';
+import { RewardPill } from '@/ui/core/reward-pill';
 import { GlowCard } from '@/ui/core/shell';
 
 import type { HomeFeatures } from './home-features';
@@ -349,79 +341,6 @@ function Kicker({ children }: { children: React.ReactNode }) {
     <Text className="text-2xs font-bold text-text-mute" numberOfLines={1} ellipsizeMode="tail" style={{ letterSpacing: 2 }}>
       {children}
     </Text>
-  );
-}
-
-/**
- * One token on the mission's reward row.
- *
- * `lead` is the Evo gain: bigger type, a heavier outline and a soft bloom, so
- * the reward the whole app is about outranks the XP beside it at a glance
- * rather than by reading order alone.
- *
- * Each pill POPS IN once, staggered — the brief's "tiny pulse when appearing".
- * It is a ONE-SHOT (not perf-gated, per the animations.ts doctrine) and
- * reduced motion pins it at rest, fully visible: a reward chip that never
- * arrives is worse than one that does not bounce.
- */
-function RewardPill({
-  icon,
-  label,
-  tint,
-  testID,
-  size = 'base',
-  delay = 0,
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  tint: string;
-  testID?: string;
-  size?: 'base' | 'lead';
-  delay?: number;
-}) {
-  const reduced = useReducedMotion();
-  const lead = size === 'lead';
-  const pop = useSharedValue(reduced ? 1 : 0);
-
-  useEffect(() => {
-    if (reduced) return;
-    pop.value = withDelay(delay, withTiming(1, { duration: 320, easing: Easing.out(Easing.back(2)) }));
-  }, [reduced, delay, pop]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: Math.min(1, pop.value * 1.6),
-    transform: [{ scale: 0.86 + pop.value * 0.14 }],
-  }));
-
-  return (
-    <Animated.View
-      testID={testID}
-      style={[
-        {
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderRadius: 999,
-          borderWidth: lead ? 1.5 : 1,
-          paddingHorizontal: lead ? 12 : 8,
-          gap: 5,
-          minHeight: lead ? 32 : 26,
-          borderColor: lead ? `${tint}8c` : `${tint}45`,
-          backgroundColor: lead ? `${tint}1f` : `${tint}12`,
-          ...(lead ? { shadowColor: tint, shadowOpacity: 0.45, shadowRadius: 12, elevation: 4 } : null),
-        },
-        style,
-      ]}
-    >
-      {icon}
-      <Text
-        className="text-center"
-        numberOfLines={1}
-        allowFontScaling={false}
-        style={{ fontSize: lead ? 15 : 11, letterSpacing: 0, color: tint, ...pixelFont() }}
-      >
-        {label.toUpperCase()}
-      </Text>
-    </Animated.View>
   );
 }
 
