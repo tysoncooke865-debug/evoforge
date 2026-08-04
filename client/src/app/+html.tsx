@@ -56,16 +56,37 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="EvoForge" />
         <title>EvoForge — The Fitness RPG</title>
         <meta name="description" content="Your character is forged from real training. Lift, level, evolve — and battle in the Arena." />
-        {/* BOOT-FAILURE SAFETY NET (Tyson, 2026-07-16). Runs independently of
-            the app bundle. Expo pre-renders each route into #root, so "root is
-            empty" can NEVER detect a failed boot — instead we watch the
-            window.__EVO_BOOTED flag the app sets on successful mount. If the JS
-            bundle 404s (a stale cached shell pointing at deleted chunks) or
-            throws before mount, the flag never arrives and this surfaces the
-            actual error with Reload / Reset-&-reload buttons — a silent blank
-            screen becomes recoverable and self-reporting. If the app boots late
-            it auto-dismisses, so a slow network never traps a working app. */}
-        <script>{'(function(){var errs=[],shown=false,node=null;function booted(){return !!window.__EVO_BOOTED;}function reveal(reason){if(shown||booted())return;if(!document.body){document.addEventListener("DOMContentLoaded",function(){reveal(reason);});return;}shown=true;if(reason)errs.unshift(reason);node=document.createElement("div");node.setAttribute("style","position:fixed;inset:0;z-index:2147483647;background:#04070e;color:#e5edf7;font:600 15px -apple-system,system-ui,sans-serif;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch");node.innerHTML=\'<div style="max-width:520px;margin:9vh auto 0"><div style="font-size:20px;font-weight:800;letter-spacing:1px;color:#22d3ee">EVOFORGE</div><div style="margin-top:16px;font-size:16px">Could not start</div><div style="margin-top:8px;font-size:13px;font-weight:400;color:#8aa0b8;line-height:1.5">The app did not load. Tap Reload. If it keeps happening, tap Reset &amp; reload.</div><pre id="__bfl" style="margin-top:14px;font:400 11px ui-monospace,monospace;color:#fb7185;white-space:pre-wrap;word-break:break-word;max-height:34vh;overflow:auto"></pre><div style="margin-top:16px;display:flex;gap:10px"><button id="__bfr" style="flex:1;min-height:50px;border-radius:12px;border:0;background:#22d3ee;color:#04070e;font-weight:800;font-size:15px">Reload</button><button id="__bfx" style="flex:1;min-height:50px;border-radius:12px;border:1px solid #2b3a4f;background:transparent;color:#e5edf7;font-weight:700;font-size:15px">Reset &amp; reload</button></div></div>\';document.body.appendChild(node);document.getElementById("__bfl").textContent=errs.slice(0,8).join("\\n\\n")||"(no error captured; the app simply never mounted — usually a stale cached build)";document.getElementById("__bfr").onclick=function(){location.reload();};document.getElementById("__bfx").onclick=function(){try{localStorage.clear();}catch(e){}try{sessionStorage.clear();}catch(e){}try{if(window.caches&&caches.keys)caches.keys().then(function(k){k.forEach(function(n){caches.delete(n);});});}catch(e){}try{if(window.indexedDB&&indexedDB.databases)indexedDB.databases().then(function(d){d.forEach(function(x){try{indexedDB.deleteDatabase(x.name);}catch(e){}});});}catch(e){}setTimeout(function(){location.reload();},350);};var iv=setInterval(function(){if(booted()&&node){clearInterval(iv);node.parentNode&&node.parentNode.removeChild(node);}},500);}window.addEventListener("error",function(e){var m=(e&&(e.message||(e.error&&e.error.message)))||"script error";var f=e&&e.filename?(" @ "+String(e.filename).split("/").pop()+":"+e.lineno):"";errs.push("Error: "+m+f);if(!booted())reveal();},true);window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;errs.push("Rejection: "+((r&&(r.message||(""+r)))||"promise rejection"));if(!booted())reveal();});setTimeout(function(){if(!booted())reveal("Timed out: the app did not start within 15 seconds.");},15000);})();'}</script>
+        {/* BOOT-FAILURE SAFETY NET (Tyson, 2026-07-16; grace window added
+            2026-08-04). Runs independently of the app bundle. Expo pre-renders
+            each route into #root, so "root is empty" can NEVER detect a failed
+            boot — instead we watch the window.__EVO_BOOTED flag the app sets on
+            successful mount. If the JS bundle 404s (a stale cached shell
+            pointing at deleted chunks) or throws before mount, the flag never
+            arrives and this surfaces the actual error with Reload /
+            Reset-&-reload buttons — a silent blank screen becomes recoverable
+            and self-reporting. If the app boots late it auto-dismisses, so a
+            slow network never traps a working app.
+
+            THE GRACE WINDOW (Tyson: "a 'Could not start' error shows for half a
+            second before the loading screen, every time"). The first version
+            called reveal() on the VERY FIRST global `error` event, with no
+            check for whether boot was merely a few milliseconds away — and
+            React 19's hydration-mismatch recovery on this static export
+            legitimately fires ONE global error event on ordinary page loads
+            (a known, harmless, self-correcting path: React discards the
+            mismatched pre-rendered node and re-renders it client-side; the app
+            still boots normally within the same commit). That single recovered
+            error was enough to flash the whole "Could not start" overlay before
+            the 500ms poll below caught up and tore it down — a scary message
+            for something that was never actually a failure.
+            An error/rejection no longer reveals anything by itself: it only
+            arms a short timer, and reveal() only runs if THAT check, later,
+            still finds no boot flag. A genuine failure (chunk 404, a throw
+            before mount) never sets the flag either way, so it is caught just
+            as reliably, ~600ms later instead of instantly — imperceptible next
+            to the boot animation that plays regardless, and a fair trade for
+            never flashing scary UI at a phone that was about to work fine. */}
+        <script>{'(function(){var errs=[],shown=false,node=null,graceTimer=null;function booted(){return !!window.__EVO_BOOTED;}function reveal(reason){if(shown||booted())return;if(!document.body){document.addEventListener("DOMContentLoaded",function(){reveal(reason);});return;}shown=true;if(reason)errs.unshift(reason);node=document.createElement("div");node.setAttribute("style","position:fixed;inset:0;z-index:2147483647;background:#04070e;color:#e5edf7;font:600 15px -apple-system,system-ui,sans-serif;padding:24px;overflow:auto;-webkit-overflow-scrolling:touch");node.innerHTML=\'<div style="max-width:520px;margin:9vh auto 0"><div style="font-size:20px;font-weight:800;letter-spacing:1px;color:#22d3ee">EVOFORGE</div><div style="margin-top:16px;font-size:16px">Could not start</div><div style="margin-top:8px;font-size:13px;font-weight:400;color:#8aa0b8;line-height:1.5">The app did not load. Tap Reload. If it keeps happening, tap Reset &amp; reload.</div><pre id="__bfl" style="margin-top:14px;font:400 11px ui-monospace,monospace;color:#fb7185;white-space:pre-wrap;word-break:break-word;max-height:34vh;overflow:auto"></pre><div style="margin-top:16px;display:flex;gap:10px"><button id="__bfr" style="flex:1;min-height:50px;border-radius:12px;border:0;background:#22d3ee;color:#04070e;font-weight:800;font-size:15px">Reload</button><button id="__bfx" style="flex:1;min-height:50px;border-radius:12px;border:1px solid #2b3a4f;background:transparent;color:#e5edf7;font-weight:700;font-size:15px">Reset &amp; reload</button></div></div>\';document.body.appendChild(node);document.getElementById("__bfl").textContent=errs.slice(0,8).join("\\n\\n")||"(no error captured; the app simply never mounted — usually a stale cached build)";document.getElementById("__bfr").onclick=function(){location.reload();};document.getElementById("__bfx").onclick=function(){try{localStorage.clear();}catch(e){}try{sessionStorage.clear();}catch(e){}try{if(window.caches&&caches.keys)caches.keys().then(function(k){k.forEach(function(n){caches.delete(n);});});}catch(e){}try{if(window.indexedDB&&indexedDB.databases)indexedDB.databases().then(function(d){d.forEach(function(x){try{indexedDB.deleteDatabase(x.name);}catch(e){}});});}catch(e){}setTimeout(function(){location.reload();},350);};var iv=setInterval(function(){if(booted()&&node){clearInterval(iv);node.parentNode&&node.parentNode.removeChild(node);}},500);}function scheduleCheck(){if(graceTimer||shown||booted())return;graceTimer=setTimeout(function(){graceTimer=null;if(!booted())reveal();},600);}window.addEventListener("error",function(e){var m=(e&&(e.message||(e.error&&e.error.message)))||"script error";var f=e&&e.filename?(" @ "+String(e.filename).split("/").pop()+":"+e.lineno):"";errs.push("Error: "+m+f);if(!booted())scheduleCheck();},true);window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;errs.push("Rejection: "+((r&&(r.message||(""+r)))||"promise rejection"));if(!booted())scheduleCheck();});setTimeout(function(){if(!booted())reveal("Timed out: the app did not start within 15 seconds.");},15000);})();'}</script>
       </head>
       <body>{children}</body>
     </html>

@@ -26,6 +26,26 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE "COULD NOT START" FLASH — fixed (2026-08-04, no migration).** Tyson: a
+  scary "Could not start" error showed for half a second, every launch,
+  right before the forge intro. Real bug, and it predates the intro: the
+  BOOT-FAILURE SAFETY NET (`+html.tsx`, 2026-07-16) called `reveal()` on the
+  VERY FIRST global `error` event, with no check for whether boot was merely
+  milliseconds away. React 19's hydration-mismatch recovery on this static
+  export legitimately fires ONE global error on ordinary loads — a known,
+  harmless, self-correcting path (React discards the mismatched pre-rendered
+  node and re-renders it client-side; the app boots normally regardless) —
+  and that alone was enough to flash the whole overlay before the existing
+  500ms poll tore it down once `__EVO_BOOTED` flipped true. **An error no
+  longer reveals anything by itself** — it only arms a 600ms check, and
+  `reveal()` only runs if boot STILL hasn't happened by then. A genuine
+  failure (a 404'd chunk, a throw before mount) never sets the flag either
+  way, so it is caught just as reliably — **falsified by blocking every JS
+  chunk outright**: the overlay still appears (~650ms), with working Reload
+  and Reset-&-reload buttons (`scratchpad/boot_flash.mjs`). Confirmed clean
+  across 5+ runs on Chromium and WebKit that the overlay never appears on a
+  normal load, polled continuously across the whole ~2.7s intro.
+
 - **THE FORGE LOADER — one loading mark for the whole app (2026-08-04, no
   migration).** `ui/core/forge-loader.tsx`: the same broken-ring sigil the
   launch sequence resolves and `boot-hold.tsx` already held still, extracted
@@ -3213,6 +3233,18 @@ Every one of these was a live bug. Do not relearn them.
   time its removal more carefully. A decoration that was never required to be
   interactive should never have a way to become the thing standing between an
   athlete and their own keyboard.
+- **A safety net that fires on the FIRST symptom, with no grace period, is
+  itself a bug generator.** `+html.tsx`'s boot-failure overlay revealed on the
+  very first global `error` event — and this app's static export legitimately
+  fires ONE recovered React hydration-mismatch error on ordinary loads, which
+  was enough to flash "Could not start" in front of every athlete before the
+  poll-based auto-dismiss caught up ~500ms later. **A monitor for "did the
+  critical thing eventually happen" must wait long enough for it to plausibly
+  happen before treating its absence as failure** — arm a short check on the
+  first symptom, decide only when that check fires and the thing STILL hasn't
+  happened. Re-verified the guard still catches a REAL failure afterwards
+  (blocked every JS chunk outright; the overlay still appeared, on schedule,
+  with working buttons) — the fix must never just make the guard quieter.
 - **A tap target's SIZE is a feature, and a miss's CONSEQUENCE is part of it.**
   Train's card figure gave each muscle a 15-30pt target and made a miss FLIP
   the view, so the common outcome of aiming at a muscle was the figure spinning
