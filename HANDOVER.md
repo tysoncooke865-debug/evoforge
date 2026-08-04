@@ -26,6 +26,43 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ORACLE HERO PROMOTION (2026-08-04, no migration)** — the Oracle
+  (`ai.tsx`, `ui/oracle/*`) was already close to the Home/Train/Cardio
+  standard (ORACLE_REDESIGN, 2026-07-18: real theatrical reveals, count-up
+  scores, honest no-fabrication copy throughout) — this pass is a targeted
+  elevation, not a rebuild. **`evolution-impact-card.tsx` ("YOUR CHAMPION
+  EVOLUTION") moved out of `PhysiqueScanCard` and up to lead `ai.tsx`,
+  right after the header** — it used to render ONLY inside the gate
+  `{result ? <EvolutionImpactCard/> : null}`, i.e. only after a fresh scan
+  THIS SESSION, so an athlete with a real rating from last week saw nothing
+  about it on Oracle unless they scanned again today. It is now the page's
+  own "at a glance" hero (the role the Evo Rating plays on Home, the mission
+  card on Train/Cardio) and shows every visit — its own honest internal gate
+  (a confirmed rating must exist, else the "run your first review" prompt)
+  is unchanged. Its label switched from a hand-rolled `Text` to the shared
+  `SectionLabel size="lg"` the other three Oracle cards already use — it was
+  the only card on the page not using it. `oracle-header.tsx`'s champion
+  frame now PULSES (shadow only — there is no fifth sprite pose to fake
+  "scanning" with, so `anim` stays `"idle"`, which is accurate) while ANY of
+  the three tool cards below is genuinely mid-request; each card mirrors its
+  own `busy` state up via an `onBusyChange` callback (the exact lifting
+  pattern `session-form.tsx` used for Cardio) rather than a new store.
+  `oracle-history-card.tsx` gained a loading skeleton instead of returning
+  `null` during the first fetch; `routine-forge-card.tsx`'s Oracle Summary no
+  longer flashes "no scan yet" while `physique_ratings` is still loading —
+  it now shows a neutral "Reading your latest scan…" line until the real
+  data (or the real absence of it) is known. Verified: `tsc`, `expo lint`
+  (11 pre-existing warnings, 0 new, 0 errors), all 1889 vitest cases,
+  `verify-tokens`, `expo export -p web`, and a live Playwright pass at
+  375/390px signed in as ALPHA confirmed YOUR CHAMPION EVOLUTION renders
+  with real data (rating 46, TRAINED, Aesthetics 46/Size 42, "next Evo
+  Review in 7d") ABOVE AI PHYSIQUE ANALYSIS with zero fresh scans that
+  session, no horizontal overflow at either width, no console errors. The
+  header pulse itself was verified by code review against its two proven
+  siblings (`scan-frame.tsx`'s sweep, `champion-charge.tsx`'s frame glow)
+  rather than a live AI call — it did not seem worth spending the smoke
+  account's hourly scan-rate-limit budget to screenshot a box-shadow.
+
 - **CARDIO MISSION REDESIGN (2026-08-04, no migration)** — the CARDIO mode of
   Train raised to the 2026-08-03 mission-briefing standard (Train's own
   `mission-brief.tsx`, Home's hero). `DailyCardioSummary` ("Today's Protocol")

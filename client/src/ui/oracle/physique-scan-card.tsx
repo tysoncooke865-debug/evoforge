@@ -14,7 +14,6 @@ import { GlowCard } from '@/ui/core/shell';
 import { type ScanState } from '@/ui/train/scan-frame';
 import { BodyScanner } from '@/ui/oracle/body-scanner';
 import { ConditionsConfirm } from '@/ui/oracle/conditions-confirm';
-import { EvolutionImpactCard } from '@/ui/oracle/evolution-impact-card';
 import { PhysiqueReveal } from '@/ui/oracle/physique-result';
 
 /**
@@ -22,16 +21,26 @@ import { PhysiqueReveal } from '@/ui/oracle/physique-result';
  * flow is unchanged and REAL: estimate pass (save:false, nothing persisted) →
  * confirm conditions → finalize (cache hit or re-judge, saves physique_ratings
  * under the caller's JWT). Photos live in state only and drop the moment the
- * verdict saves. The redesign is the surface: a premium scanner, an animated
- * reveal, and the honest Evolution Impact beneath.
+ * verdict saves. The redesign is the surface: a premium scanner and an
+ * animated reveal.
+ *
+ * 2026-08-04: the honest Evolution Impact tie-in moved OUT of this card and
+ * up to ai.tsx, always visible near the top rather than gated behind a fresh
+ * scan THIS SESSION — an athlete with a real rating from last week used to
+ * see nothing about it here unless they scanned again. `onBusyChange` mirrors
+ * this card's own analysis-in-flight state up to the header's champion.
  */
-export function PhysiqueScanCard() {
+export function PhysiqueScanCard({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const colors = useThemeColors();
   const { summary, stats } = useAvatarData();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const setBusy = (v: boolean) => {
+    setBusyState(v);
+    onBusyChange?.(v);
+  };
   const [provisional, setProvisional] = useState<PhysiqueResult | null>(null);
   const [lighting, setLighting] = useState('neutral');
   const [pump, setPump] = useState('none');
@@ -100,53 +109,47 @@ export function PhysiqueScanCard() {
   const state: ScanState = confirming && !busy ? 'confirm' : physiqueScanState(busy, error, result !== null, anyPhoto);
 
   return (
-    <>
-      <GlowCard glow={state === 'complete' ? colors.success : colors.accent}>
-        <SectionLabel size='lg'>AI PHYSIQUE ANALYSIS</SectionLabel>
-        <Text className="mb-s3 text-2xs text-text-mute">
-          Upload three clear photos in good lighting — shirtless, relaxed pose. The Oracle rates
-          your frame and never stores the images.
-        </Text>
-        <BodyScanner
-          labels={['FRONT', 'SIDE', 'BACK']}
-          photos={photos}
-          onPick={(i) => void pick(i)}
-          state={state}
+    <GlowCard glow={state === 'complete' ? colors.success : colors.accent} testID="physique-scan-card">
+      <SectionLabel size='lg'>AI PHYSIQUE ANALYSIS</SectionLabel>
+      <Text className="mb-s3 text-2xs text-text-mute">
+        Upload three clear photos in good lighting — shirtless, relaxed pose. The Oracle rates
+        your frame and never stores the images.
+      </Text>
+      <BodyScanner
+        labels={['FRONT', 'SIDE', 'BACK']}
+        photos={photos}
+        onPick={(i) => void pick(i)}
+        state={state}
+      />
+      <View className="mb-s4" />
+      {error ? <Text className="mb-s2 text-xs text-danger">{error}</Text> : null}
+      {confirming ? (
+        <ConditionsConfirm
+          estimate={provisional?.conditions ?? null}
+          lighting={lighting}
+          pump={pump}
+          onLighting={setLighting}
+          onPump={setPump}
+          corrected={
+            lighting !== String(provisional?.conditions?.lighting ?? 'neutral') ||
+            pump !== String(provisional?.conditions?.pump ?? 'none')
+          }
+          busy={busy}
+          onConfirm={() => void finalize()}
         />
-        <View className="mb-s4" />
-        {error ? <Text className="mb-s2 text-xs text-danger">{error}</Text> : null}
-        {confirming ? (
-          <ConditionsConfirm
-            estimate={provisional?.conditions ?? null}
-            lighting={lighting}
-            pump={pump}
-            onLighting={setLighting}
-            onPump={setPump}
-            corrected={
-              lighting !== String(provisional?.conditions?.lighting ?? 'neutral') ||
-              pump !== String(provisional?.conditions?.pump ?? 'none')
-            }
-            busy={busy}
-            onConfirm={() => void finalize()}
-          />
-        ) : (
-          <NeonButton
-            title="RUN ANALYSIS"
-            onPress={() => void run()}
-            disabled={!anyPhoto}
-            busy={busy}
-            size="hero"
-            testID="run-physique"
-          />
-        )}
+      ) : (
+        <NeonButton
+          title="RUN ANALYSIS"
+          onPress={() => void run()}
+          disabled={!anyPhoto}
+          busy={busy}
+          size="hero"
+          testID="run-physique"
+        />
+      )}
 
-        {result ? <PhysiqueReveal result={result} /> : null}
-      </GlowCard>
-
-      {/* The honest progression tie-in — shown only when a real Evo Rating
-          exists, and only after a fresh verdict this session. */}
-      {result ? <EvolutionImpactCard /> : null}
-    </>
+      {result ? <PhysiqueReveal result={result} /> : null}
+    </GlowCard>
   );
 }
 

@@ -7,6 +7,7 @@ import { todayIso as calendarToday } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { SpriteCompanion } from '@/ui/character/sprite-avatar';
+import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard } from '@/ui/core/shell';
 
 /**
@@ -18,6 +19,17 @@ import { GlowCard } from '@/ui/core/shell';
  *
  * Flag off, or no confirmed rating yet → the card points at the Evo Rating
  * page rather than inventing numbers (the house rule: hidden, never mocked).
+ *
+ * 2026-08-04: PROMOTED to ai.tsx's lead position, right after the header —
+ * previously this only rendered from inside PhysiqueScanCard, and only after
+ * a fresh scan THIS SESSION (`{result ? <EvolutionImpactCard/> : null}`), so
+ * a returning athlete with a real rating from days ago saw nothing about it
+ * unless they scanned again. It is now the page's own "at a glance" hero —
+ * the same role the Evo Rating plays on Home and the mission card plays on
+ * Train/Cardio — and shows whenever `newProgressionEnabled` is on, gated only
+ * by whether a confirmed rating actually exists (unchanged). Its label now
+ * matches its siblings' (`SectionLabel size="lg"`, same as the three scan
+ * cards below it) now that it leads the page instead of trailing one card.
  */
 export function EvolutionImpactCard() {
   const colors = useThemeColors();
@@ -37,10 +49,8 @@ export function EvolutionImpactCard() {
         testID="evo-impact-discover"
       >
         <GlowCard glow={colors.epic}>
-          <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-            YOUR CHAMPION EVOLUTION
-          </Text>
-          <Text className="mt-s2 text-sm text-text-dim">
+          <SectionLabel size='lg'>YOUR CHAMPION EVOLUTION</SectionLabel>
+          <Text className="text-sm text-text-dim">
             Run your first Evo Review to see how each Oracle scan shapes your champion&apos;s
             Physique and Size. ›
           </Text>
@@ -67,10 +77,8 @@ export function EvolutionImpactCard() {
       testID="evo-impact"
     >
       <GlowCard glow={colors.epic}>
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-          YOUR CHAMPION EVOLUTION
-        </Text>
-        <View className="mt-s2 flex-row items-center" style={{ gap: 14 }}>
+        <SectionLabel size='lg'>YOUR CHAMPION EVOLUTION</SectionLabel>
+        <View className="flex-row items-center" style={{ gap: 14 }}>
           <View
             className="items-center justify-center rounded-lg border p-s1"
             style={{ borderColor: `${colors.epic}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}

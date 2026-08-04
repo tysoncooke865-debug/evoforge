@@ -20,7 +20,22 @@ export function OracleHistoryCard() {
   const bodyfat = useBodyfatHistory();
   const [openId, setOpenId] = useState<string | null>(null);
 
-  if (physique.isPending) return null;
+  if (physique.isPending) {
+    return (
+      <GlowCard testID="oracle-history-loading">
+        <SectionLabel size='lg'>ORACLE HISTORY</SectionLabel>
+        <View style={{ gap: 8 }}>
+          {[0, 1].map((i) => (
+            <View
+              key={i}
+              className="rounded-lg border"
+              style={{ height: 44, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.35)', opacity: 0.5 }}
+            />
+          ))}
+        </View>
+      </GlowCard>
+    );
+  }
 
   const rows = physique.data ?? [];
   const bfRows = bodyfat.data ?? [];

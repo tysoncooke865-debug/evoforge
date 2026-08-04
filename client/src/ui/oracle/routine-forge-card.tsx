@@ -39,13 +39,17 @@ const GOALS: readonly { key: string; label: string; blurb: string; Icon: GoalIco
   { key: 'Powerlifting', label: 'POWERLIFTING', blurb: 'Squat, bench & deadlift focus', Icon: PixelBars },
 ];
 
-export function RoutineForgeCard() {
+export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const colors = useThemeColors();
   const physique = usePhysiqueRatings();
   const workouts = useWorkoutLog();
   const accept = useAcceptPlan();
   const [goal, setGoal] = useState<string>(GOALS[0].key);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const setBusy = (v: boolean) => {
+    setBusyState(v);
+    onBusyChange?.(v);
+  };
   const [preview, setPreview] = useState<CustomPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +68,10 @@ export function RoutineForgeCard() {
   };
 
   // The pre-forge summary is REAL: the weakest of the latest verdict's three
-  // attributes, named. No verdict yet → a plain prompt, never a fabricated read.
+  // attributes, named. No verdict yet → a plain prompt, never a fabricated
+  // read. While the FIRST read of physique_ratings is still in flight this
+  // stays null too — deliberately, so a returning athlete with a real verdict
+  // never sees a flash of "you haven't scanned" before their real data lands.
   const p = physique.data;
   const weakest =
     p && p.muscularity_score !== null && p.leanness_score !== null && p.symmetry_score !== null
@@ -133,9 +140,11 @@ export function RoutineForgeCard() {
               ORACLE SUMMARY
             </Text>
             <Text className="mt-s1 text-2xs text-text-dim">
-              {weakest
-                ? `${weakest.label.charAt(0) + weakest.label.slice(1).toLowerCase()} is your lowest-scoring attribute. Your AI will bias volume toward it for the ${goalLabel(goal)} goal.`
-                : `Run an AI physique analysis first and the Oracle will tailor this plan to your weak points. It forges a six-day routine for the ${goalLabel(goal)} goal from your training volume.`}
+              {physique.isPending
+                ? 'Reading your latest scan…'
+                : weakest
+                  ? `${weakest.label.charAt(0) + weakest.label.slice(1).toLowerCase()} is your lowest-scoring attribute. Your AI will bias volume toward it for the ${goalLabel(goal)} goal.`
+                  : `Run an AI physique analysis first and the Oracle will tailor this plan to your weak points. It forges a six-day routine for the ${goalLabel(goal)} goal from your training volume.`}
             </Text>
           </View>
 

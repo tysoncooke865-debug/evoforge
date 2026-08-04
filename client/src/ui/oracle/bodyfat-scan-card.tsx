@@ -24,14 +24,19 @@ import { useCountUp, useReveal } from '@/ui/oracle/oracle-anim';
  * estimate→confirm path, unchanged; the surface gains the scanner, the
  * count-up reveal, the four-band scale, and the lean/fat-mass split (shown
  * only when a real bodyweight is known — never a fabricated frame).
+ * `onBusyChange` mirrors this card's in-flight state up to the header.
  */
-export function BodyfatScanCard() {
+export function BodyfatScanCard({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const colors = useThemeColors();
   const current = useCurrentStats();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const setBusy = (v: boolean) => {
+    setBusyState(v);
+    onBusyChange?.(v);
+  };
   const [provisional, setProvisional] = useState<BodyfatResult | null>(null);
   const [lighting, setLighting] = useState('neutral');
   const [pump, setPump] = useState('none');
