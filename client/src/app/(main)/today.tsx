@@ -11,7 +11,7 @@ import {
 } from 'react-native-reanimated';
 
 import { useActivationStep } from '@/data/activation';
-import { useBodyweightLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
+import { useBodyweightLog, useCardioLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
 import { useUserExercises } from '@/data/exercises';
 import { useExercisePrefs } from '@/data/exercise-prefs';
 import { buildCorpus } from '@/data/exercise-corpus';
@@ -25,7 +25,7 @@ import { useSavePlanSourcePref } from '@/data/plan-source-pref';
 import { useUserPlans } from '@/data/user-plans';
 import { useEvoRatingCurrent, useEvoSnapshots } from '@/data/progression/use-evo-rating';
 import { FEMALE_CALIBRATION, MALE_CALIBRATION } from '@/domain/avatar-stats-calc';
-import { CARDIO_TYPES } from '@/domain/cardio';
+import { DEFAULT_CARDIO_TARGETS, dailyMission, todayMinutes } from '@/domain/cardio-stats';
 import { currentBodyweightKg } from '@/domain/bodyweight-current';
 import { difficultyFor, missionObjectiveFor } from '@/domain/mission-brief';
 import { libraryMuscleFor, userMuscleFor } from '@/domain/muscle-lookup';
@@ -194,7 +194,18 @@ export default function TodayScreen() {
     sessionDate === todayIso ? (sessionDays[workout] ?? EMPTY_OVERRIDES) : EMPTY_OVERRIDES;
 
   const [mode, setMode] = useState<0 | 1>(0);
-  const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
+  // CARDIO_MISSION_REDESIGN: nothing is silently pre-picked — the mission
+  // card's first real state is CHOOSE ACTIVITY, not a default the athlete
+  // never chose (see cardio-mission-card.tsx).
+  const [cardioType, setCardioType] = useState<string | null>(null);
+  // The cardio header companion reads the SAME real numbers the mission card
+  // does (todayMinutes/dailyMission, domain/cardio-stats.ts) — one query,
+  // shared by TanStack's cache with CardioDashboard's own useCardioLog().
+  const cardioLog = useCardioLog();
+  const cardioMission = dailyMission(
+    todayMinutes(cardioLog.data ?? [], todayIso),
+    DEFAULT_CARDIO_TARGETS.dailyMinutes
+  );
   const [sourceChoice, setSource] = useState<SourceIndex | null>(null);
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [changeOpen, setChangeOpen] = useState(false);
@@ -834,9 +845,9 @@ export default function TodayScreen() {
               Same sprite, same profile-menu tap — it just stopped being
               wallpaper. CARDIO mode keeps its activity animation. */}
           <ChampionCharge
-            done={todayCard?.done ?? 0}
-            target={todayCard?.target ?? 0}
-            finished={todayCard?.finished ?? false}
+            done={mode === 1 ? cardioMission.done : (todayCard?.done ?? 0)}
+            target={mode === 1 ? cardioMission.target : (todayCard?.target ?? 0)}
+            finished={mode === 1 ? cardioMission.complete : (todayCard?.finished ?? false)}
             overrideAnim={mode === 1 ? cardioAnim(cardioType) : undefined}
             height={44}
           />
@@ -989,7 +1000,7 @@ export default function TodayScreen() {
       </View>
 
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
-        <CardioDashboard type={cardioType} setType={setCardioType} />
+        <CardioDashboard type={cardioType} setType={setCardioType} intro={intro} clock={clock} />
       </View>
 
       {/* MANAGE PLAN — the loadout picker plus every plan door that used to be

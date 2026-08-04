@@ -55,8 +55,12 @@ export function activityFor(type: string): CardioActivity {
   return BY_TYPE.get(type) ?? CARDIO_ACTIVITIES[CARDIO_ACTIVITIES.length - 1];
 }
 
-/** Which companion animation a cardio type earns: rounds-based types punch. */
-export function cardioAnim(type: string): 'punch' | 'run' {
+/** Which companion animation a cardio type earns: rounds-based types punch.
+ *  `null` (nothing picked yet) returns undefined so the champion falls back
+ *  to its own idle/partway/victory reading of the day's REAL progress
+ *  instead of defaulting to a "run" pose for an activity nobody chose. */
+export function cardioAnim(type: string | null): 'punch' | 'run' | undefined {
+  if (type === null) return undefined;
   return activityFor(type).fields.rounds ? 'punch' : 'run';
 }
 

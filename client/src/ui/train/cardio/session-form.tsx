@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useBodyweightLog, useProfile } from '@/data/hooks';
@@ -27,7 +27,22 @@ import { CardioRewardPreview } from '@/ui/train/cardio/reward-preview';
 const DURATION_PRESETS = [15, 20, 30, 45, 60] as const;
 const INTENSITIES = ['LOW', 'MODERATE', 'HIGH'] as const;
 
-export function CardioSessionForm({ type }: { type: string }) {
+export function CardioSessionForm({
+  type,
+  onPreviewChange,
+  registerSubmit,
+}: {
+  type: string;
+  /** Mirrors the live (mins, XP) preview up to the mission card above, so its
+   *  CTA and reward pill can read the same numbers this form computes —
+   *  never a second, independently-guessed reward. */
+  onPreviewChange?: (mins: number, xp: number) => void;
+  /** Hands the mission card's CTA a way to trigger THIS EXACT submit path
+   *  (including the budget-ask follow-up) rather than duplicating it. Called
+   *  with `null` on unmount / activity switch so a stale ref can never fire
+   *  into an unmounted form. */
+  registerSubmit?: (fn: (() => void) | null) => void;
+}) {
   const colors = useThemeColors();
   const activity = activityFor(type);
   const fields = activity.fields;
@@ -46,6 +61,10 @@ export function CardioSessionForm({ type }: { type: string }) {
   // §4.2: the post-LOG budget question. null = form mode; a number = the
   // pending session's kcal awaiting the athlete's YES/NO.
   const [budgetAsk, setBudgetAsk] = useState<number | null>(null);
+  // A brief "✓ SESSION LOGGED" flash on the button before the (now cleared)
+  // fields settle back to their normal disabled read — the completion
+  // section 6 asks for, kept to the one control rather than a separate cover.
+  const [justLogged, setJustLogged] = useState(false);
 
   const log = useLogCardio();
 
@@ -71,6 +90,11 @@ export function CardioSessionForm({ type }: { type: string }) {
     : (pyFloat(minutes) ?? 0);
   const xpPreview = cardioEventAmount(mins);
   const estimated = estimateCardioKcal(type, mins, realBw);
+
+  useEffect(() => {
+    onPreviewChange?.(mins, xpPreview);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mins, xpPreview]);
 
   const submit = (countTowardBudget: boolean) => {
     if (mins <= 0) return;
@@ -102,6 +126,8 @@ export function CardioSessionForm({ type }: { type: string }) {
           setRounds('');
           setIntensity(null);
           setNotes('');
+          setJustLogged(true);
+          setTimeout(() => setJustLogged(false), 1400);
         },
       }
     );
@@ -115,6 +141,13 @@ export function CardioSessionForm({ type }: { type: string }) {
     if (kcal > 0) setBudgetAsk(Math.round(kcal));
     else submit(true);
   };
+
+  // The mission card's CTA fires THIS function, not a copy of it — every
+  // keystroke re-registers the latest closure so the ref is never stale.
+  useEffect(() => {
+    registerSubmit?.(onLogPress);
+    return () => registerSubmit?.(null);
+  });
 
   return (
     <View>
@@ -248,17 +281,38 @@ export function CardioSessionForm({ type }: { type: string }) {
       </View>
 
       {budgetAsk === null ? (
-        <NeonButton
-          title={mins > 0 ? `LOG SESSION · +${xpPreview} XP` : 'LOG SESSION'}
-          onPress={onLogPress}
-          disabled={mins <= 0}
-          busy={log.isPending}
-          size="hero"
-          rightIcon={
-            <Text style={{ color: colors['accent-ink'], fontSize: 16, ...pixelFont() }}>›</Text>
-          }
-          testID="cardio-save"
-        />
+        <View>
+          <NeonButton
+            title={
+              justLogged
+                ? '✓ SESSION LOGGED'
+                : mins > 0
+                  ? `LOG SESSION · +${xpPreview} XP`
+                  : boxing
+                    ? 'ENTER ROUNDS'
+                    : 'ENTER YOUR MINUTES'
+            }
+            onPress={onLogPress}
+            disabled={mins <= 0 || justLogged}
+            busy={log.isPending}
+            variant={justLogged ? 'ghost' : 'primary'}
+            size="hero"
+            rightIcon={
+              justLogged ? undefined : (
+                <Text style={{ color: colors['accent-ink'], fontSize: 16, ...pixelFont() }}>›</Text>
+              )
+            }
+            testID="cardio-save"
+          />
+          {/* NEVER A SILENT DISABLE — the button explains what it's waiting on. */}
+          {mins <= 0 && !justLogged ? (
+            <Text className="mt-s2 text-center text-2xs text-text-mute">
+              {boxing
+                ? 'Add rounds and round length to log this session.'
+                : 'Add your session minutes to log this session.'}
+            </Text>
+          ) : null}
+        </View>
       ) : (
         // §4.2: the budget question. Either answer LOGS the session; only
         // the Fuel fold-in differs.

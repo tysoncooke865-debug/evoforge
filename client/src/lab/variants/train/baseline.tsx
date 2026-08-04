@@ -8,6 +8,7 @@
 import { Link, router } from 'expo-router';
 import { Fragment, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
   useLabActivationStep as useActivationStep,
@@ -151,6 +152,11 @@ export function TrainBaseline() {
 
   const [mode, setMode] = useState<0 | 1>(0);
   const [cardioType, setCardioType] = useState<string>(CARDIO_TYPES[0]);
+  // This baseline predates the 2026-08-03 mission-briefing entrance clock —
+  // resting values only, so CardioDashboard's staged reveal renders fully
+  // visible here rather than replaying an intro this fork never had.
+  const labIntro = useSharedValue(1);
+  const labClock = useSharedValue(0);
   const [sourceChoice, setSource] = useState<SourceIndex | null>(null);
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [changeOpen, setChangeOpen] = useState(false);
@@ -747,7 +753,7 @@ export function TrainBaseline() {
             className="rounded-lg border p-s1"
             style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
           >
-            <CompanionMenuButton anim={mode === 1 ? cardioAnim(cardioType) : 'idle'} height={44} />
+            <CompanionMenuButton anim={mode === 1 ? (cardioAnim(cardioType) ?? 'idle') : 'idle'} height={44} />
           </View>
           <Pressable
             onPress={() => router.push('/profile' as never)}
@@ -924,7 +930,7 @@ export function TrainBaseline() {
       </View>
 
       <View style={{ display: mode === 1 ? 'flex' : 'none', gap: 16 }}>
-        <CardioDashboard type={cardioType} setType={setCardioType} />
+        <CardioDashboard type={cardioType} setType={setCardioType} intro={labIntro} clock={labClock} />
       </View>
 
       {/* CHANGE WORKOUT — the one source switcher, plus every plan door. */}

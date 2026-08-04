@@ -21,8 +21,49 @@ export interface RecentRow {
   date: string;
 }
 
-export function RecentCardioSessions({ rows, today }: { rows: RecentRow[]; today: string }) {
+export function RecentCardioSessions({
+  rows,
+  today,
+  loading = false,
+  error = false,
+}: {
+  rows: RecentRow[];
+  today: string;
+  /** The FIRST cardio_log fetch, still in flight — distinct from "loaded and
+   *  genuinely empty" so a new athlete never sees "no sessions" flash before
+   *  their real history arrives. */
+  loading?: boolean;
+  error?: boolean;
+}) {
   const colors = useThemeColors();
+
+  if (error) {
+    return (
+      <GlowCard glow={colors.danger}>
+        <SectionLabel>RECENT SESSIONS</SectionLabel>
+        <Text className="text-2xs text-text-mute">
+          Couldn&apos;t load your recent sessions. Check your connection and try again.
+        </Text>
+      </GlowCard>
+    );
+  }
+
+  if (loading) {
+    return (
+      <GlowCard>
+        <SectionLabel>RECENT SESSIONS</SectionLabel>
+        <View style={{ gap: 8 }} testID="cardio-recent-loading">
+          {[0, 1].map((i) => (
+            <View
+              key={i}
+              className="rounded-lg border p-s3"
+              style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.35)', height: 60, opacity: 0.5 }}
+            />
+          ))}
+        </View>
+      </GlowCard>
+    );
+  }
 
   if (rows.length === 0) {
     return (

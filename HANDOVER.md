@@ -26,6 +26,46 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **CARDIO MISSION REDESIGN (2026-08-04, no migration)** — the CARDIO mode of
+  Train raised to the 2026-08-03 mission-briefing standard (Train's own
+  `mission-brief.tsx`, Home's hero). `DailyCardioSummary` ("Today's Protocol")
+  is retired; `ui/train/cardio/cardio-mission-card.tsx` is the new focal
+  point — TODAY'S CONDITIONING MISSION, the animated 0→30 MIN progress bar,
+  a MISSION REWARDS block (real `cardioEventAmount(target)` XP, never
+  fabricated), weekly session count, a compact glowing badge that swaps to
+  the chosen activity's own pixel icon, and a CTA that reads the whole
+  page's state (CHOOSE ACTIVITY → START SESSION → LOG SESSION · +N XP →
+  MISSION COMPLETE — no invented CONTINUE SESSION; cardio logging is a
+  single write, there is nothing to resume). **Nothing is silently
+  pre-selected any more**: `cardioType` in `today.tsx` defaults to `null`,
+  so CHOOSE ACTIVITY is a real first state, not a Treadmill default nobody
+  chose — the header companion's cardio pose (`cardioAnim`) now returns
+  `undefined` for `null` and the champion falls back to its own real
+  done/target/finished reading of `dailyMission()` (previously it read
+  LIFT's today-card progress even while CARDIO was open). The mission card's
+  CTA never duplicates the save path: `session-form.tsx` registers its own
+  submit handler up through a ref (`registerSubmit`) and mirrors its live
+  (mins, XP) preview up (`onPreviewChange`), so pressing the mission card's
+  button fires the EXACT SAME mutation the form's own LOG SESSION does,
+  budget-ask branch included. Pressing CHOOSE ACTIVITY/START SESSION draws
+  the eye to the (now single, combined) session card with a one-shot glow
+  pulse + haptic rather than a scroll-jump (`ScreenShell` doesn't expose its
+  scroll ref to children). Activity selection gained a full-width OTHER row
+  (seven cards is odd — a lone half-width card at the end read as
+  unfinished) and a tick badge on the selected card (colour is never the
+  only cue). The reward preview no longer shows a dim "+0 FORGE XP" before
+  minutes are entered — no digit at all until there's one to show. Recent
+  Sessions gained real loading/error states. `Label`/`ProgressBar` extracted
+  out of `mission-brief.tsx` into `ui/core/mission-kit.tsx` so Train and
+  Cardio share one shimmer-progress-bar implementation instead of two that
+  drift. Verified: `tsc`, `expo lint`, all 1889 vitest cases, and a live
+  Playwright pass at 375/390px signed in as ALPHA — CHOOSE ACTIVITY → RUN
+  picked → 30 MIN preset → LOG SESSION via the MISSION CARD's own CTA (not
+  the form's) confirmed the lifted-submit wiring end to end: the XP toast
+  fired, the progress bar moved to 15/30, weekly sessions ticked to 1/4, no
+  console errors beyond the documented 404/409 noise, no horizontal overflow
+  at either width.
+
 - **THE "COULD NOT START" FLASH — fixed (2026-08-04, no migration).** Tyson: a
   scary "Could not start" error showed for half a second, every launch,
   right before the forge intro. Real bug, and it predates the intro: the
