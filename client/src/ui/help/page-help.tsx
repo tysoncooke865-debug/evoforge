@@ -96,13 +96,19 @@ function FabButton({ bottom, onPress }: { bottom: number; onPress: () => void })
         accessibilityRole="button"
         accessibilityLabel="Help for this page"
         testID="page-help-fab"
-        style={{
-          width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
-          borderWidth: 1, borderColor: `${colors.accent}80`, backgroundColor: 'rgba(8,14,26,0.9)',
-          shadowColor: colors.accent, shadowOpacity: 0.45, shadowRadius: 10,
-        }}
+        hitSlop={{ top: 3, bottom: 3, left: 3, right: 3 }}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
       >
-        <Text allowFontScaling={false} style={{ fontSize: 16, color: colors.accent, ...pixelFont() }}>?</Text>
+        <View
+          pointerEvents="none"
+          style={{
+            width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+            borderWidth: 1, borderColor: `${colors.accent}80`, backgroundColor: 'rgba(8,14,26,0.9)',
+            shadowColor: colors.accent, shadowOpacity: 0.45, shadowRadius: 10,
+          }}
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 16, color: colors.accent, ...pixelFont() }}>?</Text>
+        </View>
       </Pressable>
     </View>
   );

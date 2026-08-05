@@ -588,8 +588,12 @@ export default function TodayScreen() {
         accessibilityRole="button"
         accessibilityLabel="change plan source"
         testID="plan-dropdown"
+        hitSlop={{ top: 8, bottom: 8 }}
         className="flex-row items-center rounded-md border px-s2"
-        style={{ minHeight: 28, gap: 5, flexShrink: 1, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
+        // 28 -> 44: react-native-web's Pressable IGNORES hitSlop (see the note
+        // in ui/core/neon-button.tsx), so only the box itself clears the touch
+        // floor. hitSlop stays because native Pressable does honour it.
+        style={{ minHeight: 44, gap: 5, flexShrink: 1, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.08)' }}
       >
         <Text
           className="text-2xs text-accent"
@@ -923,8 +927,9 @@ export default function TodayScreen() {
                 onPress={() => router.push('/schedule' as never)}
                 accessibilityRole="button"
                 testID="view-calendar"
+                hitSlop={{ top: 8, bottom: 8 }}
                 className="items-center justify-center"
-                style={{ minHeight: 28 }}
+                style={{ minHeight: 44 }}
               >
                 <Text className="text-2xs font-bold text-accent" style={{ letterSpacing: 1 }}>
                   VIEW CALENDAR ›

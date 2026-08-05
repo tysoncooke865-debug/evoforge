@@ -3402,6 +3402,27 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
 
 ## 3. The rules that cost real bugs
 
+### Touch targets
+
+- **`hitSlop` DOES NOTHING on web.** react-native-web 0.21.2 honours it only
+  in the legacy `Touchable` module — `Pressable`, which this app uses
+  everywhere, ignores it (`grep hitSlop node_modules/react-native-web/dist`:
+  every hit is in `exports/Touchable/index.js`). Falsified in a browser: a
+  click 6px outside a chip does nothing. So for years the documented fix for
+  the 44px floor was decorative on the platform that actually ships, the PWA.
+  **Make the BOX clear the floor** — `minHeight: 44` on the Pressable, with
+  the visible pill as an inner View so the look is unchanged. Keep `hitSlop`
+  alongside it: native Pressable does honour it and native builds are coming.
+- The 2026-08-05 audit took undersized targets from **111 to 25** across 27
+  routes this way (`Chip`, `NeonButton` base, the help FAB, the plan
+  dropdown, view-calendar, radar horizons). Re-measure with the UI probe
+  rather than by eye — `getBoundingClientRect` is the only honest judge.
+- **Known and deliberately NOT changed:** `NumberField`'s steppers are 26×26.
+  They are the core set-logging control, deliberately tuned (fused steppers,
+  in-app keypad), and stacked vertically 1px apart — reshaping them is a real
+  UX change that needs interactive testing, not a floor sweep.
+
+
 Every one of these was a live bug. Do not relearn them.
 
 ### Process

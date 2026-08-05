@@ -87,9 +87,13 @@ export function EvoRadar({ fallbackStats }: { fallbackStats: RadarStat[] }) {
               onPress={() => setWeeks(h)}
               accessibilityRole="button"
               testID={`radar-horizon-${h}`}
+              hitSlop={{ top: 8, bottom: 8 }}
               className="rounded-pill border px-s2"
               style={{
-                minHeight: 34,
+                // 34 missed the 44 floor, and hitSlop cannot make that up on
+                // web (see ui/core/neon-button.tsx). Ten pixels on three
+                // pills below the fold is the cheapest correction in the app.
+                minHeight: 44,
                 justifyContent: 'center',
                 borderColor: active ? `${colors.epic}99` : colors.border,
                 backgroundColor: active ? 'rgba(168,85,247,0.12)' : 'transparent',

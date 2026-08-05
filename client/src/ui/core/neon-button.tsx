@@ -102,6 +102,7 @@ export function NeonButton({
           borderWidth: 1,
           borderColor: disabled ? colors.border : `${colors.accent}8c`,
           borderRadius: 12,
+          minHeight: TOUCH_FLOOR,
           paddingVertical: hero ? 20 : 14,
           alignItems: 'center',
           flexDirection: 'row',
@@ -142,6 +143,7 @@ export function NeonButton({
         end={{ x: 1, y: 1 }}
         style={{
           borderRadius: 12,
+          minHeight: TOUCH_FLOOR,
           paddingVertical: hero ? 20 : 14,
           alignItems: 'center',
           flexDirection: 'row',
@@ -253,6 +255,31 @@ function ButtonSweep() {
 }
 
 /** The selector chip: quiet at rest, neon-lit when active. Press scales. */
+/**
+ * THE 44px TOUCH FLOOR, MADE REAL ON WEB (2026-08-05 audit).
+ *
+ * This app reached for `hitSlop` whenever a control was under the floor, and
+ * a comment here said callers should pass it for chips used as primary
+ * controls. **On react-native-web 0.21.2 `hitSlop` is honoured only by the
+ * legacy `Touchable` module — `Pressable` ignores it entirely** (grep
+ * `hitSlop` under `react-native-web/dist`: every hit is in
+ * `exports/Touchable/index.js`). Every Pressable in this app therefore had a
+ * decorative accessibility fix on the platform that actually ships, the PWA.
+ * Falsified in a browser: a click 6px outside a chip does nothing.
+ *
+ * So the box itself grows. The Pressable is the 44px target and carries the
+ * transparent space; the PILL is an inner View that keeps its exact previous
+ * padding, radius, border and glow — the chip looks identical and the target
+ * is real. `hitSlop` stays because NATIVE Pressable does honour it, and this
+ * app is heading for native builds.
+ */
+const CHIP_TOUCH_FLOOR = 44;
+/** Same floor, for the buttons. */
+const TOUCH_FLOOR = 44;
+/** Vertical only: chip widths already clear 44, and horizontal slop on a row
+ *  with an 8px gap would let neighbours fight over the same pixels. */
+const CHIP_HIT_SLOP = { top: 8, bottom: 8 } as const;
+
 export function Chip({
   label,
   active,
@@ -264,8 +291,9 @@ export function Chip({
   active: boolean;
   onPress: () => void;
   testID?: string;
-  /** Chips render ~28px tall; rows using them as primary controls extend
-   *  the target to the 44px floor without changing the visual. */
+  /** Overrides the default. Chips render ~28px tall, so the DEFAULT already
+   *  extends the target vertically to clear the 44px floor — callers only
+   *  pass this to widen it further. */
   hitSlop?: { top?: number; bottom?: number; left?: number; right?: number };
 }) {
   const colors = useThemeColors();
@@ -284,29 +312,33 @@ export function Chip({
         testID={testID}
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
-        hitSlop={hitSlop}
-        style={{
-          borderRadius: 999,
-          borderWidth: 1,
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          borderColor: active ? `${colors.accent}8c` : colors.border,
-          backgroundColor: active ? 'rgba(34, 211, 238, 0.12)' : colors['surface-2'],
-          shadowColor: colors.accent,
-          shadowOpacity: active ? 0.35 : 0,
-          shadowRadius: 10,
-          elevation: active ? 4 : 0,
-        }}
+        hitSlop={hitSlop ?? CHIP_HIT_SLOP}
+        style={{ minHeight: CHIP_TOUCH_FLOOR, justifyContent: 'center' }}
       >
-        <Text
+        <View
           style={{
-            fontSize: 12,
-            fontWeight: '700',
-            color: active ? colors.accent : colors['text-dim'],
+            borderRadius: 999,
+            borderWidth: 1,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderColor: active ? `${colors.accent}8c` : colors.border,
+            backgroundColor: active ? 'rgba(34, 211, 238, 0.12)' : colors['surface-2'],
+            shadowColor: colors.accent,
+            shadowOpacity: active ? 0.35 : 0,
+            shadowRadius: 10,
+            elevation: active ? 4 : 0,
           }}
         >
-          {label}
-        </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: active ? colors.accent : colors['text-dim'],
+            }}
+          >
+            {label}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   );
