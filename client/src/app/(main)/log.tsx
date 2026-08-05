@@ -71,16 +71,16 @@ function BodyweightCard() {
 // NOTHING reads back — bodyweight lives in bodyweight_log (the card above).
 // The column stays for old rows (IMPROVEMENT_PLAN #1).
 const MEASUREMENT_FIELDS = [
-  ['neck_cm', 'NECK'],
-  ['shoulders_cm', 'SHOULDERS'],
-  ['chest_cm', 'CHEST'],
-  ['bicep_cm', 'BICEP'],
-  ['forearm_cm', 'FOREARM'],
-  ['wrist_cm', 'WRIST'],
-  ['waist_cm', 'WAIST'],
-  ['hips_cm', 'HIPS'],
-  ['thigh_cm', 'THIGH'],
-  ['calf_cm', 'CALF'],
+  ['neck_cm', 'NECK', ''],
+  ['shoulders_cm', 'SHOULDERS', ''],
+  ['chest_cm', 'CHEST', ''],
+  ['bicep_cm', 'BICEP', 'flexed'],
+  ['forearm_cm', 'FOREARM', ''],
+  ['wrist_cm', 'WRIST', 'the joint'],
+  ['waist_cm', 'WAIST', 'at the navel'],
+  ['hips_cm', 'HIPS', 'widest'],
+  ['thigh_cm', 'THIGH', ''],
+  ['calf_cm', 'CALF', ''],
 ] as const;
 
 function MeasurementsCard() {
@@ -117,7 +117,7 @@ function MeasurementsCard() {
       </EdgeLabel>
       <Text className="mb-s3 mt-s1 text-2xs text-text-mute">Fill what you measured; blanks are skipped.</Text>
       <View className="mb-s4 flex-row flex-wrap gap-s2">
-        {MEASUREMENT_FIELDS.map(([key, label]) => {
+        {MEASUREMENT_FIELDS.map(([key, label, hint]) => {
           const filled = (pyFloat(values[key] ?? '') ?? 0) > 0;
           return (
             <View key={key} className="w-[30%]">
@@ -128,6 +128,13 @@ function MeasurementsCard() {
               >
                 {label}
               </Text>
+              {hint ? (
+                <Text className="mb-s1 text-text-mute" style={{ fontSize: 9, lineHeight: 11 }}>
+                  {hint}
+                </Text>
+              ) : (
+                <View className="mb-s1" style={{ height: 11 }} />
+              )}
               <TextInput
                 className={`min-h-[44px] rounded-md border bg-surface-2 p-s2 text-center text-text ${filled ? 'border-border-strong' : 'border-border'}`}
                 inputMode="decimal"

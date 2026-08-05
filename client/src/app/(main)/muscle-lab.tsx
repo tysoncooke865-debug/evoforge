@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -14,9 +15,13 @@ import { ScreenShell } from '@/ui/core/shell';
  * toggle each hand-drawn front mask, all at once, tune opacity, compare
  * against the legacy SVG overlays, and view at Train-card size or enlarged.
  *
- * INACCESSIBLE IN PRODUCTION: renders nothing unless the build is __DEV__ or
- * EXPO_PUBLIC_MUSCLE_LAB=1 was set at export time. The production deploy
- * (CI) sets no such variable, so the route exists but shows nothing.
+ * INACCESSIBLE IN PRODUCTION: the workbench itself is gated on __DEV__ or
+ * EXPO_PUBLIC_MUSCLE_LAB=1 at export time, and CI sets no such variable.
+ *
+ * It used to `return null` there, which rendered a genuinely blank page —
+ * a bare tab bar over an empty screen, indistinguishable from the app having
+ * crashed. A route that is deliberately unavailable should SAY it is
+ * unavailable; a dead-looking screen teaches an athlete the app is broken.
  */
 const VIEW_IDS: Record<MuscleView, MuscleId[]> = {
   front: Object.keys(FRONT_MUSCLE_MASKS) as MuscleId[],
@@ -33,7 +38,16 @@ export default function MuscleLabScreen() {
   const [enlarged, setEnlarged] = useState(false);
   const [useMasks, setUseMasks] = useState(true);
 
-  if (!ENABLED) return null;
+  if (!ENABLED) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="DEV TOOLS" title="MUSCLE LAB" onBack={() => router.back()} />
+        <Text className="text-sm text-text-dim">
+          The mask workbench is a development tool and is not part of this build.
+        </Text>
+      </ScreenShell>
+    );
+  }
 
   const ids = VIEW_IDS[view];
   const toggle = (m: MuscleId) =>

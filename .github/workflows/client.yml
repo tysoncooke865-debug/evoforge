@@ -255,6 +255,35 @@ jobs:
       - name: gen_fixtures --check — goldens match the live Python domain
         run: python tools/gen_fixtures.py --check
 
+  rls:
+    # THE CHECK THAT WAS MISSING (HANDOVER §7). Nothing has verified row-level
+    # security since verify-rls.yml was deleted on 2026-07-30 — the entire
+    # Command / social / battle / gym surface arrived unchecked. This asks the
+    # one question that matters: does a client holding only the PUBLISHABLE
+    # key, with no session, read a single row from any table?
+    #
+    # Runs on every push. It needs no build, takes seconds, and a leak is the
+    # kind of thing you want to hear about before the deploy job, not after.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: verify-rls — anonymous reads must return nothing
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_KEY }}
+          # Optional. With it, the table list comes from the LIVE schema (so a
+          # new table cannot be forgotten) and the run refuses to pass unless
+          # it saw real rows behind the wall. Without it the committed
+          # manifest is used and both extra guards are skipped, which is
+          # stated in the log rather than silently downgraded.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node tools/verify-rls.mjs
+
   deploy:
     # Push or manual dispatch (fork PRs cannot read secrets), after both check jobs.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'

@@ -15,6 +15,7 @@ import { track } from '@/data/analytics';
 import { usePhotoPrefs, useSavePhotoPrefs } from '@/data/photo-prefs';
 import { progressionFeatures } from '@/data/progression/features';
 import { awardEvoScan } from '@/data/progression/award-xp';
+import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
 import { PATH_NAMES } from '@/data/origin';
 import { useToastStore } from '@/state/toast-store';
@@ -50,9 +51,20 @@ export default function EvoScanScreen() {
   const queryClient = useQueryClient();
   const prefs = usePhotoPrefs();
   const savePrefs = useSavePhotoPrefs();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [bodyweight, setBodyweight] = useState('');
   const [waist, setWaist] = useState('');
+  /* HEIGHT, ASKED HERE BECAUSE HERE IS WHERE IT MATTERS (onboarding v3).
+     v3 stopped demanding height at signup, so a scan can be the first time
+     the app needs one — and it feeds the size score's FFMI directly. The
+     field appears ONLY when the profile has none, which is progressive
+     disclosure rather than a permanently longer form. */
+  const storedHeight = pyFloat(String(profile.data?.height_cm ?? '')) ?? 0;
+  const [height, setHeight] = useState('');
+  const needsHeight = !profile.isPending && storedHeight <= 0;
+  const heightValue = needsHeight ? (pyFloat(height) ?? 0) : storedHeight;
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +95,7 @@ export default function EvoScanScreen() {
           // Waist is optional (Tyson 2026-07-17): 0 = the AI estimates it
           // from the photos + height + bodyweight server-side.
           waistCm: pyFloat(waist) ?? 0,
-          heightCm: pyFloat(String(profile.data?.height_cm ?? '')) ?? 0,
+          heightCm: heightValue,
           sex: profile.data?.sex === 'female' ? 'female' : 'male',
         },
       });
@@ -103,6 +115,10 @@ export default function EvoScanScreen() {
       }
       const r = payload.result;
       if (r.id) void awardEvoScan(supabase, r.id);
+      // Asked once, kept: the next scan and every FFMI reading get it free.
+      if (needsHeight && heightValue > 0 && userId) {
+        void supabase.from('profile').update({ height_cm: heightValue }).eq('user_id', userId);
+      }
       // The first successful scan IS the private baseline. Only the DATE is
       // recorded — the photos are analysed and discarded, as always.
       if (!prefs.hasBaseline) savePrefs.mutate({ baseline: true });
@@ -162,7 +178,10 @@ export default function EvoScanScreen() {
   };
 
   const canSubmit =
-    photos.filter(Boolean).length >= 2 && (pyFloat(bodyweight) ?? 0) > 0 && !busy;
+    photos.filter(Boolean).length >= 2 &&
+    (pyFloat(bodyweight) ?? 0) > 0 &&
+    (!needsHeight || heightValue >= 100) &&
+    !busy;
 
   /* CONSENT BEFORE CAMERA, at the surface itself rather than at each
      entrance to it. A gate that lives on the button can be walked around by
@@ -222,6 +241,25 @@ export default function EvoScanScreen() {
           </Pressable>
         ))}
       </View>
+
+      {needsHeight ? (
+        <View>
+          <TextInput
+            className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
+            style={{ borderColor: colors.border }}
+            placeholder="Height (cm)"
+            placeholderTextColor="#64758f"
+            keyboardType="numeric"
+            value={height}
+            onChangeText={setHeight}
+            testID="scan-height"
+          />
+          <Text className="mt-s1 text-2xs text-text-mute">
+            Asked once. Height is what turns your bodyweight into a size score — without it the
+            physique reading is a guess.
+          </Text>
+        </View>
+      ) : null}
 
       <View className="flex-row" style={{ gap: 8 }}>
         <TextInput

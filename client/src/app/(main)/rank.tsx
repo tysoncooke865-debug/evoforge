@@ -16,11 +16,22 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 const METRIC_ORDER: readonly LeaderboardMetric[] = ['evo', 'forge', 'consistency', 'xp'];
 
 /**
- * The leaderboard. Three gates before any ranking renders, same as the
- * Streamlit page: (1) an account with non-zero xp_drift is refused -- a
- * number nothing cross-checks is a number nobody can defend; (2) viewing
- * requires opting in yourself; (3) an empty board shows a warming-up state.
- * Ranking is BY LEVEL through the one curve, XP tiebreak, then name.
+ * The leaderboard. Ranking is BY LEVEL through the one curve, XP tiebreak,
+ * then name. Viewing requires opting in yourself; an empty board shows a
+ * warming-up state.
+ *
+ * DRIFT IS A BANNER NOW, NOT A WALL (2026-08-05 audit). An account whose XP
+ * ledger and activity recount disagree used to get a full-page
+ * "RANKING UNAVAILABLE" and nothing else — no board, no numbers, and a
+ * closing line promising that "reconciliation restores it" when NO
+ * reconciliation exists anywhere in the app or the schema. A dead end that
+ * names a remedy the athlete cannot reach is worse than saying nothing.
+ *
+ * The integrity rule is that an unverifiable account is not LISTED, and the
+ * SERVER already enforces exactly that (migration 014's rule inside
+ * leaderboard_top). Hiding the board from that athlete adds no integrity —
+ * it only stops them seeing where everyone else stands. So they see it, with
+ * an honest banner saying they are not on it and why.
  */
 export default function RankScreen() {
   const colors = useThemeColors();
@@ -41,27 +52,6 @@ export default function RankScreen() {
     serverGranted.data === null || serverGranted.data === undefined
       ? summary.xpDrift // breakdown unavailable: fall back to the strict rule
       : summary.xpDrift - serverGranted.data;
-
-  if (unexplainedDrift !== 0) {
-    return (
-      <Shell>
-        <GlowCard glow={colors.warn}>
-          <Text
-            className="mb-s2 text-warn"
-            allowFontScaling={false}
-            style={{ fontSize: 18, ...pixelFont() }}
-          >
-            RANKING UNAVAILABLE
-          </Text>
-          <Text className="text-sm text-text-dim">
-            Your XP ledger and activity recount disagree (drift {unexplainedDrift} beyond
-            server-granted XP). The board refuses unreconciled accounts — reconciliation
-            restores it.
-          </Text>
-        </GlowCard>
-      </Shell>
-    );
-  }
 
   if (identity.isPending) {
     // NOT `fill`: Shell's content lives inside a ScrollView, whose content
@@ -99,6 +89,28 @@ export default function RankScreen() {
         />
       }
     >
+      {unexplainedDrift !== 0 ? (
+        <GlowCard glow={colors.warn}>
+          <Text
+            className="mb-s2 text-warn"
+            allowFontScaling={false}
+            style={{ fontSize: 15, ...pixelFont() }}
+          >
+            YOU ARE NOT ON THIS BOARD
+          </Text>
+          <Text className="text-sm text-text-dim">
+            Your XP total and your logged activity do not add up to the same number
+            ({unexplainedDrift > 0 ? '+' : ''}{unexplainedDrift} XP unaccounted for), so this
+            account cannot be ranked — a score nothing can cross-check is a score nobody can
+            defend.
+          </Text>
+          <Text className="mt-s2 text-2xs text-text-mute">
+            Everything else works normally, and the board below is still yours to read. Your XP
+            breakdown is on the Forge Level page if you want to see where the numbers come from.
+          </Text>
+        </GlowCard>
+      ) : null}
+
       {/* Metric picker: which ladder to climb. */}
       <View className="flex-row flex-wrap gap-s2">
         {METRIC_ORDER.map((m) => (

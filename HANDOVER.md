@@ -26,6 +26,57 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **FULL-APP AUDIT — the sweep, and the five things it found (2026-08-05,
+  no migration)** — Tyson: "run a full audit on the whole app and fix and
+  repair any bugs, glitches etc, also remove any dead code, and improve the
+  UI." A Playwright sweep drove **32 routes** signed in as ALPHA, recording
+  console errors, page errors, failed requests, rendered text length and
+  visible error strings per route (script kept at
+  `<scratchpad>/sweep.mjs`).
+
+  **The app is in good shape**: no page errors, no 5xx, no crash, no blank
+  screen outside the one below. What it did find:
+
+  1. **`/muscle-lab` rendered a bare tab bar over nothing.** The workbench is
+     deliberately dev-gated, but it did it with `return null` — visually
+     identical to the app having crashed. It says what it is now.
+  2. **Body fat displayed as `0.0%` when never measured.** The domain ports
+     coalesce a missing reading to 0 (`bfMid ?? 0`) and every CALCULATION
+     already treats that as unmeasured — `requirementProgress` returns honest
+     zero, `met` stays false. Only the label lied, printing an impossible
+     measurement next to a 12.0% target. Renders `—` now.
+  3. **`ai-bodyfat` told the model "Height: 0 cm".** Every other optional
+     stat in that same prompt already said `Not provided`; height shipped its
+     absence as a measurement — and onboarding v3, which no longer demands
+     height, made that the common case. Fixed in the edge function, and the
+     guided Evo Scan now ASKS for height once when the profile has none
+     (it feeds FFMI directly), then keeps it.
+  4. **Rank was a dead end.** A non-zero XP drift replaced the whole page
+     with "RANKING UNAVAILABLE … reconciliation restores it" — and **no
+     reconciliation exists** anywhere in the app or the schema. The integrity
+     rule is that an unverifiable account is not LISTED, which the SERVER
+     already enforces (014's rule inside `leaderboard_top`); hiding the board
+     from that athlete added no integrity at all. It is a banner now, the
+     board renders, and the copy promises nothing it cannot deliver.
+  5. **WRIST and WAIST sat three fields apart** in the tape-measurement grid,
+     one letter different, in a pixel face at 9px. Typing a waist into the
+     wrist field is a silent data error nothing downstream can detect. Each
+     field carries a placement hint now ("at the navel", "the joint").
+
+  Also checked and found CLEAN, worth recording so it is not re-audited:
+  every one of the **27 coach-mark targets resolves to a real testID** (one
+  stale LABEL fixed — the Social mark called the FEED tab "Following"); the
+  dead-code scan found nothing genuinely unreachable outside arena-game type
+  exports (the `ui/character/skins/*` files that look orphaned are loaded by
+  dynamic `import()` in `avatar-skins.ts` — do not "clean them up"); and
+  180/180 public tables have RLS enabled.
+
+  **`startingLevelV2` is now production-dead but deliberately kept**: no code
+  path can create a v2 profile any more, so it survives only through its own
+  tests. That is on purpose — it is the record of how every existing
+  `base_level` was computed, and those rows are immutable. Do not delete it.
+
+
 - **ONBOARDING V3 — "earn the information, don't demand it" (2026-08-05,
   migrations 134/135/136)** — Tyson's brief, executed in full. Spec:
   `docs/ONBOARDING_V3_SPEC.md`.
@@ -3665,7 +3716,25 @@ grep the LIVE bundle for a marker string from the change. Two traps, both hit on
   chips would always return nothing. Adding them means re-tagging ~960 exercises
   and migrating history the append-only ledger cannot survive — a **data** change,
   not a UI one.
-- **Nothing verifies RLS any more, and this is a real gap** (2026-07-30).
+- ~~**Nothing verifies RLS any more**~~ — **CLOSED 2026-08-05.**
+  `tools/verify-rls.mjs` + the `rls` job in `client.yml` now ask the one
+  question that matters on every push: does a client holding only the
+  PUBLISHABLE key, with no session, read a single row from any table? First
+  run: **180 tables probed, 135 of them non-empty, zero rows returned.**
+  The two ways that check could lie are both closed — the table list comes
+  from the LIVE schema when a management token is present (so a new table
+  cannot be forgotten, and a stale `contracts/rls-tables.json` is itself a
+  failure), and the run refuses to pass unless it saw real rows behind the
+  wall, so "green because the database was empty" is impossible. Falsified
+  in both directions: a throwaway table with an `anon` SELECT policy made it
+  report both the leak and the stale manifest, and dropping the table
+  restored green. Also confirmed while building it: 180/180 public tables
+  have RLS enabled, and the 16 with RLS but no policy (gyms, exec, command,
+  `push_reminder_log`) are deny-all by design — those features read through
+  SECURITY DEFINER RPCs, exactly as the doctrine requires.
+
+  The original note, for the record:
+  **Nothing verified RLS between 2026-07-30 and 2026-08-05** (2026-07-30).
   `.github/workflows/verify-rls.yml` was deleted because it had been unrunnable
   since `e347839` deleted the `tools/verify_rls.py` it invoked. It was not
   restored: that script wrote to **12** tables — including `custom_workout_plan`,

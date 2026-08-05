@@ -175,7 +175,10 @@ export const HELP: Record<string, HelpTopic> = {
     title: 'SOCIAL',
     tagline: 'Friends, rivals, gyms and the feed.',
     sections: [
-      { heading: 'Feed & tabs', target: 'social-tab-', body: 'These tabs switch between Following, Rivals, Discover and Gyms. Rivals track your head-to-head record; gyms are player groups with a private chat and gym-vs-gym battles decided by your rosters fighting member-versus-member.' },
+      // The tab is labelled FEED on screen; the coach mark called it
+      // "Following", which is the one thing a coach mark must never do —
+      // name a control the athlete cannot find while pointing straight at it.
+      { heading: 'Feed & tabs', target: 'social-tab-', body: 'These tabs switch between Feed, Rivals, Discover and Gyms. Rivals track your head-to-head record; gyms are player groups with a private chat and gym-vs-gym battles decided by your rosters fighting member-versus-member.' },
       { heading: 'Find people', target: 'social-find-friends', body: 'Search any public athlete by display name to add them, or share your own profile link so friends can add you even if your profile is private.' },
       { heading: 'Your privacy', body: 'You control what is visible — set your profile public or private, and choose whether your Evo stats and lifts show. Nothing is shared until you opt in.' },
     ],

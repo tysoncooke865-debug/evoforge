@@ -8,9 +8,22 @@ import { animations } from '@/theme/animations';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
+/**
+ * A body fat of 0.0% is not a measurement, it is the absence of one.
+ *
+ * The domain ports coalesce a missing reading to 0 (`bfMid ?? 0`) and every
+ * CALCULATION already treats that as unmeasured — `requirementProgress`
+ * returns honest zero for `current <= 0`, and `met` is false unless a real
+ * reading exists. Only the label lied, printing "0.0%" next to a 12.0%
+ * target as though the athlete had been measured at zero per cent body fat.
+ *
+ * Same rule as the domain, applied to the text: at or below zero, say so.
+ */
 function format(label: string, value: number): string {
   if (label === 'Bench') return `${value.toFixed(0)}kg`;
-  if (label === 'Body Fat') return `${value.toFixed(1)}%`;
+  if (label === 'Body Fat' || label === 'Starting Body Fat') {
+    return value > 0 ? `${value.toFixed(1)}%` : '—';
+  }
   return String(Math.trunc(value));
 }
 

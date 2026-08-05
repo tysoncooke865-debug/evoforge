@@ -61,7 +61,7 @@ Estimate male body fat percentage from physique photos for a fitness tracking ap
 Return ONLY valid JSON.
 
 Stats:
-- Height: ${heightCm} cm
+- Height: ${heightCm > 0 ? `${heightCm} cm` : 'Not provided'}
 - Bodyweight: ${weightKg} kg
 - Waist: ${waistCm > 0 ? waistCm : 'Not provided'}
 - Neck: ${neckCm > 0 ? neckCm : 'Not provided'}
