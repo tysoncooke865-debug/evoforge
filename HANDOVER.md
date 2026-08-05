@@ -26,6 +26,87 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ONBOARDING V3 — "earn the information, don't demand it" (2026-08-05,
+  migrations 134/135/136)** — Tyson's brief, executed in full. Spec:
+  `docs/ONBOARDING_V3_SPEC.md`.
+
+  THE EVIDENCE, read live before writing anything: 31 signed up → 25 made a
+  profile → 16 bound an Origin → **11 ever logged a workout.** Of the 14 who
+  emitted `onboarding_started`, only 10 emitted `initial_assessment_started`
+  — four abandoned the character-creation FORM, which demanded height,
+  bodyweight, three 1RMs, training years, an eating phase, a physique photo
+  and a globally-unique username before handing over anything.
+  `docs/ACTIVATION_ANALYTICS.md`'s "onboarding works" was true at n=10 and is
+  now marked superseded at the top of that file.
+
+  **THE FLOW** is one screen per question: intro → goal → experience → route
+  → [plan] → Origin → the reveal ("Your Forge is ready", ONE CTA). Height,
+  bodyweight, 1RMs, nutrition phase, the scan and the username all LEFT the
+  compulsory path and are collected where they earn their keep — the
+  username at the first social surface, which already had a claim card
+  (`social.tsx`) and an opt-in card (`rank.tsx`), so nothing broke.
+
+  **PLACEMENT V3** (`domain/onboarding-v3.ts`) derives `base_level` from the
+  experience band and NOTHING else. Under v2 physique came from the scan
+  (0–15) or a derived default **capped at 10** — declining to photograph
+  yourself was worth up to five levels. V3 cannot express that: it has no
+  photo input and no lift input. Bands top out at 45 so placement never
+  exceeds RARE; everything above that is earned. V2 is untouched and still
+  parity-pinned — no existing `base_level` is recomputed.
+
+  **THE ORIGIN IS CHOSEN, NEVER RATIONED (135).** `assign_origin_path` only
+  accepted paths the candidate model offered — three of five — and under v3
+  that shortlist is computed from a goal string, because no evidence exists
+  yet. One clause: a v3 athlete's FIRST origin may be any of the five,
+  recorded as `free_choice` in the result, the assessment snapshot and the
+  migration log. v2/legacy/migrated athletes are untouched, a second bind is
+  still `already_assigned`, an unknown path is still `invalid_origin` — all
+  falsified as the signed-in smoke athlete inside a rolled-back txn.
+  The candidate model keeps every surface where it HAS evidence: the free
+  Reforge after three workouts, and the migrated cohort.
+
+  **PHOTOS: after value, never as a gate.** `ui/progression/physique-baseline-card.tsx`
+  renders only after a COMPLETED workout, offers four equally-visible
+  choices, and is styled as an offer — never an overdue task. **DON'T ASK ME
+  AGAIN** writes `photo_prompts_disabled` (134) and every prompt surface
+  consults `usePhotoPrefs().mayAsk`. `origin-scan-prompt.tsx` no longer leads
+  with "run a scan" — it points at the CHOICE, because assigning a character
+  from a photograph is the one thing this flow must never do. Consent (136)
+  is affirmative, versioned, and gates the capture surface ITSELF so a deep
+  link cannot walk around it; the disclosure names the real pipeline
+  (OpenAI) rather than saying "only seen by AI". Settings gains a physique
+  card: what is stored, the prompt switch, and a real delete.
+
+  **THE INVARIANT**, checked not asserted:
+  `domain/__tests__/photo-confidence.test.ts` — missing photos lower
+  CONFIDENCE, never SCORE, with a positive control that a scan measuring
+  something *different* does move the rating. It also surfaced a real
+  structural fact: `overallConfidence` is the MIN of four pillars, so for a
+  new athlete cardio is the floor and a scan moves the headline by nothing.
+  That is why the calibration card names the LIMITING area instead of
+  implying everyone is missing a photo.
+
+  **REFORGE DAY (28 days), photo-optional** — `domain/progression/reforge-day.ts`
+  + `/reforge`. NAMING: the existing three-workout Origin re-choice is the
+  **Origin Reforge**; Reforge Day is the periodic ceremony. The weekly Evo
+  Review **does not move** — momentum decays per missed WEEK and the review
+  is the engine; changing it to match the ceremony would rewrite progression
+  maths for every existing athlete. The clock anchors to the first COMPLETED
+  workout, is write-once + forward-only server-side (134 trigger), and the
+  ceremony completes without photos: "Your training and performance data
+  have been updated. Your physique calibration was not refreshed."
+
+  **HOME** leads with the mission for an athlete who has NEVER TRAINED only;
+  the 2026-08-03 identity-first order returns the moment a set is logged.
+  The EvoHero empty state now says CALIBRATING and offers the first workout
+  instead of a first review — a review with no evidence is a number about
+  nothing, which the button's own note already said.
+
+  Verified: tsc, `npx expo lint` (0 errors), **1948 vitest cases**, tokens /
+  motion / battle-engine / glicko guards, `expo export`, and a Playwright
+  tour of the new flow against production.
+
+
 - **BUG: barcode scanner "detects, then errors on lookup" — made
   self-diagnosing, root cause still open (2026-08-05, no migration)** —
   Tyson's report, narrowed by his own follow-up: the camera DOES read a

@@ -34,6 +34,20 @@ export const LAB_PROFILE: ProfileRow = {
   nutrition_phase: 'cut',
   origin_path: 'aesthetic',
   onboarding_flow_version: 2,
+  // A v2 athlete: every v3 answer is genuinely absent, and the lab must
+  // photograph that state rather than a synthetic one nobody has.
+  onboarding_goal: null,
+  secondary_goals: null,
+  experience_level: null,
+  training_route: null,
+  training_days_per_week: null,
+  session_minutes: null,
+  equipment_access: null,
+  preferred_days: null,
+  photo_prompts_disabled: false,
+  physique_baseline_at: null,
+  reforge_anchor_at: null,
+  last_reforge_at: null,
 };
 
 export const LAB_FORGE: ForgeRow = {

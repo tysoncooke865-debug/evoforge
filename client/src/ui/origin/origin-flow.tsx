@@ -82,7 +82,7 @@ export function OriginFlow({
 
   /* ---------------- step 1: the first Evo Review + rating reveal ------- */
   const rating = useEvoRatingCurrent();
-  const [reviewState, setReviewState] = useState<'running' | 'error' | 'done'>('running');
+  const [reviewState, setReviewState] = useState<'running' | 'error' | 'done' | 'no_evidence'>('running');
   const reviewRan = useRef(false);
 
   const runReview = async () => {
@@ -90,9 +90,13 @@ export function OriginFlow({
     try {
       // Non-forced: the first review is due by definition; a resume finds
       // the row and not_due is a no-op. Idempotent per its own due-check.
-      await runDueEvoReview(supabase);
+      // ONBOARDING V3: the review now REFUSES to anchor a rating with no
+      // evidence of any kind (evo-review-io.ts). A v2 athlete who skipped
+      // the scan hits that, and would otherwise sit on this loader forever.
+      // There is nothing to reveal, so say so and move to the choice.
+      const result = await runDueEvoReview(supabase);
       await queryClient.invalidateQueries({ queryKey: ['evo_rating_current'] });
-      setReviewState('done');
+      setReviewState(result.reason === 'no_evidence' ? 'no_evidence' : 'done');
     } catch {
       setReviewState('error');
     }
@@ -263,6 +267,19 @@ export function OriginFlow({
                     <NeonButton title="RETRY" onPress={() => void runReview()} testID="origin-review-retry" />
                   </View>
                 </GlowCard>
+              ) : reviewState === 'no_evidence' || (reviewState === 'done' && !ratingRow) ? (
+                <>
+                  <GlowCard padding={16}>
+                    <Text className="text-sm text-text">Your rating starts with your training.</Text>
+                    <Text className="mt-s1 text-xs text-text-dim">
+                      There is nothing to measure yet, so nothing is being guessed. Log your first
+                      workout and your Evo Rating begins from what you actually did.
+                    </Text>
+                  </GlowCard>
+                  <View className="mt-s4">
+                    <NeonButton title="FIND YOUR ORIGIN" onPress={() => setStep('candidates')} testID="origin-to-candidates" />
+                  </View>
+                </>
               ) : reviewState === 'done' && ratingRow ? (
                 <>
                   <RatingReveal row={ratingRow} testID="origin-rating-reveal" />

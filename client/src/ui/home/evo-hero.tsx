@@ -65,6 +65,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { progressionFeatures } from '@/data/progression/features';
+import { useCalibration } from '@/data/progression/use-calibration';
 import {
   useEvoRatingCurrent,
   usePendingEvoEvidence,
@@ -179,6 +180,7 @@ export function EvoHero({
   const current = useEvoRatingCurrent();
   const pending = usePendingEvoEvidence();
   const review = useRunEvoReview();
+  const calibration = useCalibration();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const row = (current.data ?? null) as Record<string, unknown> | null;
@@ -327,22 +329,31 @@ export function EvoHero({
           <View pointerEvents="none" style={{ position: 'absolute' }}>
             <EvoEmblem width={crestW} colour={colors.epic} />
           </View>
+          {/* "??" said the app did not know. CALIBRATING says the app is
+              WORKING ON IT and something the athlete does will finish it —
+              which is true, and is the difference between an empty state and
+              an invitation (spec §5). */}
           <Text
             allowFontScaling={false}
             style={{
-              fontSize: Math.round(scale.rating * 0.8),
-              lineHeight: Math.round(scale.rating * 0.9),
+              fontSize: Math.round(scale.rating * 0.34),
+              lineHeight: Math.round(scale.rating * 0.42),
               color: colors['text-mute'],
-              letterSpacing: 0,
+              letterSpacing: 1,
               ...pixelFont(),
             }}
           >
-            ??
+            CALIBRATING
           </Text>
         </View>
         <Subtitle size={scale.ratingSub}>OVERALL FITNESS SCORE</Subtitle>
+        {/* ONBOARDING V3 (spec §5, §8): the rating CALIBRATES rather than
+            sitting empty. An athlete who has never trained is told the one
+            thing that starts it, and is NOT offered a first review — a review
+            with no training evidence produces a number about nothing, which
+            is the same objection the button's own note makes below. */}
         <Text className="mt-s2 text-center text-sm text-text-dim">
-          Your real-world gym level from Size, Physique, Strength and Cardio.
+          {calibration.summary.sub}
         </Text>
         <View className="mt-s3 w-full">
           {/* EPIC, NOT PRIMARY. As a cyan gradient this was pixel-for-pixel the
@@ -352,14 +363,22 @@ export function EvoHero({
               door and lets the cyan CTA stay the page's one dominant action —
               which is right, because a first review needs training evidence
               to read anyway. */}
-          <NeonButton
-            title="RUN FIRST EVO REVIEW"
-            variant="epic"
-            pixel
-            busy={review.isPending}
-            onPress={() => review.mutate({ force: true })}
-            testID="evo-discover"
-          />
+          {/* NO BUTTON while training is the thing that is waiting. Home
+              already carries START MISSION as its one dominant action, and it
+              sits directly above this for an athlete who has never trained
+              (app/(main)/index.tsx). A second CTA saying the same thing in a
+              different colour is the "five competing buttons" failure the v3
+              brief is about — the crest's job here is to EXPLAIN. */}
+          {calibration.summary.areas.find((a) => a.key === 'training')?.state === 'waiting' ? null : (
+            <NeonButton
+              title="RUN FIRST EVO REVIEW"
+              variant="epic"
+              pixel
+              busy={review.isPending}
+              onPress={() => review.mutate({ force: true })}
+              testID="evo-discover"
+            />
+          )}
         </View>
       </View>
     );

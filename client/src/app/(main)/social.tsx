@@ -222,9 +222,14 @@ function ClaimNameCard() {
       <Text className="mb-s1 text-text" allowFontScaling={false} style={{ fontSize: 15, ...pixelFont() }}>
         CLAIM YOUR NAME
       </Text>
+      {/* ONBOARDING V3: this is now the FIRST time most athletes are asked
+          for a username — it left onboarding, where it was a mandatory,
+          globally-unique gate standing between a new signup and their first
+          workout. So the copy no longer implies a change they missed; it
+          explains what the name is for, at the moment it is for something. */}
       <Text className="mb-s2 text-2xs text-text-mute">
-        Social runs on usernames now. Pick a unique one to post, comment and be found — it does
-        NOT put you on the leaderboard.
+        Social runs on usernames. Pick a unique one to post, comment and be found — it does NOT
+        put you on the leaderboard.
       </Text>
       <TextInput
         className="mb-s2 min-h-[48px] rounded-md border border-border bg-surface-2 px-s3 text-base text-text"

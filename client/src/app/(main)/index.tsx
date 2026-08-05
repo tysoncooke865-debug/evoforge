@@ -52,6 +52,8 @@ import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
+import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
+import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
 import { EvoRadar } from '@/ui/home/evo-radar';
 
 /**
@@ -303,6 +305,27 @@ export default function HomeScreen() {
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
+  /** Never logged a set. The page leads with the mission for these athletes. */
+  const neverTrained = !workoutIndex.isPending && (workoutIndex.data?.byDate.size ?? 0) === 0;
+
+  const missionCard = (
+    <MissionCard
+      mission={mission}
+      title={missionName.title}
+      sub={missionName.sub}
+      pills={pills}
+      minutes={estimateMinutes(targetSets)}
+      kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
+      next={nextSession}
+      loading={missionLoading}
+      error={missionError && !missionLoading}
+      onRetry={retryMission}
+      onOpen={openMission}
+      features={homeFeatures}
+      evoPerSession={evoPerSession}
+    />
+  );
+
   return (
     <ScreenShell backdrop={<HomeAmbience />}>
       {/* 1. Identity + the level module — FORGE LEVEL (Tyson, 2026-07-16:
@@ -314,6 +337,17 @@ export default function HomeScreen() {
         xpIntoLevel={forgeProgress.xpIntoLevel}
         xpNeeded={forgeProgress.xpForNextLevel}
       />
+
+      {/* ONBOARDING V3 (spec §8). For an athlete who has NEVER TRAINED the
+          page's job is different: there is no identity to lead with yet — the
+          rating is calibrating and the champion has one workout of history.
+          So the mission leads, and identity follows.
+
+          This does NOT reverse the 2026-08-03 order for everybody. The moment
+          a first workout is logged, the established identity-first page
+          returns and stays. The exception is scoped to exactly the athletes
+          the funnel says we lose: 16 bound an Origin, 11 ever logged a set. */}
+      {neverTrained ? missionCard : null}
 
       {/* 2. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
           thing on the page, so they are one slot in the shell's gap stack and
@@ -358,33 +392,28 @@ export default function HomeScreen() {
       </View>
 
       {/* 3. TODAY'S MISSION — the one dominant CTA on the page, and the
-          reason the page exists.
-          NEXT RANK used to sit here as its own card. It is the bottom rail of
-          the Evo crest now (ui/home/next-rank-card.tsx): one purple identity
-          block instead of two competing ones, and ~58pt of fold back. */}
-      <MissionCard
-        mission={mission}
-        title={missionName.title}
-        sub={missionName.sub}
-        pills={pills}
-        minutes={estimateMinutes(targetSets)}
-        kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
-        next={nextSession}
-        loading={missionLoading}
-        error={missionError && !missionLoading}
-        onRetry={retryMission}
-        onOpen={openMission}
-        features={homeFeatures}
-        evoPerSession={evoPerSession}
-      />
+          reason the page exists. It moves ABOVE the identity block for an
+          athlete who has never trained (see missionCard's note). */}
+      {neverTrained ? null : missionCard}
 
-      {/* 4. THIS WEEK — seven days and a streak, nothing else. */}
+      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
+          IS due it sits directly under the mission, because it is the only
+          other thing on the page with a deadline. */}
+      <ReforgeDayCard testID="home-reforge-day" />
+
+            {/* 4. THIS WEEK — seven days and a streak, nothing else. */}
       <WeekStrip
         pips={contract.pips}
         todayIso={todayIso}
         streak={streak.current}
         streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
       />
+
+      {/* 5. TERTIARY — the optional private baseline. Self-hides until a
+          workout has been COMPLETED, hides for good once the athlete says
+          don't ask again, and is deliberately styled as an offer rather than
+          an outstanding task (spec §6, §8). */}
+      <PhysiqueBaselineCard testID="home-physique-baseline" />
 
       {/* ---- THE FOLD. Everything below still exists, still reads live
           state, and still opens the same doors — it just no longer competes

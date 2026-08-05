@@ -45,6 +45,22 @@ export interface ProfileRow {
   /** 047 program: NULL = legacy user (the origin gate never traps them). */
   origin_path: string | null;
   onboarding_flow_version: number | null;
+  /* --- ONBOARDING V3 (migration 134). NULL on every pre-v3 athlete, which
+       is a real answer ("never asked") and must never be rendered as a
+       chosen value. --- */
+  onboarding_goal: string | null;
+  secondary_goals: string[] | null;
+  experience_level: string | null;
+  training_route: string | null;
+  training_days_per_week: number | null;
+  session_minutes: number | null;
+  equipment_access: string | null;
+  preferred_days: number[] | null;
+  /** "Don't ask me again", honoured by EVERY photo prompt surface. */
+  photo_prompts_disabled: boolean | null;
+  physique_baseline_at: string | null;
+  reforge_anchor_at: string | null;
+  last_reforge_at: string | null;
 }
 
 function useUserId(): string | null {
@@ -65,7 +81,7 @@ export function useProfile() {
     queryFn: async (): Promise<ProfileRow | null> => {
       const { data, error } = await supabase
         .from('profile')
-        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version')
+        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version,onboarding_goal,secondary_goals,experience_level,training_route,training_days_per_week,session_minutes,equipment_access,preferred_days,photo_prompts_disabled,physique_baseline_at,reforge_anchor_at,last_reforge_at')
         .order('created_at', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;

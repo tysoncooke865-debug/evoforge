@@ -5,6 +5,7 @@ import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useActivationStep } from '@/data/activation';
+import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
 import { useClaimCoin } from '@/data/coins';
 import { useOriginStatus } from '@/data/origin';
@@ -80,7 +81,7 @@ import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet'
  */
 export default function WorkoutScreen() {
   const colors = useThemeColors();
-  const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string }>();
+  const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string; coach?: string }>();
   const todayIso = calendarToday();
   const date = params.date ?? todayIso;
   const workoutName = params.workout ?? '';
@@ -175,6 +176,10 @@ export default function WorkoutScreen() {
   const editable = isToday && !finished;
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  /* Onboarding sent them straight here and the log is empty: one hint, once.
+     `workouts.isPending` matters — an empty cache must not be read as "no
+     sets ever", which would flash the hint at a veteran on a cold start. */
+  const showCoachHint = params.coach === '1' && !workouts.isPending && allRows.length === 0;
   const dayRows = allRows.filter(
     (r) => String(r.date) === date && String(r.workout) === workoutName
   );
@@ -493,6 +498,18 @@ export default function WorkoutScreen() {
       .filter((e) => e.sets > 0);
 
   const finish = () => {
+    // THE ACTIVATION MEASURE THAT MATTERS (docs/ONBOARDING_V3_SPEC.md §9):
+    // "% completing a first workout within 7 days". Emitted once, before the
+    // mutation lands, because a session row appearing is what stops it being
+    // the first — reading `sessions` after the write would race it.
+    if (!sessions.isPending && (sessions.data ?? []).length === 0) {
+      track('first_workout_completed', {
+        sets: totals.done,
+        target: totals.target,
+        is_today: date === todayIso,
+        source: params.coach === '1' ? 'onboarding_reveal' : 'app',
+      });
+    }
     finishWorkout.mutate({ date, workout: workoutName });
     clearActive();
     // An ad-hoc workout is DONE — releasing it restores START AN EMPTY WORKOUT.
@@ -686,6 +703,23 @@ export default function WorkoutScreen() {
             </View>
           )}
         />
+      ) : null}
+
+      {/* THE ONE TEACHING MOMENT (docs/ONBOARDING_V3_SPEC.md §2, step 6).
+          Shown only when onboarding handed the athlete straight here (coach=1)
+          AND they have never logged a set. It disappears the instant the first
+          set lands — after that we stop teaching, and everything else is
+          explained where it is encountered. */}
+      {showCoachHint ? (
+        <View
+          className="rounded-xl border px-s4 py-s3"
+          style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
+          testID="first-set-coach"
+        >
+          <Text className="text-xs text-text">
+            Enter your weight and reps, then tap the tick when the set is complete.
+          </Text>
+        </View>
       ) : null}
 
       {reordering ? null : plan.map((entry, i) => {

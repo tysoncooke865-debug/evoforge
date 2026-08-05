@@ -11,6 +11,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { pickPhoto } from '@/data/ai';
+import { track } from '@/data/analytics';
+import { usePhotoPrefs, useSavePhotoPrefs } from '@/data/photo-prefs';
 import { progressionFeatures } from '@/data/progression/features';
 import { awardEvoScan } from '@/data/progression/award-xp';
 import { useProfile } from '@/data/hooks';
@@ -24,8 +26,16 @@ import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { PhotoConsentSheet } from '@/ui/progression/physique-baseline-card';
 
+/* Neutral and clinical, never appearance-focused. "Stand naturally, no
+   flexing" is the first line on purpose: the guidance an athlete reads
+   before photographing themselves sets whether this is a measurement or a
+   performance (docs/ONBOARDING_V3_SPEC.md §6). There is deliberately no
+   model photo beside these — a lean example body turns a private
+   measurement into a comparison. */
 const GUIDE = [
+  'Stand naturally. No flexing is required.',
   'Similar lighting and camera height each scan',
   'Neutral background, no filters or editing',
   'Consistent relaxed pose — no exaggerated twisting',
@@ -38,6 +48,8 @@ export default function EvoScanScreen() {
   const colors = useThemeColors();
   const profile = useProfile();
   const queryClient = useQueryClient();
+  const prefs = usePhotoPrefs();
+  const savePrefs = useSavePhotoPrefs();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [bodyweight, setBodyweight] = useState('');
   const [waist, setWaist] = useState('');
@@ -91,6 +103,14 @@ export default function EvoScanScreen() {
       }
       const r = payload.result;
       if (r.id) void awardEvoScan(supabase, r.id);
+      // The first successful scan IS the private baseline. Only the DATE is
+      // recorded — the photos are analysed and discarded, as always.
+      if (!prefs.hasBaseline) savePrefs.mutate({ baseline: true });
+      track('photo_baseline_completed', {
+        first_baseline: !prefs.hasBaseline,
+        photos: images.length,
+        status: r.status ?? 'confirmed',
+      });
       void queryClient.invalidateQueries({ queryKey: ['physique_assessments'] });
       // ORIGIN FROM THE SCAN (042), AMENDED by the raw ±5 rule (Tyson,
       // 2026-07-17, migration 046): the scan auto-claims ONLY a clear single
@@ -143,6 +163,22 @@ export default function EvoScanScreen() {
 
   const canSubmit =
     photos.filter(Boolean).length >= 2 && (pyFloat(bodyweight) ?? 0) > 0 && !busy;
+
+  /* CONSENT BEFORE CAMERA, at the surface itself rather than at each
+     entrance to it. A gate that lives on the button can be walked around by
+     the next deep link; a gate that lives here cannot. */
+  if (prefs.ready && !prefs.hasConsent) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="EVO RATING" title="EVO SCAN" onBack={() => router.back()} />
+        <PhotoConsentSheet
+          open
+          onCancel={() => router.back()}
+          onAgree={() => savePrefs.mutate({ consent: true })}
+        />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>

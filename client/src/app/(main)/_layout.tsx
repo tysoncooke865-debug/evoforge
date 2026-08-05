@@ -331,6 +331,9 @@ export default function MainLayout() {
       <Tabs.Screen name="exec" options={{ href: null }} />
       {/* PROGRESSION P5: the Evo Rating + Forge Level detail pages. */}
       <Tabs.Screen name="evo" options={{ href: null }} />
+      {/* REFORGE DAY — reached from Home when a 28-day cycle is due, and from
+          the Evo Rating page. Never a tab: it is an event, not a place. */}
+      <Tabs.Screen name="reforge" options={{ href: null }} />
       <Tabs.Screen name="evo-scan" options={{ href: null }} />
       <Tabs.Screen name="forge-level" options={{ href: null }} />
       <Tabs.Screen name="rival" options={{ href: null }} />

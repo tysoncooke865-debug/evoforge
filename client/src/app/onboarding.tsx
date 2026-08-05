@@ -1,80 +1,93 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { pickPhoto, runAiBodyfat, runAiPhysique } from '@/data/ai';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
-import { useSavePublicIdentity } from '@/data/mutations';
-import { ORIGIN_FLAGS } from '@/data/origin';
-import { saveUserPlanDirect } from '@/data/user-plans';
+import { ORIGIN_FLAGS, useBindOrigin } from '@/data/origin';
+import { enablePush } from '@/data/push';
 import { supabase } from '@/data/supabase';
-import { defaultScheduleFor, seedPlanForSplit, SPLITS } from '@/domain/exercise-library';
-import { nameError } from '@/domain/leaderboard';
-import type { BattleStylePref, PrimaryGoal } from '@/domain/origin/types';
-import { rankName } from '@/domain/profile';
-import { pyFloat } from '@/domain/py';
+import { saveUserPlanDirect } from '@/data/user-plans';
+import { seedPlanForSplit } from '@/domain/exercise-library';
 import {
-  derivedLeannessDefault,
-  derivedPhysiqueDefault,
-  startingLevelV2,
-  type NutritionPhase,
-} from '@/domain/starting-level-v2';
+  EQUIPMENT,
+  EQUIPMENT_LABEL,
+  EXPERIENCE_LABEL,
+  EXPERIENCE_LEVELS,
+  firstMissionDay,
+  GOAL_LABEL,
+  GOAL_TO_PRIMARY,
+  ONBOARDING_GOALS,
+  recommendSplit,
+  scheduleForSplit,
+  SESSION_MINUTES,
+  splitName,
+  startingLevelV3,
+  trainingYearsFor,
+  type EquipmentAccess,
+  type ExperienceLevel,
+  type OnboardingGoal,
+  type TrainingRoute,
+} from '@/domain/onboarding-v3';
+import type { OriginId } from '@/domain/origin/types';
+import { todayIso } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { Chip, NeonButton } from '@/ui/core/neon-button';
+import { NeonButton } from '@/ui/core/neon-button';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import { GlowCard } from '@/ui/core/shell';
+import { MissionReveal } from '@/ui/onboarding/mission-reveal';
+import { ChampionPresentation, OriginChoice } from '@/ui/onboarding/origin-choice';
+import { CreationBackdrop, OptionRow, PillRow, StepFrame } from '@/ui/onboarding/step-kit';
 import { OriginFlow } from '@/ui/origin/origin-flow';
-import { ScanFrame, type ScanState } from '@/ui/train/scan-frame';
-import { todayIso } from '@/domain/today';
 
 /**
- * CHARACTER CREATION V2 — now a TWO-ACT flow (docs/ORIGIN_ONBOARDING_SPEC.md):
+ * ONBOARDING V3 — earn the information, don't demand it.
+ * The contract is docs/ONBOARDING_V3_SPEC.md; domain/onboarding-v3.ts is the
+ * pure core; this file is only the step machine and the two writes.
  *
- *   Act I  (this form, local state only, unchanged loss semantics)
- *     1. WHO    — sex, height, bodyweight
- *     2. LIFTS  — bench / squat / deadlift 1RM + training years
- *     3. FUEL   — cutting / maintaining / bulking / flexible
- *     4. DRIVE  — primary goal + battle style (the Destined/Anomaly inputs)
- *     5. SCAN   — AI physique + body fat (skippable; derived defaults)
- *     6. TRAINING — a split (seeds plan AND week; default SKIP)
- *     7. PROFILE — public identity
- *   Act II (<OriginFlow/> — rating reveal → 3 candidates → bind → awakening)
+ *   intro → goal → experience → route → [plan] → origin → ready → [schedule]
  *
- * A SAVED PROFILE ROW IS STILL THE ONBOARDED FLAG. The insert never includes
- * user_id (DEFAULT auth.uid() fills it). physique/leanness scores stored on
- * the profile come from the AI scan or the derived defaults -- the athlete
- * never grades themself. The insert also stamps onboarding_flow_version = 2,
- * which is what lets the (main) gate return an interrupted Act II athlete
- * here WITHOUT trapping legacy users (their flow version is NULL).
+ * WHAT V2 ASKED FOR AND V3 DOES NOT: height, bodyweight, bench/squat/deadlift
+ * 1RMs, training years typed as a number, an eating phase, a physique photo,
+ * and a globally-unique username — all before handing over anything at all.
+ * Four of the fourteen athletes who opened that form never submitted it. Each
+ * of those is still collected, later, where it earns its keep (spec §2).
+ *
+ * TWO WRITES, IN THIS ORDER, AND THE ORDER MATTERS:
+ *   1. the profile row — which IS the onboarded flag, stamped
+ *      onboarding_flow_version = 3;
+ *   2. assign_origin_path — which READS that row (migration 135 lets a v3
+ *      athlete pick any of the five, because at this point the candidate
+ *      model has no evidence to narrow it with).
+ * Seeding the plan comes after both and NEVER blocks: a dead network at that
+ * point must not trap a new athlete on a wizard whose work is already saved.
+ *
+ * RESUME: a flow-3 profile with no origin returns to the `origin` step with
+ * its answers read back off the row — the (main) gate sends them here, and
+ * every answer v3 collects is already persisted by then.
  */
 
-const PHASES: { key: NutritionPhase; label: string }[] = [
-  { key: 'cutting', label: '🔪 Cutting' },
-  { key: 'maintaining', label: '⚖️ Maintaining' },
-  { key: 'bulking', label: '🍚 Bulking' },
-  { key: 'flexible', label: '🍕 Eat whatever' },
+type Step = 'intro' | 'goal' | 'experience' | 'route' | 'plan' | 'origin' | 'forging' | 'ready' | 'schedule';
+
+const FLOW_PROPS = { flow_version: 3, calibration_version: 5, user_type: 'new' as const };
+
+const WEEKDAYS: { key: string; label: string }[] = [
+  { key: '1', label: 'MON' }, { key: '2', label: 'TUE' }, { key: '3', label: 'WED' },
+  { key: '4', label: 'THU' }, { key: '5', label: 'FRI' }, { key: '6', label: 'SAT' },
+  { key: '0', label: 'SUN' },
 ];
 
-/** A curated few — every split the builder offers would be a wall of choice
- *  on day one, and only seedable splits belong here. */
-const ONBOARDING_SPLITS = SPLITS.filter((s) => ['ppl3', 'ul4', 'cbal3', 'fb3'].includes(s.key));
+/** What an athlete who already has a program wants to do about it. */
+type ExistingPlanAction = 'builder' | 'scan' | 'empty' | 'later';
 
-const GOALS: { key: PrimaryGoal; label: string }[] = [
-  { key: 'strength', label: '🏋️ Strength' },
-  { key: 'muscle_gain', label: '💪 Build muscle' },
-  { key: 'fat_loss', label: '🔥 Lose fat' },
-  { key: 'cardio', label: '🫀 Engine' },
-  { key: 'aesthetics', label: '✨ Aesthetics' },
-];
-
-const BATTLE_STYLES: { key: BattleStylePref; label: string }[] = [
-  { key: 'force', label: '▲ FORCE — overwhelm' },
-  { key: 'form', label: '◆ FORM — out-technique' },
-  { key: 'flow', label: '● FLOW — out-last' },
+const EXISTING_ACTIONS: { key: ExistingPlanAction; label: string; hint: string }[] = [
+  { key: 'builder', label: 'Build my routine', hint: 'Enter your days and exercises yourself.' },
+  { key: 'scan', label: 'Paste or describe it with AI', hint: 'Photograph a written program, or just describe it.' },
+  { key: 'empty', label: 'Start an empty workout', hint: 'Log as you go — no plan needed.' },
+  { key: 'later', label: 'Do this later', hint: 'Go straight to the app.' },
 ];
 
 export default function OnboardingScreen() {
@@ -82,662 +95,765 @@ export default function OnboardingScreen() {
   const { session, loading } = useAuth();
   const profile = useProfile();
   const queryClient = useQueryClient();
+  const bind = useBindOrigin();
 
+  const [step, setStep] = useState<Step>('intro');
+  const [goal, setGoal] = useState<OnboardingGoal | null>(null);
+  const [secondary, setSecondary] = useState<OnboardingGoal[]>([]);
+  const [experience, setExperience] = useState<ExperienceLevel | null>(null);
+  const [route, setRoute] = useState<TrainingRoute | null>(null);
+  const [existingAction, setExistingAction] = useState<ExistingPlanAction | null>(null);
+  const [daysPerWeek, setDaysPerWeek] = useState<number | null>(null);
+  const [sessionMinutes, setSessionMinutes] = useState<number | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentAccess | null>(null);
+  const [preferredDays, setPreferredDays] = useState<number[]>([]);
   const [sex, setSex] = useState<'male' | 'female'>('male');
-  const [height, setHeight] = useState('175');
-  const [bodyweight, setBodyweight] = useState('75');
-  const [bench, setBench] = useState('60');
-  const [squat, setSquat] = useState('80');
-  const [deadlift, setDeadlift] = useState('100');
-  const [years, setYears] = useState('1');
-  const [phase, setPhase] = useState<NutritionPhase>('maintaining');
-
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [scanBusy, setScanBusy] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
-  const [aiPhysique, setAiPhysique] = useState<number | null>(null);
-  const [aiLeanness, setAiLeanness] = useState<number | null>(null);
-  const [bfNote, setBfNote] = useState<string | null>(null);
-
-  const [busy, setBusy] = useState(false);
+  const [origin, setOrigin] = useState<OriginId | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [publicName, setPublicName] = useState('');
-  // PRIVATE BY DEFAULT — being seen is opted INTO, never out of.
-  const [goPublic, setGoPublic] = useState(false);
-  const savePublic = useSavePublicIdentity();
-  // STAGE 1: null = skip (the default — onboarding stays fast),
-  // 'builder' = take me to the routine builder, else a split key to seed.
-  const [splitKey, setSplitKey] = useState<string | null>(null);
-  // DRIVE (047): the Destined + Anomaly calibration inputs. Optional — a
-  // skipped goal falls back to the nutrition phase, never a dead end.
-  const [primaryGoal, setPrimaryGoal] = useState<PrimaryGoal | null>(null);
-  const [battleStyle, setBattleStyle] = useState<BattleStylePref | null>(null);
-  // Act II: set by forge() when the origin ceremony takes over the route.
-  const [ceremony, setCeremony] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [nextDay, setNextDay] = useState<number | null>(null);
+  const [reminderState, setReminderState] = useState<'idle' | 'asking' | 'on' | 'refused'>('idle');
 
-  // A flow-v2 athlete WITHOUT an origin belongs in Act II — fresh from
-  // forge() (ceremony) or RESUMED here by the (main) gate after an
-  // interruption. Legacy users (flow version NULL) never match.
-  const needsOriginResume =
+  /** Filled by forge() so the reveal describes the plan that really landed. */
+  const [seeded, setSeeded] = useState<{
+    splitKey: string | null;
+    planName: string | null;
+    missionDay: string | null;
+    inDays: number;
+    exercises: [string, number][];
+  } | null>(null);
+
+  const startedAt = useRef(0);
+  useEffect(() => {
+    if (!startedAt.current) startedAt.current = Date.now();
+  }, []);
+
+  /* A v2 athlete stranded between the profile insert and the origin bind
+     still belongs in the OLD ceremony — v3 must not reinterpret a row that
+     was written by a flow that asked different questions. */
+  const v2Resume =
     ORIGIN_FLAGS.originOnboardingEnabled &&
     profile.data != null &&
-    (profile.data.onboarding_flow_version ?? 0) >= 2 &&
+    (profile.data.onboarding_flow_version ?? 0) === 2 &&
     profile.data.origin_path == null;
+
+  /* A v3 athlete in the same position resumes at `origin`, with the answers
+     read back off their row. Nothing else was ever held in memory. */
+  const v3Resume =
+    profile.data != null &&
+    (profile.data.onboarding_flow_version ?? 0) >= 3 &&
+    profile.data.origin_path == null;
+
+  /* RESUME, during render rather than in an effect. React's documented
+     "adjust state when the source changes" pattern: the re-render happens
+     before anything is committed, so the athlete never sees step 1 flash
+     before being put back on `origin`. An effect here would paint the wrong
+     step first, and react-hooks/set-state-in-effect is an error for exactly
+     that reason. */
+  const [resumedId, setResumedId] = useState<string | null>(null);
+  if (v3Resume && profile.data != null && resumedId !== profile.data.id) {
+    const p = profile.data;
+    setResumedId(p.id);
+    setGoal((p.onboarding_goal as OnboardingGoal | null) ?? null);
+    setSecondary((p.secondary_goals as OnboardingGoal[] | null) ?? []);
+    setExperience((p.experience_level as ExperienceLevel | null) ?? null);
+    setRoute((p.training_route as TrainingRoute | null) ?? null);
+    setDaysPerWeek(p.training_days_per_week ?? null);
+    setSessionMinutes(p.session_minutes ?? null);
+    setEquipment((p.equipment_access as EquipmentAccess | null) ?? null);
+    setPreferredDays(p.preferred_days ?? []);
+    if (p.sex === 'male' || p.sex === 'female') setSex(p.sex);
+    setStep('origin');
+  }
+  const resumeTracked = useRef(false);
+  useEffect(() => {
+    if (resumedId === null || resumeTracked.current) return;
+    resumeTracked.current = true;
+    track('onboarding_resumed', { ...FLOW_PROPS, resume_step: 'origin' });
+  }, [resumedId]);
 
   const mountTracked = useRef(false);
   useEffect(() => {
     if (mountTracked.current || profile.isPending) return;
     if (profile.data == null) {
       mountTracked.current = true;
-      track('onboarding_started', { flow_version: 2, calibration_version: 5, user_type: 'new' });
-    } else if (needsOriginResume) {
-      mountTracked.current = true;
-      track('onboarding_resumed', {
-        flow_version: 2, calibration_version: 5, user_type: 'new', resume_step: 'rating',
-      });
+      track('onboarding_started', FLOW_PROPS);
     }
-  }, [profile.isPending, profile.data, needsOriginResume]);
+  }, [profile.isPending, profile.data]);
 
   if (!loading && !session) return <Redirect href="/sign-in" />;
-  if (ceremony || needsOriginResume) {
+  if (v2Resume) {
     return (
       <OriginFlow
-        sex={profile.data?.sex ?? sex}
+        sex={profile.data?.sex ?? 'male'}
         userType="new"
         onComplete={() => {
-          // AWAIT the refetch: navigating with a stale null profile makes
-          // the (main) gate bounce the just-finished athlete straight back
-          // to /onboarding (caught by the O-series tour).
           void (async () => {
             await queryClient.invalidateQueries({ queryKey: ['profile'] });
-            // BUILD MY OWN / SCAN MY PLAN still land where Act I promised.
-            router.replace(
-              (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never,
-            );
+            router.replace('/' as never);
           })();
         }}
       />
     );
   }
-  // An onboarded athlete who asked to BUILD MY OWN lands in the builder, not
-  // on Home — that was the whole point of the tap. SCAN MY PLAN lands there
-  // too, with the import sheet already open (PLAN SCAN).
-  if (profile.data)
-    return (
-      <Redirect
-        href={
-          (splitKey === 'builder' ? '/routine' : splitKey === 'scan' ? '/routine?import=1' : '/') as never
-        }
-      />
-    );
+  // Onboarded and bound: nothing to do here.
+  if (profile.data && profile.data.origin_path != null) return <Redirect href={'/' as never} />;
 
-  const nums = {
-    height: pyFloat(height) ?? 0,
-    bodyweight: pyFloat(bodyweight) ?? 0,
-    bench: pyFloat(bench) ?? 0,
-    squat: pyFloat(squat) ?? 0,
-    deadlift: pyFloat(deadlift) ?? 0,
-    years: pyFloat(years) ?? 0,
-  };
-  const valid =
-    nums.height >= 100 && nums.height <= 230 &&
-    nums.bodyweight >= 30 && nums.bodyweight <= 200 &&
-    nums.bench >= 0 && nums.bench <= 300 &&
-    nums.squat >= 0 && nums.squat <= 400 &&
-    nums.deadlift >= 0 && nums.deadlift <= 450 &&
-    nums.years >= 0 && nums.years <= 30;
+  /* A LEGACY athlete (flow version NULL/0/1) with a profile but no Origin
+     does NOT belong in v3's origin step. Migration 135's free five-way
+     choice is scoped to flow >= 3, so a legacy athlete picking a
+     non-candidate here would meet `not_offered` and a dead end. Their
+     designed surface is the Forge's candidate reveal, which runs on the
+     evidence they actually have. */
+  if (
+    profile.data &&
+    profile.data.origin_path == null &&
+    (profile.data.onboarding_flow_version ?? 0) < 2
+  ) {
+    return <Redirect href={'/avatar' as never} />;
+  }
 
-  // The USERNAME is the real hard gate (mandatory + unique). Fold it into the
-  // button's disabled state so an empty/invalid name can't sail past the tap
-  // and fail silently at the bottom of a long scroll (2026-07-19).
-  const nameOk = publicName.trim().length >= 3 && nameError(publicName) === null;
+  /* ------------------------------------------------------------------ */
+  /* the two writes                                                      */
+  /* ------------------------------------------------------------------ */
 
-  const clamp15 = (v: unknown) => Math.max(0, Math.min(15, Math.round(Number(v) || 0)));
+  const empty = { splitKey: null, planName: null, missionDay: null, inDays: 0, exercises: [] as [string, number][] };
 
-  const previewLevel = valid
-    ? startingLevelV2({
-        benchE1rm: nums.bench,
-        squatE1rm: nums.squat,
-        deadliftE1rm: nums.deadlift,
-        trainingYears: nums.years,
-        aiPhysique,
-        aiLeanness,
-        phase,
-      })
-    : null;
+  const seedPlan = async (): Promise<typeof seeded> => {
+    // The athlete who brought their own program gets nothing seeded over it.
+    if (route !== 'build_for_me') return empty;
+    const splitKey = recommendSplit({ goal, experience, daysPerWeek, equipment });
+    const seed = seedPlanForSplit(splitKey);
+    const week = scheduleForSplit(splitKey, preferredDays.length > 0 ? preferredDays : null);
+    if (!seed || !week) return empty;
 
-  const scanState: ScanState = scanBusy
-    ? 'analysing'
-    : scanError
-      ? 'error'
-      : aiPhysique !== null
-        ? 'complete'
-        : photo
-          ? 'ready'
-          : 'idle';
+    // A split the athlete's answers chose is THEIR plan (MY PLAN), not the AI's.
+    await saveUserPlanDirect('custom', { plan_name: seed.plan_name, days: seed.days });
+    await supabase
+      .from('workout_schedule')
+      .upsert({ effective_from: todayIso(), plan: week }, { onConflict: 'user_id,effective_from' });
 
-  const runScan = async () => {
-    if (!photo) return;
-    setScanBusy(true);
-    setScanError(null);
-    const [phys, fat] = await Promise.all([
-      runAiPhysique([photo], { height_cm: nums.height, bodyweight: nums.bodyweight, context: 'onboarding' }),
-      runAiBodyfat([photo], { height_cm: nums.height, weight_kg: nums.bodyweight, save: true }),
-    ]);
-    setScanBusy(false);
-    setPhoto(null); // analysed and dropped
-    if (phys.result) {
-      setAiPhysique(clamp15(phys.result.physique_score));
-      setAiLeanness(clamp15(phys.result.leanness_score));
-    } else if (phys.error) {
-      setScanError(phys.error);
-    }
-    if (fat.result) {
-      setBfNote(`${fat.result.bf_mid.toFixed(1)}% body fat saved as your first reading.`);
-    }
+    const dow = new Date(`${todayIso()}T00:00:00Z`).getUTCDay();
+    const mission = firstMissionDay(week, dow);
+    const day = mission ? seed.days.find((d) => d.day === mission.day) : null;
+    track('plan_created', {
+      ...FLOW_PROPS,
+      split: splitKey,
+      split_name: splitName(splitKey),
+      days_per_week: daysPerWeek,
+      session_minutes: sessionMinutes,
+      equipment,
+      preferred_days_count: preferredDays.length,
+    });
+    return {
+      splitKey,
+      planName: seed.plan_name,
+      missionDay: mission?.day ?? null,
+      inDays: mission?.inDays ?? 0,
+      exercises: (day?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]),
+    };
   };
 
   const forge = async () => {
-    if (busy) return; // re-entrancy: the button disables, the handler guards too
-    if (!valid || previewLevel === null) {
-      setError('Check the highlighted numbers.');
-      return;
-    }
-    // §6.3 (2026-07-19): the username is MANDATORY and must be unique. It
-    // saves BEFORE the profile insert — the profile row is the onboarded
-    // flag, and a taken name must re-prompt, not slip past the gate. The
-    // 004 unique index is the arbiter (no pre-check RPC to race against).
-    const nameProblem = nameError(publicName);
-    if (nameProblem !== null) {
-      setError(`Username: ${nameProblem}`);
-      return;
-    }
+    if (busy || origin === null) return;
     setBusy(true);
     setError(null);
+    setStep('forging');
     try {
-      await savePublic.mutateAsync({ displayName: publicName.trim(), isPublic: goPublic });
-    } catch (e) {
-      // 'That display name is already taken.' from useSavePublicIdentity —
-      // block and re-prompt until they pick a free one.
-      setError(e instanceof Error ? e.message : 'That username is taken — choose another.');
-      setBusy(false);
-      return;
-    }
-    track('initial_assessment_started', {
-      flow_version: 2, calibration_version: 5, user_type: 'new',
-      has_scan: aiPhysique !== null, split_chosen: splitKey !== null,
-    });
-    const physiqueScore = aiPhysique ?? derivedPhysiqueDefault(nums.bench, nums.squat, nums.deadlift);
-    const leannessScore = aiLeanness ?? derivedLeannessDefault(phase);
-    const { error: err } = await supabase.from('profile').insert({
-      height_cm: nums.height,
-      bodyweight_kg: nums.bodyweight,
-      bench_e1rm: nums.bench,
-      squat_e1rm: nums.squat,
-      deadlift_e1rm: nums.deadlift,
-      training_years: nums.years,
-      physique_score: physiqueScore,
-      leanness_score: leannessScore,
-      sex,
-      nutrition_phase: phase,
-      base_level: previewLevel,
-      primary_goal: primaryGoal,
-      battle_style: battleStyle,
-      onboarding_flow_version: 2,
-      created_at: new Date().toISOString().slice(0, 19),
-    });
-    if (err) {
-      setError(err.message);
-      setBusy(false);
-      return;
-    }
-    track('initial_assessment_completed', { flow_version: 2, calibration_version: 5, user_type: 'new' });
-    // (The public identity saved BEFORE the profile insert — see above. The
-    // old optional/swallowed save let a name collision vanish silently.)
-
-    // STAGE 1: seed the chosen split — the plan AND the week it implies. Same
-    // "never blocks" rule as GO PUBLIC: the profile row is the onboarded flag,
-    // and a dead network here must not trap a new athlete on the wizard. They
-    // land on the built-in routine and can build their own any time.
-    if (splitKey !== null && splitKey !== 'builder' && splitKey !== 'scan') {
-      try {
-        const seed = seedPlanForSplit(splitKey);
-        if (seed) {
-          // A split the athlete chose is THEIR plan (MY PLAN), not the AI's.
-          await saveUserPlanDirect('custom', { plan_name: seed.plan_name, days: seed.days });
-          const week = defaultScheduleFor(splitKey);
-          if (week) {
-            await supabase
-              .from('workout_schedule')
-              .upsert(
-                { effective_from: todayIso(), plan: week },
-                { onConflict: 'user_id,effective_from' }
-              );
-          }
-        }
-      } catch {
-        /* never block onboarding */
+      // 1. THE PROFILE ROW — the onboarded flag. user_id is never included
+      //    (DEFAULT auth.uid() fills it). No lifts, no measurements, no
+      //    physique score: none of them were asked for, and a fabricated
+      //    default is worse than an honest null.
+      if (profile.data == null) {
+        const { error: err } = await supabase.from('profile').insert({
+          sex,
+          training_years: trainingYearsFor(experience),
+          base_level: startingLevelV3(experience),
+          primary_goal: goal ? GOAL_TO_PRIMARY[goal] : null,
+          onboarding_goal: goal,
+          secondary_goals: secondary.length > 0 ? secondary : null,
+          experience_level: experience,
+          training_route: route,
+          training_days_per_week: daysPerWeek,
+          session_minutes: sessionMinutes,
+          equipment_access: equipment,
+          preferred_days: preferredDays.length > 0 ? preferredDays : null,
+          onboarding_flow_version: 3,
+          created_at: new Date().toISOString().slice(0, 19),
+        });
+        if (err) throw new Error(err.message);
       }
-    }
 
-    // ACT II HANDOFF (047): the origin ceremony takes over this route. The
-    // ['profile'] invalidation is deliberately withheld — profile.data
-    // flipping non-null is what fires the legacy redirect, and Act II must
-    // hold the route until binding completes. OriginFlow's onComplete does
-    // the invalidation and the final navigation.
-    if (ORIGIN_FLAGS.originOnboardingEnabled) {
-      setCeremony(true);
-      setBusy(false);
-      return;
-    }
+      // 2. THE ORIGIN. Any of the five — migration 135.
+      track('origin_binding_started', { ...FLOW_PROPS, origin_id: origin, free_choice: true });
+      const r = await bind.mutateAsync(origin);
+      if (!r.ok) {
+        track('origin_binding_failed', { ...FLOW_PROPS, reason: r.reason ?? 'unknown' });
+        setError('Your Origin could not be bound. Your answers are saved — try again.');
+        setStep('origin');
+        setBusy(false);
+        return;
+      }
+      track('origin_binding_completed', {
+        ...FLOW_PROPS,
+        origin_id: origin,
+        free_choice: true,
+        followed_recommendation: r.followed_recommendation ?? null,
+      });
+      track('stage_one_awakened', { ...FLOW_PROPS, origin_id: origin });
 
-    try {
-      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      // 3. The plan. NEVER blocks — both writes above have already landed.
+      let landed: typeof seeded = empty;
+      try {
+        landed = await seedPlan();
+      } catch {
+        /* the athlete still has an account, a character and the built-in routine */
+      }
+      setSeeded(landed);
+      if (landed?.missionDay) {
+        track('first_workout_viewed', { ...FLOW_PROPS, in_days: landed.inDays, source: 'onboarding_reveal' });
+      }
+      setStep('ready');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong — try again.');
+      setStep('origin');
     } finally {
       setBusy(false);
     }
   };
 
-  return (
-    <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
-      {/* The shell's ambient light rig — creation sits on the same stage. */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
-    <ScrollView className="flex-1" contentContainerClassName="items-center p-s6">
-      <View className="w-full max-w-[480px]">
-        <Text
-          className="text-text-mute"
-          allowFontScaling={false}
-          style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
-        >
-          CHARACTER CREATION
-        </Text>
-        <Text
-          className="mb-s5 text-accent"
-          allowFontScaling={false}
-          style={{
-            fontSize: 30,
-            lineHeight: 36,
-            letterSpacing: 0,
-            textShadowColor: 'rgba(34,211,238,0.55)',
-            textShadowRadius: 18,
-            ...pixelFont(),
-          }}
-        >
-          FORGE YOUR CHARACTER
-        </Text>
+  const leave = async (href: string) => {
+    track('onboarding_completed', {
+      ...FLOW_PROPS,
+      duration_ms: Date.now() - startedAt.current,
+      route,
+      existing_action: existingAction,
+      origin_id: origin,
+    });
+    await queryClient.invalidateQueries({ queryKey: ['profile'] });
+    router.replace(href as never);
+  };
 
-        {/* 1 · WHO */}
-        <Section n="1" title="WHO ARE YOU">
-          <View className="mb-s3 flex-row gap-s2">
-            <Chip label="♂ Male" active={sex === 'male'} onPress={() => setSex('male')} testID="sex-male" />
-            <Chip label="♀ Female" active={sex === 'female'} onPress={() => setSex('female')} testID="sex-female" />
-          </View>
-          <View className="flex-row gap-s2">
-            <Num label="HEIGHT CM" value={height} onChange={setHeight} testID="height_cm" />
-            <Num label="BODYWEIGHT KG" value={bodyweight} onChange={setBodyweight} testID="bodyweight_kg" />
-          </View>
-        </Section>
+  const startFirstWorkout = () => {
+    track('first_workout_started', { ...FLOW_PROPS, source: 'onboarding_reveal' });
+    if (seeded?.missionDay) {
+      void leave(
+        `/workout?date=${encodeURIComponent(todayIso())}&workout=${encodeURIComponent(seeded.missionDay)}&source=0&coach=1`
+      );
+      return;
+    }
+    // No seeded mission: the athlete brought their own program. Send them
+    // exactly where their answer said, rather than to a plan they refused.
+    void leave(
+      existingAction === 'builder' ? '/routine'
+        : existingAction === 'scan' ? '/routine?import=1'
+        : existingAction === 'empty' ? '/today'
+        : '/'
+    );
+  };
 
-        {/* 2 · LIFTS */}
-        <Section n="2" title="YOUR LIFTS (1RM, BEST GUESS IS FINE)">
-          <View className="mb-s2 flex-row gap-s2">
-            <Num label="BENCH KG" value={bench} onChange={setBench} testID="bench_e1rm" />
-            <Num label="SQUAT KG" value={squat} onChange={setSquat} testID="squat_e1rm" />
-            <Num label="DEADLIFT KG" value={deadlift} onChange={setDeadlift} testID="deadlift_e1rm" />
-          </View>
-          <Num label="TRAINING YEARS" value={years} onChange={setYears} testID="training_years" />
-        </Section>
+  /**
+   * "My next session is Thursday" — made real, not just acknowledged.
+   *
+   * The seeded week is re-laid so the athlete's chosen day trains the
+   * split's first day, keeping the split's own rest spacing. Home, Train and
+   * the week strip all read that schedule, so the answer changes what the app
+   * briefs tomorrow rather than being collected and dropped.
+   */
+  const commitNextSession = async () => {
+    if (nextDay === null || !seeded?.splitKey) return;
+    try {
+      const { rotateScheduleToToday } = await import('@/domain/origin/first-mission');
+      const week = rotateScheduleToToday(seeded.splitKey, nextDay);
+      if (!week) return;
+      await supabase
+        .from('workout_schedule')
+        .upsert({ effective_from: todayIso(), plan: week }, { onConflict: 'user_id,effective_from' });
+      track('next_session_scheduled', { ...FLOW_PROPS, dow: nextDay });
+    } catch {
+      /* the seeded week stands — never block leaving onboarding */
+    }
+  };
 
-        {/* 3 · FUEL */}
-        <Section n="3" title="HOW ARE YOU EATING">
-          <View className="flex-row flex-wrap gap-s2">
-            {PHASES.map((p) => (
-              <Chip key={p.key} label={p.label} active={phase === p.key} onPress={() => setPhase(p.key)} testID={`phase-${p.key}`} />
-            ))}
-          </View>
-        </Section>
+  /* ------------------------------------------------------------------ */
+  /* the steps                                                           */
+  /* ------------------------------------------------------------------ */
 
-        {/* 4 · DRIVE (047): who you want to become + how you like to fight.
-            These feed the Destined and Anomaly candidates in Act II —
-            skipped, the nutrition phase infers the goal instead. */}
-        <Section n="4" title="YOUR DRIVE (OPTIONAL)">
-          <Text
-            className="mb-s2 text-text-mute"
-            allowFontScaling={false}
-            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-          >
-            PRIMARY GOAL
-          </Text>
-          <View className="mb-s3 flex-row flex-wrap gap-s2">
-            {GOALS.map((g) => (
-              <Chip
-                key={g.key}
-                label={g.label}
-                active={primaryGoal === g.key}
-                onPress={() => setPrimaryGoal(primaryGoal === g.key ? null : g.key)}
-                testID={`goal-${g.key}`}
-              />
-            ))}
-          </View>
-          <Text
-            className="mb-s2 text-text-mute"
-            allowFontScaling={false}
-            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-          >
-            BATTLE STYLE
-          </Text>
-          <View className="flex-row flex-wrap gap-s2">
-            {BATTLE_STYLES.map((s) => (
-              <Chip
-                key={s.key}
-                label={s.label}
-                active={battleStyle === s.key}
-                onPress={() => setBattleStyle(battleStyle === s.key ? null : s.key)}
-                testID={`style-${s.key}`}
-              />
-            ))}
-          </View>
-        </Section>
+  const total = route === 'build_for_me' ? 6 : 5;
+  const planStep = route === 'build_for_me';
 
-        {/* 5 · SCAN */}
-        <Section n="5" title="THE SCAN (OPTIONAL BUT HONEST)">
-          <Text className="mb-s3 text-2xs text-text-mute">
-            One physique photo: the AI rates physique and leanness and saves your first body-fat
-            reading. Skip it and conservative defaults from your lifts and eating phase apply —
-            you never grade yourself either way. Analysed in memory, never stored.
-          </Text>
-          <ScanFrame state={scanState}>
-            <View className="flex-row items-center gap-s3 p-s2">
-              <Pressable
-                onPress={async () => {
-                  const uri = await pickPhoto();
-                  if (uri) {
-                    setPhoto(uri);
-                    setScanError(null);
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Pick physique photo"
-                className="items-center justify-center rounded-md border border-border bg-surface-2"
-                style={{ width: 72, height: 92 }}
-              >
-                {photo ? (
-                  <Image source={{ uri: photo }} style={{ width: 64, height: 84, borderRadius: 6 }} contentFit="cover" />
-                ) : (
-                  <Text className="text-2xl text-text-mute">＋</Text>
-                )}
-              </Pressable>
-              <View className="flex-1">
-                {aiPhysique !== null ? (
-                  <Text className="text-sm text-text">
-                    Physique <Text className="font-bold text-accent">{aiPhysique}</Text>
-                    <Text className="text-text-mute"> / 15   ·   </Text>
-                    Leanness <Text className="font-bold text-accent">{aiLeanness}</Text>
-                    <Text className="text-text-mute"> / 15</Text>
-                  </Text>
-                ) : (
-                  <Text className="text-xs text-text-mute">No scan yet — defaults will apply.</Text>
-                )}
-                {bfNote ? <Text className="mt-s1 text-2xs text-success">{bfNote}</Text> : null}
-                {scanError ? <Text className="mt-s1 text-2xs text-danger">{scanError}</Text> : null}
-              </View>
-            </View>
-          </ScanFrame>
-          <View className="mt-s3">
-            <NeonButton
-              title={scanBusy ? 'ANALYSING' : 'RUN SCAN'}
-              variant="ghost"
-              onPress={runScan}
-              disabled={!photo}
-              busy={scanBusy}
-              testID="ai-assist"
-            />
-          </View>
-        </Section>
-
-        {/* 6 · TRAINING (STAGE 1). A curated few splits, one tap, default
-            SKIP — onboarding stays fast, and an athlete with no plan still
-            gets the built-in routine on Train. Seeding NEVER gates the
-            redirect (same rule as GO PUBLIC below). */}
-        <Section n="6" title="YOUR TRAINING WEEK (OPTIONAL)">
-          <Text className="mb-s3 text-2xs text-text-mute">
-            Pick a split and we&apos;ll fill it with staples and map your week. Skip it and you
-            get the built-in routine — you can build your own any time.
-          </Text>
-          <View className="flex-row flex-wrap gap-s2">
-            {ONBOARDING_SPLITS.map((s) => (
-              <Pressable
-                key={s.key}
-                onPress={() => setSplitKey(splitKey === s.key ? null : s.key)}
-                accessibilityRole="button"
-                testID={`onboard-split-${s.key}`}
-                className="rounded-md border px-s3 py-s2"
-                style={{
-                  minHeight: 44,
-                  justifyContent: 'center',
-                  borderColor: splitKey === s.key ? `${colors.accent}8c` : colors.border,
-                  backgroundColor: splitKey === s.key ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
-                }}
-              >
-                <Text
-                  className={splitKey === s.key ? 'text-accent' : 'text-text-dim'}
-                  allowFontScaling={false}
-                  style={{ fontSize: 11, ...pixelFont() }}
-                >
-                  {s.name}
-                </Text>
-              </Pressable>
-            ))}
-            <Pressable
-              onPress={() => setSplitKey('builder')}
-              accessibilityRole="button"
-              testID="onboard-split-builder"
-              className="rounded-md border px-s3 py-s2"
-              style={{
-                minHeight: 44,
-                justifyContent: 'center',
-                borderColor: splitKey === 'builder' ? `${colors.epic}8c` : colors.border,
-                backgroundColor: splitKey === 'builder' ? 'rgba(168,85,247,0.08)' : 'rgba(13,21,36,0.6)',
-              }}
-            >
-              <Text
-                className={splitKey === 'builder' ? 'text-epic' : 'text-text-dim'}
-                allowFontScaling={false}
-                style={{ fontSize: 11, ...pixelFont() }}
-              >
-                ⚒ BUILD MY OWN
-              </Text>
-            </Pressable>
-            {/* PLAN SCAN: already have a program on paper? Photograph it right
-                after your character is forged. */}
-            <Pressable
-              onPress={() => setSplitKey('scan')}
-              accessibilityRole="button"
-              testID="onboard-split-scan"
-              className="rounded-md border px-s3 py-s2"
-              style={{
-                minHeight: 44,
-                justifyContent: 'center',
-                borderColor: splitKey === 'scan' ? `${colors.accent}8c` : colors.border,
-                backgroundColor: splitKey === 'scan' ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
-              }}
-            >
-              <Text
-                className={splitKey === 'scan' ? 'text-accent' : 'text-text-dim'}
-                allowFontScaling={false}
-                style={{ fontSize: 11, ...pixelFont() }}
-              >
-                📷 SCAN MY PLAN
-              </Text>
-            </Pressable>
-          </View>
-          {splitKey === null ? (
-            <Text className="mt-s2 text-2xs text-text-mute">Skipping — the built-in routine it is.</Text>
-          ) : null}
-        </Section>
-
-        {/* 7 · YOUR PROFILE. §6.3 (2026-07-19): the USERNAME is mandatory
-            and unique — social identifies athletes by it. It saves before
-            the profile insert (forge()), and a taken name re-prompts. The
-            PUBLIC/PRIVATE switch is visibility only. */}
-        <Section n="7" title="YOUR PROFILE">
-          <Text
-            className="mb-s1 text-text-mute"
-            allowFontScaling={false}
-            style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-          >
-            USERNAME (3–24 CHARS) · REQUIRED
-          </Text>
-          <TextInput
-            className="mb-s2 rounded-md border border-border bg-surface-2 p-s3 text-text"
-            value={publicName}
-            onChangeText={setPublicName}
-            autoCapitalize="none"
-            placeholder="Unique — friends find you by it"
-            placeholderTextColor="#64758f"
-            testID="onboard-public-name"
-          />
-          {publicName.trim() && nameError(publicName) ? (
-            <Text className="mb-s2 text-2xs text-warn">{nameError(publicName)}</Text>
-          ) : null}
-          {/* Tyson 2026-07-14: the privacy choice is now an EXPLICIT two-way
-              switch, made BEFORE the name field. It was a toggle underneath a
-              blank input — which reads as "off by default" whichever way it is
-              set, and leaves an athlete unsure what they just agreed to. */}
-          <View className="mb-s3 flex-row gap-s2">
-            {([false, true] as const).map((isPublic) => (
-              <Pressable
-                key={String(isPublic)}
-                onPress={() => setGoPublic(isPublic)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: goPublic === isPublic }}
-                testID={isPublic ? 'onboard-public' : 'onboard-private'}
-                className="flex-1 items-center justify-center rounded-md border px-s3 py-s2"
-                style={{
-                  minHeight: 48,
-                  borderColor: goPublic === isPublic ? `${colors.accent}8c` : colors.border,
-                  backgroundColor: goPublic === isPublic ? 'rgba(34,211,238,0.08)' : 'rgba(13,21,36,0.6)',
-                }}
-              >
-                <Text
-                  className={goPublic === isPublic ? 'text-accent' : 'text-text-dim'}
-                  allowFontScaling={false}
-                  style={{ fontSize: 11, letterSpacing: 0.5, ...pixelFont() }}
-                >
-                  {goPublic === isPublic ? '✓ ' : ''}
-                  {isPublic ? '🌐 PUBLIC' : '🔒 PRIVATE'}
-                </Text>
-                <Text className="mt-s1 text-2xs text-text-mute" numberOfLines={1}>
-                  {isPublic ? 'On the leaderboard' : 'Nobody sees you'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {goPublic ? (
-            <Text className="text-2xs text-text-mute">
-              The leaderboard shows your username, level and XP — NEVER body data. You can leave
-              or rejoin any time from Rank.
-            </Text>
-          ) : (
-            <Text className="text-2xs text-text-mute">
-              Your username exists so friends can find you; your character, lifts and body data
-              stay yours alone until you go public.
-            </Text>
-          )}
-        </Section>
-
-        {previewLevel !== null ? (
-          <View
-            className="mb-s4 flex-row items-center justify-between rounded-xl p-s4"
-            style={{ borderWidth: 1, borderColor: 'rgba(34,211,238,0.34)', backgroundColor: 'rgba(34,211,238,0.06)' }}
-          >
-            <View>
-              <Text
-                className="text-text-mute"
-                allowFontScaling={false}
-                style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
-              >
-                YOU START AT
-              </Text>
-              <Text className="text-sm text-text-dim">{rankName(previewLevel)}</Text>
-            </View>
+  if (step === 'intro') {
+    return (
+      <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
+        <CreationBackdrop />
+        <ScrollView className="flex-1" contentContainerClassName="flex-grow items-center justify-center p-s6">
+          <View className="w-full max-w-[480px]">
             <Text
+              className="text-accent"
               allowFontScaling={false}
               style={{
-                fontSize: 30,
-                lineHeight: 36,
-                color: colors.accent,
-                textShadowColor: 'rgba(34,211,238,0.6)',
-                textShadowRadius: 14,
+                fontSize: 34,
+                lineHeight: 40,
+                letterSpacing: 0,
+                textShadowColor: 'rgba(34,211,238,0.55)',
+                textShadowRadius: 20,
                 ...pixelFont(),
               }}
             >
-              LV {previewLevel}
+              FORGE YOUR{'\n'}STRONGEST SELF
             </Text>
+            <Text className="mt-s4 text-base text-text-dim">
+              Track your training, build your Evo Rating and watch your character evolve alongside
+              you.
+            </Text>
+            <View className="mt-s6">
+              <NeonButton title="BEGIN" size="hero" onPress={() => setStep('goal')} testID="onboard-begin" />
+            </View>
+            <Pressable
+              onPress={() => router.replace('/sign-in' as never)}
+              accessibilityRole="button"
+              testID="onboard-have-account"
+              className="mt-s4 items-center"
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text className="text-sm text-text-mute">Already have an account?</Text>
+            </Pressable>
           </View>
-        ) : (
-          <Text className="mb-s4 text-2xs text-warn">Some numbers are out of range.</Text>
-        )}
+        </ScrollView>
+      </View>
+    );
+  }
 
-        {error ? <Text className="mb-s3 text-sm text-danger">{error}</Text> : null}
+  if (step === 'goal') {
+    return (
+      <StepFrame
+        step={1}
+        total={total}
+        kicker="YOUR TRAINING"
+        title="WHAT ARE YOU TRAINING FOR?"
+        subtitle="Pick the one that matters most. Add others if you like."
+        onBack={() => setStep('intro')}
+        testID="step-goal"
+        footer={
+          <NeonButton
+            title="CONTINUE"
+            size="hero"
+            disabled={goal === null}
+            onPress={() => {
+              track('goal_selected', { ...FLOW_PROPS, goal, secondary_count: secondary.length });
+              setStep('experience');
+            }}
+            testID="goal-continue"
+          />
+        }
+      >
+        {ONBOARDING_GOALS.map((g) => (
+          <OptionRow
+            key={g}
+            label={GOAL_LABEL[g]}
+            selected={goal === g}
+            onPress={() => {
+              setGoal(g);
+              setSecondary((s) => s.filter((x) => x !== g));
+            }}
+            testID={`goal-${g}`}
+          />
+        ))}
+        {goal !== null ? (
+          <View className="mt-s3">
+            <Text
+              className="mb-s2 text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
+              ALSO, IF YOU LIKE (OPTIONAL)
+            </Text>
+            <PillRow
+              options={ONBOARDING_GOALS.filter((g) => g !== goal).map((g) => ({ key: g, label: GOAL_LABEL[g] }))}
+              isSelected={(k) => secondary.includes(k as OnboardingGoal)}
+              onToggle={(k) =>
+                setSecondary((s) =>
+                  s.includes(k as OnboardingGoal) ? s.filter((x) => x !== k) : [...s, k as OnboardingGoal]
+                )
+              }
+              testIDPrefix="goal2"
+            />
+          </View>
+        ) : null}
+      </StepFrame>
+    );
+  }
 
-        {!nameOk ? (
-          <Text className="mb-s1 text-center text-2xs text-warn">
-            {publicName.trim().length === 0 ? 'Pick a username in step 7 to forge your character.' : 'Choose a valid username to continue.'}
+  if (step === 'experience') {
+    return (
+      <StepFrame
+        step={2}
+        total={total}
+        kicker="YOUR TRAINING"
+        title="WHERE ARE YOU STARTING FROM?"
+        subtitle="You can change this later."
+        onBack={() => setStep('goal')}
+        testID="step-experience"
+        footer={
+          <NeonButton
+            title="CONTINUE"
+            size="hero"
+            disabled={experience === null}
+            onPress={() => {
+              track('experience_selected', { ...FLOW_PROPS, experience });
+              setStep('route');
+            }}
+            testID="experience-continue"
+          />
+        }
+      >
+        {EXPERIENCE_LEVELS.map((e) => (
+          <OptionRow
+            key={e}
+            label={EXPERIENCE_LABEL[e]}
+            selected={experience === e}
+            onPress={() => setExperience(e)}
+            testID={`experience-${e}`}
+          />
+        ))}
+      </StepFrame>
+    );
+  }
+
+  if (step === 'route') {
+    const goNext = (r: TrainingRoute, action: ExistingPlanAction | null) => {
+      track('training_route_selected', { ...FLOW_PROPS, route: r, existing_action: action });
+      setStep(r === 'build_for_me' ? 'plan' : 'origin');
+    };
+    return (
+      <StepFrame
+        step={3}
+        total={total}
+        kicker="YOUR TRAINING"
+        title="HOW DO YOU WANT TO BEGIN?"
+        onBack={() => setStep('experience')}
+        testID="step-route"
+        footer={
+          route === 'have_program' ? (
+            <NeonButton
+              title="CONTINUE"
+              size="hero"
+              disabled={existingAction === null}
+              onPress={() => goNext('have_program', existingAction)}
+              testID="route-continue"
+            />
+          ) : undefined
+        }
+      >
+        <OptionRow
+          label="I already have a program"
+          hint="Coming from Hevy, Strong or a spreadsheet."
+          selected={route === 'have_program'}
+          onPress={() => setRoute('have_program')}
+          testID="route-have"
+        />
+        {route === 'have_program' ? (
+          <View className="mb-s3 pl-s3">
+            {EXISTING_ACTIONS.map((a) => (
+              <OptionRow
+                key={a.key}
+                label={a.label}
+                hint={a.hint}
+                tone="epic"
+                selected={existingAction === a.key}
+                onPress={() => setExistingAction(a.key)}
+                testID={`route-action-${a.key}`}
+              />
+            ))}
+          </View>
+        ) : null}
+        <OptionRow
+          label="Build a program for me"
+          hint="Four quick questions and your week is set."
+          selected={route === 'build_for_me'}
+          onPress={() => {
+            setRoute('build_for_me');
+            setExistingAction(null);
+            goNext('build_for_me', null);
+          }}
+          testID="route-build"
+        />
+      </StepFrame>
+    );
+  }
+
+  if (step === 'plan') {
+    const ready = daysPerWeek !== null && sessionMinutes !== null && equipment !== null;
+    return (
+      <StepFrame
+        step={4}
+        total={total}
+        kicker="YOUR WEEK"
+        title="BUILD MY PROGRAM"
+        subtitle="Four answers. Everything is editable afterwards."
+        onBack={() => setStep('route')}
+        testID="step-plan"
+        footer={
+          <>
+            <NeonButton
+              title="CONTINUE"
+              size="hero"
+              disabled={!ready}
+              onPress={() => setStep('origin')}
+              testID="plan-continue"
+            />
+            <NeonButton
+              title="I'M NOT SURE YET"
+              variant="ghost"
+              onPress={() => {
+                // A sensible, statable default rather than a blocked athlete:
+                // three days, an hour, and no equipment claim we cannot back.
+                setDaysPerWeek(3);
+                setSessionMinutes(60);
+                setEquipment('unsure');
+                setPreferredDays([]);
+                setStep('origin');
+              }}
+              testID="plan-unsure"
+            />
+          </>
+        }
+      >
+        <Question label="TRAINING DAYS PER WEEK">
+          <PillRow
+            options={[2, 3, 4, 5, 6].map((n) => ({ key: String(n), label: String(n) }))}
+            isSelected={(k) => daysPerWeek === Number(k)}
+            onToggle={(k) => setDaysPerWeek(Number(k))}
+            testIDPrefix="plan-days"
+          />
+        </Question>
+        <Question label="TYPICAL SESSION LENGTH">
+          <PillRow
+            options={SESSION_MINUTES.map((m) => ({ key: String(m), label: `${m} MIN` }))}
+            isSelected={(k) => sessionMinutes === Number(k)}
+            onToggle={(k) => setSessionMinutes(Number(k))}
+            testIDPrefix="plan-minutes"
+          />
+        </Question>
+        <Question label="AVAILABLE EQUIPMENT">
+          {EQUIPMENT.map((e) => (
+            <OptionRow
+              key={e}
+              label={EQUIPMENT_LABEL[e]}
+              selected={equipment === e}
+              onPress={() => setEquipment(e)}
+              testID={`plan-equipment-${e}`}
+            />
+          ))}
+        </Question>
+        <Question label="PREFERRED TRAINING DAYS (OPTIONAL)">
+          <PillRow
+            options={WEEKDAYS}
+            isSelected={(k) => preferredDays.includes(Number(k))}
+            onToggle={(k) =>
+              setPreferredDays((d) =>
+                d.includes(Number(k)) ? d.filter((x) => x !== Number(k)) : [...d, Number(k)]
+              )
+            }
+            testIDPrefix="plan-day"
+          />
+        </Question>
+      </StepFrame>
+    );
+  }
+
+  if (step === 'origin') {
+    return (
+      <StepFrame
+        step={planStep ? 5 : 4}
+        total={total}
+        kicker="YOUR CHARACTER"
+        title="CHOOSE YOUR ORIGIN"
+        subtitle="Pick who you want to become, not what you look like today. You can re-choose for free after three workouts."
+        onBack={() => setStep(planStep ? 'plan' : 'route')}
+        testID="step-origin"
+        footer={
+          <>
+            {error ? <Text className="text-sm text-danger">{error}</Text> : null}
+            <NeonButton
+              title="FORGE MY CHAMPION"
+              size="hero"
+              busy={busy}
+              disabled={origin === null}
+              onPress={() => void forge()}
+              testID="origin-forge"
+            />
+          </>
+        }
+      >
+        <ChampionPresentation sex={sex} onChange={setSex} />
+        <OriginChoice
+          sex={sex}
+          selected={origin}
+          onSelect={(id) => {
+            setOrigin(id);
+            track('origin_selected', { ...FLOW_PROPS, origin_id: id, free_choice: true });
+          }}
+        />
+      </StepFrame>
+    );
+  }
+
+  if (step === 'forging') {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors['bg-deep'] }}>
+        <CreationBackdrop />
+        <ForgeLoader label="Forging your champion" />
+      </View>
+    );
+  }
+
+  if (step === 'ready' && origin !== null) {
+    return (
+      <StepFrame
+        step={total}
+        total={total}
+        kicker="THE FORGE"
+        title="YOUR FORGE IS READY."
+        onBack={null}
+        testID="step-ready"
+        footer={
+          <>
+            <NeonButton
+              title={seeded?.missionDay ? 'START FIRST WORKOUT' : 'ENTER THE FORGE'}
+              size="hero"
+              sweep
+              onPress={startFirstWorkout}
+              testID="ready-start"
+            />
+            <NeonButton
+              title="NOT TODAY"
+              variant="ghost"
+              onPress={() => setStep('schedule')}
+              testID="ready-not-today"
+            />
+          </>
+        }
+      >
+        <MissionReveal
+          originId={origin}
+          sex={sex}
+          planName={seeded?.planName ?? null}
+          missionDay={seeded?.missionDay ?? null}
+          inDays={seeded?.inDays ?? 0}
+          exercises={seeded?.exercises ?? []}
+          testID="mission-reveal"
+        />
+      </StepFrame>
+    );
+  }
+
+  if (step === 'schedule') {
+    return (
+      <StepFrame
+        step={total}
+        total={total}
+        kicker="THE FORGE"
+        title="WHEN IS YOUR NEXT SESSION?"
+        subtitle="Naming the day is the single best predictor that it happens."
+        onBack={() => setStep('ready')}
+        testID="step-schedule"
+        footer={
+          <>
+            <NeonButton
+              title="THAT'S MY PLAN"
+              size="hero"
+              onPress={() => void commitNextSession().then(() => leave('/'))}
+              testID="schedule-done"
+            />
+          </>
+        }
+      >
+        <PillRow
+          options={WEEKDAYS}
+          isSelected={(k) => nextDay === Number(k)}
+          onToggle={(k) => setNextDay(Number(k))}
+          testIDPrefix="next-day"
+        />
+        {nextDay !== null && seeded?.splitKey ? (
+          <Text className="mt-s2 text-2xs text-text-mute">
+            Your week will be re-laid so {WEEKDAYS.find((d) => Number(d.key) === nextDay)?.label} is
+            session one, keeping the rest days the split needs.
           </Text>
         ) : null}
-        <NeonButton title="FORGE CHARACTER" onPress={forge} busy={busy} disabled={!valid || !nameOk} testID="forge" />
-      </View>
-    </ScrollView>
+
+        <View className="mt-s5">
+          <GlowCard padding={14}>
+            <Text
+              className="text-text-mute"
+              allowFontScaling={false}
+              style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+            >
+              A NUDGE ON YOUR TRAINING DAYS
+            </Text>
+            {/* The reminder rail (migration 085) never nudges an athlete who
+                has not logged a set — deliberately, so a notification is not
+                used to manufacture a habit that does not exist yet. Saying so
+                is the difference between a promise and a lie. */}
+            <Text className="mt-s2 text-2xs text-text-mute">
+              {reminderState === 'on'
+                ? 'Reminders are on. The first one arrives on a training day after your first logged workout — never before.'
+                : 'We can remind you on the days your schedule says you train. Reminders start after your first logged workout, and name the actual session.'}
+            </Text>
+            {reminderState === 'refused' ? (
+              <Text className="mt-s2 text-2xs text-warn">
+                Notifications are blocked for this app — turn them on in your browser or device
+                settings if you change your mind.
+              </Text>
+            ) : null}
+            {reminderState === 'on' ? null : (
+              <View className="mt-s3">
+                <NeonButton
+                  title={reminderState === 'asking' ? 'ASKING' : 'REMIND ME'}
+                  variant="ghost"
+                  busy={reminderState === 'asking'}
+                  onPress={() => {
+                    // Permission is requested HERE — on the tap that asks for
+                    // it — and nowhere in signup.
+                    setReminderState('asking');
+                    void enablePush().then((s) => {
+                      setReminderState(s === 'granted' ? 'on' : 'refused');
+                      track(s === 'granted' ? 'reminder_enabled' : 'reminder_declined', {
+                        ...FLOW_PROPS,
+                        push_state: s,
+                      });
+                    });
+                  }}
+                  testID="schedule-remind"
+                />
+              </View>
+            )}
+          </GlowCard>
+        </View>
+      </StepFrame>
+    );
+  }
+
+  // 'ready' without an origin is unreachable by construction; render the
+  // loader rather than a blank screen if it ever happens.
+  return (
+    <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors['bg-deep'] }}>
+      <ForgeLoader label="Preparing your forge" />
     </View>
   );
 }
 
-function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
+function Question({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View className="mb-s4">
+    <View className="mb-s5">
       <Text
         className="mb-s2 text-text-mute"
         allowFontScaling={false}
-        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
-      >
-        {n} · {title}
-      </Text>
-      <GlowCard padding={14}>{children}</GlowCard>
-    </View>
-  );
-}
-
-function Num({
-  label,
-  value,
-  onChange,
-  testID,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  testID?: string;
-}) {
-  return (
-    <View className="flex-1">
-      <Text
-        className="mb-s1 text-text-mute"
-        allowFontScaling={false}
-        style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+        style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
       >
         {label}
       </Text>
-      <TextInput
-        className="rounded-md border border-border bg-surface-2 p-s3 text-text"
-        inputMode="decimal"
-        value={value}
-        onChangeText={onChange}
-        testID={testID}
-        accessibilityLabel={label}
-      />
+      {children}
     </View>
   );
 }

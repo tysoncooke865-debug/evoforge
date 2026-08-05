@@ -8,6 +8,7 @@ import { usePublicIdentity, useProfile } from '@/data/hooks';
 import { useLogBodyweight, useSavePublicIdentity, useUpdateTrainingNumbers } from '@/data/mutations';
 import { useAthleteProfile, useSetPrivacy, type PrivacyFlags } from '@/data/social-profile';
 import { useDeleteAccount } from '@/data/moderation';
+import { useDeletePhysiqueData, usePhotoPrefs, useSavePhotoPrefs } from '@/data/photo-prefs';
 import { useToastStore } from '@/state/toast-store';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
@@ -93,6 +94,7 @@ export default function ProfileScreen() {
         </GlowCard>
 
         <PrivacyCard />
+        <PhysiquePhotosCard />
 
         <TwoFactorCard />
 
@@ -555,6 +557,93 @@ function PrivacyCard() {
  * on your public profile card (Evo pillars, exact lift e1RMs, bodyweight). Your
  * own profile always shows everything; these govern OTHER athletes' view.
  */
+/**
+ * PHYSIQUE PHOTOS — the controls the consent sheet promises exist
+ * (docs/ONBOARDING_V3_SPEC.md §6).
+ *
+ * Three honest statements, in the order they matter:
+ *   1. what is actually stored (scores, never the images);
+ *   2. how to stop being asked, permanently;
+ *   3. how to delete everything derived from a photo.
+ *
+ * "Delete photos" would be theatre — solo scan photos were never persisted
+ * in the first place. What this deletes is what DOES exist: the assessments
+ * and ratings computed from them, and the baseline date.
+ */
+function PhysiquePhotosCard() {
+  const colors = useThemeColors();
+  const prefs = usePhotoPrefs();
+  const save = useSavePhotoPrefs();
+  const del = useDeletePhysiqueData();
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <View className="rounded-xl border p-s4" style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}>
+      <Text
+        className="mb-s1 text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        PHYSIQUE PHOTOS
+      </Text>
+      <Text className="text-2xs text-text-mute">
+        Physique photos are analysed and discarded — EvoForge never stores the images. What is
+        kept is the scores they produced, and a one-way fingerprint so the same photo is not
+        analysed twice. They are never shown on your profile or to another athlete.
+      </Text>
+
+      <View className="mt-s3 flex-row items-center justify-between">
+        <View className="flex-1 pr-s3">
+          <Text className="text-sm font-bold text-text">Ask me about photos</Text>
+          <Text className="text-2xs text-text-mute">
+            Off means never again, on every screen. Every training feature works either way.
+          </Text>
+        </View>
+        <Switch
+          value={!prefs.promptsDisabled}
+          disabled={!prefs.ready || save.isPending}
+          onValueChange={(v) => save.mutate({ promptsDisabled: !v })}
+          trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+          thumbColor={colors.accent}
+          testID="photo-prompts-toggle"
+        />
+      </View>
+
+      <View className="mt-s4">
+        {confirming ? (
+          <>
+            <Text className="mb-s2 text-2xs text-warn">
+              This deletes every physique score derived from a photo, clears your baseline and
+              stops the prompts. Your workouts, PRs, strength and cardio are untouched.
+            </Text>
+            <View className="flex-row gap-s2">
+              <View className="flex-1">
+                <NeonButton
+                  title={del.isPending ? 'DELETING' : 'DELETE IT ALL'}
+                  variant="danger"
+                  busy={del.isPending}
+                  onPress={() => del.mutate(undefined, { onSuccess: () => setConfirming(false) })}
+                  testID="physique-delete-confirm"
+                />
+              </View>
+              <View className="flex-1">
+                <NeonButton title="CANCEL" variant="ghost" onPress={() => setConfirming(false)} testID="physique-delete-cancel" />
+              </View>
+            </View>
+          </>
+        ) : (
+          <NeonButton
+            title="DELETE MY PHYSIQUE DATA"
+            variant="ghost"
+            onPress={() => setConfirming(true)}
+            testID="physique-delete"
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
 function ProfileFieldPrivacy() {
   const { session } = useAuth();
   const myId = session?.user?.id ?? null;

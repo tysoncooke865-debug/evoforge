@@ -9,6 +9,8 @@ import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { progressionFeatures } from '@/data/progression/features';
+import { useCalibration } from '@/data/progression/use-calibration';
+import { useReforgeDay } from '@/data/progression/use-reforge-day';
 import {
   useEvoRatingCurrent,
   useEvoSnapshots,
@@ -21,6 +23,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { CalibrationCard } from '@/ui/progression/calibration-card';
 import { StatBar } from '@/ui/character/stat-bar';
 
 function PlayerStatsPanel() {
@@ -100,6 +103,8 @@ export default function EvoRatingScreen() {
   const snapshots = useEvoSnapshots(12);
   const pending = usePendingEvoEvidence();
   const review = useRunEvoReview();
+  const calibration = useCalibration();
+  const reforge = useReforgeDay();
 
   const row = (current.data ?? null) as Record<string, unknown> | null;
 
@@ -124,15 +129,37 @@ export default function EvoRatingScreen() {
       <ScreenHeader kicker="PROGRESSION" title="EVO RATING" onBack={() => router.back()} />
 
       {!row ? (
-        <GlowCard glow={colors.epic}>
-          <Text className="text-base font-bold text-text">No Evo Rating yet</Text>
-          <Text className="mt-s1 text-xs text-text-dim">
-            Run your first official review to anchor your starting rating.
-          </Text>
-          <View className="mt-s3">
-            <NeonButton title="RUN FIRST EVO REVIEW" pixel busy={review.isPending} onPress={() => review.mutate({ force: true })} testID="evo-first-review" />
-          </View>
-        </GlowCard>
+        <>
+          {/* V3: a rating that has not started is CALIBRATING, and the card
+              says which areas are waiting on what. "No Evo Rating yet" told
+              an athlete they had nothing without telling them how to get
+              something. */}
+          <GlowCard glow={colors.epic}>
+            <Text
+              allowFontScaling={false}
+              style={{ fontSize: 22, letterSpacing: 0, color: colors.epic, ...pixelFont() }}
+            >
+              {calibration.summary.headline}
+            </Text>
+            <Text className="mt-s1 text-xs text-text-dim">{calibration.summary.sub}</Text>
+            {/* No evidence yet: the review would refuse anyway
+                (evo-review-io.ts), so offering it would be a button that
+                cannot work. Point at the thing that DOES start the rating. */}
+            <View className="mt-s3">
+              {calibration.summary.areas.find((a) => a.key === 'training')?.state === 'waiting' ? (
+                <NeonButton
+                  title="START YOUR FIRST WORKOUT"
+                  pixel
+                  onPress={() => router.push('/today' as never)}
+                  testID="evo-first-review"
+                />
+              ) : (
+                <NeonButton title="RUN FIRST EVO REVIEW" pixel busy={review.isPending} onPress={() => review.mutate({ force: true })} testID="evo-first-review" />
+              )}
+            </View>
+          </GlowCard>
+          <CalibrationCard summary={calibration.summary} testID="evo-calibration" />
+        </>
       ) : (
         <>
           {/* The core numbers. */}
@@ -175,6 +202,10 @@ export default function EvoRatingScreen() {
               </Text>
             ) : null}
           </GlowCard>
+
+          {/* WHAT THE NUMBER IS STILL LEARNING. Sits directly under the
+              rating so the confidence label above has somewhere to lead. */}
+          <CalibrationCard summary={calibration.summary} testID="evo-calibration" />
 
           {/* Pillars with confidence. */}
           <View testID="evo-pillars">
@@ -257,6 +288,26 @@ export default function EvoRatingScreen() {
           />
         </>
       )}
+
+      {/* REFORGE DAY — outside the has-a-rating branch on purpose. An athlete
+          who has not trained still deserves to know the cycle exists and what
+          starts it; the door was previously only drawn for people who already
+          had a number (spec §7). Home stays quiet until it is actually due. */}
+      <NeonButton
+        title={
+          !reforge.cadence.started
+            ? 'REFORGE DAY · STARTS WITH YOUR FIRST WORKOUT'
+            : reforge.cadence.due
+              ? 'REFORGE DAY IS READY'
+              : `REFORGE DAY IN ${reforge.cadence.daysUntil} DAYS`
+        }
+        variant={reforge.cadence.due ? 'primary' : 'ghost'}
+        pixel
+        disabled={!reforge.cadence.started}
+        onPress={() => router.push('/reforge' as never)}
+        testID="evo-reforge-link"
+      />
+
     </ScreenShell>
   );
 }

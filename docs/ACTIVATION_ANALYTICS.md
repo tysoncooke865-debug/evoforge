@@ -1,5 +1,17 @@
 # Activation analytics (2026-07-25)
 
+> **SUPERSEDED IN PART, 2026-08-05.** The conclusion below — "the cliff is
+> not onboarding — onboarding works" — was drawn at n=10 and no longer holds
+> at n=31. Re-read live on 2026-08-05: 31 signed up → 25 created a profile →
+> 16 bound an Origin → **11 ever logged a workout.** Nine athletes are lost
+> between the profile row and the Origin, six before the profile row, and of
+> the 14 who emitted `onboarding_started` only 10 emitted
+> `initial_assessment_started` — four abandoned the character-creation form
+> itself. `docs/ONBOARDING_V3_SPEC.md` is the response and carries the v3
+> event list (§9). Everything below about the *rail* — how it is shaped,
+> why `activation_step` exists, and the bounded-by-construction rule — is
+> unchanged and still authoritative.
+
 Extends `docs/ORIGIN_ANALYTICS.md`, which instruments onboarding and stops at
 `onboarding_completed`. This covers what happens next — the stretch where
 athletes are actually being lost.
@@ -144,3 +156,54 @@ Unchanged from `analytics.ts` / `ORIGIN_ANALYTICS.md`:
 - **It says nothing about pre-2026-07-25 athletes**, who never ran this code.
   Roughly two weeks of new signups are needed before the funnel is worth reading
   — at the current rate, about nine athletes a week.
+
+---
+
+## Onboarding v3 additions (2026-08-05)
+
+Emitted by the v3 step machine and the surfaces it hands off to. Names are
+new only where no existing name already meant the right thing.
+
+| event | fired from | key props |
+|---|---|---|
+| `goal_selected` | goal step | `goal`, `secondary_count` |
+| `experience_selected` | experience step | `experience` |
+| `training_route_selected` | route step | `route`, `existing_action` |
+| `plan_created` | after the seed lands | `split`, `days_per_week`, `session_minutes`, `equipment`, `preferred_days_count` |
+| `next_session_scheduled` | "not today" → a chosen day | `dow` |
+| `reminder_enabled` / `reminder_declined` | the REMIND ME tap | `push_state` |
+| `first_workout_viewed` | the reveal, when a mission exists | `in_days`, `source` |
+| `first_workout_started` | START FIRST WORKOUT | `source` |
+| `first_workout_completed` | FINISH, first session only | `sets`, `target`, `source` |
+| `photo_baseline_prompted` | the optional card rendering | `trained_days`, `surface` |
+| `photo_baseline_started` | CREATE PRIVATE BASELINE | `surface` |
+| `photo_baseline_completed` | a successful scan | `first_baseline`, `photos` |
+| `photo_baseline_skipped` | the three declines | `choice` = `measurements`\|`not_now`\|`never` |
+| `photo_prompts_disabled` | the permanent opt-out | — |
+| `photo_data_deleted` | Settings → delete physique data | — |
+| `reforge_day_viewed` | /reforge mount | `cycle`, `due`, `is_first` |
+| `reforge_completed_with_photos` | RUN MY REFORGE, fresh calibration | `cycle`, `trained_days`, `sets` |
+| `reforge_completed_without_photos` | RUN MY REFORGE, no calibration | same |
+
+Kept rather than renamed: **`first_set_logged` IS `first_set_completed`**.
+Renaming it would split every historical funnel query at the rename date and
+buy nothing. `onboarding_started` / `onboarding_completed` keep their names
+and gain `flow_version: 3`, so v2 and v3 cohorts separate cleanly with a
+filter instead of a guess.
+
+`origin_selected` / `origin_binding_*` gain `free_choice: true` for v3
+athletes, who picked from all five rather than from a shortlist.
+`followed_recommendation` survives and gets *better*: the athlete never saw
+a recommendation, so agreement is now unprompted evidence about the model
+rather than a measure of its own suggestion.
+
+### The activation measures
+
+1. % completing onboarding.
+2. % starting a workout within 24 h.
+3. % completing a first workout within 7 days.
+4. % returning within 7 days.
+5. % voluntarily adding a photo baseline **after** receiving value.
+
+(5) is a quality signal and never a target to raise on its own. **Do not
+optimise onboarding photo-upload rate at the expense of completed workouts.**

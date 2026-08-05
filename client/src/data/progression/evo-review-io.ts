@@ -209,7 +209,7 @@ export function priorFromCurrentRow(row: Record<string, unknown> | null): {
 export interface ReviewRunResult {
   ran: boolean;
   outcome: ReviewOutcome | null;
-  reason: 'due' | 'first' | 'not_due' | 'forced';
+  reason: 'due' | 'first' | 'not_due' | 'forced' | 'no_evidence';
 }
 
 /** Run the official review when due (or forced), persist everything. */
@@ -256,6 +256,39 @@ export async function runDueEvoReview(
     (!lastReviewIso || String(newestAssessment.assessment_date) >= lastReviewIso)
       ? newestAssessment
       : null;
+
+  /**
+   * THE FIRST REVIEW NEEDS SOMETHING TO REVIEW (ONBOARDING V3, spec §5).
+   *
+   * The (main) layout runs this on first launch for every signed-in athlete,
+   * so before v3 a brand-new account was handed a rating within seconds of
+   * finishing onboarding — computed from provisional Size/Aesthetics
+   * defaults and a Strength pillar with no observations at all. It came out
+   * around 38 at confidence 9: a number about nothing, displayed as the
+   * headline of the athlete's identity.
+   *
+   * That is the same class of mistake as a mocked value, and it is exactly
+   * what the athlete's rating must not be. With no evidence of ANY kind the
+   * review declines to anchor a starting rating and the surfaces say
+   * CALIBRATING instead — which is both true and actionable.
+   *
+   * `force` does not bypass this. A forced review over zero evidence
+   * produces the same fabricated number; the honest answer to "run it now"
+   * is "there is nothing to run it on yet".
+   *
+   * Anyone with evidence — a logged set, a cardio test, a physique scan — is
+   * unaffected, including the migrated cohort who arrive with a scan and no
+   * logged workouts.
+   */
+  const hasAnyEvidence =
+    (workoutsQ.data ?? []).length > 0 ||
+    (cardioTestsQ.data ?? []).length > 0 ||
+    (cardioLogQ.data ?? []).length > 0 ||
+    (assessQ.data ?? []).length > 0 ||
+    (physiqueQ.data ?? []).length > 0;
+  if (!current && !hasAnyEvidence) {
+    return { ran: false, outcome: null, reason: 'no_evidence' };
+  }
 
   const prior = priorFromCurrentRow(current);
   const inputs = assembleReviewInputs(

@@ -4,15 +4,29 @@ import { useEffect, useState } from 'react';
 import { Modal, Text, View } from 'react-native';
 
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
+import { usePhotoPrefs } from '@/data/photo-prefs';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
- * ORIGIN SCAN PROMPT (Tyson 2026-07-17): from now on, every sign-in without an
- * assigned Origin asks for an EvoGuide scan — the scan feeds the Evo Rating,
- * the rating crosses the confidence gate, and the Origin reveal on the Forge
- * assigns the character. Once per app launch, never blocking: LATER dismisses.
+ * ORIGIN PROMPT — the nudge for an athlete who has not chosen a character.
+ *
+ * IT NO LONGER LEADS WITH A PHOTOGRAPH (ONBOARDING V3, spec §4). It used to
+ * open with "run an EvoGuide scan" and send every origin-less athlete to the
+ * camera, because that was how the Origin got assigned. Assigning a
+ * character from a photo is the one thing this flow must never do: someone
+ * short on confidence reads it as the app deciding they are not lean or
+ * muscular enough to be the character they liked. The nudge now points at
+ * the CHOICE — the Forge, where the candidate cards live — and the scan is
+ * one optional way to sharpen a rating, offered elsewhere and on its own
+ * terms.
+ *
+ * It also respects `photo_prompts_disabled`, because a prompt that mentions
+ * photos to somebody who said "never again" is the promise being broken by
+ * the second surface rather than the first.
+ *
+ * Once per DAY, never blocking: LATER dismisses.
  */
 let promptedThisLaunch = false;
 
@@ -55,6 +69,7 @@ export function OriginScanPrompt() {
   const pathname = usePathname();
   const onHome = pathname === '/';
 
+  const photo = usePhotoPrefs();
   const eligible =
     ORIGIN_FLAGS.originRevealEnabled && status.data != null && status.data.origin_path == null;
   const statusKey = `${status.data?.origin_path ?? 'none'}:${status.data?.migration_status ?? ''}`;
@@ -96,23 +111,24 @@ export function OriginScanPrompt() {
             ✦ DISCOVER YOUR ORIGIN
           </Text>
           <Text className="mt-s2 text-sm text-text">
-            {choiceReady
-              ? 'Your scores are in — your Origin is waiting to be chosen on the Forge. The pick is yours, and permanent.'
-              : 'Run an EvoGuide scan and EvoForge will read your physique, assign your Origin Path, and forge your champion from who you actually are.'}
+            Your Origin is waiting to be chosen on the Forge. Pick who you want to become — the
+            choice is yours, and it is permanent.
           </Text>
-          {choiceReady ? null : (
+          {/* The scan is mentioned as an OPTION and only to athletes who have
+              not opted out of photo prompts. It is never the way in. */}
+          {photo.mayAsk && !choiceReady ? (
             <Text className="mt-s1 text-2xs text-text-mute">
-              Two photos and your bodyweight — the waist is optional. Your current champion and
-              progress will not change.
+              An optional physique scan can sharpen the recommendation, but it is not needed to
+              choose — and your champion is never assigned from a photograph.
             </Text>
-          )}
+          ) : null}
           <View className="mt-s4 gap-s2">
             <NeonButton
-              title={choiceReady ? 'CHOOSE MY ORIGIN' : 'SCAN NOW'}
+              title="CHOOSE MY ORIGIN"
               pixel
               onPress={() => {
                 setOpen(false);
-                router.push((choiceReady ? '/avatar' : '/evo-scan') as never);
+                router.push('/avatar' as never);
               }}
               testID="origin-scan-now"
             />
