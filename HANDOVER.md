@@ -26,6 +26,36 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **BUG: the plan-source dropdown "changed the label, not the workout" —
+  fixed (2026-08-05, no migration)** — Tyson: "changing workouts with the
+  dropdown box on Train doesn't change the workout." Real, and confirmed:
+  `today.tsx`'s `pickSource(i)` re-stamped an EXPLICIT per-day source
+  (`sources[dow] = i`) onto every trained weekday so a map `schedule.tsx`
+  had written couldn't keep outranking the picker's choice — but it never
+  touched `plan[dow]`'s stored NAME to match. `dayInSource` treats an
+  explicit per-day source as proof the stored name already belongs to that
+  source (true when `schedule.tsx`'s own `chooseSource` writes it — THAT
+  handler remaps the name first, THEN stamps the source) — false here, so
+  every trained day kept its OLD title, now flagged "explicit," which
+  skips `week-status.ts::sourceDayFor`'s positional remap (the function
+  actually built to rename a week's slots onto a newly chosen plan's own
+  days) entirely. The dropdown's own label updated instantly (it reads
+  `source` state directly); the card titled after it never did — exactly
+  matching the report. Fix: `pickSource` now CLEARS the per-day map
+  (`sources: {}`) instead of uniformly overwriting it —
+  `explicitSourceForDate` then returns null everywhere, which is what
+  "outrank the old map forever" actually needs, and every day correctly
+  falls through to `sourceDayFor`. Verified by code trace (`sourceDayFor`'s own docstring
+  states the exact behaviour being bypassed) and confirmed no regression:
+  `tsc`, lint, all 1900 vitest cases. **Live UI verification was
+  inconclusive on the smoke account** — MY PLAN and AI PLAN are both empty
+  there, and an empty source's day-name list correctly returns the
+  original title UNCHANGED either way (`sourceDayFor`'s
+  `sourceDays.length === 0` early return), so switching into either one
+  cannot distinguish the bug from the fix. Confirming end-to-end needs an
+  account with two POPULATED plans holding different day names for the
+  same weekday.
+
 - **ORACLE + FUEL CONSISTENCY PASS (2026-08-05, no migration)** — Tyson's
   brief: bring Oracle and Fuel up to the Home/Train mission-briefing
   standard — one dominant hero, fewer competing cards, larger hierarchy,

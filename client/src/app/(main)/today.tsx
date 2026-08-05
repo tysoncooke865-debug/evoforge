@@ -783,23 +783,36 @@ export default function TodayScreen() {
     empty: (i === 0 && !sources.has.myPlan) || (i === 1 && !sources.has.aiPlan),
   }));
 
-  /** Picking a loadout. Byte-for-byte the old handler, including the
-   *  re-stamp of the per-day sources map (without it, a map Schedule wrote
-   *  outranks this choice forever and the picker "works" while changing
-   *  nothing on screen). */
+  /**
+   * Picking a loadout — FIXED (2026-08-05, Tyson: "changing workouts with
+   * the dropdown doesn't change the workout").
+   *
+   * The previous handler re-stamped every trained weekday's PER-DAY SOURCE
+   * to the newly picked index (`uniform[dow] = i`) so a map Schedule had
+   * written couldn't keep outranking this choice. That fix introduced the
+   * exact bug it was written to prevent, one level down: `dayInSource`
+   * (below) treats an EXPLICIT per-day source as proof the stored day NAME
+   * already belongs to that source — true when schedule.tsx wrote it (the
+   * editor picks the name FROM that source's list), false here, because
+   * stamping `sources[dow]` never touched `plan[dow]`'s NAME. So every
+   * trained day kept whatever title the OLD source had given it, now
+   * flagged "explicit" — which skips `sourceDayFor`'s positional remap
+   * entirely (see week-status.ts) and freezes the stale title in place. The
+   * dropdown's own label updated (it reads `source` directly); the card
+   * titled after it never did.
+   *
+   * The fix is to CLEAR the per-day map instead of uniformly overwriting
+   * it: `explicitSourceForDate` then returns null everywhere, exactly what
+   * "outrank the old map forever" needs — every day falls through to
+   * `sourceDayFor(date, schedule.data, planDays, todayIso)`, which is the
+   * function actually built to rename a week's slots onto a newly chosen
+   * plan's own days.
+   */
   const pickSource = (i: SourceIndex) => {
     setSource(i);
     savePref.mutate(i); // fire-and-forget; the error toast covers a failed sync
-    if (latestSchedule) {
-      // Same "trained day" test as schedule.tsx's onSave (primaryOf !== 'Rest')
-      // — a Rest day with only an extra stays out of the map, matching what
-      // Schedule itself would write for this same choice.
-      const uniform: Record<string, number> = {};
-      for (const [dow, v] of Object.entries(latestSchedule.plan)) {
-        const primary = Array.isArray(v) ? (v[0] ?? 'Rest') : (v ?? 'Rest');
-        if (primary !== 'Rest') uniform[dow] = i;
-      }
-      saveSchedule.mutate({ plan: latestSchedule.plan, sources: uniform });
+    if (latestSchedule && latestSchedule.sources && Object.keys(latestSchedule.sources).length > 0) {
+      saveSchedule.mutate({ plan: latestSchedule.plan, sources: {} });
     }
     setChangeOpen(false);
   };
