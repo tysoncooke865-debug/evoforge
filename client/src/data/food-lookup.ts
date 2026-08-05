@@ -170,11 +170,30 @@ export function hitToItem(hit: FoodHit): MealItem {
   };
 }
 
+/**
+ * 2026-08-05 (Tyson: "the barcode scanner doesn't work anymore — it detects,
+ * then errors on lookup, even for real products"): every failure path below
+ * now names the SCANNED DIGITS in its own error text. The live tour against
+ * production (a real Nutella barcode, typed by hand) resolved correctly end
+ * to end, and world.openfoodfacts.org's product API auto-normalises UPC-A
+ * ⇄ EAN-13 server-side (both forms of the same Coca-Cola code round-tripped
+ * to the same product in manual testing) — so the fetch, the CORS policy and
+ * the OFF-side lookup all check out from here. What could NOT be checked
+ * without a real camera and a real product in hand is what the CAMERA path
+ * actually decodes: a zxing UPC-E read, for one, comes back in ITS OWN
+ * 6–8-digit compressed form, which is a genuinely different number from the
+ * UPC-A/EAN-13 code printed under the bars — looking that raw string up
+ * would 404 even though the product exists under its expanded code, and
+ * guessing at that expansion algorithm blind (with no device to verify
+ * against) risks matching the WRONG product silently, a worse failure than
+ * an honest "not found." Putting the exact digits on screen turns the next
+ * occurrence into a five-second diagnosis instead of another guess.
+ */
 export async function lookupBarcode(
   code: string
 ): Promise<BarcodeProduct | { error: string }> {
   const trimmed = code.trim();
-  if (!isBarcode(trimmed)) return { error: 'That is not a product barcode.' };
+  if (!isBarcode(trimmed)) return { error: `"${trimmed}" is not a product barcode.` };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
@@ -183,8 +202,9 @@ export async function lookupBarcode(
       { signal: controller.signal, headers: { Accept: 'application/json' } }
     );
     if (!res.ok) {
-      if (res.status === 404) return { error: 'Product not found. Try the AI meal scan instead.' };
-      return { error: 'The food database is unreachable. Try again.' };
+      if (res.status === 404)
+        return { error: `No product found for ${trimmed}. Try the AI meal scan instead.` };
+      return { error: `The food database is unreachable (HTTP ${res.status}). Try again.` };
     }
     const body = (await res.json()) as {
       status?: number;
@@ -197,12 +217,12 @@ export async function lookupBarcode(
       };
     };
     if (body.status !== 1 || !body.product)
-      return { error: 'Product not found. Try the AI meal scan instead.' };
+      return { error: `No product found for ${trimmed}. Try the AI meal scan instead.` };
     const p = body.product;
     const serving = num(p.serving_quantity);
     const per100 = per100From(p.nutriments ?? {}, p.nutrition_data_per, serving);
     if (per100 === null || per100.kcal <= 0)
-      return { error: 'No nutrition data on this product. Try the AI meal scan instead.' };
+      return { error: `${trimmed} has no nutrition data on file. Try the AI meal scan instead.` };
     const name = (p.product_name ?? '').trim() || `Product ${trimmed}`;
     const brand = (p.brands ?? '').split(',')[0]?.trim();
     return {
@@ -218,8 +238,8 @@ export async function lookupBarcode(
     };
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError')
-      return { error: 'The lookup timed out. Try again.' };
-    return { error: 'The food database is unreachable. Try again.' };
+      return { error: `The lookup for ${trimmed} timed out. Try again.` };
+    return { error: `The food database is unreachable for ${trimmed}. Try again.` };
   } finally {
     clearTimeout(timer);
   }

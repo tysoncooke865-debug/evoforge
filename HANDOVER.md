@@ -26,6 +26,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **BUG: barcode scanner "detects, then errors on lookup" — made
+  self-diagnosing, root cause still open (2026-08-05, no migration)** —
+  Tyson's report, narrowed by his own follow-up: the camera DOES read a
+  code; `lookupBarcode` (`data/food-lookup.ts`) then fails it even for a
+  real product. Investigated hard before touching anything: the OFF v2
+  product API is CORS-open (`Access-Control-Allow-Origin: *`, confirmed
+  live) and auto-normalises UPC-A ⇄ EAN-13 server-side (a real Coca-Cola
+  code round-tripped to the same product both ways); a full Playwright tour
+  against PRODUCTION typed a real Nutella barcode by hand through the exact
+  same `lookupBarcode` path the camera calls and it resolved correctly,
+  539 kcal and all. So the fetch, the CORS policy, and OFF's own lookup all
+  check out — what could NOT be verified without a real camera and a real
+  product in hand is what the CAMERA decode itself returns: a zxing UPC-E
+  read comes back in its OWN 6–8-digit compressed form, genuinely different
+  from the UPC-A/EAN-13 digits printed under the bars, and a lookup on that
+  raw string would 404 even though the product exists under its expanded
+  code. **Did not implement that expansion blind** — guessing at the exact
+  algorithm with no device to verify against risks silently matching the
+  WRONG product, a worse failure than an honest "not found." Instead every
+  error path in `lookupBarcode` now names the SCANNED DIGITS in its own
+  text (`No product found for 01234565…` etc.) — the next occurrence is a
+  five-second read off the screen instead of another guess: an 8-digit code
+  in the error points straight at UPC-E; a slow/mobile-network timeout
+  message points at the 10s `AbortController` deadline instead. Verified:
+  tsc, lint, all 1900 vitest cases; no test pinned the old un-parameterised
+  error strings.
+
 - **BUG: the plan-source dropdown "changed the label, not the workout" —
   fixed (2026-08-05, no migration)** — Tyson: "changing workouts with the
   dropdown box on Train doesn't change the workout." Real, and confirmed:
