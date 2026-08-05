@@ -9,10 +9,18 @@ import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard } from '@/ui/core/shell';
 
 /**
- * ORACLE_REDESIGN — ORACLE HISTORY. A timeline of stored VERDICTS (never
- * photos — those are gone), newest first, each tappable to reveal its three
- * sub-scores. Above it, an honest before/current strip: the deltas from the
- * first scan to the latest. A tiny score sparkline gives the shape at a glance.
+ * ORACLE_REDESIGN — ORACLE HISTORY, framed as the EVOLUTION JOURNEY
+ * (2026-08-05): a timeline of stored VERDICTS (never photos — those are
+ * gone), newest first, each tappable to reveal its three sub-scores. Above
+ * it, an honest before/current strip: the deltas from the first scan to the
+ * latest. A tiny score sparkline gives the shape at a glance.
+ *
+ * 2026-08-05: every row now carries a small ▲/▼ arrow beside its score —
+ * the change vs the PREVIOUS scan (not the aggregate "since first scan"
+ * strip above), so an athlete can read "am I improving?" off any single row
+ * without doing the subtraction themselves. Real deltas only: the FIRST
+ * scan in the list has nothing before it to compare to, so it carries no
+ * arrow rather than a fabricated one.
  */
 export function OracleHistoryCard() {
   const colors = useThemeColors();
@@ -70,6 +78,13 @@ export function OracleHistoryCard() {
   return (
     <GlowCard glow={colors.accent}>
       <SectionLabel size='lg'>ORACLE HISTORY</SectionLabel>
+      <Text
+        className="mb-s3 text-text-mute"
+        allowFontScaling={false}
+        style={{ marginTop: -8, fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
+      >
+        YOUR EVOLUTION JOURNEY
+      </Text>
 
       {/* Progress since the first scan — the honest before/current read. */}
       {progress.scans >= 2 ? (
@@ -120,15 +135,19 @@ export function OracleHistoryCard() {
 
       {/* The timeline, newest first, tap to reveal sub-scores. */}
       <View style={{ gap: 6 }}>
-        {newest.slice(0, 6).map((r) => {
+        {newest.slice(0, 6).map((r, i) => {
           const open = openId === r.id;
           const tier = physiqueTier(r.physique_score ?? 0);
+          // The scan immediately BEFORE this one, chronologically — `newest`
+          // is latest-first, so the previous scan is the next entry along.
+          const prev = newest[i + 1] ?? null;
+          const scoreDelta = prev ? scoreOutOf100(r.physique_score ?? 0) - scoreOutOf100(prev.physique_score ?? 0) : null;
           return (
             <Pressable
               key={r.id}
               onPress={() => setOpenId(open ? null : r.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Scan on ${dateOf(r.timestamp)}, score ${scoreOutOf100(r.physique_score ?? 0)}. ${open ? 'Collapse' : 'Expand'}.`}
+              accessibilityLabel={`Scan on ${dateOf(r.timestamp)}, score ${scoreOutOf100(r.physique_score ?? 0)}${scoreDelta !== null ? `, ${scoreDelta >= 0 ? 'up' : 'down'} ${Math.abs(scoreDelta)} since the previous scan` : ''}. ${open ? 'Collapse' : 'Expand'}.`}
               testID={`oracle-history-${r.id}`}
               className="rounded-lg border p-s3"
               style={{ borderColor: open ? `${colors.epic}45` : colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
@@ -142,14 +161,27 @@ export function OracleHistoryCard() {
                   <Text className="text-2xs" style={{ color: colors[tier.colourKey], letterSpacing: 1 }}>
                     {tier.tier}
                   </Text>
+                  {scoreDelta !== null ? <TrendArrow delta={scoreDelta} /> : null}
                   <Text className="text-sm text-text-mute">{open ? '▾' : '▸'}</Text>
                 </View>
               </View>
               {open ? (
                 <View className="mt-s2 flex-row justify-between">
-                  <SubScore label="MUS" value={r.muscularity_score} />
-                  <SubScore label="LEAN" value={r.leanness_score} />
-                  <SubScore label="SYM" value={r.symmetry_score} />
+                  <SubScore
+                    label="MUS"
+                    value={r.muscularity_score}
+                    delta={prev ? deltaOf(r.muscularity_score, prev.muscularity_score) : null}
+                  />
+                  <SubScore
+                    label="LEAN"
+                    value={r.leanness_score}
+                    delta={prev ? deltaOf(r.leanness_score, prev.leanness_score) : null}
+                  />
+                  <SubScore
+                    label="SYM"
+                    value={r.symmetry_score}
+                    delta={prev ? deltaOf(r.symmetry_score, prev.symmetry_score) : null}
+                  />
                 </View>
               ) : null}
             </Pressable>
@@ -157,6 +189,26 @@ export function OracleHistoryCard() {
         })}
       </View>
     </GlowCard>
+  );
+}
+
+/** Whole-point change, or null when either side is missing — never a
+ *  fabricated 0. */
+function deltaOf(a: number | null, b: number | null): number | null {
+  if (a === null || b === null) return null;
+  return Math.round((a - b) * 10) / 10;
+}
+
+/** The small improvement arrow: ▲ up, ▼ down, ▬ flat. Colour is never the
+ *  only cue — the glyph itself changes shape. */
+function TrendArrow({ delta }: { delta: number }) {
+  const colors = useThemeColors();
+  const colour = delta > 0 ? colors.success : delta < 0 ? colors.danger : colors['text-mute'];
+  const glyph = delta > 0 ? '▲' : delta < 0 ? '▼' : '▬';
+  return (
+    <Text allowFontScaling={false} style={{ fontSize: 9, color: colour }}>
+      {glyph}
+    </Text>
   );
 }
 
@@ -173,17 +225,20 @@ function DeltaTile({ label, text, colour }: { label: string; text: string; colou
   );
 }
 
-function SubScore({ label, value }: { label: string; value: number | null }) {
+function SubScore({ label, value, delta }: { label: string; value: number | null; delta?: number | null }) {
   const colors = useThemeColors();
   return (
     <View className="items-center">
       <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 1, ...pixelFont(false) }}>
         {label}
       </Text>
-      <Text allowFontScaling={false} style={{ fontSize: 13, color: colors.text, ...pixelFont() }}>
-        {value ?? '—'}
-        <Text className="text-2xs text-text-mute"> / 15</Text>
-      </Text>
+      <View className="flex-row items-center" style={{ gap: 3 }}>
+        <Text allowFontScaling={false} style={{ fontSize: 13, color: colors.text, ...pixelFont() }}>
+          {value ?? '—'}
+          <Text className="text-2xs text-text-mute"> / 15</Text>
+        </Text>
+        {delta ? <TrendArrow delta={delta} /> : null}
+      </View>
     </View>
   );
 }

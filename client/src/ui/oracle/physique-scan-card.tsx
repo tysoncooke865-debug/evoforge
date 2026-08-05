@@ -112,8 +112,8 @@ export function PhysiqueScanCard({ onBusyChange }: { onBusyChange?: (busy: boole
     <GlowCard glow={state === 'complete' ? colors.success : colors.accent} testID="physique-scan-card">
       <SectionLabel size='lg'>AI PHYSIQUE ANALYSIS</SectionLabel>
       <Text className="mb-s3 text-2xs text-text-mute">
-        Upload three clear photos in good lighting — shirtless, relaxed pose. The Oracle rates
-        your frame and never stores the images.
+        Position front, side and back in good lighting, shirtless, relaxed pose — the scan builds
+        as each angle locks in. Images are never stored.
       </Text>
       <BodyScanner
         labels={['FRONT', 'SIDE', 'BACK']}

@@ -6,7 +6,7 @@ import { usePhysiqueRatings, useWorkoutLog } from '@/data/hooks';
 import { useAcceptPlan } from '@/data/mutations';
 import { muscleHeatMap } from '@/domain/avatar-stats-calc';
 import { type CustomPlan } from '@/domain/custom-plan';
-import { attributeLines, mainWeakness } from '@/domain/oracle';
+import { attributeLines, goalCompatibility, mainWeakness, recommendedGoal, type RoutineGoalKey } from '@/domain/oracle';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -30,7 +30,7 @@ import { GlowCard } from '@/ui/core/shell';
  */
 type GoalIcon = (p: { size?: number; color?: string }) => React.ReactNode;
 
-const GOALS: readonly { key: string; label: string; blurb: string; Icon: GoalIcon }[] = [
+const GOALS: readonly { key: RoutineGoalKey; label: string; blurb: string; Icon: GoalIcon }[] = [
   { key: 'Aesthetics', label: 'AESTHETICS', blurb: 'Symmetry & the classic V-taper', Icon: PixelMuscle },
   { key: 'Strength', label: 'STRENGTH', blurb: 'Heavier compounds, lower reps', Icon: PixelDumbbell },
   { key: 'Recomposition', label: 'RECOMP', blurb: 'Build muscle, shed fat', Icon: PixelSwap },
@@ -44,7 +44,7 @@ export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boole
   const physique = usePhysiqueRatings();
   const workouts = useWorkoutLog();
   const accept = useAcceptPlan();
-  const [goal, setGoal] = useState<string>(GOALS[0].key);
+  const [goal, setGoal] = useState<RoutineGoalKey>(GOALS[0].key);
   const [busy, setBusyState] = useState(false);
   const setBusy = (v: boolean) => {
     setBusyState(v);
@@ -73,16 +73,20 @@ export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boole
   // stays null too — deliberately, so a returning athlete with a real verdict
   // never sees a flash of "you haven't scanned" before their real data lands.
   const p = physique.data;
-  const weakest =
+  const lines =
     p && p.muscularity_score !== null && p.leanness_score !== null && p.symmetry_score !== null
-      ? mainWeakness(
-          attributeLines({
-            muscularity_score: p.muscularity_score,
-            leanness_score: p.leanness_score,
-            symmetry_score: p.symmetry_score,
-          })
-        )
+      ? attributeLines({
+          muscularity_score: p.muscularity_score,
+          leanness_score: p.leanness_score,
+          symmetry_score: p.symmetry_score,
+        })
       : null;
+  const weakest = lines ? mainWeakness(lines) : null;
+  // ARCHETYPE COMPATIBILITY (2026-08-05): real per-goal match against the
+  // latest verdict's sub-scores — goalCompatibility, not a fabricated
+  // "96% match". Absent lines → every tile stays a plain card with no % and
+  // no RECOMMENDED badge, same honesty rule as the summary text below.
+  const best = lines ? recommendedGoal(GOALS.map((g) => g.key), lines) : null;
 
   return (
     <GlowCard glow={preview ? colors.epic : colors.accent}>
@@ -92,18 +96,20 @@ export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boole
           <View className="flex-row flex-wrap" style={{ gap: 8 }}>
             {GOALS.map((g) => {
               const active = goal === g.key;
+              const match = lines ? goalCompatibility(g.key, lines) : null;
+              const recommended = best !== null && g.key === best;
               return (
                 <Pressable
                   key={g.key}
                   onPress={() => setGoal(g.key)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={`${g.label} goal`}
+                  accessibilityLabel={`${g.label} goal${match !== null ? `, ${match}% match` : ''}${recommended ? ', recommended' : ''}`}
                   testID={`goal-${g.key.toLowerCase().replace(/\s+/g, '-')}`}
                   className="rounded-lg border p-s3"
                   style={{
                     width: '48%',
-                    minHeight: 76,
+                    minHeight: 92,
                     borderColor: active ? `${colors.epic}8c` : colors.border,
                     backgroundColor: active ? 'rgba(168,85,247,0.1)' : colors['surface-2'],
                     shadowColor: colors.epic,
@@ -111,7 +117,23 @@ export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boole
                     shadowRadius: 12,
                   }}
                 >
-                  <g.Icon size={18} color={active ? colors.epic : colors['text-dim']} />
+                  <View className="flex-row items-start justify-between">
+                    <g.Icon size={18} color={active ? colors.epic : colors['text-dim']} />
+                    {recommended ? (
+                      <View
+                        className="rounded-pill border px-s1"
+                        style={{ borderColor: `${colors.legendary}8c`, backgroundColor: `${colors.legendary}1a`, paddingVertical: 1 }}
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          numberOfLines={1}
+                          style={{ fontSize: 7, letterSpacing: 0.5, color: colors.legendary, ...pixelFont(false) }}
+                        >
+                          RECOMMENDED
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text
                     className={active ? 'text-text' : 'text-text-dim'}
                     allowFontScaling={false}
@@ -122,6 +144,17 @@ export function RoutineForgeCard({ onBusyChange }: { onBusyChange?: (busy: boole
                   <Text className="mt-s1 text-2xs text-text-mute" numberOfLines={2}>
                     {g.blurb}
                   </Text>
+                  {match !== null ? (
+                    <Text
+                      className="mt-s1"
+                      allowFontScaling={false}
+                      numberOfLines={1}
+                      style={{ fontSize: 10, letterSpacing: 0.5, color: colors.epic, ...pixelFont() }}
+                      testID={`goal-match-${g.key.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {match}% MATCH
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}

@@ -5,6 +5,7 @@ import { Platform, Text, View } from 'react-native';
 
 import { runAiBodyfat, type BodyfatResult } from '@/data/ai';
 import { useAuth } from '@/data/auth-context';
+import { useBodyfatHistory } from '@/data/oracle-history';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { massSplit } from '@/domain/oracle';
 import { useToastStore } from '@/state/toast-store';
@@ -25,10 +26,16 @@ import { useCountUp, useReveal } from '@/ui/oracle/oracle-anim';
  * count-up reveal, the four-band scale, and the lean/fat-mass split (shown
  * only when a real bodyweight is known — never a fabricated frame).
  * `onBusyChange` mirrors this card's in-flight state up to the header.
+ *
+ * 2026-08-05 (consistency pass): wears `colors.warn` (amber) as its own
+ * identity rather than Physique's cyan — the brief asks the two scanners not
+ * to read as the same card twice. The "LAST SCAN / REQUIRED PHOTOS" strip is
+ * real history (`useBodyfatHistory`'s own last row), not decoration.
  */
 export function BodyfatScanCard({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const colors = useThemeColors();
   const current = useCurrentStats();
+  const history = useBodyfatHistory();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const [photos, setPhotos] = useState<(string | null)[]>([null, null]);
@@ -101,18 +108,32 @@ export function BodyfatScanCard({ onBusyChange }: { onBusyChange?: (busy: boolea
   const confirming = provisional !== null && result === null;
   const state: ScanState = confirming && !busy ? 'confirm' : bodyfatScanState(busy, error, result !== null, anyPhoto);
 
+  const rows = history.data ?? [];
+  const last = rows.length > 0 ? rows[rows.length - 1] : null;
+  const lastScanLabel = history.isPending
+    ? '…'
+    : last
+      ? new Date(last.timestamp).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+      : 'None yet';
+
   return (
-    <GlowCard glow={state === 'complete' ? colors.success : colors.accent}>
+    <GlowCard glow={state === 'complete' ? colors.success : colors.warn}>
       <SectionLabel size='lg'>AI BODY FAT ESTIMATE</SectionLabel>
       <Text className="mb-s3 text-2xs text-text-mute">
-        Front and back photos in similar conditions. Optional — it sharpens your Size and Physique
-        evidence.
+        Front and back, similar lighting to your physique scan — optional, and it sharpens your
+        Size and Physique evidence.
       </Text>
+      {/* LAST SCAN / REQUIRED PHOTOS — real history, not decoration. */}
+      <View className="mb-s3 flex-row" style={{ gap: 10 }}>
+        <InfoTile label="LAST SCAN" value={lastScanLabel} colour={colors.warn} />
+        <InfoTile label="REQUIRED PHOTOS" value="2" colour={colors.warn} />
+      </View>
       <BodyScanner
         labels={['FRONT', 'BACK']}
         photos={photos}
         onPick={(i) => void pick(i)}
         state={state}
+        tint={colors.warn}
       />
       <View className="mb-s4" />
       {error ? <Text className="mb-s2 text-xs text-danger">{error}</Text> : null}
@@ -234,6 +255,28 @@ function MassTile({ label, value, colour }: { label: string; value: string; colo
         {label}
       </Text>
       <Text allowFontScaling={false} style={{ fontSize: 16, color: colour, ...pixelFont() }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function InfoTile({ label, value, colour }: { label: string; value: string; colour: string }) {
+  const colors = useThemeColors();
+  return (
+    <View
+      className="flex-1 rounded-lg border p-s2"
+      style={{ borderColor: colors.border, backgroundColor: 'rgba(6,12,24,0.5)' }}
+    >
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontSize: 8, letterSpacing: 1, ...pixelFont(false) }}
+      >
+        {label}
+      </Text>
+      <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 14, color: colour, ...pixelFont() }}>
         {value}
       </Text>
     </View>

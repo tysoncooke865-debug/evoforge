@@ -116,10 +116,14 @@ export function MealsSection({
             colors.accent;
           const Icon = SLOT_ICONS[slot - 1] ?? PixelFork;
           const firstLabel = slotEntries.find((e) => e.label)?.label ?? null;
+          // MISSION-CARD FRAMING (2026-08-05): "{SLOT} READY" reads like an
+          // invitation, not a scolding "Not logged" — matching Home/Train's
+          // mission language. No fabricated "+N XP": meal logging does not
+          // grant Forge XP in this app (only lifting and cardio do), so the
+          // reward line stays honest about what filing it here actually buys
+          // — the day's kcal/macro totals, said plainly below.
           const summary = !logged
-            ? slot === 4
-              ? 'Add any extras'
-              : 'Not logged'
+            ? `${mealSlotName(slot, customNames).toUpperCase()} READY`
             : slotEntries.length === 1
               ? (firstLabel ?? 'Logged')
               : `${slotEntries.length} items logged`;
@@ -141,15 +145,25 @@ export function MealsSection({
                 style={{ minHeight: 60, gap: 12 }}
               >
                 <View
-                  className="items-center justify-center rounded-md border"
+                  className="items-center justify-center rounded-md"
                   style={{
                     width: 38,
                     height: 38,
-                    borderColor: `${tint}59`,
-                    backgroundColor: `${tint}14`,
+                    borderWidth: 1,
+                    borderStyle: logged ? 'solid' : 'dashed',
+                    borderColor: logged ? tint : colors.border,
+                    backgroundColor: logged ? `${tint}14` : 'transparent',
                   }}
                 >
-                  <Icon size={17} color={tint} />
+                  <Icon size={17} color={logged ? tint : colors['text-mute']} />
+                  {logged ? (
+                    <View
+                      className="absolute items-center justify-center rounded-pill"
+                      style={{ top: -4, right: -4, width: 14, height: 14, backgroundColor: tint }}
+                    >
+                      <Text style={{ fontSize: 8, color: colors['accent-ink'], fontWeight: '900' }}>✓</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={{ width: 86 }}>
                   <Text
@@ -166,8 +180,13 @@ export function MealsSection({
                 </View>
                 <View className="flex-1" style={{ minWidth: 0 }}>
                   <Text
-                    className={logged ? 'text-sm text-text' : 'text-sm text-text-mute'}
                     numberOfLines={1}
+                    allowFontScaling={!logged ? false : undefined}
+                    style={
+                      logged
+                        ? { fontSize: 14, color: colors.text }
+                        : { fontSize: 10, letterSpacing: 1, color: tint, ...pixelFont(false) }
+                    }
                   >
                     {summary}
                   </Text>

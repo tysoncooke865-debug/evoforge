@@ -1,7 +1,34 @@
+/**
+ * THE FUEL HERO (2026-08-05) — the consistency pass that merges `FuelHeader`
+ * and `NutritionSummaryCard` into the ONE dominant hero the Home/Train
+ * standard asks for, the same merge the Oracle pass made
+ * (ui/oracle/oracle-hero.tsx). They used to be two separate blocks — a
+ * masthead, then a "command centre" card beneath it; now the title, the
+ * champion, the calories-remaining figure (counting up) and the macros all
+ * live in one card, matching how Home answers "who am I" with one crest.
+ *
+ * Composition, top to bottom, one card:
+ *   kicker + FUEL title + champion + Forge Level
+ *   ── hairline ──
+ *   REMAINING kcal, counting up, + consumed/target + burned line + bar
+ *   MACROS — protein (emphasis) / carbs / fat, each a real ThinBar
+ *   NUTRITION SCORE — a real 0–100 adherence-to-target read
+ *   (domain/nutrition.ts::nutritionScore), null (hidden) until something is
+ *   logged — never a fabricated starting grade
+ *   the CUT/MAINTAIN/BULK goal switcher + ✦ RECALCULATE / EDIT
+ *
+ * Every number is real: the meter colour rules, the goal switcher's stored
+ * kcal quotes, and the target's own controls are BYTE-FOR-BYTE what
+ * NutritionSummaryCard did — this file only changes where they live.
+ */
+
+import { router } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
+import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import {
   GOAL_SHORT,
+  nutritionScore,
   type Goal,
   type GoalTargets,
   type IntakeProgress,
@@ -11,6 +38,8 @@ import {
 } from '@/domain/nutrition';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { CompanionMenuButton } from '@/ui/character/companion-menu';
+import { useCountUp } from '@/ui/core/count-up';
 import {
   PixelBolt,
   PixelDrop,
@@ -21,19 +50,7 @@ import {
 import { GlowCard } from '@/ui/core/shell';
 import { ThinBar } from '@/ui/fuel/progress-bar';
 
-/**
- * FUEL_REDESIGN — the daily nutrition summary: the page's one number
- * (remaining kcal, loud) beside the three macro rows. Two columns on
- * regular phones, stacked under 400px so nothing crams. The meter colour
- * rules are unchanged — the colour must not lie about the goal.
- *
- * FUEL v2 (NUTRITION_PLAN_2, 2026-07-21): this card is now the whole
- * command centre — the CUT/MAINTAIN/BULK switcher (each inactive chip
- * quotes its stored kcal; switching is a plain target upsert, zero AI)
- * and the ✦ RECALCULATE / EDIT actions that used to live in the deleted
- * bottom ESTIMATED DAILY TARGET card. Protein renders with EMPHASIS —
- * heavier than carbs/fat by weight and size, same colour.
- */
+const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
 
 /** One macro row: pixel icon · name · current/target · thin bar.
  *  `emphasis` (protein): bigger label/value/bar — weight, not a new colour. */
@@ -87,9 +104,7 @@ export function MacroProgressRow({
   );
 }
 
-const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
-
-export function NutritionSummaryCard({
+export function FuelHero({
   progress,
   targetKcal,
   baseTarget,
@@ -137,8 +152,11 @@ export function NutritionSummaryCard({
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const wide = width >= 380;
+
   const headline = state === 'over_cut' ? progress.over : progress.remaining;
   const headlineLabel = state === 'over_cut' ? 'OVER' : state === 'reached' ? 'TARGET REACHED' : 'REMAINING';
+  const shownHeadline = useCountUp(headline, true, 700);
+  const score = nutritionScore(progress.consumed, targetKcal, macros, macroTargets);
 
   const calories = (
     <View style={{ flex: wide ? 1.1 : undefined }}>
@@ -155,7 +173,7 @@ export function NutritionSummaryCard({
           }}
           testID="fuel-remaining"
         >
-          {headline.toLocaleString()}
+          {Math.round(shownHeadline).toLocaleString()}
         </Text>
         <Text
           className="text-text-dim"
@@ -191,23 +209,31 @@ export function NutritionSummaryCard({
           {Math.round(progress.barPct)}%
         </Text>
       </View>
-      {streak > 0 ? (
-        <View className="mt-s3 flex-row items-center" style={{ gap: 5 }}>
-          <PixelFlame size={12} color={colors.legendary} />
-          <Text className="text-2xs text-text-dim" testID="fuel-streak">
-            Day {streak}
-            {streakCapped ? '+' : ''} streak
-          </Text>
-        </View>
-      ) : null}
+      <View className="mt-s3 flex-row items-center" style={{ gap: 10 }}>
+        {streak > 0 ? (
+          <View className="flex-row items-center" style={{ gap: 5 }}>
+            <PixelFlame size={12} color={colors.legendary} />
+            <Text className="text-2xs text-text-dim" testID="fuel-streak">
+              Day {streak}
+              {streakCapped ? '+' : ''} streak
+            </Text>
+          </View>
+        ) : null}
+        {score !== null ? (
+          <View className="flex-row items-center" style={{ gap: 5 }} testID="fuel-nutrition-score">
+            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.epic }} />
+            <Text className="text-2xs text-text-dim">
+              <Text style={{ color: colors.epic, fontWeight: '700' }}>{score}</Text> nutrition score
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 
   // THE GOAL SWITCHER: the current goal is the filled chip; the other two
   // quote their STORED kcal when the triple is known. Tapping writes a new
-  // effective-dated target — never an AI call. `triple === null` still shows
-  // the chips (the goal itself must stay prominent); the page-level handler
-  // explains and opens the intake.
+  // effective-dated target — never an AI call.
   const goalSwitcher = (
     <View className="flex-row" style={{ gap: 8, opacity: goalBusy ? 0.5 : 1 }}>
       {GOALS.map((g) => {
@@ -253,8 +279,6 @@ export function NutritionSummaryCard({
     </View>
   );
 
-  // The target's own controls, moved up from the deleted bottom card — the
-  // testIDs are load-bearing for the Playwright tours.
   const targetActions = (
     <View className="flex-row items-center">
       <Pressable
@@ -334,22 +358,87 @@ export function NutritionSummaryCard({
   );
 
   return (
-    <GlowCard glow={state !== 'under' ? colour : undefined}>
-      {wide ? (
-        <View className="flex-row" style={{ gap: 20 }}>
-          {calories}
-          <View style={{ width: 1, backgroundColor: colors['border-soft'] }} />
-          {macroRows}
-        </View>
-      ) : (
-        <View>
-          {calories}
-          <View className="my-s3" style={{ height: 1, backgroundColor: colors['border-soft'] }} />
-          {macroRows}
-        </View>
-      )}
-      <View className="mt-s3">{goalSwitcher}</View>
-      <View className="mt-s2 border-t border-border-soft pt-s1">{targetActions}</View>
+    <GlowCard glow={state !== 'under' ? colour : undefined} testID="fuel-hero">
+      <FuelMasthead anim={state === 'reached' ? 'victory' : 'idle'} />
+
+      {/* 2 — THE COMMAND CENTRE: remaining + macros. */}
+      <View className="mt-s4 border-t border-border-soft pt-s4">
+        {wide ? (
+          <View className="flex-row" style={{ gap: 20 }}>
+            {calories}
+            <View style={{ width: 1, backgroundColor: colors['border-soft'] }} />
+            {macroRows}
+          </View>
+        ) : (
+          <View>
+            {calories}
+            <View className="my-s3" style={{ height: 1, backgroundColor: colors['border-soft'] }} />
+            {macroRows}
+          </View>
+        )}
+        <View className="mt-s3">{goalSwitcher}</View>
+        <View className="mt-s2 border-t border-border-soft pt-s1">{targetActions}</View>
+      </View>
     </GlowCard>
+  );
+}
+
+/**
+ * THE MASTHEAD — kicker, title, champion, Forge Level. Exported so the
+ * NO-TARGET-YET fallback in fuel.tsx (a brand-new athlete with nothing to
+ * summarise yet) still gets the same title/champion identity the hero
+ * carries once a target exists, instead of losing FUEL's header entirely.
+ */
+export function FuelMasthead({ anim }: { anim: 'idle' | 'victory' }) {
+  const colors = useThemeColors();
+  const forge = useForgeProgression();
+  const level = forgeProgressFromRow(forge.data ?? null).level;
+  return (
+    <View className="w-full flex-row items-start justify-between">
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          className="text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', ...pixelFont(false) }}
+        >
+          EAT LIKE YOU TRAIN
+        </Text>
+        <Text
+          className="text-text"
+          allowFontScaling={false}
+          style={{
+            fontSize: 30,
+            lineHeight: 36,
+            letterSpacing: 0,
+            textShadowColor: 'rgba(34, 211, 238, 0.55)',
+            textShadowRadius: 18,
+            ...pixelFont(),
+          }}
+        >
+          FUEL
+        </Text>
+      </View>
+      <View className="items-center">
+        <View
+          className="rounded-lg border p-s1"
+          style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(13,21,36,0.6)' }}
+        >
+          <CompanionMenuButton anim={anim} height={44} />
+        </View>
+        <Pressable
+          onPress={() => router.push('/profile' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="open profile"
+          testID="fuel-header-level"
+          className="mt-s1 items-center justify-center"
+          style={{ minHeight: 24, minWidth: 44 }}
+          hitSlop={{ top: 4, bottom: 16, left: 8, right: 8 }}
+        >
+          <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
+            LV. {level} ›
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }

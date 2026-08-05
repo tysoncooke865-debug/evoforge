@@ -129,7 +129,7 @@ export function QuickLogCard({ date }: { date: string }) {
       />
       <View className="mt-s3">
         <MealSlotPicker value={mealSlot} onChange={setMealSlot} testIDPrefix="quick-assign" />
-        <NeonButton title="LOG IT" onPress={logNow} busy={logCalories.isPending} testID="fuel-log" />
+        <NeonButton title="LOG IT" size="hero" onPress={logNow} busy={logCalories.isPending} testID="fuel-log" />
       </View>
     </GlowCard>
   );

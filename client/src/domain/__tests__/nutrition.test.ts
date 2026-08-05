@@ -25,6 +25,7 @@ import {
   mealTotals,
   meterState,
   mifflinStJeor,
+  nutritionScore,
   streakDays,
   type TargetInputs,
 } from '../nutrition';
@@ -457,5 +458,39 @@ describe('evalEnergyExpression — the label calculator', () => {
   it('whitespace anywhere is tolerated', () => {
     expect(evalEnergyExpression('435 * 5')).toBe(2175);
     expect(evalEnergyExpression(' 100 + 50 ')).toBe(150);
+  });
+});
+
+describe('nutritionScore — real adherence-to-target, never fabricated', () => {
+  const targets = { protein: 200, carbs: 250, fat: 70 };
+
+  it('nothing logged yet → null, never a fabricated starting grade', () => {
+    expect(nutritionScore(0, 2500, { protein: 0, carbs: 0, fat: 0 }, targets)).toBeNull();
+  });
+
+  it('exactly on every target scores 100', () => {
+    expect(nutritionScore(2500, 2500, { protein: 200, carbs: 250, fat: 70 }, targets)).toBe(100);
+  });
+
+  it('20% off calories alone scores 80 for that component (averaged with skipped zero-target macros)', () => {
+    const score = nutritionScore(3000, 2500, { protein: 0, carbs: 0, fat: 0 }, { protein: 0, carbs: 0, fat: 0 });
+    expect(score).toBe(80);
+  });
+
+  it('wildly over or under both score low — this rewards accuracy, not just eating less', () => {
+    const under = nutritionScore(500, 2500, { protein: 0, carbs: 0, fat: 0 }, { protein: 0, carbs: 0, fat: 0 });
+    const over = nutritionScore(4500, 2500, { protein: 0, carbs: 0, fat: 0 }, { protein: 0, carbs: 0, fat: 0 });
+    expect(under).toBeLessThan(50);
+    expect(over).toBeLessThan(50);
+  });
+
+  it('never negative — floors at 0 rather than going below', () => {
+    const score = nutritionScore(10000, 2500, { protein: 0, carbs: 0, fat: 0 }, { protein: 0, carbs: 0, fat: 0 });
+    expect(score).toBe(0);
+  });
+
+  it('a macro with no target is skipped, not scored zero', () => {
+    const withoutFatTarget = nutritionScore(2500, 2500, { protein: 200, carbs: 250, fat: 999 }, { protein: 200, carbs: 250, fat: 0 });
+    expect(withoutFatTarget).toBe(100);
   });
 });

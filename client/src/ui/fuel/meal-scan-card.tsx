@@ -198,6 +198,8 @@ export function AIMealScanCard({ date }: { date: string }) {
             <NeonButton
               title={scanBusy ? 'READING THE PLATE…' : hintOpen ? 'CHOOSE PHOTO' : 'SCAN A MEAL'}
               variant="epic"
+              size="hero"
+              sweep={!hintOpen && !scanBusy}
               icon={<PixelCamera size={15} color="#f8f4ff" />}
               onPress={() => {
                 // First press reveals the optional hint (8.3 — it must not

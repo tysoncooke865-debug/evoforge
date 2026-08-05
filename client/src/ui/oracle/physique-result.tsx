@@ -98,6 +98,15 @@ export function PhysiqueReveal({ result }: { result: PhysiqueResult }) {
             {tier.tier}
           </Text>
         </View>
+        {/* EVIDENCE QUALITY — the AI's own confidence in this verdict, real
+            (`result.confidence`), not a fabricated "match %". */}
+        <Text
+          className="mt-s1 text-text-mute"
+          allowFontScaling={false}
+          style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        >
+          {String(result.confidence).toUpperCase()} CONFIDENCE · 3-ANGLE EVIDENCE
+        </Text>
       </View>
 
       <View className="my-s3" style={{ height: 1, backgroundColor: colors['border-soft'] }} />

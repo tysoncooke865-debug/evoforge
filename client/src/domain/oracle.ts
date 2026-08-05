@@ -159,3 +159,74 @@ export function scanProgress(
       bfSeries.length >= 2 ? Math.round((bfSeries[0] - bfSeries[bfSeries.length - 1]) * 10) / 10 : null,
   };
 }
+
+/* ------------------------------------------------------------------
+ * ROUTINE ARCHETYPE COMPATIBILITY (2026-08-05)
+ * ------------------------------------------------------------------ */
+
+export type RoutineGoalKey =
+  | 'Aesthetics'
+  | 'Strength'
+  | 'Recomposition'
+  | 'Fat Loss'
+  | 'Athletic Performance'
+  | 'Powerlifting';
+
+/** How much each goal leans on each real sub-score. Weights per goal sum to
+ *  1 — this is a STYLING decision (which attributes a training goal cares
+ *  about), not a claim about the athlete. */
+const GOAL_ATTRIBUTE_WEIGHTS: Record<RoutineGoalKey, Record<AttributeLine['key'], number>> = {
+  Aesthetics: { symmetry: 0.5, leanness: 0.3, muscularity: 0.2 },
+  Strength: { muscularity: 0.8, symmetry: 0.1, leanness: 0.1 },
+  Recomposition: { leanness: 0.5, muscularity: 0.4, symmetry: 0.1 },
+  'Fat Loss': { leanness: 0.8, muscularity: 0.1, symmetry: 0.1 },
+  'Athletic Performance': { muscularity: 0.34, leanness: 0.33, symmetry: 0.33 },
+  Powerlifting: { muscularity: 0.7, symmetry: 0.2, leanness: 0.1 },
+};
+
+/**
+ * A goal's MATCH %, real and explainable: a goal weighted toward an
+ * attribute the athlete's latest verdict scored LOW on reads as highly
+ * compatible — there is real room for that goal to move the needle. A goal
+ * weighted toward an already-strong attribute reads as less urgent. Every
+ * input is a real physique-verdict sub-score (0–15, via `scoreOutOf100`);
+ * nothing here is invented per goal, and the weights above are the only
+ * editorial choice (what a goal cares about, not how the athlete is doing).
+ *
+ * Floored at 10 / capped at 98 so the number always reads as "a percentage
+ * of relevance", never a claim of zero value or a false 100% certainty.
+ */
+export function goalCompatibility(goal: RoutineGoalKey, lines: readonly AttributeLine[]): number {
+  const weights = GOAL_ATTRIBUTE_WEIGHTS[goal];
+  const byKey = new Map(lines.map((l) => [l.key, l.value] as const));
+  let weighted = 0;
+  let totalWeight = 0;
+  for (const key of ['muscularity', 'leanness', 'symmetry'] as const) {
+    const score = byKey.get(key);
+    const weight = weights[key];
+    if (score === undefined || !weight) continue;
+    weighted += weight * (100 - scoreOutOf100(score));
+    totalWeight += weight;
+  }
+  if (totalWeight === 0) return 50;
+  return Math.round(Math.max(10, Math.min(98, weighted / totalWeight)));
+}
+
+/** The single best-matching goal for the athlete's latest verdict — the
+ *  RECOMMENDED badge. Ties resolve by the catalogue's own order. */
+export function recommendedGoal(
+  goals: readonly RoutineGoalKey[],
+  lines: readonly AttributeLine[]
+): RoutineGoalKey | null {
+  if (goals.length === 0) return null;
+  let best = goals[0];
+  let bestScore = goalCompatibility(best, lines);
+  for (const g of goals.slice(1)) {
+    const score = goalCompatibility(g, lines);
+    if (score > bestScore) {
+      best = g;
+      bestScore = score;
+    }
+  }
+  return best;
+}

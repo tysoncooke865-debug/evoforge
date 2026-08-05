@@ -26,6 +26,58 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ORACLE + FUEL CONSISTENCY PASS (2026-08-05, no migration)** — Tyson's
+  brief: bring Oracle and Fuel up to the Home/Train mission-briefing
+  standard — one dominant hero, fewer competing cards, larger hierarchy,
+  "what should I do next" answered on the first screenful. Not a redesign:
+  same branding/colours/fonts/nav, pixel aesthetic kept throughout.
+  **`ui/oracle/oracle-hero.tsx` and `ui/fuel/fuel-hero.tsx`** are new — each
+  merges that page's masthead + summary card into ONE card (title, champion,
+  Forge Level, the page's real headline number, all above one hairline),
+  replacing `OracleHeader`+`EvolutionImpactCard` and `FuelHeader`+
+  `NutritionSummaryCard` (all four deleted). Both heroes reuse
+  `ui/home/next-rank-card.tsx`'s `NextRankRail` and the shared
+  `ui/core/count-up.ts` (moved out of `ui/oracle/oracle-anim.ts`, which now
+  re-exports it — Fuel's REMAINING figure and Oracle's rating both count up
+  through the SAME primitive, not two).
+  **Oracle**: the scanner (`body-scanner.tsx`) grew a real SCAN PROGRESS
+  strip (N/3 · %, segments per slot); Body Fat wears its own `colors.warn`
+  identity instead of Physique's cyan clone, plus a real LAST SCAN / REQUIRED
+  PHOTOS strip off `useBodyfatHistory`; Physique's reveal now shows the AI's
+  own `result.confidence` (real, was computed but never shown); AI ROUTINE's
+  six goal buttons became archetype tiles with a REAL match % — new
+  `domain/oracle.ts::goalCompatibility`/`recommendedGoal` (21 new domain
+  tests) score each goal against the athlete's own weakest sub-score, never
+  a fabricated number, floored/capped [10,98] so it never claims zero value
+  or false certainty; History's timeline rows gained ▲/▼ trend arrows vs the
+  PREVIOUS scan (not just the aggregate "since first scan" strip) and an
+  "EVOLUTION JOURNEY" subtitle.
+  **Fuel**: new `domain/nutrition.ts::nutritionScore` (6 new tests) — a real
+  0–100 adherence-to-target read (average of `100 − |1 − consumed/target|
+  × 100` across kcal + 3 macros), null until something is logged, never a
+  fabricated starting grade; SCAN A MEAL got `size="hero"` + a sweep (the
+  page's one dominant CTA, per the brief); the KJ⇄KCAL converter — real but
+  named as dead weight in the brief — moved into a collapsed UNIT CONVERTER
+  disclosure at the foot of the page; SAVED MEALS (already-real favourite-
+  meal data) moved up under the scanner in its place; QUICK LOG's button
+  went `size="hero"`; meal slots read "{SLOT} READY" in the slot's own
+  tint instead of dim "Not logged", with a filled/dashed completion ring —
+  **no fabricated "+N XP"**: meal logging does not grant Forge XP in this
+  app (confirmed against `domain/xp.ts` — only `XP_PER_SET` and
+  `XP_PER_CARDIO_MINUTE` exist), so the brief's own "+15 XP" example was
+  adapted rather than copied.
+  Verified: `tsc`, `expo lint` (0 new warnings/errors), all 1900 vitest
+  cases (27 new: goalCompatibility/recommendedGoal ×21, nutritionScore ×6),
+  `verify-tokens`, `expo export`, and a live Playwright pass at 375/390px —
+  the Oracle hero rendered real data (rating 46, Physique 46/Size 42, NEXT
+  RANK · Developed · 9 TO GO) merged with the masthead in one card; the Fuel
+  hero rendered a real manually-set 2,500 kcal target (macros, goal
+  switcher, provenance line) with the "NO TARGET YET" fallback correctly
+  keeping its own masthead now that the header no longer renders
+  separately; meal slots showed BREAKFAST/LUNCH/DINNER READY in their tint
+  colours; the converter opened collapsed. No horizontal overflow at either
+  width, no console errors.
+
 - **ORACLE HERO PROMOTION (2026-08-04, no migration)** — the Oracle
   (`ai.tsx`, `ui/oracle/*`) was already close to the Home/Train/Cardio
   standard (ORACLE_REDESIGN, 2026-07-18: real theatrical reveals, count-up

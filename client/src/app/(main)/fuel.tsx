@@ -33,24 +33,31 @@ import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { AiNotice } from '@/ui/legal/ai-badge';
-import { FuelHeader } from '@/ui/fuel/fuel-header';
+import { FuelHero, FuelMasthead } from '@/ui/fuel/fuel-hero';
 import { AIMealScanCard } from '@/ui/fuel/meal-scan-card';
 import { MealsSection } from '@/ui/fuel/meals-section';
-import { NutritionSummaryCard } from '@/ui/fuel/nutrition-summary-card';
 import { QuickLogCard } from '@/ui/fuel/quick-log-card';
 import { SavedMealsCard } from '@/ui/fuel/saved-meals-card';
 
 /**
- * FUEL — the calorie day (FUEL_REDESIGN 2026-07-18; FUEL v2 layout per
- * NUTRITION_PLAN_2, 2026-07-21). The page is a composition; each card owns
+ * FUEL — the calorie day (FUEL_REDESIGN 2026-07-18; FUEL v2, 2026-07-21;
+ * CONSISTENCY PASS 2026-08-05). The page is a composition; each card owns
  * its own state and mutations, this file owns the day's derived numbers,
  * the two target modals, and the goal switch. One query, one rulebook.
  *
- * Order (top to bottom): header · summary (remaining + macros + goal
- * switcher + recalculate/edit) · AI meal scan + barcode · saved meals ·
- * quick log · converter · quick-adds · today's meals (the day's record
- * reads last). The old bottom ESTIMATED DAILY TARGET card and the PROTEIN
- * GOAL card are gone — the summary card carries both duties.
+ * 2026-08-05: `FuelHeader` and `NutritionSummaryCard` — a masthead and a
+ * "command centre" card stacked beneath it — merged into ONE dominant hero
+ * (`ui/fuel/fuel-hero.tsx`), the same merge the Oracle pass made
+ * (ui/oracle/oracle-hero.tsx): title, champion, the counting-up calories
+ * figure, macros and the goal switcher now live in one card. The KJ⇄KCAL
+ * CONVERTER — real but low-retention, and the brief calls it out by name —
+ * moved out of the main flow into a collapsed UNIT CONVERTER disclosure
+ * near the foot of the page; SAVED MEALS (real favourite-meal data, not a
+ * new widget) moved up to sit right under the scanner instead.
+ *
+ * Order (top to bottom): hero · AI meal scan + barcode · saved meals ·
+ * quick log · quick-adds · today's meals (the day's record reads last) ·
+ * the unit converter, collapsed.
  */
 
 const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
@@ -123,9 +130,12 @@ export default function FuelScreen() {
     });
   };
 
-  // Converter state — self-contained, persists nothing.
+  // Converter state — self-contained, persists nothing. Collapsed by
+  // default (2026-08-05): real, but low-retention next to the hero's own
+  // nutrition score, so it no longer claims a prominent card of its own.
   const [convKj, setConvKj] = useState('');
   const [convKcal, setConvKcal] = useState('');
+  const [convOpen, setConvOpen] = useState(false);
   const fmt1 = (n: number): string => String(Math.round(n * 10) / 10);
 
   const timeOf = (ts: string): string => {
@@ -137,12 +147,11 @@ export default function FuelScreen() {
 
   return (
     <ScreenShell>
-      <FuelHeader anim={state === 'reached' ? 'victory' : 'idle'} />
-
-      {/* THE SUMMARY — the page's one number beside the three macros, plus
-          the goal switcher and the target's own controls (FUEL v2). */}
+      {/* THE HERO — title, champion, the counting-up calories figure, macros,
+          the goal switcher and the target's own controls, all one card
+          (FUEL v2 / consistency pass). */}
       {target ? (
-        <NutritionSummaryCard
+        <FuelHero
           progress={progress}
           targetKcal={effectiveTarget}
           baseTarget={target.daily_kcal}
@@ -163,25 +172,28 @@ export default function FuelScreen() {
         />
       ) : (
         <GlowCard>
-          <SectionLabel>NO TARGET YET</SectionLabel>
-          <Text className="mb-s3 text-sm text-text-dim">
-            Set a daily calorie budget and the meter fills as you log.
-          </Text>
-          <NeonButton
-            title="✦ CALCULATE WITH AI"
-            onPress={() => setIntakeOpen(true)}
-            testID="fuel-ai-target"
-          />
-          <View className="mt-s2">
+          <FuelMasthead anim="idle" />
+          <View className="mt-s4 border-t border-border-soft pt-s4">
+            <SectionLabel>NO TARGET YET</SectionLabel>
+            <Text className="mb-s3 text-sm text-text-dim">
+              Set a daily calorie budget and the meter fills as you log.
+            </Text>
             <NeonButton
-              title="SET MANUALLY"
-              variant="ghost"
-              onPress={() => setTargetOpen(true)}
-              testID="fuel-set-target"
+              title="✦ CALCULATE WITH AI"
+              onPress={() => setIntakeOpen(true)}
+              testID="fuel-ai-target"
             />
-          </View>
-          <View className="mt-s2">
-            <AiNotice text="AI estimates your target from your stats — a starting point, not a prescription." />
+            <View className="mt-s2">
+              <NeonButton
+                title="SET MANUALLY"
+                variant="ghost"
+                onPress={() => setTargetOpen(true)}
+                testID="fuel-set-target"
+              />
+            </View>
+            <View className="mt-s2">
+              <AiNotice text="AI estimates your target from your stats — a starting point, not a prescription." />
+            </View>
           </View>
         </GlowCard>
       )}
@@ -194,63 +206,6 @@ export default function FuelScreen() {
 
       {/* QUICK LOG — either unit, one confirm. */}
       <QuickLogCard date={todayIso} />
-
-      {/* THE CONVERTER — type either side, the other answers. Either side
-          also takes label ARITHMETIC ("435×5", "1650/4+300"): the expression
-          evaluates and the other side converts the total — no separate
-          calculator app for a 5-serving box. */}
-      <GlowCard>
-        <SectionLabel size="lg">KJ ⇄ KCAL CONVERTER</SectionLabel>
-        <View className="flex-row items-center gap-s2">
-          <View className="flex-1 items-center">
-            <Text
-              className="mb-s1 text-text-mute"
-              allowFontScaling={false}
-              style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-            >
-              KILOJOULES
-            </Text>
-            <NumberField
-              value={convKj}
-              onChange={(v) => {
-                setConvKj(v);
-                const n = evalEnergyExpression(v);
-                setConvKcal(n === null ? '' : fmt1(kjToKcal(n)));
-              }}
-              step={100}
-              placeholder="kJ"
-              label="KILOJOULES"
-              width={96}
-              calculator
-              testID="fuel-conv-kj"
-            />
-          </View>
-          <Text className="text-lg font-bold text-text-mute">⇄</Text>
-          <View className="flex-1 items-center">
-            <Text
-              className="mb-s1 text-text-mute"
-              allowFontScaling={false}
-              style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
-            >
-              KILOCALORIES
-            </Text>
-            <NumberField
-              value={convKcal}
-              onChange={(v) => {
-                setConvKcal(v);
-                const n = evalEnergyExpression(v);
-                setConvKj(n === null ? '' : fmt1(n * 4.184));
-              }}
-              step={50}
-              placeholder="kcal"
-              label="KILOCALORIES"
-              width={96}
-              calculator
-              testID="fuel-conv-kcal"
-            />
-          </View>
-        </View>
-      </GlowCard>
 
       {/* TODAY — the quick-adds. Meal entries live (and delete) inside their
           slots above; listing them twice would be noise. The meter sums all. */}
@@ -287,6 +242,77 @@ export default function FuelScreen() {
       {/* TODAY'S MEALS — the day's record, reading LAST (FUEL v2): the page
           opens on what to do next; what you already did closes it out. */}
       <MealsSection entries={entries} consumed={progress.consumed} />
+
+      {/* THE UNIT CONVERTER (2026-08-05): real, but low-retention next to
+          the hero's own nutrition score — collapsed by default rather than
+          claiming a prominent card. Either side takes label ARITHMETIC
+          ("435×5", "1650/4+300"): the expression evaluates and the other
+          side converts the total — no separate calculator app for a
+          5-serving box. */}
+      <GlowCard>
+        <Pressable
+          onPress={() => setConvOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={`${convOpen ? 'collapse' : 'expand'} the kilojoule to kilocalorie converter`}
+          testID="fuel-converter-toggle"
+          className="flex-row items-center justify-between"
+          style={{ minHeight: 32 }}
+        >
+          <SectionLabel size="lg">UNIT CONVERTER</SectionLabel>
+          <Text className="text-sm text-text-mute">{convOpen ? '▾' : '▸'}</Text>
+        </Pressable>
+        {convOpen ? (
+          <View className="mt-s3 flex-row items-center gap-s2">
+            <View className="flex-1 items-center">
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+              >
+                KILOJOULES
+              </Text>
+              <NumberField
+                value={convKj}
+                onChange={(v) => {
+                  setConvKj(v);
+                  const n = evalEnergyExpression(v);
+                  setConvKcal(n === null ? '' : fmt1(kjToKcal(n)));
+                }}
+                step={100}
+                placeholder="kJ"
+                label="KILOJOULES"
+                width={96}
+                calculator
+                testID="fuel-conv-kj"
+              />
+            </View>
+            <Text className="text-lg font-bold text-text-mute">⇄</Text>
+            <View className="flex-1 items-center">
+              <Text
+                className="mb-s1 text-text-mute"
+                allowFontScaling={false}
+                style={{ fontSize: 9, letterSpacing: 0.5, ...pixelFont(false) }}
+              >
+                KILOCALORIES
+              </Text>
+              <NumberField
+                value={convKcal}
+                onChange={(v) => {
+                  setConvKcal(v);
+                  const n = evalEnergyExpression(v);
+                  setConvKj(n === null ? '' : fmt1(n * 4.184));
+                }}
+                step={50}
+                placeholder="kcal"
+                label="KILOCALORIES"
+                width={96}
+                calculator
+                testID="fuel-conv-kcal"
+              />
+            </View>
+          </View>
+        ) : null}
+      </GlowCard>
 
       {intakeOpen ? (
         <NutritionIntake

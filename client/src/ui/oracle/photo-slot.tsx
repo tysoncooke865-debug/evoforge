@@ -14,12 +14,16 @@ export function PhotoSlot({
   label,
   uri,
   onPick,
+  tint,
 }: {
   label: string;
   uri: string | null;
   onPick: () => void;
+  /** Defaults to the accent — Body Fat passes its own colour identity. */
+  tint?: string;
 }) {
   const colors = useThemeColors();
+  const colour = tint ?? colors.accent;
   const filled = uri !== null;
   return (
     <Pressable
@@ -30,9 +34,9 @@ export function PhotoSlot({
       style={{
         borderWidth: 1,
         borderStyle: filled ? 'solid' : 'dashed',
-        borderColor: filled ? colors.accent : colors.border,
-        backgroundColor: filled ? 'rgba(34,211,238,0.08)' : colors['surface-2'],
-        shadowColor: colors.accent,
+        borderColor: filled ? colour : colors.border,
+        backgroundColor: filled ? `${colour}14` : colors['surface-2'],
+        shadowColor: colour,
         shadowOpacity: filled ? 0.4 : 0,
         shadowRadius: 12,
       }}
@@ -49,8 +53,8 @@ export function PhotoSlot({
                 right: 4,
                 width: 20,
                 height: 20,
-                backgroundColor: colors.accent,
-                shadowColor: colors.accent,
+                backgroundColor: colour,
+                shadowColor: colour,
                 shadowOpacity: 0.8,
                 shadowRadius: 6,
               }}
@@ -68,9 +72,9 @@ export function PhotoSlot({
         )}
       </View>
       <Text
-        className={`mt-s2 ${filled ? 'text-accent' : 'text-text-mute'}`}
+        className="mt-s2"
         allowFontScaling={false}
-        style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        style={{ fontSize: 9, letterSpacing: 1, color: filled ? colour : colors['text-mute'], ...pixelFont(false) }}
       >
         {label}
       </Text>

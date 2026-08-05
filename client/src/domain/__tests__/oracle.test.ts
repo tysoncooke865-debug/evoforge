@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   attributeLines,
   bodyfatScale,
+  goalCompatibility,
   mainWeakness,
   massSplit,
   physiqueTier,
+  recommendedGoal,
   scanProgress,
   scoreOutOf100,
   topStrength,
+  type RoutineGoalKey,
 } from '../oracle';
 
 describe('physiqueTier — the game band over a /15 score', () => {
@@ -123,5 +126,50 @@ describe('scanProgress — the honest before/current comparison', () => {
   it('empty → zero scans, all null', () => {
     const p = scanProgress([], []);
     expect(p).toMatchObject({ scans: 0, physiqueDelta: null, bfDelta: null });
+  });
+});
+
+describe('goalCompatibility — real per-goal match against the latest verdict', () => {
+  const GOALS: RoutineGoalKey[] = [
+    'Aesthetics',
+    'Strength',
+    'Recomposition',
+    'Fat Loss',
+    'Athletic Performance',
+    'Powerlifting',
+  ];
+
+  it('a goal weighted toward a WEAK attribute scores higher than one weighted toward a STRONG one', () => {
+    // Weak symmetry (3/15), strong muscularity (14/15): Aesthetics leans on
+    // symmetry, Powerlifting leans on muscularity — Aesthetics must win.
+    const lines = attributeLines({ muscularity_score: 14, leanness_score: 8, symmetry_score: 3 });
+    const aesthetics = goalCompatibility('Aesthetics', lines);
+    const powerlifting = goalCompatibility('Powerlifting', lines);
+    expect(aesthetics).toBeGreaterThan(powerlifting);
+  });
+
+  it('is always a percentage, floored at 10 and capped at 98 — never a claim of zero or certainty', () => {
+    const maxed = attributeLines({ muscularity_score: 15, leanness_score: 15, symmetry_score: 15 });
+    const zeroed = attributeLines({ muscularity_score: 0, leanness_score: 0, symmetry_score: 0 });
+    for (const g of GOALS) {
+      expect(goalCompatibility(g, maxed)).toBeGreaterThanOrEqual(10);
+      expect(goalCompatibility(g, zeroed)).toBeLessThanOrEqual(98);
+    }
+  });
+
+  it('no sub-scores → the neutral 50, never a throw', () => {
+    expect(goalCompatibility('Strength', [])).toBe(50);
+  });
+});
+
+describe('recommendedGoal — the single best match, deterministic', () => {
+  it('picks the goal whose compatibility is highest', () => {
+    const lines = attributeLines({ muscularity_score: 14, leanness_score: 8, symmetry_score: 3 });
+    const goals: RoutineGoalKey[] = ['Powerlifting', 'Aesthetics', 'Fat Loss'];
+    expect(recommendedGoal(goals, lines)).toBe('Aesthetics');
+  });
+
+  it('empty catalogue → null, never a throw', () => {
+    expect(recommendedGoal([], [])).toBeNull();
   });
 });

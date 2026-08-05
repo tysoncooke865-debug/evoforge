@@ -473,3 +473,34 @@ export function canAddMeal(count: number): boolean {
 export function canRemoveMeal(count: number, entries: readonly MealEntryLike[]): boolean {
   return count > Math.max(MIN_MEALS, highestMealNo(entries));
 }
+
+/**
+ * NUTRITION SCORE (2026-08-05) — a real 0–100 read of how close TODAY'S
+ * logged intake sits to the day's own targets, not an AI verdict and not a
+ * fabricated grade. Four components (calories, protein, carbs, fat), each
+ * scored as `100 − |1 − consumed/target| × 100` (so 20% off target scores
+ * 80, on-target scores 100, wildly over or under both score low — this
+ * rewards ACCURACY to plan, not just "ate less") and floored at 0. A
+ * component with no target (target ≤ 0) is skipped rather than scored zero.
+ * Nothing logged yet → null, never a fabricated starting grade.
+ */
+export function nutritionScore(
+  consumedKcal: number,
+  targetKcal: number,
+  macros: MacroProgress,
+  macroTargets: MacroTargets
+): number | null {
+  if (consumedKcal <= 0) return null;
+  const components: number[] = [];
+  const score = (consumed: number, target: number): void => {
+    if (target <= 0) return;
+    const deviation = Math.abs(1 - consumed / target);
+    components.push(Math.max(0, 100 - deviation * 100));
+  };
+  score(consumedKcal, targetKcal);
+  score(macros.protein, macroTargets.protein);
+  score(macros.carbs, macroTargets.carbs);
+  score(macros.fat, macroTargets.fat);
+  if (components.length === 0) return null;
+  return Math.round(components.reduce((a, b) => a + b, 0) / components.length);
+}
