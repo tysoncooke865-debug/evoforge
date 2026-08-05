@@ -16,15 +16,7 @@
  * back to the AI estimate rather than a confidently wrong table figure.
  */
 
-import {
-  CORS_HEADERS,
-  callOpenAiJson,
-  callerClient,
-  json,
-  rateLimited,
-  sha256Hex,
-  storeCache,
-} from '../_shared/ai.ts';
+import { CORS_HEADERS, callOpenAiJson, json } from '../_shared/ai.ts';
 import { callerUserId } from '../_shared/battle/service.ts';
 import { matchFood, type Per100 } from './food-match.ts';
 
@@ -60,18 +52,6 @@ Deno.serve(async (req) => {
   // deterministic table + multiplication below own the numbers.
   if (!hasImage && text.length < 3)
     return json({ error: 'A meal photo or a text description is required.' }, 400);
-
-  // PAGE LAB TEST MODELS (2026-08): opt-in per request, allowlisted here.
-  // Absent/unknown -> undefined -> callOpenAiJson's DEFAULT_MODEL, so the
-  // prod client's requests are byte-identical in behaviour. The override
-  // path alone pays the hourly limiter: it rides the flagship-priced model,
-  // and this function otherwise writes no ai_scan_cache rows to count.
-  const TEST_MODELS = new Set(['gpt-5.6']);
-  const requestedModel = String(body.model ?? '');
-  const modelOverride = TEST_MODELS.has(requestedModel) ? requestedModel : undefined;
-  const sb = modelOverride ? callerClient(req) : null;
-  if (modelOverride && sb && (await rateLimited(sb)))
-    return json({ error: 'Test-model hourly limit reached — try again later.' }, 429);
 
   const photoPrompt = `
 Identify the foods in this meal photo for a calorie tracker. For EACH distinct
@@ -127,8 +107,7 @@ Return ONLY valid JSON:
   const { data, error } = await callOpenAiJson(
     hasImage ? photoPrompt : textPrompt,
     hasImage ? [image] : [],
-    ['items', 'is_food'],
-    modelOverride
+    ['items', 'is_food']
   );
   if (error || !data) return json({ error: error ?? 'The scanner returned nothing.' }, 502);
   if (!data.is_food)
@@ -179,20 +158,5 @@ Return ONLY valid JSON:
     { kcal: 0, p: 0, c: 0, f: 0 }
   );
 
-  // Meter the override call so rateLimited can count it: the hash is salted
-  // with the clock ON PURPOSE — this row is a meter, not a cache, and no
-  // cachedResult read ever looks for this kind. Best-effort like storeCache
-  // itself. The echoed `model` key is additive; the prod client reads only
-  // items/notes.
-  if (modelOverride && sb)
-    await storeCache(
-      sb,
-      'meal-scan-test',
-      await sha256Hex(`${modelOverride}:${Date.now()}:${text.slice(0, 64)}`),
-      { model: modelOverride }
-    );
-
-  return json({
-    result: { items, totals, notes: String(data.notes ?? ''), model: modelOverride ?? null },
-  });
+  return json({ result: { items, totals, notes: String(data.notes ?? '') } });
 });

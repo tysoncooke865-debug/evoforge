@@ -215,8 +215,28 @@ Owner: Tyson. He works through other Claude sessions too — **always
   account with two POPULATED plans holding different day names for the
   same weekday.
 
+- **FUEL MODEL DUEL — VERDICT AND RETIREMENT (2026-08-06, same day)** —
+  four live duels on the bench below answered the question it was built
+  for: **gpt-5.6 buys NO accuracy on meal-scan, at 2-3× the latency and
+  flagship pricing — do not re-run this experiment, the answer is on
+  record.** Table-priced paths tied exactly (eggs+toast 271 = 271; custom
+  "500g raw 5% beef mince" 685 = 685, both matched `ground beef (raw 5%)`);
+  the AI-estimate path tied within 2% (Snickers 254 vs 259, truth ~250);
+  recipe serving math tied at 325 vs 326 with identical division. The
+  July qualifier-aware matcher owns describe-accuracy; remaining error
+  lives in FOOD_DB coverage and household-measure gram heuristics, NOT
+  model capability — spend there. Tyson's call: keep gpt-5.1 live, remove
+  the test version from existence. Removed same-commit: the server-side
+  `model` allowlist (meal-scan/index.ts back to its pre-f625bf1 shape,
+  re-pinned live), the `describeMeal` opts seam, the `fuel` LabPageId +
+  `/lab/fuel/model-duel` + `fuel-probes` fixtures/pins. **`migrations/134`
+  STAYS** (append-only history): `kind='meal-scan-test'` remains allowed
+  in the ai_scan_cache CHECK, unused and inert — nothing writes it; its
+  021-lesson falsification record below is still true and still the
+  reference for the NEXT new kind. All meter rows were deleted (count 0).
 - **FUEL MODEL DUEL — gpt-5.6 test bench in the Page Lab (2026-08-06,
-  migration 134 APPLIED + falsified)** — the describe-a-meal accuracy
+  migration 134 APPLIED + falsified, RETIRED same day — see above)** —
+  the describe-a-meal accuracy
   complaint (NUTRITION_PLAN_2.md item 1) gets an instrument before it gets a
   verdict. Server (commit f625bf1, deployed + curl-verified): `meal-scan`
   accepts an opt-in `model` field, ALLOWLISTED to `gpt-5.6` only — absent or
