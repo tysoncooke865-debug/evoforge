@@ -216,7 +216,7 @@ Owner: Tyson. He works through other Claude sessions too — **always
   same weekday.
 
 - **FUEL MODEL DUEL — gpt-5.6 test bench in the Page Lab (2026-08-06,
-  migration 134 WRITTEN, apply pending)** — the describe-a-meal accuracy
+  migration 134 APPLIED + falsified)** — the describe-a-meal accuracy
   complaint (NUTRITION_PLAN_2.md item 1) gets an instrument before it gets a
   verdict. Server (commit f625bf1, deployed + curl-verified): `meal-scan`
   accepts an opt-in `model` field, ALLOWLISTED to `gpt-5.6` only — absent or
@@ -234,10 +234,12 @@ Owner: Tyson. He works through other Claude sessions too — **always
   **THE 021 BUG, HIT A THIRD TIME:** the override path meters each call
   with a `kind='meal-scan-test'` row so `rateLimited()` can count it —
   falsification (12 straight 200s as BRAVO, zero rows) showed 027's kind
-  CHECK rejects it and `storeCache` swallows the rejection, so **the
-  gpt-5.6 path is fail-open (uncapped) until `migrations/134` is applied**;
-  134 re-adds the constraint with the new kind, falsification steps in its
-  header. Verified: tsc, lint (0 new), 1905 vitest (5 probe pins + 17
+  CHECK rejected it and `storeCache` swallowed the rejection — the gpt-5.6
+  path shipped fail-open. `migrations/134` re-adds the constraint with the
+  new kind; applied 2026-08-06 via the management API and falsified live as
+  BRAVO per its header: meter row lands (count 1), seeded to HOURLY_LIMIT →
+  429 "Test-model hourly limit reached", bare call still 200, bogus kind
+  still rejected. Verified: tsc, lint (0 new), 1905 vitest (5 probe pins + 17
   arena tests un-broken by OneDrive hydration), tokens/battle-engine/
   motion, `expo export` with `EXPO_PUBLIC_PAGE_LAB=1`, Playwright tour
   11/11 (880 ✓ both columns, one `"model":"gpt-5.6"` request, one bare,
