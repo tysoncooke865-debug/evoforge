@@ -52,6 +52,20 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
     ],
   },
   {
+    id: 'fuel',
+    title: 'FUEL',
+    variants: [
+      {
+        id: 'model-duel',
+        title: 'MODEL DUEL',
+        description:
+          'Describe/recipe accuracy bench — the same text through gpt-5.1 (live) and gpt-5.6 (test) in parallel, with latency, DB/AI provenance and known-answer probe grading. Display-only; nothing logs.',
+        modes: ['real'],
+        defaultMode: 'real',
+      },
+    ],
+  },
+  {
     id: 'workout',
     title: 'WORKOUT',
     variants: [

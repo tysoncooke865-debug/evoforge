@@ -488,9 +488,13 @@ export function scanTotals(items: MealItem[]): MealTotals {
   );
 }
 
-/** Invoke meal-scan with either a photo or a text description — one contract. */
+/** Invoke meal-scan with either a photo or a text description — one contract.
+ *  `model` (2026-08): Page Lab test-model override, allowlisted server-side;
+ *  omitted on every main-app path. */
 async function invokeMealScan(
-  payload: { image: string; hint?: string } | { text: string; mode?: 'describe' | 'recipe' }
+  payload:
+    | { image: string; hint?: string }
+    | { text: string; mode?: 'describe' | 'recipe'; model?: 'gpt-5.6' }
 ): Promise<{ items: MealItem[]; notes: string } | { error: string }> {
   try {
     const { data, error } = await supabase.functions.invoke('meal-scan', { body: payload });
@@ -520,8 +524,12 @@ export function scanMeal(image: string, hint?: string) {
 /** Describe a meal or paste a recipe → the AI extracts foods + grams, the
  *  deterministic table prices them. `mode` drives recipe serving-scaling on
  *  the server. Same confirm sheet, same save. */
-export function describeMeal(text: string, mode: 'describe' | 'recipe' = 'describe') {
-  return invokeMealScan({ text, mode });
+export function describeMeal(
+  text: string,
+  mode: 'describe' | 'recipe' = 'describe',
+  opts?: { model?: 'gpt-5.6' }
+) {
+  return invokeMealScan({ text, mode, ...(opts?.model ? { model: opts.model } : {}) });
 }
 
 /** Save a corrected, confirmed meal — kcal + macros + full item provenance. */

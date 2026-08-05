@@ -215,6 +215,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
   account with two POPULATED plans holding different day names for the
   same weekday.
 
+- **FUEL MODEL DUEL — gpt-5.6 test bench in the Page Lab (2026-08-06,
+  migration 134 WRITTEN, apply pending)** — the describe-a-meal accuracy
+  complaint (NUTRITION_PLAN_2.md item 1) gets an instrument before it gets a
+  verdict. Server (commit f625bf1, deployed + curl-verified): `meal-scan`
+  accepts an opt-in `model` field, ALLOWLISTED to `gpt-5.6` only — absent or
+  unknown values fall through to `DEFAULT_MODEL`, pinned live (bare call →
+  880 kcal, `model:null`; `"gpt-4o"` → identical; `"gpt-5.6"` → accepted by
+  OpenAI, echoed additively in the result). Client: `describeMeal(text,
+  mode, opts?)` threads the override (main-app call sites untouched);
+  `/lab/fuel/model-duel` (first `fuel` LabPageId, real-mode-only,
+  DISPLAY-ONLY — no `useLogMeal`, nothing writes) runs the same text through
+  both models in parallel: two columns, latency, per-item DB/AI provenance,
+  totals graded pass/fail against `lab/fixtures/fuel-probes.ts` — 8
+  known-answer probes whose USDA-anchored bands are vitest-pinned through
+  the same `matchFood` import the food-match suite uses (a FOOD_DB edit
+  that invalidates a band fails CI, not the bench's honesty).
+  **THE 021 BUG, HIT A THIRD TIME:** the override path meters each call
+  with a `kind='meal-scan-test'` row so `rateLimited()` can count it —
+  falsification (12 straight 200s as BRAVO, zero rows) showed 027's kind
+  CHECK rejects it and `storeCache` swallows the rejection, so **the
+  gpt-5.6 path is fail-open (uncapped) until `migrations/134` is applied**;
+  134 re-adds the constraint with the new kind, falsification steps in its
+  header. Verified: tsc, lint (0 new), 1905 vitest (5 probe pins + 17
+  arena tests un-broken by OneDrive hydration), tokens/battle-engine/
+  motion, `expo export` with `EXPO_PUBLIC_PAGE_LAB=1`, Playwright tour
+  11/11 (880 ✓ both columns, one `"model":"gpt-5.6"` request, one bare,
+  signed-out inline "Not signed in.", no unexpected console errors).
 - **ORACLE + FUEL CONSISTENCY PASS (2026-08-05, no migration)** — Tyson's
   brief: bring Oracle and Fuel up to the Home/Train mission-briefing
   standard — one dominant hero, fewer competing cards, larger hierarchy,

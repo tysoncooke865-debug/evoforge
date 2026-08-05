@@ -14,7 +14,7 @@ import type { ComponentType } from 'react';
  *  variant is interactive without a network or an account. */
 export type LabDataMode = 'real' | 'mock';
 
-export type LabPageId = 'home' | 'train' | 'workout';
+export type LabPageId = 'home' | 'train' | 'workout' | 'fuel';
 
 export interface LabVariant {
   /** URL slug, unique within its page: /lab/<page>/<id>. */
