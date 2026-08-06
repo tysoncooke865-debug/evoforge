@@ -26,6 +26,41 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **TWO TARGETED FIXES from Tyson's second test (2026-08-06, migration 137)**
+
+  **1. The logger looked empty for 2-3s.** `resolveDay` answers from
+  `user_plans` + the saved source + saved routines, and an ad-hoc day's
+  exercises live in the persisted session store. Until all of those land,
+  `plan` is `[]` — so straight after START FIRST WORKOUT the page rendered
+  **"0/0 SETS", "Nothing in this workout yet"** and a bare search box. A new
+  athlete's first sight of their first workout was an empty one.
+  `useDayPlan` already computed `loading` and the page **ignored it**; it now
+  holds on a ForgeLoader ("Forging your workout"), and a failed plan read
+  gets a RETRY instead of an empty logger. `routines.isPending` joined the
+  hook's loading flag — `resolveDay` consumes routines, so a routine-named
+  day had the same hole one source further down.
+  **Rule: `plan.length === 0` is only "empty" once every source has landed.**
+
+  **2. The tour interrupted an in-progress workout.** The previous gate was
+  "has a logged training day" — true the INSTANT the first set lands, so it
+  fired the moment an athlete logged one set and stepped back to Home.
+  `data/tour-state.ts` is the gate now: a COMPLETED session, no workout in
+  progress, Home only, and not seen. In-progress is read from the LOG
+  (sets today with no finish marker), so it survives a refresh and a second
+  device.
+  **Seen-ness moved to the profile (137, write-once server-side)** — it lived
+  only in AsyncStorage, which is per BROWSER: a new device replayed the tour
+  and two athletes on one device shared a flag. The legacy key is read once
+  as a backfill so nobody who already dismissed it sees it again.
+
+  Verified live end to end with `user_plans` delayed 2.5s: loader shown, no
+  "0/0 SETS", no "Nothing in this workout yet"; a set logs; no tour on the
+  logger, on Home mid-workout, on Train, or after a refresh; the tour appears
+  once the workout is COMPLETE, SKIP closes it, and it never returns across
+  all six tabs or a refresh — with `tour_state='skipped'` in the profile.
+  tsc, lint, **2000 vitest cases**, guards, export.
+
+
 - **ACTIVATION FIXES from Tyson's authenticated test (2026-08-06, no
   migration)** — he finished onboarding and could not do the workout it had
   just promised. Four defects in one path, all traced live:

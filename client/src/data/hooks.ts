@@ -61,6 +61,9 @@ export interface ProfileRow {
   physique_baseline_at: string | null;
   reforge_anchor_at: string | null;
   last_reforge_at: string | null;
+  /** 137: the first-run tour, remembered per ATHLETE rather than per device. */
+  tour_completed_at: string | null;
+  tour_state: string | null;
 }
 
 function useUserId(): string | null {
@@ -81,7 +84,7 @@ export function useProfile() {
     queryFn: async (): Promise<ProfileRow | null> => {
       const { data, error } = await supabase
         .from('profile')
-        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version,onboarding_goal,secondary_goals,experience_level,training_route,training_days_per_week,session_minutes,equipment_access,preferred_days,photo_prompts_disabled,physique_baseline_at,reforge_anchor_at,last_reforge_at')
+        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version,onboarding_goal,secondary_goals,experience_level,training_route,training_days_per_week,session_minutes,equipment_access,preferred_days,photo_prompts_disabled,physique_baseline_at,reforge_anchor_at,last_reforge_at,tour_completed_at,tour_state')
         .order('created_at', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;

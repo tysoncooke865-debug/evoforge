@@ -48,6 +48,9 @@ export const LAB_PROFILE: ProfileRow = {
   physique_baseline_at: null,
   reforge_anchor_at: null,
   last_reforge_at: null,
+  // The lab photographs a settled athlete: the tour is long behind them.
+  tour_completed_at: '2026-01-06T09:00:00Z',
+  tour_state: 'completed',
 };
 
 export const LAB_FORGE: ForgeRow = {

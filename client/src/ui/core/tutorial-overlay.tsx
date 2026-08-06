@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { useWorkoutIndex } from '@/data/hooks';
+import { useMarkTourSeen, useTourGate } from '@/data/tour-state';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 
@@ -13,17 +13,25 @@ import { NeonButton } from '@/ui/core/neon-button';
  * skippable at every step. Existing users see it once too: the six-tab +
  * companion-menu layout is new to them as well.
  *
- * IT WAITS FOR THE FIRST WORKOUT NOW (2026-08-06). It used to fire the
- * moment onboarding landed an athlete on Home, which put a full-screen
- * modal — one that eats every tap — between "START FIRST WORKOUT" and the
- * logger. A tour of six tabs is worth nothing to somebody who has not yet
- * done the one thing the app is for, and the activation funnel says only 11
- * of 31 signups ever logged a workout.
+ * IT WAITS FOR A *COMPLETED* WORKOUT (2026-08-06, second pass).
  *
- * So: it holds until the athlete has at least one logged training day, and
- * it never renders over the workout logger itself. Both conditions are
- * server truth (the workout index) rather than a flag that a refresh or a
- * second device would lose.
+ * First it fired the moment onboarding landed an athlete on Home — a
+ * full-screen modal that eats every tap, between "START FIRST WORKOUT" and
+ * the logger. Gating it on "has a logged training day" fixed that and
+ * introduced the next one: that is true the instant the FIRST SET lands, so
+ * the tour appeared the moment an athlete logged one set and stepped back to
+ * Home, interrupting a workout that was still in progress.
+ *
+ * The gate lives in data/tour-state.ts now and asks three things, all from
+ * persisted data: has a workout been COMPLETED, is one under way right now,
+ * and has this ATHLETE (not this browser) already seen it. It also only ever
+ * renders on Home, so it can never cover the logger, the finish summary or
+ * Train.
+ *
+ * Seen-ness is written to the profile (migration 137, write-once server-side)
+ * as well as AsyncStorage. The local flag is a fast path that stops the
+ * overlay flashing while the profile loads; the column is what survives a
+ * reinstall, a second device and the every-cache-layer sign-out rule.
  */
 
 const KEY = 'evoforge-tutorial-done-v1';
@@ -64,27 +72,50 @@ const STEPS: readonly { icon: string; title: string; body: string }[] = [
 
 export function TutorialOverlay() {
   const colors = useThemeColors();
-  const [step, setStep] = useState(-1); // -1 = unknown/hidden
+  // No sentinel: the GATE decides whether the tour exists, `step` only says
+  // where you are in it, and `dismissed` closes it for this render tree. That
+  // leaves nothing to arm in an effect (react-hooks/set-state-in-effect).
+  const [step, setStep] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
   const pathname = usePathname();
-  const index = useWorkoutIndex();
-  // Earned: at least one logged training day. Until then the athlete has an
-  // activation path to walk and nothing may stand in it.
-  const hasTrained = (index.data?.byDate.size ?? 0) > 0;
-  const onLogger = pathname?.startsWith('/workout') === true;
+  const gate = useTourGate();
+  const markSeen = useMarkTourSeen();
+  // HOME ONLY. Anywhere else and it is covering something the athlete chose
+  // to look at — including the logger and the finish summary.
+  const onHome = pathname === '/' || pathname === '/index';
 
+  /**
+   * THE PROFILE IS THE ONLY TRUTH FOR "SEEN" (137). The legacy AsyncStorage
+   * key is read exactly once, as a BACKFILL: an athlete who dismissed the
+   * tour before the column existed must not be shown it again. Their answer
+   * is written to the profile and the local key stops mattering.
+   *
+   * Known and accepted: the legacy key is global to the browser, so a second
+   * athlete signing in on a device where someone else dismissed the tour is
+   * backfilled as having seen it. That costs them a tutorial they can still
+   * reach through the ? button on every page — against re-showing a dismissed
+   * tour to every existing athlete, which is the certain harm. New answers
+   * are per-athlete from here on, so it cannot happen twice.
+   */
+  const backfilledRef = useRef(false);
   useEffect(() => {
-    if (!hasTrained) return;
-    void AsyncStorage.getItem(KEY).then((done) => {
-      if (!done) setStep(0);
+    if (!gate.ready || gate.seen || backfilledRef.current) return;
+    backfilledRef.current = true;
+    void AsyncStorage.getItem(KEY).then((legacy) => {
+      if (legacy) markSeen.mutate('completed');
     });
-  }, [hasTrained]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gate.ready, gate.seen]);
 
-  if (!hasTrained || onLogger) return null;
-  if (step < 0 || step >= STEPS.length) return null;
-  const s = STEPS[step];
-  const finish = () => {
+  if (!gate.mayShow || !onHome || dismissed) return null;
+  const s = STEPS[Math.min(step, STEPS.length - 1)];
+  const finish = (ending: 'completed' | 'skipped') => {
+    // Local first so the overlay closes instantly, profile second so the
+    // answer outlives this browser. The 137 trigger keeps the first write,
+    // so a double tap or a retry cannot rewrite or clear it.
     void AsyncStorage.setItem(KEY, '1');
-    setStep(STEPS.length);
+    markSeen.mutate(ending);
+    setDismissed(true);
   };
 
   return (
@@ -112,11 +143,11 @@ export function TutorialOverlay() {
         <Text className="mb-s4 text-sm text-text-dim">{s.body}</Text>
         <NeonButton
           title={step === STEPS.length - 1 ? 'START FORGING' : 'NEXT'}
-          onPress={() => (step === STEPS.length - 1 ? finish() : setStep(step + 1))}
+          onPress={() => (step === STEPS.length - 1 ? finish('completed') : setStep(step + 1))}
           testID="tutorial-next"
         />
         <Pressable
-          onPress={finish}
+          onPress={() => finish('skipped')}
           accessibilityRole="button"
           className="mt-s2 items-center justify-center"
           style={{ minHeight: 44 }}

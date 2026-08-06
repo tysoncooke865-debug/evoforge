@@ -53,6 +53,7 @@ import { ExerciseCard } from '@/ui/train/exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ReorderableList } from '@/ui/train/reorderable-list';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/ui/core/neon-button';
 import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
@@ -122,7 +123,16 @@ export default function WorkoutScreen() {
   const { session } = useAuth();
   const publishGhost = usePublishGhost();
   const forge = useForgeProgression();
-  const { resolveDay, preferredSource: savedSource } = useDayPlan();
+  const {
+    resolveDay,
+    preferredSource: savedSource,
+    loading: planLoading,
+    error: planError,
+    refetch: refetchPlan,
+  } = useDayPlan();
+  /** The persisted session store arrives asynchronously; an ad-hoc workout's
+   *  exercises live in it, and so do this day's overrides. */
+  const storeHydrated = useSessionStore((st) => st._hydrated);
   // A deep link without ?source= follows the SAVED choice (035), so a
   // reload-restored or externally opened workout page agrees with Train.
   const preferredSource: SourceIndex =
@@ -538,6 +548,53 @@ export default function WorkoutScreen() {
       <ScreenShell>
         <ScreenHeader kicker="WORKOUT" title="NOTHING TO TRAIN" onBack={back} />
         <Text className="text-2xs text-text-mute">This workout has no name. Go back and pick a day.</Text>
+      </ScreenShell>
+    );
+  }
+
+  /**
+   * NOT LOADED IS NOT EMPTY (2026-08-06).
+   *
+   * `resolveDay` answers from `user_plans` + the saved source + saved
+   * routines, and an ad-hoc day's exercises live in the persisted session
+   * store. Until all of those arrive, `plan` is `[]` — so for the two or
+   * three seconds after START FIRST WORKOUT the logger rendered
+   * "0/0 SETS", "Nothing in this workout yet" and a bare search box. A brand
+   * new athlete's first sight of their first workout was an empty one.
+   *
+   * The page holds instead. It costs nothing on a warm cache (every query is
+   * already in flight from Home) and it is the difference between a slow
+   * screen and a broken one.
+   *
+   * `workouts.isPending` is in here for the same reason at one remove: the
+   * SET COUNTS come off the log, so rendering before it lands shows a
+   * half-finished workout as untouched.
+   */
+  const notReady = planLoading || !storeHydrated || workouts.isPending;
+  if (planError && !notReady && plan.length === 0) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="WORKOUT" title={workoutName.split(' - ')[0].toUpperCase()} titleLines={2} onBack={back} />
+        <GlowCard glow={colors.danger} padding={16}>
+          <Text className="text-sm text-text">Your plan could not be loaded.</Text>
+          <Text className="mt-s1 text-xs text-text-dim">
+            Nothing is lost — any set you have already logged is saved. Check your connection and
+            try again.
+          </Text>
+          <View className="mt-s3">
+            <NeonButton title="RETRY" onPress={refetchPlan} testID="workout-retry" />
+          </View>
+        </GlowCard>
+      </ScreenShell>
+    );
+  }
+  if (notReady) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker={isToday ? 'TODAY' : date} title={workoutName.split(' - ')[0].toUpperCase()} titleLines={2} onBack={back} />
+        <View className="items-center py-s8" testID="workout-loading">
+          <ForgeLoader label="Forging your workout" />
+        </View>
       </ScreenShell>
     );
   }

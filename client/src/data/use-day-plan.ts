@@ -43,6 +43,11 @@ export interface DayPlan {
   preferredSource: SourceIndex;
   /** True while the plans load — [] would otherwise read as "empty day". */
   loading: boolean;
+  /** A plan source failed to load. An empty day and a FAILED day are not the
+   *  same thing, and only one of them is the athlete's fault to fix. */
+  error: boolean;
+  /** Retry every source this hook reads. */
+  refetch: () => void;
 }
 
 const builtInEntries = (workout: string): PlanEntry[] | null => {
@@ -74,7 +79,16 @@ export function useDayPlan(): DayPlan {
     sources,
     resolveDay,
     preferredSource: resolveActiveSource(pref.data ?? null, sources),
-    loading: userPlans.isPending || pref.isPending,
+    // ROUTINES BELONG HERE TOO. `resolveDay` consumes `routines.data ?? []`,
+    // so a routine-named day resolves to NOTHING while they load — the same
+    // "empty day" lie this flag exists to prevent, one source further down.
+    loading: userPlans.isPending || pref.isPending || routines.isPending,
+    error: userPlans.isError || pref.isError || routines.isError,
+    refetch: () => {
+      void userPlans.refetch();
+      void pref.refetch();
+      void routines.refetch();
+    },
   };
 }
 
