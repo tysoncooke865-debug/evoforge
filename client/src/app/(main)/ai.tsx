@@ -7,6 +7,8 @@ import { BodyfatScanCard } from '@/ui/oracle/bodyfat-scan-card';
 import { OracleHero } from '@/ui/oracle/oracle-hero';
 import { OracleHistoryCard } from '@/ui/oracle/oracle-history-card';
 import { PhysiqueScanCard } from '@/ui/oracle/physique-scan-card';
+import { PhotoOptionalNotice } from '@/ui/oracle/photo-optional-notice';
+import { usePhotoPrefs } from '@/data/photo-prefs';
 import { RoutineForgeCard } from '@/ui/oracle/routine-forge-card';
 
 /**
@@ -34,18 +36,36 @@ export default function AiScreen() {
   const [physiqueBusy, setPhysiqueBusy] = useState(false);
   const [bodyfatBusy, setBodyfatBusy] = useState(false);
   const [planBusy, setPlanBusy] = useState(false);
+  // "Skip for now" is per-visit; "don't ask me again" is the durable one and
+  // lives on the profile (data/photo-prefs.ts).
+  const [photosSkipped, setPhotosSkipped] = useState(false);
+  const photoPrefs = usePhotoPrefs();
 
   return (
     <ScreenShell>
       <OracleHero scanning={physiqueBusy || bodyfatBusy || planBusy} />
       <AiNotice text="The Oracle uses AI to estimate your physique and body fat. Results are a rough guide, not medical advice." />
-      <PhysiqueScanCard onBusyChange={setPhysiqueBusy} />
-      <BodyfatScanCard onBusyChange={setBodyfatBusy} />
+      {/* THE OPTIONAL-PHOTO NOTICE COMES FIRST (2026-08-06). It used to be a
+          2xs line at the FOOT of this screen, below both upload cards — which
+          is to say, underneath the exact thing people refuse to do. */}
+      <PhotoOptionalNotice
+        skipped={photosSkipped}
+        onSkip={() => setPhotosSkipped(true)}
+        onUndo={() => setPhotosSkipped(false)}
+        testID="oracle-photo-notice"
+      />
+      {photosSkipped || !photoPrefs.mayAsk ? null : (
+        <>
+          <PhysiqueScanCard onBusyChange={setPhysiqueBusy} />
+          <BodyfatScanCard onBusyChange={setBodyfatBusy} />
+        </>
+      )}
+      {/* The Oracle without a camera: this is the part that needs no photo. */}
       <RoutineForgeCard onBusyChange={setPlanBusy} />
       <OracleHistoryCard />
       <Text className="text-center text-2xs text-text-mute">
-        Photos are analysed in memory and never stored. Scans are rate-limited hourly; identical
-        photos return the cached verdict without a new analysis.
+        Scans are rate-limited hourly; identical photos return the cached verdict without a new
+        analysis.
       </Text>
     </ScreenShell>
   );

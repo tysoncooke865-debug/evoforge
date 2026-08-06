@@ -41,11 +41,15 @@ export function EvolutionTeaser({
           <Silhouette branch={branch} stage={nextStage} width={56} height={68} />
 
           <View className="flex-1">
-            <EdgeLabel>NEXT EVOLUTION</EdgeLabel>
+            {/* EVOLUTION PROGRESS, named. This is a different number from
+                the PLAYER LEVEL in the masthead and from the Evo Rating on
+                the crest; each now says which it is (2026-08-06). */}
+            <EdgeLabel>EVOLUTION PROGRESS · NEXT FORM</EdgeLabel>
             <Text className="text-base font-bold text-text">{evolution.targetName}</Text>
             {readiness.nearest ? (
               <Text className="text-2xs text-text-mute">
-                Next up: <Text className="text-text-dim">{readiness.nearest.label}</Text>
+                Next form requirement:{' '}
+                <Text className="text-text-dim">{readiness.nearest.label}</Text>
               </Text>
             ) : (
               <Text className="text-2xs text-success">All requirements met</Text>

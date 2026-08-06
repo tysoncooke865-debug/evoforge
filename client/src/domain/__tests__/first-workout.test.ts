@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { deriveMission, type MissionInput } from '../home-mission';
+import { autoWorkoutName } from '../session-plan';
 import { localIso, todayIso } from '../today';
 import { resolveTodaySession, startedWorkoutToday, type TodaySessionInput } from '../today-session';
 
@@ -176,5 +177,29 @@ describe('the Home card never says RECOVERY DAY to someone who has never trained
   it('no plan at all is still no_plan, not a fabricated starter', () => {
     const m = deriveMission({ ...base, starterWorkout: null, hasSchedule: false });
     expect(m.status).toBe('no_plan');
+  });
+});
+
+describe('the Quick Workout names itself when the field is left empty', () => {
+  it('uses the weekday and the focus', () => {
+    // 2026-08-06 is a Thursday.
+    expect(autoWorkoutName('2026-08-06', 'Push', [])).toBe('Thursday Push Workout');
+    expect(autoWorkoutName('2026-08-06', null, [])).toBe('Thursday Workout');
+    expect(autoWorkoutName('2026-08-06', '  ', [])).toBe('Thursday Workout');
+  });
+
+  it('never collides with a name already in play — two sessions must not merge', () => {
+    const taken = ['Thursday Workout'];
+    expect(autoWorkoutName('2026-08-06', null, taken)).toBe('Thursday Workout 2');
+    expect(autoWorkoutName('2026-08-06', null, [...taken, 'Thursday Workout 2'])).toBe('Thursday Workout 3');
+  });
+
+  it('matches case-insensitively, because the plan does', () => {
+    expect(autoWorkoutName('2026-08-06', 'Push', ['thursday push workout'])).toBe('Thursday Push Workout 2');
+  });
+
+  it('survives a junk date instead of producing "undefined Workout"', () => {
+    expect(autoWorkoutName('not-a-date', null, [])).toContain('Workout');
+    expect(autoWorkoutName('not-a-date', null, [])).not.toContain('undefined');
   });
 });

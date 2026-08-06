@@ -143,6 +143,17 @@ export const FORGE_ENVIRONMENTS: readonly ForgeEnvironment[] = [
  * five backgrounds, and its only real requirement is that consecutive dates do
  * not collide.
  */
+/**
+ * The environment to render BEFORE the client knows what day it is.
+ *
+ * `web.output: 'static'` prerenders every route at BUILD time, so anything
+ * derived from the clock differs between the HTML and the first client
+ * render. `forgeEnvironmentFor` picks a palette AND a visible label from the
+ * date, which is why a visit on any day after the deploy threw React #418
+ * (a text mismatch on the label). This is the deterministic first frame.
+ */
+export const DEFAULT_FORGE_ENVIRONMENT: ForgeEnvironment = FORGE_ENVIRONMENTS[0];
+
 export function forgeEnvironmentFor(todayIso: string): ForgeEnvironment {
   let h = 0;
   for (let i = 0; i < todayIso.length; i++) h = (h * 31 + todayIso.charCodeAt(i)) >>> 0;

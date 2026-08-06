@@ -280,6 +280,51 @@ export function canAddSet(currentSets: number): boolean {
  * the grouping key in workout_log, so a collision would merge two different
  * workouts into one day's math.
  */
+const WEEKDAY_NAMES = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+] as const;
+
+/**
+ * A NAME FOR A WORKOUT THAT DID NOT ASK TO BE NAMED.
+ *
+ * The Quick Workout sheet labelled its field "Workout name (optional)" and
+ * then refused to start without one — "Give it a name (2+ characters)". The
+ * label was right and the behaviour was wrong: naming a session is friction
+ * at the exact moment somebody has decided to train.
+ *
+ * So an empty field gets a real name instead of an error. The weekday is the
+ * part an athlete actually recognises later in their log, and the focus comes
+ * from the exercises they picked — never a guess when they picked none.
+ *
+ *   "Thursday Push Workout"   picked chest/shoulder/triceps work
+ *   "Thursday Workout"        picked nothing yet
+ *   "Thursday Workout 2"      the first name is already used today
+ *
+ * `taken` is every name already in play for that day (plan days, scheduled
+ * extras, other ad-hocs), so the result can never collide — which is what
+ * would otherwise merge two different sessions into one workout record.
+ */
+export function autoWorkoutName(
+  dateIso: string,
+  focus: string | null,
+  taken: readonly string[]
+): string {
+  const dow = new Date(`${dateIso.slice(0, 10)}T00:00:00Z`).getUTCDay();
+  const weekday = WEEKDAY_NAMES[Number.isFinite(dow) ? dow : 0] ?? 'Today';
+  const cleanFocus = (focus ?? '').trim();
+  const base = cleanFocus ? `${weekday} ${cleanFocus} Workout` : `${weekday} Workout`;
+
+  const used = new Set(taken.map((t) => t.trim().toLowerCase()));
+  if (!used.has(base.toLowerCase())) return base;
+  for (let n = 2; n < 100; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  // 99 identical names in one day is not a real state; a stable fallback
+  // still beats throwing at somebody trying to start a workout.
+  return `${base} ${taken.length + 1}`;
+}
+
 export function adhocNameError(name: string, existingDays: readonly string[]): string | null {
   const trimmed = name.trim();
   if (trimmed.length < 2) return 'Give it a name (2+ characters).';

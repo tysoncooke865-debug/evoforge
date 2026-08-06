@@ -26,6 +26,73 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ACTIVATION FIXES from Tyson's authenticated test (2026-08-06, no
+  migration)** — he finished onboarding and could not do the workout it had
+  just promised. Four defects in one path, all traced live:
+
+  1. **`router.prefetch` NAVIGATES.** The `(main)` layout "preloaded" five
+     tabs after sign-in. In expo-router 57 `prefetch(href)` is
+     `linkTo(href, { event: 'PRELOAD' })` — the same code path as push — so
+     the app walked itself to the LAST href in the list and dumped the
+     athlete on **Fuel**. Route trace: with the loop, `/onboarding` →
+     `/fuel` in <250ms; without it, the identical tap reaches the logger.
+     **It could steal any navigation near app start.** Removed, not
+     re-guarded: no measurement ever justified it against that.
+  2. **Onboarding handed over the next SCHEDULED day** — on a rest day,
+     tomorrow, which the logger opens read-only as "Upcoming".
+  3. **Home said RECOVERY DAY** to an athlete who had never trained.
+  4. **TRAIN ANYWAY only changed tabs.**
+
+  `domain/today-session.ts` is now the ONE decision — resume > scheduled >
+  starter > none — and onboarding, Home, Train and TRAIN ANYWAY all ask it.
+  A rest day is EARNED: before the first completed workout, day one of the
+  athlete's own plan stays reachable (`deriveMission` gained
+  `first_workout`). The tour waits for a logged training day and never
+  renders over the logger.
+
+- **React #418, and the "partially rendered logo" (2026-08-06)** —
+  `web.output: 'static'` prerenders every route at BUILD time.
+  `forge-intro.tsx` picked its environment from `todayIso()` **and rendered
+  its label**, so every visit on a day other than the build day hydrated
+  "VOLCANIC FORGE" over a prerendered "SPACE FORGE" → a text mismatch.
+  Reproduced by shifting the browser clock (+5d and +200d: one #418 every
+  time), fixed by making the first render deterministic via
+  `useSyncExternalStore` (NOT setState-in-effect, which the lint rule
+  rightly bans), verified across 12 prerendered routes at +37d: zero.
+  The partial logo was the same bug — a failed hydration repaints the tree.
+  With JS disabled the prerendered splash is a clean background, so nothing
+  half-drawn is baked into the HTML.
+  **Rule: nothing derived from the clock may be rendered during first paint.**
+
+- **Recommendations, and the vocabulary trap (2026-08-06)** —
+  `domain/recommend-starter.ts` reads goal / experience / equipment /
+  session length, centres on the target muscle and sequences compounds
+  first. Two bugs the unit tests could NOT see, both caught in a browser:
+  the library tags **"Front Delts"/"Side Delts"/"Rear Delts"** while
+  `inferMuscleGroup` speaks the coarse **"Shoulders"** (5 exercises of 960
+  carry the plain tag) — `expandMuscleTargets` maps between them; and
+  `inferMuscleGroup` reads EXERCISE names, so handed the word "Shoulders" it
+  answered **"Other"** — `targetMusclesFromText` checks group names first.
+  **Any test that passes muscle tags directly is testing nothing about the
+  wiring; use EXERCISE_LIBRARY.** A Shoulders session is now Clean and
+  Press, Kettlebell Overhead Press, Barbell Upright Row, Cable Y-Raise.
+
+- **Quick Workout names itself** — the field said "(optional)" and then
+  refused to start without a name. Empty now yields "Thursday Push
+  Workout", uniquified against every name in play that day so two sessions
+  can never merge into one record.
+
+- Also: the Oracle's optional-photo notice moved ABOVE the first upload with
+  a real SKIP FOR NOW (it was 2xs text at the foot, under the thing people
+  refuse to do); Home's masthead says **PLAYER LEVEL** and the Forge says
+  **EVOLUTION PROGRESS · NEXT FORM**, so three different numbers stop
+  looking like one.
+
+  Verified: tsc, lint (0 errors), **1993 vitest cases**, tokens/motion/
+  battle-engine/glicko, `expo export`, and three browser suites — fresh-account
+  activation, the remaining checklist, and hydration across 12 routes.
+
+
 - **FULL-APP AUDIT — the sweep, and the five things it found (2026-08-05,
   no migration)** — Tyson: "run a full audit on the whole app and fix and
   repair any bugs, glitches etc, also remove any dead code, and improve the

@@ -15,7 +15,7 @@ import { useBodyweightLog, useCardioLog, useProfile, useWorkoutIndex, useWorkout
 import { useUserExercises } from '@/data/exercises';
 import { useExercisePrefs } from '@/data/exercise-prefs';
 import { buildCorpus } from '@/data/exercise-corpus';
-import { buildSections } from '@/domain/exercise-sections';
+
 import { useDeleteRoutine, useRoutines, type Routine } from '@/data/routines';
 import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
@@ -43,6 +43,7 @@ import { evoEvidenceFor, evoEvidenceLabel } from '@/domain/progression/session-e
 import { weekStart } from '@/domain/progress-aggregates';
 import {
   adhocNameError,
+  autoWorkoutName,
   dayProgress,
   EMPTY_OVERRIDES,
   type DayOverrides,
@@ -56,6 +57,9 @@ import { addDaysIso, todayIso as calendarToday } from '@/domain/today';
 import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, scheduledExtrasFor, sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
+import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
+import { recommendStarter, targetMusclesFromText } from '@/domain/recommend-starter';
+import type { EquipmentAccess, ExperienceLevel, OnboardingGoal } from '@/domain/onboarding-v3';
 import { activityXp } from '@/domain/xp';
 import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { pixelFont } from '@/theme/fonts';
@@ -287,6 +291,8 @@ export default function TodayScreen() {
   // the carousel cards and week bars used to re-filter the full 2500-row
   // log each, every render.
   const workoutIndex = useWorkoutIndex();
+  /** Any logged training day ever — what makes a rest day a real rest day. */
+  const hasEverTrained = (workoutIndex.data?.byDate.size ?? 0) > 0;
 
   /** How much of a day is done: sets logged vs sets the plan asks for. The plan
    *  is read from the SAME source the door will open, so the hub and the page
@@ -611,6 +617,19 @@ export default function TodayScreen() {
     if (!data) {
       // Rest day / nothing planned: same shell, honest content, no fake stats.
       const hasSchedule = (schedule.data ?? []).length > 0;
+      /* A REST DAY IS EARNED. On TODAY, an athlete who has never trained is
+         offered day one of their own plan instead — the same rule Home uses
+         (domain/today-session.ts), so the two screens cannot disagree about
+         whether today is trainable. Future days are untouched: a scheduled
+         rest day next Thursday is still a rest day. */
+      const firstSession = isToday
+        ? resolveTodaySession({
+            scheduledToday: null,
+            startedToday: startedWorkoutToday(workouts.data ?? [], todayIso),
+            planDays,
+            hasEverTrained,
+          })
+        : { workout: null, reason: 'none' as const };
       return (
         <View style={{ height: scale.cardHeight, paddingHorizontal: 2 }}>
           <GlowCard glow={colors.accent} padding={14} fill>
@@ -621,16 +640,30 @@ export default function TodayScreen() {
               </View>
               <View className="flex-1 items-center justify-center" style={{ gap: 6 }}>
                 <Text className="text-xl text-text" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-                  {hasSchedule ? 'REST DAY' : 'NO WORKOUT PLANNED'}
+                  {firstSession.workout
+                    ? 'YOUR FIRST WORKOUT'
+                    : hasSchedule
+                      ? 'REST DAY'
+                      : 'NO WORKOUT PLANNED'}
                 </Text>
                 <Text className="text-center text-sm text-text-dim">
-                  {hasSchedule
-                    ? 'Recovery is where the muscle is built. See you tomorrow.'
-                    : 'Pick a plan or start from scratch.'}
+                  {firstSession.workout
+                    ? `${firstSession.workout} — start whenever you are ready. Your week begins from here.`
+                    : hasSchedule
+                      ? 'Recovery is where the muscle is built. See you tomorrow.'
+                      : 'Pick a plan or start from scratch.'}
                 </Text>
               </View>
               {/* Footer pinned — same vertical position on every card. */}
-              <View style={{ marginTop: 'auto' }}>
+              <View style={{ marginTop: 'auto', gap: 8 }}>
+                {firstSession.workout ? (
+                  <NeonButton
+                    title="START FIRST WORKOUT"
+                    pixel
+                    onPress={() => open(todayIso, firstSession.workout!)}
+                    testID="hero-start-first"
+                  />
+                ) : null}
                 <NeonButton
                   title="ADD WORKOUT"
                   variant="ghost"
@@ -722,12 +755,31 @@ export default function TodayScreen() {
       ...todaysExtras, // 065: a scheduled extra owns its name today too
       ...extraBars.map((b) => b.workout ?? ''),
     ];
-    const err = adhocNameError(rawName, taken);
-    if (err !== null) {
-      useToastStore.getState().push({ kind: 'error', title: 'PICK ANOTHER NAME', subtitle: err });
-      return;
+    /* AN EMPTY NAME IS NOT AN ERROR. The field says "optional" and now means
+       it: we name the session from the day and what they picked, uniquely
+       against everything already in play today so two sessions can never
+       collapse into one record. A name they DID type is still validated. */
+    const typed = rawName.trim();
+    let name: string;
+    if (typed === '') {
+      const focusCounts = new Map<string, number>();
+      for (const p of picks) {
+        const m = inferMuscleGroup(p.exercise);
+        // "Other" is inferMuscleGroup's FALLBACK, not a muscle — naming a
+        // session "Thursday Other Workout" is worse than not naming its focus.
+        if (m && m.toLowerCase() !== 'other') focusCounts.set(m, (focusCounts.get(m) ?? 0) + 1);
+      }
+      const focus =
+        [...focusCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+      name = autoWorkoutName(todayIso, focus, taken);
+    } else {
+      const err = adhocNameError(typed, taken);
+      if (err !== null) {
+        useToastStore.getState().push({ kind: 'error', title: 'PICK ANOTHER NAME', subtitle: err });
+        return;
+      }
+      name = typed;
     }
-    const name = rawName.trim();
     startAdhoc({ name, exercises: picks });
     setEmptyOpen(false);
     open(todayIso, name);
@@ -1160,43 +1212,56 @@ function QuickWorkoutSheet({
   onClose: () => void;
 }) {
   const colors = useThemeColors();
+  // The athlete's own onboarding answers drive the recommendations.
+  const profile = useProfile();
   const [name, setName] = useState('');
   // Exercises picked in the sheet BEFORE starting — they seed the ad-hoc.
   const [picks, setPicks] = useState<SessionExercise[]>([]);
 
-  /** PREFILL RECOMMENDED (Tyson, 2026-07-19): one tap seeds the QUICK WORKOUT
-   *  with the exercises the athlete would most likely pick — the SAME corpus +
-   *  ranking engine the search bar runs on. If they typed a name we can read a
-   *  muscle from (e.g. "Chest Day"), it drives SUGGESTED FOR TODAY; otherwise it
-   *  falls back to POPULAR staples. Only ADDS — never eats a pick already made. */
+  /**
+   * PREFILL RECOMMENDED — for THIS athlete and THIS session.
+   *
+   * It used to run the SEARCH ranker, whose top sections are `suggested`
+   * (driven by training history) and `popular`. A new athlete has no history,
+   * so `suggested` was empty and the list fell through to library order —
+   * which is alphabetical. A Shoulders session was offered Ab Wheel Rollout,
+   * Arnold Press, Assisted Pull-Up, a squat and a bench.
+   *
+   * `recommendStarter` needs no history: it reads the goal, experience,
+   * equipment and session length the athlete gave onboarding, centres on the
+   * muscle this session is for, and sequences compounds before isolation.
+   * Only ADDS — never eats a pick already made.
+   */
   const prefill = () => {
     const corpus = buildCorpus(corpusData, {
       programExercises: [],
       excludeNames: picks.map((p) => p.exercise),
     });
-    const guessed = name.trim() ? inferMuscleGroup(name.trim()) : null;
-    const sections = buildSections({
+    // The typed text names a MUSCLE GROUP ("Shoulders"), not an exercise —
+    // inferMuscleGroup answers "Other" for it, which matched nothing.
+    const targetMuscles = targetMusclesFromText(name, inferMuscleGroup);
+    const add = recommendStarter({
+      goal: (profile.data?.onboarding_goal as OnboardingGoal | null) ?? null,
+      experience: (profile.data?.experience_level as ExperienceLevel | null) ?? null,
+      equipment: (profile.data?.equipment_access as EquipmentAccess | null) ?? null,
+      sessionMinutes: profile.data?.session_minutes ?? null,
+      targetMuscles,
       library: corpus.library,
-      program: [],
-      history: corpus.history,
-      favourites: corpus.context.favourites,
-      hidden: corpus.context.hidden,
-      targetMuscles: new Set(guessed ? [guessed] : []),
-      alreadyAdded: new Set(picks.map((p) => p.exercise.toLowerCase())),
+      exclude: picks.map((p) => p.exercise),
     });
-    const names: string[] = [];
-    for (const key of ['suggested', 'popular']) {
-      const sec = sections.find((s) => s.key === key);
-      if (sec) for (const e of sec.exercises) if (!names.includes(e.name)) names.push(e.name);
-    }
-    const add = names.slice(0, 6);
     if (add.length === 0) {
-      useToastStore.getState().push({ kind: 'info', title: 'NOTHING TO SUGGEST', subtitle: 'Type a name or search instead.' });
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'NOTHING TO SUGGEST',
+        subtitle: targetMuscles.length
+          ? `No ${targetMuscles[0]} exercises match your equipment.`
+          : 'Search for an exercise instead.',
+      });
       return;
     }
     setPicks((cur) => {
-      const have = new Set(cur.map((x) => x.exercise));
-      return [...cur, ...add.filter((n) => !have.has(n)).map((n) => ({ exercise: n, sets: 3, reps: '8-12' }))];
+      const have = new Set(cur.map((x) => x.exercise.toLowerCase()));
+      return [...cur, ...add.filter((a) => !have.has(a.exercise.toLowerCase()))];
     });
   };
 
@@ -1214,7 +1279,7 @@ function QuickWorkoutSheet({
           <TextInput
             className="min-h-[48px] rounded-xl border bg-surface-2 px-s3 text-base text-text"
             style={{ borderColor: colors.border }}
-            placeholder="Workout name (optional)"
+            placeholder="Workout name (optional — we'll name it)"
             placeholderTextColor="#64758f"
             value={name}
             onChangeText={setName}

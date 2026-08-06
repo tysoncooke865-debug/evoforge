@@ -44,7 +44,7 @@
  */
 
 import * as Haptics from 'expo-haptics';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, useSyncExternalStore } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -56,6 +56,7 @@ import Animated, {
 import {
   BOOT_REDUCED_MS,
   BOOT_TOTAL_MS,
+  DEFAULT_FORGE_ENVIRONMENT,
   STAGE,
   forgeEnvironmentFor,
   seg,
@@ -84,6 +85,27 @@ import { ForgeHammer, ForgeSigil } from './forge-sigil';
  * instant there is one.
  */
 const HIDDEN = { opacity: 0 } as const;
+
+/**
+ * Has the client taken over from the prerendered HTML?
+ *
+ * `useSyncExternalStore` is the hydration-safe way to ask: the server
+ * snapshot is `false`, the client snapshot is `true`, and React guarantees
+ * the first client render matches the server before switching. Nothing ever
+ * subscribes, because this value changes exactly once.
+ *
+ * The alternative — setState in a mount effect — is what
+ * react-hooks/set-state-in-effect exists to stop, and it would paint one
+ * extra frame.
+ */
+const NEVER_CHANGES = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    NEVER_CHANGES,
+    () => true,
+    () => false
+  );
+}
 
 const WORDMARK = 'EVOFORGE';
 const TAGLINE = 'FORGE YOUR ASCENSION';
@@ -147,7 +169,24 @@ export const ForgeIntro = memo(function ForgeIntro({
   const [word, setWord] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const width = box.w || 360;
   const height = box.h || 760;
-  const env = forgeEnvironmentFor(todayIso());
+  /**
+   * HYDRATION-SAFE ENVIRONMENT (2026-08-06).
+   *
+   * `web.output: 'static'` prerenders this component at BUILD time. The
+   * environment is chosen from `todayIso()`, and it renders a visible LABEL —
+   * so every visit on a day other than the build day hydrated "VOLCANIC
+   * FORGE" over a prerendered "SPACE FORGE" and threw **React #418** (a text
+   * mismatch), during exactly the splash/auth transition Tyson reported.
+   * Reproduced by shifting the browser clock five days: one #418, every time.
+   *
+   * The first render — server and client — is now the SAME fixed environment,
+   * so the trees match. The real one takes over on the tick after hydration,
+   * when a clock exists. The palette swap is invisible because every timed
+   * layer starts from HIDDEN, and the label simply waits for a day it can
+   * trust rather than rendering a guess that will be corrected.
+   */
+  const hydrated = useHydrated();
+  const env = hydrated ? forgeEnvironmentFor(todayIso()) : DEFAULT_FORGE_ENVIRONMENT;
   const palette = colors as unknown as Record<string, string>;
   const ember = palette[env.ember] ?? colors.accent;
   const halo = palette[env.halo] ?? colors['accent-deep'];
@@ -428,7 +467,7 @@ export const ForgeIntro = memo(function ForgeIntro({
           allowFontScaling={false}
           style={{ fontSize: 8, letterSpacing: 3, color: colors['text-mute'], opacity: 0.7 }}
         >
-          {env.label}
+          {hydrated ? env.label : ''}
         </Text>
       </View>
 

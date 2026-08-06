@@ -101,6 +101,19 @@ export function HomeHeader({
           className="justify-center pr-s2"
           style={{ minHeight: 44, minWidth: 84 }}
         >
+          {/* "PLAYER LEVEL", not "LV." (2026-08-06). Home showed LV. 1 while
+              the Forge showed "35 / 50" and the Evo crest showed a rating out
+              of 100 — three numbers, three meanings, none of them named. This
+              one is the XP level; the Forge's bar is EVOLUTION PROGRESS toward
+              the NEXT FORM REQUIREMENT. Naming them is the whole fix; none of
+              the underlying progression changed. */}
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 7, letterSpacing: 1.2, ...pixelFont(false) }}
+          >
+            PLAYER LEVEL
+          </Text>
           <View className="flex-row items-baseline" style={{ gap: 4 }}>
             <Text className="text-2xs text-text-mute" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }}>
               LV.
