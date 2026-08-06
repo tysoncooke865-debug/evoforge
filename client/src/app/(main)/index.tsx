@@ -27,6 +27,7 @@ import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
 import { computeStreak } from '@/domain/streak';
+import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
 import { todayIso as calendarToday } from '@/domain/today';
 import { sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
@@ -176,14 +177,24 @@ export default function HomeScreen() {
   // 2500 rows ~5× per render across mission/PR/totals/streak derivations.
   const workoutIndex = useWorkoutIndex();
   const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
-  const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
+  // ALREADY UNDER WAY? Server truth from the log, not the session store —
+  // it survives a refresh, a second device and a cleared cache, which is
+  // what "return to the app after partially logging" actually needs.
+  const startedToday = startedWorkoutToday(workouts.data ?? [], todayIso);
+  // Never completed a workout: a rest day cannot apply yet, so day one of
+  // their own plan stays reachable (domain/today-session.ts).
+  const hasEverTrained = (workoutIndex.data?.byDate.size ?? 0) > 0;
+  const starterWorkout = planDays.find((d) => d.trim() !== '') ?? null;
+  const missionWorkout = scheduledToday ?? adhoc?.name ?? startedToday ?? (hasEverTrained ? null : starterWorkout);
 
-  // The day's plan entries: the chosen source first (the resolveDayIn rule);
-  // an ad-hoc day's plan is the ad-hoc's own picks.
+  // The day's plan entries: a named plan day resolves from the plan (whether
+  // the schedule assigned it today or it is the starter being offered); an
+  // ad-hoc day's plan is the ad-hoc's own picks.
+  const fromPlan = missionWorkout !== null && planDays.includes(missionWorkout);
   const entries: [string, number][] =
     missionWorkout === null
       ? []
-      : scheduledToday !== null
+      : fromPlan
         ? resolveDay(missionWorkout, source).entries.map(([e, s]) => [e, s] as [string, number])
         : (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]);
 
@@ -205,11 +216,13 @@ export default function HomeScreen() {
   const mission = deriveMission({
     hasSchedule,
     assignedWorkout: scheduledToday,
-    adhocWorkout: adhoc?.name ?? null,
+    adhocWorkout: adhoc?.name ?? startedToday,
     finished,
     doneSets,
     targetSets,
     loggedSets: dayRows.length,
+    starterWorkout,
+    hasEverTrained,
   });
 
   // A6: ONE bodyweight chain app-wide (latest log → profile → caller's
@@ -243,11 +256,30 @@ export default function HomeScreen() {
     void sessions.refetch();
     void workouts.refetch();
   };
+  const openWorkout = (name: string) => {
+    router.push(
+      `/workout?date=${encodeURIComponent(todayIso)}&workout=${encodeURIComponent(name)}&source=${source}` as never
+    );
+  };
   const openMission = () => {
     if (!mission.workout) return;
-    router.push(
-      `/workout?date=${encodeURIComponent(todayIso)}&workout=${encodeURIComponent(mission.workout)}&source=${source}` as never
-    );
+    openWorkout(mission.workout);
+  };
+  /**
+   * TRAIN ANYWAY, from a genuine rest day. Resolves the same way every other
+   * entry point does (domain/today-session.ts) and always ends at a real
+   * session for TODAY — resume what is already started, else the scheduled
+   * day, else day one of their own plan. It never merely changes tabs, which
+   * is what it used to do.
+   */
+  const trainAnyway = () => {
+    const session = resolveTodaySession({
+      scheduledToday,
+      startedToday,
+      planDays,
+      hasEverTrained: false, // this button IS the athlete overriding the rest day
+    });
+    if (session.workout) openWorkout(session.workout);
   };
 
   // ---- This week (Monday-start, the contract's window). ----
@@ -321,6 +353,7 @@ export default function HomeScreen() {
       error={missionError && !missionLoading}
       onRetry={retryMission}
       onOpen={openMission}
+      onTrainAnyway={trainAnyway}
       features={homeFeatures}
       evoPerSession={evoPerSession}
     />

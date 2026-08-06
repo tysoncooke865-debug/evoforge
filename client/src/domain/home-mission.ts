@@ -15,7 +15,15 @@
 
 import { activityXp } from './xp';
 
-export type MissionStatus = 'scheduled' | 'in_progress' | 'completed' | 'rest_day' | 'no_plan';
+export type MissionStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  /** Never trained, and today is not a scheduled day — a first session is
+   *  still offered. You cannot be on a rest day before you have trained. */
+  | 'first_workout'
+  | 'rest_day'
+  | 'no_plan';
 
 export interface MissionInput {
   /** Any schedule rows exist at all. */
@@ -33,6 +41,11 @@ export interface MissionInput {
   /** ALL valid sets logged today for this workout — XP was granted per set
    *  whether or not the plan asked for it, so banked XP counts them all. */
   loggedSets: number;
+  /** Day one of the athlete's own plan, offered when nothing is scheduled
+   *  and they have never trained. Null when they have no plan at all. */
+  starterWorkout: string | null;
+  /** Has any workout ever been COMPLETED? */
+  hasEverTrained: boolean;
 }
 
 export interface Mission {
@@ -60,6 +73,14 @@ export function deriveMission(input: MissionInput): Mission {
   };
 
   if (workout === null) {
+    // A REST DAY IS EARNED. Before the first completed workout there is
+    // nothing to recover from, and "RECOVERY DAY" was the last thing a
+    // brand-new athlete saw after being promised a first workout — with a
+    // TRAIN ANYWAY button that only changed tabs. Offer day one of their
+    // plan instead, and let the card say so.
+    if (!input.hasEverTrained && input.starterWorkout !== null) {
+      return { ...base, workout: input.starterWorkout, status: 'first_workout' };
+    }
     return { ...base, status: input.hasSchedule ? 'rest_day' : 'no_plan' };
   }
   if (input.finished) {

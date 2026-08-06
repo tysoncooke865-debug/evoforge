@@ -222,6 +222,9 @@ export function HomeBaseline() {
     doneSets,
     targetSets,
     loggedSets: dayRows.length,
+    // The lab photographs an established athlete: a rest day is real for them.
+    starterWorkout: null,
+    hasEverTrained: true,
   });
 
   // A6: ONE bodyweight chain app-wide (latest log → profile → caller's
@@ -388,6 +391,7 @@ export function HomeBaseline() {
         error={missionError && !missionLoading}
         onRetry={retryMission}
         onOpen={openMission}
+        onTrainAnyway={openMission}
         features={homeFeatures}
         evoPerSession={evoPerSession}
       />

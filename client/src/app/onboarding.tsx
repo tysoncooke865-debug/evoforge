@@ -11,6 +11,7 @@ import { enablePush } from '@/data/push';
 import { supabase } from '@/data/supabase';
 import { saveUserPlanDirect } from '@/data/user-plans';
 import { seedPlanForSplit } from '@/domain/exercise-library';
+import { resolveTodaySession } from '@/domain/today-session';
 import {
   EQUIPMENT,
   EQUIPMENT_LABEL,
@@ -120,6 +121,7 @@ export default function OnboardingScreen() {
     planName: string | null;
     missionDay: string | null;
     inDays: number;
+    nextScheduled: { day: string; inDays: number } | null;
     exercises: [string, number][];
   } | null>(null);
 
@@ -217,7 +219,14 @@ export default function OnboardingScreen() {
   /* the two writes                                                      */
   /* ------------------------------------------------------------------ */
 
-  const empty = { splitKey: null, planName: null, missionDay: null, inDays: 0, exercises: [] as [string, number][] };
+  const empty = {
+    splitKey: null as string | null,
+    planName: null as string | null,
+    missionDay: null as string | null,
+    inDays: 0,
+    nextScheduled: null as { day: string; inDays: number } | null,
+    exercises: [] as [string, number][],
+  };
 
   const seedPlan = async (): Promise<typeof seeded> => {
     // The athlete who brought their own program gets nothing seeded over it.
@@ -233,9 +242,29 @@ export default function OnboardingScreen() {
       .from('workout_schedule')
       .upsert({ effective_from: todayIso(), plan: week }, { onConflict: 'user_id,effective_from' });
 
+    /**
+     * THE FIRST WORKOUT IS TODAY. Always.
+     *
+     * This used to hand over `firstMissionDay(week, dow)` — the next day the
+     * seeded week happened to schedule — so a Wednesday signup whose split
+     * lands on Thu/Sat was promised "START FIRST WORKOUT" and given a
+     * TOMORROW workout, which the logger then opened read-only as "Upcoming".
+     * They finished onboarding with no way to train that session.
+     *
+     * Today's scheduled day if the week has one, otherwise day one of their
+     * own plan. Either way it is a real day from the plan they just chose, it
+     * is dated today, and the logger opens it live.
+     */
     const dow = new Date(`${todayIso()}T00:00:00Z`).getUTCDay();
-    const mission = firstMissionDay(week, dow);
-    const day = mission ? seed.days.find((d) => d.day === mission.day) : null;
+    const scheduledToday = week[String(dow)] && week[String(dow)] !== 'Rest' ? week[String(dow)] : null;
+    const session = resolveTodaySession({
+      scheduledToday,
+      startedToday: null,
+      planDays: seed.days.map((d) => d.day),
+      hasEverTrained: false,
+    });
+    const upcoming = firstMissionDay(week, dow);
+    const day = session.workout ? seed.days.find((d) => d.day === session.workout) : null;
     track('plan_created', {
       ...FLOW_PROPS,
       split: splitKey,
@@ -248,8 +277,12 @@ export default function OnboardingScreen() {
     return {
       splitKey,
       planName: seed.plan_name,
-      missionDay: mission?.day ?? null,
-      inDays: mission?.inDays ?? 0,
+      missionDay: session.workout,
+      // Zero, by construction: what is handed over is dated today.
+      inDays: 0,
+      // When today is not a scheduled day, say what the week does next rather
+      // than pretending the plan starts tomorrow.
+      nextScheduled: session.reason === 'starter' && upcoming ? upcoming : null,
       exercises: (day?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]),
     };
   };
@@ -741,6 +774,7 @@ export default function OnboardingScreen() {
           planName={seeded?.planName ?? null}
           missionDay={seeded?.missionDay ?? null}
           inDays={seeded?.inDays ?? 0}
+          nextScheduled={seeded?.nextScheduled ?? null}
           exercises={seeded?.exercises ?? []}
           testID="mission-reveal"
         />

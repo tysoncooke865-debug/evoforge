@@ -146,32 +146,28 @@ export default function MainLayout() {
     })();
   }, [session, profile.data, queryClient]);
 
-  // OPTIMISE (2026-07-16): idle-time tab preload. With async routes, a
-  // tab's FIRST visit pays its chunk fetch + first render; prefetch mounts
-  // the other five in the background once the app is idle, so every tab
-  // switch is a pure show. Safe by audit: none of the tab screens has
-  // mount-time subscriptions (focus-scoped effects stay focus-scoped), and
-  // their queries share the already-warm cache — /ai included: Oracle photos
-  // live in component state, nothing runs until the athlete acts. The
-  // workout page is NOT preloaded — it is params-dependent.
-  const prefetchedRef = useRef(false);
-  useEffect(() => {
-    if (prefetchedRef.current || !session || profile.data === undefined) return;
-    prefetchedRef.current = true;
-    const warm = () => {
-      for (const href of ['/today', '/ai', '/social', '/arena', '/fuel']) {
-        try {
-          router.prefetch(href as never);
-        } catch {
-          // Preload is an optimisation, never a failure mode.
-        }
-      }
-    };
-    type IdleWindow = { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
-    const w = globalThis as IdleWindow;
-    if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(warm, { timeout: 4000 });
-    else setTimeout(warm, 2500);
-  }, [session, profile.data]);
+  /**
+   * THE IDLE TAB PRELOAD IS GONE, AND IT WAS NOT AN OPTIMISATION
+   * (2026-08-06). It called `router.prefetch` for '/today', '/ai', '/social',
+   * '/arena' and '/fuel' shortly after sign-in. In expo-router 57.0.4
+   * `prefetch(href)` is `linkTo(href, { event: 'PRELOAD' })` — the SAME code
+   * path as push/replace — and on web it NAVIGATES. So a few seconds into
+   * every session the app quietly walked itself to the last href in that
+   * list and dumped the athlete on Fuel.
+   *
+   * That is the bug behind "START FIRST WORKOUT opens the Fuel page". Traced
+   * live: with the loop in place the route went /onboarding -> /fuel inside
+   * 250ms; with it removed the identical tap landed on
+   * /workout?date=<today>&workout=Full%20Body%203 with a working logger.
+   * It could steal ANY navigation that happened near app start, not just
+   * this one.
+   *
+   * Not re-added behind a platform check: the claimed win was a warm chunk on
+   * first tab switch, and no measurement ever justified it against a
+   * navigation hijack. If it comes back it needs a real preload API that
+   * cannot dispatch a navigation, plus a test that asserts the route does not
+   * change.
+   */
 
   // Level-up detector: compares the CONFIRMED Forge Level across refetches
   // (Tyson, 2026-07-16: the game level is the earned Forge Level now).

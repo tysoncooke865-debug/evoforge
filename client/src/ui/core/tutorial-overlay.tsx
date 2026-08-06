@@ -1,16 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { useWorkoutIndex } from '@/data/hooks';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
  * THE FIRST-RUN TOUR (Tyson, 2026-07-13): four cards that show a new
- * athlete where everything lives — shown once (AsyncStorage flag), right
- * after onboarding lands them on Home, and skippable at every step.
- * Existing users see it once too: the five-tab + companion-menu layout is
- * new to them as well.
+ * athlete where everything lives — shown once (AsyncStorage flag) and
+ * skippable at every step. Existing users see it once too: the six-tab +
+ * companion-menu layout is new to them as well.
+ *
+ * IT WAITS FOR THE FIRST WORKOUT NOW (2026-08-06). It used to fire the
+ * moment onboarding landed an athlete on Home, which put a full-screen
+ * modal — one that eats every tap — between "START FIRST WORKOUT" and the
+ * logger. A tour of six tabs is worth nothing to somebody who has not yet
+ * done the one thing the app is for, and the activation funnel says only 11
+ * of 31 signups ever logged a workout.
+ *
+ * So: it holds until the athlete has at least one logged training day, and
+ * it never renders over the workout logger itself. Both conditions are
+ * server truth (the workout index) rather than a flag that a refresh or a
+ * second device would lose.
  */
 
 const KEY = 'evoforge-tutorial-done-v1';
@@ -52,13 +65,21 @@ const STEPS: readonly { icon: string; title: string; body: string }[] = [
 export function TutorialOverlay() {
   const colors = useThemeColors();
   const [step, setStep] = useState(-1); // -1 = unknown/hidden
+  const pathname = usePathname();
+  const index = useWorkoutIndex();
+  // Earned: at least one logged training day. Until then the athlete has an
+  // activation path to walk and nothing may stand in it.
+  const hasTrained = (index.data?.byDate.size ?? 0) > 0;
+  const onLogger = pathname?.startsWith('/workout') === true;
 
   useEffect(() => {
+    if (!hasTrained) return;
     void AsyncStorage.getItem(KEY).then((done) => {
       if (!done) setStep(0);
     });
-  }, []);
+  }, [hasTrained]);
 
+  if (!hasTrained || onLogger) return null;
   if (step < 0 || step >= STEPS.length) return null;
   const s = STEPS[step];
   const finish = () => {

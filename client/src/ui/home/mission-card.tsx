@@ -71,6 +71,7 @@ export function MissionCard({
   error,
   onRetry,
   onOpen,
+  onTrainAnyway,
   features,
   evoPerSession,
 }: {
@@ -87,6 +88,8 @@ export function MissionCard({
   onRetry: () => void;
   /** Opens the workout page for (today, mission.workout) with the source. */
   onOpen: () => void;
+  /** Starts a real session for TODAY from a rest day. Never a tab change. */
+  onTrainAnyway: () => void;
   features: HomeFeatures;
   /** The athlete's OWN measured Evo-per-training-day, or null when they have
    *  too little history for the average to mean anything. Never defaulted —
@@ -122,6 +125,35 @@ export function MissionCard({
 
   const nextLine = next ? `Next mission: ${next.day} · ${whenLabel(next)}` : null;
 
+  /* THE FIRST SESSION. Nothing scheduled today, and this athlete has never
+     trained — so there is nothing to recover from and no reason to make them
+     wait until tomorrow. Day one of their own plan, offered now, through the
+     same door every other state uses. */
+  if (mission.status === 'first_workout') {
+    return (
+      <GlowCard glow={colors.accent} padding={16}>
+        <Kicker>TODAY&apos;S MISSION</Kicker>
+        <Text className="mt-s2 text-text" allowFontScaling={false} style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }}>
+          {title.toUpperCase()}
+        </Text>
+        {sub ? <Text className="text-sm text-text-dim">{sub}</Text> : null}
+        <Text className="mt-s2 text-sm text-text-dim">
+          Your first session. Start it whenever you are ready — your week begins from here.
+        </Text>
+        <View className="mt-s3">
+          <NeonButton
+            title="START FIRST WORKOUT"
+            size="hero"
+            sweep
+            onPress={onOpen}
+            testID="mission-start"
+            rightIcon={<Text style={{ color: colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+          />
+        </View>
+      </GlowCard>
+    );
+  }
+
   if (mission.status === 'rest_day') {
     return (
       <GlowCard padding={16}>
@@ -133,11 +165,16 @@ export function MissionCard({
           Rest, recover and prepare for your next mission.{nextLine ? ` ${nextLine}.` : ''}
         </Text>
         <View className="mt-s3">
+          {/* TRAIN ANYWAY used to be `router.push('/today')` — it changed
+              tabs and left the athlete to find a workout themselves, which on
+              a rest day meant there was nothing there to find. It opens a
+              real session for TODAY now, through the same door as every other
+              state. */}
           <NeonButton
             title="TRAIN ANYWAY"
             variant="ghost"
             pixel
-            onPress={() => router.push('/today' as never)}
+            onPress={onTrainAnyway}
             testID="mission-rest-train"
           />
         </View>

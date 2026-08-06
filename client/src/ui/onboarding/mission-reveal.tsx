@@ -33,6 +33,7 @@ export function MissionReveal({
   planName,
   missionDay,
   inDays,
+  nextScheduled,
   exercises,
   testID,
 }: {
@@ -42,8 +43,10 @@ export function MissionReveal({
   planName: string | null;
   /** The workout being handed over, or null when there is no plan yet. */
   missionDay: string | null;
-  /** 0 = today. */
+  /** 0 = today. Always 0 now — what is handed over is dated today. */
   inDays: number;
+  /** When today is not a scheduled day, what the week does next. */
+  nextScheduled?: { day: string; inDays: number } | null;
   /** [exercise, sets] for that day — the real seeded entries. */
   exercises: readonly (readonly [string, number])[];
   testID?: string;
@@ -97,6 +100,11 @@ export function MissionReveal({
               style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
             >
               {inDays === 0 ? 'YOUR FIRST WORKOUT · TODAY' : inDays === 1 ? 'YOUR FIRST WORKOUT · TOMORROW' : `YOUR FIRST WORKOUT · IN ${inDays} DAYS`}
+            </Text>
+            <Text className="mt-[2px] text-2xs text-text-mute">
+              {nextScheduled
+                ? `Your week proper starts ${nextScheduled.inDays === 1 ? 'tomorrow' : `in ${nextScheduled.inDays} days`} with ${nextScheduled.day} — this one is yours to do now.`
+                : 'Ready when you are.'}
             </Text>
             <Text
               className="mt-s1 text-text"

@@ -10,6 +10,10 @@ const base: MissionInput = {
   doneSets: 0,
   targetSets: 16,
   loggedSets: 0,
+  // The existing cases describe an athlete with a routine; the first-workout
+  // cases below set these explicitly.
+  starterWorkout: null,
+  hasEverTrained: true,
 };
 
 describe('deriveMission — one pure decision, the same ingredients as the Train hub', () => {
