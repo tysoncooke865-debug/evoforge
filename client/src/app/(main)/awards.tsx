@@ -125,17 +125,6 @@ export default function AwardsScreen() {
   const { inputs, ready } = useAchievementInputs();
   const [filter, setFilter] = useState<Filter>('ALL');
 
-  // A page of grey, unearned badges is a claim that they are unearned. Say
-  // "loading" instead until the real list lands (2026-08-06).
-  if (achievements.isPending) {
-    return (
-      <ScreenShell>
-        <ScreenHeader kicker="THE TROPHY WALL" title="AWARDS" />
-        <SkeletonScreen cards={3} testID="awards-loading" />
-      </ScreenShell>
-    );
-  }
-
   const held = useMemo(
     () =>
       new Map(
@@ -202,6 +191,19 @@ export default function AwardsScreen() {
       if (ea !== eb) return ea - eb; // locked first, earned sink to the bottom
       return orderRow(b) - orderRow(a); // closest-to-earning first
     });
+
+  // AFTER every hook — an early return above them is a conditional hook call,
+  // which is why this shipped red on 2026-08-06. A page of grey, unearned
+  // badges is a claim that they are unearned; say "loading" until the real
+  // list lands.
+  if (achievements.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="TROPHY HALL" title="ACHIEVEMENTS" />
+        <SkeletonScreen cards={3} testID="awards-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>

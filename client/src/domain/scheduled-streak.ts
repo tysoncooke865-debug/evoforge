@@ -20,7 +20,6 @@
  * of the day's workouts it belonged to.
  */
 
-import { isCountedSet } from './workouts';
 import { addDaysIso } from './today';
 import { completedSessions, trainedOn, type CompletedSessionsInput } from './session-stats';
 import type { WorkoutRow } from './summary';

@@ -895,25 +895,6 @@ function SkillDetailSheet({
   );
 }
 
-function SheetStat({ label, value, tint }: { label: string; value: string; tint: string }) {
-  return (
-    <View
-      className="flex-1 items-center rounded-md py-s2"
-      style={{ borderWidth: 1, borderColor: `${tint}33`, backgroundColor: 'rgba(6,12,24,0.5)' }}
-    >
-      <Text
-        className="text-text-mute"
-        allowFontScaling={false}
-        style={{ fontSize: 8, letterSpacing: 1, ...pixelFont(false) }}
-      >
-        {label}
-      </Text>
-      <Text allowFontScaling={false} style={{ fontSize: 14, color: tint, ...pixelFont() }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------- view
 
