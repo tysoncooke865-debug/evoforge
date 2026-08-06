@@ -24,6 +24,7 @@ import { todayIso } from '@/domain/today';
 import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/session-store';
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
 import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
+import { challengeFeatures } from '@/ui/challenges/features';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { PageHelp } from '@/ui/help/page-help';
@@ -282,7 +283,27 @@ export default function MainLayout() {
         name="social"
         options={{ title: 'Social', tabBarIcon: ({ color }) => <PixelPeople size={19} color={color as string} /> }}
       />
-      <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: makeIcon('⚔') }} />
+      {/* ARENA → CHALLENGES (2026-08-07), behind challengeFeatures.
+          Both route trees ship; the flag decides which one has a TAB. Arena's
+          code and tables are untouched — hidden from the primary UI, not
+          deleted, because "may be useful later" is a product decision and
+          this is a navigation change. */}
+      <Tabs.Screen
+        name="arena"
+        options={
+          challengeFeatures.challengesEnabled
+            ? { href: null }
+            : { title: 'Arena', tabBarIcon: makeIcon('⚔') }
+        }
+      />
+      <Tabs.Screen
+        name="challenges"
+        options={
+          challengeFeatures.challengesEnabled
+            ? { title: 'Challenges', tabBarIcon: makeIcon('⚔') }
+            : { href: null }
+        }
+      />
       {/* FUEL: the calorie tracker wears the pixel fork, like Train's dumbbell. */}
       <Tabs.Screen
         name="fuel"
