@@ -144,6 +144,15 @@ export default function ReforgeDayScreen() {
     <ScreenShell>
       <ScreenHeader kicker="EVO RATING" title="REFORGE DAY" onBack={() => router.back()} />
 
+      {/* WHAT THIS IS, said once, at the top. "Evo Review" and "EvoGuide" are
+          retired names for this (2026-08-06); the athlete should never have to
+          hold two words for one event. Deliberately NOT called evolution —
+          that is the champion's stage, a separate system. */}
+      <Text className="text-2xs text-text-dim" testID="reforge-explainer">
+        Reforge Day is your recurring progress reassessment. It uses your logged training and
+        optional physique evidence to update your Evo Rating.
+      </Text>
+
       {!cadence.started ? (
         <GlowCard padding={16}>
           <Text className="text-sm text-text">Your first Reforge starts with your first workout.</Text>

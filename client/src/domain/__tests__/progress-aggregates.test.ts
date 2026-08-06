@@ -62,7 +62,12 @@ describe('periodTotals', () => {
   it('counts only rows inside [from, to] and only valid sets', () => {
     const t = periodTotals(rows, cardios, '2026-07-06', '2026-07-12');
     expect(t.sets).toBe(3);
-    expect(t.sessions).toBe(2); // 07-06 and 07-08
+    // Three TRAINING DAYS: 07-06 and 07-08 lifting, 07-07 cardio. `sessions`
+    // used to ignore cardio entirely, so this card could read "0 SESSIONS"
+    // beside "30 CARDIO MIN" (fixed 2026-08-06).
+    expect(t.sessions).toBe(3);
+    expect(t.strengthSessions).toBe(2);
+    expect(t.cardioSessions).toBe(1);
     expect(t.reps).toBe(13);
     expect(t.volumeKg).toBe(100 * 5 + 100 * 5 + 140 * 3);
     expect(t.cardioMinutes).toBe(30);
@@ -87,7 +92,16 @@ describe('periodTotals', () => {
 
   it('an empty period is honest zeros, not a crash', () => {
     const t = periodTotals([], [], '2026-07-06', '2026-07-12');
-    expect(t).toEqual({ sessions: 0, sets: 0, reps: 0, volumeKg: 0, cardioMinutes: 0, xp: 0 });
+    expect(t).toEqual({
+      sessions: 0,
+      strengthSessions: 0,
+      cardioSessions: 0,
+      sets: 0,
+      reps: 0,
+      volumeKg: 0,
+      cardioMinutes: 0,
+      xp: 0,
+    });
   });
 });
 

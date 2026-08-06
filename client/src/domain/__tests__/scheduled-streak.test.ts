@@ -120,9 +120,12 @@ describe('weeklyContract', () => {
     expect(c.target).toBe(0);
     expect(c.pips).toHaveLength(7);
     expect(c.pips[0].date).toBe('2026-07-06'); // Monday
-    // Trained on an unscheduled day still shows as completed (bonus).
+    // Trained on an unscheduled day still shows as completed (bonus)...
     expect(c.pips[2].state).toBe('completed');
-    expect(c.done).toBe(0);
+    // ...and IS counted. This asserted done===0 until 2026-08-06, which is the
+    // "WORKOUTS 0 / 1 on a finished workout" bug: the pip went green while the
+    // counter said nothing happened. done is what HAPPENED; target is the plan.
+    expect(c.done).toBe(1);
   });
 
   it('counts done/target over the Monday-start week', () => {
@@ -143,12 +146,41 @@ describe('weeklyContract', () => {
     expect(c.done).toBe(0);
   });
 
-  it('a rest-day session is a completed pip but never quota', () => {
+  it('a rest-day session counts as done but never inflates the quota', () => {
     // Sunday (rest) trained; no scheduled day trained.
     const c = weeklyContract([WEEK], [set('2026-07-12')], TODAY);
     expect(c.pips[6].state).toBe('completed');
-    expect(c.done).toBe(0);
+    // The session happened, so it counts...
+    expect(c.done).toBe(1);
+    // ...but the PLAN is still six days. A bonus is not a quota (unchanged).
     expect(c.target).toBe(6);
+  });
+
+  it('a completed cardio session counts toward the week', () => {
+    const c = weeklyContract([WEEK], [], TODAY, {
+      cardioRows: [{ date: '2026-07-07', type: 'Run', minutes: 30 }],
+    });
+    expect(c.done).toBe(1);
+    expect(c.cardio).toBe(1);
+    expect(c.strength).toBe(0);
+    expect(c.pips[1].state).toBe('completed');
+  });
+
+  it('a day with BOTH a lift and a run is one done day, not two', () => {
+    const c = weeklyContract([WEEK], [set('2026-07-07')], TODAY, {
+      cardioRows: [{ date: '2026-07-07', type: 'Run', minutes: 30 }],
+    });
+    expect(c.done).toBe(1);
+    expect(c.strength).toBe(1);
+    expect(c.cardio).toBe(1);
+  });
+
+  it('a workout FINISHED with no counted set still counts', () => {
+    const c = weeklyContract([WEEK], [], TODAY, {
+      finishes: [{ date: '2026-07-07', workout: 'Push 1' }],
+    });
+    expect(c.done).toBe(1);
+    expect(c.pips[1].state).toBe('completed');
   });
 });
 

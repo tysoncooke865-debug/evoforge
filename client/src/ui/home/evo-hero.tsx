@@ -371,7 +371,7 @@ export function EvoHero({
               brief is about — the crest's job here is to EXPLAIN. */}
           {calibration.summary.areas.find((a) => a.key === 'training')?.state === 'waiting' ? null : (
             <NeonButton
-              title="RUN FIRST EVO REVIEW"
+              title="CALCULATE MY EVO RATING"
               variant="epic"
               pixel
               busy={review.isPending}
@@ -404,7 +404,7 @@ export function EvoHero({
   // not a thing to do — it is an adjective on the rating, so it rides the
   // descriptor pill instead of buying a caption of its own.
   const statusLine = reviewDue
-    ? { text: 'EVO REVIEW READY ›', colour: colors.accent }
+    ? { text: 'RATING UPDATE READY ›', colour: colors.accent }
     : pendingCount > 0
       ? { text: `${pendingCount} PENDING ›`, colour: colors.accent }
       : null;

@@ -435,7 +435,7 @@ export function FuelMasthead({ anim }: { anim: 'idle' | 'victory' }) {
           hitSlop={{ top: 4, bottom: 16, left: 8, right: 8 }}
         >
           <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-            LV. {level} ›
+            FORGE LV. {level} ›
           </Text>
         </Pressable>
       </View>

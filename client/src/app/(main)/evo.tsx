@@ -154,7 +154,7 @@ export default function EvoRatingScreen() {
                   testID="evo-first-review"
                 />
               ) : (
-                <NeonButton title="RUN FIRST EVO REVIEW" pixel busy={review.isPending} onPress={() => review.mutate({ force: true })} testID="evo-first-review" />
+                <NeonButton title="CALCULATE MY EVO RATING" pixel busy={review.isPending} onPress={() => review.mutate({ force: true })} testID="evo-first-review" />
               )}
             </View>
           </GlowCard>
@@ -279,7 +279,7 @@ export default function EvoRatingScreen() {
             />
           ) : null}
           <NeonButton
-            title="RUN EVO REVIEW NOW"
+            title="UPDATE MY EVO RATING NOW"
             variant="ghost"
             pixel
             busy={review.isPending}

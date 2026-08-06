@@ -205,7 +205,7 @@ export function gradeMission(input: MissionGradeInput): MissionGrade {
       label: 'COMPLETION',
       earned: done > 0 ? 1 : NEUTRAL,
       weight: WEIGHTS.completion,
-      detail: done > 0 ? `${done} SETS · NO PLAN TARGET` : 'NOT MEASURED',
+      detail: done > 0 ? `${done} SETS · NO PLAN TARGET` : 'NO SETS LOGGED',
       measured: done > 0,
     });
   }
@@ -228,7 +228,11 @@ export function gradeMission(input: MissionGradeInput): MissionGrade {
       label: 'OVERLOAD',
       earned: NEUTRAL,
       weight: WEIGHTS.overload,
-      detail: prev === null ? 'FIRST TIME — NOTHING TO BEAT' : 'NOT MEASURED',
+      // "FIRST TIME — NOTHING TO BEAT" read as a shrug at the exact moment the
+      // athlete finished their first session of this workout. What actually
+      // happened is that they set the mark everything after is measured
+      // against (Tyson, 2026-08-06).
+      detail: prev === null ? 'BASELINE ESTABLISHED' : 'NOTHING TO COMPARE',
       measured: false,
     });
   }
@@ -249,7 +253,10 @@ export function gradeMission(input: MissionGradeInput): MissionGrade {
       label: 'PACE',
       earned: NEUTRAL,
       weight: WEIGHTS.pace,
-      detail: 'NOT MEASURED',
+      // There is no pace to read from a session that was typed in afterwards
+      // (sessionPace refuses one), so "NOT MEASURED" sounded like a failure to
+      // measure rather than a metric that does not apply here.
+      detail: 'NOT APPLICABLE',
       measured: false,
     });
   }

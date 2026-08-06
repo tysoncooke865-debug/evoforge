@@ -101,23 +101,23 @@ export function HomeHeader({
           className="justify-center pr-s2"
           style={{ minHeight: 44, minWidth: 84 }}
         >
-          {/* "PLAYER LEVEL", not "LV." (2026-08-06). Home showed LV. 1 while
-              the Forge showed "35 / 50" and the Evo crest showed a rating out
-              of 100 — three numbers, three meanings, none of them named. This
-              one is the XP level; the Forge's bar is EVOLUTION PROGRESS toward
-              the NEXT FORM REQUIREMENT. Naming them is the whole fix; none of
-              the underlying progression changed. */}
+          {/* "FORGE LEVEL", never a bare "LV." (2026-08-06). Home showed LV. 1
+              while the Forge showed "35 / 50" and the Evo crest showed a rating
+              out of 100 — three numbers, three meanings, none of them named.
+              The app's four progressions each have ONE name now: FORGE LEVEL
+              (XP + consistency, this one), EVOLUTION STAGE (the champion's
+              form), EVO RATING (fitness capability) and the TRAINING PATHS.
+              Naming them is the whole fix; no progression changed.
+              The bare "LV." that used to sit beside the number is gone — the
+              label above already says it, and repeating it was the ambiguity. */}
           <Text
             className="text-text-mute"
             allowFontScaling={false}
             style={{ fontSize: 7, letterSpacing: 1.2, ...pixelFont(false) }}
           >
-            PLAYER LEVEL
+            FORGE LEVEL
           </Text>
           <View className="flex-row items-baseline" style={{ gap: 4 }}>
-            <Text className="text-2xs text-text-mute" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont(false) }}>
-              LV.
-            </Text>
             <Text
               className="text-accent"
               allowFontScaling={false}
@@ -144,7 +144,7 @@ export function HomeHeader({
             />
           </View>
           <Text className="mt-s1 text-2xs text-text-mute" numberOfLines={1}>
-            {level >= 100 ? 'MAX LEVEL' : `${toNext} XP to LV. ${nextLevel}`}
+            {level >= 100 ? 'MAX FORGE LEVEL' : `${toNext} XP to Forge Lv. ${nextLevel}`}
           </Text>
         </Pressable>
       </View>

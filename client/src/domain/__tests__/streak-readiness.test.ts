@@ -42,8 +42,22 @@ describe('computeStreak', () => {
     expect(computeStreak(rows, TODAY)).toMatchObject({ current: 0, best: 3 });
   });
 
-  it('invalid sets (0 weight/reps) do not count as training', () => {
-    expect(computeStreak([row(TODAY, 0, 5)], TODAY)).toMatchObject({ current: 0, trainedToday: false });
+  it('a 0-rep set is not training', () => {
+    expect(computeStreak([row(TODAY, 60, 0)], TODAY)).toMatchObject({ current: 0, trainedToday: false });
+  });
+
+  it('a 0 kg BODYWEIGHT set IS training — 061, and the streak was the last holdout', () => {
+    // This asserted current: 0 until 2026-08-06. isCountedSet has said since
+    // 061 that "0 kg is bodyweight work", and every other surface agreed; the
+    // streak kept its own `weight > 0` predicate, so a push-up-only athlete
+    // earned XP, filled the week bars and had no streak.
+    expect(computeStreak([row(TODAY, 0, 5)], TODAY)).toMatchObject({ current: 1, trainedToday: true });
+  });
+
+  it('a cardio-only day keeps the streak alive when cardio is supplied', () => {
+    expect(
+      computeStreak([], TODAY, { cardioRows: [{ date: TODAY, type: 'Run', minutes: 30 }] })
+    ).toMatchObject({ current: 1, trainedToday: true });
   });
 
   it('duplicate rows on one day count once', () => {

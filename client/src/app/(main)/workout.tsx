@@ -7,11 +7,11 @@ import * as Haptics from 'expo-haptics';
 import { useActivationStep } from '@/data/activation';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
-import { useClaimCoin } from '@/data/coins';
+import { useClaimCoin, useCoinHistory } from '@/data/coins';
 import { useOriginStatus } from '@/data/origin';
 import { originAsBranch } from '@/domain/customise';
 import { usePublishGhost } from '@/data/ghosts';
-import { useWorkoutLog } from '@/data/hooks';
+import { useCardioLog, useWorkoutLog } from '@/data/hooks';
 import { useRoutines, useSaveRoutine, useUpdateRoutine } from '@/data/routines';
 import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useSaveUserPlan, useUserPlans } from '@/data/user-plans';
@@ -21,6 +21,7 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
+import { sessionCoins } from '@/domain/coin-claims';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { gradeMission, sessionPace, sessionVolumeKg } from '@/domain/progression/mission-grade';
 import { applyEditsToDay, diffDayEdits, mergeDayIntoCustomPlan } from '@/domain/plan-edits';
@@ -59,6 +60,8 @@ import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet';
+import { socialFeatures } from '@/ui/social/social-features';
+import { useSharePromptStore } from '@/state/share-prompt-store';
 
 /**
  * THE WORKOUT PAGE (TRAIN_PAGE_V2).
@@ -106,11 +109,13 @@ export default function WorkoutScreen() {
   useActivationStep('workout_opened', { extra: { is_today: date === todayIso } });
 
   const workouts = useWorkoutLog();
+  const cardioLog = useCardioLog();
   const schedule = useWorkoutSchedule();
   const sessions = useWorkoutSessions();
   const finishWorkout = useFinishWorkout();
   const reopenWorkout = useReopenWorkout();
   const claimCoins = useClaimCoin();
+  const coinHistory = useCoinHistory();
   const saveRoutine = useSaveRoutine();
   const updateRoutine = useUpdateRoutine();
   const userPlans = useUserPlans();
@@ -247,6 +252,11 @@ export default function WorkoutScreen() {
    * Read at build time rather than kept in state so a reopened workout that is
    * finished again re-grades against what is actually logged now.
    */
+  // The same evidence Home's streak reads (domain/session-stats.ts), so the
+  // number the completion screen celebrates is the number Home shows a second
+  // later. Two different streaks in two seconds is how a tracker loses trust.
+  const streakEvidence = { cardioRows: cardioLog.data ?? [], finishes: sessions.data ?? [] };
+
   const gradeForSession = () => {
     const counted = dayRows.filter((r) => isCountedSet(r.weight, r.reps));
     // The last date STRICTLY BEFORE this one that has counted sets of this
@@ -277,7 +287,7 @@ export default function WorkoutScreen() {
         previousVolumeKg: previousRows === null ? null : sessionVolumeKg(previousRows),
         medianGapSeconds: pace?.medianGapSeconds ?? null,
         prCount: prCountRef.current,
-        streakDays: computeStreak(workouts.data ?? [], todayIso).current,
+        streakDays: computeStreak(workouts.data ?? [], todayIso, streakEvidence).current,
       }),
       minutes: pace?.minutes ?? null,
     };
@@ -290,7 +300,7 @@ export default function WorkoutScreen() {
     xpBanked: totalDone * XP_PER_SET,
     prCount: prCountRef.current,
     prExercises: [...new Set(prNamesRef.current)],
-    streak: computeStreak(workouts.data ?? [], todayIso).current,
+    streak: computeStreak(workouts.data ?? [], todayIso, streakEvidence).current,
     ...gradeForSession(),
     // The ceremony's LEVEL PATH is the FORGE level now (earned XP only —
     // Tyson 2026-07-16); evolution below keeps its own legacy-level track.
@@ -305,6 +315,18 @@ export default function WorkoutScreen() {
       cardioMinutes: summary.cardioMinutes,
     }),
     nextSession: nextScheduledSession(schedule.data ?? [], todayIso),
+    // COINS, from real coin_events against the 013 guard's own rules — the
+    // day's floor and the once-per-date claim. Null while the history loads,
+    // so the screen shows no number rather than a promise it cannot keep.
+    coins: sessionCoins({
+      date,
+      // The floor is a DAY's counted sets, not this workout's.
+      setsToday: normaliseWorkoutLog(workouts.data ?? []).filter(
+        (r) => String(r.date) === date && isCountedSet(r.weight, r.reps)
+      ).length,
+      prCount: prCountRef.current,
+      events: coinHistory.data ?? null,
+    }),
   });
 
   // The completion ceremony, once per workout — and never for one already
@@ -906,6 +928,18 @@ export default function WorkoutScreen() {
             : undefined
         }
         defaultRoutineName={workoutName}
+        // SHARE WITH FRIENDS, as a choice. `offer` raises the share sheet the
+        // athlete asked for, instead of one appearing by itself the moment the
+        // finish marker landed (2026-08-06). Only when the feed is on — a
+        // button that opens nothing is worse than no button.
+        onShareFriends={
+          socialFeatures.feedEnabled
+            ? () => {
+                useSharePromptStore.getState().openComposer({ workout: workoutName, date });
+                setSheet(null);
+              }
+            : undefined
+        }
         // GHOST (migration 037): one tap publishes this session's combat
         // snapshot (numbers only) for friends to battle from the Arena.
         onShareGhost={() =>

@@ -120,14 +120,19 @@ describe('gradeMission', () => {
     expect(g.score).toBe(82);
     const overload = g.factors.find((f) => f.key === 'overload')!;
     expect(overload.measured).toBe(false);
-    expect(overload.detail).toBe('FIRST TIME — NOTHING TO BEAT');
+    // Was 'FIRST TIME — NOTHING TO BEAT', which read as a shrug at the exact
+    // moment the athlete set the mark everything after is measured against.
+    expect(overload.detail).toBe('BASELINE ESTABLISHED');
   });
 
-  it('says NOT MEASURED on a factor it could not judge — never silently fills', () => {
+  it('marks a factor it could not judge — never silently fills', () => {
     const g = gradeMission({ ...base, medianGapSeconds: null });
     const pace = g.factors.find((f) => f.key === 'pace')!;
     expect(pace.measured).toBe(false);
-    expect(pace.detail).toBe('NOT MEASURED');
+    // NOT APPLICABLE, not NOT MEASURED: a session typed in afterwards has no
+    // rhythm to read, so this is a metric that does not apply — not a failure
+    // to measure one that does.
+    expect(pace.detail).toBe('NOT APPLICABLE');
     expect(pace.earned).toBe(NEUTRAL);
   });
 

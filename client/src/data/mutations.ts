@@ -17,6 +17,8 @@ import {
   type SetInput,
   type SetVerdict,
 } from '@/domain/set-save';
+import { applyOptimisticCardio, cardioLogKey } from '@/domain/optimistic-cardio';
+import type { CardioRow } from '@/domain/summary';
 import { localIso } from '@/domain/today';
 import { kgToLb } from '@/domain/units';
 import { inferMuscleGroup } from '@/domain/workouts';
@@ -325,6 +327,7 @@ export interface CardioInput {
   countTowardBudget?: boolean;
 }
 
+
 /**
  * save_cardio_row(): insert, then the ledger grant at floor(minutes * 2) --
  * the migrations/002 STEP 3 literal, via cardioEventAmount. A zero amount is
@@ -332,13 +335,52 @@ export interface CardioInput {
  * fails the save but toasts that the ledger is behind. Python's cardio_type
  * column retry is dropped: the live schema has `type` (root CLAUDE.md pins
  * this), and a migration renaming it would break far more than this insert.
+ *
+ * OPTIMISTIC SINCE 2026-08-06 (Tyson: "the confirmation appears but the summary
+ * can still show zero sessions until a reload"). Invalidation alone is a
+ * PROMISE of freshness, not freshness: the refetch is a second round trip, and
+ * on a slow link the athlete reads a stale "0 SESSIONS" underneath a toast that
+ * says the session saved. Contradicting yourself on screen is worse than being
+ * slow.
+ *
+ * The row lands in the ['cardio_log'] cache before the network is asked, so
+ * every derivation over it — the weekly count and minutes, the mission, the
+ * streak, the week strip, RECENT SESSIONS, Home's contract and Progress —
+ * updates in the same frame, because they all read that one cache entry.
+ * The server is still the authority: onSettled refetches and the real row
+ * replaces the placeholder. A failure rolls the cache back to the exact
+ * snapshot and says so, so an optimistic row can never survive a failed save.
  */
 export function useLogCardio() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
+  const cardioKey = cardioLogKey(userId);
 
   return useMutation({
+    onMutate: async (input: CardioInput) => {
+      // Stop an in-flight refetch from resolving over the top of the
+      // placeholder we are about to write.
+      await queryClient.cancelQueries({ queryKey: cardioKey });
+      return applyOptimisticCardio<CardioRow>(queryClient, userId, input, new Date());
+    },
+    onError: (_error, _input, context) => {
+      // Roll back to the EXACT snapshot — never a hand-rolled "remove the one
+      // I added", which drops a row that arrived from elsewhere meanwhile.
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData<CardioRow[]>(cardioKey, context.previous);
+      }
+      useToastStore.getState().push({
+        kind: 'error',
+        title: 'SAVE FAILED',
+        subtitle: 'The session was not stored. Check connection and retry.',
+      });
+    },
+    onSettled: () => {
+      // The server is the authority either way: on success this replaces the
+      // placeholder with the real row, on failure it re-confirms the rollback.
+      void queryClient.invalidateQueries({ queryKey: cardioKey });
+    },
     mutationFn: async (input: CardioInput) => {
       // The CALENDAR day is local (domain/today's rule — a session happens on
       // the day the athlete says); the timestamp stays UTC. cardio_log.date
@@ -386,20 +428,15 @@ export function useLogCardio() {
       return { amount, rowId: String(data.id) };
     },
     onSuccess: ({ amount }) => {
-      queryClient.invalidateQueries({ queryKey: ['cardio_log', userId] });
+      // cardio_log itself is refetched by onSettled — these are the caches
+      // that CANNOT be derived from the optimistic row (Fuel's budget and the
+      // server-authoritative XP ledger).
       queryClient.invalidateQueries({ queryKey: ['cardio_calories', userId] });
       queryClient.invalidateQueries({ queryKey: ['xp_total', userId] });
       if (amount > 0) {
         announceXp(amount, 'CARDIO COMPLETE', 'Session logged');
       }
       void runAchievementSweep(queryClient, userId);
-    },
-    onError: () => {
-      useToastStore.getState().push({
-        kind: 'error',
-        title: 'SAVE FAILED',
-        subtitle: 'The session was not stored. Check connection and retry.',
-      });
     },
   });
 }

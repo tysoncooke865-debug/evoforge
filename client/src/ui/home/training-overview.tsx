@@ -51,8 +51,13 @@ export function TrainingOverview({
       <View className="mt-s3 flex-row flex-wrap" style={{ gap: 12 }}>
         <Metric
           icon={<PixelDumbbell size={15} color={colors['text-dim']} />}
-          label="WORKOUTS"
+          // "SESSIONS", matching Progress and domain/session-stats.ts — this
+          // is training DAYS completed, lift or run, and it is the same number
+          // everywhere it appears (2026-08-06).
+          label="SESSIONS"
           value={hasSchedule ? `${contract.done} / ${contract.target}` : String(contract.done)}
+          // Clamped in Metric: done CAN exceed target (a bonus session is
+          // honest), and a 140% bar would be a rendering bug, not a reward.
           pct={hasSchedule && contract.target > 0 ? (contract.done / contract.target) * 100 : null}
           testID="overview-workouts"
         />

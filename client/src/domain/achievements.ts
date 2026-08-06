@@ -10,6 +10,7 @@
  */
 
 import { ACHIEVEMENTS } from './catalogs';
+import { completedSessions } from './session-stats';
 import { pyFloat } from './py';
 import type { WorkoutRow } from './summary';
 
@@ -55,14 +56,18 @@ const PPPPLA_DAYS = [
   'Aesthetics',
 ];
 
+/**
+ * Training days behind the consistency achievements — THE canonical count
+ * (domain/session-stats.ts), not a fourth private definition.
+ *
+ * This counted every row carrying a DATE, so a workout opened, half-typed and
+ * abandoned (reps still 0) unlocked a day of "consistency" the athlete never
+ * trained. Achievements are rewards for real work; they now ask the same
+ * question Home, Progress and the streaks ask. Not golden-pinned — no
+ * achievements fixture exists — so this is a client-side correction only.
+ */
 export function uniqueTrainingDays(rows: WorkoutRow[]): number {
-  const days = new Set<string>();
-  for (const r of rows) {
-    if (r.date !== null && r.date !== undefined && String(r.date) !== '') {
-      days.add(String(r.date));
-    }
-  }
-  return days.size;
+  return completedSessions({ workoutRows: rows }).days;
 }
 
 export function loggedAllPppplaDays(rows: WorkoutRow[]): boolean {

@@ -956,7 +956,7 @@ export default function TodayScreen() {
             style={{ minHeight: 24, minWidth: 44 }}
           >
             <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-              LV. {forgeProgress.level} ›
+              FORGE LV. {forgeProgress.level} ›
             </Text>
           </Pressable>
         </View>

@@ -82,7 +82,7 @@ export function CardioRewardPreview({ xp, minutes }: { xp: number; minutes: numb
         <PixelHeart size={12} color={colors.accent} />
         <Text className="flex-1 text-2xs text-text-dim">
           Builds stamina and your Conditioning base. Your Conditioning pillar is measured from fitness
-          tests at your next Evo Review.
+          tests at your next rating update.
         </Text>
       </View>
     </GlowCard>

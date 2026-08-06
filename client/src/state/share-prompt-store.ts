@@ -17,7 +17,15 @@ export interface SharePayload {
 interface SharePromptState {
   pending: SharePayload | null;
   askDisabled: boolean;
+  /** THE APP asking. Suppressed by "don't ask again". */
   offer: (p: SharePayload) => void;
+  /**
+   * THE ATHLETE asking — the SHARE WITH FRIENDS button on the completion
+   * screen. Deliberately NOT `offer`: "don't ask again" means stop prompting
+   * me, not disable the feature, and a button that silently did nothing
+   * because of a preference set weeks ago is a broken button.
+   */
+  openComposer: (p: SharePayload) => void;
   clear: () => void;
   disableForever: () => void;
   reset: () => void;
@@ -32,6 +40,7 @@ export const useSharePromptStore = create<SharePromptState>()(
         if (get().askDisabled) return;
         set({ pending: p });
       },
+      openComposer: (p) => set({ pending: p }),
       clear: () => set({ pending: null }),
       disableForever: () => set({ pending: null, askDisabled: true }),
       reset: () => set({ pending: null }),

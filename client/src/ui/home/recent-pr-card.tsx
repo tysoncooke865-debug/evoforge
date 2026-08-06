@@ -36,7 +36,7 @@ export function RecentPrCard({ pr, unit }: { pr: RecentPr | null; unit: WeightUn
       accessibilityLabel={
         pr
           ? `Recent PR: ${pr.exercise}, ${weight} ${unit === 'lb' ? 'pounds' : 'kilograms'} for ${pr.reps} reps on ${shortDate(pr.date)}. Opens Progress.`
-          : 'No PR yet. Log your first workout to begin tracking records.'
+          : 'No PR yet. Keep logging to establish your records.'
       }
       testID="recent-pr-card"
       className="rounded-xl border p-s4"
@@ -66,7 +66,10 @@ export function RecentPrCard({ pr, unit }: { pr: RecentPr | null; unit: WeightUn
       ) : (
         <>
           <Text className="mt-s1 text-sm font-bold text-text">NO PR YET</Text>
-          <Text className="mt-s1 text-2xs text-text-dim">Log your first workout to begin tracking records.</Text>
+          {/* "Log your first workout to begin tracking records" was shown to
+              athletes who HAD logged workouts — a PR needs a lift to beat, not
+              a first session (Tyson, 2026-08-06). */}
+          <Text className="mt-s1 text-2xs text-text-dim">Keep logging to establish your records.</Text>
         </>
       )}
     </Pressable>

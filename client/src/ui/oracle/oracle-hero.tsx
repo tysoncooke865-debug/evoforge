@@ -16,7 +16,7 @@
  *   NextRankRail — the SAME rank-ladder rail Home's crest uses
  *   (ui/home/next-rank-card.tsx), not a second implementation of
  *   evoTierStanding
- *   the honest "applied at your next Evo Review" line
+ *   the honest "applied at your next rating update" line
  *
  * Every number is real, on the same terms EvolutionImpactCard always
  * enforced: no rating yet (or the flag off) shows the "run your first
@@ -135,7 +135,7 @@ export function OracleHero({ scanning = false }: { scanning?: boolean }) {
               hitSlop={{ top: 4, bottom: 16, left: 8, right: 8 }}
             >
               <Text className="text-2xs text-accent" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-                LV. {level} ›
+                FORGE LV. {level} ›
               </Text>
             </Pressable>
           </View>
@@ -158,7 +158,7 @@ export function OracleHero({ scanning = false }: { scanning?: boolean }) {
               ◈ YOUR CHAMPION EVOLUTION
             </Text>
             <Text className="mt-s1 text-sm text-text-dim">
-              Run your first Evo Review to see how each Oracle scan shapes your champion&apos;s
+              Calculate your Evo Rating to see how each Oracle scan shapes your champion&apos;s
               Physique and Size. ›
             </Text>
           </Pressable>
@@ -238,11 +238,13 @@ function EvoRatingBlock({ row }: { row: Record<string, unknown> }) {
 
       <Text className="mt-s3 text-2xs text-text-dim">
         This verdict updates your Physique and Size evidence.{' '}
+        {/* The countdown reads next_review_at — the RATING UPDATE, not Reforge
+            Day. Naming the 28-day ceremony here would state the wrong date. */}
         {reviewDue
-          ? 'Your Evo Review is ready now ›'
+          ? 'Your rating update is ready now ›'
           : daysToReview !== null
-            ? `Applied at your next Evo Review in ${daysToReview}d ›`
-            : 'Applied at your next Evo Review ›'}
+            ? `Applied at your next rating update in ${daysToReview}d ›`
+            : 'Applied at your next rating update ›'}
       </Text>
     </Pressable>
   );

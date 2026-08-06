@@ -244,7 +244,7 @@ function LevelUpBody({ p }: { p: LevelUpPost }) {
       <Text allowFontScaling={false} style={{ fontSize: 40, color: colors.accent, textShadowColor: `${colors.accent}8c`, textShadowRadius: 16, ...pixelFont() }}>
         {p.newLevel}
       </Text>
-      <Text className="text-2xs text-text-mute">LV. {p.prevLevel} → {p.newLevel}{p.streakDays ? ` · ${p.streakDays}d streak` : ''}</Text>
+      <Text className="text-2xs text-text-mute">Forge Lv. {p.prevLevel} → {p.newLevel}{p.streakDays ? ` · ${p.streakDays}d streak` : ''}</Text>
       {p.reward ? <Text className="mt-s1 text-2xs text-legendary">Unlocked: {p.reward}</Text> : null}
     </View>
   );

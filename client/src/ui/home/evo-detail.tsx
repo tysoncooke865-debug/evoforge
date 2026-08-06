@@ -262,7 +262,7 @@ export function EvoDetailSheet({
               </View>
             ))}
             <Text className="mt-s3 text-2xs text-text-mute">
-              Your rating is recalculated from this evidence at each Evo review — it moves when
+              Your rating is recalculated from this evidence at each rating update — it moves when
               your training does, not on a timer.
             </Text>
 

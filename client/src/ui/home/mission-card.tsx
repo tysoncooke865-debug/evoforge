@@ -218,7 +218,7 @@ export function MissionCard({
         {/* The loop closed: the sets are banked AND they are now evidence.
             Said once, at the moment it becomes true. */}
         <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
-          ◈ BANKED AS EVIDENCE FOR YOUR NEXT EVO REVIEW
+          ◈ BANKED AS EVIDENCE FOR YOUR EVO RATING
           {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
         </Text>
         <View className="mt-s3">

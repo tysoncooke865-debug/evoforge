@@ -44,3 +44,49 @@ export function classifyClaimError(message: string): ClaimOutcome {
   if (/^coin_events:/i.test(m)) return { outcome: 'rejected', reason: 'guard' };
   return { outcome: 'error', message: m };
 }
+
+/**
+ * WHAT THIS SESSION EARNS IN COINS — for the completion screen, derived from
+ * the same two rules the 013 guard enforces server-side.
+ *
+ *   FLOOR:     workout_complete banks at 10+ counted sets IN A DAY.
+ *   ONCE/DAY:  its source_id is the DATE, so the second workout of a day
+ *              earns nothing more from it. PRs are their own claims.
+ *
+ * Derived from real coin_events, never assumed — a screen that promised +25
+ * for a second session, or for a 6-set day, would be exactly the fabricated
+ * progression the brief bans. `null` means "we cannot say yet" (the history
+ * has not loaded) and the caller shows nothing rather than a guess.
+ */
+export const COIN_SET_FLOOR = 10;
+export const COINS_PER_WORKOUT = 25;
+export const COINS_PER_PR = 50;
+
+export interface SessionCoins {
+  /** Coins this session will bank. */
+  amount: number;
+  /** Why it is zero, when it is. */
+  blocked: 'floor' | 'already_banked' | null;
+}
+
+export function sessionCoins(input: {
+  date: string;
+  /** Counted sets logged on this DATE (not just this workout). */
+  setsToday: number;
+  prCount: number;
+  /** coin_events rows; null while loading. */
+  events: readonly { kind: string; source_id?: string | null }[] | null;
+}): SessionCoins | null {
+  if (input.events === null) return null;
+
+  const prCoins = Math.max(0, Math.trunc(input.prCount)) * COINS_PER_PR;
+  const alreadyBanked = input.events.some(
+    (e) => e.kind === 'workout_complete' && String(e.source_id ?? '') === input.date
+  );
+
+  if (alreadyBanked) return { amount: prCoins, blocked: prCoins > 0 ? null : 'already_banked' };
+  if (input.setsToday < COIN_SET_FLOOR) {
+    return { amount: prCoins, blocked: prCoins > 0 ? null : 'floor' };
+  }
+  return { amount: COINS_PER_WORKOUT + prCoins, blocked: null };
+}

@@ -13,13 +13,22 @@
 
 import { pyFloat } from './py';
 import { addDaysIso } from './today';
+import { completedSessions, type SessionMarkerLike } from './session-stats';
 import { normaliseWorkoutLog, type CardioRow, type WorkoutRow } from './summary';
 import { estimated1rm } from './workouts';
 import { activityXp } from './xp';
 
 export interface PeriodTotals {
-  /** Distinct dates with at least one valid set. */
+  /**
+   * Distinct TRAINING DAYS — strength or cardio. A day holding both counts
+   * once. Was "distinct dates with a valid set", which read 0 SESSIONS on the
+   * same card that read 30 CARDIO MIN (fixed 2026-08-06).
+   */
   sessions: number;
+  /** Completed strength workouts in the window. */
+  strengthSessions: number;
+  /** Completed cardio sessions in the window. */
+  cardioSessions: number;
   sets: number;
   reps: number;
   /** Σ weight × reps over valid sets, kg. */
@@ -44,14 +53,25 @@ export function periodTotals(
   workoutRows: WorkoutRow[],
   cardioRows: CardioRow[],
   fromIso: string,
-  toIso: string
+  toIso: string,
+  /** Finish markers, so a workout finished with no counted set still counts. */
+  finishes?: readonly SessionMarkerLike[]
 ): PeriodTotals {
   const rows = normaliseWorkoutLog(workoutRows).filter((r) => {
     const d = String(r.date ?? '');
     return d >= fromIso && d <= toIso;
   });
 
-  const dates = new Set<string>();
+  // THE canonical count — the same function Home's contract and the streaks
+  // read, so "sessions" means one thing across the app.
+  const stats = completedSessions({
+    workoutRows,
+    cardioRows,
+    finishes,
+    fromIso,
+    toIso,
+  });
+
   let sets = 0;
   let reps = 0;
   let volumeKg = 0;
@@ -62,7 +82,6 @@ export function periodTotals(
     sets += 1;
     reps += Math.trunc(rp);
     volumeKg += w * rp;
-    dates.add(String(r.date ?? ''));
   }
 
   let cardioMinutes = 0;
@@ -73,7 +92,9 @@ export function periodTotals(
   }
 
   return {
-    sessions: dates.size,
+    sessions: stats.days,
+    strengthSessions: stats.strength,
+    cardioSessions: stats.cardio,
     sets,
     reps,
     volumeKg,

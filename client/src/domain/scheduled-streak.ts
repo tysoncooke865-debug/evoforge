@@ -22,6 +22,7 @@
 
 import { isCountedSet } from './workouts';
 import { addDaysIso } from './today';
+import { completedSessions, trainedOn, type CompletedSessionsInput } from './session-stats';
 import type { WorkoutRow } from './summary';
 
 /** One weekday slot: a single name (pre-065 rows and extra-less days) or
@@ -72,24 +73,30 @@ export function computeScheduledStreak(
   schedules: ScheduleRow[],
   workoutRows: WorkoutRow[],
   todayIso: string,
-  windowDays = 180
+  windowDays = 180,
+  extra?: Omit<CompletedSessionsInput, 'workoutRows' | 'fromIso' | 'toIso'>
 ): ScheduledStreak {
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
   const planFor = (iso: string): Record<string, PlanDayValue> | null => planInForce(sorted, iso);
 
-  const trained = new Set<string>();
-  for (const r of workoutRows) {
-    if (isCountedSet(r.weight, r.reps)) trained.add(String(r.date));
-  }
+  const start = addDays(todayIso, -windowDays);
+  // Same canonical count as the contract — a scheduled day the athlete
+  // completed by running instead of lifting is still a day they trained.
+  const stats = completedSessions({
+    workoutRows,
+    cardioRows: extra?.cardioRows,
+    finishes: extra?.finishes,
+    fromIso: start,
+    toIso: todayIso,
+  });
 
   const days = new Map<string, DayState>();
-  const start = addDays(todayIso, -windowDays);
   for (let iso = start; iso <= todayIso; iso = addDays(iso, 1)) {
     const plan = planFor(iso);
     const assigned = dayWorkouts(plan?.[dowOf(iso)]);
     if (!plan || assigned.length === 0) {
       days.set(iso, 'rest');
-    } else if (trained.has(iso)) {
+    } else if (trainedOn(stats, iso)) {
       days.set(iso, 'completed');
     } else if (iso === todayIso) {
       days.set(iso, 'pending');
@@ -164,30 +171,58 @@ export interface WeekDayPip {
 }
 
 export interface WeeklyContract {
-  /** Scheduled sessions completed this week. */
+  /**
+   * Training days completed this week — scheduled or not. CAN EXCEED `target`:
+   * a bonus session is honest, and showing 0 for a workout the athlete
+   * demonstrably finished was the 2026-08-06 bug.
+   */
   done: number;
   /** Scheduled (non-Rest) sessions this week. */
   target: number;
+  /** Completed strength workouts this week (breakdown of `done`). */
+  strength: number;
+  /** Completed cardio sessions this week (breakdown of `done`). */
+  cardio: number;
   /** Monday-start, always 7 entries. */
   pips: WeekDayPip[];
 }
 
-/** TRANSFORM P5: this week's contract — Monday-start (UTC, matching the
- *  app's toISOString date convention), judged against the plan in force
- *  on each day. A session trained on a Rest day shows as completed but
- *  never counts toward the target (honest bonus, not quota). */
+/**
+ * TRANSFORM P5: this week's contract — Monday-start (UTC, matching the app's
+ * toISOString date convention), judged against the plan in force on each day.
+ *
+ * DONE vs TARGET (fixed 2026-08-06). `target` is the PLAN: scheduled non-Rest
+ * days, and a session trained on a rest day never inflates it (honest bonus,
+ * not quota). `done` is WHAT HAPPENED: every completed training day, scheduled
+ * or not. Those were once the same loop, so training off-plan lit the pip
+ * green while the counter read 0 — "WORKOUTS 0 / 1" on a finished workout.
+ * done > target is a legitimate week; the bar clamps, the number does not lie.
+ *
+ * `extra` carries cardio rows and finish markers so a completed cardio session
+ * and a finished-with-no-sets workout both count. Omitted, the contract
+ * degrades to strength-from-sets exactly as before — every caller that has the
+ * data should pass it.
+ */
 export function weeklyContract(
   schedules: ScheduleRow[],
   workoutRows: WorkoutRow[],
-  todayIso: string
+  todayIso: string,
+  extra?: Omit<CompletedSessionsInput, 'workoutRows' | 'fromIso' | 'toIso'>
 ): WeeklyContract {
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
-  const trained = new Set<string>();
-  for (const r of workoutRows) {
-    if (isCountedSet(r.weight, r.reps)) trained.add(String(r.date));
-  }
 
   const monday = addDays(todayIso, -((Number(dowOf(todayIso)) + 6) % 7));
+  const sunday = addDays(monday, 6);
+  // THE canonical count (domain/session-stats.ts) — the same one Progress,
+  // the streaks and the achievement sweep read.
+  const stats = completedSessions({
+    workoutRows,
+    cardioRows: extra?.cardioRows,
+    finishes: extra?.finishes,
+    fromIso: monday,
+    toIso: sunday,
+  });
+
   const pips: WeekDayPip[] = [];
   let done = 0;
   let target = 0;
@@ -198,7 +233,7 @@ export function weeklyContract(
     // Train bars, not the contract.
     const assigned = dayWorkouts(planInForce(sorted, iso)?.[dowOf(iso)])[0] ?? null;
     let state: DayState;
-    if (trained.has(iso)) {
+    if (trainedOn(stats, iso)) {
       state = 'completed';
     } else if (!assigned) {
       state = iso > todayIso ? 'future' : 'rest';
@@ -209,13 +244,12 @@ export function weeklyContract(
     } else {
       state = 'future';
     }
-    if (assigned) {
-      target += 1;
-      if (state === 'completed') done += 1;
-    }
+    if (assigned) target += 1;
+    // The pip and the counter read the SAME fact. They cannot disagree.
+    if (state === 'completed') done += 1;
     pips.push({ date: iso, state, assigned });
   }
-  return { done, target, pips };
+  return { done, target, strength: stats.strength, cardio: stats.cardio, pips };
 }
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100] as const;

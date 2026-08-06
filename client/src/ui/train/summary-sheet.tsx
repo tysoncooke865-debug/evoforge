@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Modal, Platform, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { COIN_SET_FLOOR, type SessionCoins } from '@/domain/coin-claims';
 import { evolutionReadiness, requirementProgress } from '@/domain/evolution-readiness';
 import type { MissionGrade } from '@/domain/progression/mission-grade';
 import type { NextEvolution } from '@/domain/next-evolution';
@@ -41,24 +42,41 @@ export interface WorkoutSummaryData {
   /** First set to last set, from the log's own timestamps. Null when the
    *  session was typed in afterwards and its timestamps say nothing. */
   minutes: number | null;
+  /** Coins this session banks, from real coin_events. Null = not known yet. */
+  coins: SessionCoins | null;
 }
 
-type PhaseKey = 'summary' | 'pr' | 'path' | 'evolution' | 'next';
 
 /**
- * TRANSFORM P4 — the MISSION COMPLETE ceremony. The old single sheet is now
- * an ordered sequence: summary → PR reveal (only when one landed) → level
- * path → evolution progress → next-session confirmation (only when a
- * schedule exists). Every phase is confirmed state — XP that landed, PRs
- * the verdicts detected, readiness from real requirements, the next session
- * from the persisted schedule. SKIP dismisses instantly from any phase
- * (testID summary-close, unchanged, so pre-ceremony tours still pass).
+ * THE COMPLETION SCREEN — one screen, everything on it (Tyson, 2026-08-06:
+ * "replace the current sequence of separate completion modals with one
+ * cohesive completion screen").
+ *
+ * It was an ordered sequence of five modal phases — summary → PR reveal →
+ * level path → evolution progress → next session — behind up to five CONTINUE
+ * taps, and writing the finish marker then raised a SIXTH modal asking whether
+ * to share. Six dismissals to finish a workout, on the screen whose entire job
+ * is to make finishing feel worth it.
+ *
+ * Now: the workout name and grade, completed sets, XP, coins, any PRs, the
+ * Forge level, evolution progress and the next recommended session all render
+ * together in one scroll. NOTHING was removed — every reward and every piece
+ * of progression feedback that had a phase still has a section.
+ *
+ * ONE primary action, FINISH WORKOUT. Save as Routine, Share as Ghost and
+ * Share with Friends are secondary and optional; sharing never blocks and
+ * never opens by itself.
+ *
+ * Every number is confirmed state — XP that landed, PRs the verdicts detected,
+ * readiness from real requirements, the next session from the persisted
+ * schedule.
  */
 export function SummarySheet({
   data,
   onClose,
   onSaveRoutine,
   onShareGhost,
+  onShareFriends,
   defaultRoutineName = '',
   onFinish,
 }: {
@@ -69,6 +87,10 @@ export function SummarySheet({
   onSaveRoutine?: (name: string) => void;
   /** GHOST (migration 037): publish this finished session for friends to fight. */
   onShareGhost?: () => void;
+  /** Open the social composer for this workout. A CHOICE on this screen —
+   *  it used to be a modal that opened by itself the moment the marker
+   *  landed, which is the "separate blocking modal" the brief bans. */
+  onShareFriends?: () => void;
   defaultRoutineName?: string;
   /**
    * TRAIN_IMPROVEMENTS: end the workout FOR REAL — write the finish marker.
@@ -79,14 +101,15 @@ export function SummarySheet({
   onFinish?: () => void;
 }) {
   if (!data) return null;
-  // Phase state lives in Ceremony, which unmounts with the sheet — a fresh
-  // finish always starts at phase one.
+  // Local state lives in Ceremony, which unmounts with the sheet — a fresh
+  // finish always starts clean.
   return (
     <Ceremony
       data={data}
       onClose={onClose}
       onSaveRoutine={onSaveRoutine}
       onShareGhost={onShareGhost}
+      onShareFriends={onShareFriends}
       defaultRoutineName={defaultRoutineName}
       onFinish={onFinish}
     />
@@ -98,6 +121,7 @@ function Ceremony({
   onClose,
   onSaveRoutine,
   onShareGhost,
+  onShareFriends,
   defaultRoutineName,
   onFinish,
 }: {
@@ -106,23 +130,14 @@ function Ceremony({
   onSaveRoutine?: (name: string) => void;
   /** GHOST (migration 037): publish this finished session for friends to fight. */
   onShareGhost?: () => void;
+  onShareFriends?: () => void;
   defaultRoutineName: string;
   onFinish?: () => void;
 }) {
   const colors = useThemeColors();
-  const phases: PhaseKey[] = [
-    'summary',
-    ...(data.prCount > 0 ? (['pr'] as const) : []),
-    'path',
-    'evolution',
-    ...(data.nextSession ? (['next'] as const) : []),
-  ];
-  const [idx, setIdx] = useState(0);
-  const phase = phases[idx];
-  const last = idx === phases.length - 1;
 
-  // SAVE AS ROUTINE lives on the summary phase only — it is about the workout
-  // you just did, not about the level or the evolution.
+  // SAVE AS ROUTINE is about the workout you just did, not the level or the
+  // evolution — it sits with the secondary actions at the foot of the screen.
   const [naming, setNaming] = useState(false);
   const [routineName, setRoutineName] = useState(defaultRoutineName);
   const [saved, setSaved] = useState(false);
@@ -160,78 +175,97 @@ function Ceremony({
                   {complete ? 'MISSION COMPLETE' : 'MISSION FINISHED'}
                 </Text>
               </View>
-              <View className="flex-row" style={{ gap: 5 }}>
-                {phases.map((p, i) => (
-                  <View
-                    key={p}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: i === idx ? accent : colors['surface-3'],
-                    }}
-                  />
-                ))}
-              </View>
             </View>
 
-            {phase === 'summary' ? <SummaryPhase data={data} accent={accent} /> : null}
+            {/* EVERYTHING AT ONCE, in one scroll. This was five modal phases
+                behind up to five CONTINUE taps (summary → PR → path →
+                evolution → next), and finishing then raised a SIXTH, separate,
+                blocking share modal. Nothing has been removed — the grade, the
+                PRs, the Forge level, the evolution progress and the next
+                session are all still here, just visible together instead of
+                one at a time (Tyson, 2026-08-06). */}
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              contentContainerStyle={{ paddingBottom: 4 }}
+              showsVerticalScrollIndicator={false}
+              testID="completion-scroll"
+            >
+              <SummaryPhase data={data} accent={accent} />
+              {data.prCount > 0 ? <PrPhase data={data} /> : null}
+              <PathPhase data={data} />
+              <EvolutionPhase data={data} />
+              {data.nextSession ? <NextPhase data={data} /> : null}
+            </ScrollView>
 
-            {phase === 'summary' && onSaveRoutine && !saved ? (
-              naming ? (
-                <View className="mb-s4">
-                  <TextInput
-                    className="min-h-[44px] rounded-xl border bg-surface-2 px-s3 text-sm text-text"
-                    style={{ borderColor: colors.border }}
-                    value={routineName}
-                    onChangeText={setRoutineName}
-                    maxLength={60}
-                    placeholder="Name this routine"
-                    placeholderTextColor="#64758f"
-                    testID="routine-name"
-                  />
-                  <View className="mt-s2">
-                    <NeonButton
-                      title="SAVE"
-                      variant="ghost"
-                      onPress={() => {
-                        const n = routineName.trim();
-                        if (n.length < 2) return;
-                        onSaveRoutine(n);
-                        // Optimistic: the mutation toasts its own failure, and
-                        // a second tap would only collide on the unique index.
-                        setSaved(true);
-                        setNaming(false);
-                      }}
-                      testID="routine-save-confirm"
+            {/* THE PRIMARY ACTION, alone and unmissable. */}
+            <View className="mt-s3">
+              <NeonButton
+                title={onFinish ? 'FINISH WORKOUT' : 'DONE'}
+                onPress={() => {
+                  // Finishing writes a marker, so the decision survives the
+                  // sheet closing. Without it, `complete` was re-derived on the
+                  // next render and the workout sprang back to life.
+                  onFinish?.();
+                  onClose();
+                }}
+                testID="summary-done"
+              />
+            </View>
+
+            {/* SECONDARY, and optional. Sharing is an offer, never a gate. */}
+            <View className="mt-s3" style={{ gap: 8 }}>
+              {onSaveRoutine && !saved ? (
+                naming ? (
+                  <View>
+                    <TextInput
+                      className="min-h-[44px] rounded-xl border bg-surface-2 px-s3 text-sm text-text"
+                      style={{ borderColor: colors.border }}
+                      value={routineName}
+                      onChangeText={setRoutineName}
+                      maxLength={60}
+                      placeholder="Name this routine"
+                      placeholderTextColor="#64758f"
+                      testID="routine-name"
                     />
+                    <View className="mt-s2">
+                      <NeonButton
+                        title="SAVE"
+                        variant="ghost"
+                        onPress={() => {
+                          const n = routineName.trim();
+                          if (n.length < 2) return;
+                          onSaveRoutine(n);
+                          // Optimistic: the mutation toasts its own failure, and
+                          // a second tap would only collide on the unique index.
+                          setSaved(true);
+                          setNaming(false);
+                        }}
+                        testID="routine-save-confirm"
+                      />
+                    </View>
                   </View>
-                </View>
-              ) : (
-                <View className="mb-s4">
+                ) : (
                   <NeonButton
                     title="SAVE AS ROUTINE"
                     variant="ghost"
                     onPress={() => setNaming(true)}
                     testID="save-as-routine"
                   />
-                </View>
-              )
-            ) : null}
+                )
+              ) : null}
 
-            {phase === 'summary' && saved ? (
-              <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: colors.success, letterSpacing: 1.5 }}>
-                ✓ SAVED TO MY ROUTINES
-              </Text>
-            ) : null}
-
-            {phase === 'summary' && onShareGhost ? (
-              ghosted ? (
-                <Text className="mb-s4 text-center text-2xs font-bold" style={{ color: colors.epic, letterSpacing: 1.5 }}>
-                  👻 GHOST PUBLISHED — FRIENDS CAN BATTLE IT
+              {saved ? (
+                <Text className="text-center text-2xs font-bold" style={{ color: colors.success, letterSpacing: 1.5 }}>
+                  ✓ SAVED TO MY ROUTINES
                 </Text>
-              ) : (
-                <View className="mb-s4">
+              ) : null}
+
+              {onShareGhost ? (
+                ghosted ? (
+                  <Text className="text-center text-2xs font-bold" style={{ color: colors.epic, letterSpacing: 1.5 }}>
+                    👻 GHOST PUBLISHED — FRIENDS CAN BATTLE IT
+                  </Text>
+                ) : (
                   <NeonButton
                     title="👻 SHARE AS GHOST"
                     variant="ghost"
@@ -241,53 +275,32 @@ function Ceremony({
                     }}
                     testID="share-as-ghost"
                   />
-                </View>
-              )
-            ) : null}
-            {phase === 'pr' ? <PrPhase data={data} /> : null}
-            {phase === 'path' ? <PathPhase data={data} /> : null}
-            {phase === 'evolution' ? <EvolutionPhase data={data} /> : null}
-            {phase === 'next' ? <NextPhase data={data} /> : null}
+                )
+              ) : null}
 
-            <NeonButton
-              title={
-                last
-                  ? onFinish
-                    ? 'FINISH WORKOUT'
-                    : phase === 'next'
-                      ? "I'LL BE THERE"
-                      : 'CONTINUE'
-                  : 'CONTINUE'
-              }
-              onPress={
-                last
-                  ? () => {
-                      // THE FIX: finishing writes a marker, so the decision
-                      // survives the sheet closing. Without it, `complete` was
-                      // re-derived on the next render and the workout sprang
-                      // back to life.
-                      onFinish?.();
-                      onClose();
-                    }
-                  : () => setIdx(idx + 1)
-              }
-              testID={last ? 'summary-done' : 'summary-next'}
-            />
-            {last && onFinish ? (
-              <View className="mt-s2">
+              {/* SHARE WITH FRIENDS, as a CHOICE on this screen. It used to be
+                  a modal that opened by itself the moment the marker landed —
+                  a prompt the athlete had to dismiss to get back to the app. */}
+              {onShareFriends ? (
+                <NeonButton
+                  title="SHARE WITH FRIENDS"
+                  variant="ghost"
+                  onPress={onShareFriends}
+                  testID="share-with-friends"
+                />
+              ) : null}
+
+              {onFinish ? (
                 <NeonButton
                   title="KEEP TRAINING"
                   variant="ghost"
                   onPress={onClose}
                   testID="summary-keep-training"
                 />
-              </View>
-            ) : null}
-            {!last ? (
-              <View className="mt-s2">
-                <NeonButton title="SKIP" variant="ghost" onPress={onClose} testID="summary-close" />
-              </View>
-            ) : null}
+              ) : (
+                <NeonButton title="CLOSE" variant="ghost" onPress={onClose} testID="summary-close" />
+              )}
+            </View>
           </LinearGradient>
         </View>
       </View>
@@ -454,6 +467,13 @@ function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: stri
     { value: `${data.setsDone}/${data.setsTarget}`, label: 'SETS' },
     ...(data.minutes !== null ? [{ value: `${data.minutes}`, label: 'MINUTES' }] : []),
     { value: `+${data.xpBanked}`, label: 'XP BANKED', tint: colors.accent },
+    // COINS, derived from real coin_events against the 013 guard's own rules
+    // (domain/coin-claims.ts). Absent while the history loads, and absent
+    // rather than guessed — a promised +25 that never banks is worse than no
+    // number at all.
+    ...(data.coins !== null && data.coins.amount > 0
+      ? [{ value: `+${data.coins.amount}`, label: 'COINS', tint: colors.legendary }]
+      : []),
     { value: String(data.prCount), label: data.prCount === 1 ? 'NEW PR' : 'NEW PRS', tint: colors.legendary },
     { value: `${data.streak}🔥`, label: 'STREAK', tint: colors.legendary },
   ];
@@ -504,6 +524,15 @@ function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: stri
           <Cell key={c.label} value={c.value} label={c.label} tint={c.tint} />
         ))}
       </View>
+      {/* Why there are no coins, in the guard's own words. Silence here read
+          as "coins are broken". */}
+      {data.coins?.blocked ? (
+        <Text className="mb-s4 text-center text-2xs text-text-mute" testID="summary-coins-note">
+          {data.coins.blocked === 'floor'
+            ? `Coins bank at ${COIN_SET_FLOOR}+ counted sets in a day.`
+            : 'Coins for today are already banked.'}
+        </Text>
+      ) : null}
     </View>
   );
 }

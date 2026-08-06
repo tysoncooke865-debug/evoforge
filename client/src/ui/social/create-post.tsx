@@ -172,7 +172,7 @@ export function CreatePostModal({
               {mode === 'level_up' && initialLevelUp ? (
                 <>
                   <Text className="text-sm font-bold text-text">REACHED FORGE LEVEL {initialLevelUp.to}</Text>
-                  <Text className="mt-s1 text-2xs text-text-mute">Lv. {initialLevelUp.from} → {initialLevelUp.to}</Text>
+                  <Text className="mt-s1 text-2xs text-text-mute">Forge Lv. {initialLevelUp.from} → {initialLevelUp.to}</Text>
                 </>
               ) : mode === 'update' ? (
                 <Text className="text-2xs text-text-mute">A text update — your caption is the post.</Text>

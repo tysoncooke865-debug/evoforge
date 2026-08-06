@@ -16,6 +16,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { branchDisplayNameV2, branchPathsV2, type BranchV2, massArtStage } from '@/domain/branches-v2';
 import { evolutionReadiness } from '@/domain/evolution-readiness';
 import { getBranchStage } from '@/domain/avatar-stats';
+import { formatFraction, pathGuidance } from '@/domain/path-guidance';
 import { pyFloat } from '@/domain/py';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -669,6 +670,7 @@ function SkillPathPanel({
   const tint = path.tint;
   const primary = path.destinations[0];
   const secondary = path.destinations[1] ?? null;
+  const guidance = pathGuidance(path.percent, path.nodes);
   return (
     <View
       className="rounded-xl p-s4"
@@ -726,6 +728,28 @@ function SkillPathPanel({
           {path.percent}%
         </Text>
       </View>
+
+      {/* WHAT TO DO ABOUT IT, on the panel itself. The per-node sheet still
+          carries the full explanation; this is the one line that turns a
+          handed-down score into something the athlete can move. Nothing about
+          progression changes — this only says the engine's answer out loud. */}
+      {guidance.action ? (
+        <View className="mt-s2 rounded-lg border p-s2" style={{ borderColor: `${tint}44` }} testID={`path-next-${path.key}`}>
+          <Text
+            className="text-text-mute"
+            allowFontScaling={false}
+            style={{ fontSize: 8, letterSpacing: 1.4, ...pixelFont(false) }}
+          >
+            NEXT ACTION
+          </Text>
+          {guidance.measure ? (
+            <Text className="mt-s1 text-xs" style={{ color: tint }} numberOfLines={1}>
+              {guidance.measure}
+            </Text>
+          ) : null}
+          <Text className="mt-s1 text-2xs text-text-dim">{guidance.action}</Text>
+        </View>
+      ) : null}
 
       {/* THE SKILL NETWORK: four nodes wired into one central power bar
           that charges the evolution below. Connectors light up only when
@@ -807,10 +831,20 @@ function SkillDetailSheet({
             </Text>
 
             {n.current !== null ? (
-              <View className="mb-s3 flex-row gap-s3">
-                <SheetStat label="CURRENT" value={`${trim1(n.current)}`} tint={path.tint} />
-                <SheetStat label="TARGET" value={`${trim1(n.target)} ${n.unit}`} tint={path.tint} />
-                <SheetStat label="PROGRESS" value={n.pct === null ? '—' : `${Math.round(n.pct * 100)}%`} tint={path.tint} />
+              <View className="mb-s3">
+                {/* ONE fraction format, from domain/path-guidance.ts. Two
+                    separate CURRENT and TARGET boxes is what let a unit be
+                    appended twice. */}
+                <Text
+                  allowFontScaling={false}
+                  style={{ fontSize: 20, color: path.tint, ...pixelFont() }}
+                  testID="skill-measure"
+                >
+                  {formatFraction(n.current, n.target, n.unit)}
+                </Text>
+                <Text className="mt-s1 text-2xs text-text-mute">
+                  {n.pct === null ? '—' : `${Math.round(n.pct * 100)}% of the target`}
+                </Text>
               </View>
             ) : (
               <Text

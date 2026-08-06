@@ -222,7 +222,7 @@ function AthleteHit({
           {name}
         </Text>
         <Text className="text-2xs text-text-mute" numberOfLines={1}>
-          {forge != null ? `LV. ${forge}` : 'Athlete'}
+          {forge != null ? `Forge Lv. ${forge}` : 'Athlete'}
           {mutual && mutual > 0 ? ` · ${mutual} mutual friend${mutual === 1 ? '' : 's'}` : ''}
         </Text>
       </View>

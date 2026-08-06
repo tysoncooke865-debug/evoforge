@@ -2,13 +2,16 @@
  * Training streaks, derived from workout_log dates. Frontend-only: no schema,
  * no writes — a pure function of the rows the hooks already fetch.
  *
- * A streak counts CONSECUTIVE CALENDAR DAYS with at least one valid set,
+ * A streak counts CONSECUTIVE CALENDAR DAYS the athlete completed a session,
  * ending today or yesterday (training yesterday keeps a live streak; a gap of
  * a full day breaks it). Rest days in the ROUTINE do not pause it — the
  * number is honest about calendar consistency, which is what a streak means.
+ *
+ * "Completed a session" is domain/session-stats.ts and nothing else — see the
+ * header there for why three separate answers to that question existed.
  */
 
-import { pyFloat } from './py';
+import { completedSessions, type CompletedSessionsInput } from './session-stats';
 import type { WorkoutRow } from './summary';
 
 const DAY_MS = 86_400_000;
@@ -27,13 +30,24 @@ export interface Streak {
   trainedToday: boolean;
 }
 
-export function computeStreak(rows: WorkoutRow[], todayIso: string): Streak {
+export function computeStreak(
+  rows: WorkoutRow[],
+  todayIso: string,
+  extra?: Omit<CompletedSessionsInput, 'workoutRows' | 'fromIso' | 'toIso'>
+): Streak {
+  // THE CANONICAL COUNT (domain/session-stats.ts). This loop used to test
+  // `weight > 0 && reps > 0`, which is NOT isCountedSet: 0 kg bodyweight work
+  // counts as a set everywhere else in the app, so a push-up-only athlete
+  // earned XP, filled the week bars and had NO STREAK. Fixed 2026-08-06.
+  const stats = completedSessions({
+    workoutRows: rows,
+    cardioRows: extra?.cardioRows,
+    finishes: extra?.finishes,
+  });
   const days = new Set<number>();
-  for (const r of rows) {
-    if ((pyFloat(r.weight) ?? 0) > 0 && (pyFloat(r.reps) ?? 0) > 0) {
-      const d = toUtcDay(String(r.date ?? ''));
-      if (d !== null) days.add(d);
-    }
+  for (const iso of stats.dates) {
+    const d = toUtcDay(iso);
+    if (d !== null) days.add(d);
   }
   const today = toUtcDay(todayIso);
   if (today === null || days.size === 0) {

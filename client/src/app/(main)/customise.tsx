@@ -305,7 +305,7 @@ function ForgeLevelModule() {
           </Text>
         </View>
         <Text allowFontScaling={false} style={{ fontSize: 12, color: colors.accent, ...pixelFont() }}>
-          LV.{progress.level}
+          FORGE LV.{progress.level}
         </Text>
         <View
           style={{ marginTop: 3, width: 56, height: 4, borderRadius: 2, backgroundColor: 'rgba(120,170,220,0.15)' }}

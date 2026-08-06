@@ -100,18 +100,29 @@ export function useProfile() {
   });
 }
 
-/** The one workout_log read, shared by the query and by useSaveSet's
- *  cache-miss fallback (an empty cache must mean "no sets", never "not
- *  loaded yet" — a cold-cache save that guesses sees an existing set as
- *  new and double-grants XP). */
+/**
+ * The one workout_log read, shared by the query and by useSaveSet's
+ * cache-miss fallback (an empty cache must mean "no sets", never "not
+ * loaded yet" — a cold-cache save that guesses sees an existing set as
+ * new and double-grants XP).
+ *
+ * THE CAP TAKES THE NEWEST ROWS (fixed 2026-08-06). This ordered ASCENDING
+ * under the same `.limit(ROW_CAP)`, so the moment an athlete passed 2,500 sets
+ * the client would fetch their OLDEST 2,500 and every recent set would vanish:
+ * this week's contract, the streak, Progress and the achievement sweep would
+ * all read a log that stopped months ago, while the server had the sets and
+ * the XP ledger stayed right. Nobody has hit 2,500 yet (the busiest account is
+ * at 363) — this is the landmine, defused before it went off. Sorted back to
+ * ascending after the fetch so every consumer's ordering assumption holds.
+ */
 export async function fetchWorkoutLog(): Promise<WorkoutRow[]> {
   const { data, error } = await supabase
     .from('workout_log')
     .select('id,date,workout,exercise,set,weight,reps,timestamp')
-    .order('timestamp', { ascending: true })
+    .order('timestamp', { ascending: false })
     .limit(ROW_CAP);
   if (error) throw error;
-  return data as WorkoutRow[];
+  return (data as WorkoutRow[]).reverse();
 }
 
 /** B1/B3: the SHARED workout index — same ['workout_log'] cache entry,
@@ -171,13 +182,15 @@ export function useCardioLog() {
     queryKey: ['cardio_log', userId],
     enabled: userId !== null,
     queryFn: async (): Promise<CardioRow[]> => {
+      // Newest-first under the cap, then back to ascending — same reason as
+      // fetchWorkoutLog: the cap must drop ancient history, never this week.
       const { data, error } = await supabase
         .from('cardio_log')
         .select('id,date,type,minutes,distance_km,timestamp')
-        .order('timestamp', { ascending: true })
+        .order('timestamp', { ascending: false })
         .limit(ROW_CAP);
       if (error) throw error;
-      return data as CardioRow[];
+      return (data as CardioRow[]).reverse();
     },
   });
 }

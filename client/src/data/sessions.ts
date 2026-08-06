@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { SessionMarker } from '@/domain/week-status';
 import { usePushPromptStore } from '@/state/push-prompt-store';
-import { useSharePromptStore } from '@/state/share-prompt-store';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -124,9 +123,14 @@ export function useFinishWorkout() {
         void queryClient.invalidateQueries({ queryKey: ['user_progression', userId] });
         void queryClient.invalidateQueries({ queryKey: ['xp_ledger', userId] });
       });
-      // Offer to share the finished workout (no-op if "don't ask again" is set;
-      // the overlay gates on the social flag). Never auto-publishes.
-      useSharePromptStore.getState().offer({ workout: input.workout, date: input.date });
+      // SHARING IS NO LONGER OFFERED HERE (Tyson, 2026-08-06: "the social
+      // share prompt must not appear as a separate blocking modal immediately
+      // after completion"). It used to raise a sheet the instant the marker
+      // landed — a sixth thing to dismiss at the end of a workout. SHARE WITH
+      // FRIENDS is now a secondary action ON the completion screen, so the
+      // athlete opens the composer when they want it. The store and its
+      // "don't ask again" preference stay: SharePrompt is still mounted for
+      // any other caller, and nothing has ever auto-published.
       // Offer phone reminders — but not on the first finish, and never on top
       // of the sheets above: the store counts finishes and raises this only
       // from the second one, and it renders beneath them (see push-prompt.tsx).

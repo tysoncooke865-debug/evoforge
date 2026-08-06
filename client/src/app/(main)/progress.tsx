@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useBodyweightLog, useCardioLog, useWorkoutLog } from '@/data/hooks';
 import { useWorkoutSchedule } from '@/data/schedule';
+import { useWorkoutSessions } from '@/data/sessions';
 import { pyFloat } from '@/domain/py';
 import {
   METRICS,
@@ -37,6 +38,7 @@ export default function ProgressScreen() {
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
   const schedule = useWorkoutSchedule();
+  const sessions = useWorkoutSessions();
 
   const todayIso = calendarToday();
   const [timeframe, setTimeframe] = useState<TimeframeKey>('12W');
@@ -49,9 +51,16 @@ export default function ProgressScreen() {
   const workoutRows = workouts.data ?? [];
   const cardioRows = cardio.data ?? [];
 
-  // THIS WEEK — the same window Home's weekly contract judges.
-  const week = periodTotals(workoutRows, cardioRows, weekStart(todayIso), todayIso);
-  const contract = weeklyContract(schedule.data ?? [], workoutRows, todayIso);
+  // THIS WEEK — the same window Home's weekly contract judges, over the same
+  // canonical session count (domain/session-stats.ts). Cardio rows and finish
+  // markers are part of the evidence: a cardio-only day used to read
+  // "0 SESSIONS" on the very card that read "30 CARDIO MIN".
+  const finishes = sessions.data ?? [];
+  const week = periodTotals(workoutRows, cardioRows, weekStart(todayIso), todayIso, finishes);
+  const contract = weeklyContract(schedule.data ?? [], workoutRows, todayIso, {
+    cardioRows,
+    finishes,
+  });
   const hasSchedule = (schedule.data ?? []).length > 0;
 
   // 061: counted sets (0 kg bodyweight work included) drive the exercise
@@ -103,6 +112,7 @@ export default function ProgressScreen() {
           {hasSchedule ? (
             <Text
               allowFontScaling={false}
+              testID="week-sessions"
               style={{
                 fontSize: 12,
                 letterSpacing: 0.5,
@@ -119,12 +129,29 @@ export default function ProgressScreen() {
             <Text
               className="text-text-dim"
               allowFontScaling={false}
+              testID="week-sessions"
               style={{ fontSize: 12, letterSpacing: 0.5, ...pixelFont() }}
             >
               {week.sessions} {week.sessions === 1 ? 'SESSION' : 'SESSIONS'}
             </Text>
           )}
         </View>
+        {/* The breakdown behind that one number, so "3 SESSIONS" is never a
+            figure the athlete has to take on trust. */}
+        {week.sessions > 0 ? (
+          <Text
+            className="mb-s2 text-text-mute"
+            allowFontScaling={false}
+            testID="week-session-breakdown"
+            style={{ fontSize: 10, letterSpacing: 0.3 }}
+          >
+            {week.strengthSessions} strength
+            {week.cardioSessions > 0 ? ` · ${week.cardioSessions} cardio` : ''}
+            {week.sessions !== week.strengthSessions + week.cardioSessions
+              ? ` · ${week.sessions} training ${week.sessions === 1 ? 'day' : 'days'}`
+              : ''}
+          </Text>
+        ) : null}
         <View className="flex-row flex-wrap" style={{ rowGap: 12 }}>
           <Stat value={String(week.sets)} label="SETS" />
           <Stat value={fmtKg(week.volumeKg)} label="VOLUME" tint={colors.epic} />

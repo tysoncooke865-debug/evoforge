@@ -164,10 +164,14 @@ export default function HomeScreen() {
 
   const scheduleRows = schedule.data ?? [];
   const hasSchedule = scheduleRows.length > 0;
+  // THE CANONICAL COUNT (domain/session-stats.ts): cardio rows and finish
+  // markers travel with the sets, so a completed cardio session and a workout
+  // finished with no counted set both count as the sessions they are.
+  const sessionEvidence = { cardioRows: cardio.data ?? [], finishes: sessions.data ?? [] };
   const streak = hasSchedule
-    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
-    : computeStreak(workouts.data ?? [], todayIso);
-  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso);
+    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso, 180, sessionEvidence)
+    : computeStreak(workouts.data ?? [], todayIso, sessionEvidence);
+  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso, sessionEvidence);
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
@@ -284,7 +288,13 @@ export default function HomeScreen() {
   };
 
   // ---- This week (Monday-start, the contract's window). ----
-  const weekTotals = periodTotals(workouts.data ?? [], cardio.data ?? [], weekStart(todayIso), todayIso);
+  const weekTotals = periodTotals(
+    workouts.data ?? [],
+    cardio.data ?? [],
+    weekStart(todayIso),
+    todayIso,
+    sessions.data ?? []
+  );
 
   // ---- Character identity — the DISPLAY identity (CUSTOMISE, 2026-07-16):
   // the derived truth with the equipped loadout applied, re-validated

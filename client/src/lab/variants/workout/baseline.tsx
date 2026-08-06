@@ -303,6 +303,9 @@ export function WorkoutBaseline() {
       cardioMinutes: summary.cardioMinutes,
     }),
     nextSession: nextScheduledSession(schedule.data ?? [], todayIso),
+    // The lab harness has no coin history to read; the screen renders no coin
+    // row for null, which is the correct "we cannot say" state.
+    coins: null,
   });
 
   // The completion ceremony, once per workout — and never for one already

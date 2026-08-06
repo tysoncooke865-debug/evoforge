@@ -101,9 +101,13 @@ export default function EvolutionScreen() {
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
           {cfg.name.toUpperCase()} PATH
         </Text>
+        {/* EVOLUTION STAGE, not "LV." (2026-08-06). This is the champion's
+            form — Cyber Recruit, Bulwark, Juggernaut — and it is a different
+            progression from the Forge Level in the masthead. Sharing the word
+            "level" between them is what made both look broken. */}
         <View className="mt-s1 flex-row items-baseline" style={{ gap: 10 }}>
           <Text allowFontScaling={false} style={{ fontSize: 34, lineHeight: 38, color: colors.epic, ...pixelFont() }}>
-            LV.{s.currentLevel}
+            STAGE {s.currentLevel}
           </Text>
           <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
             {level.name.toUpperCase()}
@@ -111,7 +115,8 @@ export default function EvolutionScreen() {
         </View>
         <Text className="mt-s1 text-sm text-text-dim">{level.blurb}</Text>
         <Text className="mt-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
-          {s.qualifiedWeeks} QUALIFIED WEEK{s.qualifiedWeeks === 1 ? '' : 'S'} · {toNext == null ? 'FINAL LEVEL' : `${toNext} TO LEVEL ${s.currentLevel + 1}`}
+          {s.qualifiedWeeks} QUALIFIED WEEK{s.qualifiedWeeks === 1 ? '' : 'S'} ·{' '}
+          {toNext == null ? 'FINAL STAGE' : `${toNext} TO STAGE ${s.currentLevel + 1}`}
         </Text>
       </GlowCard>
 
@@ -123,7 +128,7 @@ export default function EvolutionScreen() {
             AWAKEN YOUR ORIGIN
           </Text>
           <Text className="mt-s1 text-sm text-text-dim">
-            Your Origin has been selected, but it has not been awakened. Complete your first workout to unlock Level 1.
+            Your Origin has been selected, but it has not been awakened. Complete your first workout to unlock Stage 1.
           </Text>
           <View className="mt-s3">
             <NeonButton title="BEGIN FIRST WORKOUT" pixel size="hero" onPress={() => router.push('/today' as never)} testID="path-begin-first" />
@@ -215,7 +220,7 @@ export default function EvolutionScreen() {
                 />
               </View>
               <Text className="mt-s1 text-2xs text-text-mute">
-                {banked}/{span} weeks · unlocks Level {ch.unlocksLevel}
+                {banked}/{span} weeks · unlocks Stage {ch.unlocksLevel}
               </Text>
 
               {isOpen ? (
@@ -269,7 +274,7 @@ export default function EvolutionScreen() {
 
       {/* THE LONG-TERM GOAL — stated plainly, and measured in the real world. */}
       <GlowCard padding={14}>
-        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>LEVEL 4 — THE ORIGIN STANDARD</Text>
+        <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>STAGE 4 — THE ORIGIN STANDARD</Text>
         <Text className="mt-s1 text-sm text-text-dim">{cfg.promise}</Text>
         {cfg.assessmentRules.map((a) => (
           <Text key={a.id} className="mt-s1 text-2xs text-text-mute">
