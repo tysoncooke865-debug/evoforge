@@ -25,6 +25,7 @@ import { activeWorkout, activeWorkoutSource, useSessionStore } from '@/state/ses
 import { LevelUpOverlay } from '@/ui/character/level-up-overlay';
 import { PixelDumbbell, PixelFork, PixelPeople } from '@/ui/core/pixel-icons';
 import { challengeFeatures } from '@/ui/challenges/features';
+import { useIsAdmin } from '@/data/analytics-admin';
 import { OriginScanPrompt } from '@/ui/character/origin-scan-prompt';
 import { TutorialOverlay } from '@/ui/core/tutorial-overlay';
 import { PageHelp } from '@/ui/help/page-help';
@@ -62,6 +63,18 @@ export default function MainLayout() {
     initFinishQueue();
   }, []);
   const profile = useProfile();
+  /**
+   * WHO SEES CHALLENGES. The flag is the shipping answer (OFF until founders
+   * have tested it — real coins move). An APP ADMIN sees it regardless, so the
+   * founders can run the manual pass on a real phone against real data without
+   * turning a live wager system on for everybody.
+   *
+   * `is_app_admin()` is a definer RPC that a non-admin simply gets `false`
+   * from, so this reveals a TAB and never any data: every challenge is still
+   * RLS-fenced to its participants and every coin still moves server-side.
+   */
+  const admin = useIsAdmin();
+  const showChallenges = challengeFeatures.challengesEnabled || admin.data === true;
   const insets = useSafeAreaInsets();
   // Join the global presence channel so this player is counted as online for as
   // long as the app is open (the count surfaces on Arena / Quick Match).
@@ -291,7 +304,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="arena"
         options={
-          challengeFeatures.challengesEnabled
+          showChallenges
             ? { href: null }
             : { title: 'Arena', tabBarIcon: makeIcon('⚔') }
         }
@@ -299,7 +312,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="challenges"
         options={
-          challengeFeatures.challengesEnabled
+          showChallenges
             ? { title: 'Challenges', tabBarIcon: makeIcon('⚔') }
             : { href: null }
         }
