@@ -58,6 +58,7 @@ import { buildWeekBars, extraBarsForToday, extraScheduledBars, scheduledDayFor, 
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup, isCountedSet } from '@/domain/workouts';
 import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
+import { useFirstWorkout, useMarkFirstWorkoutStarted } from '@/data/first-workout';
 import { recommendStarter, targetMusclesFromText } from '@/domain/recommend-starter';
 import type { EquipmentAccess, ExperienceLevel, OnboardingGoal } from '@/domain/onboarding-v3';
 import { activityXp } from '@/domain/xp';
@@ -293,6 +294,9 @@ export default function TodayScreen() {
   const workoutIndex = useWorkoutIndex();
   /** Any logged training day ever — what makes a rest day a real rest day. */
   const hasEverTrained = (workoutIndex.data?.byDate.size ?? 0) > 0;
+  const starterForToday = planDays.find((d) => d.trim() !== '') ?? null;
+  const firstWorkout = useFirstWorkout(starterForToday);
+  const markFirstWorkout = useMarkFirstWorkoutStarted();
 
   /** How much of a day is done: sets logged vs sets the plan asks for. The plan
    *  is read from the SAME source the door will open, so the hub and the page
@@ -630,6 +634,11 @@ export default function TodayScreen() {
             hasEverTrained,
           })
         : { workout: null, reason: 'none' as const };
+      /** START vs RESUME vs done — read from the persisted record, not sets. */
+      const firstCta =
+        isToday && (firstWorkout.cta === 'start' || firstWorkout.cta === 'resume')
+          ? (firstWorkout.workout ?? firstSession.workout)
+          : null;
       return (
         <View style={{ height: scale.cardHeight, paddingHorizontal: 2 }}>
           <GlowCard glow={colors.accent} padding={14} fill>
@@ -640,28 +649,46 @@ export default function TodayScreen() {
               </View>
               <View className="flex-1 items-center justify-center" style={{ gap: 6 }}>
                 <Text className="text-xl text-text" allowFontScaling={false} style={{ letterSpacing: 0, ...pixelFont() }}>
-                  {firstSession.workout
-                    ? 'YOUR FIRST WORKOUT'
-                    : hasSchedule
-                      ? 'REST DAY'
-                      : 'NO WORKOUT PLANNED'}
+                  {firstWorkout.cta === 'completed'
+                    ? 'WORKOUT COMPLETE'
+                    : firstCta
+                      ? firstWorkout.cta === 'resume'
+                        ? 'YOUR FIRST WORKOUT'
+                        : 'YOUR FIRST WORKOUT'
+                      : hasSchedule
+                        ? 'REST DAY'
+                        : 'NO WORKOUT PLANNED'}
                 </Text>
                 <Text className="text-center text-sm text-text-dim">
-                  {firstSession.workout
-                    ? `${firstSession.workout} — start whenever you are ready. Your week begins from here.`
-                    : hasSchedule
-                      ? 'Recovery is where the muscle is built. See you tomorrow.'
-                      : 'Pick a plan or start from scratch.'}
+                  {firstWorkout.cta === 'completed'
+                    ? 'Logged and banked. Rest up — your next session is on your schedule.'
+                    : firstCta
+                      ? firstWorkout.cta === 'resume'
+                        ? `${firstCta} is open and waiting — pick up where you left off.`
+                        : `${firstCta} — start whenever you are ready. Your week begins from here.`
+                      : hasSchedule
+                        ? 'Recovery is where the muscle is built. See you tomorrow.'
+                        : 'Pick a plan or start from scratch.'}
                 </Text>
               </View>
               {/* Footer pinned — same vertical position on every card. */}
               <View style={{ marginTop: 'auto', gap: 8 }}>
-                {firstSession.workout ? (
+                {/* START only when there is genuinely nothing started yet.
+                    The record is on the profile (138), so this survives a
+                    refresh, a sign-out and a second device — it is not
+                    `completedSets > 0`, which is blind to a workout that is
+                    open but not yet logged. */}
+                {firstCta ? (
                   <NeonButton
-                    title="START FIRST WORKOUT"
+                    title={firstWorkout.cta === 'resume' ? 'RESUME FIRST WORKOUT' : 'START FIRST WORKOUT'}
                     pixel
-                    onPress={() => open(todayIso, firstSession.workout!)}
-                    testID="hero-start-first"
+                    onPress={() => {
+                      // Record the start BEFORE navigating: write-once
+                      // server-side, so a second tap changes nothing.
+                      markFirstWorkout.mutate({ workout: firstCta, date: todayIso });
+                      open(todayIso, firstCta);
+                    }}
+                    testID={firstWorkout.cta === 'resume' ? 'hero-resume-first' : 'hero-start-first'}
                   />
                 ) : null}
                 <NeonButton

@@ -6,6 +6,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
 import { useProfile } from '@/data/hooks';
+import { useMarkFirstWorkoutStarted } from '@/data/first-workout';
 import { ORIGIN_FLAGS, useBindOrigin } from '@/data/origin';
 import { enablePush } from '@/data/push';
 import { supabase } from '@/data/supabase';
@@ -97,6 +98,7 @@ export default function OnboardingScreen() {
   const profile = useProfile();
   const queryClient = useQueryClient();
   const bind = useBindOrigin();
+  const markFirstWorkout = useMarkFirstWorkoutStarted();
 
   const [step, setStep] = useState<Step>('intro');
   const [goal, setGoal] = useState<OnboardingGoal | null>(null);
@@ -370,6 +372,9 @@ export default function OnboardingScreen() {
   const startFirstWorkout = () => {
     track('first_workout_started', { ...FLOW_PROPS, source: 'onboarding_reveal' });
     if (seeded?.missionDay) {
+      // The RECORD (138), so Train and Home say RESUME rather than START the
+      // moment the athlete steps back out. Write-once server-side.
+      markFirstWorkout.mutate({ workout: seeded.missionDay, date: todayIso() });
       void leave(
         `/workout?date=${encodeURIComponent(todayIso())}&workout=${encodeURIComponent(seeded.missionDay)}&source=0&coach=1`
       );

@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { deriveMission, type MissionInput } from '../home-mission';
 import { autoWorkoutName } from '../session-plan';
 import { localIso, todayIso } from '../today';
-import { resolveTodaySession, startedWorkoutToday, type TodaySessionInput } from '../today-session';
+import {
+  firstWorkoutCta,
+  resolveTodaySession,
+  startedWorkoutToday,
+  type TodaySessionInput,
+} from '../today-session';
 
 /**
  * THE ACTIVATION PATH, PINNED.
@@ -148,6 +153,7 @@ describe('the Home card never says RECOVERY DAY to someone who has never trained
     loggedSets: 0,
     starterWorkout: 'Push A',
     hasEverTrained: false,
+    firstWorkoutStarted: false,
   };
 
   it('offers the first session instead of a rest day', () => {
@@ -201,5 +207,54 @@ describe('the Quick Workout names itself when the field is left empty', () => {
   it('survives a junk date instead of producing "undefined Workout"', () => {
     expect(autoWorkoutName('not-a-date', null, [])).toContain('Workout');
     expect(autoWorkoutName('not-a-date', null, [])).not.toContain('undefined');
+  });
+});
+
+describe('the first-workout CTA never invites a second tap', () => {
+  const base = {
+    completedAnyWorkout: false,
+    completedToday: false,
+    startedFirstWorkout: false,
+    setsLoggedToday: false,
+    starterWorkout: 'Full Body 1',
+  };
+
+  it('1. FRESH USER with no first workout → Start', () => {
+    expect(firstWorkoutCta(base)).toBe('start');
+  });
+
+  it('2. THE BUG: record exists with ZERO sets → Resume, not Start', () => {
+    expect(firstWorkoutCta({ ...base, startedFirstWorkout: true })).toBe('resume');
+  });
+
+  it('3. record exists with partial sets → Resume', () => {
+    expect(firstWorkoutCta({ ...base, startedFirstWorkout: true, setsLoggedToday: true })).toBe('resume');
+  });
+
+  it('3b. sets logged but no stamp (pre-138 athlete) → still Resume', () => {
+    expect(firstWorkoutCta({ ...base, setsLoggedToday: true })).toBe('resume');
+  });
+
+  it('4. workout completed today → the completed state', () => {
+    expect(firstWorkoutCta({ ...base, startedFirstWorkout: true, completedToday: true })).toBe('completed');
+  });
+
+  it('4b. an athlete past their first workout gets neither', () => {
+    expect(firstWorkoutCta({ ...base, completedAnyWorkout: true })).toBe('none');
+  });
+
+  it('5. REPEATED TAPS resolve identically — the answer is a pure read', () => {
+    const started = { ...base, startedFirstWorkout: true };
+    for (let i = 0; i < 5; i += 1) expect(firstWorkoutCta(started)).toBe('resume');
+  });
+
+  it('6. REFRESH / RE-LOGIN: the stamp alone decides, with no local state', () => {
+    // Everything device-local is false; only the persisted record is set.
+    expect(firstWorkoutCta({ ...base, startedFirstWorkout: true, setsLoggedToday: false })).toBe('resume');
+  });
+
+  it('no plan to start from means no CTA at all, never an invented one', () => {
+    expect(firstWorkoutCta({ ...base, starterWorkout: null })).toBe('none');
+    expect(firstWorkoutCta({ ...base, starterWorkout: null, startedFirstWorkout: true })).toBe('none');
   });
 });

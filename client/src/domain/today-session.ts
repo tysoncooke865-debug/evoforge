@@ -83,3 +83,44 @@ export function startedWorkoutToday(
   }
   return best;
 }
+
+/* ─────────────── the first-workout call to action ─────────────────────── */
+
+export type FirstWorkoutCta = 'none' | 'start' | 'resume' | 'completed';
+
+export interface FirstWorkoutInput {
+  /** Any workout has ever been finished. */
+  completedAnyWorkout: boolean;
+  /** A workout was finished TODAY. */
+  completedToday: boolean;
+  /** The persisted record: they have OPENED their first workout (138).
+   *  True with zero logged sets — that is the whole point of storing it. */
+  startedFirstWorkout: boolean;
+  /** Sets exist for today. A second, independent signal of "under way". */
+  setsLoggedToday: boolean;
+  /** Day one of their plan — null when they have no plan to start from. */
+  starterWorkout: string | null;
+}
+
+/**
+ * START, RESUME, or neither.
+ *
+ * The bug this replaces: Train kept saying START FIRST WORKOUT after the
+ * athlete had already opened it, because every signal available was derived
+ * from logged SETS — and a workout that is open but not yet logged has none.
+ * Tapping again was harmless (nothing is created until a set lands) but it
+ * read as a failed tap on a create-shaped button.
+ *
+ * `startedFirstWorkout` comes from the profile (138), so it survives a
+ * refresh, a sign-out and a different device. `setsLoggedToday` is kept as a
+ * second route to RESUME so an athlete who logged a set before this shipped
+ * — and therefore has no stamp — is not shown START either.
+ */
+export function firstWorkoutCta(input: FirstWorkoutInput): FirstWorkoutCta {
+  if (input.completedToday) return 'completed';
+  // Past the first-workout phase entirely: the ordinary states take over.
+  if (input.completedAnyWorkout) return 'none';
+  if (input.starterWorkout === null) return 'none';
+  if (input.startedFirstWorkout || input.setsLoggedToday) return 'resume';
+  return 'start';
+}

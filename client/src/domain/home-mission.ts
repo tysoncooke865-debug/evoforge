@@ -46,6 +46,9 @@ export interface MissionInput {
   starterWorkout: string | null;
   /** Has any workout ever been COMPLETED? */
   hasEverTrained: boolean;
+  /** The persisted record (138): the first workout has been OPENED. True
+   *  with zero logged sets, which is exactly what `loggedSets` cannot see. */
+  firstWorkoutStarted: boolean;
 }
 
 export interface Mission {
@@ -79,7 +82,14 @@ export function deriveMission(input: MissionInput): Mission {
     // TRAIN ANYWAY button that only changed tabs. Offer day one of their
     // plan instead, and let the card say so.
     if (!input.hasEverTrained && input.starterWorkout !== null) {
-      return { ...base, workout: input.starterWorkout, status: 'first_workout' };
+      // ALREADY OPENED IT? Then this is a session to RESUME, not to start.
+      // `in_progress` already renders exactly that card, so the state the
+      // athlete is in gets the words it deserves without a new one.
+      return {
+        ...base,
+        workout: input.starterWorkout,
+        status: input.firstWorkoutStarted ? 'in_progress' : 'first_workout',
+      };
     }
     return { ...base, status: input.hasSchedule ? 'rest_day' : 'no_plan' };
   }

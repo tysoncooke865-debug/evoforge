@@ -72,8 +72,8 @@ export default function EvoScanScreen() {
   if (!progressionFeatures.monthlyScansEnabled) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="EVO RATING" title="EVO SCAN" onBack={() => router.back()} />
-        <Text className="text-sm text-text-dim">Guided Evo Scans are not enabled yet.</Text>
+        <ScreenHeader kicker="EVO RATING" title="REFORGE DAY PHOTOS" titleLines={2} onBack={() => router.back()} />
+        <Text className="text-sm text-text-dim">Reforge Day photos are not enabled yet.</Text>
       </ScreenShell>
     );
   }
@@ -167,8 +167,8 @@ export default function EvoScanScreen() {
       }
       setOutcome(
         r.status === 'pending_confirmation'
-          ? 'BIG CHANGE DETECTED — this result is pending. Take a confirmation scan within 7 days to lock it in.'
-          : `Scan confirmed — Size ${Math.floor(r.sizeScore ?? 0)}, Aesthetics ${Math.floor(r.aestheticsScore ?? 0)}. Your next Evo Review will apply it.`
+          ? 'BIG CHANGE DETECTED — this result is pending. Add a confirming set of photos within 7 days to lock it in.'
+          : `Reforge Day complete — Size ${Math.floor(r.sizeScore ?? 0)}, Aesthetics ${Math.floor(r.aestheticsScore ?? 0)}. Your next Evo Rating review will apply it.`
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The scan failed.');
@@ -189,7 +189,7 @@ export default function EvoScanScreen() {
   if (prefs.ready && !prefs.hasConsent) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="EVO RATING" title="EVO SCAN" onBack={() => router.back()} />
+        <ScreenHeader kicker="EVO RATING" title="REFORGE DAY PHOTOS" titleLines={2} onBack={() => router.back()} />
         <PhotoConsentSheet
           open
           onCancel={() => router.back()}
@@ -201,11 +201,11 @@ export default function EvoScanScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="EVO RATING" title="EVO SCAN" onBack={() => router.back()} />
+      <ScreenHeader kicker="EVO RATING" title="REFORGE DAY PHOTOS" titleLines={2} onBack={() => router.back()} />
 
       <GlowCard padding={16}>
         <Text className="text-2xs font-bold text-text-mute" style={{ letterSpacing: 2 }}>
-          GUIDED SCAN
+          TAKING YOUR PHOTOS
         </Text>
         {GUIDE.map((g) => (
           <Text key={g} className="mt-s1 text-xs text-text-dim">
@@ -213,7 +213,7 @@ export default function EvoScanScreen() {
           </Text>
         ))}
         <Text className="mt-s2 text-2xs text-text-mute">
-          Photos are judged and DISCARDED — never stored. Official scans unlock every 28 days.
+          Physique photos are optional — every training feature works without them. They are analysed in memory, never stored, and never shown to another athlete. Reforge Day comes round every 28 days.
         </Text>
       </GlowCard>
 
@@ -284,7 +284,7 @@ export default function EvoScanScreen() {
         />
       </View>
 
-      <NeonButton title="RUN OFFICIAL SCAN" pixel size="hero" disabled={!canSubmit} busy={busy} onPress={() => void submit()} testID="scan-submit" />
+      <NeonButton title="COMPLETE REFORGE DAY" pixel size="hero" disabled={!canSubmit} busy={busy} onPress={() => void submit()} testID="scan-submit" />
 
       {outcome ? (
         <GlowCard glow={colors.success} padding={16}>

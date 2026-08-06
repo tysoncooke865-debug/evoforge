@@ -45,12 +45,17 @@ export const LAB_PROFILE: ProfileRow = {
   equipment_access: null,
   preferred_days: null,
   photo_prompts_disabled: false,
+  photo_consent_at: null,
+  photo_consent_version: null,
   physique_baseline_at: null,
   reforge_anchor_at: null,
   last_reforge_at: null,
   // The lab photographs a settled athlete: the tour is long behind them.
   tour_completed_at: '2026-01-06T09:00:00Z',
   tour_state: 'completed',
+  first_workout_at: '2026-01-06T10:00:00Z',
+  first_workout_name: 'Push 1 - Strength',
+  first_workout_date: '2026-01-06',
 };
 
 export const LAB_FORGE: ForgeRow = {

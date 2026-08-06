@@ -14,6 +14,7 @@ const base: MissionInput = {
   // cases below set these explicitly.
   starterWorkout: null,
   hasEverTrained: true,
+  firstWorkoutStarted: false,
 };
 
 describe('deriveMission — one pure decision, the same ingredients as the Train hub', () => {

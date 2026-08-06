@@ -199,7 +199,7 @@ export default function ReforgeDayScreen() {
                 allowFontScaling={false}
                 style={{ fontSize: 9, letterSpacing: 1.5, ...pixelFont(false) }}
               >
-                OPTIONAL · PHYSIQUE CALIBRATION
+                OPTIONAL · REFORGE DAY PHOTOS
               </Text>
               <Text className="mt-s2 text-xs text-text-dim">
                 {prefs.hasBaseline
@@ -212,7 +212,7 @@ export default function ReforgeDayScreen() {
               </Text>
               <View className="mt-s3">
                 <NeonButton
-                  title="ADD PHYSIQUE CALIBRATION"
+                  title="ADD REFORGE DAY PHOTOS"
                   variant="ghost"
                   onPress={() => {
                     track('photo_baseline_started', { surface: 'reforge_day' });

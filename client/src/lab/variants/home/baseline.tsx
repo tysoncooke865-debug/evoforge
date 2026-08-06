@@ -225,6 +225,7 @@ export function HomeBaseline() {
     // The lab photographs an established athlete: a rest day is real for them.
     starterWorkout: null,
     hasEverTrained: true,
+    firstWorkoutStarted: true,
   });
 
   // A6: ONE bodyweight chain app-wide (latest log → profile → caller's

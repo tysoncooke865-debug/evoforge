@@ -223,6 +223,7 @@ export default function HomeScreen() {
     loggedSets: dayRows.length,
     starterWorkout,
     hasEverTrained,
+    firstWorkoutStarted: profile.data?.first_workout_at != null,
   });
 
   // A6: ONE bodyweight chain app-wide (latest log → profile → caller's

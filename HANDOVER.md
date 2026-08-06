@@ -26,6 +26,46 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE FIRST WORKOUT IS A RECORD NOW (2026-08-06, migration 138)** — Train
+  kept saying "YOUR FIRST WORKOUT / START FIRST WORKOUT" after the athlete
+  had already opened it. Tapping again was harmless (nothing is created until
+  a set lands) but it reads as a failed tap on a create-shaped button.
+  **Every signal the client had was derived from logged SETS**, and a workout
+  that is open but not yet logged has none: `workout_log` is empty,
+  `workout_sessions` holds finish markers only, and the session store's
+  `activeWorkout` is AsyncStorage — per device, and cleared by `signOut`.
+  138 stores when/which/what date on the profile, write-once server-side, so
+  a second tap, a refresh, a re-login and a second device all converge.
+  `firstWorkoutCta()` (domain/today-session.ts) decides start / resume /
+  completed / none; Home reuses its existing `in_progress` card so a started
+  first workout reads RESUME with zero sets. Verified live including a full
+  sign-out and sign-in.
+
+- **`photo_consent_at` was written but never READ (2026-08-06)** — found
+  while verifying the above. Migration 136 created the column, the mutation
+  wrote it, `ProfileRow` declared it, and `useProfile`'s explicit SELECT was
+  never updated — so `usePhotoPrefs().hasConsent` was `undefined` forever and
+  the Reforge Day consent gate re-asked on every agree, with no way through
+  to the photo screen. Nothing caught it: types consistent, write correct,
+  row correct, **projection wrong — and a projection is invisible to
+  TypeScript.** `data/__tests__/profile-projection.test.ts` now reads the
+  source and asserts ProfileRow's fields and the SELECT list are the same
+  set, in both directions. Falsified against the original bug.
+  **Adding a profile column means THREE edits: migration, ProfileRow, SELECT.**
+
+- **"EvoGuide" is retired; the feature is REFORGE DAY (2026-08-06)** — only
+  two user-facing strings existed, both on Home's origin-less podium, and
+  both told the athlete to *run an EvoGuide scan to get an Origin*. That was
+  the last surface still routing to the camera for an Origin, so it was
+  retired rather than renamed: the Origin is CHOSEN (135), and renaming it
+  "Reforge Day scan" would have been wrong — Reforge Day is the 28-day
+  review, a different feature. `/evo-scan` is now titled REFORGE DAY PHOTOS
+  with the optional/privacy messaging promoted into the header block. The
+  ROUTE, table names and stored keys are untouched. The remaining
+  "EvoGuide" mentions are SQL comments in applied migrations 042/045/046 and
+  one code comment recording the old copy — history, not UI.
+
+
 - **TWO TARGETED FIXES from Tyson's second test (2026-08-06, migration 137)**
 
   **1. The logger looked empty for 2-3s.** `resolveDay` answers from

@@ -139,12 +139,16 @@ export function AvatarHero({
             full height ran the caption straight across the podium art. */}
         <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: Math.round(scale.champion * 0.55), alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
-            onPress={() => router.push((originChoiceReady ? '/avatar' : '/evo-scan') as never)}
+            /* THE ORIGIN IS CHOSEN, NEVER SCANNED (migration 135). This was
+               the last surface still routing an origin-less athlete to the
+               camera — the same photo gate that left origin-scan-prompt.tsx
+               in the previous pass. The Forge is where the choice lives. */
+            onPress={() => router.push('/avatar' as never)}
             accessibilityRole="button"
             accessibilityLabel={
               originChoiceReady
                 ? 'Choose your Origin on the Forge'
-                : 'Forge your Origin — run an EvoGuide scan'
+                : 'Forge your Origin — choose your path on the Forge'
             }
             testID="forge-origin"
             className="items-center justify-center rounded-xl px-s5"
@@ -157,7 +161,7 @@ export function AvatarHero({
           <Text className="mt-s2 text-center text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
             {originChoiceReady
               ? 'Your scores are close — the decision is yours'
-              : 'Run an EvoGuide scan to discover your path'}
+              : 'Pick who you want to become — no photos needed'}
           </Text>
         </View>
       </View>
