@@ -37,6 +37,11 @@ export default function ProfileScreen() {
 
   const ladder = rankLadder().slice().reverse(); // top rank first
 
+  // NO SKELETON HERE, deliberately: (main)/_layout.tsx already blocks every
+  // route in this group until the profile has loaded (`session &&
+  // profile.isPending`), so this screen can never render without one. A
+  // skeleton would be unreachable code pretending to be a safety net.
+
   return (
     <ScreenShell><ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
         {/* SECTIONED (Tyson, 2026-08-06). This was eleven cards in a row —

@@ -14,6 +14,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 
 /**
  * WEEKLY SCHEDULE (Tyson, 2026-07-20). ONE plan for the whole week, chosen at the
@@ -349,6 +350,17 @@ export default function ScheduleScreen() {
   };
 
   const noPlans = !sourceHasDays(0) && !sourceHasDays(1);
+
+  // The week grid rendered as seven blank rest days while the schedule
+  // loaded — that is a plan, not a placeholder (2026-08-06).
+  if (schedule.isPending || routines.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="TRAIN ON SCHEDULE" title="EDIT SCHEDULE" titleLines={1} />
+        <SkeletonScreen cards={3} testID="schedule-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>

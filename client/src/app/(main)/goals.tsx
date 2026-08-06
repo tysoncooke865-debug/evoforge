@@ -10,6 +10,7 @@ import { pixelFont } from '@/theme/fonts';
 import { XpBar } from '@/ui/character/xp-bar';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 
 /**
  * Goals: body-fat %, bodyweight and bench-1RM targets, each with a JOURNEY
@@ -43,6 +44,18 @@ export default function GoalsScreen() {
   };
 
   const latestBw = bwReadings.length > 0 ? bwReadings[bwReadings.length - 1].v : null;
+
+  // Reads, not saves: this page had a busy state for the SAVE button and none
+  // for the data behind the goals. Zeros before the targets land are a claim
+  // about the athlete's numbers (2026-08-06).
+  if (targets.isPending || bodyweights.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="THE ROAD AHEAD" title="GOALS" />
+        <SkeletonScreen cards={3} testID="goals-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell><ScreenHeader kicker="THE ROAD AHEAD" title="GOALS" />

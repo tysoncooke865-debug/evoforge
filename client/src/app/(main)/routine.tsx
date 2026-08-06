@@ -30,6 +30,7 @@ import { EdgeLabel } from '@/ui/core/hud';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 
 /**
  * THE ROUTINE BUILDER (Tyson, 2026-07-13): pick a split, tap exercises
@@ -314,6 +315,18 @@ export default function RoutineBuilderScreen() {
       </View>
     );
   };
+
+  // The REPLACE warning keys on whether a plan already exists — rendering the
+  // builder before that read lands would offer SAVE MY PLAN to someone about
+  // to overwrite one (2026-08-06).
+  if (existingPlans.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="BUILD YOUR OWN" title="MY ROUTINE" />
+        <SkeletonScreen cards={2} testID="routine-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>
