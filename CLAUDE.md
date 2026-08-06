@@ -41,7 +41,14 @@
   via the management API and falsified with the smoke accounts before the
   client commit that depends on them (see HANDOVER §5).
 - `migrations/037` is a SHARED number (nutrition + workout_ghosts — both
-  applied). `custom_workout_plan` is retired (062) — never write it.
+  applied). **`134` is shared too** (2026-08-06): `134_onboarding_v3.sql`
+  and `134_ai_scan_cache_meal_scan_test.sql` were written the same day by two
+  sessions, both applied by hand via the management API, both live. The
+  database is correct; only the ORDERING is ambiguous, and neither depends on
+  the other. Do not renumber an applied migration — a replay would read it as
+  unapplied. **Take the next number from `git ls-tree origin/expo-rewrite
+  migrations/`, not from your working tree**, and pull before you pick.
+  `custom_workout_plan` is retired (062) — never write it.
 
 ## Session protocol
 1. Read `HANDOVER.md`. Work in `client/` unless the task says otherwise.
