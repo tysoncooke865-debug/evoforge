@@ -193,6 +193,10 @@ function OptInCard({ current }: { current: string | null }) {
         className="items-center rounded-md bg-accent p-s3"
         onPress={() => save.mutate({ displayName: name, isPublic })}
         disabled={save.isPending}
+        accessibilityRole="button"
+        accessibilityLabel={save.isPending ? 'Saving your public identity' : 'Save your public identity'}
+        accessibilityState={{ disabled: save.isPending, busy: save.isPending }}
+        style={{ minHeight: 44, justifyContent: 'center' }}
         testID="save-identity"
       >
         {save.isPending ? (

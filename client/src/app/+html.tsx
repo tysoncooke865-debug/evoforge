@@ -34,6 +34,13 @@ export default function Root({ children }: PropsWithChildren) {
             height:100%, and
             #root is a flex column so the app view stretches to fill it. */}
         <style>{'html,body,#root{height:100%;min-height:100%;background:#04070e}html,body{touch-action:manipulation;-webkit-tap-highlight-color:transparent}#root{display:flex;flex-direction:column}'}</style>
+        {/* KEYBOARD FOCUS, MADE VISIBLE (2026-08-06). react-native-web renders
+            every Pressable as a div with role/tabindex, and the browser's
+            default ring on a div is faint-to-absent against this palette — so
+            a keyboard user could tab the whole app with no idea where they
+            were. :focus-visible only, so a mouse tap never draws a ring. The
+            accent cyan at 2px clears 3:1 against every surface in tokens.js. */}
+        <style>{':focus-visible{outline:2px solid #22d3ee;outline-offset:2px;border-radius:4px}[role="button"]:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #22d3ee;outline-offset:2px}'}</style>
         {/* Boot cross-fade (OPTIMISE_PLAN M3), PURE CSS so it can NEVER strand
             the app invisible. A Reanimated opacity gate once left an installed
             iOS PWA stuck on the blank boot colour when its animation frame did

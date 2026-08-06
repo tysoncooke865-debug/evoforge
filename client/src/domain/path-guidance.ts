@@ -36,11 +36,16 @@ const trim = (v: number): string => (Number.isInteger(v) ? String(v) : String(Ma
 /**
  * THE fraction format: `46 / 100`, `16 / 200 sets`, `76 / 87.5 kg`.
  *
- * The unit is appended ONCE, here. Callers that built their own string and
- * then appended a denominator are what produced `46 / 100 /100`.
+ * The unit is appended ONCE, here — and a unit that is ITSELF a denominator is
+ * dropped rather than repeated. That is not defensive tidiness: the Aesthetic
+ * and Leanness nodes carried the literal unit `"/100"`, so the Forge shipped
+ * `51 / 100 /100` on screen (found in the browser 2026-08-06 — invisible to a
+ * source scan, because the doubling only happens at render). A formatter that
+ * owns the shape has to own it against its callers too.
  */
 export function formatFraction(current: number | null, target: number, unit = ''): string {
-  const suffix = unit.trim() === '' ? '' : ` ${unit.trim()}`;
+  const cleaned = unit.trim().replace(/^\/\s*\d+$/, ''); // "/100" is already said
+  const suffix = cleaned === '' ? '' : ` ${cleaned}`;
   if (current === null) return `— / ${trim(target)}${suffix}`;
   return `${trim(current)} / ${trim(target)}${suffix}`;
 }

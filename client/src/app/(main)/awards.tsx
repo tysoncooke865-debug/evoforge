@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAchievements } from '@/data/hooks';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 import { useAchievementInputs } from '@/data/use-achievement-progress';
 import {
   achievementProgress,
@@ -123,6 +124,17 @@ export default function AwardsScreen() {
   const achievements = useAchievements();
   const { inputs, ready } = useAchievementInputs();
   const [filter, setFilter] = useState<Filter>('ALL');
+
+  // A page of grey, unearned badges is a claim that they are unearned. Say
+  // "loading" instead until the real list lands (2026-08-06).
+  if (achievements.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="THE TROPHY WALL" title="AWARDS" />
+        <SkeletonScreen cards={3} testID="awards-loading" />
+      </ScreenShell>
+    );
+  }
 
   const held = useMemo(
     () =>

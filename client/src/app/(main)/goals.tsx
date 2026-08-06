@@ -170,6 +170,12 @@ function GoalCard({
           className={`rounded-md px-s4 py-s2 ${v > 0 ? 'bg-accent' : 'bg-surface-2'}`}
           onPress={() => v > 0 && save.mutate(onSave(v))}
           disabled={save.isPending || v <= 0}
+          accessibilityRole="button"
+          // The label is the spinner's job when busy — without it a saving
+          // button announces nothing at all.
+          accessibilityLabel={save.isPending ? 'Saving goal' : 'Save goal'}
+          accessibilityState={{ disabled: save.isPending || v <= 0, busy: save.isPending }}
+          style={{ minHeight: 44, justifyContent: 'center' }}
         >
           {save.isPending ? (
             <ActivityIndicator color="#04121a" size="small" />

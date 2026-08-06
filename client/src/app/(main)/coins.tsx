@@ -8,6 +8,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 
 /** The positive earning sources, in the order they read on the breakdown, each
  *  with its own hue. `spend` is handled separately (it's an outflow). */
@@ -60,6 +61,17 @@ export default function CoinsScreen() {
   }, [events, nowMs]);
 
   const maxSource = Math.max(1, ...SOURCES.map((s) => stats.bySource.get(s.kind) ?? 0));
+
+  // A balance of 0 and an empty ledger, shown before either has loaded, is
+  // the app telling the athlete their coins are gone (2026-08-06).
+  if (total.isPending || history.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="THE VAULT" title="COINS" />
+        <SkeletonScreen cards={3} testID="coins-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>

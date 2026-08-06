@@ -53,6 +53,53 @@ Owner: Tyson. He works through other Claude sessions too — **always
   set, in both directions. Falsified against the original bug.
   **Adding a profile column means THREE edits: migration, ProfileRow, SELECT.**
 
+- **ONE SESSION COUNT: `domain/session-stats.ts` (2026-08-06)** — Tyson:
+  "WORKOUTS 0 / 1, SESSIONS 0 / 1" on a finished workout. THREE counters
+  answered "how many sessions?", none agreeing, each wrong differently:
+  `weeklyContract().done` counted only SCHEDULED days (train off-plan → green
+  pip, zero counter) and ignored cardio and the finish marker;
+  `periodTotals().sessions` ignored cardio (a cardio-only day read "0
+  SESSIONS" on the card that read "30 CARDIO MIN"); `computeStreak()` used
+  `weight > 0`, **not `isCountedSet`**, so 061's 0 kg bodyweight work counted
+  everywhere except the streak. `completedSessions()` is now the only answer:
+  a strength session is a distinct (date, workout) with a counted set OR a
+  marker; a cardio row is a cardio session; `days` counts distinct dates so a
+  day with both is ONE training day. **`done` can exceed `target`** — a bonus
+  session is honest; 0 was not. Home, Progress, both streaks and the
+  achievement sweep read it. Verified live: ALPHA's cardio-only week went
+  "0 / 2" → "1 / 2".
+
+- **A CAPPED LIST MUST DROP THE OLDEST, NEVER THE NEWEST (2026-08-06)** —
+  `fetchWorkoutLog`/`useCardioLog` ordered **ascending** under `.limit(2500)`.
+  Past 2,500 sets the client would fetch the OLDEST 2,500 and this week would
+  vanish from every derived stat, while the server and the XP ledger stayed
+  correct — the exact symptom Tyson reported, arriving for real in a year.
+  Busiest account: 363. Newest-first now, `.reverse()`d back to ascending so
+  consumers' ordering assumptions hold.
+
+- **A STATIC SCAN CANNOT SEE A RENDER-TIME BUG (2026-08-06)** — the Forge's
+  Aesthetic and Leanness nodes carried the literal unit `"/100"`, so the
+  screen read `51 / 100 /100`. No source grep finds that: the doubling only
+  happens when the formatter appends the unit. Found by reading the live
+  page. `formatFraction` now drops a unit that is itself a denominator, so a
+  caller cannot reintroduce it. **Read the rendered text, not just the JSX.**
+
+- **THE COMPLETION SCREEN IS ONE SCREEN (2026-08-06)** — it was five modal
+  phases behind five CONTINUE taps, and `useFinishWorkout` then raised a
+  SIXTH modal asking to share. Sharing is now a secondary action ON the
+  screen; `openComposer()` is the athlete asking and deliberately ignores
+  "don't ask again" (which means stop prompting me, not disable the button).
+
+- **FOUR PROGRESSIONS, FOUR NAMES (2026-08-06)** — FORGE LEVEL (XP +
+  consistency), EVOLUTION STAGE (the champion's form), EVO RATING (fitness
+  capability), TRAINING PATHS. A bare "LV." is banned;
+  `domain/__tests__/terminology.test.ts` scans the shipped source for it and
+  for the retired names. **"Evo Review" left the UI but NOT the code**: the
+  weekly engine keeps `useRunEvoReview`, `evo-review.ts` and `next_review_at`.
+  Those countdowns read the WEEKLY cadence, so labelling them "Reforge Day"
+  (the 28-day ceremony) would have stated the wrong date — they say "rating
+  update" instead.
+
 - **"EvoGuide" is retired; the feature is REFORGE DAY (2026-08-06)** — only
   two user-facing strings existed, both on Home's origin-less podium, and
   both told the athlete to *run an EvoGuide scan to get an Origin*. That was

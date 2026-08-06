@@ -98,6 +98,9 @@ export default function FuelScreen() {
   // hatch; both save through the same mutation.
   const [targetOpen, setTargetOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
+  /** The first-run explainer, collapsed by default (brief §9: "move longer
+   *  explanations into Learn more"). */
+  const [learnMore, setLearnMore] = useState(false);
 
   // THE GOAL SWITCH (081): stored columns first, else derive from the saved
   // intake inputs (pre-081 rows). Manual targets ({} inputs) resolve to null —
@@ -174,26 +177,59 @@ export default function FuelScreen() {
         <GlowCard>
           <FuelMasthead anim="idle" />
           <View className="mt-s4 border-t border-border-soft pt-s4">
+            {/* TWO CLEAR OPTIONS, and one sentence on the difference between
+                them (Tyson, 2026-08-06). It read "SET MANUALLY" under
+                "CALCULATE WITH AI" with nothing to say which an athlete
+                should pick or what changes if they do. */}
             <SectionLabel>NO TARGET YET</SectionLabel>
             <Text className="mb-s3 text-sm text-text-dim">
               Set a daily calorie budget and the meter fills as you log.
             </Text>
             <NeonButton
-              title="✦ CALCULATE WITH AI"
+              title="CALCULATE MY TARGET"
               onPress={() => setIntakeOpen(true)}
               testID="fuel-ai-target"
             />
             <View className="mt-s2">
               <NeonButton
-                title="SET MANUALLY"
+                title="SET MY OWN TARGET"
                 variant="ghost"
                 onPress={() => setTargetOpen(true)}
                 testID="fuel-set-target"
               />
             </View>
+            <Text className="mt-s3 text-2xs text-text-dim" testID="fuel-target-choice-help">
+              AI gives you a starting estimate from your stats. Manual setup gives you complete
+              control.
+            </Text>
             <View className="mt-s2">
-              <AiNotice text="AI estimates your target from your stats — a starting point, not a prescription." />
+              {/* The health disclaimer stays put; the longer explanation is
+                  behind LEARN MORE so it does not bury the choice. */}
+              <AiNotice text="AI estimates are a starting point, not medical advice." />
             </View>
+            <Pressable
+              onPress={() => setLearnMore((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: learnMore }}
+              accessibilityLabel={learnMore ? 'Hide details about calorie targets' : 'Learn more about calorie targets'}
+              testID="fuel-learn-more"
+              className="mt-s2"
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text className="text-2xs" style={{ color: colors.accent, letterSpacing: 0.5 }}>
+                {learnMore ? 'LESS ›' : 'LEARN MORE ›'}
+              </Text>
+            </Pressable>
+            {learnMore ? (
+              <Text className="mt-s1 text-2xs text-text-mute" testID="fuel-learn-more-body">
+                A calculated target uses your height, weight, age and training load to estimate the
+                calories you burn in a day, then adjusts for your goal. It is an estimate: bodies
+                differ, and the honest test is what happens to your weight over two or three weeks.
+                You can change the number or switch to your own at any time, and every change takes
+                effect from today onward — nothing already logged is rewritten. EvoForge is not a
+                medical service; talk to a doctor or dietitian before making big changes.
+              </Text>
+            ) : null}
           </View>
         </GlowCard>
       )}
@@ -383,12 +419,20 @@ function ManualTargetSheet({
           className="rounded-t-xl border-t p-s4"
           style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface }}
         >
-          <SectionLabel>DAILY TARGET · MANUAL</SectionLabel>
+          {/* NUMBERED, so the manual flow reads as one connected sequence
+              rather than two unlabelled controls (Tyson, 2026-08-06). */}
+          <SectionLabel>SET MY OWN TARGET</SectionLabel>
+          <Text className="mb-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+            1 · YOUR GOAL
+          </Text>
           <View className="mb-s3 flex-row flex-wrap gap-s2">
             {GOALS.map((g) => (
               <Chip key={g} label={GOAL_LABEL[g]} active={g === goal} onPress={() => setGoal(g)} testID={`fuel-goal-${g}`} />
             ))}
           </View>
+          <Text className="mb-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
+            2 · DAILY CALORIES
+          </Text>
           <View className="items-center">
             <NumberField
               value={kcal}
@@ -396,13 +440,27 @@ function ManualTargetSheet({
               step={50}
               bigStep={500}
               placeholder="kcal"
-              label="TARGET · KCAL"
+              label="TARGET · KCAL PER DAY"
               width={120}
               testID="fuel-target-kcal"
             />
           </View>
+          <Text className="mt-s1 text-center text-2xs text-text-mute">
+            Calories (kcal) per day. Daily targets run 1,000–6,000.
+          </Text>
           <View className="mt-s3">
-            <NeonButton title="SET TARGET" onPress={save} busy={saveTarget.isPending} testID="fuel-target-save" />
+            {/* The button says what it will save, so nobody has to guess what
+                the number was when the sheet closes. */}
+            <NeonButton
+              title={
+                pyFloat(kcal) !== null
+                  ? `SET TARGET · ${Math.round(pyFloat(kcal) as number).toLocaleString()} KCAL`
+                  : 'SET TARGET'
+              }
+              onPress={save}
+              busy={saveTarget.isPending}
+              testID="fuel-target-save"
+            />
           </View>
           <View className="mt-s2">
             <NeonButton title="CLOSE" variant="ghost" onPress={onClose} testID="fuel-target-close" />

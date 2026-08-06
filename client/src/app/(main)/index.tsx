@@ -26,12 +26,14 @@ import { estimateEvoPerSession } from '@/domain/progression/evo-per-session';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
+import { completedSessions } from '@/domain/session-stats';
 import { computeStreak } from '@/domain/streak';
 import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
 import { todayIso as calendarToday } from '@/domain/today';
 import { sourceDayFor } from '@/domain/week-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
+import { XP_PER_SET } from '@/domain/xp';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
 import { adhocOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
@@ -49,6 +51,7 @@ import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
+import { LastSessionCard } from '@/ui/home/last-session-card';
 import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
@@ -61,16 +64,18 @@ import { EvoRadar } from '@/ui/home/evo-radar';
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
  * re-stacked 2026-08-02; REDESIGNED 2026-08-03; PREMIUM PASS 2026-08-03).
  *
- * The page answers three questions in two seconds, and it now does it in
- * THREE sections instead of five:
- *   WHO AM I / WHY CARE   the Evo Rating crest — the number, what it means
- *                         ("OVERALL FITNESS SCORE"), the rank it is about to
- *                         become — and the champion standing under it
- *   WHAT NEXT             TODAY'S MISSION, the one dominant CTA
- * and then THIS WEEK, the promise the athlete made to themselves. Everything
- * that reads rather than acts — the evolution path, the weekly numbers, the
- * PR, the next form, the radar, the leaderboard — lives below the fold in
- * BelowFold, mounted after the first paint. Nothing was deleted.
+ * THE ORDER (Tyson, 2026-08-06). Seven slots, most-actionable first:
+ *
+ *   1  TODAY'S MISSION          the dominant card, for everyone
+ *   2  LAST SESSION             what the workout just finished actually did
+ *   3  THIS WEEK                the next scheduled action, and the streak
+ *   4  EVO RATING               the crest — the number and what it means
+ *   5  CHAMPION + FORGE         the champion, and this week by the numbers
+ *   6  OPTIONAL BASELINE        an offer; never a gate on anything
+ *   7  PROJECTION + LEADERBOARD below the fold, with the radar and the PR
+ *
+ * Everything that reads rather than acts lives below the fold in BelowFold,
+ * mounted after the first paint. Nothing was deleted.
  *
  * WHAT THE PREMIUM PASS MERGED, AND WHY IT IS NOT SIMPLY "LESS":
  *   - NEXT RANK stopped being its own card and became the crest's bottom rail
@@ -88,12 +93,14 @@ import { EvoRadar } from '@/ui/home/evo-radar';
  * CTA still clears the PHONE's fold (paddingTop 47 + an 88pt tab bar) with
  * more room than it had before.
  *
- * THE ORDER REVERSED ON 2026-08-03. Between 2026-08-02 and that commit the
- * mission led the page, because the old hero rig (a 192pt champion inside a
- * 450pt stage) could not fit above it. That constraint is gone rather than
- * ignored: home-scale.ts sizes the champion to the viewport and HeroStage
- * takes a `headroom` multiplier. If a future change pushes START MISSION off
- * the fold again, shrink the rig; do not re-order.
+ * THE ORDER HAS MOVED TWICE, AND THIS IS WHY IT IS WHERE IT IS. The mission
+ * led until 2026-08-03, when the identity block took the top because the hero
+ * rig could not fit under it. 2026-08-06 puts the mission back in front for
+ * EVERYONE — an athlete who has to scroll past their own rating to find out
+ * what to train today has been asked the wrong question first. The rig fits
+ * either way now: home-scale.ts sizes the champion to the viewport and
+ * HeroStage takes a `headroom` multiplier. If a future change pushes START
+ * MISSION off the fold, shrink the rig; do not re-order.
  *
  * Every value is real state; systems without backends are hidden by
  * home-features / progressionFeatures, never mocked. In particular there is
@@ -172,6 +179,10 @@ export default function HomeScreen() {
     ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso, 180, sessionEvidence)
     : computeStreak(workouts.data ?? [], todayIso, sessionEvidence);
   const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso, sessionEvidence);
+  // THE LAST COMPLETED SESSION — the canonical list's final entry, so this
+  // card and the week counter can never disagree about what happened.
+  const allSessions = completedSessions({ workoutRows: workouts.data ?? [], ...sessionEvidence });
+  const lastSession = allSessions.sessions[allSessions.sessions.length - 1] ?? null;
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
@@ -348,9 +359,6 @@ export default function HomeScreen() {
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
-  /** Never logged a set. The page leads with the mission for these athletes. */
-  const neverTrained = !workoutIndex.isPending && (workoutIndex.data?.byDate.size ?? 0) === 0;
-
   const missionCard = (
     <MissionCard
       mission={mission}
@@ -382,18 +390,42 @@ export default function HomeScreen() {
         xpNeeded={forgeProgress.xpForNextLevel}
       />
 
-      {/* ONBOARDING V3 (spec §8). For an athlete who has NEVER TRAINED the
-          page's job is different: there is no identity to lead with yet — the
-          rating is calibrating and the champion has one workout of history.
-          So the mission leads, and identity follows.
+      {/* 1. TODAY'S MISSION — the visually dominant card, and the first thing
+          under the masthead FOR EVERYONE (Tyson, 2026-08-06: the Home
+          hierarchy is mission → last workout → next action → Evo Rating →
+          champion + Forge → optional baseline → projection).
 
-          This does NOT reverse the 2026-08-03 order for everybody. The moment
-          a first workout is logged, the established identity-first page
-          returns and stays. The exception is scoped to exactly the athletes
-          the funnel says we lose: 16 bound an Origin, 11 ever logged a set. */}
-      {neverTrained ? missionCard : null}
+          It used to lead only for an athlete who had never trained; everyone
+          else met the identity block first and had to scroll past their own
+          rating to find out what to do today. "The user must always understand
+          what to do next" is the product's first principle, and the page's
+          first card is where that is answered. */}
+      {missionCard}
 
-      {/* 2. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
+      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
+          IS due it sits directly under the mission, because it is the only
+          other thing on the page with a deadline. */}
+      <ReforgeDayCard testID="home-reforge-day" />
+
+      {/* 2. WHAT THE LAST WORKOUT DID. Between "what to do next" and "what you
+          are worth overall" there was nothing: the session just finished
+          vanished with the completion screen. */}
+      <LastSessionCard
+        session={lastSession}
+        todayIso={todayIso}
+        xpPerSet={XP_PER_SET}
+        testID="home-last-session"
+      />
+
+      {/* 3. THE NEXT SCHEDULED ACTION — seven days and a streak, nothing else. */}
+      <WeekStrip
+        pips={contract.pips}
+        todayIso={todayIso}
+        streak={streak.current}
+        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
+      />
+
+      {/* 4 + 5. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
           thing on the page, so they are one slot in the shell's gap stack and
           set their own tighter internal rhythm. Separate slots spent 24pt of
           the fold on air between parts of the same sentence.
@@ -435,28 +467,22 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 3. TODAY'S MISSION — the one dominant CTA on the page, and the
-          reason the page exists. It moves ABOVE the identity block for an
-          athlete who has never trained (see missionCard's note). */}
-      {neverTrained ? null : missionCard}
-
-      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
-          IS due it sits directly under the mission, because it is the only
-          other thing on the page with a deadline. */}
-      <ReforgeDayCard testID="home-reforge-day" />
-
-            {/* 4. THIS WEEK — seven days and a streak, nothing else. */}
-      <WeekStrip
-        pips={contract.pips}
-        todayIso={todayIso}
-        streak={streak.current}
-        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
+      {/* 5b. FORGE PROGRESSION — this week by the numbers, beside the
+          champion it belongs to. It was below the fold, which put the four
+          numbers that explain the week two screens from the week itself. */}
+      <TrainingOverview
+        contract={contract}
+        weekSets={weekTotals.sets}
+        weekCardioMinutes={weekTotals.cardioMinutes}
+        weekXp={weekTotals.xp}
+        hasSchedule={hasSchedule}
       />
 
-      {/* 5. TERTIARY — the optional private baseline. Self-hides until a
+      {/* 6. TERTIARY — the optional private baseline. Self-hides until a
           workout has been COMPLETED, hides for good once the athlete says
           don't ask again, and is deliberately styled as an offer rather than
-          an outstanding task (spec §6, §8). */}
+          an outstanding task (spec §6, §8). NEVER a gate: logging, the Evo
+          Rating, character progression and PR tracking all work without it. */}
       <PhysiqueBaselineCard testID="home-physique-baseline" />
 
       {/* ---- THE FOLD. Everything below still exists, still reads live
@@ -466,15 +492,6 @@ export default function HomeScreen() {
         {/* THE EVOLUTION PATH (beta flag) — self-hides when the flag is off
             or no path exists. */}
         <PathSummary />
-
-        {/* This week, by the numbers (the pips live above now). */}
-        <TrainingOverview
-          contract={contract}
-          weekSets={weekTotals.sets}
-          weekCardioMinutes={weekTotals.cardioMinutes}
-          weekXp={weekTotals.xp}
-          hasSchedule={hasSchedule}
-        />
 
         {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
             silhouette + readiness columns need the full width — at half width

@@ -6,7 +6,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { useAuth } from '@/data/auth-context';
 import { useDeleteRoutine, useRoutines } from '@/data/routines';
 import { supabase } from '@/data/supabase';
-import { useSaveUserPlan } from '@/data/user-plans';
+import { useSaveUserPlan, useUserPlans } from '@/data/user-plans';
 import type { CustomPlan, PlanExercise } from '@/domain/custom-plan';
 import {
   exercisesFor,
@@ -47,6 +47,9 @@ export default function RoutineBuilderScreen() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   const savePlan = useSaveUserPlan();
+  // Is there a plan to REPLACE? The warning must name a real consequence.
+  const existingPlans = useUserPlans();
+  const replacing = existingPlans.data?.custom ?? null;
   const [splitKey, setSplitKey] = useState<string | null>(null);
   const [dayIx, setDayIx] = useState(0);
   const [section, setSection] = useState(0);
@@ -561,8 +564,40 @@ export default function RoutineBuilderScreen() {
               Still empty: {emptyDays.join(' · ')}
             </Text>
           ) : null}
+
+          {/* THE REPLACE WARNING, WHERE IT MATTERS (Tyson, 2026-08-06: "ensure
+              the warning that saving replaces the current routine appears
+              before confirmation and is difficult to miss").
+
+              It used to live in the branch that renders when NO split has been
+              picked — so it was on screen only while there was nothing to
+              save, and gone by the time SAVE MY PLAN appeared. And it named a
+              plan that might not exist. Now it appears directly above the
+              button, framed as a warning, and ONLY when there is a real plan
+              to overwrite. */}
+          {replacing ? (
+            <View
+              className="rounded-lg border p-s3"
+              style={{ borderColor: `${colors.warn}8c`, backgroundColor: 'rgba(251,191,36,0.08)' }}
+              testID="routine-replace-warning"
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 10, letterSpacing: 1.4, color: colors.warn, ...pixelFont(false) }}
+              >
+                ⚠ THIS REPLACES YOUR CURRENT PLAN
+              </Text>
+              <Text className="mt-s1 text-2xs text-text-dim">
+                Saving overwrites “{replacing.plan_name}”. Your logged workouts, PRs and history are
+                untouched — only the plan changes, from today onward.
+              </Text>
+            </View>
+          ) : null}
+
           <NeonButton
-            title={savePlan.isPending ? 'SAVING…' : 'SAVE MY PLAN'}
+            title={
+              savePlan.isPending ? 'SAVING…' : replacing ? 'REPLACE MY PLAN' : 'SAVE MY PLAN'
+            }
             onPress={save}
             disabled={!canSave}
             busy={savePlan.isPending}

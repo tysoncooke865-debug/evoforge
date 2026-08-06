@@ -28,10 +28,13 @@ describe('formatFraction', () => {
     expect(formatFraction(16, 200, 'sets')).toBe('16 / 200 sets');
   });
 
-  it('THE BUG: the unit rides WITH the fraction, so /100 cannot be doubled', () => {
-    // `46 / 100 /100` came from a caller appending its own denominator to a
-    // string that already had one. There is now nowhere to append it.
-    expect(formatFraction(46, 100, '%')).toBe('46 / 100 %');
+  it('THE BUG: a unit that IS a denominator is dropped, not repeated', () => {
+    // Found on the live Forge: the Aesthetic and Leanness nodes carried the
+    // literal unit "/100", so the screen read `51 / 100 /100`. Source scans
+    // cannot see this — the doubling only happens at render.
+    expect(formatFraction(51, 100, '/100')).toBe('51 / 100');
+    expect(formatFraction(46, 100, '/ 100')).toBe('46 / 100');
+    expect(formatFraction(46, 100, '%')).toBe('46 / 100 %'); // a real unit survives
     expect(formatFraction(46, 100)).not.toContain('/100');
   });
 

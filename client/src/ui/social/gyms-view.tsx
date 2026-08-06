@@ -58,8 +58,10 @@ export function GymsView() {
           ))}
         </View>
       ) : (
-        <Text className="text-2xs text-text-mute">
-          No gyms yet — start one below, or find a public gym to join.
+        <Text className="text-2xs text-text-mute" testID="gyms-empty">
+          A gym is a private group — your training partners, your crew, your actual gym floor.
+          Members see each other&apos;s workouts and PRs in one place without making anything
+          public. You aren&apos;t in one yet: start your own below, or join a public gym.
         </Text>
       )}
 

@@ -12,6 +12,7 @@ import { HUDChip } from '@/ui/core/hud';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 import { StreakCalendar } from '@/ui/train/streak-calendar';
 import { todayIso as calendarToday } from '@/domain/today';
 
@@ -28,6 +29,8 @@ export default function StreakScreen() {
   const claim = useClaimCoin();
   const [monthOffset, setMonthOffset] = useState(0);
 
+  // A streak of 0 while the log loads reads as "you broke it". Wait.
+  const loading = schedule.isPending || workouts.isPending;
   const streak = computeScheduledStreak(schedule.data ?? [], workouts.data ?? [], todayIso);
 
   // Milestone claims: fire-and-forget; the unique index absorbs repeats.
@@ -43,6 +46,15 @@ export default function StreakScreen() {
   const base = new Date(`${todayIso}T00:00:00Z`);
   const shown = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + monthOffset, 1));
   const hasSchedule = (schedule.data ?? []).length > 0;
+
+  if (loading) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="CONSISTENCY IS THE CHEAT CODE" title="STREAK" />
+        <SkeletonScreen cards={3} testID="streak-loading" />
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>

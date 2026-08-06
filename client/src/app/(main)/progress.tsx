@@ -23,6 +23,7 @@ import { useThemeColors } from '@/theme/use-theme';
 import { LineChart, type ChartPoint } from '@/ui/core/line-chart';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
+import { SkeletonScreen } from '@/ui/core/skeleton';
 import { todayIso as calendarToday } from '@/domain/today';
 
 /**
@@ -50,6 +51,18 @@ export default function ProgressScreen() {
   // component (the HANDOVER rule). Identity memos were pure overhead.
   const workoutRows = workouts.data ?? [];
   const cardioRows = cardio.data ?? [];
+
+  // Every number on this page is derived from these three reads. Rendering
+  // them as zeros while they load is a claim about the athlete's training
+  // (2026-08-06).
+  if (workouts.isPending || cardio.isPending || schedule.isPending) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="THE RECEIPTS" title="PROGRESS" />
+        <SkeletonScreen cards={3} testID="progress-loading" />
+      </ScreenShell>
+    );
+  }
 
   // THIS WEEK — the same window Home's weekly contract judges, over the same
   // canonical session count (domain/session-stats.ts). Cardio rows and finish

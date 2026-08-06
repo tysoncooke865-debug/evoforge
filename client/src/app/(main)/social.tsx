@@ -228,8 +228,10 @@ function ClaimNameCard() {
           workout. So the copy no longer implies a change they missed; it
           explains what the name is for, at the moment it is for something. */}
       <Text className="mb-s2 text-2xs text-text-mute">
-        Social runs on usernames. Pick a unique one to post, comment and be found — it does NOT
-        put you on the leaderboard.
+        Social runs on usernames. Pick a unique one to post, comment and be found. TWO SEPARATE
+        SYSTEMS: this username is your social identity; the public leaderboard has its own name and
+        its own switch on Rank. Claiming one never joins the other. Everything else — training,
+        your Evo Rating, the Arena — works without a username.
       </Text>
       <TextInput
         className="mb-s2 min-h-[48px] rounded-md border border-border bg-surface-2 px-s3 text-base text-text"
@@ -304,7 +306,11 @@ function DiscoverAthletes() {
     return (
       <View className="rounded-lg border p-s3" style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.4)' }}>
         <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1 }}>ATHLETES TO DISCOVER</Text>
-        <Text className="mt-s2 text-2xs text-text-dim">No public athletes yet. Make your own profile discoverable in Settings to appear here.</Text>
+        <Text className="mt-s2 text-2xs text-text-dim">
+          Athletes who have made their profile public appear here, so you can see how others train
+          and add them. Nobody has yet. Make your own discoverable in Settings to be found —
+          discovery and the public leaderboard are separate switches.
+        </Text>
       </View>
     );
   }
@@ -394,12 +400,30 @@ function RivalriesView() {
   );
 }
 
+/**
+ * An empty state has three jobs (Tyson, 2026-08-06): say WHAT will appear
+ * here, WHY that is worth having, and WHAT TO DO NEXT. "The network is
+ * forming" did none of them — it described the app's internal state to
+ * someone who wanted to know what this tab is for.
+ */
 function EmptyState({ scope }: { scope: FeedScope }) {
   const colors = useThemeColors();
   const copy = {
-    following: { title: 'YOUR FORGE IS QUIET', body: 'Add friends to see PRs, workouts and evolutions.', cta: 'FIND FRIENDS' },
-    rivals: { title: 'NO ACTIVE RIVALRIES', body: 'Challenge a friend and turn training into competition.', cta: 'CHALLENGE A FRIEND' },
-    discover: { title: 'THE NETWORK IS FORMING', body: 'Public athlete discovery is coming online.', cta: null as string | null },
+    following: {
+      title: 'YOUR FEED IS EMPTY',
+      body: 'Your feed will show friend workouts, PRs and evolutions — the fastest way to keep training when motivation dips. Find friends to get started.',
+      cta: 'FIND FRIENDS',
+    },
+    rivals: {
+      title: 'NO RIVALS YET',
+      body: 'Challenge a friend and compare training consistency, strength or cardio progress. A rivalry is a standing head-to-head record, not a one-off match.',
+      cta: 'CHALLENGE A FRIEND',
+    },
+    discover: {
+      title: 'NOBODY TO DISCOVER YET',
+      body: 'Find athletes, gyms and public training activity. Claim a username to become discoverable — it is separate from the leaderboard.',
+      cta: 'FIND FRIENDS' as string | null,
+    },
   }[scope];
   return (
     <GlowCard glow={colors.epic}>

@@ -18,7 +18,7 @@ import { useSettingsStore } from '@/state/settings-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
-import { ScreenHeader } from '@/ui/core/screen-header';
+import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { TwoFactorCard } from '@/ui/settings/two-factor-card';
 
@@ -28,6 +28,7 @@ const PHASES = ['cutting', 'maintaining', 'bulking'] as const;
  *  (rankLadder()), never restated -- the old page once hand-wrote all eight
  *  bands as text, free to drift from the function that decides the name. */
 export default function ProfileScreen() {
+  const colors = useThemeColors();
   const { session, signOut } = useAuth();
   const profile = useProfile();
   const identity = usePublicIdentity();
@@ -38,6 +39,14 @@ export default function ProfileScreen() {
 
   return (
     <ScreenShell><ScreenHeader kicker="THE ATHLETE" title="PROFILE" />
+        {/* SECTIONED (Tyson, 2026-08-06). This was eleven cards in a row —
+            who you are, your privacy switches, your body measurements, a sound
+            toggle and ACCOUNT DELETION, all the same size, all the same
+            weight, with nothing to say where one concern ended and the next
+            began. The order is Identity → Privacy → Physique Photos → Body
+            Stats → Training Numbers → Accessibility → Legal → Account, and the
+            danger zone is fenced off at the bottom. */}
+        <SectionLabel>IDENTITY</SectionLabel>
         <GlowCard>
           <Text
             className="text-text-mute"
@@ -93,14 +102,19 @@ export default function ProfileScreen() {
           })}
         </GlowCard>
 
+        <SectionLabel>PRIVACY</SectionLabel>
         <PrivacyCard />
+
+        <SectionLabel>PHYSIQUE PHOTOS</SectionLabel>
         <PhysiquePhotosCard />
 
-        <TwoFactorCard />
-
+        <SectionLabel>BODY STATS</SectionLabel>
         <BodyStatsCard />
 
+        <SectionLabel>TRAINING NUMBERS</SectionLabel>
         <TrainingNumbersCard />
+
+        <SectionLabel>ACCESSIBILITY &amp; PREFERENCES</SectionLabel>
 
         <GlowCard>
           <View className="flex-row items-center justify-between">
@@ -156,6 +170,7 @@ export default function ProfileScreen() {
           </>
         ) : null}
 
+        <SectionLabel>LEGAL</SectionLabel>
         <View className="flex-row flex-wrap items-center justify-center" style={{ gap: 14, paddingVertical: 4 }}>
           {([['Terms', 'terms'], ['Privacy', 'privacy'], ['AI & Health', 'ai']] as const).map(([label, id]) => (
             <Pressable key={id} onPress={() => router.push(`/legal?doc=${id}` as never)} accessibilityRole="button" testID={`legal-link-${id}`} style={{ minHeight: 36, justifyContent: 'center' }}>
@@ -164,17 +179,55 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        <SectionLabel>ACCOUNT</SectionLabel>
+        {/* Two-factor is account SECURITY, so it belongs here rather than
+            between the body measurements it used to sit under. */}
+        <TwoFactorCard />
         <Pressable
           className="items-center rounded-md border border-border bg-surface-2 p-s3"
           onPress={signOut}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          style={{ minHeight: 44, justifyContent: 'center' }}
           testID="sign-out"
         >
           <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
             SIGN OUT
           </Text>
         </Pressable>
+        <Pressable
+          className="items-center rounded-md border border-border bg-surface-2 p-s3"
+          onPress={() => router.push('/data' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="Export or manage your data"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+          testID="open-data"
+        >
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+            MY DATA
+          </Text>
+        </Pressable>
 
-        <DeleteAccountCard />
+        {/* THE DANGER ZONE — fenced, and last. Account deletion used to sit
+            directly under SIGN OUT in an identical card, one mis-tap from a
+            routine action (2026-08-06). It is still two-step; this makes the
+            boundary visible before the first step. */}
+        <View
+          className="mt-s4 rounded-xl border p-s3"
+          style={{ borderColor: `${colors.danger}66`, backgroundColor: 'rgba(251,113,133,0.05)', gap: 10 }}
+          testID="profile-danger-zone"
+        >
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 10, letterSpacing: 1.8, color: colors.danger, ...pixelFont(false) }}
+          >
+            ⚠ DANGER ZONE
+          </Text>
+          <Text className="text-2xs text-text-mute">
+            Permanent, and not reversible. Everything below removes data for good.
+          </Text>
+          <DeleteAccountCard />
+        </View>
     </ScreenShell>
   );
 }
