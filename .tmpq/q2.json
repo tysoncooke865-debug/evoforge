@@ -1,1 +1,0 @@
-{"query": "select display_name, evo_rating, forge_level, rank_position from leaderboard_by_metric('evo', 10);"}

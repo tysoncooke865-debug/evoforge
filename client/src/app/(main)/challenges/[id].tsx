@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
+import { useDisplayIdentity } from '@/data/use-display-identity';
 import {
   useAcceptChallenge,
   useCancelChallenge,
@@ -20,15 +21,15 @@ import {
   challengeProgress,
   isExpired,
   isSettleable,
-  leaderOf,
   myResult,
   sideLabel,
-  sideScore,
   sidesOf,
   type ChallengeDuration,
   type ChallengeStake,
   type ForgeChallenge,
 } from '@/domain/forge-challenge';
+import type { Branch } from '@/domain/avatar-stats';
+import { confidenceOf, winStreak } from '@/domain/challenge-progression';
 import { todayIso as calendarToday } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -37,6 +38,8 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SkeletonScreen } from '@/ui/core/skeleton';
+import { StakesBlock, StreakBanner } from '@/ui/challenges/stakes-block';
+import { VersusHero } from '@/ui/challenges/versus-hero';
 
 /**
  * ONE CHALLENGE, in full — and ONE screen for its whole life: the invite, the
@@ -82,10 +85,20 @@ export default function ChallengeDetailScreen() {
     );
   }
 
-  return <ChallengeBody c={c} myId={myId} todayIso={todayIso} />;
+  return <ChallengeBody c={c} myId={myId} todayIso={todayIso} allRows={challenges.data ?? []} />;
 }
 
-function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; todayIso: string }) {
+function ChallengeBody({
+  c,
+  myId,
+  todayIso,
+  allRows,
+}: {
+  c: ForgeChallenge;
+  myId: string;
+  todayIso: string;
+  allRows: readonly ForgeChallenge[];
+}) {
   const colors = useThemeColors();
   const accept = useAcceptChallenge();
   const decline = useDeclineChallenge();
@@ -98,8 +111,7 @@ function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string;
   const [reason, setReason] = useState('');
 
   const info = CHALLENGE_INFO[c.challenge_type];
-  const { me, them, myName, theirName, theirId } = sidesOf(c);
-  const leader = leaderOf(c);
+  const { me, them, theirName, theirId } = sidesOf(c);
   const result = myResult(c, myId);
   const { day, of } = challengeDay(c, todayIso);
   const live = c.status === 'active' || c.status === 'awaiting_settlement';
@@ -109,9 +121,20 @@ function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string;
   const incoming = c.status === 'pending' && c.opponent_id === myId;
   const sent = c.status === 'pending' && c.challenger_id === myId;
 
-  const myScore = sideScore(c, me);
-  const theirScore = sideScore(c, them);
-  const gap = Math.round(Math.abs(myScore - theirScore) * 10) / 10;
+  // How the contest STANDS, as a band — never a percentage on an outcome that
+  // future training decides.
+  const confidence = confidenceOf(c, myId);
+  const streak = winStreak(allRows, myId);
+
+  // MY champion in full; THEIRS as a silhouette. EvoForge does not publish
+  // another athlete's Origin or form, so a rimmed silhouette is the honest
+  // render of "someone real whose character you have not been shown" — and it
+  // happens to read exactly like a fighting game's shrouded opponent.
+  const identity = useDisplayIdentity();
+  // A neutral mid-stage silhouette. NOT a guess at their real form — we do not
+  // know it and must not imply we do; this is the shrouded-opponent render.
+  const theirBranch: Branch = 'hybrid';
+  const theirStage = 3;
 
   const tint = result === 'won' ? colors.success
     : result === 'lost' ? colors['text-dim']
@@ -151,46 +174,51 @@ function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string;
         </GlowCard>
       ) : null}
 
-      {/* ── THE COMPARISON ── */}
+      {/* ── THE DUEL ──
+          Two champions facing each other, the live scoreline, and a confidence
+          BAND. No countdown: a Forge Challenge runs for 7 or 14 days, and a
+          "3, 2, 1, FIGHT" before a fortnight of training would be theatre for
+          a moment that does not exist. The tension is a scoreline that moves
+          whenever either athlete trains. */}
       <GlowCard testID="challenge-compare">
         <Text className="text-2xs text-text-mute" style={{ letterSpacing: 1.4 }}>
           {info.name}
         </Text>
-        <View className="mt-s3" style={{ gap: 14 }}>
-          <Competitor
-            name={myName}
-            label="YOU"
-            value={sideLabel(c, me)}
-            baseline={c.challenge_type === 'most_improved_lift'
-              ? (c.i_am_challenger ? c.challenger_baseline : c.opponent_baseline) : null}
-            current={c.i_am_challenger ? c.challenger_current?.value ?? null : c.opponent_current?.value ?? null}
-            unit={info.unit}
-            lead={leader === me}
-            type={c.challenge_type}
-            testID="challenge-me"
-          />
-          <Competitor
-            name={theirName}
-            label="OPPONENT"
-            value={sideLabel(c, them)}
-            baseline={c.challenge_type === 'most_improved_lift'
-              ? (c.i_am_challenger ? c.opponent_baseline : c.challenger_baseline) : null}
-            current={c.i_am_challenger ? c.opponent_current?.value ?? null : c.challenger_current?.value ?? null}
-            unit={info.unit}
-            lead={leader === them}
-            type={c.challenge_type}
-            testID="challenge-them"
+        <View className="mt-s3">
+          <VersusHero
+            myName="YOU"
+            myScore={sideLabel(c, me)}
+            mySource={identity.stillSource ?? null}
+            theirName={theirName}
+            theirScore={sideLabel(c, them)}
+            theirBranch={theirBranch}
+            theirStage={theirStage}
+            unit={c.challenge_type === 'most_improved_lift' ? 'improvement' : info.unit}
+            confidence={confidence}
+            live={live}
+            testID="challenge-versus"
           />
         </View>
-
-        {live || result ? (
-          <Text className="mt-s3 text-sm" style={{ color: tint }} testID="challenge-leader">
-            {leader === 'tied'
-              ? 'Dead level.'
-              : leader === me
-                ? `You lead by ${gap}${c.challenge_type === 'most_improved_lift' ? '%' : ` ${info.unit}`}.`
-                : `${theirName} leads by ${gap}${c.challenge_type === 'most_improved_lift' ? '%' : ` ${info.unit}`}.`}
-          </Text>
+        {/* THE DETAIL BEHIND THE HEADLINE — only where there IS one. A lift
+            challenge is a percentage over a starting point, so the two raw
+            numbers matter; a count is its own explanation. The two full
+            Competitor cards that used to sit here said exactly what the duel
+            above now says, twice. */}
+        {c.challenge_type === 'most_improved_lift' ? (
+          <View className="mt-s3 flex-row" style={{ gap: 12 }}>
+            <BaselineLine
+              label="YOU"
+              baseline={c.i_am_challenger ? c.challenger_baseline : c.opponent_baseline}
+              current={c.i_am_challenger ? c.challenger_current?.value ?? null : c.opponent_current?.value ?? null}
+              unit={info.unit}
+            />
+            <BaselineLine
+              label={theirName.toUpperCase()}
+              baseline={c.i_am_challenger ? c.opponent_baseline : c.challenger_baseline}
+              current={c.i_am_challenger ? c.opponent_current?.value ?? null : c.challenger_current?.value ?? null}
+              unit={info.unit}
+            />
+          </View>
         ) : null}
 
         {live ? (
@@ -213,24 +241,35 @@ function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string;
         ) : null}
       </GlowCard>
 
-      {/* ── THE ESCROW ── */}
+      {/* ── WHAT IS ON THE LINE ── */}
       <GlowCard testID="challenge-escrow">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center" style={{ gap: 8 }}>
-            <CoinIcon size={20} />
-            <View>
-              <Text className="text-sm text-text">{c.stake} coins each</Text>
-              <Text className="text-2xs text-text-mute">
-                {c.status === 'pending'
-                  ? 'Nothing is staked until it is accepted.'
-                  : c.status === 'settled'
-                    ? 'Settled.'
-                    : `${c.stake * 2} coins held in escrow.`}
-              </Text>
-            </View>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          <CoinIcon size={20} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text className="text-sm text-text">{c.stake} coins each</Text>
+            <Text className="text-2xs text-text-mute">
+              {c.status === 'pending'
+                ? 'Nothing is staked until it is accepted.'
+                : c.status === 'settled'
+                  ? 'Settled.'
+                  : `${c.stake * 2} coins held in escrow.`}
+            </Text>
           </View>
         </View>
+        <View className="mt-s3">
+          <StakesBlock stake={c.stake} testID="challenge-stakes" />
+        </View>
       </GlowCard>
+
+      {/* THE RUN — the reason to take one more, and entirely a function of
+          training. No reward table, no drop, no chance. */}
+      <StreakBanner
+        current={streak.current}
+        best={streak.best}
+        nextMilestone={streak.nextMilestone}
+        toNext={streak.toNext}
+        testID="challenge-streak"
+      />
 
       {c.disputed ? (
         <GlowCard glow={colors.warn} testID="challenge-disputed">
@@ -422,62 +461,40 @@ function ChallengeBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string;
   );
 }
 
-/** One side's champion card: name, headline number, and the numbers behind it. */
-function Competitor({
-  name,
+/**
+ * The two raw numbers behind a percentage — start, and now.
+ *
+ * ONLY for a lift challenge. A percentage the athlete cannot check is a
+ * number they have to take on trust, and the whole point of settling from
+ * logged training is that they never have to.
+ */
+function BaselineLine({
   label,
-  value,
   baseline,
   current,
   unit,
-  lead,
-  type,
-  testID,
 }: {
-  name: string;
   label: string;
-  value: string;
   baseline: number | null;
   current: number | null;
   unit: string;
-  lead: boolean;
-  type: string;
-  testID: string;
 }) {
   const colors = useThemeColors();
   return (
-    <View
-      className="rounded-lg border p-s3"
-      style={{
-        borderColor: lead ? `${colors.accent}70` : colors.border,
-        backgroundColor: lead ? 'rgba(34,211,238,0.06)' : 'rgba(13,21,36,0.4)',
-      }}
-      testID={testID}
-    >
-      <View className="flex-row items-center justify-between">
-        <Text className="text-text-mute" allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 1.4, ...pixelFont(false) }}>
-          {label}
-        </Text>
-        {lead ? (
-          <Text allowFontScaling={false} style={{ fontSize: 8, letterSpacing: 1.2, color: colors.accent, ...pixelFont(false) }}>
-            LEADING
-          </Text>
-        ) : null}
-      </View>
-      <Text className="mt-s1 text-sm text-text" numberOfLines={1}>{name}</Text>
+    <View style={{ flex: 1, minWidth: 0 }}>
       <Text
+        className="text-text-mute"
+        numberOfLines={1}
         allowFontScaling={false}
-        style={{ fontSize: 30, color: lead ? colors.accent : colors.text, letterSpacing: 0, ...pixelFont() }}
+        style={{ fontSize: 7, letterSpacing: 1.2, ...pixelFont(false) }}
       >
-        {value}
+        {label}
       </Text>
-      {/* The numbers BEHIND the headline, so a percentage is never something
-          the athlete has to take on trust. */}
-      {type === 'most_improved_lift' && baseline !== null ? (
-        <Text className="text-2xs text-text-mute">
-          {baseline > 0 ? `${baseline} → ${current ?? 0} ${unit}` : `no starting lift logged · ${current ?? 0} ${unit}`}
-        </Text>
-      ) : null}
+      <Text className="mt-s1 text-2xs" numberOfLines={1} style={{ color: colors['text-dim'] }}>
+        {baseline !== null && baseline > 0
+          ? `${baseline} → ${current ?? 0} ${unit}`
+          : `no starting lift · ${current ?? 0} ${unit}`}
+      </Text>
     </View>
   );
 }

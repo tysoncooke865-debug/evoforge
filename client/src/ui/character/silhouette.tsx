@@ -18,12 +18,26 @@ export function Silhouette({
   width = 44,
   height = 48,
   rim,
+  tint,
+  wash = 0.55,
 }: {
   branch: Branch;
   stage: number;
   width?: number;
   height?: number;
   rim?: string;
+  /**
+   * The silhouette's fill. Defaults to near-black, which is correct for a
+   * LOCKED form: the shape must tease and the art must not leak.
+   *
+   * A DUEL OPPONENT IS NOT A LOCKED SECRET — they are a real athlete whose
+   * champion we simply do not publish — so that context passes a readable
+   * slate instead. Near-black on a near-black card is not mystery, it is an
+   * empty box (found in the browser, 2026-08-07).
+   */
+  tint?: string;
+  /** The darkening wash over the art. Lower it wherever the shape must read. */
+  wash?: number;
 }) {
   const colors = useThemeColors();
   const rimColor = rim ?? colors.epic;
@@ -44,7 +58,7 @@ export function Silhouette({
     >
       <Image
         source={avatarImage(branch, stage)}
-        tintColor="#070d1a"
+        tintColor={tint ?? '#070d1a'}
         style={{ width, height }}
         contentFit="contain"
       />
@@ -57,7 +71,7 @@ export function Silhouette({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(4,7,14,0.55)',
+          backgroundColor: `rgba(4,7,14,${wash})`,
         }}
       />
     </View>

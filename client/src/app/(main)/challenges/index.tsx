@@ -11,10 +11,12 @@ import {
   bucketChallenges,
   challengeRecord,
 } from '@/domain/forge-challenge';
+import { challengeHistory, winStreak } from '@/domain/challenge-progression';
 import { todayIso as calendarToday } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ChallengeCard } from '@/ui/challenges/challenge-card';
+import { StreakBanner } from '@/ui/challenges/stakes-block';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
@@ -70,6 +72,8 @@ export default function ChallengesScreen() {
   const friendList = friends.data ?? [];
   const { incoming, active, sent, finished } = bucketChallenges(rows, myId);
   const record = challengeRecord(rows, myId);
+  const streak = winStreak(rows, myId);
+  const history = challengeHistory(rows, myId);
   const balance = coins.data ?? 0;
   const canAfford = balance >= CHALLENGE_STAKES[0];
 
@@ -145,6 +149,16 @@ export default function ChallengesScreen() {
         </>
       ) : null}
 
+      {/* THE RUN — above the record, because a streak is a reason to act and
+          a lifetime tally is a reason to reflect. */}
+      <StreakBanner
+        current={streak.current}
+        best={streak.best}
+        nextMilestone={streak.nextMilestone}
+        toNext={streak.toNext}
+        testID="hub-streak"
+      />
+
       {finished.length > 0 ? (
         <>
           <SectionLabel>YOUR RECORD</SectionLabel>
@@ -155,6 +169,66 @@ export default function ChallengesScreen() {
               <Stat label="DRAWS" value={String(record.draws)} />
               <Stat label="COINS WON" value={String(record.coinsWon)} tint={colors.legendary} />
             </View>
+
+            {/* THE LAST FIVE, at a glance. Net coins is shown as-is and CAN be
+                negative: a record that only ever counts up is not a record. */}
+            {history.recent.length > 0 ? (
+              <View className="mt-s3 border-t pt-s3" style={{ borderColor: colors.border }}>
+                <View className="flex-row items-center" style={{ gap: 6 }}>
+                  {history.recent.map((h) => (
+                    <View
+                      key={h.id}
+                      accessibilityLabel={`${h.result} against ${h.opponent}`}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor:
+                          h.result === 'won'
+                            ? `${colors.success}8c`
+                            : h.result === 'lost'
+                              ? colors.border
+                              : `${colors.legendary}66`,
+                        backgroundColor:
+                          h.result === 'won' ? 'rgba(52,211,153,0.12)' : 'transparent',
+                      }}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={{
+                          fontSize: 10,
+                          color:
+                            h.result === 'won'
+                              ? colors.success
+                              : h.result === 'drew'
+                                ? colors.legendary
+                                : colors['text-mute'],
+                          ...pixelFont(),
+                        }}
+                      >
+                        {h.result === 'won' ? 'W' : h.result === 'lost' ? 'L' : 'D'}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={{ flex: 1 }} />
+                  {history.biggestWin > 0 ? (
+                    <Text className="text-2xs text-text-mute" numberOfLines={1}>
+                      BEST +{history.biggestWin}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text className="mt-s2 text-2xs text-text-mute">
+                  {history.totalSettled} settled ·{' '}
+                  <Text style={{ color: history.netCoins >= 0 ? colors.success : colors['text-dim'] }}>
+                    {history.netCoins >= 0 ? '+' : ''}
+                    {history.netCoins} coins net
+                  </Text>
+                </Text>
+              </View>
+            ) : null}
           </GlowCard>
 
           <SectionLabel>HISTORY</SectionLabel>
