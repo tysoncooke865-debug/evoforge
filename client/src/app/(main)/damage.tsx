@@ -16,6 +16,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
+import { challengeFeatures } from '@/ui/challenges/features';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
@@ -50,7 +51,17 @@ export default function DamageScreen() {
 
   return (
     <ScreenShell>
-      <ScreenHeader kicker="ARENA" title="DAMAGE ASSESSMENT" onBack={() => router.replace('/arena' as never)} />
+      {/* BACK GOES TO CHALLENGES (2026-08-07). Arena is retired from the
+          primary nav, so its own back arrow would have dropped the athlete on
+          a hub that no longer has a tab. Damage Assessment lives under
+          Challenges now — both are friend-vs-friend contests. */}
+      <ScreenHeader
+        kicker={challengeFeatures.challengesEnabled ? 'CHALLENGES' : 'ARENA'}
+        title="DAMAGE ASSESSMENT"
+        onBack={() =>
+          router.replace((challengeFeatures.challengesEnabled ? '/challenges' : '/arena') as never)
+        }
+      />
       <Text className="text-2xs text-text-mute">
         PRE photo → train → POST photo. The AI judges whose physique changed the most. Photos are
         judged then deleted — only the scores survive.

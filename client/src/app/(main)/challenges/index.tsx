@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { useCoinTotal } from '@/data/coins';
@@ -163,6 +163,39 @@ export default function ChallengesScreen() {
           ))}
         </>
       ) : null}
+
+      {/* DAMAGE ASSESSMENT (migration 038) — the OTHER way to challenge a
+          friend, and the only other thing that survives the Arena's retirement
+          (Tyson, 2026-08-07: "arena should be replaced with the wager system,
+          and the damage assessment mode and thats it"). It lived only inside
+          the Arena hub, so removing that tab would have stranded a working
+          feature. Same tab, because both are friend-vs-friend contests. */}
+      <SectionLabel>DAMAGE ASSESSMENT</SectionLabel>
+      <Pressable
+        onPress={() => router.push('/damage' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Damage Assessment: a pre and post pump photo duel against a friend."
+        testID="challenges-damage"
+        className="w-full rounded-xl border p-s3"
+        style={{ borderColor: `${colors.danger}45`, backgroundColor: 'rgba(13,21,36,0.55)', minHeight: 44 }}
+      >
+        <View className="flex-row items-center" style={{ gap: 10 }}>
+          <Text style={{ fontSize: 20 }}>📸</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              allowFontScaling={false}
+              style={{ fontSize: 11, letterSpacing: 1.2, color: colors.danger, ...pixelFont(false) }}
+            >
+              DAMAGE ASSESSMENT
+            </Text>
+            <Text className="mt-s1 text-2xs text-text-dim">
+              PRE photo, train, POST photo — the AI judges whose physique changed most. No coins
+              are staked.
+            </Text>
+          </View>
+          <Text className="text-base font-bold" style={{ color: colors.danger }}>›</Text>
+        </View>
+      </Pressable>
 
       {/* Said once, at the bottom, on every screen where a wager is agreed to. */}
       <Text className="text-2xs text-text-mute" testID="challenges-safety">
