@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import type { Mission } from '@/domain/home-mission';
 import { formatEvoEstimate } from '@/domain/progression/evo-per-session';
@@ -14,6 +15,7 @@ import { GlowCard } from '@/ui/core/shell';
 
 import type { HomeFeatures } from './home-features';
 import { useHomeScale } from './home-scale';
+import { MissionCompleteFlourish, useCompletionPulse } from './mission-complete-flourish';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
@@ -201,31 +203,14 @@ export function MissionCard({
   }
 
   if (mission.status === 'completed') {
-    return (
-      <GlowCard glow={colors.success} padding={16}>
-        <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: colors.success }}>
-          ✓ MISSION COMPLETE
-        </Text>
-        <Text className="mt-s1 text-text" allowFontScaling={false} style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }} numberOfLines={1}>
-          {title.toUpperCase()}
-        </Text>
-        <Text className="mt-s1 text-xs text-text-dim">
-          {mission.doneSets > 0 || mission.xpBanked > 0
-            ? `${mission.doneSets}${mission.targetSets > 0 ? ` / ${mission.targetSets}` : ''} sets · +${mission.xpBanked} XP banked`
-            : 'Finished for today.'}
-          {nextLine ? `  ·  ${nextLine}` : ''}
-        </Text>
-        {/* The loop closed: the sets are banked AND they are now evidence.
-            Said once, at the moment it becomes true. */}
-        <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
-          ◈ BANKED AS EVIDENCE FOR YOUR EVO RATING
-          {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
-        </Text>
-        <View className="mt-s3">
-          <NeonButton title="VIEW SUMMARY" variant="ghost" pixel onPress={onOpen} testID="mission-view" />
-        </View>
-      </GlowCard>
-    );
+    return <CompletedMission
+      mission={mission}
+      title={title}
+      nextLine={nextLine}
+      evoPerSession={evoPerSession}
+      scale={scale}
+      onOpen={onOpen}
+    />;
   }
 
   // scheduled / in_progress — the briefing card. Its padding is 14 rather
@@ -419,4 +404,64 @@ function Door({
 function whenLabel(next: NextSession): string {
   if (next.inDays === 1) return 'tomorrow';
   return `${WEEKDAYS[new Date(`${next.date}T00:00:00Z`).getUTCDay()].toLowerCase()} (in ${next.inDays} days)`;
+}
+
+/**
+ * MISSION COMPLETE — the same facts, delivered as a moment.
+ *
+ * Split out of MissionCard because the completed state now owns animation
+ * state, and hooks cannot live inside a conditional branch. The numbers are
+ * unchanged: sets done, sets asked for, XP banked. Only the delivery moved.
+ */
+function CompletedMission({
+  mission,
+  title,
+  nextLine,
+  evoPerSession,
+  scale,
+  onOpen,
+}: {
+  mission: Mission;
+  title: string;
+  nextLine: string | null;
+  evoPerSession: number | null;
+  scale: ReturnType<typeof useHomeScale>;
+  onOpen: () => void;
+}) {
+  const colors = useThemeColors();
+  const ctaStyle = useCompletionPulse(true);
+
+  return (
+    <GlowCard glow={colors.success} padding={16}>
+      <MissionCompleteFlourish
+        sets={mission.doneSets}
+        targetSets={mission.targetSets}
+        xp={mission.xpBanked}
+        testID="mission-complete-flourish"
+      />
+      <Text
+        className="mt-s2 text-text"
+        allowFontScaling={false}
+        style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }}
+        numberOfLines={1}
+      >
+        {title.toUpperCase()}
+      </Text>
+      <Text className="mt-s1 text-xs text-text-dim">
+        {mission.doneSets > 0 || mission.xpBanked > 0
+          ? `${mission.doneSets}${mission.targetSets > 0 ? ` / ${mission.targetSets}` : ''} sets banked`
+          : 'Finished for today.'}
+        {nextLine ? `  ·  ${nextLine}` : ''}
+      </Text>
+      {/* The loop closed: the sets are banked AND they are now evidence.
+          Said once, at the moment it becomes true. */}
+      <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
+        ◈ BANKED AS EVIDENCE FOR YOUR EVO RATING
+        {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
+      </Text>
+      <Animated.View className="mt-s3" style={ctaStyle}>
+        <NeonButton title="VIEW SUMMARY" variant="ghost" pixel onPress={onOpen} testID="mission-view" />
+      </Animated.View>
+    </GlowCard>
+  );
 }
