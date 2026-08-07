@@ -1,0 +1,1 @@
+{"query": "select count(*) as public_profiles, count(*) filter (where is_public) as is_public_true from public_profile;"}

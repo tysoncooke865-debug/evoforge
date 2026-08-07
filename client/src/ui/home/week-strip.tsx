@@ -63,11 +63,22 @@ const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
  *  one starts as the fourth finishes — a wave, not a queue. */
 const POP_WINDOW = 0.42;
 
+export interface WeekTotalsSummary {
+  sessionsDone: number;
+  sessionsTarget: number;
+  hasSchedule: boolean;
+  sets: number;
+  cardioMinutes: number;
+  xp: number;
+}
+
 export function WeekStrip({
   pips,
   todayIso,
   streak,
   streakLabel,
+  totals,
+  lastSession,
 }: {
   /** weeklyContract().pips — always 7, Monday first. */
   pips: WeekDayPip[];
@@ -76,6 +87,12 @@ export function WeekStrip({
   /** 'FORGE STREAK' when a schedule drives it, 'DAY STREAK' otherwise —
    *  spoken to screen readers; the visual label stays the short word. */
   streakLabel: string;
+  /** THE WEEK'S NUMBERS, folded in (2026-08-07). They were a separate
+   *  full-width card below the fold, so the seven days and the four numbers
+   *  describing those same days never appeared together. */
+  totals?: WeekTotalsSummary;
+  /** The last completed session, one line. Was its own full-width card. */
+  lastSession?: { name: string; when: string; detail: string } | null;
 }) {
   const colors = useThemeColors();
   const ambient = useAmbient();
@@ -125,9 +142,11 @@ export function WeekStrip({
         accessibilityRole="button"
         accessibilityLabel={`This week: ${done} of 7 days trained. ${streakLabel.toLowerCase()} ${streak}. Opens your streak.`}
         testID="week-strip"
-        className="w-full flex-row items-center rounded-xl border px-s4 py-s3"
-        style={{ gap: 12, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
+        className="w-full rounded-xl border px-s4 py-s3"
+        style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
       >
+        {/* The seven days and the streak, side by side as before. */}
+        <View className="w-full flex-row items-center" style={{ gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             className="text-accent"
@@ -185,6 +204,42 @@ export function WeekStrip({
             </Text>
           </View>
         </View>
+        </View>
+
+        {/* THE WEEK'S NUMBERS, in the card that shows the week. Three
+            full-width cards became one (2026-08-07): the pips, the totals and
+            the last session all described the same seven days from three
+            different places on the page. */}
+        {totals ? (
+          <View
+            className="mt-s3 flex-row flex-wrap border-t pt-s3"
+            style={{ borderColor: colors.border, columnGap: 18, rowGap: 8 }}
+            testID="week-strip-totals"
+          >
+            <Metric
+              label="SESSIONS"
+              value={
+                totals.hasSchedule
+                  ? `${totals.sessionsDone} / ${totals.sessionsTarget}`
+                  : String(totals.sessionsDone)
+              }
+            />
+            <Metric label="SETS" value={String(totals.sets)} />
+            <Metric label="CARDIO" value={`${Math.trunc(totals.cardioMinutes)}m`} tint={colors.rare} />
+            <Metric label="XP" value={`+${totals.xp}`} tint={colors.accent} />
+          </View>
+        ) : null}
+
+        {lastSession ? (
+          <Text
+            className="mt-s2 text-2xs text-text-mute"
+            numberOfLines={1}
+            testID="week-strip-last"
+            style={{ letterSpacing: 0.3 }}
+          >
+            LAST · {lastSession.name} · {lastSession.when} · {lastSession.detail}
+          </Text>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
@@ -312,6 +367,30 @@ function DayPip({
           </Text>
         )}
       </Animated.View>
+    </View>
+  );
+}
+
+/** One of the week's four numbers. Compact by design — these SUPPORT the seven
+ *  days above them; they do not compete with them. */
+function Metric({ label, value, tint }: { label: string; value: string; tint?: string }) {
+  const colors = useThemeColors();
+  return (
+    <View>
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontSize: 15, letterSpacing: 0, color: tint ?? colors.text, ...pixelFont() }}
+      >
+        {value}
+      </Text>
+      <Text
+        className="text-text-mute"
+        allowFontScaling={false}
+        style={{ fontSize: 7, letterSpacing: 1, ...pixelFont(false) }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }

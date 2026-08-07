@@ -85,6 +85,7 @@ import { EvoDetailSheet } from './evo-detail';
 import { EvoEmblem, EvoEnergyRing } from './evo-emblem';
 import { useHomeScale } from './home-scale';
 import { NextRankRail } from './next-rank-card';
+import { EvoStandingRail } from './evo-standing-rail';
 
 /** The rating this DEVICE last showed. One integer; see useRatingCelebration. */
 const SEEN_RATING_KEY = 'evoforge-evo-seen-rating-v1';
@@ -555,6 +556,12 @@ export function EvoHero({
             {statusLine.text}
           </Text>
         ) : null}
+
+        {/* AM I MOVING — the weekly delta and the board position, which is what
+            turns a rating into an identity worth improving (2026-08-07). It
+            sits ABOVE the next-rank rail on purpose: "you are climbing" is a
+            stronger reason to train today than "here is the next label". */}
+        <EvoStandingRail width={crestW} />
 
         {/* WHY CARE — the name the number is about to become. The rail's width
             is the CREST'S, not the column's: spanning the page it read as a

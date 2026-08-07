@@ -61,11 +61,10 @@ import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
@@ -413,14 +412,9 @@ export function HomeBaseline() {
             or no path exists. */}
         <PathSummary />
 
-        {/* This week, by the numbers (the pips live above now). */}
-        <TrainingOverview
-          contract={contract}
-          weekSets={weekTotals.sets}
-          weekCardioMinutes={weekTotals.cardioMinutes}
-          weekXp={weekTotals.xp}
-          hasSchedule={hasSchedule}
-        />
+        {/* The week's numbers moved INTO the week strip on 2026-08-07 (three
+            cards describing the same seven days became one), so the lab's
+            baseline no longer renders them separately either. */}
 
         {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
             silhouette + readiness columns need the full width — at half width
@@ -436,7 +430,7 @@ export function HomeBaseline() {
         <View>
           <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
           <View className="mt-s3">
-            <EvoRadar
+            <EvoPillars
               fallbackStats={[
                 { label: 'STR', value: stats.strengthScore },
                 { label: 'SIZE', value: stats.sizeScore },

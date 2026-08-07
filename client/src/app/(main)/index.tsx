@@ -51,31 +51,37 @@ import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { LastSessionCard } from '@/ui/home/last-session-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
  * re-stacked 2026-08-02; REDESIGNED 2026-08-03; PREMIUM PASS 2026-08-03).
  *
- * THE ORDER (Tyson, 2026-08-06). Seven slots, most-actionable first:
+ * THE ORDER (redesigned 2026-08-07). Five slots above the fold, and the page
+ * is meant to feel like opening a GAME, not a spreadsheet:
  *
- *   1  TODAY'S MISSION          the dominant card, for everyone
- *   2  LAST SESSION             what the workout just finished actually did
- *   3  THIS WEEK                the next scheduled action, and the streak
- *   4  EVO RATING               the crest — the number and what it means
- *   5  CHAMPION + FORGE         the champion, and this week by the numbers
- *   6  OPTIONAL BASELINE        an offer; never a gate on anything
- *   7  PROJECTION + LEADERBOARD below the fold, with the radar and the PR
+ *   1  TODAY'S MISSION      the one primary action, visually dominant
+ *   2  REFORGE DAY          only when it is due; a small reminder otherwise
+ *   3  CHAMPION + RATING    ONE block. The crest carries the rating, the
+ *                           weekly delta, the board position and the next
+ *                           rank; the champion stands directly under it, so
+ *                           "I train this mission to improve THIS character"
+ *                           reads as one continuous thought.
+ *   4  THIS WEEK            ONE card: seven days, streak, the four numbers
+ *                           and the last session.
+ *   5  OPTIONAL BASELINE    an offer; never a gate on anything
+ *      then BelowFold       evolution, PR, leaderboard, paths
  *
- * Everything that reads rather than acts lives below the fold in BelowFold,
- * mounted after the first paint. Nothing was deleted.
+ * WHAT THIS PASS MERGED, and why it is not simply "less": LAST SESSION and
+ * TRAINING OVERVIEW were separate full-width cards describing the same seven
+ * days as the week strip, from two other places on the page. Three cards
+ * became one. Nothing was deleted — every number they carried is still here,
+ * in the card that was already about the week.
  *
  * WHAT THE PREMIUM PASS MERGED, AND WHY IT IS NOT SIMPLY "LESS":
  *   - NEXT RANK stopped being its own card and became the crest's bottom rail
@@ -183,6 +189,18 @@ export default function HomeScreen() {
   // card and the week counter can never disagree about what happened.
   const allSessions = completedSessions({ workoutRows: workouts.data ?? [], ...sessionEvidence });
   const lastSession = allSessions.sessions[allSessions.sessions.length - 1] ?? null;
+  /** The last session as ONE line, for the week card it now lives inside. */
+  const lastSessionLine =
+    lastSession === null
+      ? null
+      : {
+          name: splitWorkoutName(lastSession.name).title,
+          when: lastSession.date === todayIso ? 'today' : lastSession.date.slice(5),
+          detail:
+            lastSession.kind === 'cardio'
+              ? `${Math.trunc(lastSession.minutes)} min`
+              : `${lastSession.sets} sets · +${lastSession.sets * XP_PER_SET} XP`,
+        };
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
@@ -407,25 +425,7 @@ export default function HomeScreen() {
           other thing on the page with a deadline. */}
       <ReforgeDayCard testID="home-reforge-day" />
 
-      {/* 2. WHAT THE LAST WORKOUT DID. Between "what to do next" and "what you
-          are worth overall" there was nothing: the session just finished
-          vanished with the completion screen. */}
-      <LastSessionCard
-        session={lastSession}
-        todayIso={todayIso}
-        xpPerSet={XP_PER_SET}
-        testID="home-last-session"
-      />
-
-      {/* 3. THE NEXT SCHEDULED ACTION — seven days and a streak, nothing else. */}
-      <WeekStrip
-        pips={contract.pips}
-        todayIso={todayIso}
-        streak={streak.current}
-        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
-      />
-
-      {/* 4 + 5. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
+      {/* 2 + 3. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
           thing on the page, so they are one slot in the shell's gap stack and
           set their own tighter internal rhythm. Separate slots spent 24pt of
           the fold on air between parts of the same sentence.
@@ -467,15 +467,23 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 5b. FORGE PROGRESSION — this week by the numbers, beside the
-          champion it belongs to. It was below the fold, which put the four
-          numbers that explain the week two screens from the week itself. */}
-      <TrainingOverview
-        contract={contract}
-        weekSets={weekTotals.sets}
-        weekCardioMinutes={weekTotals.cardioMinutes}
-        weekXp={weekTotals.xp}
-        hasSchedule={hasSchedule}
+      {/* 4. THIS WEEK — ONE card now. The seven days, the streak, the four
+          numbers and the last session used to be THREE full-width cards
+          describing the same week from three places on the page. */}
+      <WeekStrip
+        pips={contract.pips}
+        todayIso={todayIso}
+        streak={streak.current}
+        streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
+        totals={{
+          sessionsDone: contract.done,
+          sessionsTarget: contract.target,
+          hasSchedule,
+          sets: weekTotals.sets,
+          cardioMinutes: weekTotals.cardioMinutes,
+          xp: weekTotals.xp,
+        }}
+        lastSession={lastSessionLine}
       />
 
       {/* 6. TERTIARY — the optional private baseline. Self-hides until a
@@ -507,7 +515,7 @@ export default function HomeScreen() {
         <View>
           <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
           <View className="mt-s3">
-            <EvoRadar
+            <EvoPillars
               fallbackStats={[
                 { label: 'STR', value: stats.strengthScore },
                 { label: 'SIZE', value: stats.sizeScore },
