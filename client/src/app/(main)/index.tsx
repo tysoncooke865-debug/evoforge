@@ -57,6 +57,7 @@ import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
 import { EvoPillars } from '@/ui/home/evo-pillars';
+import { ProgressHub } from '@/ui/home/progress-hub';
 
 /**
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
@@ -501,17 +502,20 @@ export default function HomeScreen() {
             or no path exists. */}
         <PathSummary />
 
-        {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
-            silhouette + readiness columns need the full width — at half width
-            "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
+        {/* ONE PROGRESSION STORY (2026-08-07): the PR, the form it advanced
+            and where the pillars head next were three unrelated cards in a
+            stack. They are the same sentence, so a spine and one heading say
+            so. Nothing merged — each still needs its own breathing room. */}
+        <ProgressHub testID="progress-hub">
         <RecentPrCard pr={pr} unit={prUnit} />
-        <EvolutionTeaser branch={stats.branch} evolution={evolution} />
+        <EvolutionTeaser
+          branch={stats.branch}
+          evolution={evolution}
+          currentName={formName}
+          currentSource={identity.stillSource}
+        />
 
-        {/* Character build — the radar. Sourced from the Evo Rating's four
-            pillars so the wheel LINES UP with the rating above (Tyson
-            2026-07-19), with a dashed projection of where they head after a
-            block of consistent training. Falls back to the legacy live stats
-            before the first Evo review. */}
+        {/* Where those pillars head next — the third beat of the story. */}
         <View>
           <EdgeLabel>{`${stats.characterClass.toUpperCase()} · ${stats.buildType.toUpperCase()}`}</EdgeLabel>
           <View className="mt-s3">
@@ -526,6 +530,7 @@ export default function HomeScreen() {
             />
           </View>
         </View>
+        </ProgressHub>
 
         {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
         <LeaderboardTeaser />

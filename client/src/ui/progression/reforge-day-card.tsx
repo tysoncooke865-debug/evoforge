@@ -7,14 +7,15 @@
  *             the cycle, one button. It should be the second thing the eye
  *             lands on after the mission, because it is the only other thing
  *             on the page with a deadline.
- *   NOT DUE   ONE LINE. Not a card, not a progress bar, not a countdown with
- *             its own heading — a permanent countdown turns a ceremony into a
- *             chore, and everything that moves in between (strength, PRs, XP,
- *             the streak) already has a place on this page.
+ *   NOT DUE   ONE ROW — label, position in the cycle, a thin bar, days left.
+ *             Not a card: a ceremony touched every 28 days must not hold a
+ *             card's worth of vertical space for the other 27.
  *
- * It used to render nothing at all between Reforges. A quiet line is better:
- * an athlete who has never seen one has no idea it is coming, and the whole
- * value of a 28-day ceremony is anticipating it.
+ * It used to render NOTHING between Reforges, and before that a full card. A
+ * bare line was not enough either — a cycle whose end you cannot see is not
+ * anticipated, it is forgotten, and anticipation is most of what a 28-day
+ * ceremony is for. The strip shows where you are without asking for the room
+ * a card would.
  */
 
 import { router } from 'expo-router';
@@ -70,25 +71,61 @@ export function ReforgeDayCard({ testID }: { testID?: string }) {
 
   if (!ready) return null;
 
-  // ── NOT DUE: one quiet line, and only once a cycle has actually started. ──
+  // ── NOT DUE: a compact progress strip, not a card. ──
+  //
+  // A ceremony the athlete touches every 28 days must not hold a card's worth
+  // of vertical space for the other 27. But a bare line said nothing about
+  // WHERE they were in the cycle, and a cycle you cannot see the end of is not
+  // anticipated — it is forgotten. One row: label, position, bar, remaining.
   if (!cadence.due) {
     if (!cadence.started) return null;
+    const pct = Math.max(0, Math.min(100, (cadence.dayOfCycle / REFORGE_CYCLE_DAYS) * 100));
     return (
       <Pressable
         onPress={() => router.push('/reforge' as never)}
         accessibilityRole="button"
-        accessibilityLabel={`Reforge Day in ${cadence.daysUntil} days. Opens Reforge Day.`}
+        accessibilityLabel={`Next Reforge Day in ${cadence.daysUntil} days. Day ${cadence.dayOfCycle} of ${REFORGE_CYCLE_DAYS}. Opens Reforge Day.`}
         testID={testID}
-        style={{ minHeight: 32, justifyContent: 'center' }}
+        className="w-full flex-row items-center"
+        style={{ minHeight: 44, gap: 10 }}
       >
         <Text
-          className="text-2xs text-text-mute"
+          className="text-text-mute"
+          allowFontScaling={false}
           numberOfLines={1}
           testID="reforge-countdown"
-          style={{ letterSpacing: 0.6 }}
+          style={{ fontSize: 8, letterSpacing: 1.4, ...pixelFont(false) }}
         >
-          ✦ Reforge Day in {cadence.daysUntil} {cadence.daysUntil === 1 ? 'day' : 'days'} ·
-          day {cadence.dayOfCycle} of {REFORGE_CYCLE_DAYS}
+          NEXT REFORGE
+        </Text>
+        <Text
+          className="text-text-dim"
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{ fontSize: 10, letterSpacing: 0, ...pixelFont() }}
+        >
+          {cadence.dayOfCycle}/{REFORGE_CYCLE_DAYS}
+        </Text>
+        <View
+          className="overflow-hidden rounded-pill"
+          style={{ flex: 1, minWidth: 40, height: 4, backgroundColor: colors['surface-3'] }}
+        >
+          <View
+            style={{
+              width: `${pct}%`,
+              minWidth: pct > 0 ? 3 : 0,
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: `${colors.legendary}b3`,
+            }}
+          />
+        </View>
+        <Text
+          className="text-text-mute"
+          numberOfLines={1}
+          style={{ fontSize: 10, letterSpacing: 0.2 }}
+        >
+          {cadence.daysUntil}d left
         </Text>
       </Pressable>
     );

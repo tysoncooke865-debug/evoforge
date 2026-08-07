@@ -216,6 +216,9 @@ export function WeekStrip({
             style={{ borderColor: colors.border, columnGap: 18, rowGap: 8 }}
             testID="week-strip-totals"
           >
+            {/* HIERARCHY, not four equal numbers (2026-08-07). SESSIONS and
+                XP are the week's story and carry the weight; sets and cardio
+                are the detail behind them and step back a size. */}
             <Metric
               label="SESSIONS"
               value={
@@ -223,10 +226,11 @@ export function WeekStrip({
                   ? `${totals.sessionsDone} / ${totals.sessionsTarget}`
                   : String(totals.sessionsDone)
               }
+              lead
             />
+            <Metric label="XP" value={`+${totals.xp}`} tint={colors.accent} lead />
             <Metric label="SETS" value={String(totals.sets)} />
             <Metric label="CARDIO" value={`${Math.trunc(totals.cardioMinutes)}m`} tint={colors.rare} />
-            <Metric label="XP" value={`+${totals.xp}`} tint={colors.accent} />
           </View>
         ) : null}
 
@@ -285,10 +289,13 @@ function DayPip({
     return { transform: [{ scale: 0.6 + p * 0.4 + overshoot }], opacity: p };
   });
 
-  // TODAY's ring breathes; every other pip's ring is static.
+  // TODAY's ring breathes; every other pip's ring is static. A day that is
+  // BOTH today and DONE breathes brighter and wider — the strongest state on
+  // the strip belongs to the thing the athlete just earned (2026-08-07).
   const ringStyle = useAnimatedStyle(() => {
     if (!today) return { opacity: 0 };
     const wave = (1 - Math.cos(beat.value * Math.PI * 2)) / 2;
+    if (done) return { opacity: 0.45 + wave * 0.55, transform: [{ scale: 1 + wave * 0.24 }] };
     return { opacity: 0.25 + wave * 0.55, transform: [{ scale: 1 + wave * 0.16 }] };
   });
 
@@ -373,14 +380,30 @@ function DayPip({
 
 /** One of the week's four numbers. Compact by design — these SUPPORT the seven
  *  days above them; they do not compete with them. */
-function Metric({ label, value, tint }: { label: string; value: string; tint?: string }) {
+function Metric({
+  label,
+  value,
+  tint,
+  lead,
+}: {
+  label: string;
+  value: string;
+  tint?: string;
+  /** The week's headline numbers. Everything else supports them. */
+  lead?: boolean;
+}) {
   const colors = useThemeColors();
   return (
     <View>
       <Text
         allowFontScaling={false}
         numberOfLines={1}
-        style={{ fontSize: 15, letterSpacing: 0, color: tint ?? colors.text, ...pixelFont() }}
+        style={{
+          fontSize: lead ? 18 : 14,
+          letterSpacing: 0,
+          color: tint ?? (lead ? colors.text : colors['text-dim']),
+          ...pixelFont(),
+        }}
       >
         {value}
       </Text>

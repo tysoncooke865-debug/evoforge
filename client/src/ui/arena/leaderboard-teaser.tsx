@@ -8,6 +8,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useLeaderboardByMetric, usePublicIdentity } from '@/data/hooks';
 import { rankByMetric } from '@/domain/leaderboard';
 import { durations } from '@/theme/animations';
+import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
@@ -60,6 +61,17 @@ export function LeaderboardTeaser() {
           </Text>
         </View>
       </Pressable>
+
+      {/* THE PODIUM, ALWAYS VISIBLE (2026-08-07). The board used to be a
+          closed drawer, so an athlete who never tapped it saw no competition
+          at all — the world looked empty when it was not. Three names and
+          three ratings, before any interaction.
+
+          Shown to everyone, including athletes who have not joined: this is
+          the same public board the Rank screen renders, and seeing who is up
+          there is the reason to join. */}
+      <TopThree />
+
       <Animated.View style={[{ overflow: 'hidden' }, heightStyle]}>
         <View
           style={{ position: 'absolute', left: 0, right: 0, top: 0 }}
@@ -124,6 +136,84 @@ function TeaserBody() {
           </Text>
         </Pressable>
       </Link>
+    </View>
+  );
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'] as const;
+
+/**
+ * The top three, and YOUR line when you are not one of them.
+ *
+ * Renders nothing while the board is loading and nothing if it is genuinely
+ * empty — "the leaderboard is warming up" under a heading is worse than no
+ * heading, and this app does not invent athletes to fill a podium.
+ */
+function TopThree() {
+  const colors = useThemeColors();
+  const identity = usePublicIdentity();
+  const board = useLeaderboardByMetric('evo', 100);
+
+  const ranked = rankByMetric(board.data ?? []).filter((e) => e.evoRating !== null && e.evoRating !== undefined);
+  if (board.isPending || ranked.length === 0) return null;
+
+  const me = identity.data?.displayName ?? null;
+  const top = ranked.slice(0, 3);
+  const myIndex = me === null ? -1 : ranked.findIndex((e) => e.displayName === me);
+  // Only show a separate "you" line when you are NOT already on the podium.
+  const mine = myIndex >= 3 ? ranked[myIndex] : null;
+
+  return (
+    <View className="px-s4 pb-s3" testID="leaderboard-podium">
+      {top.map((e, i) => (
+        <PodiumRow
+          key={`${e.position}-${e.displayName}`}
+          badge={MEDALS[i]}
+          name={e.displayName}
+          rating={e.evoRating ?? 0}
+          self={e.displayName === me}
+        />
+      ))}
+      {mine ? (
+        <>
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 6 }} />
+          <PodiumRow badge={`#${myIndex + 1}`} name={mine.displayName} rating={mine.evoRating ?? 0} self />
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+function PodiumRow({
+  badge,
+  name,
+  rating,
+  self,
+}: {
+  badge: string;
+  name: string;
+  rating: number;
+  self: boolean;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View className="flex-row items-center py-s1" style={{ gap: 8 }}>
+      <Text allowFontScaling={false} style={{ fontSize: 12, minWidth: 22 }}>
+        {badge}
+      </Text>
+      <Text
+        className={self ? 'text-text' : 'text-text-dim'}
+        numberOfLines={1}
+        style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: self ? '700' : '400' }}
+      >
+        {self ? 'You' : name}
+      </Text>
+      <Text
+        allowFontScaling={false}
+        style={{ fontSize: 13, letterSpacing: 0, color: self ? colors.accent : colors['text-mute'], ...pixelFont() }}
+      >
+        {rating}
+      </Text>
     </View>
   );
 }
