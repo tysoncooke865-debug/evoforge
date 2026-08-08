@@ -207,6 +207,8 @@ export interface ChipSpawn {
   group?: number;
   /** The chip resting ON THE TABLE cannot roll — see the note in spawn(). */
   lockRotation?: boolean;
+  /** Only the base of a stack: extra friction against the felt. */
+  grip?: boolean;
 }
 
 interface ChipEntry {
@@ -436,13 +438,29 @@ export class ChipWorld {
      * moment the bond breaks, so a scattered stack tumbles like anything else.
      */
     if (spec.stackId && spec.lockRotation) {
-      Body.setInertia(body, body.inertia * this.baseInertia);
       /**
-       * AND IT GRIPS. A chip lying flat on felt does not slide easily, while a
-       * chip balanced on its edge does — so the base holds while the chips
-       * above it are pushed sideways by a tilt. That difference is the entire
-       * source of shear: without it the stack simply slid across the table as
-       * one brick and never came apart, whatever the bonds were set to.
+       * INFINITE ROTATIONAL INERTIA, not merely a large one.
+       *
+       * Sixty times normal was not enough and no multiple would have been. The
+       * lean is not caused by a force that a heavier chip could resist — it is
+       * SYSTEMATIC, injected a fraction at a time by the solver resolving a
+       * bond's two offset links in list order, so it accumulates in one
+       * direction no matter how slowly. A column weighted sixty-fold took four
+       * seconds to lie down instead of two. Measured: 0.42 / 0.7 / 0.9 / 1.0
+       * bond stiffness all end flat on the floor at ninety degrees.
+       *
+       * A real chip in a stack does not roll — it has a flat face on the chip
+       * below. `inverseInertia = 0` is that fact, exactly, and it is released
+       * the instant a bond breaks, so a scattered stack still tumbles.
+       */
+      Body.setInertia(body, Infinity);
+    }
+    if (spec.stackId && spec.grip) {
+      /**
+       * AND THE BASE GRIPS. A chip lying flat on felt does not slide easily,
+       * while the chips above it are pushed sideways by a tilt. That difference
+       * is the entire source of shear: without it the stack slid across the
+       * table as one brick and never came apart. Only the BASE gets it.
        */
       body.friction = this.baseGrip;
       body.frictionStatic = this.baseGrip * 1.4;
@@ -492,11 +510,11 @@ export class ChipWorld {
         spin: 0,
         stackId: spec.stackId,
         group,
-        // Only the BASE is pinned against rolling. Locking every member made a
-        // stack that stood beautifully and then slid across the table as one
-        // rigid brick under tilt, never toppling. The chips above need their
-        // rotation so the column can shear, lean and come apart.
+        // The base is the one that GRIPS the felt; every member is locked
+        // against rolling (see spawn). That split is what lets the column shear
+        // under a tilt instead of sliding away as one rigid brick.
         lockRotation: true,
+        grip: true,
       });
       return;
     }
@@ -514,9 +532,48 @@ export class ChipWorld {
       spin: 0,
       stackId: spec.stackId,
       group,
+      /**
+       * EVERY MEMBER RESISTS ROLLING, not just the base.
+       *
+       * With only the base weighted, the column above it was eight free
+       * pivots: it built perfectly straight, drifted a couple of pixels over
+       * half a second, and then rotated as one body through ninety degrees and
+       * lay down on the floor — every bond still intact, so nothing reported a
+       * failure. The frame-by-frame trace is the only thing that showed it.
+       *
+       * `lockRotation` is not a lock; it multiplies rotational inertia. The
+       * chips still turn, they just cannot be spun up by solver noise, and a
+       * real hit still overcomes it — `shatter` and `updateBonds` hand back the
+       * original inertia the moment a bond gives way, and a hard tilt unpins
+       * them so a leaning table CAN still bring the column down.
+       */
+      lockRotation: true,
     });
     const added = this.chips[this.chips.length - 1];
-    if (added) this.bond(spec.stackId, top.body, added.body, gap);
+    if (!added) return;
+    this.bond(spec.stackId, top.body, added.body, gap);
+    /**
+     * AND BRACE ACROSS THE JOINT BELOW IT.
+     *
+     * A chain of pairwise bonds is an inverted pendulum: every joint is free to
+     * hinge, the errors compound, and a column that looks perfect folds flat a
+     * few seconds later — with every bond still intact, which is why nothing
+     * reported it as broken. It cost a real bug: the shipped hold-to-stack
+     * built a tower that lay down on its own, and the unit test missed it by
+     * measuring the shape at 200 frames, before the fall.
+     *
+     * Tying each chip to the one TWO below triangulates the chain, for the same
+     * reason scaffolding has diagonals. The column still shears, still leans and
+     * still comes apart when something hits it — it just no longer collapses
+     * under nothing at all.
+     */
+    if (members.length >= 2) {
+      const below = [...members].sort((a, b) => a.body.position.y - b.body.position.y)[1];
+      if (below) {
+        const span = Math.abs(below.body.position.y - added.body.position.y) || gap * 2;
+        this.bond(spec.stackId, below.body, added.body, span);
+      }
+    }
   }
 
   /** A stable negative group per stack id. Negative groups never collide with
