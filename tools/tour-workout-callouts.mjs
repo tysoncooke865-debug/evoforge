@@ -646,11 +646,19 @@ await sql(`
   delete from public.social_notifications where type like 'callout_%';`);
 ok('the seeded history was removed', Number((await sql(
   `select count(*)::int n from public.workout_log where workout = '${HISTORY}';`))[0].n) === 0);
-ok('no call out coin rows survive', Number((await sql(
+// SCOPED TO THE SMOKE ACCOUNTS, not to the table. These asserted a globally
+// empty `workout_callouts`, which was true only while the harness was the
+// feature's only user — the day real athletes started calling sets, a correct
+// cleanup began failing. A test that breaks when the product succeeds is
+// measuring the wrong thing.
+ok('no call out coin rows survive for the smoke accounts', Number((await sql(
   `select count(*)::int n from public.coin_events
-   where kind in ('callout_stake','callout_payout');`))[0].n) === 0);
-ok('no call out rows survive', Number((await sql(
-  `select count(*)::int n from public.workout_callouts;`))[0].n) === 0);
+   where kind in ('callout_stake','callout_payout')
+     and user_id in ('${ALPHA_ID}','${BRAVO_ID}');`))[0].n) === 0);
+ok('no call out rows survive for the smoke accounts', Number((await sql(
+  `select count(*)::int n from public.workout_callouts
+   where athlete_id in ('${ALPHA_ID}','${BRAVO_ID}')
+      or opponent_id in ('${ALPHA_ID}','${BRAVO_ID}');`))[0].n) === 0);
 // The wallet is ABOVE where it started, and that is correct: this tour logged
 // real sets, and real sets earn PR and workout-complete coins.
 console.log(`  NOTE  ALPHA ${b0.A} -> ${await bal(ALPHA_ID)}, BRAVO ${b0.B} -> ${await bal(BRAVO_ID)}` +

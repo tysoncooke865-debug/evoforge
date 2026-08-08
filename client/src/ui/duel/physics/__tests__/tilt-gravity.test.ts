@@ -4,6 +4,7 @@ import {
   TILT,
   accelerationGravity,
   orientationGravity,
+  orientationLeanDeg,
   tiltGravity,
   toScreenAxes,
 } from '../tilt-math';
@@ -178,5 +179,74 @@ describe('tilt → world gravity', () => {
     const b = tiltGravity({ x: laidBack.x + 0.5, y: laidBack.y }, laidBack, { base });
     expect(near(a.x, b.x)).toBe(true);
     expect(near(a.y, b.y)).toBe(true);
+  });
+});
+
+
+/**
+ * THE VERTICAL AXIS, which shipped broken (Tyson: "the vertical tilt is
+ * broken"). `orientationGravity`'s vertical term is `sin β`, and a phone is
+ * held at β ≈ 90° where sin is at its maximum: the derivative is ZERO, so
+ * small pitches moved nothing, and β = 70° and β = 110° produced the SAME
+ * value — leaning the top toward you and away from you were indistinguishable.
+ *
+ * These are the two properties that were missing, asserted in angle space.
+ */
+describe('the vertical lean answers a hand', () => {
+  const base = 1;
+  const held = orientationLeanDeg(90, 0); // upright, the natural way to hold it
+
+  it('the OLD component model is flat and ambiguous at upright — the bug', () => {
+    // Both directions read the same, which is why neither could be felt.
+    expect(orientationGravity(70, 0).y).toBeCloseTo(orientationGravity(110, 0).y, 5);
+  });
+
+  it('the angle lean tells the two directions apart', () => {
+    const toward = orientationLeanDeg(70, 0).y - held.y;
+    const away = orientationLeanDeg(110, 0).y - held.y;
+    expect(Math.sign(toward)).toBe(-Math.sign(away));
+    expect(Math.abs(toward)).toBeGreaterThan(15);
+  });
+
+  it('tipping the TOP edge away sends chips up the glass', () => {
+    const g = tiltGravity(orientationLeanDeg(115, 0), held, { base, degrees: true });
+    expect(g.y).toBeLessThan(base);
+  });
+
+  it('tipping it toward you presses them down, never sideways', () => {
+    const g = tiltGravity(orientationLeanDeg(65, 0), held, { base, degrees: true });
+    expect(g.y).toBeGreaterThan(base);
+    expect(Math.abs(g.x)).toBeLessThan(0.05);
+  });
+
+  it('a small pitch does something — the old model did nothing at all', () => {
+    const g = tiltGravity(orientationLeanDeg(105, 0), held, { base, degrees: true });
+    expect(Math.abs(g.y - base)).toBeGreaterThan(0.1);
+  });
+
+  it('a hand-steady hold still sits perfectly still', () => {
+    const g = tiltGravity(orientationLeanDeg(95, 0), held, { base, degrees: true });
+    expect(g).toEqual({ x: 0, y: base });
+  });
+
+  it('and it behaves the same from ANY neutral, which is the whole point', () => {
+    for (const start of [40, 60, 90, 120]) {
+      const n = orientationLeanDeg(start, 0);
+      const up = tiltGravity(orientationLeanDeg(start + 25, 0), n, { base, degrees: true });
+      const down = tiltGravity(orientationLeanDeg(start - 25, 0), n, { base, degrees: true });
+      expect(up.y).toBeLessThan(base);
+      expect(down.y).toBeGreaterThan(base);
+    }
+  });
+
+  it('rolling still runs them sideways, both ways', () => {
+    expect(tiltGravity(orientationLeanDeg(90, 30), held, { base, degrees: true }).x).toBeGreaterThan(0.3);
+    expect(tiltGravity(orientationLeanDeg(90, -30), held, { base, degrees: true }).x).toBeLessThan(-0.3);
+  });
+
+  it('the wrap does not read 179 -> -179 as a full turn', () => {
+    const a = orientationLeanDeg(90, 179);
+    const b = orientationLeanDeg(90, -179);
+    expect(Math.abs(tiltGravity(b, a, { base, degrees: true }).x)).toBeLessThan(0.2);
   });
 });

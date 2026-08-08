@@ -529,10 +529,16 @@ const leaks = one(await svc(`select count(*)::int n, coalesce(min(g.id::text), '
                         where kind in ('callout_stake','callout_payout')
                         group by 1 having sum(amount) <> 0) g;`));
 ok('no settled call out leaks a coin', Number(leaks.n) === 0, leaks.worst || 'none');
+// EVERY call out ever, not just this run's: the ledger has to conserve for
+// real athletes too, and a live escrow nets to a negative until it settles —
+// so this counts only call outs that have REACHED a terminal state.
 const totalMoved = Number(one(await svc(
-  `select coalesce(sum(amount),0)::int n from public.coin_events
-   where kind in ('callout_stake','callout_payout');`)).n);
-ok('the whole feature has minted and burned nothing', totalMoved === 0, `net ${totalMoved}`);
+  `select coalesce(sum(ce.amount),0)::int n
+   from public.coin_events ce
+   join public.workout_callouts wc on wc.id = split_part(ce.source_id, ':', 1)::uuid
+   where ce.kind in ('callout_stake','callout_payout')
+     and wc.status in ('settled','cancelled','expired','declined');`)).n);
+ok('every SETTLED call out has minted and burned nothing', totalMoved === 0, `net ${totalMoved}`);
 
 // ── 16. FALSIFYING THE GUARDS ───────────────────────────────────────────────
 //
@@ -610,8 +616,10 @@ const b9 = { A: await bal(ALPHA), B: await bal(BRAVO), C: await bal(CHARLIE) };
 ok('cleanup restored every balance',
    b9.A === b0.A && b9.B === b0.B && b9.C === b0.C,
    `ALPHA ${b0.A}->${b9.A}  BRAVO ${b0.B}->${b9.B}  CHARLIE ${b0.C}->${b9.C}`);
-ok('no call out rows survive', Number(one(await svc(
-  `select count(*)::int n from public.workout_callouts;`)).n) === 0);
+ok('no call out rows survive for the smoke accounts', Number(one(await svc(
+  `select count(*)::int n from public.workout_callouts
+   where athlete_id in ('${ALPHA}','${BRAVO}','${CHARLIE}')
+      or opponent_id in ('${ALPHA}','${BRAVO}','${CHARLIE}');`)).n) === 0);
 ok('no smoke sets survive', Number(one(await svc(
   `select count(*)::int n from public.workout_log where workout = '${WORKOUT}';`)).n) === 0);
 

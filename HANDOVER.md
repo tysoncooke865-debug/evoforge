@@ -125,6 +125,33 @@ Owner: Tyson. He works through other Claude sessions too — **always
     is a gesture and Settings is where somebody looks. The flag suppresses the
     ASKING only — a reading is still the only thing that reports tilt as live.
 
+  **THE TILT, TWICE MORE (same day):**
+  - **THE VERTICAL AXIS WAS MEASURED IN THE WRONG SPACE.**
+    `orientationGravity`'s vertical term is the in-plane component `sin β` —
+    honest for a phone lying flat, wrong for one held up. A phone is read at
+    β ≈ 90°, where `sin` peaks: the derivative is ZERO, so small pitches moved
+    nothing, and β = 70° and β = 110° give the SAME value, so leaning the top
+    toward you and away from you were indistinguishable. A hand thinks in
+    ANGLES, so `orientationLeanDeg` measures the lean in degrees, subtracts the
+    neutral in degrees, and only then takes `sin` of the DELTA — monotonic
+    everywhere and identical from any hold. `sin(11.5°) = 0.2`, so the dead
+    zone and gain keep the exact meanings they were tuned with.
+  - **A REMEMBERED PERMISSION NEEDS A DEADLINE.** Remembering the motion grant
+    stopped the tray asking every time — and then iOS dropped it across an app
+    relaunch, so nothing arrived AND no ENABLE TILT appeared to fix it.
+    Optimism with no way back is worse than the question it replaced. The web
+    path now arms a 1.5s probe: no reading by then on a platform that gates
+    motion means the grant is gone, so forget it and put the button back. Same
+    shape as the boot-overlay rule — decide when the thing STILL has not
+    happened, never on the first symptom.
+
+  **A HARNESS THAT BREAKS WHEN THE PRODUCT SUCCEEDS IS MEASURING THE WRONG
+  THING.** Both harnesses asserted a GLOBALLY empty `workout_callouts` at
+  cleanup, which held only while they were the feature's only users. The day
+  real athletes started calling sets, a correct cleanup began failing. Scoped to
+  the smoke accounts; ledger conservation is now asserted over TERMINAL call
+  outs only, since a live escrow legitimately nets negative until it settles.
+
   **A TRAP THAT COST AN HOUR:** another session was serving its own `dist` on
   4173, so `npx serve` died on the port collision and the tour ran against a
   STALE BUNDLE for three runs — features "missing" that were built and passing.

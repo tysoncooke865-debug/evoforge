@@ -9,7 +9,7 @@ import { useSettingsStore } from '@/state/settings-store';
 import {
   TILT,
   accelerationGravity,
-  orientationGravity,
+  orientationLeanDeg,
   tiltGravity,
   type TiltGravity,
 } from './tilt-math';
@@ -142,7 +142,7 @@ export function useTiltGravity(opts: {
    * heavy table rather than a spirit level happens here, in order: smooth,
    * calibrate, dead-zone, gain, clamp.
    */
-  const sample = useCallback((raw: TiltGravity) => {
+  const sample = useCallback((raw: TiltGravity, degrees = false) => {
     if (!Number.isFinite(raw.x) || !Number.isFinite(raw.y)) return;
     const prev = smoothed.current;
     const s = prev
@@ -161,7 +161,7 @@ export function useTiltGravity(opts: {
       return;
     }
 
-    const g = tiltGravity(s, neutral.current, { base: baseRef.current, gentle: gentleRef.current });
+    const g = tiltGravity(s, neutral.current, { base: baseRef.current, gentle: gentleRef.current, degrees });
     const moved = Math.hypot(g.x - lastSent.current.x, g.y - lastSent.current.y);
     // Always publish (the world interpolates cheaply); only flag a WAKE when
     // the change is big enough to be worth disturbing a sleeping pile for.
@@ -230,7 +230,7 @@ export function useTiltGravity(opts: {
           if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return;
           anglesRef.current = true;
           live();
-          sample(orientationGravity(beta, gamma, screenAngle()));
+          sample(orientationLeanDeg(beta, gamma, screenAngle()), true);
         };
         const onMotion = (e: Event) => {
           if (anglesRef.current) return;
@@ -248,8 +248,26 @@ export function useTiltGravity(opts: {
 
         window.addEventListener('deviceorientation', onOrient);
         window.addEventListener('devicemotion', onMotion);
+
+        /**
+         * A REMEMBERED GRANT IS A HOPE, AND HOPE NEEDS A DEADLINE.
+         *
+         * Remembering the grant stopped the tray asking on every open — and
+         * then iOS dropped the permission across an app relaunch, so nothing
+         * arrived AND no button appeared to fix it. Optimism with no way back
+         * is worse than the question it replaced.
+         *
+         * So: assume the grant holds, attach, and arm a short probe. If no
+         * reading has landed by then on a platform that gates motion, the
+         * grant is gone — forget it and put ENABLE TILT back. Same shape as
+         * the boot-overlay rule: decide only when the thing STILL has not
+         * happened, never on the first symptom.
+         */
+        let probe: ReturnType<typeof setTimeout> | null = null;
         const sub = {
           remove: () => {
+            if (probe) clearTimeout(probe);
+            probe = null;
             liveRef.current = false;
             anglesRef.current = false;
             window.removeEventListener('deviceorientation', onOrient);
@@ -267,6 +285,13 @@ export function useTiltGravity(opts: {
         // so a revoked grant degrades to plain gravity exactly as before.
         await loadMotionGrant();
         const answered = hasMotionGrant();
+        if (needsGesture && !liveRef.current && answered) {
+          probe = setTimeout(() => {
+            if (liveRef.current) return;
+            rememberMotionGrant(false);
+            setSensor('prompt');
+          }, 1500);
+        }
         return { status: needsGesture && !liveRef.current && !answered ? 'prompt' : 'on', sub };
       }
 

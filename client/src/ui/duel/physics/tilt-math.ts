@@ -82,6 +82,43 @@ export function orientationGravity(betaDeg: number, gammaDeg: number, screenAngl
 }
 
 /**
+ * THE LEAN, IN ANGLES — and the fix for "the vertical tilt is broken".
+ *
+ * `orientationGravity` returns the IN-PLANE COMPONENT of gravity, which is the
+ * honest answer for a phone lying flat and the wrong parametrisation for one
+ * held up. Its vertical term is `sin β`, and a phone is read at β ≈ 90°, where
+ * `sin` is at its maximum: the derivative is ZERO, so small pitches move
+ * nothing, and — worse — β = 70° and β = 110° give the same value, so leaning
+ * the top toward you and away from you read IDENTICALLY. Half the vertical
+ * range was dead and the other half was ambiguous.
+ *
+ * The horizontal axis has the same disease more mildly: its `cos β` factor also
+ * vanishes as the phone stands up.
+ *
+ * A hand does not think in components, it thinks in angles: from wherever you
+ * are holding it, roll it and the chips run sideways, pitch it and they run up
+ * or down the glass. So the lean is measured in DEGREES here, the neutral is
+ * subtracted in degrees, and only then does it become a slope (`sin` of the
+ * DELTA, in tiltGravity). That is monotonic across the whole usable range and
+ * behaves the same however the athlete happens to hold the phone.
+ *
+ * `y` is negated because matter's +y is screen-DOWN: tipping the TOP edge away
+ * (β rising) has to send chips UP the glass.
+ */
+export function orientationLeanDeg(betaDeg: number, gammaDeg: number, screenAngleDeg = 0): TiltGravity {
+  return toScreenAxes(wrapDeg(gammaDeg), -wrapDeg(betaDeg), screenAngleDeg);
+}
+
+/** Into (-180, 180], so 179° → -179° is a 2° move and not a 358° one. */
+function wrapDeg(d: number): number {
+  if (!Number.isFinite(d)) return 0;
+  let x = d % 360;
+  if (x > 180) x -= 360;
+  if (x <= -180) x += 360;
+  return x;
+}
+
+/**
  * Screen-space gravity from an accelerometer reading, in m/s².
  *
  * `reportsGravityDirectly` is the portability problem, named: WebKit and
@@ -122,10 +159,20 @@ export function accelerationGravity(
 export function tiltGravity(
   reading: TiltGravity,
   neutral: TiltGravity,
-  opts: { base: number; gentle?: boolean }
+  opts: { base: number; gentle?: boolean; degrees?: boolean }
 ): TiltGravity {
-  const dx = reading.x - neutral.x;
-  const dy = reading.y - neutral.y;
+  /**
+   * A DELTA IN DEGREES BECOMES A SLOPE HERE, not before: `sin` has to be
+   * applied to the CHANGE from neutral, which is the only place both numbers
+   * are known. sin(11.5°) = 0.2, so the dead zone and the gain keep the exact
+   * meanings they were tuned with — this changes what is measured, not how
+   * hard the table answers.
+   */
+  const raw = opts.degrees
+    ? { x: Math.sin(wrapDeg(reading.x - neutral.x) * DEG), y: Math.sin(wrapDeg(reading.y - neutral.y) * DEG) }
+    : { x: reading.x - neutral.x, y: reading.y - neutral.y };
+  const dx = raw.x;
+  const dy = raw.y;
   const mag = Math.hypot(dx, dy);
   const deadZone = opts.gentle ? TILT.deadZone * 1.5 : TILT.deadZone;
   if (!(mag > deadZone)) return { x: 0, y: opts.base };
