@@ -109,16 +109,29 @@ export async function disablePush(): Promise<void> {
  * author, or the friend-request target).
  */
 export function pushNotify(input: {
-  type: 'reaction' | 'comment' | 'friend_request' | 'mention' | 'pr_beaten';
+  type:
+    | 'reaction' | 'comment' | 'friend_request' | 'mention' | 'pr_beaten'
+    // 145 — the duel's four moments worth reaching a closed phone for. The
+    // recipient is derived from the CHALLENGE server-side, never from an id in
+    // this body; `challengeId` names a duel the caller is already in.
+    | 'duel_accepted' | 'duel_raise' | 'duel_raise_accepted' | 'duel_settled';
   postId?: string;
   toUser?: string;
   /** pr_beaten (072): the lift name, for the push copy. */
   exercise?: string;
+  /** duel_* (145): which duel — also the deep link and the notification tag. */
+  challengeId?: string;
 }): void {
   if (Platform.OS !== 'web') return;
   void supabase.functions
     .invoke('send-push', {
-      body: { type: input.type, post_id: input.postId ?? null, to_user: input.toUser ?? null, exercise: input.exercise ?? null },
+      body: {
+        type: input.type,
+        post_id: input.postId ?? null,
+        to_user: input.toUser ?? null,
+        exercise: input.exercise ?? null,
+        challenge_id: input.challengeId ?? null,
+      },
     })
     .catch(() => undefined);
 }

@@ -13,6 +13,7 @@ import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { refreshDuels } from './forge-duel';
+import { pushNotify } from './push';
 import { supabase } from './supabase';
 
 /**
@@ -179,6 +180,9 @@ export function useAcceptChallenge() {
       // `already` means a previous tap won the race. Success either way — the
       // athlete's intent is satisfied and nothing was escrowed twice.
       if (r.already) return;
+      // The phone twin of the row the server already wrote. Fire-and-forget:
+      // the challenger's coins are escrowed whether or not their phone buzzes.
+      pushNotify({ type: 'duel_accepted', challengeId });
       track('challenge_accepted', { challenge_id: challengeId, escrow: r.escrow ?? 0 });
       useToastStore.getState().push({
         kind: 'info',
@@ -258,6 +262,9 @@ export function useSettleChallenge() {
       refreshAfterChallenge(queryClient, userId);
       if (r.already || r.status !== 'settled') return;
       const won = r.winner_id === userId;
+      // Whoever's app settled it tells the OTHER athlete their duel is over —
+      // the result is otherwise only discovered by opening the app.
+      pushNotify({ type: 'duel_settled', challengeId });
       track('challenge_completed', { challenge_id: challengeId, outcome: r.outcome ?? 'unknown' });
       track(won ? 'challenge_won' : r.outcome === 'draw' ? 'challenge_drawn' : 'challenge_lost', {
         challenge_id: challengeId,

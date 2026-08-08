@@ -15,6 +15,7 @@ import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
 import { invalidateTable } from './keys';
+import { pushNotify } from './push';
 import { supabase } from './supabase';
 
 /**
@@ -105,18 +106,42 @@ export function useDuelConfig() {
  * at. Fired once per hub mount and deliberately silent: it is maintenance, and
  * the RESULT is what the athlete came to see.
  */
+interface SweepResult {
+  settled: number;
+  expired: number;
+  warned?: number;
+  /** 148: escrow returned from a duel whose other side deleted their account. */
+  repaired?: number;
+  /** 149: which duels were settled, so their phone twins can be addressed. */
+  settled_ids?: string[];
+}
+
 export function useDuelSweep() {
   const queryClient = useQueryClient();
   const userId = useUserId();
   return useMutation({
-    mutationFn: async (): Promise<{ settled: number; expired: number }> => {
+    mutationFn: async (): Promise<SweepResult> => {
       const { data, error } = await supabase.rpc('forge_duel_sweep');
       if (error) throw error;
-      return data as { settled: number; expired: number };
+      return data as SweepResult;
     },
     onSuccess: (r) => {
-      if (r.settled > 0 || r.expired > 0) refreshDuels(queryClient, userId);
+      if (r.settled > 0 || r.expired > 0 || (r.repaired ?? 0) > 0) refreshDuels(queryClient, userId);
       if (r.settled > 0) track('challenge_completed', { swept: r.settled });
+      if ((r.repaired ?? 0) > 0) {
+        // The other athlete deleted their account and their duel went with it.
+        // Silence here would look exactly like coins vanishing.
+        useToastStore.getState().push({
+          kind: 'info',
+          title: 'ESCROW RETURNED',
+          subtitle: 'A duel you had coins in no longer exists. Your stake is back.',
+        });
+      }
+      // The phone twin for every duel the hub just settled. The in-app row was
+      // written server-side for BOTH athletes inside the settlement itself; this
+      // reaches the one who is not holding the phone (149 returns the ids so
+      // there is something to address).
+      for (const id of r.settled_ids ?? []) pushNotify({ type: 'duel_settled', challengeId: id });
     },
     // A failed sweep is invisible on purpose: nothing the athlete asked for
     // has failed, and every duel it would have settled settles on the next open.
@@ -158,6 +183,12 @@ export function useProposeOffer() {
     },
     onSuccess: (r, input) => {
       refreshDuels(queryClient, userId, input.challengeId);
+      // The in-app row is written by the server inside the same transaction as
+      // the offer; this is only its phone twin, and it is fire-and-forget for
+      // exactly that reason — a failed push must never look like a failed raise.
+      if (input.kind !== 'counter_stake') {
+        pushNotify({ type: 'duel_raise', challengeId: input.challengeId });
+      }
       track('duel_offer_proposed', {
         challenge_id: input.challengeId, kind: input.kind, amount: r.amount,
         countered: Boolean(input.counterOf),
@@ -200,6 +231,7 @@ export function useRespondOffer() {
         return;
       }
       if (r.already) return;
+      if (input.accept) pushNotify({ type: 'duel_raise_accepted', challengeId: input.challengeId });
       track(input.accept ? 'duel_offer_accepted' : 'duel_offer_declined', {
         challenge_id: input.challengeId, amount: r.amount ?? r.stake ?? 0,
       });

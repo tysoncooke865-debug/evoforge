@@ -26,7 +26,17 @@ const VERB: Record<string, string> = {
   friend_request: 'sent you a friend request',
   mention: 'mentioned you in a post',
   pr_beaten: 'just destroyed your PR — reclaim your status',
+  // 145 — the Forge Duel. A wager where the other athlete's move starts a
+  // 24-hour clock is the strongest case in this app for a notification that
+  // reaches a closed phone.
+  duel_accepted: 'accepted your Forge Duel',
+  duel_raise: 'wants to raise the stakes',
+  duel_raise_accepted: 'matched your raise',
+  duel_settled: '— your Forge Duel has settled',
 };
+
+/** Duel pushes deep-link to the duel; everything else lands on Social. */
+const DUEL_TYPES = new Set(['duel_accepted', 'duel_raise', 'duel_raise_accepted', 'duel_settled']);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
@@ -64,6 +74,22 @@ Deno.serve(async (req) => {
         .eq('user_b', b)
         .maybeSingle();
       recipient = fr ? target : null;
+    }
+  } else if (DUEL_TYPES.has(type)) {
+    // THE RECIPIENT IS DERIVED, NOT SENT. Same rule as every branch here: the
+    // actor names a DUEL they are in, and the other side of that duel is the
+    // only person this can reach. A client cannot address a stranger by
+    // putting their id in the body.
+    const challengeId = body.challenge_id ? String(body.challenge_id) : null;
+    if (challengeId) {
+      const { data: duel } = await admin
+        .from('forge_challenges')
+        .select('challenger_id,opponent_id')
+        .eq('id', challengeId)
+        .maybeSingle();
+      if (duel && (duel.challenger_id === actor || duel.opponent_id === actor)) {
+        recipient = duel.challenger_id === actor ? duel.opponent_id : duel.challenger_id;
+      }
     }
   } else if (type === 'friend_request') {
     // M2 (2026-07-19): don't trust body.to_user — a client could spoof a
@@ -116,7 +142,17 @@ Deno.serve(async (req) => {
     type === 'pr_beaten' && exercise
       ? `just destroyed your ${exercise} PR — reclaim your status`
       : VERB[type];
-  const payload = JSON.stringify({ title: 'EvoForge', body: `${actorName} ${verbText}`, url: '/social', tag: `evo-${type}` });
+  const challengeId = body.challenge_id ? String(body.challenge_id) : '';
+  const url = DUEL_TYPES.has(type) && challengeId ? `/challenges/${challengeId}` : '/social';
+  // One tag per DUEL, not per type: three raises on the same duel should
+  // replace each other on the lock screen rather than stack into a pile.
+  const tag = DUEL_TYPES.has(type) && challengeId ? `evo-duel-${challengeId}` : `evo-${type}`;
+  // A settled duel has no meaningful actor — whichever athlete's app happened
+  // to run the settlement is not news. "SMOKE-ALPHA — your Forge Duel has
+  // settled" reads like a bug; the event speaks for itself.
+  const bodyText =
+    type === 'duel_settled' ? 'Your Forge Duel has settled — see the result.' : `${actorName} ${verbText}`;
+  const payload = JSON.stringify({ title: 'EvoForge', body: bodyText, url, tag });
   let sent = 0;
   for (const s of subs) {
     try {
