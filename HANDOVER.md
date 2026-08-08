@@ -3988,6 +3988,18 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   sections added) and `tour-forge-drop.mjs` at **70 assertions** including three
   chips thrown without waiting for any of them.
 
+- **OVERNIGHT AUDIT** (2026-08-09) — `tools/audit-activation.mjs` added: it signs
+  up a REAL disposable account and walks discover → sign-up → onboarding →
+  first workout, timing every step and recording console errors, overflow and
+  dead ends. Three things fixed from it: the **inverted vertical tilt**
+  (`orientationLeanDeg` returned `y = -beta` against `x = +gamma`), a **220px
+  horizontal scroll on every signed-out screen** (decorative discs, copy-pasted
+  in five files, now one clipped `AmbientLight`), and **migration 132 applied**
+  — `app_flag_enabled` did not exist in production, so every session 404'd on
+  it. The flag seeds OFF at 0%, so nothing users see changed; the client had
+  been failing closed on the error. A signed-in sweep of 26 routes found no
+  error screens, no blanks, no bounces and no overflow.
+
 ---
 
 ## 3. The rules that cost real bugs
@@ -4021,6 +4033,25 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   live database and `COIN_LABELS` out of the source and refuses to let them
   disagree — for EVERY kind, not just Forge Drop's, because the next one will
   be forgotten too.
+- **Every overflow check we owned ran signed IN, so a 220px horizontal scroll
+  sat on 100% of first impressions for months.** The signed-in screens are
+  clipped by the tab navigator; the landing page, sign-in, sign-up and all six
+  onboarding steps are not. `body { overflow-x: hidden }` does not stop it —
+  the document element still scrolls. Check the SIGNED-OUT screens too, and
+  clip decoration in its own wrapper rather than putting `overflow: hidden` on
+  a shell root that legitimately hosts the rest timer and the call-out layer.
+- **A physical model is the only honest oracle for a physical control.** The
+  vertical tilt shipped inverted, with three test cases agreeing with it,
+  because all three were written from the same wrong sentence about which way
+  `beta` rises. Pinning the lean model's SIGN against `orientationGravity`
+  (`y = sin beta`) is a guard no confident reasoning can talk its way past —
+  and it is what a hand reported before any test did.
+- **A 404 that the client "handles" is still a bug.** `app_flag_enabled` was
+  called on every session and did not exist, because migration 132 was written
+  and never applied. The client failed closed, which is why nobody noticed —
+  correct behaviour arrived by accident, from an error path. Check
+  `pg_proc`/`to_regclass` for the functions the client actually calls; a
+  migration in the repo is not a migration in the database.
 - **A balance check without a lock is not a balance check.** `forge_drop_play`
   read `coin_total()` and compared it to the stake with nothing serialising it.
   One drop at a time that was invisible; the moment two chips could be thrown at
