@@ -48,6 +48,55 @@ export function useCountUp(target: number, enabled: boolean, duration = 900): nu
   return canAnimate ? value : target;
 }
 
+/**
+ * Ease a number from wherever it was to wherever it now is.
+ *
+ * useCountUp animates 0 → target ONCE. A pot that goes 50 → 150 needs the other
+ * shape: start from the value already on screen, so the athlete watches THEIR
+ * number climb rather than a fresh count from zero that erases what it was.
+ *
+ * Same two rules: the final value is always reachable without an animation
+ * frame (reduced motion and non-web return the target immediately), and state
+ * is only ever written from a rAF callback.
+ */
+export function useTweenNumber(target: number, duration = 650): number {
+  const reduced = useReducedMotion();
+  const canAnimate =
+    !reduced && typeof requestAnimationFrame !== 'undefined' && Platform.OS === 'web';
+  const [value, setValue] = useState(target);
+  const from = useRef(target);
+  const raf = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!canAnimate) {
+      from.current = target;
+      return;
+    }
+    const start = from.current;
+    if (start === target) return;
+    let t0: number | null = null;
+    const tick = (now: number) => {
+      if (t0 === null) t0 = now;
+      const t = Math.min(1, (now - t0) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = start + (target - start) * eased;
+      setValue(t >= 1 ? target : v); // written only from rAF
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+      else from.current = target;
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => {
+      if (raf.current !== null) cancelAnimationFrame(raf.current);
+      // Whatever we reached is the new starting point, so an interrupted tween
+      // continues from where it stopped instead of jumping back.
+      from.current = value;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, canAnimate, duration]);
+
+  return canAnimate ? value : target;
+}
+
 export type RevealPhase = 'scanning' | 'complete' | 'done';
 
 /**

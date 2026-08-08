@@ -26,6 +26,69 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE FORGE DUEL (2026-08-08, migrations 144–148)** — the Challenges wager
+  grew a chip table, a live pot, a raise negotiation, spectators and a
+  supporter pool. Every existing duel, table and function from 139–143 still
+  works; nothing was dropped and no row was deleted.
+
+  **THE MONEY MODEL, in four sentences.** Forge Coins remain fictional,
+  training-earned and non-purchasable; nothing here creates a path to
+  real-world value. Participant escrow and supporter money are two tables, two
+  coin kinds and two settlement functions, and neither can ever pay the other.
+  The supporter pool is **pari-mutuel** — winners divide the losing side's
+  stakes in proportion to their own — which is the only distribution that
+  provably cannot pay out more than it took in. A duel touches `coin_events`
+  and nothing else: XP, Evo Rating, Forge Level and the Training Arc have no
+  code path from this feature.
+
+  **WHAT IS NEW.** `stake` is a range instead of three buttons (bounded by
+  `forge_duel_config`, one row, every knob); `current_stake` grows with
+  accepted raises while `stake` stays the locked opening contract;
+  `forge_duel_offers` carries raise / all-in / counter-stake proposals with a
+  **partial unique index on (challenge_id) where status = 'pending'**, so two
+  conflicting proposals are unrepresentable rather than merely discouraged;
+  `forge_duel_support` holds one position per supporter per duel;
+  `forge_duel_reactions` is five fixed names whose primary key IS its rate
+  limit. 146 hangs triggers on `workout_sessions` / `cardio_log` /
+  `workout_log` so the duel scores itself from training the athlete already
+  logs — including via AI transcription, because the trigger sits under every
+  write path rather than beside one of them. It also finally populates
+  `forge_challenge_qualifying`, which 139 created and nothing ever wrote.
+
+  **THE RULES THAT COST REAL BUGS HERE:**
+  - **A trigger on `workout_log` can eat an athlete's set.** `forge_duel_touch`
+    wraps its whole body in `exception when others then null`. The duel is
+    allowed to be stale; the training is not allowed to be lost.
+  - **`coin_events` is unique on (user_id, kind, source_id).** A raise
+    therefore needs its OWN source (`<duel>:<offer>`) — a second
+    `challenge_stake` row against the bare duel id collides with the opening
+    one. That index is also what makes double-charging a raise impossible at
+    the storage layer.
+  - **A Reanimated completion callback must not re-assign its own shared
+    value.** `withTiming(..., () => { v.value = withSpring(...) })` recursed
+    into "Maximum call stack size exceeded" on every chip tap while LOOKING
+    completely correct. Use `withSequence`.
+  - **The global `staleTime: 45_000` is wrong for a duel.** Everything on that
+    screen can be changed by somebody else, and an offer with a countdown
+    cannot be served from a 45-second cache. The duel queries override to
+    `staleTime: 0` + `refetchOnMount: 'always'` + a focused 30s poll.
+  - **Accepting a duel must answer every open proposal about its terms** (147).
+    Countering and then simply accepting left a `pending` counter that hid the
+    raise button for the rest of the contest.
+  - **A cascade can destroy coins** (148). Deleting an account takes the duel
+    row and leaves the survivor's escrow pointing at nothing; the sweep repairs
+    it, filed under `<duel>:orphan` so the repair groups with the stake it
+    repaid and can never run twice.
+
+  **VERIFYING IT.** `node tools/falsify-forge-duel.mjs` — 86 assertions in SQL
+  against production as four real athletes (escrow, raises, counters, all-in,
+  pari-mutuel splits, draws, cancels, orphaned escrow, ledger conservation on
+  every path), self-cleaning and re-runnable. `node tools/tour-forge-duel.mjs`
+  — the same lifecycle through a browser, 51 assertions and zero console
+  errors. Run BOTH: the SQL one proves the server is right, the browser one
+  proves an athlete can reach it, and every bug in the list above was
+  invisible to the first.
+
 - **THE FIRST WORKOUT IS A RECORD NOW (2026-08-06, migration 138)** — Train
   kept saying "YOUR FIRST WORKOUT / START FIRST WORKOUT" after the athlete
   had already opened it. Tapping again was harmless (nothing is created until

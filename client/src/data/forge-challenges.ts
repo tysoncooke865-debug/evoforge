@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { track } from '@/data/analytics';
@@ -11,7 +12,7 @@ import { todayIso } from '@/domain/today';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
-import { invalidateTable } from './keys';
+import { refreshDuels } from './forge-duel';
 import { supabase } from './supabase';
 
 /**
@@ -32,9 +33,28 @@ const KEY = 'forge_challenges';
 export function useForgeChallenges() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
+  const focused = useIsFocused();
   return useQuery({
     queryKey: [KEY, userId],
     enabled: userId !== null,
+    /**
+     * A DUEL IS NOT A CACHEABLE SCREEN.
+     *
+     * The app's global policy is `staleTime: 45_000` with a 24h persisted
+     * cache, which is right for a workout plan and WRONG here: everything on
+     * this screen can be changed by SOMEBODY ELSE. The browser tour found it —
+     * a rival's raise was invisible after a page reload, on a card that shows
+     * the offer's own countdown. An offer with a clock on it cannot be served
+     * from a 45-second cache.
+     *
+     * So: always stale, always refetch on mount and on focus, and a light poll
+     * while the tab is actually being looked at (the social-notifications
+     * pattern — an ungated interval would fire on every preloaded tab).
+     */
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: focused ? 30_000 : false,
     queryFn: async (): Promise<ForgeChallenge[]> => {
       const { data, error } = await supabase.rpc('my_forge_challenges');
       if (error) {
@@ -50,11 +70,12 @@ export function useForgeChallenges() {
   });
 }
 
-/** Everything a challenge touches: the list, the coin balance and its ledger. */
+/** Everything a challenge touches: the list, the coin balance, its ledger, and
+ *  (144) the duel surfaces that read the same rows. One function, because
+ *  invalidating a subset is how a pot ends up disagreeing with a wallet on the
+ *  same screen. */
 function refreshAfterChallenge(queryClient: ReturnType<typeof useQueryClient>, userId: string | null) {
-  void queryClient.invalidateQueries({ queryKey: [KEY, userId] });
-  invalidateTable(queryClient, 'coin_events');
-  void queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
+  refreshDuels(queryClient, userId);
 }
 
 export interface CreateChallengeInput {
@@ -65,6 +86,10 @@ export interface CreateChallengeInput {
   stake: ChallengeStake;
   /** Set when this is a rematch of a finished challenge. */
   rematchOf?: string | null;
+  /** May friends watch and back this duel? Default yes; the participants own
+   *  the decision, which is what keeps spectating a feature rather than an
+   *  exposure. */
+  spectatorsEnabled?: boolean;
 }
 
 export function useCreateChallenge() {
@@ -83,6 +108,7 @@ export function useCreateChallenge() {
           duration_days: input.durationDays,
           stake: input.stake,
           rematch_of: input.rematchOf ?? null,
+          spectators_enabled: input.spectatorsEnabled ?? true,
         })
         .select('id')
         .single();

@@ -57,9 +57,45 @@ const base: ForgeChallenge = {
   challenger_current: { value: 82, unit: 'kg', measured: true },
   opponent_current: { value: 105.2, unit: 'kg', measured: true },
   disputed: false,
+  // 144 — the live economy. `current_stake` starts equal to the opening stake
+  // and grows with accepted raises.
+  current_stake: 50,
+  pot: 100,
+  raises_accepted: 0,
+  last_raise_at: null,
+  leader_id: null,
+  support_closes_at: null,
+  spectators_enabled: true,
+  challenger_escrowed: 50,
+  opponent_escrowed: 50,
+  challenger_last_session: null,
+  opponent_last_session: null,
+  pending_offer: null,
+  raise_state: null,
+  support_challenger: 0,
+  support_opponent: 0,
+  supporter_count: 0,
 };
 
-const at = (over: Partial<ForgeChallenge>): ForgeChallenge => ({ ...base, ...over });
+/**
+ * A fixture whose ESCROW FOLLOWS ITS STAKE unless a case says otherwise.
+ *
+ * Without this, overriding `stake` alone would leave `current_stake` and both
+ * escrow columns at the base value — and every payout assertion would be
+ * measuring the fixture's inconsistency rather than the function.
+ */
+const at = (over: Partial<ForgeChallenge>): ForgeChallenge => {
+  const stake = over.stake ?? base.stake;
+  return {
+    ...base,
+    stake,
+    current_stake: stake,
+    pot: stake * 2,
+    challenger_escrowed: stake,
+    opponent_escrowed: stake,
+    ...over,
+  };
+};
 
 describe('most improved lift', () => {
   it('scores PERCENTAGE improvement, matching the brief', () => {

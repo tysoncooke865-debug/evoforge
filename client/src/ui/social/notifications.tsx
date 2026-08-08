@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -23,6 +24,18 @@ const VERB: Record<NotificationRow['type'], string> = {
   comment_reply: 'replied to your comment',
   // pr_beaten copy is built inline (it interpolates the lift name); this is the fallback.
   pr_beaten: 'just destroyed your PR — reclaim your status',
+  // Duel copy is built inline too (every line carries a number); these are the
+  // fallbacks for a payload that arrived without one.
+  duel_invite: 'challenged you to a Forge Duel',
+  duel_accepted: 'accepted your Forge Duel',
+  duel_declined: 'declined your Forge Duel',
+  duel_raise: 'wants to raise the stakes',
+  duel_raise_accepted: 'accepted your raise',
+  duel_raise_declined: 'declined your raise',
+  duel_lead_change: 'took the lead in your duel',
+  duel_support: 'is backing you',
+  duel_ending: '— your duel ends today',
+  duel_settled: '— your duel has settled',
 };
 
 /** The rivalry alert reads with the lift name when we have it: "ALEX just
@@ -30,6 +43,41 @@ const VERB: Record<NotificationRow['type'], string> = {
 function prBeatenText(n: NotificationRow): string {
   const lift = n.detail?.exercise;
   return lift ? `just destroyed your ${lift} PR — reclaim your status` : VERB.pr_beaten;
+}
+
+/**
+ * DUEL COPY, with the number in it.
+ *
+ * "wants to raise the stakes" is an event; "wants to raise the pot to 400" is
+ * a decision the athlete can make from the notification tray. Every line here
+ * carries the figure that makes it actionable, and falls back to the plain
+ * verb when the payload did not.
+ */
+function duelText(n: NotificationRow): string {
+  const d = n.detail ?? {};
+  switch (n.type) {
+    case 'duel_accepted':
+      return d.pot ? `accepted your duel — ${d.pot} in the pot` : VERB.duel_accepted;
+    case 'duel_raise':
+      return d.kind === 'all_in'
+        ? `is ALL IN — ${d.amount} each, pot ${d.pot ?? '?'}`
+        : d.pot
+          ? `wants to raise the pot to ${d.pot}`
+          : VERB.duel_raise;
+    case 'duel_raise_accepted':
+      return d.pot ? `matched your raise — pot is now ${d.pot}` : VERB.duel_raise_accepted;
+    case 'duel_lead_change':
+      return d.lost_lead ? 'just took the lead in your duel' : VERB.duel_lead_change;
+    case 'duel_support':
+      return d.amount ? `backed you with ${d.amount} coins` : VERB.duel_support;
+    case 'duel_ending':
+      return '— your duel ends within the day';
+    case 'duel_settled':
+      if (d.outcome === 'draw') return `— your duel drew. ${d.pot ? `${d.pot / 2} refunded` : 'Stakes refunded'}`;
+      return d.won ? `— you won ${d.pot ?? ''} coins` : '— your duel has settled';
+    default:
+      return VERB[n.type];
+  }
 }
 
 export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => void; onOpenFriends: () => void }) {
@@ -109,26 +157,34 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
                 list.map((n) => {
                   const isFriend = n.type === 'friend_request' || n.type === 'friend_accepted';
                   const isPr = n.type === 'pr_beaten';
-                  // Rivalry alerts burn red; friend actions are epic-purple; the rest accent.
-                  const tint = isPr ? colors.danger : isFriend ? colors.epic : colors.accent;
-                  // pr_beaten and friend rows deep-link to FRIENDS & RIVALS (where you reclaim).
-                  const tappable = isFriend || isPr;
+                  const isDuel = n.type.startsWith('duel_');
+                  const duelId = isDuel ? n.detail?.challenge_id ?? null : null;
+                  // Rivalry alerts burn red; duels are gold (they move coins);
+                  // friend actions are epic-purple; the rest accent.
+                  const tint = isPr ? colors.danger : isDuel ? colors.legendary : isFriend ? colors.epic : colors.accent;
+                  // pr_beaten and friend rows deep-link to FRIENDS & RIVALS (where you reclaim);
+                  // a duel row opens the duel itself, which is where the decision is.
+                  const tappable = isFriend || isPr || Boolean(duelId);
+                  const open = duelId
+                    ? () => { onClose(); router.push(`/challenges/${duelId}` as never); }
+                    : onOpenFriends;
                   return (
                     <Pressable
                       key={n.id}
-                      onPress={tappable ? onOpenFriends : undefined}
+                      onPress={tappable ? open : undefined}
                       accessibilityRole={tappable ? 'button' : undefined}
                       testID={`notif-${n.id}`}
                       className="mb-s2 flex-row items-center rounded-lg border p-s3"
                       style={{ gap: 10, borderColor: n.read_at ? colors.border : `${tint}59`, backgroundColor: n.read_at ? 'rgba(13,21,36,0.4)' : `${tint}0f` }}
                     >
                       <View className="items-center justify-center rounded-lg border" style={{ width: 34, height: 34, borderColor: `${tint}59`, backgroundColor: `${tint}14` }}>
-                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{isPr ? '⚔' : (n.actor_name[0] ?? 'A').toUpperCase()}</Text>
+                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{isPr ? '⚔' : isDuel ? '◎' : (n.actor_name[0] ?? 'A').toUpperCase()}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text className="text-2xs text-text-dim" numberOfLines={2}>
-                          <Text className="font-bold text-text">{n.actor_name}</Text> {isPr ? prBeatenText(n) : VERB[n.type]}
-                          {!isPr && n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
+                          <Text className="font-bold text-text">{n.actor_name}</Text>{' '}
+                          {isPr ? prBeatenText(n) : isDuel ? duelText(n) : VERB[n.type]}
+                          {!isPr && !isDuel && n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
                         </Text>
                         <Text className="mt-s1 text-2xs text-text-mute">{relativeTime(n.created_at, nowMs)}</Text>
                       </View>

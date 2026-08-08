@@ -90,6 +90,15 @@ export const COIN_LABELS: Record<string, string> = {
   starting_bonus: 'Starting bonus',
   adjustment: 'Adjustment',
   spend: 'Spent',
+  // 139/144 — the duel's four server-only kinds. They are never claimed from
+  // here (the guard admits them solely inside the duel functions), but the
+  // ledger screen renders whatever the ledger holds, and an unlabelled row
+  // reads as a bug in the one place an athlete goes to check their coins.
+  battle_reward: 'Battle reward',
+  challenge_stake: 'Duel stake',
+  challenge_payout: 'Duel payout',
+  duel_support_stake: 'Backed a duel',
+  duel_support_payout: 'Support payout',
 };
 
 /** Claim + refresh + announce, from any screen. */

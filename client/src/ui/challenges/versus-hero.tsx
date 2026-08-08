@@ -14,6 +14,7 @@ import type { Confidence } from '@/domain/challenge-progression';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Silhouette } from '@/ui/character/silhouette';
+import { LeadStrip, ScoreBar } from '@/ui/duel/duel-score-meter';
 
 /**
  * THE DUEL, as a picture.
@@ -45,6 +46,11 @@ export function VersusHero({
   unit,
   confidence,
   live,
+  myFill = 0,
+  theirFill = 0,
+  gapLabel = null,
+  leaderId = null,
+  myId = '',
   testID,
 }: {
   myName: string;
@@ -58,6 +64,15 @@ export function VersusHero({
   confidence: Confidence;
   /** A finished contest stops breathing — the moment has passed. */
   live: boolean;
+  /** 144: each side's rail, normalised against the leader (0..1). The number
+   *  above it is the fact; the rail is the shape of the gap. */
+  myFill?: number;
+  theirFill?: number;
+  /** The numeric gap, formatted with its unit. Null when level. */
+  gapLabel?: string | null;
+  /** Who the SERVER says is ahead — the source of the lead-change moment. */
+  leaderId?: string | null;
+  myId?: string;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -96,6 +111,7 @@ export function VersusHero({
           strong={leading}
           calm={reduced || !live}
           highlight={leading}
+          fill={myFill}
           art={
             mySource ? (
               <Image
@@ -140,6 +156,7 @@ export function VersusHero({
           strong={losing}
           calm={reduced || !live}
           highlight={losing}
+          fill={theirFill}
           // Always a silhouette: another athlete's champion is not ours to show.
           art={
             <Silhouette
@@ -157,34 +174,19 @@ export function VersusHero({
         />
       </View>
 
-      {/* THE BAND — never a percentage. A contest decided by future training
-          has no honest probability, and a fake one would deserve to be
-          disbelieved. */}
-      <View
-        className="mt-s3 items-center rounded-lg border px-s3 py-s2"
-        style={{
-          borderColor: leading ? `${colors.success}59` : losing ? `${colors.warn}59` : colors.border,
-          backgroundColor: leading
-            ? 'rgba(52,211,153,0.07)'
-            : losing
-              ? 'rgba(251,191,36,0.06)'
-              : 'rgba(13,21,36,0.5)',
-        }}
+      {/* THE BAND — never a percentage-to-win. A contest decided by future
+          training has no honest probability, and a fake one would deserve to
+          be disbelieved. What IS honest is the current gap, so the words carry
+          the feeling and the number beside them carries the fact. Owned by
+          LeadStrip since 144, which also owns the lead-change moment. */}
+      <LeadStrip
+        confidence={confidence}
+        gapLabel={gapLabel}
+        leaderId={leaderId}
+        myId={myId}
+        live={live}
         testID="versus-confidence"
-      >
-        <Text
-          allowFontScaling={false}
-          style={{
-            fontSize: 11,
-            letterSpacing: 1.6,
-            color: leading ? colors.success : losing ? colors.warn : colors['text-dim'],
-            ...pixelFont(false),
-          }}
-        >
-          {confidence.label}
-        </Text>
-        <Text className="mt-s1 text-center text-2xs text-text-mute">{confidence.note}</Text>
-      </View>
+      />
     </View>
   );
 }
@@ -199,6 +201,7 @@ function Fighter({
   strong,
   calm,
   highlight,
+  fill,
   art,
   mirrored,
   testID,
@@ -218,6 +221,8 @@ function Fighter({
   /** Reduced motion, or a finished contest: hold it still. */
   calm: boolean;
   highlight: boolean;
+  /** This side's rail, normalised against the leader (0..1). */
+  fill: number;
   art: React.ReactNode;
   mirrored?: boolean;
   testID: string;
@@ -277,6 +282,9 @@ function Fighter({
       >
         {unit.toUpperCase()}
       </Text>
+      {/* THE RAIL. Normalised against whoever is ahead, so the leader's is
+          always full and the gap is a shape rather than a subtraction. */}
+      <ScoreBar fill={fill} tint={tint} lead={highlight} testID={`${testID}-bar`} />
     </View>
   );
 }

@@ -1,38 +1,40 @@
 import { router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
 import { useCoinTotal } from '@/data/coins';
 import { useForgeChallenges } from '@/data/forge-challenges';
+import { useDuelConfig, useDuelSweep, useWatchableDuels } from '@/data/forge-duel';
 import { useFriends } from '@/data/social';
-import {
-  CHALLENGE_STAKES,
-  SAFETY_NOTE,
-  bucketChallenges,
-  challengeRecord,
-} from '@/domain/forge-challenge';
+import { bucketChallenges, challengeRecord } from '@/domain/forge-challenge';
 import { challengeHistory, winStreak } from '@/domain/challenge-progression';
+import { DEFAULT_DUEL_CONFIG, countdown, formatCoins } from '@/domain/forge-duel';
 import { todayIso as calendarToday } from '@/domain/today';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ChallengeCard } from '@/ui/challenges/challenge-card';
 import { StreakBanner } from '@/ui/challenges/stakes-block';
-import { CoinIcon } from '@/ui/core/coin-icon';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SkeletonScreen } from '@/ui/core/skeleton';
+import { CoinBalance, useNow } from '@/ui/duel/duel-hud';
 
 /**
- * FORGE CHALLENGES — the hub.
+ * FORGE DUELS — the hub.
  *
- * Priority order, because a challenge screen's job is "what needs me": an
- * invite waiting on my answer, then the contests already running, then what I
- * have sent, then history. The Arena's create-first layout is deliberately not
- * copied — an athlete with a live wager opens this to check it, not to start
- * another.
+ * Priority order, because a duel screen's job is "what needs me": an offer or
+ * an invite waiting on my answer, then the contests already running, then what
+ * I have sent, then the duels I can watch, then history. The create-first
+ * layout is deliberately not copied — an athlete with a live wager opens this
+ * to check it, not to start another.
  *
- * Nothing here is combat. Static cards, real training numbers, a coin escrow.
+ * IT SWEEPS ON OPEN. There is no scheduler in this product, so the first thing
+ * the hub does is ask the server to expire dead invites and settle anything
+ * whose window closed. That is why a duel that ended overnight is already
+ * settled by the time it is looked at, and why nobody has to press a button to
+ * receive a result.
  */
 export default function ChallengesScreen() {
   const colors = useThemeColors();
@@ -41,12 +43,27 @@ export default function ChallengesScreen() {
   const challenges = useForgeChallenges();
   const friends = useFriends();
   const coins = useCoinTotal();
+  const watchable = useWatchableDuels();
+  const cfgQuery = useDuelConfig();
+  const cfg = cfgQuery.data ?? DEFAULT_DUEL_CONFIG;
+  const sweep = useDuelSweep();
   const todayIso = calendarToday();
+  const nowMs = useNow();
+
+  // ONE sweep per mount, whatever re-renders. It is maintenance: it refreshes
+  // the list itself when it changes something and says nothing when it does not.
+  const swept = useRef(false);
+  useEffect(() => {
+    if (swept.current || !myId) return;
+    swept.current = true;
+    sweep.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myId]);
 
   if (challenges.isPending || friends.isPending) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="STAKE YOUR TRAINING" title="CHALLENGES" />
+        <ScreenHeader kicker="STAKE YOUR TRAINING" title="DUELS" />
         <SkeletonScreen cards={3} testID="challenges-loading" />
       </ScreenShell>
     );
@@ -55,10 +72,10 @@ export default function ChallengesScreen() {
   if (challenges.isError) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="STAKE YOUR TRAINING" title="CHALLENGES" />
+        <ScreenHeader kicker="STAKE YOUR TRAINING" title="DUELS" />
         <GlowCard>
           <Text className="text-sm text-text-dim">
-            We couldn&apos;t load your challenges. Your training and your coins are safe.
+            We couldn&apos;t load your duels. Your training and your coins are safe.
           </Text>
           <View className="mt-s3">
             <NeonButton title="RETRY" variant="ghost" pixel onPress={() => void challenges.refetch()} testID="challenges-retry" />
@@ -75,30 +92,66 @@ export default function ChallengesScreen() {
   const streak = winStreak(rows, myId);
   const history = challengeHistory(rows, myId);
   const balance = coins.data ?? 0;
-  const canAfford = balance >= CHALLENGE_STAKES[0];
+  const canAfford = balance >= cfg.min_stake;
+  const watchList = watchable.data ?? [];
+
+  // An offer waiting on MY answer is the most urgent thing on this page — more
+  // urgent than an invite, because coins are already at risk in that duel.
+  const needsAnswer = active.filter((c) => c.pending_offer && !c.pending_offer.mine);
+  const potAtRisk = active.reduce((sum, c) => sum + (c.i_am_challenger ? c.challenger_escrowed : c.opponent_escrowed), 0);
 
   return (
     <ScreenShell>
       <ScreenHeader
         kicker="STAKE YOUR TRAINING"
-        title="CHALLENGES"
-        right={
-          <View className="flex-row items-center" style={{ gap: 6 }}>
-            <CoinIcon size={22} />
-            <Text
-              allowFontScaling={false}
-              testID="challenges-balance"
-              style={{ fontSize: 18, color: colors.legendary, letterSpacing: 0, ...pixelFont() }}
-            >
-              {balance}
-            </Text>
-          </View>
-        }
+        title="DUELS"
+        right={<CoinBalance coins={coins.data ?? null} testID="challenges-balance" />}
       />
+
+      {potAtRisk > 0 ? (
+        <Text className="text-2xs text-text-mute" testID="challenges-at-risk">
+          {formatCoins(potAtRisk)} of your coins are in escrow across {active.length}{' '}
+          {active.length === 1 ? 'duel' : 'duels'}.
+        </Text>
+      ) : null}
+
+      {needsAnswer.length > 0 ? (
+        <>
+          <SectionLabel>THEY RAISED</SectionLabel>
+          {needsAnswer.map((c) => (
+            <ChallengeCard key={`offer-${c.id}`} challenge={c} myId={myId} todayIso={todayIso} nowMs={nowMs} />
+          ))}
+        </>
+      ) : null}
+
+      {incoming.length > 0 ? (
+        <>
+          <SectionLabel>WAITING ON YOU</SectionLabel>
+          {incoming.map((c) => (
+            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} nowMs={nowMs} />
+          ))}
+        </>
+      ) : null}
+
+      <SectionLabel>ACTIVE</SectionLabel>
+      {active.length > 0 ? (
+        active.map((c) => (
+          <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} nowMs={nowMs} />
+        ))
+      ) : (
+        <GlowCard testID="challenges-none-active">
+          <Text className="text-sm text-text">No duel running.</Text>
+          <Text className="mt-s1 text-2xs text-text-dim">
+            A Forge Duel is a wager between friends, settled by your real training. Both of you
+            stake coins you earned; the app reads your logged sessions and pays the winner. Raise
+            the stakes mid-duel, and let friends back a side.
+          </Text>
+        </GlowCard>
+      )}
 
       {/* THE ONE CTA, and it says why it might not work before it is pressed. */}
       <NeonButton
-        title="CREATE A CHALLENGE"
+        title="START A DUEL"
         size="hero"
         pixel
         disabled={friendList.length === 0 || !canAfford}
@@ -107,50 +160,73 @@ export default function ChallengesScreen() {
       />
       {friendList.length === 0 ? (
         <Text className="text-center text-2xs text-text-mute" testID="challenges-no-friends">
-          A challenge needs someone to challenge. Add a friend in Social first — challenges are
-          between people who already know each other, never strangers.
+          A duel needs someone to duel. Add a friend in Social first — duels are between people who
+          already know each other, never strangers.
         </Text>
       ) : !canAfford ? (
         <Text className="text-center text-2xs text-text-mute" testID="challenges-no-coins">
-          You need at least {CHALLENGE_STAKES[0]} coins to stake. Coins come from training —
-          finishing workouts, hitting PRs and holding streaks. They are never purchasable.
+          You need at least {cfg.min_stake} coins to stake. Coins come from training — finishing
+          workouts, hitting PRs and holding streaks. They are never purchasable.
         </Text>
       ) : null}
-
-      {incoming.length > 0 ? (
-        <>
-          <SectionLabel>WAITING ON YOU</SectionLabel>
-          {incoming.map((c) => (
-            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} />
-          ))}
-        </>
-      ) : null}
-
-      <SectionLabel>ACTIVE</SectionLabel>
-      {active.length > 0 ? (
-        active.map((c) => <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} />)
-      ) : (
-        <GlowCard testID="challenges-none-active">
-          <Text className="text-sm text-text">No challenge running.</Text>
-          <Text className="mt-s1 text-2xs text-text-dim">
-            A Forge Challenge is a friendly wager settled by your real training — most improved
-            lift, training consistency, or cardio minutes. Both of you stake coins you earned; the
-            app reads your logged sessions and pays the winner. A draw refunds you both.
-          </Text>
-        </GlowCard>
-      )}
 
       {sent.length > 0 ? (
         <>
           <SectionLabel>SENT · AWAITING REPLY</SectionLabel>
           {sent.map((c) => (
-            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} />
+            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} nowMs={nowMs} />
           ))}
         </>
       ) : null}
 
-      {/* THE RUN — above the record, because a streak is a reason to act and
-          a lifetime tally is a reason to reflect. */}
+      {/* ── THE CROWD SIDE: friends' duels I can watch and back. ── */}
+      {watchList.length > 0 ? (
+        <>
+          <SectionLabel>WATCH & BACK</SectionLabel>
+          {watchList.map((w) => {
+            const leaderName =
+              w.leader_id === w.challenger_id ? w.challenger_name
+                : w.leader_id === w.opponent_id ? w.opponent_name
+                  : null;
+            return (
+              <Pressable
+                key={w.id}
+                onPress={() => router.push(`/challenges/watch/${w.id}` as never)}
+                accessibilityRole="button"
+                accessibilityLabel={`Watch ${w.challenger_name} against ${w.opponent_name}`}
+                testID={`duel-watch-${w.id}`}
+                className="w-full rounded-xl border p-s3"
+                style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)', minHeight: 44 }}
+              >
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm text-text" numberOfLines={1} style={{ flex: 1 }}>
+                    {w.challenger_name} vs {w.opponent_name}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={{ fontSize: 14, color: colors.legendary, letterSpacing: 0, ...pixelFont() }}
+                  >
+                    {formatCoins(w.pot)}
+                  </Text>
+                </View>
+                <View className="mt-s1 flex-row items-center justify-between">
+                  <Text className="text-2xs text-text-mute" numberOfLines={1}>
+                    {leaderName ? `${leaderName} leads` : 'Level'} ·{' '}
+                    {w.supporter_count} backing
+                    {w.my_backed_id ? ' · you are in' : ''}
+                  </Text>
+                  <Text className="text-2xs text-text-mute">
+                    {countdown(Date.parse(w.ends_at) - nowMs)} left
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </>
+      ) : null}
+
+      {/* THE RUN — above the record, because a streak is a reason to act and a
+          lifetime tally is a reason to reflect. */}
       <StreakBanner
         current={streak.current}
         best={streak.best}
@@ -167,11 +243,9 @@ export default function ChallengesScreen() {
               <Stat label="WINS" value={String(record.wins)} tint={colors.success} />
               <Stat label="LOSSES" value={String(record.losses)} />
               <Stat label="DRAWS" value={String(record.draws)} />
-              <Stat label="COINS WON" value={String(record.coinsWon)} tint={colors.legendary} />
+              <Stat label="COINS WON" value={formatCoins(record.coinsWon)} tint={colors.legendary} />
             </View>
 
-            {/* THE LAST FIVE, at a glance. Net coins is shown as-is and CAN be
-                negative: a record that only ever counts up is not a record. */}
             {history.recent.length > 0 ? (
               <View className="mt-s3 border-t pt-s3" style={{ borderColor: colors.border }}>
                 <View className="flex-row items-center" style={{ gap: 6 }}>
@@ -187,13 +261,10 @@ export default function ChallengesScreen() {
                         justifyContent: 'center',
                         borderWidth: 1,
                         borderColor:
-                          h.result === 'won'
-                            ? `${colors.success}8c`
-                            : h.result === 'lost'
-                              ? colors.border
+                          h.result === 'won' ? `${colors.success}8c`
+                            : h.result === 'lost' ? colors.border
                               : `${colors.legendary}66`,
-                        backgroundColor:
-                          h.result === 'won' ? 'rgba(52,211,153,0.12)' : 'transparent',
+                        backgroundColor: h.result === 'won' ? 'rgba(52,211,153,0.12)' : 'transparent',
                       }}
                     >
                       <Text
@@ -201,10 +272,8 @@ export default function ChallengesScreen() {
                         style={{
                           fontSize: 10,
                           color:
-                            h.result === 'won'
-                              ? colors.success
-                              : h.result === 'drew'
-                                ? colors.legendary
+                            h.result === 'won' ? colors.success
+                              : h.result === 'drew' ? colors.legendary
                                 : colors['text-mute'],
                           ...pixelFont(),
                         }}
@@ -220,11 +289,13 @@ export default function ChallengesScreen() {
                     </Text>
                   ) : null}
                 </View>
+                {/* Net coins is shown as-is and CAN be negative: a record that
+                    only ever counts up is not a record. */}
                 <Text className="mt-s2 text-2xs text-text-mute">
                   {history.totalSettled} settled ·{' '}
                   <Text style={{ color: history.netCoins >= 0 ? colors.success : colors['text-dim'] }}>
                     {history.netCoins >= 0 ? '+' : ''}
-                    {history.netCoins} coins net
+                    {formatCoins(history.netCoins)} coins net
                   </Text>
                 </Text>
               </View>
@@ -232,18 +303,17 @@ export default function ChallengesScreen() {
           </GlowCard>
 
           <SectionLabel>HISTORY</SectionLabel>
-          {finished.map((c) => (
-            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} />
+          {finished.slice(0, 10).map((c) => (
+            <ChallengeCard key={c.id} challenge={c} myId={myId} todayIso={todayIso} nowMs={nowMs} />
           ))}
         </>
       ) : null}
 
       {/* DAMAGE ASSESSMENT (migration 038) — the OTHER way to challenge a
-          friend, and the only other thing that survives the Arena's retirement
-          (Tyson, 2026-08-07: "arena should be replaced with the wager system,
-          and the damage assessment mode and thats it"). It lived only inside
-          the Arena hub, so removing that tab would have stranded a working
-          feature. Same tab, because both are friend-vs-friend contests. */}
+          friend, and the only other thing that survived the Arena's retirement
+          (Tyson, 2026-08-07). It lived only inside the Arena hub, so removing
+          that tab would have stranded a working feature. Same tab, because both
+          are friend-vs-friend contests. */}
       <SectionLabel>DAMAGE ASSESSMENT</SectionLabel>
       <Pressable
         onPress={() => router.push('/damage' as never)}
@@ -273,7 +343,8 @@ export default function ChallengesScreen() {
 
       {/* Said once, at the bottom, on every screen where a wager is agreed to. */}
       <Text className="text-2xs text-text-mute" testID="challenges-safety">
-        {SAFETY_NOTE}
+        Forge Coins are earned by training. They cannot be bought, cashed out or transferred, and a
+        duel never touches your XP, Evo Rating, Forge Level or Training Arc.
       </Text>
     </ScreenShell>
   );

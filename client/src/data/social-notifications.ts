@@ -19,7 +19,20 @@ export type NotificationType =
   | 'mention'
   | 'comment_reaction'
   | 'comment_reply'
-  | 'pr_beaten';
+  | 'pr_beaten'
+  // 145 — the Forge Duel. A social wager loop that never says "your friend
+  // accepted" is the biggest gap a wager system can have: the whole point is
+  // that something happened while you were not looking.
+  | 'duel_invite'
+  | 'duel_accepted'
+  | 'duel_declined'
+  | 'duel_raise'
+  | 'duel_raise_accepted'
+  | 'duel_raise_declined'
+  | 'duel_lead_change'
+  | 'duel_support'
+  | 'duel_ending'
+  | 'duel_settled';
 
 export interface NotificationRow {
   id: string;
@@ -29,8 +42,19 @@ export interface NotificationRow {
   read_at: string | null;
   actor_name: string;
   post_peek: string;
-  /** Type-specific payload (072): pr_beaten carries { exercise, e1rm }. */
-  detail?: { exercise?: string; e1rm?: number } | null;
+  /** Type-specific payload (072): pr_beaten carries { exercise, e1rm };
+   *  every duel_* type carries { challenge_id } plus its own numbers (145). */
+  detail?: {
+    exercise?: string;
+    e1rm?: number;
+    challenge_id?: string;
+    amount?: number;
+    pot?: number;
+    outcome?: string;
+    won?: boolean;
+    kind?: string;
+    lost_lead?: boolean;
+  } | null;
 }
 
 function useUserId(): string | null {

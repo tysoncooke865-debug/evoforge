@@ -10,14 +10,29 @@
  * of what the server already returned.
  */
 
+import { unitLabel, type DuelOffer, type RaiseState } from './forge-duel';
+
 export const CHALLENGE_TYPES = ['most_improved_lift', 'training_consistency', 'cardio_minutes'] as const;
 export type ChallengeType = (typeof CHALLENGE_TYPES)[number];
 
-export const CHALLENGE_DURATIONS = [7, 14] as const;
-export type ChallengeDuration = (typeof CHALLENGE_DURATIONS)[number];
+/**
+ * THE DURATIONS ON OFFER. 3 days exists because a first duel that resolves
+ * this week is how somebody learns the loop; 30 because a training block is a
+ * real unit. The server accepts 1–30, so this list is a product choice and can
+ * grow without a migration.
+ */
+export const CHALLENGE_DURATIONS = [3, 7, 14, 30] as const;
+export type ChallengeDuration = number;
 
-export const CHALLENGE_STAKES = [10, 25, 50] as const;
-export type ChallengeStake = (typeof CHALLENGE_STAKES)[number];
+/**
+ * A STAKE IS A NUMBER NOW, not one of three buttons.
+ *
+ * 139 pinned it to (10, 25, 50) because the UI had three choices. The wager
+ * table has seven chip denominations and a running total, so the range is the
+ * contract instead — bounded by `forge_duel_config` on the server, which is
+ * the only copy that decides anything (see domain/forge-duel.ts).
+ */
+export type ChallengeStake = number;
 
 /** The one lift the MVP supports — it must match the exercise library name
  *  exactly, because the server scores by string equality on workout_log. */
@@ -47,6 +62,7 @@ export interface ForgeChallenge {
   challenge_type: ChallengeType;
   metric_key: string | null;
   duration_days: number;
+  /** The OPENING stake, locked at acceptance. `current_stake` is the live one. */
   stake: number;
   status: ChallengeStatus;
   created_at: string;
@@ -69,6 +85,29 @@ export interface ForgeChallenge {
   challenger_current: ChallengeSide | null;
   opponent_current: ChallengeSide | null;
   disputed: boolean;
+
+  // ── 144: the live economy ──────────────────────────────────────────────
+  /** Per athlete, after every accepted raise. The pot is always twice this. */
+  current_stake: number;
+  pot: number;
+  raises_accepted: number;
+  last_raise_at: string | null;
+  /** Who is ahead as of the last qualifying session, stored server-side so a
+   *  lead CHANGE can be an event with a moment rather than a diff nobody saw. */
+  leader_id: string | null;
+  support_closes_at: string | null;
+  spectators_enabled: boolean;
+  /** What each athlete actually has at risk — grows with raises. */
+  challenger_escrowed: number;
+  opponent_escrowed: number;
+  challenger_last_session: string | null;
+  opponent_last_session: string | null;
+  /** The ONE live proposal, or null. */
+  pending_offer: DuelOffer | null;
+  raise_state: RaiseState | null;
+  support_challenger: number;
+  support_opponent: number;
+  supporter_count: number;
 }
 
 // ─────────────────────────────────────────────────────────────── the rules
@@ -160,7 +199,7 @@ export function sideLabel(c: ForgeChallenge, side: 'challenger' | 'opponent'): s
   if (c.challenge_type === 'most_improved_lift') {
     return `${score > 0 ? '+' : ''}${score.toFixed(1)}%`;
   }
-  return `${score} ${info.unit}`;
+  return unitLabel(score, info.unit);
 }
 
 export type Leader = 'challenger' | 'opponent' | 'tied';
@@ -197,13 +236,59 @@ export function myResult(c: ForgeChallenge, myId: string): 'won' | 'lost' | 'dre
   return c.winner_id === myId ? 'won' : 'lost';
 }
 
-/** Coins this challenge moved FOR ME. A draw returns the stake, so it is 0
- *  net — never shown as a loss. */
+/**
+ * Coins this challenge moved FOR ME.
+ *
+ * Measured against what was ACTUALLY ESCROWED, not the opening stake: a duel
+ * raised from 25 to 60 wins or loses 60. A draw returns the escrow, so it is 0
+ * net — never shown as a loss.
+ */
 export function myCoinDelta(c: ForgeChallenge, myId: string): number {
   const r = myResult(c, myId);
-  if (r === 'won') return c.stake;
-  if (r === 'lost') return -c.stake;
+  const at = myEscrow(c, myId);
+  if (r === 'won') return at;
+  if (r === 'lost') return -at;
   return 0;
+}
+
+/** What I have at risk in this duel, raises included. */
+export function myEscrow(c: ForgeChallenge, myId: string): number {
+  const mine = c.challenger_id === myId ? c.challenger_escrowed : c.opponent_escrowed;
+  // Before acceptance nothing is escrowed, and the honest answer is the stake
+  // it WOULD cost — that is the number the invite is asking about.
+  return mine > 0 ? mine : (c.current_stake ?? c.stake);
+}
+
+/** The live pot. Derived from current_stake so it can never disagree with the
+ *  escrow the server actually holds. */
+export function potOf(c: ForgeChallenge): number {
+  return c.pot ?? (c.current_stake ?? c.stake) * 2;
+}
+
+/** Milliseconds left in the window; 0 once it has closed. */
+export function msRemaining(c: ForgeChallenge, nowMs: number): number {
+  if (!c.ends_at) return 0;
+  return Math.max(0, Date.parse(c.ends_at) - nowMs);
+}
+
+/** Milliseconds until a pending INVITE dies unanswered. */
+export function msToExpiry(c: ForgeChallenge, nowMs: number): number {
+  return Math.max(0, Date.parse(c.expires_at) - nowMs);
+}
+
+/** Is spectator backing still open on this duel? */
+export function supportOpen(c: ForgeChallenge, nowMs: number): boolean {
+  if (c.status !== 'active' || !c.spectators_enabled) return false;
+  if (!c.support_closes_at) return false;
+  return Date.parse(c.support_closes_at) > nowMs;
+}
+
+/** Am I ahead, behind, or level — from the server's stored leader while it is
+ *  live, and from the winner once it has settled. */
+export function myStanding(c: ForgeChallenge, myId: string): 'leading' | 'trailing' | 'level' {
+  const leader = c.status === 'settled' ? c.winner_id : c.leader_id;
+  if (!leader) return 'level';
+  return leader === myId ? 'leading' : 'trailing';
 }
 
 export interface ChallengeRecord {
@@ -224,7 +309,8 @@ export function challengeRecord(rows: readonly ForgeChallenge[], myId: string): 
   let coinsWon = 0;
   for (const c of rows) {
     const r = myResult(c, myId);
-    if (r === 'won') { wins += 1; coinsWon += c.stake; }
+    // The ESCROW, not the opening stake: a duel raised to 60 won 60.
+    if (r === 'won') { wins += 1; coinsWon += myEscrow(c, myId); }
     else if (r === 'lost') losses += 1;
     else if (r === 'drew') draws += 1;
   }
@@ -275,6 +361,11 @@ export function sidesOf(c: ForgeChallenge): {
   return c.i_am_challenger
     ? { me: 'challenger', them: 'opponent', myName: c.challenger_name, theirName: c.opponent_name, theirId: c.opponent_id }
     : { me: 'opponent', them: 'challenger', myName: c.opponent_name, theirName: c.challenger_name, theirId: c.challenger_id };
+}
+
+/** The pot at stake in a settled duel, for a history row. */
+export function settledPot(c: ForgeChallenge): number {
+  return (c.challenger_escrowed || 0) + (c.opponent_escrowed || 0) || potOf(c);
 }
 
 export const STATUS_LABEL: Readonly<Record<ChallengeStatus, string>> = {

@@ -22,12 +22,16 @@ import type { ForgeChallenge } from '../forge-challenge';
 const ME = 'me';
 const THEM = 'them';
 
-const at = (over: Partial<ForgeChallenge>): ForgeChallenge => ({
+/** The escrow follows the stake unless a case overrides it explicitly — see
+ *  the note in forge-challenge.test.ts. */
+const at = (over: Partial<ForgeChallenge>): ForgeChallenge => {
+  const stake = over.stake ?? 50;
+  return {
   id: 'c',
   challenge_type: 'cardio_minutes',
   metric_key: null,
   duration_days: 7,
-  stake: 50,
+  stake,
   status: 'settled',
   created_at: '2026-08-01T00:00:00Z',
   expires_at: '2026-08-08T00:00:00Z',
@@ -49,8 +53,25 @@ const at = (over: Partial<ForgeChallenge>): ForgeChallenge => ({
   challenger_current: { value: 0 },
   opponent_current: { value: 0 },
   disputed: false,
+  current_stake: stake,
+  pot: stake * 2,
+  raises_accepted: 0,
+  last_raise_at: null,
+  leader_id: null,
+  support_closes_at: null,
+  spectators_enabled: true,
+  challenger_escrowed: stake,
+  opponent_escrowed: stake,
+  challenger_last_session: null,
+  opponent_last_session: null,
+  pending_offer: null,
+  raise_state: null,
+  support_challenger: 0,
+  support_opponent: 0,
+  supporter_count: 0,
   ...over,
-});
+  };
+};
 
 const won = (id: string, day: number, stake = 50) =>
   at({ id, stake, winner_id: ME, outcome: 'winner', settled_at: `2026-08-${String(day).padStart(2, '0')}T00:00:00Z` });
