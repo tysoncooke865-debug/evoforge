@@ -34,6 +34,7 @@ import { ForgeChip } from '@/ui/duel/forge-chip';
 import { ChipSurface } from '@/ui/duel/physics/chip-surface';
 import { playAllInSlam, playPotLock, primeChipAudio } from '@/ui/duel/physics/chip-audio';
 import { potLockHaptic } from '@/ui/duel/physics/chip-haptics';
+import { MAX_STACK } from '@/ui/duel/physics/chip-world';
 import { useChipTable } from '@/ui/duel/physics/use-chip-table';
 
 /**
@@ -56,7 +57,13 @@ import { useChipTable } from '@/ui/duel/physics/use-chip-table';
  * table produces a stake the server will accept.
  */
 
-const HOLD_REPEAT_MS = 150;
+/**
+ * STACK CADENCE. The first chip lands immediately (a hold that does nothing
+ * for 200ms reads as a dropped input); the rest arrive every 190ms, which is
+ * slow enough to watch a column grow and fast enough that eight is under two
+ * seconds.
+ */
+const HOLD_REPEAT_MS = 190;
 /** The table's share of the card. The brief's 65–70%, and it is the reason
  *  the pot number moved up and shrank a little: the toy needs room. */
 const TABLE_HEIGHT = 236;
@@ -122,6 +129,7 @@ export function ChipWagerTable({
     ownerId,
     calm,
     maxBodies: perfMode ? 26 : undefined,
+    locked,
   });
 
   const shown = useTweenNumber(value, 420);
@@ -149,7 +157,11 @@ export function ChipWagerTable({
   }, [potPop, reduced]);
 
   const add = useCallback(
-    (chip: ForgeChipValue, gesture?: { x?: number; vx?: number; vy?: number; spin?: number }, source: 'tap' | 'flick' | 'pour' = 'tap') => {
+    (
+      chip: ForgeChipValue,
+      gesture?: { x?: number; vx?: number; vy?: number; spin?: number; stackId?: string },
+      source: 'tap' | 'flick' | 'pour' | 'stack' = 'tap'
+    ) => {
       if (!canAdd(chip)) {
         if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         return;
@@ -163,13 +175,49 @@ export function ChipWagerTable({
     [table, pop, max, value, disabled, locked]
   );
 
-  const startRepeat = useCallback((chip: ForgeChipValue) => {
-    if (repeat.current) clearInterval(repeat.current);
-    repeat.current = setInterval(() => add(chip, undefined, 'pour'), HOLD_REPEAT_MS);
-  }, [add]);
+  /**
+   * HOLD BUILDS A STACK, not a scatter.
+   *
+   * A pour of loose chips was the first version and it was the wrong reading
+   * of "hold to pour": what an athlete does with a handful of chips is build a
+   * column. Each tick bonds one more chip to the top of the same stack, and the
+   * counter beside the tray says what it is worth as it grows.
+   */
+  const stackRef = useRef<{ id: string; value: ForgeChipValue } | null>(null);
+  const [building, setBuilding] = useState<{ value: ForgeChipValue; count: number } | null>(null);
+
+  const startRepeat = useCallback(
+    (chip: ForgeChipValue) => {
+      if (repeat.current) clearInterval(repeat.current);
+      const id = table.beginStack();
+      stackRef.current = { id, value: chip };
+      // The chip already dropped by the TAP that preceded the hold is loose;
+      // the stack starts from the next one, so the column is coherent.
+      let count = 0;
+      const tick = () => {
+        const live = stackRef.current;
+        if (!live) return;
+        if (count >= MAX_STACK || !canAdd(live.value)) {
+          if (repeat.current) clearInterval(repeat.current);
+          repeat.current = null;
+          return;
+        }
+        add(live.value, { stackId: live.id }, 'stack');
+        count += 1;
+        setBuilding({ value: live.value, count });
+      };
+      tick();
+      repeat.current = setInterval(tick, HOLD_REPEAT_MS);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [add, table, max, value]
+  );
+
   const stopRepeat = useCallback(() => {
     if (repeat.current) clearInterval(repeat.current);
     repeat.current = null;
+    stackRef.current = null;
+    setBuilding(null);
   }, []);
   useEffect(() => stopRepeat, [stopRepeat]);
 
@@ -278,6 +326,12 @@ export function ChipWagerTable({
         <Quick label="+100" onPress={() => quickAdd(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
         <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || locked || value >= max} testID="wager-max-btn" />
         <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || locked || value === 0} testID="wager-clear" />
+        {table.motion === 'prompt' ? (
+          // iOS gates device motion behind a real gesture, so the ask lives on
+          // a chip the athlete taps — never a popup on load. It only appears
+          // when the platform actually wants permission.
+          <Quick label="ENABLE TILT" onPress={table.requestMotion} testID="wager-enable-motion" />
+        ) : null}
         {onAllIn ? (
           <Quick
             label={allInLabel ?? 'ALL IN'}
@@ -298,6 +352,23 @@ export function ChipWagerTable({
           ? 'The pot is locked. Nothing else goes in.'
           : 'Tap a chip · hold to pour · flick it at the table · drag a chip out to take it back'}
       </Text>
+      {building ? (
+        // A lightweight counter, not a modal — it must never interrupt the
+        // hold that is producing it.
+        <View
+          pointerEvents="none"
+          className="mt-s1 flex-row items-center self-start rounded-pill border px-s3 py-s1"
+          style={{ gap: 8, borderColor: `${colors.legendary}59`, backgroundColor: 'rgba(251,191,36,0.1)' }}
+          testID="wager-stack-counter"
+        >
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: colors['text-dim'], ...pixelFont() }}>
+            {building.value} × {building.count}
+          </Text>
+          <Text allowFontScaling={false} style={{ fontSize: 15, color: colors.legendary, ...pixelFont() }}>
+            {formatCoins(building.value * building.count)}
+          </Text>
+        </View>
+      ) : null}
       <View onLayout={(e: LayoutChangeEvent) => setTrayWidth(e.nativeEvent.layout.width)}>
         <ScrollView
           horizontal

@@ -141,6 +141,16 @@ export default function ProfileScreen() {
             </View>
             <SoundSwitch />
           </View>
+          <View className="mt-s3 flex-row items-center justify-between">
+            <View className="flex-1 pr-s3">
+              <Text className="text-sm font-bold text-text">Motion physics</Text>
+              <Text className="text-2xs text-text-mute">
+                Tilt your phone and the chips on a duel&apos;s wager table slide with it. Off here,
+                or with your device&apos;s reduced-motion setting on, gravity just points down.
+              </Text>
+            </View>
+            <MotionSwitch />
+          </View>
         </GlowCard>
 
         {admin.data === true ? (
@@ -767,6 +777,29 @@ function SoundSwitch() {
       trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
       thumbColor={colors.accent}
       testID="sound-toggle"
+    />
+  );
+}
+
+/**
+ * MOTION PHYSICS — the chip table's gravity follows the phone's tilt.
+ *
+ * A setting rather than always-on because a sensor that moves things while
+ * somebody is reading has to be refusable, and because a denied or absent
+ * sensor must degrade to plain gravity anyway. Reduced motion turns it off on
+ * its own; this is the manual override on top.
+ */
+function MotionSwitch() {
+  const colors = useThemeColors();
+  const motionPhysics = useSettingsStore((s) => s.motionPhysics);
+  const setMotionPhysics = useSettingsStore((s) => s.setMotionPhysics);
+  return (
+    <Switch
+      value={motionPhysics}
+      onValueChange={setMotionPhysics}
+      trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+      thumbColor={colors.accent}
+      testID="motion-physics"
     />
   );
 }

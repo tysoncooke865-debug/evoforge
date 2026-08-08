@@ -39,8 +39,9 @@ export function ChipSurface({
 }: {
   table: ChipTableApi;
   height: number;
-  /** A chip dragged out through the bottom goes back to the wallet. */
-  onReturn?: (chip: CommittedChip) => void;
+  /** A chip (or an intact stack) dragged out through the bottom goes back to
+   *  the wallet. The second argument is the TOTAL returned. */
+  onReturn?: (chip: CommittedChip, total: number) => void;
   /** After acceptance the table is a picture, not a toy. */
   locked?: boolean;
   testID?: string;
@@ -89,10 +90,13 @@ export function ChipSurface({
       table.releaseGrab(returning ? 0 : vx, returning ? 0 : vy);
       if (!returning) return;
       const chip = table.committed.find((c) => c.chipId === id);
-      table.takeBack(id);
+      // AN INTACT STACK COMES BACK WHOLE. They grabbed a column, so they get
+      // the column's worth; a stack that has already broken returns only the
+      // chip actually held, which is the honest answer to what they picked up.
+      const returned = table.takeBackStack(id);
       playChipReturn();
       chipReleaseHaptic();
-      if (chip) onReturn?.(chip);
+      if (chip) onReturn?.(chip, returned);
       void x;
     },
     [table, onReturn]

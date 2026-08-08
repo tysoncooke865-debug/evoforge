@@ -14,15 +14,26 @@ import { create } from 'zustand';
 interface SettingsState {
   perfMode: boolean;
   soundEnabled: boolean;
+  /**
+   * motionPhysics (2026-08-08): the chip table's gravity follows the phone's
+   * tilt. Default ON because it is the feature, but it is a SETTING because a
+   * sensor that moves things while you are reading is exactly the kind of
+   * thing somebody must be able to switch off — and because a denied or
+   * missing sensor has to degrade to plain downward gravity anyway.
+   */
+  motionPhysics: boolean;
   setPerfMode: (on: boolean) => void;
   setSoundEnabled: (on: boolean) => void;
+  setMotionPhysics: (on: boolean) => void;
   reset: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   perfMode: false,
   soundEnabled: true,
+  motionPhysics: true,
   setPerfMode: (on) => set({ perfMode: on }),
   setSoundEnabled: (on) => set({ soundEnabled: on }),
-  reset: () => set({ perfMode: false, soundEnabled: true }),
+  setMotionPhysics: (on) => set({ motionPhysics: on }),
+  reset: () => set({ perfMode: false, soundEnabled: true, motionPhysics: true }),
 }));

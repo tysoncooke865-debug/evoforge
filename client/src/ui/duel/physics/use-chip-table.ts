@@ -10,7 +10,8 @@ import { MAX_TABLE_BODIES, decompose, type ForgeChipValue } from '@/domain/forge
 
 import { playChipImpact, primeChipAudio, resetChipAudio } from './chip-audio';
 import { chipImpactHaptic } from './chip-haptics';
-import { ChipWorld, chipRadius, type ChipImpact } from './chip-world';
+import { ChipWorld, baseGravityFor, chipRadius, type ChipImpact } from './chip-world';
+import { useTiltGravity, type MotionState } from './use-tilt-gravity';
 
 /**
  * THE BINDING between a wager and a table of chips.
@@ -43,7 +44,10 @@ export interface CommittedChip {
   side: 'mine' | 'theirs';
   /** How it arrived — a flick, a quick button, a pour. Useful for analytics
    *  and for deciding how dramatically to spawn it. */
-  source: 'tap' | 'flick' | 'pour' | 'quick';
+  source: 'tap' | 'flick' | 'pour' | 'quick' | 'stack';
+  /** Which physical stack it was built into, if any. Presentation only — a
+   *  stack is a GROUPING of chips, never a value of its own. */
+  stackId: string | null;
   createdAt: number;
 }
 
@@ -63,9 +67,18 @@ export interface ChipTableApi {
     vy?: number;
     spin?: number;
     source?: CommittedChip['source'];
+    /** Bond it to the top of this stack instead of dropping it loose. */
+    stackId?: string;
   }) => void;
   /** Take one back — by id, or the most recent of a value. */
   takeBack: (chipId: string) => void;
+  /** Take back every chip still bonded to this one. Dragging a stack out
+   *  returns the whole stack; dragging a loose chip returns just it. */
+  takeBackStack: (chipId: string) => number;
+  /** Begin a new physical stack; returns its id. */
+  beginStack: () => string;
+  /** How many chips are currently bonded into that stack. */
+  stackSize: (stackId: string) => number;
   /** Rebuild the table to represent `amount` exactly, in as few chips as
    *  possible. Used by MIN / MAX / CLEAR and by any external stake change. */
   reconcile: (amount: number) => void;
@@ -83,6 +96,9 @@ export interface ChipTableApi {
   shake: SharedValue<number>;
   /** Reduced motion / perf mode: real chips, no spin, bounce or shake. */
   calm: boolean;
+  /** Device-tilt gravity: whether it is running, and how to ask for it. */
+  motion: MotionState;
+  requestMotion: () => void;
 }
 
 /**
@@ -111,6 +127,8 @@ export function useChipTable(opts: {
   calm?: boolean;
   /** Perf mode also trims how many bodies are worth simulating. */
   maxBodies?: number;
+  /** A locked pot is a picture: the phone stops steering it. */
+  locked?: boolean;
 }): ChipTableApi {
   const {
     amount,
@@ -120,6 +138,7 @@ export function useChipTable(opts: {
     side = 'mine',
     calm = false,
     maxBodies = MAX_TABLE_BODIES,
+    locked = false,
   } = opts;
 
   const [committed, setCommitted] = useState<CommittedChip[]>([]);
@@ -249,6 +268,7 @@ export function useChipTable(opts: {
       vy?: number;
       spin?: number;
       source?: CommittedChip['source'];
+      stackId?: string;
     }) => {
       const chip: CommittedChip = {
         chipId: nextId(),
@@ -256,6 +276,7 @@ export function useChipTable(opts: {
         ownerId,
         side,
         source: spec.source ?? 'tap',
+        stackId: spec.stackId ?? null,
         createdAt: Date.now(),
       };
       // THE MONEY MOVES FIRST, and immediately. The chip is still in the air
@@ -273,15 +294,29 @@ export function useChipTable(opts: {
       // A little scatter so a pour never lays down a perfect column. It is
       // purely visual: the VALUE was already decided above.
       const jitter = (n: number) => (Math.random() - 0.5) * n;
-      w.spawn({
-        chipId: chip.chipId,
-        value: spec.value,
-        x: Math.min(width - r, Math.max(r, (spec.x ?? width / 2) + jitter(26))),
-        y: -r - Math.random() * 20,
-        vx: (spec.vx ?? 0) + jitter(90),
-        vy: spec.vy ?? 240 + Math.random() * 160,
-        spin: (spec.spin ?? 0) + jitter(0.5),
-      });
+      if (spec.stackId) {
+        // Onto the column, aligned and still — a stack is the one place the
+        // jitter would be wrong, because a stack is precisely the absence of
+        // scatter.
+        w.stackChip({
+          chipId: chip.chipId,
+          value: spec.value,
+          x: Math.min(width - r, Math.max(r, spec.x ?? width / 2)),
+          y: -r,
+          vy: 200,
+          stackId: spec.stackId,
+        });
+      } else {
+        w.spawn({
+          chipId: chip.chipId,
+          value: spec.value,
+          x: Math.min(width - r, Math.max(r, (spec.x ?? width / 2) + jitter(26))),
+          y: -r - Math.random() * 20,
+          vx: (spec.vx ?? 0) + jitter(90),
+          vy: spec.vy ?? 240 + Math.random() * 160,
+          spin: (spec.spin ?? 0) + jitter(0.5),
+        });
+      }
       if (w.count() > maxBodies) {
         // Cap reached. Drop the OLDEST body — never the chip — so the pile
         // stops growing while the stake keeps every coin it was given.
@@ -306,6 +341,31 @@ export function useChipTable(opts: {
   );
 
   /**
+   * RETURN A WHOLE STACK. Dragging one chip of a bonded column into the return
+   * zone gives back every chip still attached to it — the athlete grabbed a
+   * stack, so they get the stack's worth. A column that has already broken
+   * returns only the chip they actually held, which is the honest answer.
+   */
+  const takeBackStack = useCallback(
+    (chipId: string): number => {
+      const ids = world.current?.stackMembers(chipId) ?? [chipId];
+      const chips = committedRef.current.filter((c) => ids.includes(c.chipId));
+      if (chips.length === 0) return 0;
+      const total = chips.reduce((s, c) => s + c.value, 0);
+      const next = Math.max(0, ownAmount.current - total);
+      ownAmount.current = next;
+      setCommitted((prev) => prev.filter((c) => !ids.includes(c.chipId)));
+      onAmountChange(next);
+      for (const id of ids) world.current?.remove(id);
+      return total;
+    },
+    [onAmountChange]
+  );
+
+  const beginStack = useCallback(() => `stack_${Date.now().toString(36)}_${(seq++).toString(36)}`, []);
+  const stackSize = useCallback((stackId: string) => world.current?.stackSize(stackId) ?? 0, []);
+
+  /**
    * REPRESENT `amount` EXACTLY, from scratch.
    *
    * Used when the stake changes from outside the table (MIN, MAX, CLEAR, a
@@ -323,6 +383,7 @@ export function useChipTable(opts: {
         ownerId,
         side,
         source: 'quick',
+        stackId: null,
         createdAt: Date.now(),
       }));
       setCommitted(chips);
@@ -354,6 +415,25 @@ export function useChipTable(opts: {
     reconcile(amount);
   }, [amount, reconcile]);
 
+  // ── the phone is the table ──────────────────────────────────────────────
+
+  /**
+   * TILT IS OFF UNDER CALM MODE, and that is a different decision from the
+   * one that was wrong before. A chip an athlete THREW is their own doing; a
+   * pile that slides because they shifted in their chair is involuntary
+   * motion they did not ask for, which is precisely what reduced motion is
+   * about. It is also off once the pot is locked — a settled result should
+   * not be stirred by picking the phone up.
+   */
+  const onGravity = useCallback((g: { x: number; y: number }, wake: boolean) => {
+    world.current?.setGravity(g.x, g.y, wake);
+  }, []);
+  const { state: motion, request: requestMotion } = useTiltGravity({
+    baseGravity: baseGravityFor(calm),
+    onGravity,
+    enabled: !calm && !locked,
+  });
+
   // ── pointer ─────────────────────────────────────────────────────────────
 
   const grabAt = useCallback((x: number, y: number) => world.current?.grabAt(x, y) ?? null, []);
@@ -381,6 +461,9 @@ export function useChipTable(opts: {
     size,
     commit,
     takeBack,
+    takeBackStack,
+    beginStack,
+    stackSize,
     reconcile,
     grabAt,
     moveGrab,
@@ -390,5 +473,7 @@ export function useChipTable(opts: {
     jolt,
     shake,
     calm,
+    motion,
+    requestMotion,
   };
 }
