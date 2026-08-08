@@ -64,34 +64,39 @@ export function useTweenNumber(target: number, duration = 650): number {
   const canAnimate =
     !reduced && typeof requestAnimationFrame !== 'undefined' && Platform.OS === 'web';
   const [value, setValue] = useState(target);
-  const from = useRef(target);
+  /**
+   * WHAT IS ACTUALLY ON SCREEN. Written only from the rAF callback, so an
+   * interrupted tween resumes from where it really was.
+   *
+   * THIS REF USED TO BE SET IN THE EFFECT'S CLEANUP, from the render closure —
+   * and that closure holds the value as it was when the effect was CREATED,
+   * not the value the tween had reached. So a number that went 0 → 1000 and
+   * then back to 0 restored `from` to the stale 0, the new tween saw
+   * `start === target`, returned early, and the displayed number stayed on
+   * 1000 forever. The browser found it as "CLEAR does not clear the stake";
+   * it would have hit every second change on the pot too.
+   */
+  const shown = useRef(target);
   const raf = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!canAnimate) {
-      from.current = target;
-      return;
-    }
-    const start = from.current;
+    if (!canAnimate) return;
+    const start = shown.current;
     if (start === target) return;
     let t0: number | null = null;
     const tick = (now: number) => {
       if (t0 === null) t0 = now;
       const t = Math.min(1, (now - t0) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      const v = start + (target - start) * eased;
-      setValue(t >= 1 ? target : v); // written only from rAF
+      const v = t >= 1 ? target : start + (target - start) * eased;
+      shown.current = v;
+      setValue(v); // written only from rAF
       if (t < 1) raf.current = requestAnimationFrame(tick);
-      else from.current = target;
     };
     raf.current = requestAnimationFrame(tick);
     return () => {
       if (raf.current !== null) cancelAnimationFrame(raf.current);
-      // Whatever we reached is the new starting point, so an interrupted tween
-      // continues from where it stopped instead of jumping back.
-      from.current = value;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, canAnimate, duration]);
 
   return canAnimate ? value : target;

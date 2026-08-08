@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DUEL_CONFIG,
   FORGE_CHIPS,
+  MAX_TABLE_BODIES,
   chipBreakdown,
   chipPile,
   clampStake,
+  decompose,
   countdown,
   describeEvent,
   estimateSupportReturn,
@@ -101,6 +103,55 @@ describe('chips', () => {
   it('handles nonsense without throwing', () => {
     expect(chipBreakdown(-50)).toEqual([]);
     expect(chipBreakdown(0)).toEqual([]);
+  });
+});
+
+describe('the physics table decomposition', () => {
+  const sum = (chips: readonly number[]) => chips.reduce((s, v) => s + v, 0);
+
+  it('is EXACT for every multiple of 5 a table can hold', () => {
+    for (let amount = 5; amount <= 4000; amount += 5) {
+      const chips = decompose(amount);
+      if (chips.length < MAX_TABLE_BODIES) expect(sum(chips), `amount ${amount}`).toBe(amount);
+    }
+  });
+
+  it('may under-state past the cap, and NEVER over-states', () => {
+    for (const amount of [5, 137, 999, 5000, 50_000, 999_999]) {
+      expect(sum(decompose(amount))).toBeLessThanOrEqual(amount);
+    }
+  });
+
+  it('puts a real pile on the table instead of the fewest chips', () => {
+    // The bug the browser caught: greedy largest-first made MAX two 500s, so
+    // the biggest pot in the app rendered as two discs on an empty table.
+    expect(decompose(1000).length).toBeGreaterThanOrEqual(7);
+    expect(decompose(2000).length).toBeGreaterThanOrEqual(7);
+    expect(decompose(50).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('spends the remainder downward so the total survives', () => {
+    expect(sum(decompose(875))).toBe(875);
+    expect(decompose(875).length).toBeLessThanOrEqual(20);
+  });
+
+  it('never exceeds the body cap, whatever it is handed', () => {
+    for (const amount of [10_000, 250_000, 9_999_999]) {
+      expect(decompose(amount).length).toBeLessThanOrEqual(MAX_TABLE_BODIES);
+    }
+  });
+
+  it('does not invent a chip below the smallest denomination', () => {
+    expect(decompose(0)).toEqual([]);
+    expect(decompose(3)).toEqual([]);
+    expect(decompose(-100)).toEqual([]);
+    expect(decompose(5)).toEqual([5]);
+  });
+
+  it('handles an amount that is not a multiple of five without lying', () => {
+    // 7 cannot be built from these denominations. The pile shows 5 and the
+    // NUMBER beside it says 7 — under-stating is allowed, over-stating is not.
+    expect(sum(decompose(7))).toBe(5);
   });
 });
 

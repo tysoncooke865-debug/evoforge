@@ -25,6 +25,26 @@ type AudioContextCtor = new () => AudioContext;
 
 let ctx: AudioContext | null = null;
 
+/**
+ * THE ONE AudioContext, shared.
+ *
+ * Exported for the chip table's collision engine (ui/duel/physics/chip-audio),
+ * which needs its own node graph but must NOT construct a second context:
+ * iOS counts contexts against a hard per-page limit, only the one unlocked by
+ * a user gesture will play, and two contexts means two independent
+ * suspend/resume states — the classic "sound works until you background the
+ * app once" bug. One context, resumed lazily, is the whole rule.
+ */
+export function audioContext(): AudioContext | null {
+  return context();
+}
+
+/** Is sound switched on in settings? The chip engine checks this per impact
+ *  rather than per node, so a mid-pour toggle takes effect immediately. */
+export function soundEnabled(): boolean {
+  return useSettingsStore.getState().soundEnabled;
+}
+
 function context(): AudioContext | null {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
   const w = window as unknown as { AudioContext?: AudioContextCtor; webkitAudioContext?: AudioContextCtor };

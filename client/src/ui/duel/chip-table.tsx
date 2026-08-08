@@ -3,10 +3,17 @@
    cannot see that .value writes are UI-thread animation state. */
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useReducedMotion,
@@ -26,42 +33,37 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { useTweenNumber } from '@/ui/core/count-up';
-import { playCoin, playSelect } from '@/ui/core/sound';
+import { playSelect } from '@/ui/core/sound';
 import { ForgeChip, ForgeChipStack } from '@/ui/duel/forge-chip';
+import { ChipSurface } from '@/ui/duel/physics/chip-surface';
+import { playAllInSlam, playPotLock, primeChipAudio } from '@/ui/duel/physics/chip-audio';
+import { potLockHaptic } from '@/ui/duel/physics/chip-haptics';
+import { useChipTable } from '@/ui/duel/physics/use-chip-table';
 
 /**
- * THE WAGER TABLE — committing coins should feel like pushing chips forward,
- * not like filling in a form field.
+ * THE WAGER TABLE — a real chip table, not a number field with decoration.
  *
- * FOUR WAYS IN, ON PURPOSE. Tap a chip; hold it to pour; flick it up at the
- * pot; or use the quick buttons. They exist together because they are answers
- * to different intents — "add 25", "add a lot", "throw it in", "everything I
- * can" — and a wager screen that only supports one of them makes the other
- * three feel like fighting the UI.
+ * FOUR WAYS IN, ON PURPOSE. Tap a chip; hold it to pour; flick it at the pot;
+ * or use the quick buttons. They are answers to different intents — "add 25",
+ * "add a lot", "throw it in", "everything I can" — and a wager screen that
+ * only supports one of them makes the other three feel like fighting the UI.
  *
- * THE NUMBER IS ALWAYS THE TRUTH. Every animation here is decoration over a
- * value that is already correct: with motion disabled, or mid-flight, or on a
- * device that dropped every frame, the stake and the pot read exactly right.
- * That is the same rule the PWA boot lesson wrote — visibility never depends on
- * an animation firing — applied to money.
+ * THE NUMBER IS ALWAYS THE TRUTH. Every chip in the pot is a rigid body with
+ * its own position, spin and collisions, and NONE of that decides anything.
+ * The stake is React state; a chip is committed the instant it leaves the
+ * tray, while it is still in the air. If the simulation glitches, escapes,
+ * goes NaN or is destroyed by a rotation, the money is unchanged — the table
+ * is a picture of the number, never its source.
  *
- * NOTHING HERE DECIDES ANYTHING. The stake this table produces is a REQUEST.
- * The server clamps it against the live ledger and the configured limits, and
- * the caller passes `max` already computed from both, so the table cannot even
- * offer an amount that would be refused.
+ * NOTHING HERE CAN OFFER A REFUSAL. `max` arrives already clamped against the
+ * wallet, the configured ceiling and the opponent, so every affordance on this
+ * table produces a stake the server will accept.
  */
 
-const MAX_FLIGHTS = 6;
-const HOLD_REPEAT_MS = 110;
-
-interface Flight {
-  key: number;
-  value: ForgeChipValue;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-}
+const HOLD_REPEAT_MS = 150;
+/** The table's share of the card. The brief's 65–70%, and it is the reason
+ *  the pot number moved up and shrank a little: the toy needs room. */
+const TABLE_HEIGHT = 236;
 
 export function ChipWagerTable({
   value,
@@ -74,6 +76,8 @@ export function ChipWagerTable({
   allInLabel,
   onAllIn,
   disabled = false,
+  locked = false,
+  ownerId = 'me',
   testID,
 }: {
   value: number;
@@ -82,7 +86,7 @@ export function ChipWagerTable({
   balance: number;
   min: number;
   /** The largest LEGAL stake — already clamped for wallet, config and
-   *  opponent by the caller, so this table can never offer a refusal. */
+   *  opponent by the caller. */
   max: number;
   potLabel?: string;
   potOf?: (stake: number) => number;
@@ -90,87 +94,70 @@ export function ChipWagerTable({
   allInLabel?: string;
   onAllIn?: () => void;
   disabled?: boolean;
+  /** The pot has been accepted: the table clatters once and stops being a toy. */
+  locked?: boolean;
+  ownerId?: string;
   testID?: string;
 }) {
   const colors = useThemeColors();
   const reduced = useReducedMotion();
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const flightKey = useRef(0);
-  // Positions inside THIS container, filled by onLayout. A flight needs both
-  // ends, and measuring on demand would race the animation it is starting.
-  const chipXY = useRef<Partial<Record<ForgeChipValue, { x: number; y: number }>>>({});
-  const potXY = useRef<{ x: number; y: number } | null>(null);
   const repeat = useRef<ReturnType<typeof setInterval> | null>(null);
-  // The hold-to-pour interval fires outside React's render cycle and needs the
-  // CURRENT stake, not the one captured when the hold began. Synced in an
-  // effect, never written during render.
-  const valueRef = useRef(value);
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
+  const [trayWidth, setTrayWidth] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
+
+  const table = useChipTable({
+    amount: value,
+    onAmountChange: onChange,
+    denominations: FORGE_CHIPS,
+    ownerId,
+    // REDUCED MOTION GETS THE SAME NUMBER AND NONE OF THE CHAOS. A physics toy
+    // that flings spinning objects at somebody who asked the OS for less
+    // motion is exactly the class of thing that setting exists for.
+    disabled: reduced || disabled,
+  });
 
   const shown = useTweenNumber(value, 420);
   const pot = potOf(value);
   const shownPot = useTweenNumber(pot, 520);
   const potPop = useSharedValue(0);
-  const potStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + potPop.value * 0.09 }] }));
+  const potStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + potPop.value * 0.11 }] }));
+  const potGlow = useAnimatedStyle(() => ({ opacity: 0.25 + potPop.value * 0.75 }));
 
   const remaining = Math.max(0, balance - value);
-  const canAdd = (amount: number) => !disabled && value + amount <= max;
+  const canAdd = (amount: number) => !disabled && !locked && value + amount <= max;
 
   /**
-   * The pot's landing bounce.
-   *
-   * withSEQUENCE, not a completion callback that assigns the same shared value.
-   * The callback form recursed — `set value` → callback → `set value` — and
-   * filled the console with "Maximum call stack size exceeded" on every chip
-   * tap. It was invisible on screen (the animation still looked right), which
-   * is exactly why only a browser found it.
+   * The pot's reaction. Fires on COMMIT, not on landing: the number is already
+   * correct the instant the chip leaves the tray, and making the athlete wait
+   * for a body to settle before their balance updates would be the physics
+   * deciding the money.
    */
-  const bump = useCallback(() => {
+  const pop = useCallback(() => {
+    if (reduced) return;
     potPop.value = withSequence(
       withTiming(1, { duration: 90 }),
-      withSpring(0, { damping: 9, stiffness: 220 })
+      withSpring(0, { damping: 9, stiffness: 200 })
     );
-  }, [potPop]);
+  }, [potPop, reduced]);
 
-  const land = useCallback((k: number) => {
-    setFlights((f) => f.filter((x) => x.key !== k));
-    bump();
-    playCoin();
-  }, [bump]);
-
-  /** Commit `amount` and, when motion is on, throw a chip at the pot. */
   const add = useCallback(
-    (chip: ForgeChipValue) => {
+    (chip: ForgeChipValue, gesture?: { x?: number; vx?: number; vy?: number; spin?: number }, source: 'tap' | 'flick' | 'pour' = 'tap') => {
       if (!canAdd(chip)) {
-        // A refusal must still answer. A dead tap reads as a broken button.
         if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         return;
       }
-      onChange(valueRef.current + chip);
+      primeChipAudio();
+      table.commit({ value: chip, source, ...gesture });
+      pop();
       if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const from = chipXY.current[chip];
-      const to = potXY.current;
-      if (reduced || !from || !to) {
-        bump();
-        playCoin();
-        return;
-      }
-      flightKey.current += 1;
-      const k = flightKey.current;
-      setFlights((f) => [
-        ...f.slice(-(MAX_FLIGHTS - 1)),
-        { key: k, value: chip, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y },
-      ]);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onChange, reduced, bump, max, disabled, value]
+    [table, pop, max, value, disabled, locked]
   );
 
   const startRepeat = useCallback((chip: ForgeChipValue) => {
     if (repeat.current) clearInterval(repeat.current);
-    repeat.current = setInterval(() => add(chip), HOLD_REPEAT_MS);
+    repeat.current = setInterval(() => add(chip, undefined, 'pour'), HOLD_REPEAT_MS);
   }, [add]);
   const stopRepeat = useCallback(() => {
     if (repeat.current) clearInterval(repeat.current);
@@ -178,118 +165,178 @@ export function ChipWagerTable({
   }, []);
   useEffect(() => stopRepeat, [stopRepeat]);
 
-  const quick = (delta: number) => {
-    const next = Math.min(max, Math.max(0, value + delta));
-    if (next === value) return;
-    onChange(next);
-    playSelect();
-    bump();
-    if (Platform.OS !== 'web') void Haptics.selectionAsync();
-  };
+  /** MIN / MAX / CLEAR and the +N buttons set the stake outright; the table
+   *  rebuilds itself to represent the new number exactly. */
+  const setTo = useCallback(
+    (n: number) => {
+      const next = Math.min(max, Math.max(0, n));
+      if (next === value || disabled || locked) return;
+      onChange(next);
+      table.reconcile(next);
+      playSelect();
+      pop();
+      if (Platform.OS !== 'web') void Haptics.selectionAsync();
+    },
+    [max, value, disabled, locked, onChange, table, pop]
+  );
 
-  const setTo = (n: number) => {
-    const next = Math.min(max, Math.max(0, n));
-    if (next === value) return;
-    onChange(next);
-    playSelect();
-    bump();
-  };
+  /** +25 / +100 spawn a REAL chip of that denomination rather than rebuilding
+   *  the pile, so a quick button feels like putting a chip down. */
+  const quickAdd = useCallback(
+    (delta: ForgeChipValue) => {
+      if (!canAdd(delta)) return;
+      add(delta, { vy: 300 }, 'tap');
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [add, max, value]
+  );
 
-  // THE PILE COUNTS THE NUMBER ABOVE IT. It sits inside the POT box, so it
-  // draws the pot — drawing the stake there put 125 worth of chips under a
-  // "250" and made the two disagree on the same card.
+  // THE LOCK MOMENT. The pile takes a real knock, the number pulses, and the
+  // table stops accepting input — the accept is felt, not announced.
+  const wasLocked = useRef(locked);
+  useEffect(() => {
+    if (locked === wasLocked.current) return;
+    wasLocked.current = locked;
+    if (!locked) return;
+    table.jolt(1.2);
+    pop();
+    playPotLock();
+    potLockHaptic();
+  }, [locked, table, pop]);
+
   const pile = chipPile(pot, 12);
 
   return (
-    <View testID={testID} style={{ position: 'relative' }}>
-      {/* ── THE POT. The largest thing on the table, because it is the thing
-          the whole screen is about. ── */}
-      <View
-        onLayout={(e: LayoutChangeEvent) => {
-          const { x, y, width, height } = e.nativeEvent.layout;
-          potXY.current = { x: x + width / 2, y: y + height / 2 };
-        }}
-        className="items-center rounded-xl border py-s3"
-        style={{
-          borderColor: `${colors.legendary}3d`,
-          backgroundColor: 'rgba(251,191,36,0.05)',
-        }}
-      >
+    <View testID={testID}>
+      {/* ── THE POT. Moved up and stepped down a size so the table below it
+          gets the room the interaction needs, and still the loudest number
+          on the card. ── */}
+      <View className="items-center">
         <Text
           className="text-text-mute"
           allowFontScaling={false}
           style={{ fontSize: 9, letterSpacing: 1.6, ...pixelFont(false) }}
         >
-          {potLabel}
+          {locked ? 'POT LOCKED' : potLabel}
         </Text>
-        <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, potStyle]}>
-          <CoinIcon size={24} />
-          <Text
-            allowFontScaling={false}
-            testID="wager-pot"
-            style={{ fontSize: 40, lineHeight: 46, color: colors.legendary, letterSpacing: 0, ...pixelFont() }}
-          >
-            {formatCoins(shownPot)}
-          </Text>
-        </Animated.View>
-        {pile.length > 0 ? (
-          <View className="mt-s2 items-center" pointerEvents="none">
-            <ForgeChipStack chips={pile} size={24} testID="wager-pile" />
-          </View>
+        <View style={{ position: 'relative' }}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              {
+                position: 'absolute',
+                left: -14,
+                right: -14,
+                top: 2,
+                bottom: 2,
+                borderRadius: 20,
+                backgroundColor: `${colors.legendary}1a`,
+              },
+              potGlow,
+            ]}
+          />
+          <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, potStyle]}>
+            <CoinIcon size={20} />
+            <Text
+              allowFontScaling={false}
+              testID="wager-pot"
+              style={{ fontSize: 32, lineHeight: 38, color: colors.legendary, letterSpacing: 0, ...pixelFont() }}
+            >
+              {formatCoins(shownPot)}
+            </Text>
+          </Animated.View>
+        </View>
+      </View>
+
+      {/* ── THE TABLE ── */}
+      <View className="mt-s2">
+        {table.simulated ? (
+          <ChipSurface
+            table={table}
+            height={TABLE_HEIGHT}
+            locked={locked}
+            testID="wager-table"
+          />
         ) : (
-          <Text className="mt-s1 text-2xs text-text-mute">Push chips in to build the pot.</Text>
+          // Reduced motion: the same value as a still pile. Nothing moves,
+          // nothing is hidden.
+          <View
+            testID="wager-table-static"
+            className="items-center justify-end rounded-xl border"
+            style={{
+              height: 140,
+              borderColor: `${colors.legendary}26`,
+              backgroundColor: 'rgba(4,7,14,0.55)',
+              paddingBottom: 14,
+            }}
+          >
+            {pile.length > 0 ? (
+              <ForgeChipStack chips={pile} size={26} testID="wager-pile" />
+            ) : (
+              <Text className="text-2xs text-text-mute">Push chips in to build the pot.</Text>
+            )}
+          </View>
         )}
       </View>
 
-      {/* ── THE THREE NUMBERS, always legible, animation or not. ── */}
+      {/* ── THE THREE NUMBERS, always legible, simulation or not. ── */}
       <View className="mt-s3 flex-row" style={{ gap: 8 }}>
         <Figure label="YOUR STAKE" value={formatCoins(shown)} tint={colors.accent} testID="wager-stake" />
         <Figure label="AVAILABLE" value={formatCoins(remaining)} tint={colors.text} testID="wager-available" />
-        <Figure
-          label="MAX HERE"
-          value={formatCoins(max)}
-          tint={colors['text-dim']}
-          testID="wager-max"
-        />
+        <Figure label="MAX HERE" value={formatCoins(max)} tint={colors['text-dim']} testID="wager-max" />
       </View>
 
       {/* ── QUICK MOVES ── */}
       <View className="mt-s3 flex-row flex-wrap" style={{ gap: 6 }}>
-        <Quick label="MIN" onPress={() => setTo(min)} disabled={disabled || max < min} testID="wager-min" />
-        <Quick label="+25" onPress={() => quick(25)} disabled={!canAdd(25)} testID="wager-plus-25" />
-        <Quick label="+100" onPress={() => quick(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
-        <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || value >= max} testID="wager-max-btn" />
-        <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || value === 0} testID="wager-clear" />
+        <Quick label="MIN" onPress={() => setTo(min)} disabled={disabled || locked || max < min} testID="wager-min" />
+        <Quick label="+25" onPress={() => quickAdd(25)} disabled={!canAdd(25)} testID="wager-plus-25" />
+        <Quick label="+100" onPress={() => quickAdd(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
+        <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || locked || value >= max} testID="wager-max-btn" />
+        <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || locked || value === 0} testID="wager-clear" />
         {onAllIn ? (
-          <Quick label={allInLabel ?? 'ALL IN'} tone="danger" onPress={onAllIn} disabled={disabled} testID="wager-all-in" />
+          <Quick
+            label={allInLabel ?? 'ALL IN'}
+            tone="danger"
+            onPress={() => {
+              playAllInSlam();
+              onAllIn();
+            }}
+            disabled={disabled || locked}
+            testID="wager-all-in"
+          />
         ) : null}
       </View>
 
-      {/* ── THE TRAY. Tap, hold to pour, or flick a chip at the pot. ── */}
+      {/* ── THE TRAY ── */}
       <Text className="mt-s3 text-2xs text-text-mute" testID="wager-hint">
-        Tap a chip · hold to pour · flick it at the pot
+        {locked
+          ? 'The pot is locked. Nothing else goes in.'
+          : table.simulated
+            ? 'Tap a chip · hold to pour · flick it at the table · drag a chip out to take it back'
+            : 'Tap a chip to add it · hold to pour'}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 10, paddingVertical: 8, paddingRight: 8 }}
-      >
-        {FORGE_CHIPS.map((chip) => (
-          <TrayChip
-            key={chip}
-            value={chip}
-            affordable={canAdd(chip)}
-            onCommit={() => add(chip)}
-            onHoldStart={() => startRepeat(chip)}
-            onHoldEnd={stopRepeat}
-            onMeasure={(x, y) => {
-              chipXY.current[chip] = { x, y };
-            }}
-          />
-        ))}
-      </ScrollView>
+      <View onLayout={(e: LayoutChangeEvent) => setTrayWidth(e.nativeEvent.layout.width)}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingVertical: 8, paddingRight: 8 }}
+        >
+          {FORGE_CHIPS.map((chip) => (
+            <TrayChip
+              key={chip}
+              value={chip}
+              affordable={canAdd(chip)}
+              screenWidth={screenWidth}
+              tableWidth={table.size.width || trayWidth}
+              onCommit={(g) => add(chip, g, g ? 'flick' : 'tap')}
+              onHoldStart={() => startRepeat(chip)}
+              onHoldEnd={stopRepeat}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
-      {value > 0 ? (
+      {value > 0 && !locked ? (
         <Pressable
           onPress={() => setTo(0)}
           accessibilityRole="button"
@@ -302,14 +349,6 @@ export function ChipWagerTable({
           </Text>
         </Pressable>
       ) : null}
-
-      {/* The chips in the air. Pointer-events off: a flying chip must never
-          intercept the tap that follows it. */}
-      <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
-        {flights.map((f) => (
-          <FlightChip key={f.key} flight={f} onDone={() => land(f.key)} />
-        ))}
-      </View>
     </View>
   );
 }
@@ -317,26 +356,31 @@ export function ChipWagerTable({
 /**
  * ONE CHIP IN THE TRAY.
  *
- * Three gestures raced: a tap commits one, a long press pours, and a pan lets
- * the chip be dragged and flicked. The pan needs a real offset before it
- * activates (12px) so a tap is never swallowed by it, and it releases the
- * chip back to the tray unless the flick went far enough upward — the pot is
- * up there, so "up" is the direction that means commit.
+ * Three gestures raced: a tap drops one in, a long press pours, and a pan
+ * lets the chip be dragged and FLUNG. The pan reports the finger's real
+ * velocity at release, and that velocity is what the body is given — which is
+ * the whole difference between a gentle nudge that slides and a hard flick
+ * that scatters a pile. It is clamped in the world, not here, so the clamp
+ * lives next to the integrator it protects.
  */
 function TrayChip({
   value,
   affordable,
+  screenWidth,
+  tableWidth,
   onCommit,
   onHoldStart,
   onHoldEnd,
-  onMeasure,
 }: {
   value: ForgeChipValue;
   affordable: boolean;
-  onCommit: () => void;
+  /** The gesture reports a PAGE x; the table wants a TABLE-LOCAL one. */
+  screenWidth: number;
+  tableWidth: number;
+  /** Undefined for a plain tap; a real gesture for a flick. */
+  onCommit: (gesture?: { x?: number; vx?: number; vy?: number; spin?: number }) => void;
   onHoldStart: () => void;
   onHoldEnd: () => void;
-  onMeasure: (x: number, y: number) => void;
 }) {
   const dx = useSharedValue(0);
   const dy = useSharedValue(0);
@@ -347,13 +391,41 @@ function TrayChip({
       { translateX: dx.value },
       { translateY: dy.value },
       { scale: 1 - press.value * 0.08 },
+      { rotate: `${dx.value * 0.004}rad` },
     ],
   }));
 
-  // onHoldEnd is IDEMPOTENT (it clears an interval that may not exist), which
-  // is what lets every gesture end call it unconditionally. The alternative —
-  // a `held` ref consulted from a gesture callback — is a ref read from a
-  // function the compiler cannot prove runs outside render.
+  const fling = useCallback(
+    (absX: number, vx: number, vy: number) => {
+      onCommit({
+        // WHERE THE FINGER LET GO, mapped into the TABLE's own coordinates.
+        // The gesture reports a page x; the table's left edge is inset by the
+        // card's padding, so using the page value directly threw every chip
+        // ~30px to the right of where it was aimed — enough that a flick from
+        // the right of the tray missed a pile in the middle entirely. The
+        // fraction of screen width is a good approximation here because the
+        // tray and the table share the same horizontal insets, and it needs no
+        // measurement pass.
+        x:
+          screenWidth > 0 && tableWidth > 0
+            ? Math.max(0, Math.min(tableWidth, (absX / screenWidth) * tableWidth))
+            : undefined,
+        vx,
+        // Upward on screen is negative; the chip is entering a table ABOVE the
+        // tray, so an upward flick becomes downward travel into the table's own
+        // space. THE MAGNITUDE IS THE ATHLETE'S. The floor is low and the
+        // scaling generous on purpose: a lazy release should drop in and stop,
+        // a real flick should cross the table and scatter what it hits, and
+        // the gap between them has to be obvious. The upper clamp lives in the
+        // world, next to the integrator it protects.
+        vy: Math.max(90, Math.abs(vy) * 0.7),
+        // A flung disc spins the way it was thrown.
+        spin: vx * 0.0018,
+      });
+    },
+    [onCommit, screenWidth, tableWidth]
+  );
+
   const pan = Gesture.Pan()
     .activeOffsetY([-12, 12])
     .activeOffsetX([-14, 14])
@@ -362,10 +434,11 @@ function TrayChip({
       dy.value = e.translationY;
     })
     .onEnd((e) => {
-      // FLICKED AT THE POT. Either thrown far enough up, or thrown fast enough
-      // up — a quick flick barely moves before the finger leaves.
-      const committed = e.translationY < -34 || e.velocityY < -700;
-      if (committed) runOnJS(onCommit)();
+      // FLICKED AT THE TABLE: thrown far enough up, or fast enough up. A quick
+      // flick barely moves before the finger leaves, which is why velocity
+      // matters as much as distance.
+      const committed = e.translationY < -30 || e.velocityY < -650;
+      if (committed) runOnJS(fling)(e.absoluteX, e.velocityX, e.velocityY);
       dx.value = withSpring(0, { damping: 15, stiffness: 240 });
       dy.value = withSpring(0, { damping: 15, stiffness: 240 });
     })
@@ -383,7 +456,7 @@ function TrayChip({
     });
 
   const tap = Gesture.Tap().onEnd((_e, success) => {
-    if (success) runOnJS(onCommit)();
+    if (success) runOnJS(onCommit)(undefined);
   });
 
   const composed = Gesture.Race(pan, hold, tap);
@@ -391,13 +464,6 @@ function TrayChip({
   return (
     <GestureDetector gesture={composed}>
       <Animated.View
-        onLayout={(e: LayoutChangeEvent) => {
-          const { x, y, width, height } = e.nativeEvent.layout;
-          // The tray scrolls, so x is relative to the scroll content. It is
-          // close enough for a throw and never wrong by more than the scroll
-          // offset — a flight that starts slightly off still reads as a throw.
-          onMeasure(x + width / 2, y + height / 2 + 210);
-        }}
         accessibilityRole="button"
         accessibilityLabel={`Add a ${value} coin chip to your stake`}
         accessibilityState={{ disabled: !affordable }}
@@ -417,40 +483,6 @@ function TrayChip({
         <ForgeChip value={value} size={46} dimmed={!affordable} />
       </Animated.View>
     </GestureDetector>
-  );
-}
-
-/**
- * A CHIP IN THE AIR. Straight line plus a parabolic lift, a rotation, and a
- * pop as it lands — the cheapest description of a thrown object that still
- * reads as one. No physics engine: one interpolated value, composited.
- */
-function FlightChip({ flight, onDone }: { flight: Flight; onDone: () => void }) {
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }, (finished) => {
-      if (finished) runOnJS(onDone)();
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const style = useAnimatedStyle(() => {
-    const p = t.value;
-    const x = flight.fromX + (flight.toX - flight.fromX) * p;
-    const y = flight.fromY + (flight.toY - flight.fromY) * p - Math.sin(Math.PI * p) * 54;
-    return {
-      transform: [
-        { translateX: x - 14 },
-        { translateY: y - 14 },
-        { rotate: `${p * 260}deg` },
-        { scale: 1 + Math.sin(Math.PI * p) * 0.2 },
-      ],
-      opacity: p > 0.94 ? 0 : 1,
-    };
-  });
-  return (
-    <Animated.View style={[{ position: 'absolute', left: 0, top: 0 }, style]}>
-      <ForgeChip value={flight.value} size={28} />
-    </Animated.View>
   );
 }
 

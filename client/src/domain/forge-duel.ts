@@ -86,6 +86,71 @@ export function chipPile(amount: number, max = 14): ForgeChipValue[] {
   return Array.from({ length: count }, () => unit);
 }
 
+/**
+ * HOW MANY BODIES A PHYSICS TABLE IS WORTH SIMULATING, and how few make a
+ * pile. Both live here rather than in the hook because `decompose` is the only
+ * thing that reads them and it is pure arithmetic about money.
+ */
+export const MAX_TABLE_BODIES = 60;
+const MIN_TABLE_BODIES = 7;
+
+/**
+ * THE CHIPS THAT REPRESENT AN AMOUNT ON THE TABLE — and NOT the fewest of them.
+ *
+ * The obvious implementation is greedy largest-first, and the browser caught
+ * why it is wrong: MAX on a 1,000-coin wallet produced TWO 500 chips. A
+ * 2,000-coin pot rendered as two discs on an empty table while a 125-coin one
+ * rendered as five. Minimal is the right answer to "what would I hand over";
+ * it is the wrong answer to "show me what is on this table".
+ *
+ * So it picks a BASE denomination — the largest whose count still fills the
+ * table — stacks that, then spends the remainder downward so the total stays
+ * exact. 1,000 becomes ten 100s. 875 becomes eight 100s, a 50 and a 25. 50
+ * becomes ten 5s.
+ *
+ * Two properties this must never lose:
+ *   EXACT while it can be. Every denomination is a multiple of 5, so any
+ *   multiple of 5 within the cap is represented to the coin.
+ *   BOUNDED always, and it may UNDER-state but never over-state. Past the cap
+ *   the pile stops growing and the NUMBER beside the table carries the rest: a
+ *   simulation is not allowed to decide how much money is at stake, and it is
+ *   not allowed to melt the phone either.
+ */
+export function decompose(
+  amount: number,
+  denominations: readonly ForgeChipValue[] = FORGE_CHIPS
+): ForgeChipValue[] {
+  const total = Math.max(0, Math.floor(amount));
+  const desc = [...denominations].sort((a, b) => b - a);
+  const smallest = desc[desc.length - 1];
+  if (total < smallest) return [];
+
+  // The largest base that still puts a real pile on the table, falling back to
+  // the biggest denomination the amount can afford (a 5-coin stake is one
+  // chip, and pretending otherwise would be a lie about the amount).
+  const base =
+    desc.find((v) => Math.floor(total / v) >= MIN_TABLE_BODIES)
+    ?? desc.filter((v) => v <= total).pop()
+    ?? smallest;
+
+  const out: ForgeChipValue[] = [];
+  let left = total;
+  // Leave room for the tail so the cap is never blown by the remainder.
+  const baseCount = Math.min(Math.floor(left / base), MAX_TABLE_BODIES - 6);
+  for (let i = 0; i < baseCount; i++) {
+    out.push(base);
+    left -= base;
+  }
+  for (const v of desc) {
+    if (v > base) continue;
+    while (left >= v && out.length < MAX_TABLE_BODIES) {
+      out.push(v);
+      left -= v;
+    }
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────── the config
 
 /**
