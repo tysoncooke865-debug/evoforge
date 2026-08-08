@@ -89,6 +89,30 @@ const DENSITY: Readonly<Record<ForgeChipValue, number>> = {
 
 export const chipRadius = (v: ForgeChipValue): number => RADIUS[v] ?? 16;
 
+/**
+ * CALM MODE — reduced motion, WITHOUT deleting the feature.
+ *
+ * The first version disabled the simulation entirely when the OS asked for
+ * less motion, and Tyson (who has the setting on) got the old static pile:
+ * "section 4 looks the same, just with sound now". That was the wrong
+ * accommodation, and this codebase already says so — settings-store's own
+ * doctrine is that the motion flags "disable AMBIENT LOOPS ONLY", because
+ * skipping user-initiated animation is how toasts became invisible.
+ *
+ * `prefers-reduced-motion` is a request about VESTIBULAR SAFETY: large, fast,
+ * involuntary motion the person did not ask for. A chip an athlete threw, into
+ * a box they are looking at, is none of those things. So calm mode keeps every
+ * chip real and takes away the parts that could actually make somebody queasy:
+ * no spin, no bounce, no table shake, weaker gravity, and enough drag that
+ * everything is at rest almost immediately.
+ */
+const CALM = {
+  gravityY: 0.7,
+  restitution: 0.02,
+  frictionAir: 0.09,
+  maxSpin: 0,
+} as const;
+
 export interface ChipImpact {
   /** 0..1, normalised collision energy. Drives audio AND haptics. */
   intensity: number;
@@ -131,6 +155,7 @@ export class ChipWorld {
   private width: number;
   private height: number;
   private onImpact: (impact: ChipImpact) => void;
+  private calm: boolean;
   /** Poses, flat: [x, y, angle, x, y, angle, …] in `chips` order. Written in
    *  place every step so the render layer reads one buffer, never N objects. */
   private pose: number[] = [];
@@ -140,10 +165,13 @@ export class ChipWorld {
     width: number;
     height: number;
     onImpact: (impact: ChipImpact) => void;
+    /** Reduced motion or perf mode: real chips, none of the whipping about. */
+    calm?: boolean;
   }) {
     this.width = opts.width;
     this.height = opts.height;
     this.onImpact = opts.onImpact;
+    this.calm = opts.calm ?? false;
 
     this.engine = Engine.create({
       enableSleeping: true,
@@ -151,7 +179,7 @@ export class ChipWorld {
       velocityIterations: CHIP_PHYSICS.velocityIterations,
       constraintIterations: CHIP_PHYSICS.constraintIterations,
     });
-    this.engine.gravity.y = CHIP_PHYSICS.gravityY;
+    this.engine.gravity.y = this.calm ? CALM.gravityY : CHIP_PHYSICS.gravityY;
     // matter reads this off the prototype; setting it per-body does nothing.
     (this.engine as unknown as { sleepThreshold?: number }).sleepThreshold =
       CHIP_PHYSICS.sleepThreshold;
@@ -207,10 +235,10 @@ export class ChipWorld {
     if (this.disposed) return;
     const r = chipRadius(spec.value);
     const body = Bodies.circle(clamp(spec.x, r, this.width - r), spec.y, r, {
-      restitution: CHIP_PHYSICS.restitution,
+      restitution: this.calm ? CALM.restitution : CHIP_PHYSICS.restitution,
       friction: CHIP_PHYSICS.friction,
       frictionStatic: CHIP_PHYSICS.frictionStatic,
-      frictionAir: CHIP_PHYSICS.frictionAir,
+      frictionAir: this.calm ? CALM.frictionAir : CHIP_PHYSICS.frictionAir,
       density: DENSITY[spec.value] ?? 0.002,
       label: 'chip',
       // A circle is a circle: the collision shape IS the artwork, so there is
@@ -218,7 +246,8 @@ export class ChipWorld {
       slop: 0.02,
     });
     Body.setVelocity(body, { x: toStep(spec.vx ?? 0), y: toStep(spec.vy ?? 0) });
-    Body.setAngularVelocity(body, clamp(spec.spin ?? 0, -CHIP_PHYSICS.maxSpin, CHIP_PHYSICS.maxSpin));
+    const spinCap = this.calm ? CALM.maxSpin : CHIP_PHYSICS.maxSpin;
+    Body.setAngularVelocity(body, clamp(spec.spin ?? 0, -spinCap, spinCap));
     Composite.add(this.engine.world, body);
     this.chips.push({ chipId: spec.chipId, value: spec.value, body });
     this.pose.push(body.position.x, body.position.y, body.angle);
@@ -297,8 +326,10 @@ export class ChipWorld {
       const v = { x: toStep(vx), y: toStep(vy) };
       if (Math.abs(v.x) + Math.abs(v.y) > 0.4) {
         Body.setVelocity(b, v);
-        // A thrown disc spins in the direction it was flung.
-        Body.setAngularVelocity(b, clamp(v.x * 0.04, -CHIP_PHYSICS.maxSpin, CHIP_PHYSICS.maxSpin));
+        // A thrown disc spins in the direction it was flung — except in calm
+        // mode, where spin is the one thing most likely to be unwelcome.
+        const spinCap = this.calm ? CALM.maxSpin : CHIP_PHYSICS.maxSpin;
+        Body.setAngularVelocity(b, clamp(v.x * 0.04, -spinCap, spinCap));
       }
       this.grabbed = null;
     }
@@ -319,13 +350,18 @@ export class ChipWorld {
   /** The whole table takes a knock — the accept moment, and the amplifier on a
    *  hard smash. Real bodies, real impulse; the shake is only the echo. */
   jolt(strength = 1) {
+    // Calm mode still gets a knock — the pot locking should be FELT — but a
+    // quarter of one, and without adding spin.
+    const s = this.calm ? strength * 0.25 : strength;
     for (const c of this.chips) {
       Body.set(c.body, 'isSleeping', false);
       Body.setVelocity(c.body, {
-        x: c.body.velocity.x + (Math.random() - 0.5) * 3.2 * strength,
-        y: c.body.velocity.y - Math.random() * 3.6 * strength,
+        x: c.body.velocity.x + (Math.random() - 0.5) * 3.2 * s,
+        y: c.body.velocity.y - Math.random() * 3.6 * s,
       });
-      Body.setAngularVelocity(c.body, c.body.angularVelocity + (Math.random() - 0.5) * 0.3 * strength);
+      if (!this.calm) {
+        Body.setAngularVelocity(c.body, c.body.angularVelocity + (Math.random() - 0.5) * 0.3 * s);
+      }
     }
   }
 

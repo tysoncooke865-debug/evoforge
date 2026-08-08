@@ -23,18 +23,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import {
-  FORGE_CHIPS,
-  chipPile,
-  formatCoins,
-  type ForgeChipValue,
-} from '@/domain/forge-duel';
+import { FORGE_CHIPS, formatCoins, type ForgeChipValue } from '@/domain/forge-duel';
+import { useSettingsStore } from '@/state/settings-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { useTweenNumber } from '@/ui/core/count-up';
 import { playSelect } from '@/ui/core/sound';
-import { ForgeChip, ForgeChipStack } from '@/ui/duel/forge-chip';
+import { ForgeChip } from '@/ui/duel/forge-chip';
 import { ChipSurface } from '@/ui/duel/physics/chip-surface';
 import { playAllInSlam, playPotLock, primeChipAudio } from '@/ui/duel/physics/chip-audio';
 import { potLockHaptic } from '@/ui/duel/physics/chip-haptics';
@@ -105,15 +101,27 @@ export function ChipWagerTable({
   const [trayWidth, setTrayWidth] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
 
+  /**
+   * CALM, NOT ABSENT.
+   *
+   * The first version switched the whole table off under reduced motion and
+   * Tyson — who has the setting on — got the old static pile back: "section 4
+   * looks the same, just with sound now". Deleting the feature is not an
+   * accommodation. Calm mode keeps every chip real and drops the parts that
+   * could genuinely unsettle somebody: spin, bounce and screen shake.
+   *
+   * perfMode joins it because that flag is about CPU, and a smaller table is
+   * the honest answer there — not a missing one.
+   */
+  const perfMode = useSettingsStore((s) => s.perfMode);
+  const calm = reduced || perfMode;
   const table = useChipTable({
     amount: value,
     onAmountChange: onChange,
     denominations: FORGE_CHIPS,
     ownerId,
-    // REDUCED MOTION GETS THE SAME NUMBER AND NONE OF THE CHAOS. A physics toy
-    // that flings spinning objects at somebody who asked the OS for less
-    // motion is exactly the class of thing that setting exists for.
-    disabled: reduced || disabled,
+    calm,
+    maxBodies: perfMode ? 26 : undefined,
   });
 
   const shown = useTweenNumber(value, 420);
@@ -204,8 +212,6 @@ export function ChipWagerTable({
     potLockHaptic();
   }, [locked, table, pop]);
 
-  const pile = chipPile(pot, 12);
-
   return (
     <View testID={testID}>
       {/* ── THE POT. Moved up and stepped down a size so the table below it
@@ -250,33 +256,12 @@ export function ChipWagerTable({
 
       {/* ── THE TABLE ── */}
       <View className="mt-s2">
-        {table.simulated ? (
-          <ChipSurface
-            table={table}
-            height={TABLE_HEIGHT}
-            locked={locked}
-            testID="wager-table"
-          />
-        ) : (
-          // Reduced motion: the same value as a still pile. Nothing moves,
-          // nothing is hidden.
-          <View
-            testID="wager-table-static"
-            className="items-center justify-end rounded-xl border"
-            style={{
-              height: 140,
-              borderColor: `${colors.legendary}26`,
-              backgroundColor: 'rgba(4,7,14,0.55)',
-              paddingBottom: 14,
-            }}
-          >
-            {pile.length > 0 ? (
-              <ForgeChipStack chips={pile} size={26} testID="wager-pile" />
-            ) : (
-              <Text className="text-2xs text-text-mute">Push chips in to build the pot.</Text>
-            )}
-          </View>
-        )}
+        <ChipSurface
+          table={table}
+          height={TABLE_HEIGHT}
+          locked={locked}
+          testID="wager-table"
+        />
       </View>
 
       {/* ── THE THREE NUMBERS, always legible, simulation or not. ── */}
@@ -311,9 +296,7 @@ export function ChipWagerTable({
       <Text className="mt-s3 text-2xs text-text-mute" testID="wager-hint">
         {locked
           ? 'The pot is locked. Nothing else goes in.'
-          : table.simulated
-            ? 'Tap a chip · hold to pour · flick it at the table · drag a chip out to take it back'
-            : 'Tap a chip to add it · hold to pour'}
+          : 'Tap a chip · hold to pour · flick it at the table · drag a chip out to take it back'}
       </Text>
       <View onLayout={(e: LayoutChangeEvent) => setTrayWidth(e.nativeEvent.layout.width)}>
         <ScrollView

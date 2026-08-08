@@ -81,8 +81,8 @@ export interface ChipTableApi {
   jolt: (strength?: number) => void;
   /** 0..1, the energy of the last frame's biggest impact. Drives the shake. */
   shake: SharedValue<number>;
-  /** True while the simulation is running (false under reduced motion). */
-  simulated: boolean;
+  /** Reduced motion / perf mode: real chips, no spin, bounce or shake. */
+  calm: boolean;
 }
 
 /**
@@ -103,10 +103,24 @@ export function useChipTable(opts: {
   denominations: readonly ForgeChipValue[];
   ownerId: string;
   side?: 'mine' | 'theirs';
-  /** Reduced motion, or an intentionally static surface. */
-  disabled?: boolean;
+  /**
+   * Reduced motion or perf mode. The table STILL RUNS — see CALM in
+   * chip-world.ts for why removing it was the wrong accommodation — it just
+   * stops spinning, bouncing and shaking, and settles almost at once.
+   */
+  calm?: boolean;
+  /** Perf mode also trims how many bodies are worth simulating. */
+  maxBodies?: number;
 }): ChipTableApi {
-  const { amount, onAmountChange, denominations, ownerId, side = 'mine', disabled = false } = opts;
+  const {
+    amount,
+    onAmountChange,
+    denominations,
+    ownerId,
+    side = 'mine',
+    calm = false,
+    maxBodies = MAX_TABLE_BODIES,
+  } = opts;
 
   const [committed, setCommitted] = useState<CommittedChip[]>([]);
   const [size, setSizeState] = useState({ width: 0, height: 0 });
@@ -147,8 +161,8 @@ export function useChipTable(opts: {
   }, [shake]);
 
   useEffect(() => {
-    if (disabled || size.width < 40 || size.height < 40) return;
-    const w = new ChipWorld({ width: size.width, height: size.height, onImpact });
+    if (size.width < 40 || size.height < 40) return;
+    const w = new ChipWorld({ width: size.width, height: size.height, onImpact, calm });
     world.current = w;
     primeChipAudio();
     // Re-seat whatever is already committed — a resize or a remount must not
@@ -170,14 +184,14 @@ export function useChipTable(opts: {
     // `committed` is deliberately absent: the world is rebuilt on RESIZE, not
     // on every commit. Commits are pushed into the live world below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disabled, size.width, size.height, onImpact]);
+  }, [calm, size.width, size.height, onImpact]);
 
   useEffect(() => () => resetChipAudio(), []);
 
   // ── the loop ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (disabled || !world.current) return;
+    if (!world.current) return;
     let active = true;
     let appActive = true;
 
@@ -223,7 +237,7 @@ export function useChipTable(opts: {
       lastFrame.current = 0;
       sub.remove();
     };
-  }, [disabled, size.width, size.height, pose, shake]);
+  }, [size.width, size.height, pose, shake]);
 
   // ── commits ─────────────────────────────────────────────────────────────
 
@@ -268,14 +282,14 @@ export function useChipTable(opts: {
         vy: spec.vy ?? 240 + Math.random() * 160,
         spin: (spec.spin ?? 0) + jitter(0.5),
       });
-      if (w.count() > MAX_TABLE_BODIES) {
+      if (w.count() > maxBodies) {
         // Cap reached. Drop the OLDEST body — never the chip — so the pile
         // stops growing while the stake keeps every coin it was given.
         const oldest = w.ids()[0];
         if (oldest) w.remove(oldest);
       }
     },
-    [onAmountChange, ownerId, side]
+    [onAmountChange, ownerId, side, maxBodies]
   );
 
   const takeBack = useCallback(
@@ -336,10 +350,9 @@ export function useChipTable(opts: {
   // An amount changed from OUTSIDE (a clamp, a parent reset) rebuilds the
   // table. Our own commits already moved `ownAmount`, so they no-op here.
   useEffect(() => {
-    if (disabled) return;
     if (amount === ownAmount.current) return;
     reconcile(amount);
-  }, [amount, disabled, reconcile]);
+  }, [amount, reconcile]);
 
   // ── pointer ─────────────────────────────────────────────────────────────
 
@@ -350,8 +363,10 @@ export function useChipTable(opts: {
   const grabbedChipId = useCallback(() => world.current?.grabbedChipId() ?? null, []);
   const jolt = useCallback((strength = 1) => {
     world.current?.jolt(strength);
-    shake.value = Math.min(1, 0.5 * strength);
-  }, [shake]);
+    // The screen shake is the one thing calm mode drops entirely: the chips
+    // moving is the athlete's own doing, the VIEWPORT moving is not.
+    if (!calm) shake.value = Math.min(1, 0.5 * strength);
+  }, [shake, calm]);
 
   const setSize = useCallback((w: number, h: number) => {
     setSizeState((prev) =>
@@ -359,10 +374,6 @@ export function useChipTable(opts: {
     );
   }, []);
 
-  // Under reduced motion the caller draws a still pile of the same value
-  // (see ChipWagerTable) — the number is identical and the chaos is not
-  // inflicted on anyone who asked the OS for less of it. `simulated` is how
-  // it knows which surface to render.
   return {
     committed,
     pose,
@@ -378,6 +389,6 @@ export function useChipTable(opts: {
     grabbedChipId,
     jolt,
     shake,
-    simulated: !disabled,
+    calm,
   };
 }
