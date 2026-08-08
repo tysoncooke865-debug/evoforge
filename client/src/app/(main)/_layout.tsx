@@ -11,6 +11,7 @@ import { initFinishQueue } from '@/data/finish-queue';
 import { initSetQueue } from '@/data/set-queue';
 import { useProfile } from '@/data/hooks';
 import { useOnlinePresence } from '@/data/presence';
+import { useCalloutRealtime } from '@/data/callouts';
 import { useMfaGate } from '@/data/mfa';
 import { BootHold } from '@/ui/boot/boot-hold';
 import { MfaChallenge } from '@/ui/auth/mfa-challenge';
@@ -79,6 +80,12 @@ export default function MainLayout() {
   // Join the global presence channel so this player is counted as online for as
   // long as the app is open (the count surfaces on Arena / Quick Match).
   useOnlinePresence();
+  // Call out realtime, for the SAME reason and by the same rule: ONE channel
+  // per app, mounted where nothing can mount it twice. It lived on three
+  // screens for one release, and because a visited tab stays mounted, the
+  // second one took the whole route down with "cannot add postgres_changes
+  // callbacks … after subscribe()". A tab change is not a place to crash.
+  useCalloutRealtime();
   // Product telemetry MOVED UP to the root layout (ui/core/telemetry.tsx),
   // 2026-07-31. Mounted here it only armed once an athlete had a profile row,
   // so /onboarding emitted no session_start and no page_view — the screen the

@@ -16,7 +16,7 @@ import { pixelFont } from '@/theme/fonts';
 import { LoadModeSelector } from '@/ui/train/load-mode-selector';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
 import { judgeCallout, nextCallableSet, type CalloutRow } from '@/domain/callouts';
-import { putSetDraft } from '@/state/set-draft';
+import { putSetDraft, subscribeSetDraft } from '@/state/set-draft';
 import { CalloutBadge } from '@/ui/callouts/callout-badge';
 import { pyFloat, pyInt } from '@/domain/py';
 import type { SetVerdict } from '@/domain/set-save';
@@ -554,6 +554,34 @@ function SetRow({
       loadMode,
     });
   }, [date, workout, exercise, setNo, weight, reps, loadMode, unit]);
+
+  /**
+   * AND THE TRAY CAN EDIT IT BACK.
+   *
+   * Adjusting the call in the tray adjusts THIS ROW, because they are the same
+   * set. Keeping them apart would let somebody call 105 × 5, log the 100 × 5
+   * they were always going to do, and lose to a number they never chose.
+   *
+   * Only tray writes arrive here (see state/set-draft.ts), and a value equal to
+   * what is already typed is dropped — so this cannot loop and cannot fight
+   * somebody who is mid-keystroke.
+   */
+  useEffect(() => {
+    if (logged) return;
+    return subscribeSetDraft(date, workout, exercise, setNo, (d) => {
+      if (d.loadMode !== loadMode) setLoadMode(d.loadMode);
+      const nextW = d.weightKg === null ? '' : displayWeight(d.weightKg, unit);
+      if (nextW !== weight) {
+        setWeight(nextW);
+        setWeightDirty(true);
+      }
+      const nextR = d.reps === null ? '' : String(d.reps);
+      if (nextR !== reps) {
+        setReps(nextR);
+        setRepsDirty(true);
+      }
+    });
+  }, [date, workout, exercise, setNo, unit, weight, reps, loadMode, logged]);
 
   /**
    * 133: what a set NEEDS depends on its mode.

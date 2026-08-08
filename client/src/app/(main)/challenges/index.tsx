@@ -6,7 +6,7 @@ import { useAuth } from '@/data/auth-context';
 import { useCoinTotal } from '@/data/coins';
 import { useForgeChallenges } from '@/data/forge-challenges';
 import { useDuelConfig, useDuelSweep, useWatchableDuels } from '@/data/forge-duel';
-import { useCalloutRealtime, useCalloutSweepOnce } from '@/data/callouts';
+import { useCalloutSweepOnce } from '@/data/callouts';
 import { CalloutList } from '@/ui/callouts/callout-list';
 import { useFriends } from '@/data/social';
 import { bucketChallenges, challengeRecord } from '@/domain/forge-challenge';
@@ -54,7 +54,6 @@ export default function ChallengesScreen() {
   // Call outs settle in seconds, not fortnights, but they expire on the same
   // "no scheduler, so the hub is the clock" principle the duel sweep uses.
   useCalloutSweepOnce(Boolean(myId));
-  useCalloutRealtime();
 
   // ONE sweep per mount, whatever re-renders. It is maintenance: it refreshes
   // the list itself when it changes something and says nothing when it does not.

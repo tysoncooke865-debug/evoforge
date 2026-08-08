@@ -160,6 +160,15 @@ Section 16 of the SQL harness **removes each guard, shows the test go red, and
 rolls it back**: the one-live index, the judge, and the coin guard. A guard that
 cannot fail is not a guard.
 
+## 8b. The follow-up pass (same day)
+
+Tyson on a real phone: the call is **editable** in the tray (steppers that write
+back to the set row, so a call and its set are one number); the tray is **~72%**
+tall because at 50% the chip rail still fell below the fold; the rail offers
+**every denomination from 5**, since starting at 25 had quietly made 25 the real
+minimum stake when the config floor is 5; and **tilt works**, asked for once in
+Settings rather than on every tray.
+
 ## 9. Things worth not relearning
 
 - **Migration 133 is NOT applied in production.** `workout_log` is still the
@@ -179,6 +188,14 @@ cannot fail is not a guard.
 - **`set_config('request.jwt.claims', …)` alone does not enforce RLS** through
   the management API: it still runs as the table owner. `set local role
   authenticated` is what drops the exemption.
+- **`useCalloutRealtime` is mounted ONCE, at the authenticated root.** On three
+  screens it crashed every tab change — a visited tab stays mounted, so
+  supabase-js returned the already-subscribed channel and `.on()` threw. The
+  route error boundary's own `app_error` / `route_crash` analytics named the
+  error verbatim; query that table before theorising about a crash.
+- **A permission affordance must survive `compact`.** ENABLE TILT lived in the
+  quick row, which the tray hides — so motion could never be granted on the
+  installed iPhone PWA. The ask now lives in Settings and is remembered.
 - The tour runs **phone-sized but not `hasTouch`**, because `pad-env.ts`
   switches every number field to the in-app keypad on a coarse pointer and
   deliberately keeps desktop web typeable for exactly this.

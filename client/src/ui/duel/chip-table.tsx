@@ -350,23 +350,33 @@ export function ChipWagerTable({
         </View>
       )}
 
-      {/* ── QUICK MOVES. Absent in compact: the rail IS the input there, and a
-          chip dragged out through the bottom of the table still goes back to
-          the wallet, which is the only escape hatch a tray needs. ── */}
-      <View className="mt-s3 flex-row flex-wrap" style={compact ? { display: 'none' } : { gap: 6 }}>
+      {/* ── QUICK MOVES. The ladder is absent in compact — the rail IS the
+          input there, and a chip dragged out through the bottom of the table
+          still goes back to the wallet, which is the only escape hatch a tray
+          needs. ENABLE TILT is NOT absent: see below. ── */}
+      <View className="mt-s3 flex-row flex-wrap" style={{ gap: 6 }}>
         {compact ? null : (
           <>
             <Quick label="MIN" onPress={() => setTo(min)} disabled={disabled || locked || max < min} testID="wager-min" />
             <Quick label="+25" onPress={() => quickAdd(25)} disabled={!canAdd(25)} testID="wager-plus-25" />
             <Quick label="+100" onPress={() => quickAdd(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
+            <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || locked || value >= max} testID="wager-max-btn" />
+            <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || locked || value === 0} testID="wager-clear" />
           </>
         )}
-        <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || locked || value >= max} testID="wager-max-btn" />
-        <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || locked || value === 0} testID="wager-clear" />
-        {table.motion === 'prompt' ? (
-          // iOS gates device motion behind a real gesture, so the ask lives on
-          // a chip the athlete taps — never a popup on load. It only appears
-          // when the platform actually wants permission.
+        {table.motion === 'prompt' && !locked ? (
+          /**
+           * iOS gates device motion behind a real gesture, so the ask lives on
+           * a chip the athlete taps — never a popup on load, and only when the
+           * platform actually wants permission.
+           *
+           * IT SURVIVES COMPACT MODE, and that is the point. The first build
+           * hid this whole row in the call out tray, which meant that on an
+           * installed iPhone PWA — the platform EvoForge actually ships as —
+           * there was no way to grant motion, so tilt could never run in the
+           * one place it was newly wanted. A permission you cannot ask for is a
+           * feature you do not have.
+           */
           <Quick label="ENABLE TILT" onPress={table.requestMotion} testID="wager-enable-motion" />
         ) : null}
         {onAllIn ? (
@@ -400,7 +410,11 @@ export function ChipWagerTable({
           permission refused, switched off) and they are indistinguishable from
           "broken" unless the screen says which. It cost a round trip to find
           that out the first time. */}
-      {!locked && !compact ? (
+      {/* In compact, stay silent when tilt is simply working: a tray is not the
+          place for a status line nobody needs. Speak up when it is off, blocked
+          or missing, because those four states are indistinguishable from
+          "broken" unless the screen says which. */}
+      {!locked && (!compact || table.motion !== 'on') ? (
         <Text className="text-2xs text-text-mute" testID="wager-motion-state">
           {table.motion === 'on'
             ? calm

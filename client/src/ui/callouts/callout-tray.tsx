@@ -2,12 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 
 import { useCoinTotal } from '@/data/coins';
+import {
+  loadFieldLabel,
+  loadFieldSign,
+  type ExerciseLoadMode,
+} from '@/domain/exercise-load';
+import { putSetDraft } from '@/state/set-draft';
+import { NumberField } from '@/ui/core/number-field';
+import { displayWeight, toKgForSave, WEIGHT_STEP } from '@/domain/units';
+import { pyFloat, pyInt } from '@/domain/py';
 import { useCalloutConfig, useCreateCallout, useMyCallouts } from '@/data/callouts';
 import { useTrainingFriends } from '@/data/presence';
 import { useFriends } from '@/data/social';
 import { estimateCallOdds } from '@/domain/callout-odds';
 import {
-  CALLOUT_QUICK_CHIPS,
   DEFAULT_CALLOUT_CONFIG,
   calloutTargetLabel,
   clampCalloutStake,
@@ -20,7 +28,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ChipWagerTable } from '@/ui/duel/chip-table';
-import type { ForgeChipValue } from '@/domain/forge-duel';
+import { FORGE_CHIPS } from '@/domain/forge-duel';
 
 import { OddsStrip } from './odds-strip';
 
@@ -105,6 +113,54 @@ export function CalloutTray({
   const [picked, setPicked] = useState<string | null>(null);
   const opponentId = picked ?? suggested;
   const [stake, setStake] = useState(0);
+
+  /**
+   * THE CALL IS EDITABLE (Tyson, 2026-08-08).
+   *
+   * It opens on the numbers the set row is showing — that is still the point,
+   * and it is why nobody has to type anything — but "I'm going for one more
+   * than that" is exactly the moment a call out gets interesting, and it should
+   * not require closing the tray to say so.
+   *
+   * Editing here writes BACK to the set row (state/set-draft.ts), so the call
+   * and the set stay one number. Otherwise calling 105 × 5 and then logging the
+   * 100 × 5 you were always going to do would be a miss you never chose.
+   */
+  const wantsLoad =
+    target.loadMode === 'external' ||
+    target.loadMode === 'weighted_bodyweight' ||
+    target.loadMode === 'assisted_bodyweight';
+  const [tgtWeight, setTgtWeight] = useState(() =>
+    target.weightKg === null ? '' : displayWeight(target.weightKg, unit)
+  );
+  const [tgtReps, setTgtReps] = useState(() => String(target.reps));
+
+  const liveTarget: CalloutTarget = {
+    loadMode: target.loadMode,
+    weightKg: wantsLoad
+      ? pyFloat(tgtWeight) === null
+        ? null
+        : toKgForSave(pyFloat(tgtWeight) as number, unit)
+      : null,
+    reps: Math.max(0, pyInt(tgtReps) ?? 0),
+  };
+
+  /** Push an edit down to the row this call is about. */
+  const publish = (weightText: string, repsText: string) => {
+    const w = pyFloat(weightText);
+    putSetDraft(
+      date,
+      workout,
+      exercise,
+      setNo,
+      {
+        weightKg: !wantsLoad || w === null ? null : toKgForSave(w, unit),
+        reps: pyInt(repsText),
+        loadMode: target.loadMode as ExerciseLoadMode,
+      },
+      'tray'
+    );
+  };
   // WHEN THE TRAY OPENED — the "time from opening Call Out to offer sent"
   // measurement the brief asks for. Stamped in an effect: reading the wall
   // clock during render is impure and the compiler lint is right to refuse it.
@@ -114,13 +170,21 @@ export function CalloutTray({
   }, []);
 
   const odds = useMemo(
-    () => estimateCallOdds({ rows, exercise, target, todayIso, unit }),
-    [rows, exercise, target, todayIso, unit]
+    () => estimateCallOdds({ rows, exercise, target: liveTarget, todayIso, unit }),
+    // The estimate is about the call as it stands, so it re-reads on every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, exercise, liveTarget.weightKg, liveTarget.reps, liveTarget.loadMode, todayIso, unit]
   );
 
-  const label = calloutTargetLabel(target, unit);
+  const label = calloutTargetLabel(liveTarget, unit);
   const max = maxCalloutStake(balance ?? 0, cfg);
-  const canSend = opponentId !== null && stake >= cfg.min_stake && stake <= max && !create.isPending;
+  const canSend =
+    opponentId !== null &&
+    stake >= cfg.min_stake &&
+    stake <= max &&
+    liveTarget.reps > 0 &&
+    (!wantsLoad || liveTarget.weightKg !== null) &&
+    !create.isPending;
 
   const send = () => {
     if (!canSend || opponentId === null) return;
@@ -131,9 +195,9 @@ export function CalloutTray({
         workout,
         exercise,
         setNo,
-        targetReps: target.reps,
-        targetLoadMode: target.loadMode,
-        targetWeightKg: target.weightKg,
+        targetReps: liveTarget.reps,
+        targetLoadMode: liveTarget.loadMode,
+        targetWeightKg: liveTarget.weightKg,
         targetLabel: label,
         stake,
         hitProbability: odds.hitProbability,
@@ -167,12 +231,17 @@ export function CalloutTray({
           style={{
             borderColor: `${colors.legendary}45`,
             backgroundColor: colors.surface,
-            // ~44% in practice. The brief asked for 30–35%; a real chip table
-            // under about 100pt reads as decoration rather than as objects, and
-            // the proposition has to be the most legible text on the sheet.
-            // Squeezing both into a third of a phone serves neither, and the
-            // workout stays visible behind it either way.
-            maxHeight: Math.min(height * 0.5, 420),
+            /**
+             * TALLER THAN THE BRIEF ASKED FOR, on purpose and on request.
+             *
+             * 30–35% was the target; at 50% the chip rail still fell below the
+             * fold, so the two-tap path began with a scroll. The tray now takes
+             * roughly two thirds, because everything in it is load-bearing: the
+             * proposition, the odds, WHO, a chip table big enough to be objects
+             * rather than decoration, the rail, and SEND. The workout is still
+             * visible behind it and it collapses the instant the offer goes.
+             */
+            maxHeight: Math.min(height * 0.72, 620),
           }}
           testID="callout-tray"
         >
@@ -209,6 +278,88 @@ export function CalloutTray({
             >
               <Text className="text-sm text-text-mute">✕</Text>
             </Pressable>
+          </View>
+
+          {/* THE CALL, EDITABLE. Same steppers as the set row, same units, and
+              every change goes back to the row so the two can never disagree.
+              NumberField draws no label of its own — the set row's column
+              headers do that job there — so the tray needs its own, or the two
+              controls are a pair of bare numbers. */}
+          <View className="mt-s2 flex-row items-center" style={{ gap: 8 }}>
+            <View style={{ width: 72 }}>
+              <Text
+                allowFontScaling={false}
+                className="text-text-mute"
+                numberOfLines={1}
+                style={{ fontSize: 8, letterSpacing: 1 }}
+              >
+                {wantsLoad
+                  ? `${loadFieldSign(target.loadMode) ?? ''}${(loadFieldLabel(target.loadMode) ?? 'WEIGHT').toUpperCase()} ${unit.toUpperCase()}`
+                  : 'BODYWEIGHT'}
+              </Text>
+            </View>
+            <View style={{ width: 32 }} />
+            <View style={{ width: 72 }}>
+              <Text
+                allowFontScaling={false}
+                className="text-text-mute"
+                numberOfLines={1}
+                style={{ fontSize: 8, letterSpacing: 1 }}
+              >
+                REPS OR MORE
+              </Text>
+            </View>
+          </View>
+          <View className="flex-row items-center" style={{ gap: 8 }}>
+            {wantsLoad ? (
+              <NumberField
+                value={tgtWeight}
+                onChange={(v) => {
+                  setTgtWeight(v);
+                  publish(v, tgtReps);
+                }}
+                step={WEIGHT_STEP[unit].step}
+                bigStep={WEIGHT_STEP[unit].bigStep}
+                quickSteps={WEIGHT_STEP[unit].quick}
+                placeholder={unit}
+                label={`${loadFieldSign(target.loadMode) ? `${loadFieldSign(target.loadMode)} ` : ''}${(
+                  loadFieldLabel(target.loadMode) ?? 'WEIGHT'
+                ).toUpperCase()} · ${unit.toUpperCase()}`}
+                tint={colors.legendary}
+                width={72}
+                testID="callout-target-weight"
+              />
+            ) : (
+              <View
+                className="items-center justify-center rounded-md border"
+                style={{
+                  width: 72,
+                  minHeight: 48,
+                  borderColor: `${colors.legendary}59`,
+                  backgroundColor: `${colors.legendary}14`,
+                }}
+                accessibilityLabel="Bodyweight set — no external load"
+                testID="callout-target-bw"
+              >
+                <Text allowFontScaling={false} style={{ fontSize: 16, color: colors.legendary, ...pixelFont() }}>
+                  BW
+                </Text>
+              </View>
+            )}
+            <NumberField
+              value={tgtReps}
+              onChange={(v) => {
+                setTgtReps(v);
+                publish(tgtWeight, v);
+              }}
+              step={1}
+              integer
+              placeholder="reps"
+              label="REPS OR MORE"
+              tint={colors.legendary}
+              width={72}
+              testID="callout-target-reps"
+            />
           </View>
 
           <OddsStrip hit={odds.hitProbability} early={odds.early} evidence={odds.evidence} />
@@ -277,9 +428,14 @@ export function CalloutTray({
                 max={max}
                 potLabel="POT IF THEY DOUBT"
                 compact
-                tableHeight={104}
-                chipSize={44}
-                denominations={CALLOUT_QUICK_CHIPS as unknown as readonly ForgeChipValue[]}
+                tableHeight={132}
+                chipSize={46}
+                // EVERY DENOMINATION, 5 INCLUDED (Tyson, 2026-08-08). The first
+                // build offered 25 as the smallest, which quietly made 25 the
+                // real minimum stake even though the config's floor is 5 — a
+                // limit nobody chose, expressed as a missing button. The rail
+                // scrolls; the wallet and the config decide what is affordable.
+                denominations={FORGE_CHIPS}
                 disabled={balance == null}
                 testID="callout-table"
               />

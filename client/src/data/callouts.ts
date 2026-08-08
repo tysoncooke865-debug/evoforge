@@ -171,9 +171,33 @@ export function useCalloutRealtime(): void {
   const { enabled } = useCalloutsEnabled();
   useEffect(() => {
     if (!userId || !enabled) return;
+    const topic = `callouts:${userId}`;
+
+    /**
+     * MOUNT ONCE — AND REFUSE TO MOUNT TWICE.
+     *
+     * This crashed production seven times in twelve minutes, and the route
+     * error boundary's own analytics named it exactly:
+     *
+     *   "cannot add `postgres_changes` callbacks for realtime:callouts::id
+     *    after `subscribe()`"
+     *
+     * supabase-js resolves `channel(topic)` to an EXISTING channel when one
+     * with that topic is already open. This hook was mounted on three screens,
+     * and a tab screen STAYS MOUNTED once visited — so the second screen got
+     * the live channel back and calling `.on()` on it threw, taking the whole
+     * route down mid tab-change.
+     *
+     * The real fix is the one `useOnlinePresence` documents: mount it ONCE, at
+     * the authenticated root. This guard is the second line, so that re-adding
+     * the hook to a screen later is a no-op instead of a crash — and it asks
+     * the exact question the error asks.
+     */
+    if (supabase.getChannels().some((c) => c.topic === `realtime:${topic}`)) return;
+
     const bump = () => refreshCallouts(queryClient, userId);
     const channel = supabase
-      .channel(`callouts:${userId}`)
+      .channel(topic)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'workout_callouts', filter: `athlete_id=eq.${userId}` },
         bump)

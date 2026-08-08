@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { useActivationStep } from '@/data/activation';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
-import { useCalloutRealtime, useCalloutsAvailable, useMyCallouts } from '@/data/callouts';
+import { useCalloutsAvailable, useMyCallouts } from '@/data/callouts';
 import { useTrainingPresence } from '@/data/presence';
 import { isAttachedToSet } from '@/domain/callouts';
 import { unitFor, useExercisePrefs } from '@/data/exercise-prefs';
@@ -177,7 +177,6 @@ export default function WorkoutScreen() {
    * stops polling the moment nothing is live.
    */
   const callouts = useMyCallouts();
-  useCalloutRealtime();
   const calloutsOn = useCalloutsAvailable();
   const exercisePrefs = useExercisePrefs();
   const [callFor, setCallFor] = useState<{ exercise: string; setNo: number } | null>(null);

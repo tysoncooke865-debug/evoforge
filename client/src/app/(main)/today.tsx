@@ -75,7 +75,6 @@ import { ManagePlanSheet, type LoadoutSource } from '@/ui/train/manage-plan-shee
 import { MissionBriefCard } from '@/ui/train/mission-brief';
 import { MissionLaunch } from '@/ui/train/mission-launch';
 import { CalloutLayer } from '@/ui/callouts/callout-layer';
-import { useCalloutRealtime } from '@/data/callouts';
 import { MuscleBoard, type MuscleLoad } from '@/ui/train/muscle-board';
 import { PlanRail } from '@/ui/train/plan-rail';
 import { TRAIN_CLOCK_MS, TRAIN_INTRO_MS, useTrainScale } from '@/ui/train/train-scale';
@@ -226,10 +225,6 @@ export default function TodayScreen() {
   const [musclePick, setMusclePick] = useState<MuscleId | null>(null);
   /** The workout START WORKOUT is launching into, for the ENTERING MISSION veil. */
   const [launching, setLaunching] = useState<string | null>(null);
-  // LIVE WORKOUT CALL OUTS: the realtime channel is what makes a doubt land
-  // here in a blink instead of on the next poll. It gates itself on the
-  // athlete's own setting, so an athlete with call outs off opens no channel.
-  useCalloutRealtime();
 
   // ---- THE TWO CLOCKS (see the header note) ----
   //

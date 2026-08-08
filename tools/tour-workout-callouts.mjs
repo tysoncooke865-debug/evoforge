@@ -342,6 +342,69 @@ const oddsText = await (await visible(alpha.page, 'callout-odds')).innerText();
 ok('and they are a real estimate, not a shrug', /HIT \d+%/.test(oddsText) && !/EARLY ESTIMATE/.test(oddsText),
    oddsText.replace(/\s+/g, ' ').trim());
 
+
+// ── THE TRAY IS EDITABLE, COMPLETE, AND DOES NOT CRASH A TAB CHANGE ────────
+ok('the call’s weight can be changed in the tray',
+   await seen(alpha.page, 'callout-target-weight'));
+ok('and its reps', await seen(alpha.page, 'callout-target-reps'));
+{
+  // Editing the call re-states the proposition AND writes back to the row, so
+  // the two can never be different numbers for the same set.
+  const reps = await visible(alpha.page, 'callout-target-reps');
+  await reps.fill('7');
+  await alpha.page.waitForTimeout(500);
+  const edited = (await (await visible(alpha.page, 'callout-target')).innerText()).trim();
+  ok('editing the reps restates the call', edited.includes('7+'), edited);
+  await reps.fill('5');
+  await alpha.page.waitForTimeout(400);
+}
+ok('the smallest chip is 5, not 25', await seen(alpha.page, 'wager-chip-5'));
+{
+  // THE CHIPS MUST NOT NEED A SCROLL. The whole path is "tap a chip, tap
+  // SEND"; a rail below the fold makes that three actions and a hunt.
+  const reachable = await alpha.page.evaluate(() => {
+    const pick = (t) => [...document.querySelectorAll(`[data-testid="${t}"]`)]
+      .find((e) => e.getBoundingClientRect().width > 0);
+    const chip = pick('wager-chip-5');
+    const send = pick('callout-send');
+    if (!chip || !send) return 'missing';
+    const h = window.innerHeight;
+    const c = chip.getBoundingClientRect();
+    const s2 = send.getBoundingClientRect();
+    return c.bottom <= h && s2.bottom <= h ? 'visible' : `chip ${Math.round(c.bottom)} send ${Math.round(s2.bottom)} of ${h}`;
+  });
+  ok('the chip rail and SEND are both on screen without scrolling',
+     reachable === 'visible', String(reachable));
+}
+{
+  /**
+   * THE CRASH THIS RELEASE FIXED. Opening the tray and changing tabs threw
+   *   "cannot add postgres_changes callbacks for realtime:callouts::id
+   *    after subscribe()"
+   * because the realtime hook was mounted on three screens and a visited tab
+   * stays mounted. Production's own route-crash analytics named it seven times
+   * in twelve minutes. It is one channel now, mounted at the authenticated
+   * root — so this asserts BOTH that the screen survives and that exactly one
+   * channel exists.
+   */
+  await alpha.page.goto(`${BASE}/today`, { waitUntil: 'domcontentloaded' });
+  await alpha.page.waitForTimeout(2200);
+  await dismissOverlays(alpha.page);
+  const crashed = await alpha.page.evaluate(() =>
+    document.body.innerText.includes('hit an error'));
+  ok('changing tabs with the tray open does not crash the screen', crashed === false);
+  await alpha.page.goto(`${BASE}/challenges`, { waitUntil: 'domcontentloaded' });
+  await alpha.page.waitForTimeout(2200);
+  const crashed2 = await alpha.page.evaluate(() =>
+    document.body.innerText.includes('hit an error'));
+  ok('and neither does the Challenges hub', crashed2 === false);
+  // Back to the workout, re-open the tray, and carry on.
+  await openWorkout(alpha.page, WORKOUT, LIFT);
+  await typeSet(alpha.page, LIFT, 2, 100, 5);
+  await (await waitFor(alpha.page, `${LIFT}-callout`, 12_000)).click();
+  await waitFor(alpha.page, 'callout-tray');
+}
+
 const friendPill = await visible(alpha.page, `callout-friend-${BRAVO_ID}`);
 if (friendPill) await friendPill.click();
 await (await visible(alpha.page, 'wager-chip-50')).click();

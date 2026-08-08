@@ -95,6 +95,36 @@ Owner: Tyson. He works through other Claude sessions too — **always
   micro pot, a see-through card and a SEND button below the fold, all of which
   passed every structural test that existed at the time.
 
+  **THE FOLLOW-UP PASS (same day, Tyson on a real phone):** the call is
+  EDITABLE in the tray (steppers that write BACK to the set row via
+  `state/set-draft.ts`, so a call and its set can never be two numbers); the
+  tray is ~72% tall because at 50% the chip rail still fell below the fold and
+  the two-tap path began with a scroll; the rail offers EVERY denomination —
+  starting at 25 had quietly made 25 the real minimum stake when the config's
+  floor is 5, a limit nobody chose expressed as a missing button; and tilt now
+  works in the tray.
+
+  **THREE DEFECTS THAT PASS ONLY BECAUSE ONE OF THEM CRASHED LOUDLY:**
+  - **`useCalloutRealtime` MUST BE MOUNTED ONCE, AT THE AUTHENTICATED ROOT** —
+    the rule `useOnlinePresence` already documents. It was on three screens, and
+    a visited tab STAYS MOUNTED, so supabase-js handed the second screen the
+    already-subscribed channel and `.on()` threw: *"cannot add
+    `postgres_changes` callbacks for realtime:callouts::id after
+    `subscribe()`"*. That took the whole route down on a tab change, seven times
+    in twelve minutes. **The route error boundary's own `app_error` /
+    `route_crash` rows named it exactly** — query `analytics_events` before
+    theorising about a crash. The hook now also refuses a second subscribe.
+  - **A PERMISSION AFFORDANCE MUST SURVIVE COMPACT MODE.** `compact` hid the
+    quick row, and ENABLE TILT lived in it — so on an installed iPhone PWA, the
+    platform this ships as, there was no way to grant motion in the one place it
+    was newly wanted. A permission you cannot ask for is a feature you do not
+    have.
+  - **ASK FOR MOTION ONCE, IN SETTINGS** (`ui/duel/physics/motion-permission.ts`).
+    A grant is remembered device-locally, so the tray stops asking; the Motion
+    physics switch in Profile is the gesture that grants it, because a switch tap
+    is a gesture and Settings is where somebody looks. The flag suppresses the
+    ASKING only — a reading is still the only thing that reports tilt as live.
+
   **A TRAP THAT COST AN HOUR:** another session was serving its own `dist` on
   4173, so `npx serve` died on the port collision and the tour ran against a
   STALE BUNDLE for three runs — features "missing" that were built and passing.

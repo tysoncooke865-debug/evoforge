@@ -1,4 +1,6 @@
 import { DeviceMotion } from 'expo-sensors';
+
+import { hasMotionGrant, loadMotionGrant, rememberMotionGrant } from './motion-permission';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 
@@ -258,7 +260,14 @@ export function useTiltGravity(opts: {
         // flow, and a device with no accelerometer just never sends one.
         const needsGesture =
           typeof DME?.requestPermission === 'function' || typeof DOE?.requestPermission === 'function';
-        return { status: needsGesture && !liveRef.current ? 'prompt' : 'on', sub };
+        // A GRANT ALREADY GIVEN IS NOT A QUESTION. Once this device has said
+        // yes — from Settings or from a wager table — stop showing the ask on
+        // every mount; the athlete answered. The flag only suppresses the
+        // PROMPT: a reading is still the only thing that reports 'on' for real,
+        // so a revoked grant degrades to plain gravity exactly as before.
+        await loadMotionGrant();
+        const answered = hasMotionGrant();
+        return { status: needsGesture && !liveRef.current && !answered ? 'prompt' : 'on', sub };
       }
 
       const perm = await DeviceMotion.getPermissionsAsync();
@@ -315,6 +324,7 @@ export function useTiltGravity(opts: {
         // just been touched, and whatever it was resting at is no longer where
         // it is. `recalibrate` forgets the smoothing buffer too, which
         // `neutral.current = null` on its own did not.
+        rememberMotionGrant(true);
         recalibrate();
         setSensor('on');
         setAttempt((n) => n + 1);

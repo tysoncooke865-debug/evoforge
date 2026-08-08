@@ -10,6 +10,7 @@ import { useAthleteProfile, useSetPrivacy, type PrivacyFlags } from '@/data/soci
 import { useDeleteAccount } from '@/data/moderation';
 import { useDeletePhysiqueData, usePhotoPrefs, useSavePhotoPrefs } from '@/data/photo-prefs';
 import { useToastStore } from '@/state/toast-store';
+import { askForMotion } from '@/ui/duel/physics/motion-permission';
 import { useCurrentStats } from '@/data/use-current-stats';
 import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
@@ -146,8 +147,9 @@ export default function ProfileScreen() {
             <View className="flex-1 pr-s3">
               <Text className="text-sm font-bold text-text">Motion physics</Text>
               <Text className="text-2xs text-text-mute">
-                Tilt your phone and the chips on a duel&apos;s wager table slide with it. Off here,
-                or with your device&apos;s reduced-motion setting on, gravity just points down.
+                Tilt your phone and the chips on a wager table slide with it. Switching it on here
+                asks your phone for motion access once, so a call out never has to. Off here, or
+                with your device&apos;s reduced-motion setting on, gravity just points down.
               </Text>
             </View>
             <MotionSwitch />
@@ -801,14 +803,51 @@ function SoundSwitch() {
  * sensor must degrade to plain gravity anyway. Reduced motion turns it off on
  * its own; this is the manual override on top.
  */
+/**
+ * MOTION PHYSICS — and the one place the sensor is asked for.
+ *
+ * iOS only hands out the accelerometer from inside a real user gesture, so
+ * something has to ask. It used to be a chip on the wager table, which meant
+ * being asked again on every tray — a question the athlete had already
+ * answered, which reads as the app forgetting (Tyson, 2026-08-08).
+ *
+ * A switch tap IS a gesture, so the ask belongs here: once, deliberately, in
+ * the place you would go looking for it. `askForMotion` records the grant, and
+ * the table stops offering ENABLE TILT from then on.
+ *
+ * Turning it OFF never revokes anything — only the OS can — so it simply stops
+ * steering gravity, and turning it back on will not re-prompt.
+ */
 function MotionSwitch() {
   const colors = useThemeColors();
   const motionPhysics = useSettingsStore((s) => s.motionPhysics);
   const setMotionPhysics = useSettingsStore((s) => s.setMotionPhysics);
+  const [asking, setAsking] = useState(false);
   return (
     <Switch
       value={motionPhysics}
-      onValueChange={setMotionPhysics}
+      disabled={asking}
+      onValueChange={(on) => {
+        setMotionPhysics(on);
+        if (!on) return;
+        setAsking(true);
+        void askForMotion().then((r) => {
+          setAsking(false);
+          if (r === 'denied') {
+            useToastStore.getState().push({
+              kind: 'info',
+              title: 'MOTION BLOCKED',
+              subtitle: 'Allow Motion & Orientation for this site, then switch it on again.',
+            });
+          } else if (r === 'unsupported') {
+            useToastStore.getState().push({
+              kind: 'info',
+              title: 'NO MOTION SENSOR',
+              subtitle: 'This device has none. Chips still fall, they just do not lean.',
+            });
+          }
+        });
+      }}
       trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
       thumbColor={colors.accent}
       testID="motion-physics"
