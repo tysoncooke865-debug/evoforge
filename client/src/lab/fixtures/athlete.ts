@@ -56,6 +56,7 @@ export const LAB_PROFILE: ProfileRow = {
   first_workout_at: '2026-01-06T10:00:00Z',
   first_workout_name: 'Push 1 - Strength',
   first_workout_date: '2026-01-06',
+  callouts_enabled: true,
 };
 
 export const LAB_FORGE: ForgeRow = {

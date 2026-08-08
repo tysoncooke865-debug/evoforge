@@ -6,6 +6,8 @@ import { useAuth } from '@/data/auth-context';
 import { useCoinTotal } from '@/data/coins';
 import { useForgeChallenges } from '@/data/forge-challenges';
 import { useDuelConfig, useDuelSweep, useWatchableDuels } from '@/data/forge-duel';
+import { useCalloutRealtime, useCalloutSweepOnce } from '@/data/callouts';
+import { CalloutList } from '@/ui/callouts/callout-list';
 import { useFriends } from '@/data/social';
 import { bucketChallenges, challengeRecord } from '@/domain/forge-challenge';
 import { challengeHistory, winStreak } from '@/domain/challenge-progression';
@@ -49,6 +51,10 @@ export default function ChallengesScreen() {
   const sweep = useDuelSweep();
   const todayIso = calendarToday();
   const nowMs = useNow();
+  // Call outs settle in seconds, not fortnights, but they expire on the same
+  // "no scheduler, so the hub is the clock" principle the duel sweep uses.
+  useCalloutSweepOnce(Boolean(myId));
+  useCalloutRealtime();
 
   // ONE sweep per mount, whatever re-renders. It is maintenance: it refreshes
   // the list itself when it changes something and says nothing when it does not.
@@ -107,6 +113,11 @@ export default function ChallengesScreen() {
         title="DUELS"
         right={<CoinBalance coins={coins.data ?? null} testID="challenges-balance" />}
       />
+
+      {/* CALL OUTS FIRST when there are any: a set-length wager resolves in
+          minutes, so anything waiting here is more urgent than a fortnight-long
+          duel. It renders nothing at all when the athlete has none. */}
+      <CalloutList />
 
       {potAtRisk > 0 ? (
         <Text className="text-2xs text-text-mute" testID="challenges-at-risk">

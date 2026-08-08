@@ -36,6 +36,14 @@ const VERB: Record<NotificationRow['type'], string> = {
   duel_support: 'is backing you',
   duel_ending: '— your duel ends today',
   duel_settled: '— your duel has settled',
+  // 151 — call outs. Built inline below with the lift and the number in them;
+  // these are the fallbacks for a payload that arrived without one.
+  callout_offered: 'called a set — 50 says they hit it',
+  callout_accepted: 'doubted your call',
+  callout_declined: 'passed on your call out',
+  callout_logged: 'logged the set they called — verify when you can',
+  callout_verified: 'answered your call out',
+  callout_settled: '— your call out is settled',
 };
 
 /** The rivalry alert reads with the lift name when we have it: "ALEX just
@@ -75,6 +83,41 @@ function duelText(n: NotificationRow): string {
     case 'duel_settled':
       if (d.outcome === 'draw') return `— your duel drew. ${d.pot ? `${d.pot / 2} refunded` : 'Stakes refunded'}`;
       return d.won ? `— you won ${d.pot ?? ''} coins` : '— your duel has settled';
+    default:
+      return VERB[n.type];
+  }
+}
+
+/**
+ * CALL OUT COPY. Same rule as the duel's: the line has to carry the thing that
+ * makes it actionable, which for a call out is the SET and the money.
+ *
+ * "Tyson called 100 KG × 5+ — 50 on himself" is a decision. "Tyson called a
+ * set" is a shrug.
+ */
+function calloutText(n: NotificationRow): string {
+  const d = n.detail ?? {};
+  const what = d.target ? `${d.target}` : d.exercise;
+  switch (n.type) {
+    case 'callout_offered':
+      return what && d.amount
+        ? `called ${what} — ${d.amount} on themselves`
+        : VERB.callout_offered;
+    case 'callout_accepted':
+      return d.pot ? `doubted your call — ${d.pot} in the pot` : VERB.callout_accepted;
+    case 'callout_logged':
+      return d.reps != null
+        ? `logged ${d.reps} — verify when you can`
+        : VERB.callout_logged;
+    case 'callout_verified':
+      return d.outcome === 'disputed'
+        ? 'did not see your set — the pot is frozen'
+        : VERB.callout_verified;
+    case 'callout_settled':
+      if (d.outcome === 'called_off') return '— your call out was called off, stakes returned';
+      if (d.outcome === 'hit') return d.amount ? `— you hit it. +${d.amount}` : '— you hit it';
+      if (d.outcome === 'miss') return '— you missed that one';
+      return VERB.callout_settled;
     default:
       return VERB[n.type];
   }
@@ -158,16 +201,25 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
                   const isFriend = n.type === 'friend_request' || n.type === 'friend_accepted';
                   const isPr = n.type === 'pr_beaten';
                   const isDuel = n.type.startsWith('duel_');
+                  const isCallout = n.type.startsWith('callout_');
                   const duelId = isDuel ? n.detail?.challenge_id ?? null : null;
-                  // Rivalry alerts burn red; duels are gold (they move coins);
-                  // friend actions are epic-purple; the rest accent.
-                  const tint = isPr ? colors.danger : isDuel ? colors.legendary : isFriend ? colors.epic : colors.accent;
+                  // Rivalry alerts burn red; duels and call outs are gold (they
+                  // move coins); friend actions are epic-purple; the rest accent.
+                  const tint = isPr ? colors.danger : isDuel || isCallout ? colors.legendary : isFriend ? colors.epic : colors.accent;
                   // pr_beaten and friend rows deep-link to FRIENDS & RIVALS (where you reclaim);
                   // a duel row opens the duel itself, which is where the decision is.
-                  const tappable = isFriend || isPr || Boolean(duelId);
+                  //
+                  // A CALL OUT ROW GOES TO THE CHALLENGES HUB, not to a workout.
+                  // The workout page is a live session with a date and a plan in
+                  // its URL — dropping somebody into one from a notification
+                  // could open a DIFFERENT day's logger. The hub is the durable
+                  // home, always valid, and the card there does the same job.
+                  const tappable = isFriend || isPr || Boolean(duelId) || isCallout;
                   const open = duelId
                     ? () => { onClose(); router.push(`/challenges/${duelId}` as never); }
-                    : onOpenFriends;
+                    : isCallout
+                      ? () => { onClose(); router.push('/challenges' as never); }
+                      : onOpenFriends;
                   return (
                     <Pressable
                       key={n.id}
@@ -178,13 +230,13 @@ export function NotificationsModal({ onClose, onOpenFriends }: { onClose: () => 
                       style={{ gap: 10, borderColor: n.read_at ? colors.border : `${tint}59`, backgroundColor: n.read_at ? 'rgba(13,21,36,0.4)' : `${tint}0f` }}
                     >
                       <View className="items-center justify-center rounded-lg border" style={{ width: 34, height: 34, borderColor: `${tint}59`, backgroundColor: `${tint}14` }}>
-                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{isPr ? '⚔' : isDuel ? '◎' : (n.actor_name[0] ?? 'A').toUpperCase()}</Text>
+                        <Text allowFontScaling={false} style={{ fontSize: 15, color: tint, ...pixelFont() }}>{isPr ? '⚔' : isDuel ? '◎' : isCallout ? '◉' : (n.actor_name[0] ?? 'A').toUpperCase()}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text className="text-2xs text-text-dim" numberOfLines={2}>
                           <Text className="font-bold text-text">{n.actor_name}</Text>{' '}
-                          {isPr ? prBeatenText(n) : isDuel ? duelText(n) : VERB[n.type]}
-                          {!isPr && !isDuel && n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
+                          {isPr ? prBeatenText(n) : isDuel ? duelText(n) : isCallout ? calloutText(n) : VERB[n.type]}
+                          {!isPr && !isDuel && !isCallout && n.post_peek ? <Text className="text-text-mute">: “{n.post_peek}”</Text> : null}
                         </Text>
                         <Text className="mt-s1 text-2xs text-text-mute">{relativeTime(n.created_at, nowMs)}</Text>
                       </View>

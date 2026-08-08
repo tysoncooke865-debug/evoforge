@@ -185,6 +185,8 @@
     "user_progression",
     "user_skin_unlocks",
     "weekly_momentum",
+    "workout_callout_config",
+    "workout_callouts",
     "workout_ghosts",
     "workout_log",
     "workout_schedule",

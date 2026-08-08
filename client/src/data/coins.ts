@@ -99,6 +99,12 @@ export const COIN_LABELS: Record<string, string> = {
   challenge_payout: 'Duel payout',
   duel_support_stake: 'Backed a duel',
   duel_support_payout: 'Support payout',
+  // 151 — LIVE WORKOUT CALL OUTS. Server-only like the duel's kinds (the guard
+  // admits them solely inside the callout functions), but the ledger screen
+  // renders whatever the ledger holds, and an unlabelled row reads as a bug in
+  // the one place an athlete goes to check their coins.
+  callout_stake: 'Call out stake',
+  callout_payout: 'Call out payout',
 };
 
 /** Claim + refresh + announce, from any screen. */

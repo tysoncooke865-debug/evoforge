@@ -26,6 +26,81 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **LIVE WORKOUT CALL OUTS (2026-08-08, migrations 150–153)** — "50 says you
+  can't hit this." A competitive layer over ONE upcoming working set, attached
+  to the set the athlete was already going to perform. Full spec:
+  `docs/WORKOUT_CALLOUTS.md`.
+
+  **THE RULE EVERYTHING ELSE SERVES.** A logger who never touches it reaches the
+  end of their workout with exactly the same taps — asserted mechanically, not
+  by eye (tour TEST A): no callout node in the DOM, nothing overlapping the LOG
+  button, and **zero `/rpc/callout_*` requests when a set is logged**. Every new
+  prop on `ExerciseCard` is optional and absent by default, which is also why
+  the Arena's Volume Duel is untouched.
+
+  **THE STRUCTURAL IDEA: THE TRIGGER RESOLVES THE SET.** Logging a called set is
+  the SAME TAP as any other. 153 hangs an AFTER INSERT OR UPDATE trigger on
+  `workout_log` that fills the result in from the row. That makes it work through
+  the durable offline queue, work for AI-transcribed workouts, and makes "the
+  athlete cannot type their own wager result" structural rather than a promise.
+  The whole body is wrapped in `exception when others then null`, for 146's
+  reason: **the call out may be stale, the training may not be lost.**
+
+  **THE ECONOMY.** Escrow rides `coin_events` like the duel's — `callout_stake`
+  (negative, at ACCEPTANCE; nothing moves on an offer) and `callout_payout`
+  (positive). A SEPARATE GUC, `evoforge.callout_authorized`: learning the duel's
+  must not unlock this one. `-s -s +2s = 0` on every path.
+  **No timeout ever pays anybody** — silence from either side refunds both, and
+  the card says NOT ATTEMPTED (Tyson's call; among friends, the social cost is
+  the right deterrent, and any auto-payout is farmable).
+
+  **RULES THAT COST REAL BUGS HERE:**
+  - **MIGRATION 133 IS NOT APPLIED IN PRODUCTION.** `workout_log` is still the
+    legacy 13 columns — no `load_mode`, no `external_load_kg`. The client already
+    knows (`isMissingLoadColumn` retries the insert without them); nothing else
+    did. The trigger reads them through `to_jsonb(new)` so an absent column is
+    NULL rather than a runtime error its own exception block would swallow —
+    which would have made the feature silently never resolve, for everyone.
+    `callout_judge` has a legacy `(weight, reps)` path and both are asserted.
+  - **THE REVEAL GATES CREATING, NEVER ANSWERING.** Gating the incoming card on
+    "has this athlete trained enough" leaves a friend's coins in an offer the
+    recipient can never see. The SETTING gates both sides, and the server checks
+    the setting, not the reveal.
+  - **`both` is a reserved word in plpgsql** (`trim(both …)`) — a bare syntax
+    error on the assignment line, nowhere near the declaration.
+  - **A `not exists` in HAVING that mentions the raw column is an
+    ungrouped-column error.** Close the aggregate in a subquery first.
+  - **RLS with no UPDATE/DELETE policy does not RAISE — it matches nothing.** A
+    test asking "did it throw?" passes just as well on a wide-open table. Ask
+    what changed instead.
+  - **`set_config('request.jwt.claims', …)` does not enforce RLS through the
+    management API** — it still runs as the table OWNER, which is exempt. `set
+    local role authenticated` is what drops the exemption, and without it a
+    policy test is theatre.
+  - **`decompose()` is wrong at micro scale.** It picks the smallest denomination
+    that still FILLS a table, so a 50-coin pot drew as ten grey 5s — illegible at
+    96pt and the COMMON band for a legendary moment. `potChips()` (minimal
+    breakdown) is the right picture when the number sits beside it.
+  - **`useChipTable` never draws the amount it is HANDED.** `ownAmount` starts
+    equal to it, so the "changed from outside" effect no-ops: a micro pot that
+    opens holding the caller's stake rendered "Throw chips in." where fifty coins
+    of somebody else's money were supposed to be. Only a screenshot caught it.
+
+  **VERIFYING IT.** `node tools/falsify-workout-callouts.mjs` — 137 SQL
+  assertions against production as real athletes, self-cleaning, and its §16
+  **removes each guard, shows the test go red, and rolls it back** (the one-live
+  index, the judge, the coin guard). `node tools/tour-workout-callouts.mjs` — 57
+  assertions through a browser on two phones, different workouts, zero console
+  errors, screenshots of every state. Run BOTH: the browser one found the empty
+  micro pot, a see-through card and a SEND button below the fold, all of which
+  passed every structural test that existed at the time.
+
+  **A TRAP THAT COST AN HOUR:** another session was serving its own `dist` on
+  4173, so `npx serve` died on the port collision and the tour ran against a
+  STALE BUNDLE for three runs — features "missing" that were built and passing.
+  **Check the served asset hash against `dist/index.html` before believing a
+  browser tour**, and serve on your own port when the machine is shared.
+
 - **THE FORGE DUEL (2026-08-08, migrations 144–148)** — the Challenges wager
   grew a chip table, a live pot, a raise negotiation, spectators and a
   supporter pool. Every existing duel, table and function from 139–143 still

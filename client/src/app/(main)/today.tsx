@@ -74,6 +74,8 @@ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ManagePlanSheet, type LoadoutSource } from '@/ui/train/manage-plan-sheet';
 import { MissionBriefCard } from '@/ui/train/mission-brief';
 import { MissionLaunch } from '@/ui/train/mission-launch';
+import { CalloutLayer } from '@/ui/callouts/callout-layer';
+import { useCalloutRealtime } from '@/data/callouts';
 import { MuscleBoard, type MuscleLoad } from '@/ui/train/muscle-board';
 import { PlanRail } from '@/ui/train/plan-rail';
 import { TRAIN_CLOCK_MS, TRAIN_INTRO_MS, useTrainScale } from '@/ui/train/train-scale';
@@ -224,6 +226,10 @@ export default function TodayScreen() {
   const [musclePick, setMusclePick] = useState<MuscleId | null>(null);
   /** The workout START WORKOUT is launching into, for the ENTERING MISSION veil. */
   const [launching, setLaunching] = useState<string | null>(null);
+  // LIVE WORKOUT CALL OUTS: the realtime channel is what makes a doubt land
+  // here in a blink instead of on the next poll. It gates itself on the
+  // athlete's own setting, so an athlete with call outs off opens no channel.
+  useCalloutRealtime();
 
   // ---- THE TWO CLOCKS (see the header note) ----
   //
@@ -904,7 +910,18 @@ export default function TodayScreen() {
   return (
     <ScreenShell
       backdrop={<ScreenAmbience />}
-      overlay={launching !== null ? <MissionLaunch workout={launching} /> : null}
+      overlay={
+        launching !== null ? (
+          <MissionLaunch workout={launching} />
+        ) : (
+          // The hub carries the same floating layer as the workout page, so an
+          // offer that lands between exercises — or a payout that settles while
+          // the athlete is looking at their week — still reaches them. It is
+          // pointerEvents="box-none", it gates itself on the athlete's own
+          // setting, and it renders nothing when there is nothing to say.
+          <CalloutLayer />
+        )
+      }
     >
       {/* COMPACT HEADER (Tyson's target layout, 2026-07-15): the title rides
           the top safe area, the date sits UNDER it, and the companion lives

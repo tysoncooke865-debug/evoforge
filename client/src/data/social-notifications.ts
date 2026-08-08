@@ -32,7 +32,16 @@ export type NotificationType =
   | 'duel_lead_change'
   | 'duel_support'
   | 'duel_ending'
-  | 'duel_settled';
+  | 'duel_settled'
+  // 151 — LIVE WORKOUT CALL OUTS. Six, and no more. There is deliberately no
+  // "somebody could call you out" nudge and no reminder loop: humans start
+  // call outs, the app only carries what already happened.
+  | 'callout_offered'
+  | 'callout_accepted'
+  | 'callout_declined'
+  | 'callout_logged'
+  | 'callout_verified'
+  | 'callout_settled';
 
 export interface NotificationRow {
   id: string;
@@ -54,6 +63,10 @@ export interface NotificationRow {
     won?: boolean;
     kind?: string;
     lost_lead?: boolean;
+    /** 151 — call outs carry their own id, the proposition and the reps. */
+    callout_id?: string;
+    target?: string;
+    reps?: number;
   } | null;
 }
 

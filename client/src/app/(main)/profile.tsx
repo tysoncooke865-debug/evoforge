@@ -15,6 +15,7 @@ import { useAvatarData } from '@/data/use-avatar-data';
 import { rankLadder } from '@/domain/profile';
 import { pyFloat } from '@/domain/py';
 import { useSettingsStore } from '@/state/settings-store';
+import { useCalloutsEnabled, useSetCalloutsEnabled } from '@/data/callout-prefs';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
@@ -150,6 +151,17 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <MotionSwitch />
+          </View>
+          <View className="mt-s3 flex-row items-center justify-between">
+            <View className="flex-1 pr-s3">
+              <Text className="text-sm font-bold text-text">Workout call outs</Text>
+              <Text className="text-2xs text-text-mute">
+                &ldquo;50 says you can&apos;t hit this.&rdquo; Put coins on a set you are about to do,
+                and let a friend doubt it. Off means off both ways — no call out button in
+                Train, and nobody can call you out either.
+              </Text>
+            </View>
+            <CalloutSwitch />
           </View>
         </GlowCard>
 
@@ -800,6 +812,29 @@ function MotionSwitch() {
       trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
       thumbColor={colors.accent}
       testID="motion-physics"
+    />
+  );
+}
+
+/**
+ * WORKOUT CALL OUTS. The only switch in this card that is NOT device-local:
+ * it also decides whether a friend can put coins on your bench press, so the
+ * server has to know it (profile.callouts_enabled, checked inside
+ * callout_create). Disabled until the profile has loaded, so it can never flip
+ * back under the athlete's finger.
+ */
+function CalloutSwitch() {
+  const colors = useThemeColors();
+  const { enabled, ready } = useCalloutsEnabled();
+  const save = useSetCalloutsEnabled();
+  return (
+    <Switch
+      value={enabled}
+      disabled={!ready || save.isPending}
+      onValueChange={(v) => save.mutate(v)}
+      trackColor={{ true: colors['accent-deep'], false: colors['surface-3'] }}
+      thumbColor={colors.accent}
+      testID="callouts-enabled"
     />
   );
 }

@@ -121,6 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('@/arena-game/services/app-services').then(({ resetArenaSession }) =>
       resetArenaSession().catch(() => undefined)
     );
+    // Presence: the online count, who was training, and this device's own
+    // "I am in a workout" flag. Leaving one set would tell the next athlete's
+    // friends that somebody is mid-session under their name.
+    void import('./presence').then(({ resetPresence }) => resetPresence());
+    // What was typed into an upcoming set row but never logged. In memory only,
+    // and it must not survive into the next athlete's tray.
+    void import('@/state/set-draft').then(({ clearSetDrafts }) => clearSetDrafts());
   };
 
   return <AuthContext.Provider value={{ session, loading, signOut }}>{children}</AuthContext.Provider>;

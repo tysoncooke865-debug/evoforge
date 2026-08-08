@@ -7,6 +7,15 @@ import * as Haptics from 'expo-haptics';
 import { useActivationStep } from '@/data/activation';
 import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
+import { useCalloutRealtime, useCalloutsAvailable, useMyCallouts } from '@/data/callouts';
+import { useTrainingPresence } from '@/data/presence';
+import { isAttachedToSet } from '@/domain/callouts';
+import { unitFor, useExercisePrefs } from '@/data/exercise-prefs';
+import { getSetDraft, clearSetDrafts } from '@/state/set-draft';
+import { CalloutLayer } from '@/ui/callouts/callout-layer';
+import { CalloutTray } from '@/ui/callouts/callout-tray';
+import { loadModelFor } from '@/domain/exercise-load-models';
+import { defaultModeForModel } from '@/domain/exercise-load';
 import { useClaimCoin, useCoinHistory } from '@/data/coins';
 import { useOriginStatus } from '@/data/origin';
 import { originAsBranch } from '@/domain/customise';
@@ -158,6 +167,23 @@ export default function WorkoutScreen() {
   const bumpSets = useSessionStore((s) => s.bumpSets);
   const reorderExercises = useSessionStore((s) => s.reorderExercises);
 
+  /**
+   * ── LIVE WORKOUT CALL OUTS ──
+   *
+   * Everything here is inert for an athlete who has not been revealed the
+   * feature or has switched it off: `available` gates the affordance, the tray
+   * and the floating layer together, so a pure logger runs exactly the code
+   * they ran yesterday. The ONE unconditional cost is `useMyCallouts`, and it
+   * stops polling the moment nothing is live.
+   */
+  const callouts = useMyCallouts();
+  useCalloutRealtime();
+  const calloutsOn = useCalloutsAvailable();
+  const exercisePrefs = useExercisePrefs();
+  const [callFor, setCallFor] = useState<{ exercise: string; setNo: number } | null>(null);
+  // A draft is about ONE session on ONE device and must not outlive the page.
+  useEffect(() => () => clearSetDrafts(), []);
+
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const [reordering, setReordering] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -189,6 +215,10 @@ export default function WorkoutScreen() {
   const isToday = date === todayIso;
   /** Logging writes to the date in the URL, so only TODAY may log. */
   const editable = isToday && !finished;
+  // Tell friends this athlete is training, for as long as this screen is up on
+  // a live session. A boolean and a timestamp: never the workout's NAME — the
+  // presence channel is every online athlete, not just friends.
+  useTrainingPresence(editable);
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
   /* Onboarding sent them straight here and the log is empty: one hint, once.
@@ -292,6 +322,40 @@ export default function WorkoutScreen() {
       minutes: pace?.minutes ?? null,
     };
   };
+
+  /**
+   * OPEN THE TRAY FOR A SET — with the numbers that are ON SCREEN.
+   *
+   * The proposition comes from the draft registry (what the athlete has typed,
+   * or the prefill the row is showing), never from a re-derivation here. If
+   * there are no reps to call, say so instead of opening a tray that could only
+   * produce a bet the server would refuse.
+   */
+  const openCallOut = (exercise: string, setNo: number) => {
+    const draft = getSetDraft(date, workoutName, exercise, setNo);
+    if (!draft || (draft.reps ?? 0) <= 0) {
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'PUT YOUR NUMBERS IN FIRST',
+        subtitle: 'A call out is about the set you are about to do.',
+      });
+      return;
+    }
+    track('callout_opened', { set_no: setNo });
+    setCallFor({ exercise, setNo });
+  };
+
+  /** The tray's proposition, from the draft that opened it. */
+  const callTarget = (() => {
+    if (!callFor) return null;
+    const draft = getSetDraft(date, workoutName, callFor.exercise, callFor.setNo);
+    if (!draft || (draft.reps ?? 0) <= 0) return null;
+    return {
+      loadMode: draft.loadMode ?? defaultModeForModel(loadModelFor(callFor.exercise).model),
+      weightKg: draft.weightKg,
+      reps: draft.reps as number,
+    };
+  })();
 
   const buildSummary = (): WorkoutSummaryData => ({
     day: workoutName,
@@ -824,6 +888,21 @@ export default function WorkoutScreen() {
             }}
             onLogged={() => markActive(workoutName, preferredSource)}
             durable
+            onCallOut={editable && calloutsOn ? (setNo) => openCallOut(exercise, setNo) : undefined}
+            calloutFor={
+              calloutsOn
+                ? (setNo) =>
+                    (callouts.data ?? []).find(
+                      (c) =>
+                        c.i_am_athlete &&
+                        isAttachedToSet(c.status) &&
+                        c.workout_date === date &&
+                        c.workout_name === workoutName &&
+                        c.exercise === exercise &&
+                        c.set_no === setNo
+                    ) ?? null
+                : undefined
+            }
             // Read-only unless it is today and unfinished — the cards write to
             // the date in the URL.
             readOnly={!editable}
@@ -1207,6 +1286,34 @@ export default function WorkoutScreen() {
         Outside the ScreenShell scroll on purpose; renders nothing when no
         rest is live, when collapsed via ▴, or on a locked (read-only) day. */}
     {editable ? <FloatingRestTimer /> : null}
+
+    {/* CALL THIS SET — a tray over the workout, never a screen. */}
+    {callFor && callTarget ? (
+      <CalloutTray
+        visible
+        onClose={() => setCallFor(null)}
+        date={date}
+        workout={workoutName}
+        exercise={callFor.exercise}
+        setNo={callFor.setNo}
+        target={callTarget}
+        unit={unitFor(exercisePrefs.data, callFor.exercise)}
+        rows={workouts.data ?? []}
+        todayIso={todayIso}
+        // "Do they run it back?" — the call's place in THIS workout, derived
+        // from the rows themselves so it survives a reload.
+        sessionSeq={
+          (callouts.data ?? []).filter(
+            (c) => c.i_am_athlete && c.workout_date === date && c.workout_name === workoutName
+          ).length + 1
+        }
+      />
+    ) : null}
+
+    {/* Incoming offers, verifications and payouts — floating, never blocking.
+        Outside the ScreenShell scroll, like the rest timer, and it renders
+        nothing at all when there is nothing to say. */}
+    <CalloutLayer />
     </View>
   );
 }

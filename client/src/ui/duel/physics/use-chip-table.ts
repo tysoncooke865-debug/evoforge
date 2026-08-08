@@ -92,6 +92,18 @@ export interface ChipTableApi {
   grabbedChipId: () => string | null;
   /** Knock the whole table — the accept moment. */
   jolt: (strength?: number) => void;
+  /**
+   * Point gravity somewhere else. The call out's payout uses it to pull the pot
+   * toward whoever took it: the chips slide off one edge because they are
+   * objects being pulled, which is the only reason to have a physics scene for
+   * a payout at all.
+   *
+   * PRESENTATION ONLY, like every other member of this API. Gravity cannot
+   * change `committed`, and `committed` is the only thing that adds up to money.
+   * A locked table ignores the phone's tilt but still honours this, because this
+   * is the app moving the world deliberately rather than a sensor doing it.
+   */
+  setGravity: (x: number, y: number) => void;
   /** 0..1, the energy of the last frame's biggest impact. Drives the shake. */
   shake: SharedValue<number>;
   /** Reduced motion / perf mode: real chips, no spin, bounce or shake. */
@@ -454,6 +466,10 @@ export function useChipTable(opts: {
     if (!calm) shake.value = Math.min(1, 0.5 * strength);
   }, [shake, calm]);
 
+  const setGravity = useCallback((x: number, y: number) => {
+    world.current?.setGravity(x, y, true);
+  }, []);
+
   const setSize = useCallback((w: number, h: number) => {
     setSizeState((prev) =>
       Math.abs(prev.width - w) < 1 && Math.abs(prev.height - h) < 1 ? prev : { width: w, height: h }
@@ -477,6 +493,7 @@ export function useChipTable(opts: {
     isGrabbing,
     grabbedChipId,
     jolt,
+    setGravity,
     shake,
     calm,
     motion,

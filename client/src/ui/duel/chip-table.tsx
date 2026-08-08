@@ -81,6 +81,10 @@ export function ChipWagerTable({
   disabled = false,
   locked = false,
   ownerId = 'me',
+  tableHeight = TABLE_HEIGHT,
+  chipSize = 46,
+  denominations = FORGE_CHIPS,
+  compact = false,
   testID,
 }: {
   value: number;
@@ -100,6 +104,25 @@ export function ChipWagerTable({
   /** The pot has been accepted: the table clatters once and stops being a toy. */
   locked?: boolean;
   ownerId?: string;
+  /**
+   * ── THE SAME TABLE, SMALLER (2026-08-08, Live Workout Call Outs) ──
+   *
+   * A call out's tray rises over a workout the athlete is in the middle of, so
+   * it gets roughly a third of the screen rather than a duel sheet's two
+   * thirds. Everything below is a SIZE, not a second component: same
+   * `useChipTable`, same `ChipSurface`, same bodies, same collision audio, same
+   * tilt. A parallel "small chip table" would be a second physics identity to
+   * keep in sync, and the first bug would be the two of them disagreeing.
+   */
+  tableHeight?: number;
+  chipSize?: number;
+  /** The rail. A gym decision is 25 / 50 / 100 / 250; seven buttons is a menu.
+   *  The TABLE still represents any amount — this only bounds what a thumb can
+   *  throw without aiming. */
+  denominations?: readonly ForgeChipValue[];
+  /** Drop the three-figure row, the quick ladder and the instructional copy.
+   *  In a tray the athlete is mid-workout and already knows what a chip does. */
+  compact?: boolean;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -125,10 +148,12 @@ export function ChipWagerTable({
   const table = useChipTable({
     amount: value,
     onAmountChange: onChange,
-    denominations: FORGE_CHIPS,
+    denominations,
     ownerId,
     calm,
-    maxBodies: perfMode ? 26 : undefined,
+    // A shorter table has less room, so fewer bodies is the honest budget as
+    // well as the cheap one. perfMode still trims further.
+    maxBodies: perfMode ? 26 : compact ? 34 : undefined,
     locked,
   });
 
@@ -264,8 +289,12 @@ export function ChipWagerTable({
     <View testID={testID}>
       {/* ── THE POT. Moved up and stepped down a size so the table below it
           gets the room the interaction needs, and still the loudest number
-          on the card. ── */}
-      <View className="items-center">
+          on the card.
+          COMPACT DROPS IT ENTIRELY: in the call out tray the number already
+          lives on the SEND button ("50 SAYS I HIT THIS"), and a tray that
+          prints the same figure twice pushes the chip rail below the fold —
+          which breaks the two-tap path this whole feature is built around. ── */}
+      <View className="items-center" style={compact ? { display: 'none' } : undefined}>
         <Text
           className="text-text-mute"
           allowFontScaling={false}
@@ -306,24 +335,32 @@ export function ChipWagerTable({
       <View className="mt-s2">
         <ChipSurface
           table={table}
-          height={TABLE_HEIGHT}
+          height={tableHeight}
           locked={locked}
           testID="wager-table"
         />
       </View>
 
       {/* ── THE THREE NUMBERS, always legible, simulation or not. ── */}
-      <View className="mt-s3 flex-row" style={{ gap: 8 }}>
-        <Figure label="YOUR STAKE" value={formatCoins(shown)} tint={colors.accent} testID="wager-stake" />
-        <Figure label="AVAILABLE" value={formatCoins(remaining)} tint={colors.text} testID="wager-available" />
-        <Figure label="MAX HERE" value={formatCoins(max)} tint={colors['text-dim']} testID="wager-max" />
-      </View>
+      {compact ? null : (
+        <View className="mt-s3 flex-row" style={{ gap: 8 }}>
+          <Figure label="YOUR STAKE" value={formatCoins(shown)} tint={colors.accent} testID="wager-stake" />
+          <Figure label="AVAILABLE" value={formatCoins(remaining)} tint={colors.text} testID="wager-available" />
+          <Figure label="MAX HERE" value={formatCoins(max)} tint={colors['text-dim']} testID="wager-max" />
+        </View>
+      )}
 
-      {/* ── QUICK MOVES ── */}
-      <View className="mt-s3 flex-row flex-wrap" style={{ gap: 6 }}>
-        <Quick label="MIN" onPress={() => setTo(min)} disabled={disabled || locked || max < min} testID="wager-min" />
-        <Quick label="+25" onPress={() => quickAdd(25)} disabled={!canAdd(25)} testID="wager-plus-25" />
-        <Quick label="+100" onPress={() => quickAdd(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
+      {/* ── QUICK MOVES. Absent in compact: the rail IS the input there, and a
+          chip dragged out through the bottom of the table still goes back to
+          the wallet, which is the only escape hatch a tray needs. ── */}
+      <View className="mt-s3 flex-row flex-wrap" style={compact ? { display: 'none' } : { gap: 6 }}>
+        {compact ? null : (
+          <>
+            <Quick label="MIN" onPress={() => setTo(min)} disabled={disabled || locked || max < min} testID="wager-min" />
+            <Quick label="+25" onPress={() => quickAdd(25)} disabled={!canAdd(25)} testID="wager-plus-25" />
+            <Quick label="+100" onPress={() => quickAdd(100)} disabled={!canAdd(100)} testID="wager-plus-100" />
+          </>
+        )}
         <Quick label="MAX" onPress={() => setTo(max)} disabled={disabled || locked || value >= max} testID="wager-max-btn" />
         <Quick label="CLEAR" onPress={() => setTo(0)} disabled={disabled || locked || value === 0} testID="wager-clear" />
         {table.motion === 'prompt' ? (
@@ -347,17 +384,23 @@ export function ChipWagerTable({
       </View>
 
       {/* ── THE TRAY ── */}
-      <Text className="mt-s3 text-2xs text-text-mute" testID="wager-hint">
+      <Text
+        className={`${compact ? 'mt-s2' : 'mt-s3'} text-2xs text-text-mute`}
+        testID="wager-hint"
+        numberOfLines={compact ? 1 : undefined}
+      >
         {locked
           ? 'The pot is locked. Nothing else goes in.'
-          : 'Tap a chip · hold to build a stack · flick it at the table · drag a chip out to take it back'}
+          : compact
+            ? 'Tap a chip · or flick it at the table'
+            : 'Tap a chip · hold to build a stack · flick it at the table · drag a chip out to take it back'}
       </Text>
       {/* WHAT THE SENSOR IS ACTUALLY DOING, in one line. Not decoration: tilt
           has four ways to be unavailable (no sensor, permission not asked,
           permission refused, switched off) and they are indistinguishable from
           "broken" unless the screen says which. It cost a round trip to find
           that out the first time. */}
-      {!locked ? (
+      {!locked && !compact ? (
         <Text className="text-2xs text-text-mute" testID="wager-motion-state">
           {table.motion === 'on'
             ? calm
@@ -395,10 +438,11 @@ export function ChipWagerTable({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 10, paddingVertical: 8, paddingRight: 8 }}
         >
-          {FORGE_CHIPS.map((chip) => (
+          {denominations.map((chip) => (
             <TrayChip
               key={chip}
               value={chip}
+              size={chipSize}
               affordable={canAdd(chip)}
               screenWidth={screenWidth}
               tableWidth={table.size.width || trayWidth}
@@ -445,9 +489,14 @@ function TrayChip({
   onCommit,
   onHoldStart,
   onHoldEnd,
+  size = 46,
 }: {
   value: ForgeChipValue;
   affordable: boolean;
+  /** The chip's own diameter. The BOX never goes below 46 whatever this says —
+   *  hitSlop does nothing on react-native-web, so the pressable itself is the
+   *  only thing that can clear the 44pt touch floor. */
+  size?: number;
   /** The gesture reports a PAGE x; the table wants a TABLE-LOCAL one. */
   screenWidth: number;
   tableWidth: number;
@@ -552,9 +601,12 @@ function TrayChip({
         onTouchCancel={() => {
           press.value = withTiming(0, { duration: 140 });
         }}
-        style={[{ minWidth: 46, minHeight: 46 }, style]}
+        style={[
+          { minWidth: Math.max(46, size), minHeight: Math.max(46, size), alignItems: 'center', justifyContent: 'center' },
+          style,
+        ]}
       >
-        <ForgeChip value={value} size={46} dimmed={!affordable} />
+        <ForgeChip value={value} size={size} dimmed={!affordable} />
       </Animated.View>
     </GestureDetector>
   );

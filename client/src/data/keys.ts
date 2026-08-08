@@ -29,6 +29,10 @@ export const TABLE_READERS: Record<string, readonly string[]> = {
     'search_athletes',
   ],
   coin_events: ['coin_total', 'coin_events'],
+  // 150: a call out settling changes the list AND the wallet, and the two are
+  // shown on the same card. Registering it here is what stops a later mutation
+  // (a shop purchase, a duel payout) leaving a stale pot behind it.
+  workout_callouts: ['workout_callouts'],
   xp_events: ['xp_total', 'xp_ledger', 'xp_server_granted'],
   xp_ledger: ['xp_ledger', 'user_progression'],
   user_progression: ['user_progression', 'leaderboard_metric'],

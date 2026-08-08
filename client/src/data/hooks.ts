@@ -71,6 +71,9 @@ export interface ProfileRow {
   first_workout_at: string | null;
   first_workout_name: string | null;
   first_workout_date: string | null;
+  /** 150: WORKOUT CALL OUTS. Server-side rather than device-local, because it
+   *  also stops other athletes being able to call YOU out. */
+  callouts_enabled: boolean | null;
 }
 
 function useUserId(): string | null {
@@ -91,7 +94,7 @@ export function useProfile() {
     queryFn: async (): Promise<ProfileRow | null> => {
       const { data, error } = await supabase
         .from('profile')
-        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version,onboarding_goal,secondary_goals,experience_level,training_route,training_days_per_week,session_minutes,equipment_access,preferred_days,photo_prompts_disabled,photo_consent_at,photo_consent_version,physique_baseline_at,reforge_anchor_at,last_reforge_at,tour_completed_at,tour_state,first_workout_at,first_workout_name,first_workout_date')
+        .select('id,height_cm,bodyweight_kg,bench_e1rm,squat_e1rm,training_years,physique_score,leanness_score,base_level,created_at,sex,deadlift_e1rm,nutrition_phase,origin_path,onboarding_flow_version,onboarding_goal,secondary_goals,experience_level,training_route,training_days_per_week,session_minutes,equipment_access,preferred_days,photo_prompts_disabled,photo_consent_at,photo_consent_version,physique_baseline_at,reforge_anchor_at,last_reforge_at,tour_completed_at,tour_state,first_workout_at,first_workout_name,first_workout_date,callouts_enabled')
         .order('created_at', { ascending: true })
         .limit(ROW_CAP);
       if (error) throw error;

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { useExercisePrefs, unitFor, useSetExerciseUnit } from '@/data/exercise-prefs';
@@ -15,6 +15,9 @@ import { loadModelFor } from '@/domain/exercise-load-models';
 import { pixelFont } from '@/theme/fonts';
 import { LoadModeSelector } from '@/ui/train/load-mode-selector';
 import { lastPerformance, prefillForSet } from '@/domain/last-performance';
+import { judgeCallout, nextCallableSet, type CalloutRow } from '@/domain/callouts';
+import { putSetDraft } from '@/state/set-draft';
+import { CalloutBadge } from '@/ui/callouts/callout-badge';
 import { pyFloat, pyInt } from '@/domain/py';
 import type { SetVerdict } from '@/domain/set-save';
 import { WEIGHT_STEP, convertTyped, displayWeight, toKgForSave, type WeightUnit } from '@/domain/units';
@@ -98,6 +101,8 @@ export function ExerciseCard({
   supersetWith = null,
   onSuperset,
   readOnly = false,
+  onCallOut,
+  calloutFor,
 }: {
   date: string;
   workout: string;
@@ -140,6 +145,21 @@ export function ExerciseCard({
    * already makes an edit grant nothing. REOPEN (on the day's bar) unlocks.
    */
   readOnly?: boolean;
+  /**
+   * LIVE WORKOUT CALL OUTS (2026-08-08). Both optional and both ABSENT by
+   * default, which is the whole of §40: a pure logger — and the Arena's Volume
+   * Duel, which renders this same card — gets not one extra pixel, not one
+   * extra query and not one extra tap.
+   *
+   * `onCallOut` renders one small coin glyph in the header, beside the ⇄ and ✕
+   * that already live there, and opens the tray for the next unlogged set. Not
+   * a long-press: this file's own doctrine (see the footer controls below) is
+   * "one VISIBLE tap per action, no hidden gesture" — and a hidden gesture is
+   * also how an accidental wager happens.
+   */
+  onCallOut?: (setNo: number) => void;
+  /** The live call attached to a given set, if there is one. */
+  calloutFor?: (setNo: number) => CalloutRow | null;
 }) {
   const colors = useThemeColors();
   const tint = tintProp ?? colors.accent;
@@ -158,6 +178,9 @@ export function ExerciseCard({
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
   // WHOLE exercise card, not one set row. Battles follow their tint.
   const activeColor = tint === colors.accent ? colors.epic : tint;
+  // Which set a call out would attach to: the first one not yet logged, i.e.
+  // the one the athlete is about to do. Null once the exercise is finished.
+  const callableSet = onCallOut ? nextCallableSet(loggedRows, targetSets) : null;
 
   // SKIPPED = "not today". The card collapses to a ghost row: the exercise is
   // still visible (you chose to skip it, you didn't imagine it), any sets you
@@ -244,6 +267,22 @@ export function ExerciseCard({
             <Text className="text-base" style={{ color: tint }}>⇄</Text>
           </Pressable>
         ) : null}
+        {/* CALL THIS SET. Present only when the caller supplies the handler and
+            there is a set left to call — an exercise you have finished has
+            nothing to bet on. One glyph, gold because it is about the pot, and
+            it opens a tray rather than a screen. */}
+        {onCallOut && callableSet !== null ? (
+          <Pressable
+            onPress={() => onCallOut(callableSet)}
+            accessibilityRole="button"
+            accessibilityLabel={`Call out set ${callableSet} of ${exercise}`}
+            className="mr-s1 items-center justify-center"
+            style={{ minWidth: 40, minHeight: 40 }}
+            testID={`${exercise}-callout`}
+          >
+            <Text className="text-base" style={{ color: colors.legendary }}>◉</Text>
+          </Pressable>
+        ) : null}
         {/* "EXERCISE 1 OF 4" replaces the confusing "▸ NEXT 0/4"; set progress
             is the pips below. */}
         {done ? (
@@ -327,6 +366,7 @@ export function ExerciseCard({
             onLogged={onLogged}
             durable={durable}
             unit={unit}
+            callout={calloutFor?.(setNo) ?? null}
           />
         );
       })}
@@ -416,6 +456,7 @@ function SetRow({
   onLogged,
   durable = false,
   unit,
+  callout = null,
 }: {
   date: string;
   workout: string;
@@ -438,6 +479,8 @@ function SetRow({
   durable?: boolean;
   /** The lens: what the athlete types/reads. Props and saves are ALWAYS kg. */
   unit: WeightUnit;
+  /** A live call out on THIS set. Null for every set in every normal workout. */
+  callout?: CalloutRow | null;
 }) {
   const colors = useThemeColors();
   // 133 — BODYWEIGHT LOAD MODES. The model comes from the canonical exercise
@@ -490,6 +533,27 @@ function SetRow({
   const [dropPad, setDropPad] = useState<null | { stage: 'w' | 'r'; w?: string; keep?: boolean }>(null);
   const save = useSaveSet();
   const logged = initialWeight !== '';
+
+  /**
+   * WHAT IS ON SCREEN, WHERE THE CALL OUT TRAY CAN READ IT.
+   *
+   * The tray must propose the set the athlete is LOOKING AT. Their typed weight
+   * lives in this component's local state, and the tray opens from the exercise
+   * HEADER — so without this, typing 105 and then calling the set would offer
+   * 100 (the prefill), which is a different bet from the one on screen.
+   *
+   * A module-level Map, not a store: this runs on every keystroke, and routing
+   * it through React would re-render the logging card mid-typing. Nothing
+   * re-renders because of this effect; see state/set-draft.ts.
+   */
+  useEffect(() => {
+    const w = pyFloat(weight);
+    putSetDraft(date, workout, exercise, setNo, {
+      weightKg: w === null ? null : toKgForSave(w, unit),
+      reps: pyInt(reps),
+      loadMode,
+    });
+  }, [date, workout, exercise, setNo, weight, reps, loadMode, unit]);
 
   /**
    * 133: what a set NEEDS depends on its mode.
@@ -598,8 +662,45 @@ function SetRow({
   const fieldW = compact ? FIELD_WIDTH_COMPACT : FIELD_WIDTH;
   const sign = loadFieldSign(loadMode);
   const fieldLabel = loadFieldLabel(loadMode);
+  /**
+   * BELOW YOUR CALL — said BEFORE the tap, not after the loss.
+   *
+   * The server judges the row that gets written; this only warns. An athlete
+   * who has 100 × 5 riding on a set and has typed 95 into the box should find
+   * that out while they can still change it, which is the difference between a
+   * decision and a surprise.
+   */
+  const shortOfCall =
+    callout != null &&
+    (callout.status === 'accepted' || callout.status === 'offered') &&
+    !logged &&
+    judgeCallout(
+      {
+        loadMode: callout.target_load_mode,
+        weightKg: callout.target_weight_kg,
+        reps: callout.target_reps,
+      },
+      {
+        loadMode: null,
+        weightKg: pyFloat(weight) === null ? 0 : toKgForSave(pyFloat(weight) as number, unit),
+        reps: Math.trunc(pyFloat(reps) ?? 0),
+      }
+    ) === 'miss' &&
+    (pyFloat(reps) ?? 0) > 0;
+
   return (
     <View className="mb-s2">
+    {callout ? <CalloutBadge callout={callout} /> : null}
+    {shortOfCall ? (
+      <Text
+        allowFontScaling={false}
+        className="px-[2px] text-2xs"
+        style={{ color: colors.warn, letterSpacing: 0.5 }}
+        testID={`${exercise}-below-call-${setNo}`}
+      >
+        BELOW YOUR CALL · {callout?.target_label}
+      </Text>
+    ) : null}
     {/* 133: only rendered when the exercise offers a choice — an ordinary
         lift has none, and a one-option selector is noise mid-set. */}
     <LoadModeSelector
