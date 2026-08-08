@@ -105,6 +105,14 @@ export const COIN_LABELS: Record<string, string> = {
   // the one place an athlete goes to check their coins.
   callout_stake: 'Call out stake',
   callout_payout: 'Call out payout',
+  // 154 — FORGE DROP. Same rule again: server-only, guard-admitted, and the
+  // ledger screen is exactly where somebody goes to check what a board
+  // actually paid them. This is the third of the THREE EDITS a coin kind
+  // needs (CHECK constraint, guard branch, client label) and it is the one
+  // that gets forgotten, because nothing fails without it — the row just
+  // renders blank in the one place it matters.
+  forge_drop_stake: 'Forge Drop stake',
+  forge_drop_payout: 'Forge Drop payout',
 };
 
 /** Claim + refresh + announce, from any screen. */

@@ -3993,6 +3993,17 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   expectation is exactly `stake × multiplier`, so the published number is true
   at every stake. Check the top multiplier × max stake is a whole number, or
   rounding up can breach the advertised ceiling.
+- **The THIRD of the THREE EDITS is the one that gets forgotten, because
+  nothing fails without it.** A coin kind needs the CHECK constraint, the
+  `coin_events_guard()` branch and the CLIENT LABEL. The first two fail loudly.
+  The third fails silently — the ledger screen renders a blank where a
+  description should be, in the one place an athlete goes to check what
+  something actually paid them. Forge Drop shipped its constraint and its guard
+  and forgot its labels, and no test anywhere noticed.
+  `tools/falsify-forge-drop.mjs` §10 now reads the CHECK constraint out of the
+  live database and `COIN_LABELS` out of the source and refuses to let them
+  disagree — for EVERY kind, not just Forge Drop's, because the next one will
+  be forgotten too.
 - **Sample the PAYOUT, not the multiplier.** The 100k-sample harness asserted
   the mean multiplier matched the board and passed happily while the flooring
   bug was live — the multiplier was right, the coins were not. A statistical

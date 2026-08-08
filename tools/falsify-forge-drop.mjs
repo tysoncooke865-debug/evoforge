@@ -372,6 +372,48 @@ ok('the house edge held across this run',
    Number(totals.paid) <= Number(totals.staked) * 1.6,
    `${totals.n} drops: staked ${totals.staked}, paid ${totals.paid}`);
 
+// ── 10. THE THIRD EDIT ──────────────────────────────────────────────────────
+//
+// A coin kind needs THREE edits: the CHECK constraint, the guard branch, and
+// the client label. The first two fail loudly when missed. The third fails
+// SILENTLY — the ledger screen just renders a blank where a description should
+// be, in the one place an athlete goes to check what a board actually paid
+// them — and it is the one that gets forgotten. It was forgotten here, and no
+// test anywhere noticed.
+//
+// So this reads the CHECK constraint out of the live database and the label
+// map out of the source, and refuses to let them disagree. It covers every
+// kind, not just Forge Drop's, because the next one will be forgotten too.
+console.log(`
+10. EVERY COIN KIND THE DATABASE ACCEPTS HAS A LABEL`);
+{
+  const def = one(await svc(`
+    select pg_get_constraintdef(oid) as def
+    from pg_constraint
+    where conrelid = 'public.coin_events'::regclass
+      and conname = 'coin_events_kind_check';`));
+  const dbKinds = [...new Set([...String(def.def).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]))];
+
+  const src = readFileSync(new URL('../client/src/data/coins.ts', import.meta.url), 'utf8');
+  const END = `
+};`;
+  const body = src.slice(src.indexOf('COIN_LABELS'), src.indexOf(END, src.indexOf('COIN_LABELS')));
+  const labelled = new Set([...body.matchAll(/^\s*([a-z_]+):\s*'/gm)].map((m) => m[1]));
+
+  ok('the CHECK constraint was actually found', dbKinds.length > 5, `${dbKinds.length} kinds`);
+  ok('COIN_LABELS was actually parsed', labelled.size > 5, `${labelled.size} labels`);
+
+  const missing = dbKinds.filter((k) => !labelled.has(k));
+  ok('every kind the ledger can hold renders with a name, not a blank',
+     missing.length === 0,
+     missing.length ? `unlabelled: ${missing.join(', ')}` : `${dbKinds.length} kinds all labelled`);
+
+  for (const k of ['forge_drop_stake', 'forge_drop_payout']) {
+    ok(`${k} is accepted by the constraint AND labelled`,
+       dbKinds.includes(k) && labelled.has(k));
+  }
+}
+
 // ── CLEANUP ─────────────────────────────────────────────────────────────────
 console.log('\nCLEANUP');
 await setRating(origRating);
