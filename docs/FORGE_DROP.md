@@ -1,10 +1,13 @@
 # FORGE DROP
 
-A single-player Plinko board played with Forge Coins. One stake, one lane, one
-fall, one payout. It is the only place in EvoForge where coins are wagered
-against the house rather than against another athlete.
+A single-player Plinko board played with Forge Coins. Pick a chip off the rack,
+flick it at the board, and while it is still falling pick up another. It is the
+only place in EvoForge where coins are wagered against the house rather than
+against another athlete.
 
-Shipped 2026-08-08. Migrations **154** (board + ledger) and **155** (play).
+Shipped 2026-08-08. Migrations **154** (board + ledger), **155** (play) and
+**156** (concurrency + batch recovery). Reachable from the Vault, from More,
+from Customise when short of coins, and from the rest timer between sets.
 
 ---
 
@@ -144,6 +147,87 @@ actually be paid, so it is not presented as the outcome.
 
 ---
 
+## 3b. Several chips in the air
+
+The board takes concurrent drops: **three on a phone, five on a desktop**
+(`dropCapacity`). Each flick is its own drop with its own idempotency key, its
+own server call and its own independent result, and results may land in any
+order. The limit is on UNREVEALED drops, so a fast athlete is throttled by what
+they can watch rather than by what they can afford — five pucks crossing a 320px
+board is a smear, and a five-row rail pushes the rack under the fold.
+
+### The lock that had to exist first
+
+`forge_drop_play` read the balance with `coin_total()` and compared it to the
+stake **without a lock**. One drop at a time, that was fine. Concurrency turned
+it into a live bug: two transactions read the same balance, both concluded they
+could afford it, and both debited.
+
+Measured against production before migration 156: **six concurrent five-coin
+drops fired at a ten-coin balance were all six accepted.** Nothing refused.
+
+Migration 156 takes a transaction-scoped advisory lock per user before the
+balance is read. It is namespaced `evoforge.coin_spend:<user>` rather than
+`forge_drop:<user>` deliberately — the same race exists in principle between any
+two coin spenders, so the next one to adopt it is protected against the ones
+already here, not only against itself.
+
+Do not assert "the balance went negative" to test this. Payouts land in the same
+transaction as their stake, so winnings quietly refinance the overdraft and the
+closing balance can look perfectly healthy while six drops were authorised
+against funds for two. What is broken is the AUTHORISATION, so that is what the
+harness asserts: with one stake affordable, somebody has to be told no.
+
+### What the wallet reads while chips are falling
+
+Four numbers, because one is a lie while anything is in the air:
+
+| | |
+|---|---|
+| **BALANCE** | spendable now |
+| **IN PLAY** | committed to chips that have not landed |
+| **WHEN THEY LAND** | what it becomes once everything settles |
+| **FALLING** | how many chips are in the air, against the limit |
+
+All of it is derived from the server's own `coin_total()` every render, adjusted
+only to **hide what has not been shown**:
+
+- **falling** — the server counted the stake and the payout. Count the stake,
+  subtract the payout back out, so the chip reads as a loss until it lands and
+  the balance can never announce a result the animation is still delivering.
+- **pending** — the cached total predates the request. Subtract the stake, so
+  coins committed to a chip already thrown cannot be committed again.
+- **revealed** — already in the total and already shown. Nothing to adjust.
+
+The first version anchored to the balance at the moment the board last went
+quiet and applied every movement on top. It **double-counted**: once the board
+went quiet again the anchor became the post-settlement total, and the revealed
+drops were re-applied to it. The browser tour caught it as a one-coin
+disagreement between the header and the ledger — small, permanent, and exactly
+the kind of drift that makes a wallet untrustworthy. Deriving from the server
+every time cannot drift, because there is nothing to keep in step.
+
+### The chips
+
+`DROP_CHIPS` is 1 / 5 / 10 / 15 / 25 / 50 — not the duel's `FORGE_CHIPS`, which
+starts at 5 and runs to 500 because a duel is a week-long wager between two
+people. A board with a five-coin ceiling needs a 1, and nothing here needs a 500.
+
+Every denomination is always ON the rack. One that cannot be played is disabled
+and **says why** — over the board's ceiling, unaffordable, or blocked by the
+capacity limit — because a chip that vanishes teaches nothing, and an athlete
+who cannot find it does not conclude they are out of coins.
+
+Pick a chip up, drag it, and flick: the horizontal component picks the lane, so
+aiming and committing are one motion. A slow drag PREVIEWS the lane and stakes
+nothing. `flickLane` returns null for a tap, a nudge, a sideways swipe, a
+downward drag or a slow smear — **a wager must never be the default outcome of
+touching the screen**. Tapping a chip selects it instead, and the lane buttons
+and DROP button do everything the flick does, because a gesture cannot be tabbed
+to, described to a screen reader, or performed one-handed on a bus.
+
+---
+
 ## 4. Settlement
 
 `forge_drop_play(p_key uuid, p_stake int, p_lane int)` — SECURITY DEFINER, one
@@ -158,7 +242,11 @@ transaction, in this order:
 All four or none. There is no window in which coins have left and no drop row
 exists, and no window in which a drop exists unpaid.
 
-**Idempotence** is a unique index on `(user_id, idempotency_key)`. The client
+**Idempotence** is a unique index on `(user_id, idempotency_key)`, and with
+concurrent drops there can be several keys in flight at once — so they are held
+on disk as a list and `forge_drop_fetch_many` answers for all of them in one
+round trip. On a connection that has already proven unreliable, N round trips to
+ask "did any of these land?" is N more chances to be interrupted. The client
 mints the key and writes it to disk *before* the request goes out; replaying the
 same key returns the original drop with `replayed: true` and **charges nothing**.
 A dead tunnel, a closed tab or a sleeping phone therefore leaves something to ask
@@ -199,6 +287,42 @@ only when the puck arrives.
 the app's own perf mode, the puck is placed in its slot at once and the outcome
 is announced identically. There is no version of this where somebody waits longer
 or learns less because they asked for less movement.
+
+---
+
+## 5b. During a rest, and inside Challenges
+
+**The rest timer** carries an optional DROP button, offered only while a rest is
+actually running and never below twenty seconds remaining. The rules are mostly
+about what it must not do:
+
+- **It never opens itself.** Nothing opens the panel except that button — not
+  finishing a set, not a personal record, not a streak. A gambling surface that
+  appeared unbidden after every set would be a slot machine attached to a
+  barbell.
+- **It never touches the clock.** It reads the rest clock and writes nothing, so
+  it cannot pause, extend or reset a rest. It closes itself when rest ends
+  rather than waiting to be dismissed — the next set is the point.
+- **It never blocks the next set.** `pointerEvents="box-none"` throughout, above
+  the tab bar rather than over the logger. The workout's own state is untouched:
+  it is a sibling overlay that shares nothing with the logger but the screen.
+- **It stops before the rest does.** New drops are refused in the final ten
+  seconds. Chips already falling settle in the background and are waiting on the
+  Forge Drop screen afterwards — a settled wager is never lost to a closing
+  panel.
+- Three drops maximum. A rest is not a session.
+
+**Challenges** already run on the same chip system and were not rebuilt for this:
+`ChipWagerTable`, `ForgeChip`, `ChipSurface` and `ForgePot` back doubting and
+accepting a call-out (`callout-tray`), raising and going all-in (`offer-sheet`),
+friends backing a side and participant contributions (`challenges/[id]`),
+spectating (`challenges/watch/[id]`) and calling a wager off. Forge Drop's rack
+joins that system through `ForgeChip` rather than forking it — the component was
+widened to take any whole denomination and a tone token, which is what let the
+board rack a 1 and a 15 without a second chip component existing.
+
+Friend verification and server-confirmed evidence are unchanged: no wager
+settles without them or an explicit cancellation.
 
 ---
 
@@ -248,9 +372,13 @@ or learns less because they asked for less movement.
   payout in whole coins at both the minimum and maximum stake, not just the mean
   multiplier. Sampling only the multiplier is how the flooring bug survived this
   harness the first time.
-- `tools/tour-forge-drop.mjs` — Playwright, 47 assertions. Drives the real UI at
+- `tools/tour-forge-drop.mjs` — Playwright, 70 assertions. Drives the real UI at
   three Evo tiers, four viewport widths and with reduced motion, screenshots
-  every state, and reloads mid-request to exercise recovery.
+  every state, reloads mid-request to exercise recovery, and throws three chips
+  of different denominations into different lanes without waiting for any of
+  them — asserting that more than one puck is on the board at once, that each
+  settles independently, that the ledger moved by the sum of their nets and
+  nothing else, and that the phone limit refuses the fourth and says why.
 
 ---
 

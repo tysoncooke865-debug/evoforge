@@ -3971,6 +3971,23 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   samples) and `tools/tour-forge-drop.mjs` (47 assertions, three tiers, four
   widths, reduced motion).
 
+- **FORGE DROP — CHIPS, AND SEVERAL AT ONCE** (2026-08-09, migration **156**) —
+  the board is now played by throwing chips: a rack of 1/5/10/15/25/50 under a
+  board that never leaves the screen, flicked up-and-sideways so aiming and
+  committing are one motion, with a full tap/keyboard path that does everything
+  the gesture does. **Three chips may be in the air on a phone, five on a
+  desktop**, in mixed denominations and mixed lanes, each with its own key, its
+  own server call and its own independent result. Also on the rest timer between
+  sets (opt-in button only, never auto-opens, never touches the clock, refuses
+  new drops in the final 10s, closes itself when rest ends) — Challenges already
+  ran on the same chip components and were not rebuilt. New: `forge_drop_play`
+  takes a per-user advisory lock; `forge_drop_fetch_many` recovers every
+  in-flight key in one round trip; `domain/forge-drop-session.ts` +
+  `data/forge-drop-session.ts` + `ui/forge-drop/chip-rack.tsx`. Verified by 29
+  new domain tests, `falsify-forge-drop.mjs` (concurrency + batch recovery
+  sections added) and `tour-forge-drop.mjs` at **70 assertions** including three
+  chips thrown without waiting for any of them.
+
 ---
 
 ## 3. The rules that cost real bugs
@@ -4004,6 +4021,27 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   live database and `COIN_LABELS` out of the source and refuses to let them
   disagree — for EVERY kind, not just Forge Drop's, because the next one will
   be forgotten too.
+- **A balance check without a lock is not a balance check.** `forge_drop_play`
+  read `coin_total()` and compared it to the stake with nothing serialising it.
+  One drop at a time that was invisible; the moment two chips could be thrown at
+  once, **six concurrent five-coin drops against a TEN-coin balance were all six
+  accepted**. Any read-then-decide on an append-only ledger needs
+  `pg_advisory_xact_lock` on the user, and the key is namespaced
+  `evoforge.coin_spend:<user>` rather than per-feature so the next spender to
+  adopt it is protected against the ones already there.
+- **Do not test an overdraft by looking at the closing balance.** Payouts land
+  in the same transaction as their stake, so winnings refinance the overdraft
+  and the balance looks healthy while six drops were authorised against funds
+  for two. Assert the AUTHORISATION: with one stake affordable, somebody has to
+  be told no.
+- **Derive a displayed balance from the server every render; never carry one
+  forward.** The first concurrent build anchored to the balance at the last
+  quiet moment and applied each movement on top — and double-counted, because
+  once the board went quiet the anchor became the post-settlement total and the
+  revealed drops were re-applied to it. It showed as a permanent one-coin
+  disagreement between the header and the ledger. Adjust the server's own total
+  only to HIDE what has not been shown yet; there is then nothing to keep in
+  step and nothing to drift.
 - **Sample the PAYOUT, not the multiplier.** The 100k-sample harness asserted
   the mean multiplier matched the board and passed happily while the flooring
   bug was live — the multiplier was right, the coins were not. A statistical

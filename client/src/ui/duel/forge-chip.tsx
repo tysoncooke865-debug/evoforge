@@ -31,16 +31,25 @@ export const ForgeChip = memo(function ForgeChip({
   size = 46,
   dimmed = false,
   label = true,
+  tone: toneToken,
 }: {
-  value: ForgeChipValue;
+  /** Any whole number of coins. Widened from the duel's own ladder so Forge
+   *  Drop can rack a 1 and a 15 — denominations a week-long duel never needs
+   *  but a board with a five-coin ceiling cannot do without. */
+  value: ForgeChipValue | number;
   size?: number;
   /** Unaffordable, or already spent — quiet, never broken-looking. */
   dimmed?: boolean;
   /** The pile hides the number on the chips under the top one. */
   label?: boolean;
+  /** A theme TOKEN NAME for denominations outside the duel's ladder. Never a
+   *  colour: this component resolves tokens against the live theme and must
+   *  keep being the only thing that decides what a chip looks like. */
+  tone?: string;
 }) {
   const colors = useThemeColors();
-  const tone = colors[CHIP_TONE[value] as keyof typeof colors] ?? colors.accent;
+  const token = toneToken ?? CHIP_TONE[value as ForgeChipValue];
+  const tone = colors[token as keyof typeof colors] ?? colors.accent;
   const r = size / 2;
   const notchW = size * 0.16;
   const notchH = size * 0.1;

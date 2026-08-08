@@ -284,7 +284,10 @@ console.log('\n9. A HUNDRED THOUSAND DROPS THROUGH THE REAL RESOLVER');
 for (const tier of tiers) {
   const mult = tier.multipliers.map(Number);
   for (const lane of tier.lanes) {
-    const N = 100000;
+    // 100k is the shipping figure. FAST=1 drops it to 5k so the ledger and
+    // concurrency sections can be iterated on in under a minute — it is for
+    // development only, and the tolerances below are sized for the full run.
+    const N = process.env.FAST ? 5000 : 100000;
     const r = one(await svc(`
       with drops as (
         select public.forge_drop_slot(${lane},
@@ -371,6 +374,115 @@ const totals = one(await svc(`
 ok('the house edge held across this run',
    Number(totals.paid) <= Number(totals.staked) * 1.6,
    `${totals.n} drops: staked ${totals.staked}, paid ${totals.paid}`);
+
+// ── 9b. CONCURRENT DROPS CANNOT SPEND THE SAME COINS TWICE ──────────────
+//
+// The redesign lets an athlete flick a second chip while the first is still
+// falling, which turned a latent bug into a live one. `forge_drop_play` read
+// the balance with `coin_total()` and compared it to the stake WITHOUT A LOCK,
+// so two transactions read the same balance, both decided they could afford
+// it, and both debited.
+//
+// Measured against production before migration 156: six concurrent five-coin
+// drops fired at a TEN coin balance were ALL SIX ACCEPTED. Nothing refused.
+//
+// The assertion below is deliberately NOT "the balance went negative" — that
+// is the trap this section fell into first. Payouts land in the same
+// transaction as their stake, so winnings quietly refinance the overdraft and
+// the closing balance can look perfectly healthy while six drops were
+// authorised against funds for two. What is actually broken is the
+// AUTHORISATION, so that is what gets asserted: with only one stake affordable,
+// somebody has to be told no.
+console.log(`
+9b. CONCURRENT DROPS, AGAINST A BALANCE THAT ONLY COVERS ONE`);
+{
+  await wipe();
+  // Put ALPHA on a board that accepts the stake, with room for exactly one.
+  await svc(`update public.evo_rating_current set displayed_rating = 50 where user_id = '${ALPHA}';`);
+  const start = await bal(ALPHA);
+  const STAKE = 15; // tier 3's ceiling, so no payout can fund a second at will
+  const surplus = start - STAKE;
+  if (surplus !== 0) {
+    await svc(`insert into public.coin_events (user_id, kind, amount, source_id, source_table)
+               values ('${ALPHA}', 'adjustment', ${-surplus}, 'drop-race-${Date.now()}', 'forge_drops');`);
+  }
+  ok('the athlete starts with exactly one stake to their name',
+     (await bal(ALPHA)) === STAKE, `${STAKE} coins`);
+
+  const N = 6;
+  const settled = await Promise.allSettled(
+    Array.from({ length: N }, () => play(ALPHA, k(), STAKE, 6))
+  );
+  const accepted = settled.filter((r) => r.status === 'fulfilled').length;
+  const refusals = settled.filter((r) => r.status === 'rejected').map((r) => String(r.reason.message));
+  const onBalance = refusals.filter((m) => /you have \d+ coins/.test(m)).length;
+
+  // Without the lock this was 6. With it, the very first drop takes the
+  // balance to zero plus whatever it won, and the rest are told the truth.
+  ok(`not every concurrent drop was accepted — ${accepted} of ${N} got through`,
+     accepted < N, `${refusals.length} refused`);
+  ok('the refusals name the real balance, not a generic error',
+     onBalance > 0, refusals[0] ? refusals[0].split('CONTEXT')[0].trim().slice(0, 80) : 'none');
+
+  // And every drop that WAS accepted was affordable when it was validated:
+  // replaying the ledger in commit order must never dip below zero.
+  const rows = await svc(`
+    select amount from public.coin_events
+    where user_id = '${ALPHA}' and kind in ('forge_drop_stake','forge_drop_payout')
+    order by created_at, kind;`);
+  let running = STAKE;
+  let dipped = false;
+  for (const r of rows) { running += Number(r.amount); if (running < 0) dipped = true; }
+  ok('replaying the ledger in order, the balance never goes negative',
+     !dipped, `closed at ${running}`);
+
+  const staked = one(await svc(`select coalesce(sum(stake),0)::int s, count(*)::int n
+                                from public.forge_drops where user_id = '${ALPHA}';`));
+  ok('no more was staked than the athlete could ever have afforded',
+     Number(staked.s) <= STAKE + Math.max(0, running), `staked ${staked.s} across ${staked.n} drops`);
+
+  await wipe();
+  const back = await bal(ALPHA);
+  if (back !== start) {
+    await svc(`insert into public.coin_events (user_id, kind, amount, source_id, source_table)
+               values ('${ALPHA}', 'adjustment', ${start - back}, 'drop-race-restore-${Date.now()}', 'forge_drops');`);
+  }
+  ok('the balance was put back where it started', (await bal(ALPHA)) === start, `${start} coins`);
+}
+
+// ── 9c. RESTORING SEVERAL DROPS AT ONCE ───────────────────────────
+//
+// With up to five chips in the air there can be five keys on disk when a tab
+// closes. `forge_drop_fetch_many` answers for all of them in one round trip —
+// on a connection that has already proven unreliable, N round trips to ask
+// "did any of these land?" is N more chances to be interrupted.
+console.log(`
+9c. RESTORING SEVERAL IN-FLIGHT DROPS IN ONE ROUND TRIP`);
+{
+  const keys = [k(), k(), k()];
+  const played = [];
+  for (const key of keys) played.push(await play(ALPHA, key, 2, 6));
+  const neverPlayed = k();
+
+  const many = one(await as(ALPHA,
+    `select public.forge_drop_fetch_many(array['${keys.join("','")}','${neverPlayed}']::uuid[]) v;`)).v;
+
+  ok('every key that settled comes back', Array.isArray(many) && many.length === keys.length,
+     `${many?.length} of ${keys.length}`);
+  ok('a key that never played is simply absent — the signal that nothing was charged',
+     !many.some((d) => d.idempotency_key === neverPlayed));
+  ok('each restored drop carries the result it settled on',
+     many.every((d, i) => d.stake === 2 && d.drop_id === played.find((p) => p.drop_id === d.drop_id)?.drop_id),
+     `${many.length} matched`);
+  ok('restoring charges nothing — it is a read',
+     (await svc(`select count(*)::int n from public.forge_drops where user_id = '${ALPHA}';`))[0].n === keys.length,
+     `${keys.length} drops, unchanged`);
+
+  const stranger = one(await as(BRAVO,
+    `select public.forge_drop_fetch_many(array['${keys.join("','")}']::uuid[]) v;`)).v;
+  ok('another athlete holding the same keys gets nothing back',
+     Array.isArray(stranger) && stranger.length === 0, `${stranger?.length} rows`);
+}
 
 // ── 10. THE THIRD EDIT ──────────────────────────────────────────────────────
 //

@@ -1,25 +1,27 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { track } from '@/data/analytics';
-import { useCoinTotal } from '@/data/coins';
-import { beginDrop, useMyDropTier, usePlayDrop, useRecoverDrop } from '@/data/forge-drop';
+import { useMyDropTier } from '@/data/forge-drop';
+import { useDropSession } from '@/data/forge-drop-session';
+import { columnsFor, formatMultiplier, type DropTier } from '@/domain/forge-drop';
 import {
-  canAfford,
-  clampStake,
-  columnsFor,
-  formatMultiplier,
-  quickStakes,
-  type DropResult,
-} from '@/domain/forge-drop';
+  chipOffers,
+  dropCapacity,
+  laneFor,
+  rackBlocker,
+  type LaneChoice,
+  type SessionDrop,
+} from '@/domain/forge-drop-session';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
-import { DropBoard } from '@/ui/forge-drop/drop-board';
+import { ChipRack } from '@/ui/forge-drop/chip-rack';
+import { DropBoard, type BoardPuck } from '@/ui/forge-drop/drop-board';
 import { PayoutTable, laneName } from '@/ui/forge-drop/payout-table';
 
 /**
@@ -28,43 +30,58 @@ import { PayoutTable, laneName } from '@/ui/forge-drop/payout-table';
  * Train → the Evo Rating rises → a stronger board unlocks → coins earned by
  * training are risked on it → winnings are spent in Customise or on a duel.
  *
- * THE THREE RULES THIS SCREEN KEEPS:
+ * THE SHAPE: the board never leaves the screen, and the chips live under it.
+ * Pick one up, flick it at the board, and while it is still falling pick up
+ * another. Results stack into a rail beside the board rather than covering it,
+ * because a modal result would make a second chip impossible — and throwing the
+ * second chip while the first is in the air is the entire point.
  *
- *   1. NOTHING IS CELEBRATED BEFORE IT IS SETTLED. The puck only falls once the
- *      server has returned an authoritative result, and the balance only moves
- *      when the server's own `coin_total()` says so. There is no optimistic
+ * THE RULES THIS SCREEN KEEPS:
+ *
+ *   1. NOTHING IS CELEBRATED BEFORE IT IS SETTLED. A puck only falls once the
+ *      server has returned an authoritative result. There is no optimistic
  *      state anywhere in here.
- *   2. THE ODDS ARE ON SCREEN BEFORE THE WAGER. Every slot, its payout at this
- *      stake, and its exact chance from this lane — the same numbers the server
- *      settles by.
- *   3. NO LOSS-CHASING. "Drop again" appears when it can be afforded and says
- *      nothing about winning anything back; when it cannot, the only way on is
- *      back to the Forge. No near misses, no "so close", no doubling prompts.
+ *   2. NOTHING IS SPOILED BEFORE IT LANDS. A falling chip has already settled
+ *      and its payout is already in the ledger — so the balance deliberately
+ *      reads as if it lost until the chip arrives. The number never announces
+ *      the result the animation is on its way to deliver.
+ *   3. THE ODDS ARE ON SCREEN BEFORE THE WAGER. Every slot, its payout at this
+ *      stake, its exact chance from this lane — the same numbers the server
+ *      settles by, and never hidden behind a disclosure.
+ *   4. NO LOSS-CHASING. DROP AGAIN repeats the chip and lane already chosen and
+ *      says nothing about winning anything back. No near misses, no "so close",
+ *      no doubling prompts, and never an automatic second wager.
  */
 export default function ForgeDropScreen() {
   const colors = useThemeColors();
-  const coins = useCoinTotal();
+  const { width } = useWindowDimensions();
   const { tier, rating, ready, missingRating } = useMyDropTier();
-  const play = usePlayDrop();
-  const recover = useRecoverDrop();
+  const session = useDropSession(ready ? tier : null);
+  // Destructured because `session` is a new object every render: a useCallback
+  // depending on it is a useCallback that never holds. `play` and `reveal` are
+  // stable; the data fields are not, and are read directly.
+  const { play, reveal, drops, balance, summary, loading, recovered } = session;
 
-  // NULL ON ANY FAILURE, NEVER 0 (the coins doctrine): an unreadable wallet
-  // must not read as an empty one, and must not offer a wager either.
-  const balance = coins.data;
-  const [lane, setLane] = useState<number | null>(null);
-  const [stake, setStake] = useState<number | null>(null);
-  const [result, setResult] = useState<DropResult | null>(null);
-  const [falling, setFalling] = useState(false);
+  const capacity = dropCapacity(width);
+  const [chip, setChip] = useState<number | null>(null);
+  const [laneChoice, setLaneChoice] = useState<LaneChoice>('centre');
+  const [preview, setPreview] = useState<LaneChoice | null>(null);
   const [announce, setAnnounce] = useState('');
+  const [showOdds, setShowOdds] = useState(false);
 
-  const chosenLane = lane ?? tier.lanes[Math.floor(tier.lanes.length / 2)];
-  const chosenStake = stake ?? Math.min(tier.min_stake, Math.max(0, Math.floor(balance ?? 0)));
-  const affordable = balance != null && canAfford(tier, balance);
-  const quick = balance == null ? [] : quickStakes(tier, balance);
+  const lane = laneFor(laneChoice, tier);
+  const offers = chipOffers(tier, balance, capacity);
+  const blocker = rackBlocker(tier, balance, capacity);
 
-  useEffect(() => {
-    track('forge_drop_viewed', {});
-  }, []);
+  // The selected chip survives every drop, so DROP AGAIN is a repeat and not a
+  // re-decision. It moves only when the athlete moves it, or when the board
+  // stops allowing it.
+  const selected = useMemo(() => {
+    if (chip !== null && offers.some((o) => o.value === chip && o.enabled)) return chip;
+    return offers.find((o) => o.enabled)?.value ?? null;
+  }, [chip, offers]);
+
+  useEffect(() => { track('forge_drop_opened', {}); }, []);
   const seenTier = useRef<number | null>(null);
   useEffect(() => {
     if (!ready || seenTier.current === tier.tier) return;
@@ -73,48 +90,69 @@ export default function ForgeDropScreen() {
   }, [ready, tier.tier, rating]);
 
   /**
-   * DID A WAGER SURVIVE THE LAST SESSION?
+   * A drop recovered from a previous session is announced, never re-animated:
+   * the athlete was not watching, and replaying it as a fall would be theatre.
    *
-   * On mount, ask about any key left on disk. A refresh mid-animation, a killed
-   * tab or a dead tunnel all land here: the drop is retrieved by ID, never
-   * replayed as a new wager.
+   * Derived rather than pushed into state by an effect — the recovery is a fact
+   * about the data, so it is read from the data. An effect would only be a
+   * slower way to say the same thing, one render later.
    */
-  useEffect(() => {
-    let live = true;
-    void recover().then((r) => {
-      if (!live || !r) return;
-      setResult(r);
-      setLane(r.lane);
-      setStake(r.stake);
-      setAnnounce(describe(r));
-    });
-    return () => { live = false; };
-  }, [recover]);
-
-  const drop = async () => {
-    if (!affordable || play.isPending || falling) return;
-    const s = clampStake(chosenStake, tier, balance ?? 0);
-    track('forge_drop_started', { tier: tier.tier, lane: chosenLane, stake: s });
-    // The key is minted and written to disk BEFORE the request, so a settlement
-    // this client never hears about is still something it can ask after.
-    const key = await beginDrop();
-    setResult(null);
-    setAnnounce('');
-    play.mutate(
-      { stake: s, lane: chosenLane, key },
-      {
-        onSuccess: (r) => {
-          setResult(r);
-          // The fall begins only now — there is nothing to animate until the
-          // server has said what happened.
-          setFalling(true);
-        },
-      }
+  const recoveryNote = useMemo(() => {
+    if (recovered.length === 0) return '';
+    const n = recovered.length;
+    const total = recovered.reduce((sum, d) => sum + (d.net ?? 0), 0);
+    return (
+      `${n} drop${n === 1 ? '' : 's'} settled while you were away, ` +
+      `${total >= 0 ? `up ${total}` : `down ${Math.abs(total)}`} coins in total.`
     );
+  }, [recovered]);
+
+  // Plain function: the compiler memoises this better than a hand-written
+  // useCallback, which it has to skip because the closure it would preserve is
+  // not the one the deps describe.
+  const throwChip = async (value: number, choice: LaneChoice) => {
+    setLaneChoice(choice);
+    setChip(value);
+    await play(value, choice);
   };
 
-  const settledColumns = result ? columnsFor(result, tier.rows) : null;
-  const showResult = result !== null && !falling;
+  /**
+   * THE FALLING CHIPS — and the ones that refuse to fall.
+   *
+   * `columnsFor` returns null when the server's path and the slot it actually
+   * PAID disagree. That should never happen, and if it ever does the ledger
+   * wins: there is no honest animation of a route that did not end where the
+   * money did, so the chip does not fall at all and its result is revealed
+   * straight away. Animating it would be inventing a journey to justify a
+   * number.
+   */
+  const pucks = useMemo(() => {
+    const out: BoardPuck[] = [];
+    for (const d of drops) {
+      if (d.phase !== 'falling' || !d.path) continue;
+      const columns = columnsFor({ lane: d.lane, path: d.path, slot: d.slot ?? -1 }, tier.rows);
+      // A drop whose path disagrees with its paid slot never reaches `falling`
+      // — the session hook reveals it outright — so this is belt and braces
+      // rather than a branch anybody expects to take.
+      if (columns) out.push({ key: d.key, stake: d.stake, columns });
+    }
+    return out;
+  }, [drops, tier.rows]);
+
+  const landed = drops.filter((d) => d.phase === 'revealed');
+  const highlights = landed.slice(-capacity).map((d) => d.slot ?? 0);
+  const rail = [...drops].reverse().filter((d) => d.phase !== 'pending').slice(0, 6);
+
+  // Deliberately not memoised: it closes over `drops` and the live balance,
+  // both of which change on every render that matters, so a useCallback here
+  // would rebuild every time anyway while pretending not to.
+  const onSettled = (key: string) => {
+    const d = drops.find((x) => x.key === key);
+    reveal(key);
+    if (d) setAnnounce(describe(d, tier, balance.available));
+  };
+
+  const canDrop = selected !== null && !blocker;
 
   return (
     <ScreenShell>
@@ -122,7 +160,7 @@ export default function ForgeDropScreen() {
         kicker="WAGER YOUR TRAINING"
         title="FORGE DROP"
         onBack={() => {
-          track('forge_drop_exited', { tier: tier.tier });
+          track('forge_drop_exited', { tier: tier.tier, drops: summary.drops });
           router.replace('/coins' as never);
         }}
         right={
@@ -133,32 +171,28 @@ export default function ForgeDropScreen() {
               testID="drop-balance"
               style={{ fontSize: 15, color: colors.legendary, ...pixelFont() }}
             >
-              {balance == null ? '—' : balance}
+              {loading ? '—' : balance.available}
             </Text>
           </View>
         }
       />
 
-      {/* THE AUTHORITATIVE RESULT, ANNOUNCED. Assertive because it is the answer
-          to something the athlete just did, and it carries the balance change —
-          a screen reader should never have to hunt for what happened. */}
+      {/* THE AUTHORITATIVE RESULT, ANNOUNCED. Assertive because it answers
+          something the athlete just did, and it carries the balance change — a
+          screen reader should never have to hunt for what happened. */}
       <View
         accessibilityLiveRegion="assertive"
         accessibilityRole="alert"
         testID="drop-live-region"
         style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 }}
       >
-        <Text>{announce}</Text>
+        <Text>{announce || recoveryNote}</Text>
       </View>
 
       <GlowCard>
         <View className="flex-row items-center justify-between">
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              allowFontScaling={false}
-              className="text-text-mute"
-              style={{ fontSize: 8, letterSpacing: 1.6 }}
-            >
+            <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
               EVO {rating ?? '—'} · TIER {tier.tier}
             </Text>
             <Text
@@ -189,200 +223,273 @@ export default function ForgeDropScreen() {
         <View className="mt-s3">
           <DropBoard
             tier={tier}
-            lane={chosenLane}
-            columns={falling ? settledColumns : null}
-            slotHighlight={showResult && result ? result.slot : null}
-            onSettled={() => {
-              setFalling(false);
-              if (result) setAnnounce(describe(result));
-            }}
+            lane={lane}
+            previewLane={preview ? laneFor(preview, tier) : null}
+            pucks={pucks}
+            highlights={highlights}
+            onSettled={onSettled}
           />
         </View>
 
-        {/* ── THE RESULT, only ever after settlement ── */}
-        {showResult && result ? (
-          <View
-            className="mt-s3 rounded-lg border p-s3"
-            style={{
-              borderColor: result.net > 0 ? `${colors.legendary}66` : colors.border,
-              backgroundColor: 'rgba(13,21,36,0.6)',
-            }}
-            testID="drop-result"
-          >
-            <View className="flex-row items-center justify-between">
-              <Text
-                allowFontScaling={false}
-                testID="drop-result-headline"
-                style={{ fontSize: 16, color: result.net > 0 ? colors.legendary : colors['text-dim'], ...pixelFont() }}
+        {/* THE WALLET, WHILE CHIPS ARE FALLING. Three numbers, because one is a
+            lie while anything is in the air: what is spendable now, what is
+            committed, and what it becomes when everything lands. */}
+        <View className="mt-s3 flex-row items-center justify-between" testID="drop-wallet">
+          <Stat label="BALANCE" value={loading ? '—' : String(balance.available)} tone={colors.legendary} />
+          <Stat
+            label="IN PLAY"
+            value={String(balance.reserved)}
+            tone={balance.reserved > 0 ? colors.accent : colors['text-mute']}
+            testID="drop-in-play"
+          />
+          <Stat
+            label="WHEN THEY LAND"
+            value={String(balance.projected)}
+            tone={colors['text-dim']}
+            testID="drop-projected"
+          />
+          <Stat
+            label="FALLING"
+            value={`${balance.activeCount}/${capacity}`}
+            tone={balance.activeCount >= capacity ? colors.danger : colors['text-mute']}
+            testID="drop-active-count"
+          />
+        </View>
+      </GlowCard>
+
+      {/* ── THE RACK ── */}
+      <GlowCard>
+        <ChipRack
+          offers={offers}
+          selected={selected}
+          onSelect={setChip}
+          onThrow={(v, c) => void throwChip(v, c)}
+          onPreview={setPreview}
+          blocker={blocker}
+          laneLabel={`INTO ${laneName(lane, tier)}`}
+        />
+
+        {/* THE KEYBOARD AND SCREEN-READER PATH. Everything the flick can do,
+            as ordinary buttons — a gesture cannot be tabbed to, described, or
+            performed one-handed on a bus. */}
+        <Text allowFontScaling={false} className="mt-s3 text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
+          DROP FROM
+        </Text>
+        <View className="mt-s1 flex-row" style={{ gap: 8 }}>
+          {(['left', 'centre', 'right'] as const).map((c) => {
+            const on = c === laneChoice;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => setLaneChoice(c)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`Drop from the ${c} lane`}
+                testID={`drop-lane-${laneFor(c, tier)}`}
+                className="flex-1 items-center justify-center rounded-lg border"
+                style={{
+                  minHeight: 44,
+                  borderColor: on ? colors.accent : colors.border,
+                  backgroundColor: on ? 'rgba(34,211,238,0.12)' : 'transparent',
+                }}
               >
-                {formatMultiplier(result.multiplier)} · {result.payout} BACK
-              </Text>
-              <Text
-                allowFontScaling={false}
-                testID="drop-result-net"
-                style={{ fontSize: 16, color: result.net > 0 ? colors.legendary : colors.danger, ...pixelFont() }}
-              >
-                {result.net > 0 ? `+${result.net}` : result.net}
-              </Text>
-            </View>
-            <Text className="mt-s1 text-2xs text-text-mute">
-              Staked {result.stake} · {tier.label} · balance {result.balance}
+                <Text
+                  allowFontScaling={false}
+                  className="text-2xs font-bold"
+                  style={{ color: on ? colors.accent : colors['text-dim'] }}
+                >
+                  {/* Not colour alone: the chosen lane is marked. */}
+                  {on ? '● ' : ''}{c.toUpperCase()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View className="mt-s3">
+          <NeonButton
+            title={
+              loading
+                ? 'READING YOUR COINS…'
+                : blocker
+                  ? 'NO CHIPS AVAILABLE'
+                  : `DROP ${selected} FROM ${laneName(lane, tier)}`
+            }
+            size="hero"
+            pixel
+            disabled={!canDrop}
+            onPress={() => { if (selected !== null) void throwChip(selected, laneChoice); }}
+            testID="drop-play"
+          />
+        </View>
+
+        {/* DROP AGAIN repeats what is already selected. It never fires by
+            itself, and it is here — under the thumb — rather than inside a
+            result card that would have to be dismissed first. */}
+        {summary.drops > 0 ? (
+          <View className="mt-s2">
+            <NeonButton
+              title="DROP AGAIN"
+              variant="ghost"
+              disabled={!canDrop}
+              onPress={() => { if (selected !== null) void throwChip(selected, laneChoice); }}
+              testID="drop-again"
+            />
+          </View>
+        ) : null}
+
+        {balance.available < tier.min_stake && balance.activeCount === 0 ? (
+          <View className="mt-s2" testID="drop-cannot-afford">
+            <Text className="text-2xs text-text-mute">
+              You need at least {tier.min_stake} {tier.min_stake === 1 ? 'coin' : 'coins'} to drop.
+              Coins come from training — a workout, a personal record, a streak.
             </Text>
             <View className="mt-s2">
-              {canAfford(tier, result.balance) ? (
-                <NeonButton
-                  title="DROP AGAIN"
-                  size="base"
-                  pixel
-                  onPress={() => {
-                    setResult(null);
-                    setAnnounce('');
-                  }}
-                  testID="drop-again"
-                />
-              ) : (
-                <NeonButton
-                  title="RETURN TO FORGE"
-                  variant="ghost"
-                  onPress={() => router.replace('/avatar' as never)}
-                  testID="drop-return-forge"
-                />
-              )}
+              <NeonButton
+                title="BACK TO TRAINING"
+                variant="ghost"
+                onPress={() => router.replace('/today' as never)}
+                testID="drop-go-train"
+              />
             </View>
           </View>
         ) : null}
       </GlowCard>
 
-      {/* ── THE WAGER ── */}
-      {!showResult ? (
+      {/* ── THE RESULT RAIL. Compact, never over the board: a modal result
+             would make a second chip impossible.
+
+             BELOW the rack on purpose. It grows as the session goes on, and
+             above the rack it pushed the chips further from the board with
+             every drop — until choosing a chip meant scrolling away from the
+             thing you were aiming at. The board and the chips stay together;
+             the history moves. ── */}
+      {rail.length > 0 ? (
         <GlowCard>
-          <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
-            DROP FROM
-          </Text>
-          <View className="mt-s1 flex-row" style={{ gap: 8 }}>
-            {tier.lanes.map((l) => {
-              const on = l === chosenLane;
-              return (
-                <Pressable
-                  key={l}
-                  onPress={() => setLane(l)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on, disabled: falling }}
-                  accessibilityLabel={`Drop from the ${laneName(l, tier).toLowerCase()} lane`}
-                  disabled={falling || play.isPending}
-                  testID={`drop-lane-${l}`}
-                  className="flex-1 items-center justify-center rounded-lg border"
-                  style={{
-                    minHeight: 44,
-                    borderColor: on ? colors.accent : colors.border,
-                    backgroundColor: on ? 'rgba(34,211,238,0.12)' : 'transparent',
-                  }}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    className="text-2xs font-bold"
-                    style={{ color: on ? colors.accent : colors['text-dim'] }}
-                  >
-                    {/* Not colour alone: the chosen lane is marked. */}
-                    {on ? '● ' : ''}{laneName(l, tier)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text
-            allowFontScaling={false}
-            className="mt-s3 text-text-mute"
-            style={{ fontSize: 8, letterSpacing: 1.6 }}
-          >
-            STAKE
-          </Text>
-          <View className="mt-s1 flex-row flex-wrap" style={{ gap: 8 }}>
-            {quick.map((s, i) => {
-              const on = s === chosenStake;
-              const label = i === 0 ? 'MIN' : i === quick.length - 1 ? 'MAX' : 'HALF';
-              return (
-                <Pressable
-                  key={s}
-                  onPress={() => setStake(s)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`Stake ${s} coins, the ${label.toLowerCase()} for this board`}
-                  disabled={falling || play.isPending}
-                  testID={`drop-stake-${s}`}
-                  className="flex-1 items-center justify-center rounded-lg border px-s3"
-                  style={{
-                    minHeight: 48,
-                    minWidth: 76,
-                    borderColor: on ? colors.legendary : colors.border,
-                    backgroundColor: on ? 'rgba(251,191,36,0.1)' : 'transparent',
-                  }}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={{ fontSize: 15, color: on ? colors.legendary : colors['text-dim'], ...pixelFont() }}
-                  >
-                    {on ? '● ' : ''}{s}
-                  </Text>
-                  <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 8, letterSpacing: 1 }}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View className="mt-s3">
-            <PayoutTable tier={tier} lane={chosenLane} stake={Math.max(1, chosenStake)} />
-          </View>
-
-          <View className="mt-s3">
-            {balance == null ? (
-              <Text className="text-2xs text-text-mute" testID="drop-balance-unknown">
-                We could not read your coins just now. Nothing has been staked — pull to refresh and
-                try again.
+          <View className="flex-row items-center justify-between">
+            <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
+              THIS SESSION
+            </Text>
+            <Text allowFontScaling={false} className="text-2xs text-text-mute" testID="drop-session-summary">
+              {summary.drops} drops · staked {summary.staked} · back{' '}
+              {summary.returned} ·{' '}
+              <Text style={{ color: summary.net > 0 ? colors.legendary : colors['text-dim'] }}>
+                {summary.net > 0 ? `+${summary.net}` : summary.net}
               </Text>
-            ) : !affordable ? (
-              <View testID="drop-cannot-afford">
-                <Text className="text-2xs text-text-mute">
-                  You need at least {tier.min_stake} {tier.min_stake === 1 ? 'coin' : 'coins'} to
-                  drop. Coins come from training — a workout, a personal record, a streak.
-                </Text>
-                <View className="mt-s2">
-                  <NeonButton
-                    title="BACK TO TRAINING"
-                    variant="ghost"
-                    onPress={() => router.replace('/today' as never)}
-                    testID="drop-go-train"
-                  />
-                </View>
-              </View>
-            ) : (
-              <NeonButton
-                title={
-                  play.isPending ? 'DROPPING…' : falling ? 'FALLING…' : `DROP ${chosenStake}`
-                }
-                size="hero"
-                pixel
-                busy={play.isPending}
-                disabled={play.isPending || falling || chosenStake < tier.min_stake}
-                onPress={() => void drop()}
-                testID="drop-play"
-              />
-            )}
+            </Text>
+          </View>
+          <View className="mt-s1" testID="drop-result-rail">
+            {rail.map((d) => (
+              <RailRow key={d.key} drop={d} tier={tier} />
+            ))}
           </View>
         </GlowCard>
       ) : null}
+
+      {/* ── THE ODDS. Behind a toggle to keep the board and rack above the
+             fold, but never hidden: the summary line below is always visible,
+             and the toggle is a real button that says what it opens. ── */}
+      <GlowCard>
+        <Pressable
+          onPress={() => setShowOdds((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showOdds }}
+          accessibilityLabel={showOdds ? 'Hide the payout table' : 'View the full payout table and odds'}
+          testID="drop-view-odds"
+          className="flex-row items-center justify-between"
+          style={{ minHeight: 44 }}
+        >
+          <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: colors.accent }}>
+            {showOdds ? '▾ HIDE ODDS' : '▸ VIEW ODDS'}
+          </Text>
+          <Text allowFontScaling={false} className="text-2xs text-text-mute">
+            {tier.label} · {laneName(lane, tier)}
+          </Text>
+        </Pressable>
+        {showOdds ? (
+          <View className="mt-s2">
+            <PayoutTable tier={tier} lane={lane} stake={Math.max(tier.min_stake, selected ?? tier.min_stake)} />
+          </View>
+        ) : (
+          <Text className="mt-s1 text-2xs text-text-mute">
+            Every board returns less than it takes. Forge Coins are earned by training and cannot be
+            bought, sold or cashed out.
+          </Text>
+        )}
+      </GlowCard>
     </ScreenShell>
   );
 }
 
-/** What the live region says. The authoritative numbers, in a sentence. */
-function describe(r: DropResult): string {
-  const outcome = r.net > 0 ? `won ${r.net}` : r.net === 0 ? 'broke even' : `lost ${Math.abs(r.net)}`;
+function Stat({
+  label, value, tone, testID,
+}: { label: string; value: string; tone: string; testID?: string }) {
   return (
-    `Landed on ${formatMultiplier(r.multiplier)}. Staked ${r.stake}, paid ${r.payout}, ` +
-    `${outcome} coins. Balance ${r.balance}.`
+    <View style={{ flex: 1, minWidth: 0 }} testID={testID}>
+      <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 7, letterSpacing: 1 }}>
+        {label}
+      </Text>
+      <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 14, color: tone, ...pixelFont() }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** One line of the rail. A falling chip says so and shows NOTHING about its
+ *  result — it has settled, but the athlete has not seen it, and the rail must
+ *  not be the thing that tells them before the puck does. */
+function RailRow({ drop, tier }: { drop: SessionDrop; tier: DropTier }) {
+  const colors = useThemeColors();
+  const falling = drop.phase === 'falling';
+  const failed = drop.phase === 'failed';
+  const net = drop.net ?? 0;
+
+  return (
+    <View
+      testID={`drop-rail-${drop.key}`}
+      className="flex-row items-center justify-between py-[3px]"
+      accessibilityRole="text"
+      accessibilityLabel={
+        failed
+          ? `${drop.stake} coin drop refused: ${drop.error ?? 'not played'}`
+          : falling
+            ? `${drop.stake} coin chip still falling into the ${laneName(drop.lane, tier)} lane`
+            : `${drop.stake} coins on ${formatMultiplier(drop.multiplier ?? 1)}, ` +
+              `${net > 0 ? `up ${net}` : net === 0 ? 'even' : `down ${Math.abs(net)}`}`
+      }
+    >
+      <Text allowFontScaling={false} className="text-2xs" style={{ color: colors['text-mute'], width: 58 }}>
+        {drop.stake} · {laneName(drop.lane, tier).slice(0, 1)}
+      </Text>
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        className="text-2xs"
+        style={{ flex: 1, color: failed ? colors.danger : colors['text-dim'] }}
+      >
+        {failed ? drop.error : falling ? 'falling…' : formatMultiplier(drop.multiplier ?? 1)}
+      </Text>
+      <Text
+        allowFontScaling={false}
+        style={{
+          fontSize: 12,
+          color: failed || falling ? colors['text-mute'] : net > 0 ? colors.legendary : colors['text-dim'],
+          ...pixelFont(),
+        }}
+      >
+        {failed ? '—' : falling ? '···' : net > 0 ? `+${net}` : String(net)}
+      </Text>
+    </View>
+  );
+}
+
+/** What the live region says. The authoritative numbers, in a sentence. */
+function describe(d: SessionDrop, tier: DropTier, balance: number): string {
+  const net = d.net ?? 0;
+  const outcome = net > 0 ? `won ${net}` : net === 0 ? 'broke even' : `lost ${Math.abs(net)}`;
+  return (
+    `Landed on ${formatMultiplier(d.multiplier ?? 1)} in the ${laneName(d.lane, tier)} lane. ` +
+    `Staked ${d.stake}, paid ${d.payout ?? 0}, ${outcome} coins. Balance ${balance}.`
   );
 }

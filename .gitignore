@@ -10,3 +10,5 @@ assets/styles_legacy.css
 
 # screenshots produced by tools/shot.py
 tools/shots/
+# and by the browser tours, when DROP_SHOTS is not pointed elsewhere
+drop-shots/

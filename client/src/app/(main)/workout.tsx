@@ -65,6 +65,7 @@ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ReorderableList } from '@/ui/train/reorderable-list';
 import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/ui/core/neon-button';
+import { RestDropPanel } from '@/ui/forge-drop/rest-drop-panel';
 import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -1285,6 +1286,10 @@ export default function WorkoutScreen() {
         Outside the ScreenShell scroll on purpose; renders nothing when no
         rest is live, when collapsed via ▴, or on a locked (read-only) day. */}
     {editable ? <FloatingRestTimer /> : null}
+    {/* Opened only from the rest timer's DROP button, closed automatically
+        when rest ends. A sibling overlay: it shares nothing with the logger
+        but the screen, so opening it cannot disturb a set in progress. */}
+    {editable ? <RestDropPanel /> : null}
 
     {/* CALL THIS SET — a tray over the workout, never a screen. */}
     {callFor && callTarget ? (

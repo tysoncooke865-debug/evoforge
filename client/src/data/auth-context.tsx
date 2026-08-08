@@ -111,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The floating rest timer's collapsed flag (in-memory only) + the rest
     // clock itself — a running countdown must not greet the next athlete.
     void import('@/state/rest-ui-store').then(({ useRestUiStore }) => useRestUiStore.getState().reset());
+    void import('@/ui/forge-drop/rest-drop-panel').then(({ useRestDropStore }) => useRestDropStore.getState().reset());
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
     );

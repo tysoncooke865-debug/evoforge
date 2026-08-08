@@ -5,6 +5,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRestUiStore } from '@/state/rest-ui-store';
+import { useRestDropStore } from '@/ui/forge-drop/rest-drop-panel';
 import { useThemeColors } from '@/theme/use-theme';
 import { playRestOver } from '@/ui/core/sound';
 
@@ -19,6 +20,10 @@ import { playRestOver } from '@/ui/core/sound';
 
 const KEY = 'evoforge-rest-end-v1';
 export const DEFAULT_REST_SECONDS = 120;
+
+/** Forge Drop is not offered below this much remaining rest — there is no
+ *  point opening a board somebody has to close ten seconds later. */
+export const REST_DROP_MIN_SECONDS = 20;
 
 let listeners: (() => void)[] = [];
 
@@ -75,7 +80,7 @@ const releaseTick = () => {
 
 /** The shared rest clock: both timer surfaces subscribe to the SAME module
  *  state — the overlay is a second subscriber, never a second timer. */
-function useRestClock(): { remaining: number; over: boolean; mm: number; ss: string } | null {
+export function useRestClock(): { remaining: number; over: boolean; mm: number; ss: string } | null {
   const [endAt, setEndAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -200,7 +205,7 @@ export function FloatingRestTimer() {
   const setCollapsed = useRestUiStore((s) => s.setCollapsed);
 
   if (clock === null || collapsed) return null;
-  const { over, mm, ss } = clock;
+  const { over, mm, ss, remaining } = clock;
 
   return (
     <View
@@ -230,6 +235,26 @@ export function FloatingRestTimer() {
         >
           {over ? '✓' : `${mm}:${ss}`}
         </Text>
+        {/* FORGE DROP, OPTIONAL AND OPT-IN.
+            Offered only while a rest is actually running, and never in the
+            last ten seconds. Nothing opens the panel except this button — a
+            gambling surface that appeared by itself after every set would be a
+            slot machine attached to a barbell. Hidden entirely once rest is
+            over, so it can never compete with the next set. */}
+        {!over && remaining > REST_DROP_MIN_SECONDS ? (
+          <Pressable
+            onPress={() => useRestDropStore.getState().setOpen(!useRestDropStore.getState().open)}
+            accessibilityRole="button"
+            accessibilityLabel="Open Forge Drop for this rest"
+            className="items-center justify-center"
+            style={{ minWidth: 36, minHeight: 40 }}
+            testID="rest-float-drop"
+          >
+            <Text className="text-2xs font-bold" style={{ color: colors.legendary, letterSpacing: 1 }}>
+              DROP
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={clearRest}
           accessibilityRole="button"

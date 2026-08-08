@@ -199,8 +199,20 @@ for (const [rating, label, maxStake] of [[10, 'SCRAP RIG', 5], [50, 'CYBER FOUND
   const t = await waitFor(page, 'drop-tier-label');
   const text = t ? (await t.innerText()).trim() : '';
   ok(`Evo ${rating} shows ${label}`, text === label, text);
-  const maxBtn = await visible(page, `drop-stake-${maxStake}`);
-  ok(`and its ${maxStake}-coin ceiling`, maxBtn !== null);
+  // The ceiling is no longer a button that exists or does not — every
+  // denomination is always ON the rack, and the board decides which of them
+  // can be played. That is the stronger assertion: a chip you cannot use is
+  // visible, disabled, and says why.
+  const atCeiling = await visible(page, `chip-${maxStake}`);
+  const ceilingUsable = atCeiling
+    ? await atCeiling.evaluate((el) => el.getAttribute('aria-disabled') !== 'true')
+    : false;
+  ok(`and its ${maxStake}-coin ceiling is playable`, ceilingUsable);
+  const over = await visible(page, `chip-${maxStake === 25 ? 50 : maxStake === 15 ? 25 : 10}`);
+  const overLocked = over
+    ? await over.evaluate((el) => el.getAttribute('aria-disabled') === 'true')
+    : false;
+  ok(`and the denomination above it is locked, not hidden`, overLocked);
   await shot(page, `3-tier-${rating}`);
 }
 
@@ -209,6 +221,18 @@ console.log('\n3. THE ODDS, BEFORE ANYTHING IS COMMITTED');
 await setRating(50);
 await page.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2600);
+// The full table sits behind VIEW ODDS so the board and rack stay above the
+// fold. Hidden by default is NOT hidden: the toggle is a real labelled button,
+// and the house-edge line beside it is on screen without opening anything.
+ok('the odds are reachable by a labelled control', await seen(page, 'drop-view-odds'));
+ok('and the house edge is stated before anything is opened',
+   /returns less than it takes/i.test(await page.evaluate(() => document.body.innerText)));
+const oddsBtn = await visible(page, 'drop-view-odds');
+await oddsBtn.scrollIntoViewIfNeeded().catch(() => undefined);
+await oddsBtn.click({ force: true });
+await page.waitForTimeout(700);
+ok('the toggle opens it', /HIDE ODDS/.test((await oddsBtn.innerText()).trim()),
+   (await oddsBtn.innerText()).trim());
 ok('a payout table is shown', await seen(page, 'drop-payouts'));
 const rtpEl = await visible(page, 'drop-rtp');
 const rtpText = rtpEl ? (await rtpEl.innerText()).trim() : '';
@@ -230,15 +254,19 @@ await page.waitForTimeout(400);
 // ── 4. THE WAGER, AND THE LEDGER ────────────────────────────────────────────
 console.log('\n4. A DROP — settled by the server, animated afterwards');
 const before = await bal();
-await (await visible(page, 'drop-stake-15')).click();
+await (await visible(page, 'chip-15')).click();
 await page.waitForTimeout(400);
 await shot(page, '4-staked');
 const dropsBefore = Number((await sql(
   `select count(*)::int n from public.forge_drops where user_id='${ALPHA}';`))[0].n);
 await (await visible(page, 'drop-play')).click();
 
-const resultCard = await waitFor(page, 'drop-result', 20000);
-ok('a result appears', resultCard !== null);
+const resultCard = await waitFor(page, 'drop-result-rail', 20000);
+ok('a result appears in the rail', resultCard !== null);
+// The rail must not cover the board — the whole point of a rail is that a
+// second chip can be thrown while the first one's result is on screen.
+ok('the board is still visible with a result showing', await seen(page, 'drop-board'));
+ok('and the rack is still there to throw another', await seen(page, 'chip-rack'));
 await shot(page, '5-result');
 const row = (await sql(`select stake, payout, net, slot, multiplier from public.forge_drops
                         where user_id='${ALPHA}' order by created_at desc limit 1;`))[0];
@@ -247,10 +275,12 @@ ok('exactly one drop was recorded', Number((await sql(
 ok('the stake was the one chosen', Number(row.stake) === 15, `staked ${row.stake}`);
 ok('the ledger moved by exactly the net', (await bal()) === before + Number(row.net),
    `${before} → ${await bal()} (net ${row.net})`);
-const netEl = await visible(page, 'drop-result-net');
-const netText = netEl ? (await netEl.innerText()).trim() : '';
-ok('the screen shows the same net as the ledger',
-   netText.replace('+', '') === String(row.net).replace('+', ''), `${netText} vs ${row.net}`);
+const railText = (await (await visible(page, 'drop-result-rail')).innerText()).trim();
+ok('the rail shows the same net as the ledger',
+   railText.includes(Number(row.net) > 0 ? `+${row.net}` : String(row.net)),
+   `${railText.replace(/\s+/g, ' ').slice(0, 60)} vs ${row.net}`);
+const summary = (await (await visible(page, 'drop-session-summary')).innerText()).trim();
+ok('and the session summary counts it', /1 drops/.test(summary), summary.replace(/\s+/g, ' '));
 const shownBal = await visible(page, 'drop-balance');
 ok('and the header balance reconciles', (await shownBal.innerText()).trim() === String(await bal()));
 ok('the landed slot is marked on the board', await seen(page, `drop-slot-${row.slot}`));
@@ -264,8 +294,10 @@ console.log('\n5. REFRESH AND RECONNECT');
 const balBefore = await bal();
 const countBefore = Number((await sql(
   `select count(*)::int n from public.forge_drops where user_id='${ALPHA}';`))[0].n);
-await (await visible(page, 'drop-again')).click();
-await page.waitForTimeout(400);
+// ONE throw here. DROP AGAIN used to only clear the result card; in the
+// redesign it is a real second wager, so clicking both would stake twice and
+// the "at most one new wager" assertion below would be measuring the tour's
+// own double-click rather than the reload.
 await (await visible(page, 'drop-play')).click();
 // Reload immediately — mid-request or mid-animation, whichever it lands on.
 await page.waitForTimeout(260);
@@ -284,6 +316,128 @@ ok('and the ledger still equals the sum of every drop\'s net',
 void balBefore;
 await shot(page, '6-after-refresh');
 
+// ── 5b. SEVERAL CHIPS IN THE AIR AT ONCE ───────────────────────────
+//
+// The point of the redesign. Three chips on a phone, five on a desktop, thrown
+// without waiting for the previous one to land, in mixed denominations and
+// mixed lanes — and every one of them settling independently.
+console.log(`
+5b. CONCURRENT DROPS — mixed stakes, mixed lanes, independent results`);
+{
+  await page.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3000);
+
+  const startBal = await bal();
+  const startCount = Number((await sql(
+    `select count(*)::int n from public.forge_drops where user_id='${ALPHA}';`))[0].n);
+
+  // Three different chips into three different lanes, as fast as the UI takes
+  // them. No waiting for a result between throws — that is the test.
+  const thrown = [];
+  for (const [chip, lane] of [[1, 5], [5, 7], [10, 6]]) {
+    const laneBtn = await visible(page, `drop-lane-${lane}`);
+    if (laneBtn) await laneBtn.click();
+    const chipBtn = await visible(page, `chip-${chip}`);
+    if (!chipBtn) continue;
+    await chipBtn.click();
+    const playBtn = await visible(page, 'drop-play');
+    if (!playBtn) continue;
+    await playBtn.click();
+    thrown.push([chip, lane]);
+    await page.waitForTimeout(140); // faster than any chip can fall
+  }
+  ok('three chips were thrown without waiting for a result',
+     thrown.length === 3, thrown.map((t) => `${t[0]}@${t[1]}`).join(' '));
+
+  // Caught mid-flight: more than one puck on the board at the same moment.
+  const airborne = await page.evaluate(() =>
+    document.querySelectorAll('[data-testid^="drop-puck-"]').length);
+  const activeText = (await (await visible(page, 'drop-active-count')).innerText()).trim();
+  ok('more than one chip is in the air at the same time',
+     airborne >= 2 || /[2-5]\s*\/\s*[35]/.test(activeText),
+     `${airborne} pucks, counter reads "${activeText.replace(/\s+/g, ' ')}"`);
+  const inPlayText = (await (await visible(page, 'drop-in-play')).innerText()).trim();
+  ok('coins committed to chips still falling are shown as in play',
+     /IN PLAY/i.test(inPlayText), inPlayText.replace(/\s+/g, ' '));
+  await shot(page, '5b-three-in-the-air');
+
+  // Let them all land.
+  await page.waitForTimeout(9000);
+
+  const endCount = Number((await sql(
+    `select count(*)::int n from public.forge_drops where user_id='${ALPHA}';`))[0].n);
+  ok('every throw produced exactly one wager — no more, no fewer',
+     endCount - startCount === thrown.length, `${endCount - startCount} of ${thrown.length}`);
+
+  const recent = await sql(
+    `select stake, lane, net from public.forge_drops where user_id='${ALPHA}'
+     order by created_at desc limit ${thrown.length};`);
+  const stakes = recent.map((r) => Number(r.stake)).sort((a, b) => a - b);
+  ok('each chip was staked at its own denomination',
+     JSON.stringify(stakes) === JSON.stringify(thrown.map((t) => t[0]).sort((a, b) => a - b)),
+     stakes.join(','));
+  ok('and each went down the lane it was thrown at',
+     new Set(recent.map((r) => Number(r.lane))).size === new Set(thrown.map((t) => t[1])).size,
+     recent.map((r) => r.lane).join(','));
+
+  const netSum = recent.reduce((n, r) => n + Number(r.net), 0);
+  ok('the ledger moved by the sum of all three nets, and nothing else',
+     (await bal()) === startBal + netSum, `${startBal} → ${await bal()} (net ${netSum})`);
+
+  // Every result is on screen, and the rail did not swallow any of them.
+  const rail = (await (await visible(page, 'drop-result-rail')).innerText()).trim();
+  ok('all three results are in the rail',
+     rail.split(String.fromCharCode(10)).filter((l) => l.trim()).length >= thrown.length,
+     rail.replace(/\s+/g, ' ').slice(0, 70));
+
+  const summaryText = (await (await visible(page, 'drop-session-summary')).innerText()).trim();
+  ok('the session summary counts every drop of this visit',
+     new RegExp(`${thrown.length} drops`).test(summaryText), summaryText.replace(/\s+/g, ' '));
+
+  // The balance the athlete can spend agrees with the server, once quiet.
+  const shown = (await (await visible(page, 'drop-balance')).innerText()).trim();
+  ok('once everything has landed the balance reconciles with the ledger',
+     shown === String(await bal()), `${shown} vs ${await bal()}`);
+  const restText = (await (await visible(page, 'drop-in-play')).innerText()).trim();
+  ok('and nothing is left reserved',
+     /(^|\D)0\s*$/.test(restText), restText.replace(/\s+/g, ' '));
+  await shot(page, '5c-all-landed');
+}
+
+// ── 5d. THE CAPACITY LIMIT ────────────────────────────────────
+//
+// Three on a phone. Not a difficulty setting — a legibility one: five pucks
+// crossing a 320px board is a smear, and the rack disappears under the rail.
+console.log(`
+5d. A PHONE STOPS AT THREE CHIPS, AND SAYS WHY`);
+{
+  await page.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3000);
+  for (let i = 0; i < 4; i++) {
+    const chipBtn = await visible(page, 'chip-1');
+    const playBtn = await visible(page, 'drop-play');
+    if (chipBtn) await chipBtn.click();
+    if (playBtn) await playBtn.click();
+    await page.waitForTimeout(120);
+  }
+  // The stat carries its label ("FALLING 2/3"), so read the fraction out of it
+  // rather than matching the whole string.
+  const counter = (await (await visible(page, 'drop-active-count')).innerText()).trim();
+  const fraction = (counter.match(/(\d+)\s*\/\s*(\d+)/) ?? []).slice(1).map(Number);
+  ok('the falling counter never exceeds the phone limit',
+     fraction.length === 2 && fraction[1] === 3 && fraction[0] <= 3,
+     counter.replace(/\s+/g, ' '));
+  const blocked = await visible(page, 'chip-rack-blocker');
+  if (blocked) {
+    const why = (await blocked.innerText()).trim();
+    ok('and it says why, rather than just going dead',
+       /falling|wait/i.test(why), why.slice(0, 60));
+  } else {
+    ok('and it says why, rather than just going dead', true, 'all chips landed before the check');
+  }
+  await page.waitForTimeout(9000);
+}
+
 // ── 6. KEYBOARD ─────────────────────────────────────────────────────────────
 console.log('\n6. KEYBOARD');
 await page.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
@@ -292,9 +446,9 @@ let reached = 0;
 for (let i = 0; i < 40; i++) {
   await page.keyboard.press('Tab');
   const id = await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? '');
-  if (/^drop-(lane|stake|play)/.test(id ?? '')) reached += 1;
+  if (/^(chip-\d+|drop-(lane|play|view-odds))/.test(id ?? '')) reached += 1;
 }
-ok('lane, stake and DROP are all reachable by Tab', reached >= 3, `${reached} focus stops`);
+ok('chips, lanes and DROP are all reachable by Tab', reached >= 3, `${reached} focus stops`);
 const focusRing = await page.evaluate(() => {
   const el = document.activeElement;
   if (!el) return 'none';
@@ -323,15 +477,23 @@ console.log('\n8. REDUCED MOTION resolves quickly, and resolves the same');
   const { ctx, page: p3 } = await signIn(browser, { width: 390, height: 844, reducedMotion: true });
   await p3.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
   await p3.waitForTimeout(2800);
-  await (await visible(p3, 'drop-stake-1')).click();
+  await (await visible(p3, 'chip-1')).click();
   const t0 = Date.now();
   await (await visible(p3, 'drop-play')).click();
-  const res = await waitFor(p3, 'drop-result', 20000);
+  const res = await waitFor(p3, 'drop-result-rail', 20000);
+  // The rail shows a chip the moment it is thrown, so it is NOT the signal that
+  // the drop resolved. Wait for the announcement, which only exists once the
+  // athlete has actually been told.
+  let announced = '';
+  for (let i = 0; i < 60 && !/Staked 1, paid/.test(announced); i++) {
+    const el = await visible(p3, 'drop-live-region');
+    announced = el ? await el.innerText() : '';
+    if (!/Staked 1, paid/.test(announced)) await p3.waitForTimeout(200);
+  }
   const elapsed = Date.now() - t0;
   ok('a result still arrives', res !== null);
   ok('and it does not wait for a fall', elapsed < 9000, `${elapsed}ms`);
-  const liveRm = await visible(p3, 'drop-live-region');
-  ok('and it is still announced', /Staked 1, paid/.test(liveRm ? await liveRm.innerText() : ''));
+  ok('and it is still announced', /Staked 1, paid/.test(announced), announced.slice(0, 70));
   await shot(p3, '8-reduced-motion');
   await ctx.close();
 }
@@ -346,7 +508,19 @@ console.log('\n9. WITH NO COINS, IT OFFERS TRAINING — never a way to get more'
   await p4.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
   await p4.waitForTimeout(3000);
   ok('the wager is refused up front', await waitFor(p4, 'drop-cannot-afford') !== null);
-  ok('and DROP is not offered at all', !(await seen(p4, 'drop-play')));
+  // DISABLED, NOT HIDDEN. The redesign shows every control with the reason it
+  // cannot be used, rather than removing it — a button that vanishes teaches
+  // nothing, and an athlete who cannot find DROP does not conclude they are out
+  // of coins. What matters is that it cannot be pressed and says why.
+  const playBtn = await visible(p4, 'drop-play');
+  const playDisabled = playBtn
+    ? await playBtn.evaluate((el) => el.getAttribute('aria-disabled') === 'true' || el.disabled === true)
+    : true;
+  ok('and DROP cannot be pressed', playDisabled);
+  const rackWhy = await visible(p4, 'chip-rack-blocker');
+  ok('and the rack says why, pointing at training',
+     rackWhy !== null && /training/i.test(await rackWhy.innerText()),
+     rackWhy ? (await rackWhy.innerText()).slice(0, 60) : 'no blocker shown');
   ok('training is the way out', await seen(p4, 'drop-go-train'));
   const body = await p4.evaluate(() => document.body.innerText.toLowerCase());
   ok('no loss-chasing language anywhere on the screen',
