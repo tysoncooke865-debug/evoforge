@@ -350,8 +350,28 @@ export function ChipWagerTable({
       <Text className="mt-s3 text-2xs text-text-mute" testID="wager-hint">
         {locked
           ? 'The pot is locked. Nothing else goes in.'
-          : 'Tap a chip · hold to pour · flick it at the table · drag a chip out to take it back'}
+          : 'Tap a chip · hold to build a stack · flick it at the table · drag a chip out to take it back'}
       </Text>
+      {/* WHAT THE SENSOR IS ACTUALLY DOING, in one line. Not decoration: tilt
+          has four ways to be unavailable (no sensor, permission not asked,
+          permission refused, switched off) and they are indistinguishable from
+          "broken" unless the screen says which. It cost a round trip to find
+          that out the first time. */}
+      {!locked ? (
+        <Text className="text-2xs text-text-mute" testID="wager-motion-state">
+          {table.motion === 'on'
+            ? calm
+              ? 'TILT ON · gentle, because your device asks for reduced motion'
+              : 'TILT ON · lean the phone and the chips slide'
+            : table.motion === 'prompt'
+              ? 'TILT NEEDS PERMISSION · tap ENABLE TILT'
+              : table.motion === 'denied'
+                ? 'TILT BLOCKED · allow Motion & Orientation for this site'
+                : table.motion === 'unsupported'
+                  ? 'NO MOTION SENSOR on this device'
+                  : 'TILT OFF · turn on Motion physics in Profile'}
+        </Text>
+      ) : null}
       {building ? (
         // A lightweight counter, not a modal — it must never interrupt the
         // hold that is producing it.

@@ -89,6 +89,57 @@ Owner: Tyson. He works through other Claude sessions too — **always
   proves an athlete can reach it, and every bug in the list above was
   invisible to the first.
 
+- **THE PHONE IS THE TABLE (2026-08-08, no migration)** — the chip table gained
+  device-tilt gravity and physical chip stacks. Tilting the handset moves the
+  GRAVITY VECTOR inside matter-js (`use-tilt-gravity.ts` → `world.setGravity`);
+  nothing translates a sprite. Holding a tray chip builds a real column of
+  individual bodies joined by breakable constraints, so it stands, slides
+  downhill when the table leans, and comes apart when something hits it.
+
+  **THE WAGER IS NOT PHYSICAL.** Money moves on commit, before a body is ever
+  spawned; the simulation only draws what the ledger already says. Tilt cannot
+  add, remove or revalue a chip, and the tour asserts the stake is unchanged
+  after tilting, toppling and collapsing the pile.
+
+  **THE RULES THAT COST REAL BUGS HERE:**
+  - **`expo-sensors` DeviceMotion does not work on web at all in SDK 57.**
+    `DeviceSensor.addListener` calls `this._nativeModule.addListener(...)`, and
+    `ExponentDeviceMotion.web.js` is a plain object with `startObserving` /
+    `stopObserving` and **no `addListener`**. Every subscribe threw a
+    TypeError, was swallowed, and reported "no motion sensor" on a phone that
+    has one. **EvoForge ships as an installed PWA, so web IS the phone.** The
+    web path now binds `window.addEventListener('devicemotion')` directly and
+    calls `DeviceMotionEvent.requestPermission()` itself; native keeps
+    expo-sensors, where it works.
+  - **Reduced motion must not switch tilt off.** Deliberately tipping your own
+    phone is as user-initiated as an input gets. Gating it on the OS flag was
+    the SAME mistake as hiding the whole chip table behind `useReducedMotion`,
+    made a second time — the accommodation is CALM mode (gentler slope, wider
+    dead zone), never absence.
+  - **Ask for permission BEFORE probing availability.** `isAvailableAsync`
+    decides by waiting 250ms for a real `devicemotion` event, and on iOS no
+    such event can fire before permission is granted, so the probe reports "no
+    sensor" on precisely the platform that has one.
+  - **A reading is the only proof the sensor works.** iOS offers no way to
+    query whether motion is already permitted, so the state starts at
+    `'prompt'` and the first real sample promotes it to `'on'`.
+  - **`accelerationIncludingGravity` is PROPER acceleration.** Upright portrait
+    reads `(0, +9.81)`, not `(0, -9.81)`; screen gravity is `(-ax, +ay)`. x
+    flips once, y flips twice. Negating both sent the pile the wrong way.
+  - **The screen says which of the four failures it is.** Tilt can be absent
+    for four different reasons (no sensor / not asked / refused / switched
+    off) and they are indistinguishable from "broken" unless the hint line
+    names one. `wager-motion-state` does.
+
+  **VERIFYING IT.** `src/ui/duel/physics/__tests__/chip-world.test.ts` — 14
+  behavioural tests over the real simulation, headless in half a second
+  because `chip-world.ts` is React-free and matter-js is pure JS. Build that
+  harness FIRST next time: tuning physics through a browser is a four-minute
+  cycle per guess, and this found five bugs in minutes. The browser tour
+  (scratchpad `tour-tilt-stacks.mjs`) drives a synthetic 50Hz `devicemotion`
+  stream through the production listener, which is what caught the
+  expo-sensors gap.
+
 - **THE FIRST WORKOUT IS A RECORD NOW (2026-08-06, migration 138)** — Train
   kept saying "YOUR FIRST WORKOUT / START FIRST WORKOUT" after the athlete
   had already opened it. Tapping again was harmless (nothing is created until

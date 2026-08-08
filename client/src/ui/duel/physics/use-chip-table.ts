@@ -418,12 +418,17 @@ export function useChipTable(opts: {
   // ── the phone is the table ──────────────────────────────────────────────
 
   /**
-   * TILT IS OFF UNDER CALM MODE, and that is a different decision from the
-   * one that was wrong before. A chip an athlete THREW is their own doing; a
-   * pile that slides because they shifted in their chair is involuntary
-   * motion they did not ask for, which is precisely what reduced motion is
-   * about. It is also off once the pot is locked — a settled result should
-   * not be stirred by picking the phone up.
+   * TILT STAYS ON UNDER REDUCED MOTION, just gentler.
+   *
+   * The first version switched it off there, reasoning that a sliding pile is
+   * involuntary motion. That was the SAME mistake as hiding the whole table:
+   * Tyson has reduced motion on, so tilt never ran for him at all — "tilts not
+   * working". Deliberately tipping your own phone is about as user-initiated
+   * as an input gets. Reduced motion now widens the dead zone and softens the
+   * slope; MOTION PHYSICS in Settings is the real off switch.
+   *
+   * It IS off once the pot is locked: a settled result should not be stirred
+   * by picking the phone up.
    */
   const onGravity = useCallback((g: { x: number; y: number }, wake: boolean) => {
     world.current?.setGravity(g.x, g.y, wake);
@@ -431,7 +436,8 @@ export function useChipTable(opts: {
   const { state: motion, request: requestMotion } = useTiltGravity({
     baseGravity: baseGravityFor(calm),
     onGravity,
-    enabled: !calm && !locked,
+    enabled: !locked,
+    gentle: calm,
   });
 
   // ── pointer ─────────────────────────────────────────────────────────────

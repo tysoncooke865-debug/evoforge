@@ -67,8 +67,15 @@ export function useTiltGravity(opts: {
   baseGravity: number;
   /** Called when the smoothed vector has moved enough to matter. */
   onGravity: (g: TiltGravity, changedALot: boolean) => void;
-  /** Calm mode / a locked pot / an unfocused screen: hold it still. */
+  /** A locked pot or an unfocused screen: hold it still. */
   enabled: boolean;
+  /**
+   * Reduced motion. Tilt stays ON — deliberately tipping your own phone is
+   * about as user-initiated as an input gets, and switching it off for
+   * everyone with the OS setting was the same mistake that hid the whole chip
+   * table from Tyson. It just bites more gently and needs a bigger lean.
+   */
+  gentle?: boolean;
 }): {
   state: MotionState;
   /** iOS web needs a real gesture; this is what the ENABLE MOTION chip calls. */
@@ -76,7 +83,7 @@ export function useTiltGravity(opts: {
   /** Re-take the neutral reading — orientation change, long background. */
   recalibrate: () => void;
 } {
-  const { baseGravity, onGravity, enabled } = opts;
+  const { baseGravity, onGravity, enabled, gentle = false } = opts;
   const motionPhysics = useSettingsStore((s) => s.motionPhysics);
   /**
    * The SENSOR's own status. The public `state` is derived from it below —
@@ -95,6 +102,10 @@ export function useTiltGravity(opts: {
   const lastSent = useRef<TiltGravity>({ x: 0, y: baseGravity });
   const onGravityRef = useRef(onGravity);
   const baseRef = useRef(baseGravity);
+  const gentleRef = useRef(gentle);
+  useEffect(() => {
+    gentleRef.current = gentle;
+  }, [gentle]);
   useEffect(() => {
     onGravityRef.current = onGravity;
   }, [onGravity]);
@@ -149,8 +160,9 @@ export function useTiltGravity(opts: {
 
     let gx = 0;
     let gy = baseRef.current;
-    if (mag > TILT.deadZone) {
-      const over = (mag - TILT.deadZone) * TILT.gain;
+    const deadZone = gentleRef.current ? TILT.deadZone * 1.5 : TILT.deadZone;
+    if (mag > deadZone) {
+      const over = (mag - deadZone) * (gentleRef.current ? TILT.gain * 0.45 : TILT.gain);
       const ux = d.x / mag;
       const uy = d.y / mag;
       gx = clamp(ux * over, -TILT.maxLateral, TILT.maxLateral);
@@ -170,14 +182,66 @@ export function useTiltGravity(opts: {
    * synchronous setState in whichever effect invokes it, and the honest shape
    * is "here is what I found, you decide what to render".
    */
+  /**
+   * WHY THE WEB PATH DOES NOT USE expo-sensors.
+   *
+   * `DeviceSensor.addListener` calls `this._nativeModule.addListener(...)`, and
+   * expo-sensors' web module (`ExponentDeviceMotion.web.js`) is a plain object
+   * with `startObserving`/`stopObserving` and NO `addListener` at all. So on
+   * web every subscribe threw a TypeError, landed in the catch, and reported
+   * "no motion sensor" — on a device holding one. EvoForge ships as an
+   * installed PWA, so web IS the phone, and this was the whole of Tyson's
+   * "tilts not working".
+   *
+   * `window.addEventListener('devicemotion')` is what that shim would have
+   * called anyway. Native keeps expo-sensors, where it works.
+   */
+  const liveRef = useRef(false);
+
+  /**
+   * Try to attach. Returns a RESULT rather than setting state itself: a
+   * function that both awaits and calls setState reads to the compiler as a
+   * synchronous setState in whichever effect invokes it, and the honest shape
+   * is "here is what I found, you decide what to render".
+   */
   const subscribe = useCallback(async (): Promise<{
     status: MotionState;
     sub: { remove: () => void } | null;
   }> => {
     try {
-      if (!(await DeviceMotion.isAvailableAsync())) return { status: 'unsupported', sub: null };
-      // iOS 13+ (native AND Safari/PWA) gates this behind a user gesture. On
-      // every other platform the call resolves immediately.
+      if (Platform.OS === 'web') {
+        const DME =
+          typeof window === 'undefined'
+            ? undefined
+            : (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } })
+                .DeviceMotionEvent;
+        if (!DME) return { status: 'unsupported', sub: null };
+
+        const handler = (e: Event) => {
+          const a = (e as DeviceMotionEvent).accelerationIncludingGravity;
+          if (!a || !Number.isFinite(a.x ?? NaN) || !Number.isFinite(a.y ?? NaN)) return;
+          // A READING IS THE ONLY PROOF. iOS gives no way to query whether
+          // motion is already permitted, so 'prompt' is a guess that the first
+          // real sample corrects. Ref-guarded: this runs 50 times a second.
+          if (!liveRef.current) {
+            liveRef.current = true;
+            setSensor('on');
+          }
+          sample(a.x as number, a.y as number);
+        };
+        window.addEventListener('devicemotion', handler);
+        const sub = {
+          remove: () => {
+            liveRef.current = false;
+            window.removeEventListener('devicemotion', handler);
+          },
+        };
+        // iOS needs a gesture-scoped grant; everywhere else the events simply
+        // flow, and a device with no accelerometer just never sends one.
+        const needsGesture = typeof DME.requestPermission === 'function';
+        return { status: needsGesture && !liveRef.current ? 'prompt' : 'on', sub };
+      }
+
       const perm = await DeviceMotion.getPermissionsAsync();
       if (!perm.granted) {
         return { status: perm.canAskAgain ? 'prompt' : 'denied', sub: null };
@@ -199,10 +263,23 @@ export function useTiltGravity(opts: {
   const request = useCallback(() => {
     void (async () => {
       try {
-        const perm = await DeviceMotion.requestPermissionsAsync();
-        if (!perm.granted) {
-          setSensor(perm.canAskAgain ? 'prompt' : 'denied');
-          return;
+        if (Platform.OS === 'web') {
+          const ask = (
+            window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } }
+          ).DeviceMotionEvent?.requestPermission;
+          // Must be called from inside the touch handler's own task — this is,
+          // which is why it is a button and not something done on mount.
+          const res = ask ? await ask() : 'granted';
+          if (res !== 'granted') {
+            setSensor(res === 'denied' ? 'denied' : 'prompt');
+            return;
+          }
+        } else {
+          const perm = await DeviceMotion.requestPermissionsAsync();
+          if (!perm.granted) {
+            setSensor(perm.canAskAgain ? 'prompt' : 'denied');
+            return;
+          }
         }
         neutral.current = null;
         setSensor('on');
@@ -213,7 +290,7 @@ export function useTiltGravity(opts: {
     })();
   }, []);
 
-  // ── lifecycle ───────────────────────────────────────────────────────────
+  // ── lifecycle ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!enabled || !motionPhysics) {
@@ -241,38 +318,11 @@ export function useTiltGravity(opts: {
       // .removeAllListeners()` that used to sit here does not exist on the web
       // implementation, so the cleanup threw and took the entire wager screen
       // into the error boundary — a "belt and braces" call that was neither.
-      // Removing the subscription already stops the underlying listener.
       sub?.remove();
       smoothed.current = null;
       neutral.current = null;
     };
   }, [enabled, motionPhysics, subscribe, attempt]);
-
-  /**
-   * THE LATE SENSOR.
-   *
-   * expo-sensors' web `isAvailableAsync` decides by RACE: it waits 250ms for a
-   * real `devicemotion` event and reports unavailable if none arrives. On a
-   * phone lying still, freshly picked up, or throttled in a background tab,
-   * that is a coin flip — and losing it turned tilt off for the whole session
-   * with no way back.
-   *
-   * So a "no sensor" answer on web is treated as PROVISIONAL: a passive
-   * listener stays attached, and the first event that ever arrives re-runs the
-   * subscription. Costs one idle listener; buys a feature that stops being
-   * randomly absent.
-   */
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    if (sensor !== 'unsupported' || !enabled || !motionPhysics) return;
-    const onLate = () => {
-      window.removeEventListener('devicemotion', onLate);
-      setSensor('prompt');
-      setAttempt((n) => n + 1);
-    };
-    window.addEventListener('devicemotion', onLate);
-    return () => window.removeEventListener('devicemotion', onLate);
-  }, [sensor, enabled, motionPhysics]);
 
   // A long background, or a rotation, and the phone is very likely being held
   // differently. Re-take neutral rather than fighting a stale baseline.
