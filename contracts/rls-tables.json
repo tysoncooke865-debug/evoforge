@@ -132,6 +132,8 @@
     "forge_challenge_participants",
     "forge_challenge_qualifying",
     "forge_challenges",
+    "forge_drop_tiers",
+    "forge_drops",
     "forge_duel_config",
     "forge_duel_offers",
     "forge_duel_reactions",
