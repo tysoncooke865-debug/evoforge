@@ -213,6 +213,48 @@ describe('tilt', () => {
     expect(drift).toBeLessThan(2);
     w.destroy();
   });
+
+  it('carries the pile to the FAR EDGE when the table leans away, and keeps it in sight', () => {
+    const w = make();
+    for (let i = 0; i < 6; i++) {
+      w.spawn({ chipId: `f${i}`, value: 25, x: W / 2 + (i - 3) * 6, y: -20 - i * 34, vy: 120 });
+    }
+    settle(w, 260);
+    const before = points(w).map((c) => c.y);
+
+    // Gravity up the screen — the axis that used to be floored at +0.4 and
+    // could not exist at all.
+    w.setGravity(0, -1.2, true);
+    settle(w, 300);
+    const after = points(w);
+    expect(Math.min(...after.map((c) => c.y))).toBeLessThan(Math.min(...before) - 40);
+    // AND STILL ON THE TABLE. The ceiling is a table-height above the box so a
+    // flick can arc out of sight; without the top clamp the whole pot slid up
+    // there and settled where nobody could see it.
+    const r = chipRadius(25);
+    expect(Math.min(...after.map((c) => c.y))).toBeGreaterThanOrEqual(r - 1);
+
+    // …and it comes back down when the phone does.
+    w.setGravity(0, 1.35, true);
+    settle(w, 320);
+    expect(Math.max(...points(w).map((c) => c.y))).toBeGreaterThan(H * 0.6);
+    w.destroy();
+  });
+
+  it('still lets a hard flick arc out of sight while the table is level', () => {
+    const w = make();
+    w.spawn({ chipId: 'thrown', value: 25, x: W / 2, y: H - 30, vy: -2600 });
+    let highest = H;
+    for (let i = 0; i < 60; i++) {
+      w.step(16.7);
+      highest = Math.min(highest, points(w)[0].y);
+    }
+    expect(highest).toBeLessThan(0);
+    settle(w, 300);
+    // It comes back. The clamp must not have become a lid at rest.
+    expect(points(w)[0].y).toBeGreaterThan(H * 0.5);
+    w.destroy();
+  });
 });
 
 describe('impacts', () => {

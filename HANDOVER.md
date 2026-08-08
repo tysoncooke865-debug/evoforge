@@ -108,9 +108,11 @@ Owner: Tyson. He works through other Claude sessions too — **always
     `stopObserving` and **no `addListener`**. Every subscribe threw a
     TypeError, was swallowed, and reported "no motion sensor" on a phone that
     has one. **EvoForge ships as an installed PWA, so web IS the phone.** The
-    web path now binds `window.addEventListener('devicemotion')` directly and
-    calls `DeviceMotionEvent.requestPermission()` itself; native keeps
-    expo-sensors, where it works.
+    web path now binds `window.addEventListener` directly — `deviceorientation`
+    for the reading, `devicemotion` as the fallback — and asks BOTH
+    `requestPermission()`s from the one gesture (iOS gates them separately even
+    though a single user toggle answers both); native keeps expo-sensors, where
+    it works.
   - **Reduced motion must not switch tilt off.** Deliberately tipping your own
     phone is as user-initiated as an input gets. Gating it on the OS flag was
     the SAME mistake as hiding the whole chip table behind `useReducedMotion`,
@@ -123,22 +125,53 @@ Owner: Tyson. He works through other Claude sessions too — **always
   - **A reading is the only proof the sensor works.** iOS offers no way to
     query whether motion is already permitted, so the state starts at
     `'prompt'` and the first real sample promotes it to `'on'`.
-  - **`accelerationIncludingGravity` is PROPER acceleration.** Upright portrait
-    reads `(0, +9.81)`, not `(0, -9.81)`; screen gravity is `(-ax, +ay)`. x
-    flips once, y flips twice. Negating both sent the pile the wrong way.
   - **The screen says which of the four failures it is.** Tilt can be absent
     for four different reasons (no sensor / not asked / refused / switched
     off) and they are indistinguishable from "broken" unless the hint line
     names one. `wager-motion-state` does.
 
-  **VERIFYING IT.** `src/ui/duel/physics/__tests__/chip-world.test.ts` — 14
-  behavioural tests over the real simulation, headless in half a second
-  because `chip-world.ts` is React-free and matter-js is pure JS. Build that
-  harness FIRST next time: tuning physics through a browser is a four-minute
-  cycle per guess, and this found five bugs in minutes. The browser tour
-  (scratchpad `tour-tilt-stacks.mjs`) drives a synthetic 50Hz `devicemotion`
-  stream through the production listener, which is what caught the
-  expo-sensors gap.
+  **THE TILT WAS STILL WRONG — three defects, fixed 2026-08-08** (Tyson: "the
+  tilt is back to front and only works horizontally"). Each one hid the next,
+  and the first two shipped behind a comment confidently asserting the
+  opposite:
+  - **`accelerationIncludingGravity` HAS NO PORTABLE SIGN.** The spec (and
+    Chrome/Android) report PROPER acceleration — upright portrait `(0, +9.81)`
+    — while **WebKit reports the gravity vector itself, the exact negative**.
+    EvoForge ships as an installed PWA on an iPhone, so every axis arrived
+    reversed. The fix is not a platform sniff: `deviceorientation`'s
+    beta/gamma mean the same thing in every engine, so screen gravity is now
+    DERIVED from them (`cosβ·sinγ`, `sinβ`, in `tilt-math.ts`) and the
+    accelerometer is a fallback whose convention is a named argument.
+  - **Gravity that cannot point UP the screen has no vertical axis.** It was
+    floored at `+0.4` down, so a lean forward or back could only make the
+    chips lighter — the pile could never travel to the far edge, which is
+    exactly what "only works horizontally" was. It also needs a lid: the
+    ceiling sits a table-height above the box so a flick can arc out of sight,
+    and up-gravity sent the whole pot up there to settle where nobody could
+    see it. `containBody` clamps at the top edge WHILE gravity points up — a
+    clamp, not a static lid, because a lid has a far side and every chip
+    spawns above the box.
+  - **A slope under 0.85 moves nothing, so "the sensor works" proved nothing.**
+    Chips are ceramic on felt (`frictionStatic` 0.85). The old model kept the
+    table's own downward pull and ADDED a sideways component, so a 35-degree
+    lean produced lateral 0.72 against downward 1.35 — a slope of 0.53, and a
+    pile that sat still while the probe showed a perfect gravity vector. Tilt
+    now ROTATES gravity (`base × (lean, 1 + lean)`, magnitude capped at 2.2):
+    the RATIO grows with the lean, which is the only quantity friction answers
+    to, and the vertical axis falls out of the same arithmetic.
+
+  **VERIFYING IT.** `chip-world.test.ts` — 16 behavioural tests over the real
+  simulation, headless in half a second because `chip-world.ts` is React-free
+  and matter-js is pure JS. Build that harness FIRST next time: tuning physics
+  through a browser is a four-minute cycle per guess, and this found five bugs
+  in minutes. `tilt-math.ts` is split out for the same reason — every DIRECTION
+  is a unit test (`__tests__/tilt-gravity.test.ts`, 18 cases) instead of a
+  phone in a hand. **Neither would have caught the third defect:** the browser
+  tour (scratchpad `tilt-tour.mjs`) dispatches real `deviceorientation` events
+  at the real `/challenges/new` table and MEASURES WHERE THE PILE WENT — right
+  lean → right wall, far edge down → the pile rises to the top edge and stays
+  on the table, 12-degree wobble → nothing moves. A tilt test that asserts the
+  gravity vector rather than the chips will pass while the table sits still.
 
 - **THE FIRST WORKOUT IS A RECORD NOW (2026-08-06, migration 138)** — Train
   kept saying "YOUR FIRST WORKOUT / START FIRST WORKOUT" after the athlete

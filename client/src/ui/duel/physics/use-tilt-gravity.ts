@@ -4,63 +4,61 @@ import { AppState, Platform, type AppStateStatus } from 'react-native';
 
 import { useSettingsStore } from '@/state/settings-store';
 
+import {
+  TILT,
+  accelerationGravity,
+  orientationGravity,
+  tiltGravity,
+  type TiltGravity,
+} from './tilt-math';
+
+export { TILT, type TiltGravity } from './tilt-math';
+
 /**
  * THE PHONE IS THE TABLE.
  *
  * Tilting the device moves the GRAVITY VECTOR inside the chip world, so a pile
  * slides, a stack leans and eventually topples, and everything collects
- * against whichever wall is now downhill. Nothing here moves a sprite: it hands
+ * against whichever edge is now downhill. Nothing here moves a sprite: it hands
  * the physics engine a different `gravity` and the engine does the rest.
  *
- * WHY `accelerationIncludingGravity` AND NOT THE EULER ANGLES. The device's
- * accelerometer already reports gravity IN DEVICE AXES: +x right, +y up the
- * screen, +z out of the glass. The in-plane part of that vector IS screen-space
- * gravity — exactly, at every orientation, with no trigonometry and no
- * gimbal cases. Reconstructing it from alpha/beta/gamma means picking an
- * orientation convention and getting it wrong on one platform. The cost is
- * that the reading also contains the athlete's own hand movement, and the
- * standard answer to that is the low-pass filter this file already needs.
+ * WHY THE EULER ANGLES AND NOT `accelerationIncludingGravity` — the correction
+ * that fixes "the tilt is back to front".
+ *
+ * The first version read the accelerometer, on the reasoning that its in-plane
+ * part IS screen-space gravity with no trigonometry. The trigonometry was
+ * never the problem. THE SIGN IS NOT PORTABLE: the spec (and Chrome/Android)
+ * report PROPER acceleration, so a phone held upright reads +9.81 UP the
+ * screen, while WebKit on iOS reports the gravity vector itself — the exact
+ * negative. EvoForge ships as an installed PWA on an iPhone, so every axis of
+ * the tilt arrived reversed, and because the pitch axis was also clamped (see
+ * below) the only thing Tyson could feel was a sideways slide going the wrong
+ * way.
+ *
+ * `deviceorientation`'s beta/gamma have ONE definition and both engines follow
+ * it, so the vector is DERIVED rather than guessed — the derivation, and every
+ * direction it produces, lives in `tilt-math.ts` where a test can hold it to
+ * account without a hook or a hand.
+ *
+ * The accelerometer stays as the FALLBACK for devices that fire `devicemotion`
+ * and never `deviceorientation`, and there the platform convention is named
+ * explicitly instead of assumed.
  *
  * IT IS AN ENHANCEMENT, NEVER A DEPENDENCY. Unsupported sensor, denied
  * permission, setting off, screen unfocused, app backgrounded — every one of
  * those paths returns plain downward gravity and a table that works.
  */
 
-/** Screen-space gravity, y positive downward — matter's own convention. */
-export interface TiltGravity {
-  x: number;
-  y: number;
-}
-
-export const TILT = {
-  /**
-   * How far from the calibrated neutral before anything moves, as a fraction
-   * of 1g. 0.2 is about 11.5 degrees — inside the brief's 10-15 band, and
-   * comfortably outside ordinary handheld wobble.
-   */
-  deadZone: 0.2,
-  /** Past the dead zone, how hard the slope bites. At 45 degrees this puts
-   *  lateral gravity above vertical, which is what makes an avalanche. */
-  gain: 3.5,
-  /** Pitch is damped relative to roll: rocking a phone toward and away from
-   *  you is far more common than rolling it, and should disturb less. */
-  pitchGain: 0.55,
-  maxLateral: 1.7,
-  /** Down never disappears. A table with no floor has nowhere to settle. */
-  minDown: 0.4,
-  maxDown: 2.4,
-  /** Exponential smoothing per sample. ~0.18 at 50Hz lands the response
-   *  around 150ms: responsive and heavy, not jittery and not laggy. */
-  smoothing: 0.18,
-  /** Only wake sleeping chips when the vector really moved. Sensor noise must
-   *  not keep a settled pile awake. */
-  wakeDelta: 0.14,
-  sampleMs: 20,
-} as const;
-
 export type MotionState = 'off' | 'unsupported' | 'prompt' | 'on' | 'denied';
 
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+/** 0 unless the document is being drawn rotated. Read per sample: a rotation
+ *  is not an event we are guaranteed to have seen first. */
+function screenAngle(): number {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return 0;
+  const so = (window.screen as Screen & { orientation?: { angle?: number } })?.orientation;
+  const legacy = (window as Window & { orientation?: number }).orientation;
+  return so?.angle ?? (typeof legacy === 'number' ? legacy : 0);
+}
 
 export function useTiltGravity(opts: {
   /** Base downward gravity when the phone is at its neutral angle. */
@@ -97,8 +95,8 @@ export function useTiltGravity(opts: {
   const [attempt, setAttempt] = useState(0);
   const state: MotionState = !enabled || !motionPhysics ? 'off' : sensor;
 
-  const smoothed = useRef<{ x: number; y: number } | null>(null);
-  const neutral = useRef<{ x: number; y: number } | null>(null);
+  const smoothed = useRef<TiltGravity | null>(null);
+  const neutral = useRef<TiltGravity | null>(null);
   const lastSent = useRef<TiltGravity>({ x: 0, y: baseGravity });
   const onGravityRef = useRef(onGravity);
   const baseRef = useRef(baseGravity);
@@ -118,27 +116,12 @@ export function useTiltGravity(opts: {
   }, []);
 
   /**
-   * One sample. Everything that makes this feel like a heavy table rather than
-   * a spirit level happens here, in order: normalise, smooth, calibrate,
-   * dead-zone, gain, clamp.
+   * One sample, already in screen axes. Everything that makes this feel like a
+   * heavy table rather than a spirit level happens here, in order: smooth,
+   * calibrate, dead-zone, gain, clamp.
    */
-  const sample = useCallback((ax: number, ay: number) => {
-    /**
-     * ACCELERATION IS THE OPPOSITE OF GRAVITY, and both axes flip.
-     *
-     * `accelerationIncludingGravity` reports the device's PROPER acceleration:
-     * a phone held still reads roughly +1g pointing AWAY from the ground,
-     * because the hand is accelerating it upward against gravity. Upright
-     * portrait is therefore (0, +9.81), not (0, −9.81).
-     *
-     * So screen-space gravity is (−ax, +ay): device +y is up the screen and
-     * matter's +y is down, which flips y, and the acceleration-vs-gravity
-     * inversion flips it back — while x flips exactly once. Getting this
-     * half-right is worse than getting it wrong: the first version negated
-     * both and the pile slid the wrong way on every tilt.
-     */
-    const raw = { x: clamp(-ax / 9.81, -1.5, 1.5), y: clamp(ay / 9.81, -1.5, 1.5) };
-
+  const sample = useCallback((raw: TiltGravity) => {
+    if (!Number.isFinite(raw.x) || !Number.isFinite(raw.y)) return;
     const prev = smoothed.current;
     const s = prev
       ? {
@@ -155,33 +138,15 @@ export function useTiltGravity(opts: {
       neutral.current = { ...s };
       return;
     }
-    const d = { x: s.x - neutral.current.x, y: s.y - neutral.current.y };
-    const mag = Math.hypot(d.x, d.y);
 
-    let gx = 0;
-    let gy = baseRef.current;
-    const deadZone = gentleRef.current ? TILT.deadZone * 1.5 : TILT.deadZone;
-    if (mag > deadZone) {
-      const over = (mag - deadZone) * (gentleRef.current ? TILT.gain * 0.45 : TILT.gain);
-      const ux = d.x / mag;
-      const uy = d.y / mag;
-      gx = clamp(ux * over, -TILT.maxLateral, TILT.maxLateral);
-      gy = clamp(baseRef.current + uy * over * TILT.pitchGain, TILT.minDown, TILT.maxDown);
-    }
-
-    const moved = Math.hypot(gx - lastSent.current.x, gy - lastSent.current.y);
+    const g = tiltGravity(s, neutral.current, { base: baseRef.current, gentle: gentleRef.current });
+    const moved = Math.hypot(g.x - lastSent.current.x, g.y - lastSent.current.y);
     // Always publish (the world interpolates cheaply); only flag a WAKE when
     // the change is big enough to be worth disturbing a sleeping pile for.
-    lastSent.current = { x: gx, y: gy };
-    onGravityRef.current({ x: gx, y: gy }, moved > TILT.wakeDelta);
+    lastSent.current = g;
+    onGravityRef.current(g, moved > TILT.wakeDelta);
   }, []);
 
-  /**
-   * Try to attach. Returns a RESULT rather than setting state itself: a
-   * function that both awaits and calls setState reads to the compiler as a
-   * synchronous setState in whichever effect invokes it, and the honest shape
-   * is "here is what I found, you decide what to render".
-   */
   /**
    * WHY THE WEB PATH DOES NOT USE expo-sensors.
    *
@@ -193,10 +158,14 @@ export function useTiltGravity(opts: {
    * installed PWA, so web IS the phone, and this was the whole of Tyson's
    * "tilts not working".
    *
-   * `window.addEventListener('devicemotion')` is what that shim would have
-   * called anyway. Native keeps expo-sensors, where it works.
+   * `window.addEventListener` is what that shim would have called anyway.
+   * Native keeps expo-sensors, where it works.
    */
   const liveRef = useRef(false);
+  /** True once `deviceorientation` has produced a usable angle. The
+   *  accelerometer is a fallback and must not fight the source that has no
+   *  sign ambiguity, so it stands down the moment orientation speaks. */
+  const anglesRef = useRef(false);
 
   /**
    * Try to attach. Returns a RESULT rather than setting state itself: a
@@ -210,35 +179,60 @@ export function useTiltGravity(opts: {
   }> => {
     try {
       if (Platform.OS === 'web') {
-        const DME =
-          typeof window === 'undefined'
-            ? undefined
-            : (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } })
-                .DeviceMotionEvent;
-        if (!DME) return { status: 'unsupported', sub: null };
+        if (typeof window === 'undefined') return { status: 'unsupported', sub: null };
+        const w = window as unknown as {
+          DeviceMotionEvent?: { requestPermission?: () => Promise<string> };
+          DeviceOrientationEvent?: { requestPermission?: () => Promise<string> };
+        };
+        const DME = w.DeviceMotionEvent;
+        const DOE = w.DeviceOrientationEvent;
+        if (!DME && !DOE) return { status: 'unsupported', sub: null };
 
-        const handler = (e: Event) => {
+        // A READING IS THE ONLY PROOF. iOS gives no way to query whether
+        // motion is already permitted, so 'prompt' is a guess that the first
+        // real sample corrects. Ref-guarded: these run 50 times a second.
+        const live = () => {
+          if (liveRef.current) return;
+          liveRef.current = true;
+          setSensor('on');
+        };
+
+        const onOrient = (e: Event) => {
+          const { beta, gamma } = e as DeviceOrientationEvent;
+          if (typeof beta !== 'number' || typeof gamma !== 'number') return;
+          if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return;
+          anglesRef.current = true;
+          live();
+          sample(orientationGravity(beta, gamma, screenAngle()));
+        };
+        const onMotion = (e: Event) => {
+          if (anglesRef.current) return;
           const a = (e as DeviceMotionEvent).accelerationIncludingGravity;
           if (!a || !Number.isFinite(a.x ?? NaN) || !Number.isFinite(a.y ?? NaN)) return;
-          // A READING IS THE ONLY PROOF. iOS gives no way to query whether
-          // motion is already permitted, so 'prompt' is a guess that the first
-          // real sample corrects. Ref-guarded: this runs 50 times a second.
-          if (!liveRef.current) {
-            liveRef.current = true;
-            setSensor('on');
-          }
-          sample(a.x as number, a.y as number);
+          live();
+          /**
+           * FALLBACK ONLY, and deliberately assuming the SPEC convention.
+           * Anything that fires `devicemotion` without ever firing
+           * `deviceorientation` is not WebKit — WebKit fires both, under one
+           * permission — so proper acceleration is the right reading here.
+           */
+          sample(accelerationGravity(a.x as number, a.y as number, screenAngle(), false));
         };
-        window.addEventListener('devicemotion', handler);
+
+        window.addEventListener('deviceorientation', onOrient);
+        window.addEventListener('devicemotion', onMotion);
         const sub = {
           remove: () => {
             liveRef.current = false;
-            window.removeEventListener('devicemotion', handler);
+            anglesRef.current = false;
+            window.removeEventListener('deviceorientation', onOrient);
+            window.removeEventListener('devicemotion', onMotion);
           },
         };
         // iOS needs a gesture-scoped grant; everywhere else the events simply
         // flow, and a device with no accelerometer just never sends one.
-        const needsGesture = typeof DME.requestPermission === 'function';
+        const needsGesture =
+          typeof DME?.requestPermission === 'function' || typeof DOE?.requestPermission === 'function';
         return { status: needsGesture && !liveRef.current ? 'prompt' : 'on', sub };
       }
 
@@ -250,7 +244,10 @@ export function useTiltGravity(opts: {
       const sub = DeviceMotion.addListener((data) => {
         const a = data.accelerationIncludingGravity;
         if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) return;
-        sample(a.x, a.y);
+        // NAMED, NOT SNIFFED-BY-ACCIDENT: expo-sensors passes CoreMotion
+        // through on iOS, and CoreMotion reports the gravity vector itself.
+        // Android's SensorManager reports proper acceleration, like the spec.
+        sample(accelerationGravity(a.x, a.y, 0, Platform.OS === 'ios'));
       });
       return { status: 'on', sub };
     } catch {
@@ -264,14 +261,20 @@ export function useTiltGravity(opts: {
     void (async () => {
       try {
         if (Platform.OS === 'web') {
-          const ask = (
-            window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } }
-          ).DeviceMotionEvent?.requestPermission;
-          // Must be called from inside the touch handler's own task — this is,
-          // which is why it is a button and not something done on mount.
-          const res = ask ? await ask() : 'granted';
-          if (res !== 'granted') {
-            setSensor(res === 'denied' ? 'denied' : 'prompt');
+          const w = window as unknown as {
+            DeviceMotionEvent?: { requestPermission?: () => Promise<string> };
+            DeviceOrientationEvent?: { requestPermission?: () => Promise<string> };
+          };
+          // BOTH, from inside the touch handler's own task — which is why this
+          // is a button and not something done on mount. iOS gates the angles
+          // and the accelerometer behind separate calls even though one user
+          // toggle answers them, and asking for only one leaves the source
+          // this file actually steers by silent.
+          const asks = [w.DeviceOrientationEvent?.requestPermission, w.DeviceMotionEvent?.requestPermission]
+            .filter((f): f is () => Promise<string> => typeof f === 'function');
+          const results = await Promise.all(asks.map((ask) => ask().catch(() => 'denied')));
+          if (results.length > 0 && !results.includes('granted')) {
+            setSensor(results.includes('denied') ? 'denied' : 'prompt');
             return;
           }
         } else {

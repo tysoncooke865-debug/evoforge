@@ -366,7 +366,11 @@ export class ChipWorld {
      * conveyor belt. Once released it stays released: a toppled stack does not
      * get to stand back up on its own.
      */
-    if (Math.abs(x) > 0.55) this.unpinStacks();
+    // A LEAN IN EITHER AXIS COSTS THE BASE ITS PURCHASE. Sideways is the
+    // obvious one; the vertical case is the same fact seen end-on — once the
+    // table is barely pressing the chip into the felt (or is pulling it off
+    // it), a pinned base is a magnet, not a chip.
+    if (Math.abs(x) > 0.55 || y < 0.2) this.unpinStacks();
     if (wake) this.wake();
   }
 
@@ -862,6 +866,29 @@ export class ChipWorld {
     const r = b.circleRadius ?? 16;
     const x = b.position.x;
     const y = b.position.y;
+
+    /**
+     * THE TOP EDGE BECOMES A WALL WHEN GRAVITY POINTS AT IT.
+     *
+     * The ceiling is deliberately a whole table-height above the box so a hard
+     * flick can arc out of sight and drop back in. Make the vertical tilt real
+     * — gravity may now point UP the screen — and that same headroom is where
+     * the entire pot goes to hide: chips slide off the top of the visible
+     * table and settle against a wall nobody can see.
+     *
+     * A CLAMP, NOT A SECOND STATIC WALL. A static lid has a far side, and
+     * anything spawned above it (every chip rains in from above the box) would
+     * be trapped outside the table for good. A clamp has no far side: a chip
+     * that crosses the top edge while the table is leaning away is placed on
+     * it, exactly where a wall would have held it, and the moment the phone
+     * comes back level the throw corridor is open again.
+     */
+    if (this.engine.gravity.y < -0.02 && y < r) {
+      Body.setPosition(b, { x, y: r });
+      if (b.velocity.y < 0) Body.setVelocity(b, { x: b.velocity.x, y: 0 });
+      return;
+    }
+
     const out =
       x < -r * 3 || x > this.width + r * 3 || y > this.height + r * 6 || y < -this.height * 4;
     if (!out) return;
