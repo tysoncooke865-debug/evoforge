@@ -170,26 +170,12 @@ export function confidenceOf(c: ForgeChallenge, myId: string): Confidence {
 }
 
 /**
- * WHAT A WIN AND A LOSS ACTUALLY COST — stated plainly, because the honest
- * answer is reassuring and the vague one is not.
+ * WHAT A WIN AND A LOSS ACTUALLY COST used to live here as `outcomesFor`.
  *
- * A challenge moves COINS and nothing else. XP, the Forge Level, the Evo
- * Rating and every evolution requirement are computed from logged training and
- * are untouched by the outcome. Losing a wager cannot make an athlete smaller.
+ * It moved to `domain/forge-duel.ts`'s AT_RISK in the 2026-08-08 duel pass,
+ * where the same facts are five labelled rows instead of a paragraph. The
+ * statement itself has not changed and must not: a duel moves COINS and
+ * nothing else. XP, the Forge Level, the Evo Rating and every evolution
+ * requirement are computed from logged training and are untouched by any
+ * outcome. Losing a wager cannot make an athlete smaller.
  */
-export interface Outcomes {
-  winCoins: number;
-  loseCoins: number;
-  drawCoins: number;
-  /** The things a loss deliberately does NOT touch. */
-  safe: readonly string[];
-}
-
-export function outcomesFor(stake: number): Outcomes {
-  return {
-    winCoins: stake * 2,
-    loseCoins: stake,
-    drawCoins: stake,
-    safe: ['Your XP', 'Your Forge Level', 'Your Evo Rating', 'Your evolution progress'],
-  };
-}

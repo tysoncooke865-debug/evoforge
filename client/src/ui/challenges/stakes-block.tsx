@@ -1,95 +1,16 @@
 import { Text, View } from 'react-native';
 
-import { outcomesFor } from '@/domain/challenge-progression';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { CoinIcon } from '@/ui/core/coin-icon';
 
 /**
- * WHAT IS ON THE LINE — the stake as a hero element, never buried.
+ * WHAT REMAINS HERE IS THE STREAK.
  *
- * Both outcomes, side by side, because the reassuring half is the honest half:
- * a challenge moves COINS and nothing else. XP, the Forge Level, the Evo
- * Rating and every evolution requirement are computed from logged training and
- * are untouched by the result. Losing a wager cannot make an athlete smaller,
- * and saying so plainly is what makes staking again feel reasonable rather
- * than reckless.
- *
- * No "potential winnings" framing, no multipliers, no odds. The numbers are
- * the two real ones: what you take, and what it costs.
+ * `StakesBlock` (the two-outcome card plus a paragraph about what a loss does
+ * not touch) was retired in the 2026-08-08 duel pass. `AtRiskGrid` in
+ * ui/duel/duel-hud.tsx says the same thing as five labelled rows, and keeping
+ * a second copy of a reassurance about money is how the two end up disagreeing.
  */
-export function StakesBlock({ stake, testID }: { stake: number; testID?: string }) {
-  const colors = useThemeColors();
-  const o = outcomesFor(stake);
-
-  return (
-    <View testID={testID}>
-      <View className="flex-row" style={{ gap: 8 }}>
-        <Outcome
-          label="IF YOU WIN"
-          value={`+${o.winCoins}`}
-          tint={colors.success}
-          note="The whole escrow"
-          testID="stakes-win"
-        />
-        <Outcome
-          label="IF YOU LOSE"
-          value={`−${o.loseCoins}`}
-          tint={colors['text-dim']}
-          note="Your stake only"
-          testID="stakes-lose"
-        />
-      </View>
-
-      {/* The reassurance, said once and precisely. */}
-      <Text className="mt-s2 text-2xs text-text-mute" testID="stakes-safe">
-        A draw refunds both stakes in full. Nothing else is at risk —{' '}
-        {o.safe.join(', ').toLowerCase()} are all earned from your logged training and are never
-        affected by the result.
-      </Text>
-    </View>
-  );
-}
-
-function Outcome({
-  label,
-  value,
-  tint,
-  note,
-  testID,
-}: {
-  label: string;
-  value: string;
-  tint: string;
-  note: string;
-  testID: string;
-}) {
-  const colors = useThemeColors();
-  return (
-    <View
-      className="rounded-lg border p-s3"
-      style={{ flex: 1, minWidth: 0, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.5)' }}
-      testID={testID}
-    >
-      <Text
-        className="text-text-mute"
-        allowFontScaling={false}
-        style={{ fontSize: 8, letterSpacing: 1.4, ...pixelFont(false) }}
-      >
-        {label}
-      </Text>
-      <View className="mt-s1 flex-row items-center" style={{ gap: 5 }}>
-        <CoinIcon size={15} />
-        <Text allowFontScaling={false} style={{ fontSize: 20, letterSpacing: 0, color: tint, ...pixelFont() }}>
-          {value}
-        </Text>
-      </View>
-      <Text className="text-2xs text-text-mute" numberOfLines={1}>
-        {note}
-      </Text>
-    </View>
-  );
-}
 
 /**
  * THE STREAK — the reason to take one more.

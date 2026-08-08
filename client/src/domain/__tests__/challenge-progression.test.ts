@@ -4,7 +4,6 @@ import {
   STREAK_MILESTONES,
   challengeHistory,
   confidenceOf,
-  outcomesFor,
   winStreak,
 } from '../challenge-progression';
 import type { ForgeChallenge } from '../forge-challenge';
@@ -229,19 +228,7 @@ describe('confidence is a band, never a number', () => {
   });
 });
 
-describe('what a loss actually costs', () => {
-  it('a win takes the whole escrow; a loss costs only the stake', () => {
-    const o = outcomesFor(50);
-    expect(o.winCoins).toBe(100);
-    expect(o.loseCoins).toBe(50);
-    expect(o.drawCoins).toBe(50);
-  });
-
-  it('names what a loss CANNOT touch — the reassurance is the point', () => {
-    const o = outcomesFor(25);
-    const safe = o.safe.join(' ');
-    expect(safe).toMatch(/XP/);
-    expect(safe).toMatch(/Evo Rating/i);
-    expect(safe).toMatch(/evolution/i);
-  });
-});
+// `outcomesFor` and its two tests moved to domain/forge-duel.ts's AT_RISK in
+// 2026-08-08's duel pass. It said the same thing as the new grid, and two
+// copies of "what a loss does not touch" is exactly the drift this codebase
+// keeps learning about the hard way.
