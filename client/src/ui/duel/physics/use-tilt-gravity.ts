@@ -111,8 +111,28 @@ export function useTiltGravity(opts: {
     baseRef.current = baseGravity;
   }, [baseGravity]);
 
+  /**
+   * FORGET THE HOLD ENTIRELY — all three pieces of it.
+   *
+   * Clearing `neutral` alone is what broke the table on every return to the
+   * app. The smoothing buffer survived, so the very next sample was 82% of the
+   * angle the phone was at BEFORE the athlete switched away, and that stale
+   * average became the new neutral. Come back holding the phone differently —
+   * which is what returning to an app IS — and the table had a permanent
+   * phantom lean baked into its origin, big enough after the gain to pin the
+   * whole pot against a wall and hold it there.
+   *
+   * And the world is handed plain gravity NOW rather than at the next sample.
+   * The first sample after a recalibration only records the new neutral and
+   * publishes nothing, so anything that stops the stream (a return that never
+   * re-arms the sensor, a backgrounded tab) would otherwise leave the last
+   * leaned vector standing forever.
+   */
   const recalibrate = useCallback(() => {
     neutral.current = null;
+    smoothed.current = null;
+    lastSent.current = { x: 0, y: baseRef.current };
+    onGravityRef.current({ x: 0, y: baseRef.current }, true);
   }, []);
 
   /**
@@ -162,6 +182,10 @@ export function useTiltGravity(opts: {
    * Native keeps expo-sensors, where it works.
    */
   const liveRef = useRef(false);
+  /** Whether this hook has EVER had a reading. Unlike `liveRef` a re-arm does
+   *  not clear it, which is how a resumed subscription tells "the sensor has
+   *  not spoken yet" apart from "the sensor has stopped speaking". */
+  const everLive = useRef(false);
   /** True once `deviceorientation` has produced a usable angle. The
    *  accelerometer is a fallback and must not fight the source that has no
    *  sign ambiguity, so it stands down the moment orientation speaks. */
@@ -194,6 +218,7 @@ export function useTiltGravity(opts: {
         const live = () => {
           if (liveRef.current) return;
           liveRef.current = true;
+          everLive.current = true;
           setSensor('on');
         };
 
@@ -244,6 +269,8 @@ export function useTiltGravity(opts: {
       const sub = DeviceMotion.addListener((data) => {
         const a = data.accelerationIncludingGravity;
         if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) return;
+        liveRef.current = true;
+        everLive.current = true;
         // NAMED, NOT SNIFFED-BY-ACCIDENT: expo-sensors passes CoreMotion
         // through on iOS, and CoreMotion reports the gravity vector itself.
         // Android's SensorManager reports proper acceleration, like the spec.
@@ -284,14 +311,18 @@ export function useTiltGravity(opts: {
             return;
           }
         }
-        neutral.current = null;
+        // The tap that grants permission is also a new hold: the phone has
+        // just been touched, and whatever it was resting at is no longer where
+        // it is. `recalibrate` forgets the smoothing buffer too, which
+        // `neutral.current = null` on its own did not.
+        recalibrate();
         setSensor('on');
         setAttempt((n) => n + 1);
       } catch {
         setSensor('unsupported');
       }
     })();
-  }, []);
+  }, [recalibrate]);
 
   // ── lifecycle ────────────────────────────────────────────────────
 
@@ -304,6 +335,7 @@ export function useTiltGravity(opts: {
     }
     let sub: { remove: () => void } | null = null;
     let cancelled = false;
+    let grace: ReturnType<typeof setTimeout> | null = null;
     // setSensor here is a PROMISE CALLBACK, not a synchronous effect body
     // write — which is both what the rule allows and what is actually true:
     // the answer arrives from the platform whenever it arrives.
@@ -313,10 +345,35 @@ export function useTiltGravity(opts: {
         return;
       }
       sub = r.sub;
+      // A READING BEATS A GUESS, WHICHEVER ARRIVES FIRST. `subscribe` decides
+      // its status before the platform has had a chance to speak, and on a
+      // re-arm samples start flowing immediately — so this resolution can
+      // land AFTER `live()` has already proved the sensor works.
+      if (liveRef.current) {
+        setSensor('on');
+        return;
+      }
+      if (everLive.current && r.status === 'prompt') {
+        /**
+         * A SENSOR THAT WORKED A MOMENT AGO GETS A MOMENT TO COME BACK.
+         *
+         * Re-arming clears the "we have seen a reading" flag, so on iOS —
+         * where the mere existence of `requestPermission` means the status
+         * guesses 'prompt' — every return from the app switcher would flash
+         * ENABLE TILT over a table that was about to work perfectly. If the
+         * stream really is dead the athlete still gets told, 1.5s later, and
+         * that message is then the truth rather than a flicker.
+         */
+        grace = setTimeout(() => {
+          if (!liveRef.current) setSensor('prompt');
+        }, 1500);
+        return;
+      }
       setSensor(r.status);
     });
     return () => {
       cancelled = true;
+      if (grace) clearTimeout(grace);
       // `sub.remove()` and NOTHING ELSE. The extra `DeviceMotion
       // .removeAllListeners()` that used to sit here does not exist on the web
       // implementation, so the cleanup threw and took the entire wager screen
@@ -327,21 +384,55 @@ export function useTiltGravity(opts: {
     };
   }, [enabled, motionPhysics, subscribe, attempt]);
 
-  // A long background, or a rotation, and the phone is very likely being held
-  // differently. Re-take neutral rather than fighting a stale baseline.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') recalibrate();
-    });
-    return () => sub.remove();
+  /**
+   * COMING BACK TO THE APP IS A NEW HOLD, AND A NEW SUBSCRIPTION.
+   *
+   * Two separate things break across a background, and only one of them is
+   * calibration. The listeners themselves go quiet: iOS stops delivering
+   * motion to a page it has suspended, and a stream that stopped is not
+   * guaranteed to start again just because the page is visible — the athlete
+   * comes back to a dead table with a chip hint that says TILT ON. So the
+   * sensor is RE-ARMED (a bumped `attempt` re-runs the subscribe effect, which
+   * removes and re-adds the listeners) as well as recalibrated.
+   *
+   * `resume` is idempotent and cheap, which is why it is safe to wire it to
+   * every signal that could mean "we are back": AppState covers native and
+   * react-native-web's mapping of `visibilitychange`, and the web listeners
+   * below cover the paths that mapping does not — a PWA restored from the app
+   * switcher fires `pageshow`, and a tab regaining focus fires `focus`
+   * without necessarily changing visibility at all.
+   */
+  const resume = useCallback(() => {
+    recalibrate();
+    setAttempt((n) => n + 1);
   }, [recalibrate]);
 
   useEffect(() => {
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'active') resume();
+    });
+    return () => sub.remove();
+  }, [resume]);
+
+  useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') resume();
+    };
+    // A rotation is a new hold too — the phone is in a different hand shape,
+    // and the screen axes it is measured against have just moved.
     const onRotate = () => recalibrate();
     window.addEventListener('orientationchange', onRotate);
-    return () => window.removeEventListener('orientationchange', onRotate);
-  }, [recalibrate]);
+    window.addEventListener('pageshow', onVisible);
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('orientationchange', onRotate);
+      window.removeEventListener('pageshow', onVisible);
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [recalibrate, resume]);
 
   return { state, request, recalibrate };
 }

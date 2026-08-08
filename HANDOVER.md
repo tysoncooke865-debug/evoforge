@@ -160,6 +160,28 @@ Owner: Tyson. He works through other Claude sessions too — **always
     the RATIO grows with the lean, which is the only quantity friction answers
     to, and the vertical axis falls out of the same arithmetic.
 
+  **AND IT BROKE ON EVERY RETURN TO THE APP** (Tyson, same day). Switch away,
+  come back, and the pot was pinned in a corner and stayed there.
+  - **Clearing `neutral` is not recalibrating.** The SMOOTHING BUFFER survived,
+    so the first sample after the return was 82% of the angle the phone was at
+    BEFORE the athlete switched away, and that stale average became the new
+    neutral. Returning to an app IS returning to a different hold, so the table
+    took a permanent phantom lean — after the gain, enough to hold the whole
+    pot against a wall. `recalibrate()` now drops neutral, the smoothing buffer
+    AND the last-sent vector, and hands the world plain gravity immediately
+    (the first sample after a recalibration publishes nothing, so a stream that
+    never resumes would otherwise leave the last leaned vector standing).
+  - **The listeners go quiet too.** iOS stops delivering motion to a suspended
+    page and does not promise to start again on its own, so returning also
+    RE-ARMS the subscription. Every "we are back" signal is wired to it —
+    AppState, `visibilitychange`, `pageshow`, `focus` — because the mapping
+    react-native-web makes does not cover a PWA restored from the app switcher.
+  - **A re-arm must not un-say "TILT ON".** Re-subscribing clears the
+    have-seen-a-reading flag, and on iOS the status then guesses `'prompt'`,
+    flashing ENABLE TILT over a working table. A reading now wins the race
+    outright, and a sensor that was live before gets a 1.5s grace period before
+    it is declared missing.
+
   **VERIFYING IT.** `chip-world.test.ts` — 16 behavioural tests over the real
   simulation, headless in half a second because `chip-world.ts` is React-free
   and matter-js is pure JS. Build that harness FIRST next time: tuning physics
@@ -172,6 +194,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
   lean → right wall, far edge down → the pile rises to the top edge and stays
   on the table, 12-degree wobble → nothing moves. A tilt test that asserts the
   gravity vector rather than the chips will pass while the table sits still.
+  `tilt-resume.mjs` does the same across a background/foreground cycle.
+
+  **TWO TRAPS IN THE BROWSER HARNESS ITSELF**, both of which produced confident
+  wrong answers before they were spotted:
+  - **The PWA's service worker serves yesterday's bundle.** A tour against a
+    fresh `expo export` ran the OLD code, agreed with the OLD behaviour, and
+    looked like a failed fix. Playwright contexts for this app want
+    `serviceWorkers: 'block'`; a probe that never increments is the tell.
+  - **`page.bringToFront()` does not hide a page in headless Chromium.** The
+    "background the app" step was a no-op, so the test was measuring an
+    ordinary change of hold and calling it a resume. Drive the real events:
+    redefine `document.visibilityState`, dispatch `visibilitychange`, then
+    `focus`/`pageshow` — which is what an iPhone actually fires.
 
 - **THE FIRST WORKOUT IS A RECORD NOW (2026-08-06, migration 138)** — Train
   kept saying "YOUR FIRST WORKOUT / START FIRST WORKOUT" after the athlete
