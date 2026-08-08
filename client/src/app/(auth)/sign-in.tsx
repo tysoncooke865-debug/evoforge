@@ -6,7 +6,7 @@ import { supabase } from '@/data/supabase';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
-import { GlowCard } from '@/ui/core/shell';
+import { AmbientLight, GlowCard } from '@/ui/core/shell';
 
 export default function SignInScreen() {
   const colors = useThemeColors();
@@ -33,8 +33,7 @@ export default function SignInScreen() {
       style={{ backgroundColor: colors['bg-deep'] }}
     >
       {/* The shell's ambient light rig — auth screens sit on the same stage. */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+      <AmbientLight />
       <View className="w-full max-w-[420px]">
         <GlowCard>
           <Text

@@ -102,11 +102,25 @@ export function orientationGravity(betaDeg: number, gammaDeg: number, screenAngl
  * DELTA, in tiltGravity). That is monotonic across the whole usable range and
  * behaves the same however the athlete happens to hold the phone.
  *
- * `y` is negated because matter's +y is screen-DOWN: tipping the TOP edge away
- * (β rising) has to send chips UP the glass.
+ * BETA IS NOT NEGATED, AND THAT WAS THE BUG.
+ *
+ * This shipped as `-betaDeg` on the reasoning that "+y is screen-down, so β
+ * rising has to send chips up the glass". The premise is wrong: β rising does
+ * not tip the top edge away, it stands the phone UP. β = 0 is flat on a table,
+ * β = 90 is upright — so a rising β is a board being lifted toward vertical,
+ * and a board being lifted toward vertical drops its chips FASTER, not slower.
+ *
+ * The physical model this replaced says the same thing and says it plainly:
+ * `orientationGravity` returns `y = sin β`, which climbs from 0 when flat to 1
+ * when upright. Any lean model has to agree with it in SIGN or the table pulls
+ * the wrong way — which is exactly what a hand reported, and what the test
+ * below now pins by comparing the two directly.
+ *
+ * So both axes are un-negated and consistent: +gamma rolls the right edge down
+ * and chips run right; +beta stands the board up and chips run down.
  */
 export function orientationLeanDeg(betaDeg: number, gammaDeg: number, screenAngleDeg = 0): TiltGravity {
-  return toScreenAxes(wrapDeg(gammaDeg), -wrapDeg(betaDeg), screenAngleDeg);
+  return toScreenAxes(wrapDeg(gammaDeg), wrapDeg(betaDeg), screenAngleDeg);
 }
 
 /** Into (-180, 180], so 179° → -179° is a 2° move and not a 358° one. */

@@ -24,6 +24,38 @@ import { clearActiveScroller, setActiveScroller } from '@/ui/core/scroll-registr
  * always bottom-pads past the tab bar so nothing hides behind it -- on iOS
  * Safari the browser chrome + home indicator make this the #1 layout bug.
  */
+/**
+ * THE AMBIENT LIGHT BEHIND EVERY SCREEN — and the clip that has to go with it.
+ *
+ * Two soft discs bled deliberately off the top corners. They are 440 and 400
+ * wide and sit at left:-200 and right:-220, so on a 390px phone the right one
+ * reaches 220px past the edge of the world.
+ *
+ * That was a real horizontal scrollbar on every screen a signed-out visitor
+ * saw: the landing page, sign-in, sign-up and all six onboarding steps — which
+ * is to say, on 100% of first impressions. It went unnoticed because the
+ * SIGNED-IN screens are clipped by the tab navigator above them, and every
+ * overflow check we had ran signed in. `body` carries `overflow-x: hidden`,
+ * which is not enough on its own: the document element still scrolls.
+ *
+ * So the decoration clips ITSELF, in a wrapper that contains nothing else. The
+ * obvious fix — `overflow: hidden` on the shell root — would also have clipped
+ * the floating rest timer, the call-out layer and the settle overlay, all of
+ * which are legitimately positioned against the shell. Clipping the decoration
+ * and only the decoration cannot affect anything real.
+ */
+export function AmbientLight() {
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
+    >
+      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+    </View>
+  );
+}
+
 export function ScreenShell({
   children,
   refreshControl,
@@ -93,9 +125,7 @@ export function ScreenShell({
   }));
   return (
     <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
-      {/* Quiet ambient light — recessive enough that the header owns the top. */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+      <AmbientLight />
       {backdrop}
       <ScrollView
         ref={scrollRef}
@@ -155,8 +185,7 @@ export function FlatListShell<T>({
   );
   return (
     <View className="flex-1" style={{ backgroundColor: colors['bg-deep'] }}>
-      <View pointerEvents="none" style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }} />
+      <AmbientLight />
       <FlatList
         ref={listRef}
         data={data as T[]}

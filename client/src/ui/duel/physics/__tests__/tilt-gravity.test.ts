@@ -204,19 +204,81 @@ describe('the vertical lean answers a hand', () => {
   it('the angle lean tells the two directions apart', () => {
     const toward = orientationLeanDeg(70, 0).y - held.y;
     const away = orientationLeanDeg(110, 0).y - held.y;
+    // Still the point of the lean model: sin(70°) === sin(110°), so the old
+    // component model could not distinguish these at all.
     expect(Math.sign(toward)).toBe(-Math.sign(away));
     expect(Math.abs(toward)).toBeGreaterThan(15);
   });
 
-  it('tipping the TOP edge away sends chips up the glass', () => {
+  /**
+   * THE DIRECTION, AND THE REGRESSION.
+   *
+   * β = 0 is flat on a table and β = 90 is upright, so a RISING β is a board
+   * being stood up — and a board being stood up drops its chips faster. These
+   * two shipped inverted, with the mistake spelled out in a comment that read
+   * "β rising tips the top edge away". It does not; it lifts the board.
+   * A hand caught it, three test cases agreed with the bug, and nothing in the
+   * suite disagreed because every one of them was written from the same wrong
+   * premise.
+   */
+  it('standing the board up presses chips DOWN the glass', () => {
     const g = tiltGravity(orientationLeanDeg(115, 0), held, { base, degrees: true });
-    expect(g.y).toBeLessThan(base);
-  });
-
-  it('tipping it toward you presses them down, never sideways', () => {
-    const g = tiltGravity(orientationLeanDeg(65, 0), held, { base, degrees: true });
     expect(g.y).toBeGreaterThan(base);
     expect(Math.abs(g.x)).toBeLessThan(0.05);
+  });
+
+  it('laying it flatter lets them drift back up', () => {
+    const g = tiltGravity(orientationLeanDeg(65, 0), held, { base, degrees: true });
+    expect(g.y).toBeLessThan(base);
+    expect(Math.abs(g.x)).toBeLessThan(0.05);
+  });
+
+  /**
+   * THE GUARD THAT WOULD HAVE CAUGHT IT.
+   *
+   * `orientationGravity` is the physically derived model — `y = sin β`, which
+   * climbs from flat to upright and cannot be argued with. The lean model is
+   * allowed to be more sensitive than it, and is allowed to keep working past
+   * the angles where sine goes flat, but it is NEVER allowed to point the other
+   * way. Asserting the two agree in sign is a property no amount of confident
+   * reasoning about "top edges" can talk its way past.
+   */
+  it('agrees in SIGN with the physical model on both axes, everywhere usable', () => {
+    // BELOW THE SINE PEAK ONLY. `sin β` turns over at 90°, so past vertical the
+    // physical model folds back on itself and stops being an oracle — that
+    // fold IS the ambiguity the lean model exists to escape, and asking it to
+    // agree there would be asking it to reproduce the bug it replaced. Between
+    // 30° and 80° sine is strictly monotonic, and that is also where a phone
+    // held up to look at actually lives.
+    for (const neutral of [40, 50, 55, 60] ) {
+      const n = orientationLeanDeg(neutral, 0);
+      for (const delta of [-25, -15, 15, 20]) {
+        const lean = tiltGravity(orientationLeanDeg(neutral + delta, 0), n, { base, degrees: true });
+        // What the physics says happens to downward pull over the same move.
+        const physical =
+          orientationGravity(neutral + delta, 0).y - orientationGravity(neutral, 0).y;
+        if (Math.abs(physical) < 1e-3) continue; // sine is flat here; nothing to compare
+        // Inside the dead zone the table deliberately does nothing, so there is
+        // no direction to disagree about. Skipping it is not weakening the
+        // guard — every delta here is well outside it, and the assertion below
+        // still runs on all of them.
+        if (lean.y === base && lean.x === 0) continue;
+        expect(
+          Math.sign(lean.y - base),
+          `neutral ${neutral}, delta ${delta}`
+        ).toBe(Math.sign(physical));
+      }
+    }
+  });
+
+  it('and the horizontal axis agrees with it too', () => {
+    const flat = orientationLeanDeg(90, 0);
+    const right = tiltGravity(orientationLeanDeg(90, 25), flat, { base, degrees: true });
+    const left = tiltGravity(orientationLeanDeg(90, -25), flat, { base, degrees: true });
+    // +gamma rolls the right edge down, so chips run right (+x).
+    expect(right.x).toBeGreaterThan(0);
+    expect(left.x).toBeLessThan(0);
+    expect(Math.sign(right.x)).toBe(Math.sign(orientationGravity(90, 25).x));
   });
 
   it('a small pitch does something — the old model did nothing at all', () => {
@@ -232,10 +294,10 @@ describe('the vertical lean answers a hand', () => {
   it('and it behaves the same from ANY neutral, which is the whole point', () => {
     for (const start of [40, 60, 90, 120]) {
       const n = orientationLeanDeg(start, 0);
-      const up = tiltGravity(orientationLeanDeg(start + 25, 0), n, { base, degrees: true });
-      const down = tiltGravity(orientationLeanDeg(start - 25, 0), n, { base, degrees: true });
-      expect(up.y).toBeLessThan(base);
-      expect(down.y).toBeGreaterThan(base);
+      const stoodUp = tiltGravity(orientationLeanDeg(start + 25, 0), n, { base, degrees: true });
+      const laidFlat = tiltGravity(orientationLeanDeg(start - 25, 0), n, { base, degrees: true });
+      expect(stoodUp.y, `stood up from ${start}`).toBeGreaterThan(base);
+      expect(laidFlat.y, `laid flat from ${start}`).toBeLessThan(base);
     }
   });
 

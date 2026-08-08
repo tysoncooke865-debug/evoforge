@@ -14,19 +14,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { AmbientLight } from '@/ui/core/shell';
 
 /** The ambient light rig every creation screen sits on. */
 export function CreationBackdrop() {
   return (
     <>
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: -220, left: -200, width: 440, height: 440, borderRadius: 220, backgroundColor: 'rgba(34, 211, 238, 0.05)' }}
-      />
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: -200, right: -220, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(168, 85, 247, 0.045)' }}
-      />
+      <AmbientLight />
     </>
   );
 }
