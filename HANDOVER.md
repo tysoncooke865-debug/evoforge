@@ -3950,9 +3950,59 @@ nutrition landed as `037_nutrition.sql`, which COLLIDES with
   `ARENA_COSMETIC_COMPATIBILITY.md` §5). Next: Session 4 = Phase 8 on
   Sonnet 5 high (golden champion), reviewed by Fable 5.
 
+- **FORGE DROP** (2026-08-08, migrations **154**+**155**, `docs/FORGE_DROP.md`) —
+  a single-player Plinko board played with Forge Coins, at `/forge-drop`. Five
+  boards keyed to Evo Rating (SCRAP RIG → CELESTIAL FORGE, max stake 5→25,
+  target RTP 80→92%, max payout 15→150), held in the `forge_drop_tiers` TABLE
+  so a rebalance is SQL with no deploy. **Forge Drop reads Evo Rating and never
+  writes it** — a game that could move a rating would make it a currency.
+  Tier/multipliers/`config_version` are snapshotted onto the drop row, so a
+  retune mid-fall cannot change a drop in flight. `forge_drop_play` is one
+  transaction (validate → debit → resolve → credit) and idempotent on
+  `(user_id, idempotency_key)`; the client writes the key to disk BEFORE the
+  request, so a dead tunnel is recoverable via `forge_drop_fetch` and never
+  re-wagered. Balance is always the server's `coin_total()` — nothing
+  optimistic, one query key across Home/Challenges/Customise/Vault/Forge Drop.
+  Entry points: Vault, More, and Customise **only when short of coins**; NOT in
+  the workout logger. The fall is a REPLAY of a settled result, not a
+  simulation. Reduced motion skips the fall, not the result. Verified by 65
+  domain tests (incl. a 100k-sample statistical test per lane per tier),
+  `tools/falsify-forge-drop.mjs` (SQL, ledger conservation + 100k real-resolver
+  samples) and `tools/tour-forge-drop.mjs` (47 assertions, three tiers, four
+  widths, reduced motion).
+
 ---
 
 ## 3. The rules that cost real bugs
+
+### Wagering maths
+
+- **A random walk on a peg board moves HALF a column, not a whole one.** Each
+  peg deflects left or right by half a slot; only after two rows is the puck a
+  whole column across. Stepping ±1 whole column made half the board unreachable
+  and pushed a side lane's return **above 100%** — a losing game that paid out.
+  Track half-columns `h` in `0…2*rows`, slot is `h/2` (so `rows` must be EVEN),
+  and **reflect** at a wall rather than clamping — clamping piles probability
+  onto the rim slots, which carry the biggest multipliers.
+- **How you round a payout to whole coins IS the RTP.** Flooring is the obvious
+  rule and it silently rewrites the economy: it loses up to a coin on every
+  drop *regardless of stake*, so the smallest stake loses the most. A board
+  published at 86% actually returned **15%** at a 1-coin stake, and no stake on
+  any tier ever reached its advertised figure. Pay the fraction as a
+  PROBABILITY instead (`floor(x) + (random() < frac(x) ? 1 : 0)`): the
+  expectation is exactly `stake × multiplier`, so the published number is true
+  at every stake. Check the top multiplier × max stake is a whole number, or
+  rounding up can breach the advertised ceiling.
+- **Sample the PAYOUT, not the multiplier.** The 100k-sample harness asserted
+  the mean multiplier matched the board and passed happily while the flooring
+  bug was live — the multiplier was right, the coins were not. A statistical
+  guard has to sample the thing the athlete actually receives, at the SMALLEST
+  legal stake as well as the largest. The maximum stake is the one value where
+  a rounding bug looks nearly acceptable.
+- **An uncorrelated subquery in Postgres is evaluated ONCE.** The first version
+  of the SQL sampler reported one drop repeated a hundred thousand times; a mean
+  multiplier of exactly 1.000 was the tell. Extract the walk into its own
+  function and sample that.
 
 ### Touch targets
 

@@ -140,6 +140,28 @@ export default function CoinsScreen() {
         </GlowCard>
       ) : null}
 
+      {/* FORGE DROP — the coin board. The Vault is its home: this is where an
+          athlete already comes to look at what they have earned. */}
+      <Pressable
+        onPress={() => router.push('/forge-drop' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Open Forge Drop, the coin board"
+        testID="coin-forge-drop-cta"
+        className="flex-row items-center justify-between rounded-lg border p-s3"
+        style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.06)' }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text className="text-text" allowFontScaling={false} style={{ fontSize: 12, ...pixelFont() }}>
+            FORGE DROP →
+          </Text>
+          <Text className="mt-s1 text-2xs text-text-mute">
+            Wager coins on the board your Evo Rating unlocks. Every board returns less than it
+            takes — the exact odds are shown before you commit.
+          </Text>
+        </View>
+        <CoinIcon size={22} />
+      </Pressable>
+
       {/* Spend pointer — the shops (skins, champions, palettes) live in Customise. */}
       <Pressable
         onPress={() => router.push('/customise' as never)}

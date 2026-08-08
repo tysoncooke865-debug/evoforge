@@ -1,7 +1,7 @@
 import { router, useIsFocused } from 'expo-router';
 import { useSkinsReady } from '@/ui/character/avatar-skins';
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ForgeLoader } from '@/ui/core/forge-loader';
 
 import { useCharacterUnlocks, usePurchaseCharacter } from '@/data/characters';
@@ -179,6 +179,15 @@ export default function CustomiseScreen() {
   const buyPending = purchase.isPending || purchaseCharacter.isPending || purchasePalette.isPending;
   const buttonBusy = isBuy && buyPending;
   const buttonEnabled = state.kind === 'equip' || (isBuy && canAfford);
+  /**
+   * FORGE DROP, ONLY WHEN THE COINS ARE SHORT — and as a LINE, never a prompt.
+   *
+   * The brief allows a pointer here and asks for no interruption, so this is a
+   * quiet row under the buy button that appears only when the thing in front of
+   * the athlete costs more than they have. It never opens itself, never covers
+   * anything, and says what it is: a wager, at a published loss.
+   */
+  const shortBy = isBuy && !canAfford ? buyPrice - balance : 0;
 
   const select = (next: Partial<Selection>) => setSelection({ ...selection, ...next });
 
@@ -283,6 +292,25 @@ export default function CustomiseScreen() {
         size="hero"
         testID="equip-loadout"
       />
+
+      {/* A LINE, NOT A PROMPT. Only when what they are looking at costs more
+          than they have, and it states the honest terms rather than dangling a
+          win. Training is named first because that is where coins come from. */}
+      {shortBy > 0 ? (
+        <Pressable
+          onPress={() => router.push('/forge-drop' as never)}
+          accessibilityRole="button"
+          accessibilityLabel={`Open Forge Drop. You are ${shortBy} coins short.`}
+          testID="customise-forge-drop"
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text className="text-center text-2xs text-text-mute">
+            {shortBy} short. Train to earn more — or wager some on{' '}
+            <Text style={{ color: colors.accent }}>Forge Drop</Text>, which returns less than it
+            takes.
+          </Text>
+        </Pressable>
+      ) : null}
     </ScreenShell>
   );
 }

@@ -166,8 +166,8 @@ async function signIn(browser, who) {
   const emailBox = await waitFor(page, 'email');
   if (!emailBox) throw new Error(`${who}: never reached sign-in`);
   await emailBox.fill(email);
-  (await visible(page, 'password')).fill(password);
-  (await visible(page, 'sign-in')).click();
+  await (await visible(page, 'password')).fill(password);
+  await (await visible(page, 'sign-in')).click();
   await page.waitForTimeout(3500);
   await dismissOverlays(page);
   return { ctx, page };
