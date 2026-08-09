@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
+import type { BankedReveal } from '@/domain/forge-reveal';
 import { useClaimReveal, useMyReveals } from '@/data/forge-reveal';
 import { bankedLabel } from '@/domain/forge-reveal';
 import { useThemeColors } from '@/theme/use-theme';
@@ -40,16 +41,34 @@ function useRevealFlow() {
   const userId = session?.user?.id ?? null;
   const state = useMyReveals(userId);
   const claim = useClaimReveal(userId);
-  const [openId, setOpenId] = useState<string | null>(null);
+  /**
+   * THE OPEN REVEAL IS HELD, NOT LOOKED UP (Tyson, 2026-08-09: "I dont think it
+   * plays the animations properly").
+   *
+   * It used to be `banked.find(b => b.id === openId)`. `banked` holds only
+   * UNCLAIMED reveals, so the instant a claim succeeded and the query invalidated,
+   * the reveal left `banked`, `current` became null, and the sheet UNMOUNTED —
+   * mid-claim, before the ingot had fallen a single pixel.
+   *
+   * The athlete pressed CLAIM and the sheet vanished. No pour, no landing, no
+   * number, no balance, and on Home the chip disappeared too. The coins were
+   * always paid; measuring it showed `forge_reveal_claim` returning 200 while the
+   * screen showed nothing at all. It read as a broken feature because everything
+   * that was supposed to say "you earned 40" was unmounted before it could.
+   *
+   * Holding the reveal makes the sheet's lifetime the athlete's decision — it
+   * closes when they press DONE — instead of a side effect of a cache
+   * invalidation. `key={current.id}` still gives each reveal its own state.
+   */
+  const [openReveal, setOpenReveal] = useState<BankedReveal | null>(null);
   const banked = state.data?.banked ?? [];
   const table = state.data?.table ?? [];
-  const current = banked.find((b) => b.id === openId) ?? null;
   return {
     banked,
     table,
-    current,
-    open: (id: string) => setOpenId(id),
-    close: () => setOpenId(null),
+    current: openReveal,
+    open: (reveal: BankedReveal) => setOpenReveal(reveal),
+    close: () => setOpenReveal(null),
     claim: claim.mutateAsync,
   };
 }
@@ -59,12 +78,26 @@ export function RevealChip() {
   const colors = useThemeColors();
   const { banked, table, current, open, close, claim } = useRevealFlow();
 
-  if (banked.length === 0) return null;
+  /**
+   * THE EARLY RETURN IS CONDITIONAL ON THE SHEET, and that is the whole fix.
+   *
+   * `if (banked.length === 0) return null` unmounted this component the moment a
+   * claim succeeded — because a claimed reveal leaves `banked`, and the sheet is
+   * this component's CHILD. It took the ceremony down with it, roughly 150ms after
+   * CLAIM was pressed: no pour, no landing, no number, no balance.
+   *
+   * Holding the open reveal in state was necessary but not sufficient; a parent
+   * that returns null takes its children with it wherever their state lives. Both
+   * halves are needed, which is why the browser measurement mattered — the first
+   * fix looked right and changed nothing on screen.
+   */
+  if (banked.length === 0 && !current) return null;
 
   return (
     <>
+      {banked.length > 0 ? (
       <Pressable
-        onPress={() => open(banked[0].id)}
+        onPress={() => open(banked[0])}
         accessibilityRole="button"
         accessibilityLabel={`${bankedLabel(banked.length)}. Open the forge.`}
         testID="home-reveal-chip"
@@ -82,6 +115,7 @@ export function RevealChip() {
           OPEN
         </Text>
       </Pressable>
+      ) : null}
       {current ? (
         <RevealSheet
           key={current.id}
@@ -107,12 +141,26 @@ export function RevealClaimCard() {
   const colors = useThemeColors();
   const { banked, table, current, open, close, claim } = useRevealFlow();
 
-  if (banked.length === 0) return null;
+  /**
+   * THE EARLY RETURN IS CONDITIONAL ON THE SHEET, and that is the whole fix.
+   *
+   * `if (banked.length === 0) return null` unmounted this component the moment a
+   * claim succeeded — because a claimed reveal leaves `banked`, and the sheet is
+   * this component's CHILD. It took the ceremony down with it, roughly 150ms after
+   * CLAIM was pressed: no pour, no landing, no number, no balance.
+   *
+   * Holding the open reveal in state was necessary but not sufficient; a parent
+   * that returns null takes its children with it wherever their state lives. Both
+   * halves are needed, which is why the browser measurement mattered — the first
+   * fix looked right and changed nothing on screen.
+   */
+  if (banked.length === 0 && !current) return null;
 
   return (
     <>
+      {banked.length > 0 ? (
       <Pressable
-        onPress={() => open(banked[0].id)}
+        onPress={() => open(banked[0])}
         accessibilityRole="button"
         accessibilityLabel={`${bankedLabel(banked.length)}. Open the forge to claim.`}
         testID="summary-reveal-card"
@@ -140,6 +188,7 @@ export function RevealClaimCard() {
             : 'Earned by finishing your workout. Claim whenever you like.'}
         </Text>
       </Pressable>
+      ) : null}
       {current ? (
         <RevealSheet
           key={current.id}

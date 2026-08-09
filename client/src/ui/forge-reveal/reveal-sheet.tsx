@@ -166,6 +166,12 @@ export function RevealSheet({
       // A timer rather than a completion callback: nested withTiming callbacks are
       // what killed the board's rAF loop once, and 78 pegs doing it blew the stack.
       setTimeout(() => setStage('settled'), FALL_MS + 60);
+    } catch {
+      // A refused claim (already taken, offline) must not strand the sheet on
+      // "Pouring…" with no way back. The mutation surfaces the error; this just
+      // returns the sheet to a state the athlete can act on.
+      setStage('ready');
+      setResult(null);
     } finally {
       setBusy(false);
     }
@@ -227,10 +233,11 @@ export function RevealSheet({
               </Pressable>
             </>
           ) : (
-            <View className="items-center py-s3">
+            <View className="items-center py-s3" testID={`reveal-stage-${stage}`}>
               {/* THE CRUCIBLE AND THE MOULD. Not a board, not a wheel. */}
               <View style={{ height: 200, justifyContent: 'flex-start', alignItems: 'center' }}>
                 <Animated.View
+                  testID="reveal-ingot"
                   style={[
                     {
                       width: 54,
@@ -244,6 +251,7 @@ export function RevealSheet({
                   ]}
                 />
                 <Animated.View
+                  testID="reveal-mould"
                   pointerEvents="none"
                   style={[
                     {
