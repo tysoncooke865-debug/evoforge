@@ -28,7 +28,7 @@ import { supabase } from './supabase';
  * SELECT: creating, accepting, verifying and refunding are all SECURITY DEFINER
  * functions, so the client's job is to ask and to re-read.
  *
- * The odds are computed on THIS device (domain/callout-odds.ts) and sent with
+ * NO ODDS ARE SENT. 163 dropped the columns and v5 §4 bans the concept, so what
  * the create call, because only the athlete's client can read the athlete's log.
  * The server clamps whatever arrives. See 150's header for why that is safe.
  */
@@ -224,9 +224,6 @@ export interface CreateCalloutInput {
   targetWeightKg: number | null;
   targetLabel: string;
   stake: number;
-  hitProbability: number;
-  oddsModel: string;
-  oddsEvidence: Record<string, unknown>;
   /** Analytics only: how long the tray was open before SEND, and how many
    *  calls this athlete has made in this workout. The second one is how we
    *  learn whether people run it back. */
@@ -250,9 +247,6 @@ export function useCreateCallout() {
         p_target_weight_kg: input.targetWeightKg,
         p_target_label: input.targetLabel,
         p_stake: input.stake,
-        p_hit_probability: input.hitProbability,
-        p_odds_model: input.oddsModel,
-        p_odds_evidence: input.oddsEvidence,
       });
       if (error) throw new Error(humanise(error.message));
       return String((data as { callout_id: string }).callout_id);
@@ -264,7 +258,6 @@ export function useCreateCallout() {
         set_no: input.setNo,
         ms_to_send: input.msToSend ?? null,
         session_seq: input.sessionSeq ?? 1,
-        early_odds: input.hitProbability,
       });
     },
     onError: (e: Error) => {

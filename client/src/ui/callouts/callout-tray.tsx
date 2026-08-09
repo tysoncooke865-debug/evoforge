@@ -14,7 +14,6 @@ import { pyFloat, pyInt } from '@/domain/py';
 import { useCalloutConfig, useCreateCallout, useMyCallouts } from '@/data/callouts';
 import { useTrainingFriends } from '@/data/presence';
 import { useFriends } from '@/data/social';
-import { estimateCallOdds } from '@/domain/callout-odds';
 import {
   DEFAULT_CALLOUT_CONFIG,
   calloutTargetLabel,
@@ -30,7 +29,6 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { ChipWagerTable } from '@/ui/duel/chip-table';
 import { FORGE_CHIPS } from '@/domain/forge-duel';
 
-import { OddsStrip } from './odds-strip';
 
 /**
  * CALL THIS SET.
@@ -169,12 +167,9 @@ export function CalloutTray({
     opened.current = Date.now();
   }, []);
 
-  const odds = useMemo(
-    () => estimateCallOdds({ rows, exercise, target: liveTarget, todayIso, unit }),
-    // The estimate is about the call as it stands, so it re-reads on every edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, exercise, liveTarget.weightKg, liveTarget.reps, liveTarget.loadMode, todayIso, unit]
-  );
+  // NO ESTIMATE. The tray used to recompute a hit probability on every edit and
+  // show it. v5 §4: settlement is fixed and symmetric, and nothing may be displayed
+  // as odds — so there is nothing to estimate and nothing to quote.
 
   const label = calloutTargetLabel(liveTarget, unit);
   const max = maxCalloutStake(balance ?? 0, cfg);
@@ -200,9 +195,6 @@ export function CalloutTray({
         targetWeightKg: liveTarget.weightKg,
         targetLabel: label,
         stake,
-        hitProbability: odds.hitProbability,
-        oddsModel: odds.modelVersion,
-        oddsEvidence: odds.evidence as unknown as Record<string, unknown>,
         msToSend: Date.now() - opened.current,
         sessionSeq,
       },
@@ -361,8 +353,6 @@ export function CalloutTray({
               testID="callout-target-reps"
             />
           </View>
-
-          <OddsStrip hit={odds.hitProbability} early={odds.early} evidence={odds.evidence} />
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* ── WHO ── */}

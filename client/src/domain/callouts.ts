@@ -78,9 +78,6 @@ export interface CalloutRow {
   target_label: string;
   stake: number;
   pot: number;
-  hit_probability: number;
-  odds_model_version: string;
-  odds_evidence: CalloutEvidence | null;
   status: CalloutStatus;
   result: CalloutResult | null;
   actual_reps: number | null;

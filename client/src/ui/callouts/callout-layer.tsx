@@ -11,7 +11,6 @@ import { useThemeColors } from '@/theme/use-theme';
 import { useNow } from '@/ui/duel/duel-hud';
 
 import { MicroPot } from './micro-pot';
-import { OddsStrip } from './odds-strip';
 import { CalloutSettleOverlay } from './settle-overlay';
 
 /**
@@ -145,13 +144,10 @@ function IncomingCard({ callout, onDismiss }: { callout: CalloutRow; onDismiss: 
         {callout.stake} ON {callout.athlete_name.toUpperCase()}
       </Text>
 
-      <OddsStrip
-        hit={Number(callout.hit_probability)}
-        early={Boolean(callout.odds_evidence?.early)}
-        evidence={callout.odds_evidence}
-        testID="callout-incoming-odds"
-      />
-
+      {/* NO ODDS STRIP. It used to quote a hit percentage here, which v5 §4 bans
+          outright — "never display anything as odds". The settlement was always
+          fixed and symmetric, so the number informed nothing and framed a training
+          set as a proposition with a price. */}
       <MicroPot
         amount={callout.stake}
         incoming={accepted ? callout.stake : 0}
