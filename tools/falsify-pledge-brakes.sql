@@ -39,11 +39,13 @@ begin
     insert into d(k,v) values ('d_escalate_900', to_jsonb('ACCEPTED — BRAKE GONE, BUG'::text));
   exception when others then insert into d(k,v) values ('d_escalate_900', to_jsonb(('refused: '||sqlerrm)::text)); end;
 
-  -- 4. ONE PER EXERCISE PER SESSION still bites.
+  -- 4. A SECOND PLEDGE ON THE SAME EXERCISE, DIFFERENT SET, IS NOW ALLOWED (172).
+  --    This assertion was inverted until 172: the rule used to be one live pledge
+  --    per ATHLETE, and the expected result was a refusal.
   begin
     perform public.callout_create(o, current_date, sched[1]::text, ex1::text, 2, r1, 'external'::text, w1, '50 test'::text, 50);
-    insert into d(k,v) values ('e_same_exercise', to_jsonb('ACCEPTED — BRAKE GONE, BUG'::text));
-  exception when others then insert into d(k,v) values ('e_same_exercise', to_jsonb(('refused: '||sqlerrm)::text)); end;
+    insert into d(k,v) values ('e_same_exercise', to_jsonb('ACCEPTED — expected, set 2'::text));
+  exception when others then insert into d(k,v) values ('e_same_exercise', to_jsonb(('REFUSED — the per-set rule is too tight: '||sqlerrm)::text)); end;
 
   -- 5. A MISS STILL ENDS THE DAY.
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
