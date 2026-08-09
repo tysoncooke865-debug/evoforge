@@ -3,8 +3,8 @@
 Updated 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
 Spec of record: `docs/ENGAGEMENT_V5.md`. Audit: `docs/V5_MIGRATION_AUDIT.md`.
 
-All on `expo-rewrite` (auto-deploys). **Migrations 159–176 applied to production.
-Next free number is 177.**
+All on `expo-rewrite` (auto-deploys). **Migrations 159–178 applied to production.
+Next free number is 179.**
 
 ---
 
@@ -18,7 +18,7 @@ Next free number is 177.**
 | 4 Forge Reveal + board retirement — 161, 162 | ✅ |
 | 5 Forge Trial — server 163 ✅, Golden Dot ✅, allowance in the tray ✅, **pools ❌** | ⚠️ |
 | 6 Physics pool — **domain ✅, visuals ❌** | ⚠️ |
-| 7 House margin 164 ✅, Cache + Recovery 166 ✅, **dead supporter UI ❌** | ⚠️ |
+| 7 Margin 164 ✅, Cache + Recovery 166 ✅, supporter UI removed ✅, **streak grace/pause ❌** | ⚠️ |
 | 8 Copy sweep — **78 → 0**, CI-enforced | ✅ |
 
 **Numbering shifted by one from the plan**: 162 became the board retirement, so
@@ -52,14 +52,35 @@ two-pan balance scale (BACK one pan, PUSH the other, never merged), crucible com
 owner identification on every pool ingot, per-person settlement lines.
 `client/src/ui/duel/physics/` stays untouched — identity only.
 
-### 3. Dead supporter UI (Phase 7)
-~10 client files still reference the retired supporter surface (`challenges/`,
-`data/forge-duel.ts`, `domain/forge-duel.ts`). They compile and no position can be
-taken — 164 dropped the functions — but the surface should come out.
+### 3. ~~Dead supporter UI~~ — **DONE** (`cfab5f2`)
+14 files, `supporter-meter.tsx` deleted, reactions split to `duel-reactions.tsx`,
+`describe('supporter maths')` removed. Spectating kept per audit §4. Removing it
+exposed four §10 violations the sweep could not see — see Traps.
 
-### 4. Not yet reviewed against §6
-Streaks exist via `scheduled_streak`, but grace days, streak protection, pause
-controls and "plan-adherent" framing have not been checked against the spec.
+### 4. §6 streaks — reviewed, two gaps
+**Already compliant**: `scheduled_streak` is plan-aware and rest BRIDGES rather
+than breaks; best is preserved; the framing is positive throughout
+("CONSISTENCY IS THE CHEAT CODE") and there is no "streak about to die" copy
+anywhere in the tree. Cache + Recovery Run shipped in 166.
+
+**Missing**, both needing a migration plus UI:
+- **grace days / streak protection**, on by default. A missed *planned* day
+  currently breaks the run outright.
+- **one-tap pause** for injury, illness, travel.
+
+### 5. Golden Dot pools (Phase 5/6) — BLOCKED ON A PRODUCT DECISION
+The five `hitdoubt-pot` migrations add a `mode = 'pot'`: the athlete pledges on
+their own set and up to seven others join across two sides, with an independent
+verifier at ≥200.
+
+**This is in tension with the audit's own §4 decision.** Retiring Forge Duel
+supporters was justified as "do not re-point BACK/PUSH at a third party" — and a
+pot is third parties putting coins on an athlete's performance. The spec (§4, §5)
+plainly describes pools and a non-participant verifier, so the spec and the audit
+disagree. It is not a governing-invariant conflict — a pot is skill-resolved with
+zero RNG and the money walls hold — so it is a product call, not an escalation.
+**Do not build it until that call is made.** Phase 6's two-pan balance scale is
+downstream of the same decision.
 
 ---
 
