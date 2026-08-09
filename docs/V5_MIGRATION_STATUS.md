@@ -3,8 +3,8 @@
 Updated 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
 Spec of record: `docs/ENGAGEMENT_V5.md`. Audit: `docs/V5_MIGRATION_AUDIT.md`.
 
-All on `expo-rewrite` (auto-deploys). **Migrations 159–179 applied to production.
-Next free number is 180.**
+All on `expo-rewrite` (auto-deploys). **Migrations 159–183 applied to production.
+Next free number is 184.**
 
 ---
 
@@ -16,7 +16,7 @@ Next free number is 180.**
 | 2 Module boundaries (enforced by test) | ✅ |
 | 3 Economy + ledger — 160 | ✅ |
 | 4 Forge Reveal + board retirement — 161, 162 | ✅ |
-| 5 Forge Trial — server 163 ✅, Golden Dot ✅, allowance in the tray ✅, **pools ❌** | ⚠️ |
+| 5 Forge Trial ✅ · pool server 180–183 ✅, **pool client ❌** | ⚠️ |
 | 6 Physics pool — **domain ✅, visuals ❌** | ⚠️ |
 | 7 Margin 164 ✅, Cache + Recovery 166 ✅, supporter UI removed ✅, §6 grace/pause 179 ✅ | ✅ |
 | 8 Copy sweep — **78 → 0**, CI-enforced | ✅ |
@@ -97,7 +97,34 @@ So this is a rewrite against the current schema, not a rename plus a renumber.
 **Do not apply them as they stand** — they will fail, and a partly-applied set is
 the worst possible state for the callouts table.
 
-THE REWRITE, in the order it should land as 180+:
+**BUILT, 180–183.** The rewrite landed as four migrations; the plan below is kept
+because each step's reasoning is still the reasoning.
+
+| # | what | proof |
+|---|---|---|
+| 180 | `mode`, `workout_callout_entries`, `callout_pool`, no write policies | falsify-callout-pool 10/10 |
+| 181 | `callout_pool_open` (invite) + `callout_pool_join` (escrow) | falsify-pool-join 11/11 |
+| 182 | refund-by-ledger, independent verifier ≥200, proportional split | falsify-pool-settle 13/13 |
+| 183 | the remainder collided with the unique index — most settlements | same harness |
+
+**Decisions taken (Tyson, 2026-08-09):** friends of the ATHLETE only, and
+invite-only discovery — there is deliberately no browsable list of open pools, and
+182 asserts none exists. A feed of things to put coins on is what a lobby looks
+like.
+
+**Three traps this uncovered, all worth keeping:**
+- `callout_refund_both` named `athlete_id`/`opponent_id`, so a joiner's escrow was
+  stranded on EVERY refund path. Refund what the ledger holds, grouped by holder —
+  never name participants.
+- `coin_events` is uniquely indexed on (user_id, kind, source_id). One payout row
+  per person per call out. Fold rounding in before writing, never after.
+- A migration's own `do $$` block asserts the SHAPE of a function. 182's checks all
+  passed on code that could not execute. Settlement must be driven with real
+  balances.
+
+**Still outstanding:** the client. No athlete can open a pool yet.
+
+THE ORIGINAL PLAN, for reference:
 
 1. **Schema** — `mode` ('duel' default, 'pot'), `workout_callout_entries`
    (athlete side + joiners, BACK/PUSH, unequal stakes), owner-or-participant RLS.
