@@ -106,24 +106,23 @@ export const COIN_LABELS: Record<string, string> = {
   // ledger screen renders whatever the ledger holds, and an unlabelled row
   // reads as a bug in the one place an athlete goes to check their coins.
   battle_reward: 'Battle reward',
-  challenge_stake: 'Duel stake',
-  challenge_payout: 'Duel payout',
-  duel_support_stake: 'Backed a duel',
-  duel_support_payout: 'Support payout',
+  challenge_stake: 'Duel pledge',
+  challenge_payout: 'Duel settlement',
+
   // 151 — LIVE WORKOUT CALL OUTS. Server-only like the duel's kinds (the guard
   // admits them solely inside the callout functions), but the ledger screen
   // renders whatever the ledger holds, and an unlabelled row reads as a bug in
   // the one place an athlete goes to check their coins.
-  callout_stake: 'Call out stake',
-  callout_payout: 'Call out payout',
+  callout_stake: 'Trial pledge',
+  callout_payout: 'Trial settlement',
   // 154 — FORGE DROP. Same rule again: server-only, guard-admitted, and the
   // ledger screen is exactly where somebody goes to check what a board
   // actually paid them. This is the third of the THREE EDITS a coin kind
   // needs (CHECK constraint, guard branch, client label) and it is the one
   // that gets forgotten, because nothing fails without it — the row just
   // renders blank in the one place it matters.
-  forge_drop_stake: 'Forge Drop stake',
-  forge_drop_payout: 'Forge Drop payout',
+  forge_drop_stake: 'Retired board — pledge',
+  forge_drop_payout: 'Retired board — return',
   // 159 — A BOARD BOUGHT EARLY. And the third edit was forgotten AGAIN, one
   // migration after the comment above was written about forgetting it: 159 added
   // the kind to the CHECK constraint and the guard branch and stopped there, so
@@ -132,7 +131,7 @@ export const COIN_LABELS: Record<string, string> = {
   // whole problem with this edit. tools/falsify-forge-drop.mjs §10 caught it by
   // reading the live constraint against this map, which is why that check reads
   // EVERY kind rather than the ones a session happens to remember.
-  forge_drop_unlock: 'Forge Drop board unlock',
+  forge_drop_unlock: 'Retired board — unlock',
   // 160 — the deterministic backbone (v5 §2).
   set_reward: 'Set logged',
   // 161 — THE REVEAL, and this label was forgotten too. A THIRD time: 139 taught
