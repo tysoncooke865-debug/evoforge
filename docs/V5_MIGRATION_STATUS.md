@@ -1,122 +1,112 @@
 # V5.1 MIGRATION — STATUS AND HANDOFF
 
-Written 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
+Updated 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
 Spec of record: `docs/ENGAGEMENT_V5.md`. Audit: `docs/V5_MIGRATION_AUDIT.md`.
 
-All work is on `expo-rewrite` (auto-deploys). Migrations **159–164 are applied to
-production**. Latest commit `6cecc60`.
+All on `expo-rewrite` (auto-deploys). **Migrations 159–166 applied to production.
+Next free number is 167.**
 
 ---
 
-## Done
+## Where it stands
 
-| Phase | State | Migration |
-|---|---|---|
-| 1 Audit | ✅ | — |
-| 2 Module boundaries | ✅ | — |
-| 3 Economy + ledger | ✅ | 160 |
-| 4 Forge Reveal (server + client + retirement) | ✅ | 161, 162 |
-| 5 Forge Trial — **server only** | ⚠️ partial | 163 |
-| 6 Physics pool | ❌ not started | — |
-| 7 Duel margin ✅ · streaks/caches ❌ | ⚠️ partial | 164 |
-| 8 Copy sweep | ⚠️ partial | — |
+| Phase | State |
+|---|---|
+| 1 Audit | ✅ |
+| 2 Module boundaries (enforced by test) | ✅ |
+| 3 Economy + ledger — 160 | ✅ |
+| 4 Forge Reveal + board retirement — 161, 162 | ✅ |
+| 5 Forge Trial — server 163 ✅, Golden Dot gating ✅, **pools ❌** | ⚠️ |
+| 6 Physics pool — **domain ✅, visuals ❌** | ⚠️ |
+| 7 House margin 164 ✅, Cache + Recovery 166 ✅, **dead supporter UI ❌** | ⚠️ |
+| 8 Copy sweep — **78 → 0**, CI-enforced | ✅ |
 
 **Numbering shifted by one from the plan**: 162 became the board retirement, so
-Forge Trial is 163 and third-party staking is 164. **Next free migration is 165.**
+Forge Trial is 163, third-party staking 164, vocabulary 165, cache/recovery 166.
+
+### Both governing invariants are now structural
+
+- **Balance-decrease**: no deduction anywhere is downstream of randomness. The board
+  is gone; `forge_reveal_claim` takes one uuid and no stake; `reveal_bonus`,
+  `forge_cache` and `recovery_cache` are additive by CHECK constraint.
+- **Chance–stake separation**: enforced at build time by
+  `client/src/domain/__tests__/module-boundaries.test.ts`, falsified five ways.
+  Zero RNG in any pledge path, asserted in SQL by 163.
 
 ---
 
-## What remains, in the order I would do it
+## What remains
 
-### 1. Phase 5 client — Golden Dot (largest remaining compliance item)
+### 1. Golden Dot pools (Phase 5)
+The five unapplied `hitdoubt-pot` migrations in `../hitdoubt-pot/migrations/` are
+still HIT/DOUBT-shaped and numbered 159–163. Rework to BACK/PUSH + pool +
+settlement, renumber to **167+**. Verifier ≥200 per §5.
 
-The server is done and enforcing. The client has not caught up.
+Also: the tray should call `forge_trial_allowance(exercise, date)` and render its
+`max_stake` and `message` inline — §4 wants the cap shown *before* commitment. The
+server returns prose for exactly this.
 
-- **`ui/train/exercise-logger.tsx:265-300`** — the `◉` glyph already sits beside
-  `⇄`. It needs: gating to planned exercises (`buildEffectivePlan` minus
-  `DayOverrides.added`, `domain/session-plan.ts`), hiding on rest days and for
-  above-program loads, and a screen-reader label. Today it shows on every exercise
-  and the server refuses the pledge afterwards — a screen offering something
-  settlement rejects, which is the thing `forge_trial_allowance` exists to prevent.
-  **Call `forge_trial_allowance(exercise, date)` and render `max_stake` and
-  `message` inline** — §4 requires the cap shown *before* commitment.
-- Vocabulary through the tray and cards: `PLEDGE 50 ON THIS SET`, BACK/PUSH,
-  pool, settle. `callout-tray.tsx:456` still says `${stake} SAYS I HIT THIS`.
-- **Golden Dot pools** — the five unapplied `hitdoubt-pot` migrations in
-  `../hitdoubt-pot/migrations/` are still HIT/DOUBT-shaped and numbered 159–163.
-  Rework to BACK/PUSH + pool + settlement and renumber to **165+**.
+### 2. Physics pool visuals (Phase 6)
+Domain is done (metals, radii, densities, audio). The visual half is not:
+two-pan balance scale (BACK one pan, PUSH the other, never merged), crucible commit,
+owner identification on every pool ingot, per-person settlement lines.
+`client/src/ui/duel/physics/` stays untouched — identity only.
 
-### 2. Phase 8 — vocabulary to zero
+### 3. Dead supporter UI (Phase 7)
+~10 client files still reference the retired supporter surface (`challenges/`,
+`data/forge-duel.ts`, `domain/forge-duel.ts`). They compile and no position can be
+taken — 164 dropped the functions — but the surface should come out.
 
-`node tools/sweep-vocabulary.mjs` → **51 hits across 19 files** (stake 41,
-all-in 13… note those overlap). Biggest clusters:
-
-- `ui/duel/offer-sheet.tsx` (7), `domain/forge-duel.ts` (6),
-  `ui/duel/chip-table.tsx` (3), `ui/duel/duel-result.tsx` (3)
-- 13 × **all-in** — the duel's ALL IN control
-
-Then wire `--strict` into `.github/workflows/client.yml`, and write
-`tools/compliance-gate.mjs` (money walls, zero-RNG static check, IARC answers).
-
-### 3. Phase 7 remainder
-
-- ~10 client files still reference the retired supporter UI (`challenges/`,
-  `data/forge-duel.ts`, `domain/forge-duel.ts`). They compile — the RPC call is
-  dynamic — and no position can be taken, but the dead surface should come out.
-- Streaks as plan-adherent days, grace + protection, pause controls.
-- Daily Forge Cache 25/30/40/50/60/75/150 + Weekly.
-- Recovery Run: below 5 coins, 3 sets → exactly 50, non-farmable.
-
-### 4. Phase 6 — physics pool
-
-Untouched. `client/src/ui/duel/physics/` (2,719 lines) must be **preserved
-wholesale**; only identity changes. `FORGE_CHIPS = [5,10,25,50,100,250,500]`
-(`domain/forge-duel.ts:25`) → copper 5 / bronze 10 / iron 15 / steel 25 /
-silver 50 / gold 100. Two-pan balance scale, crucible commit, owner-coloured
-ingots, per-person settlement lines.
+### 4. Not yet reviewed against §6
+Streaks exist via `scheduled_streak`, but grace days, streak protection, pause
+controls and "plan-adherent" framing have not been checked against the spec.
 
 ---
 
-## Things that will bite you
+## Traps
 
-**The repo disagrees with production, repeatedly.** Four times this session:
-migration 159 applied but uncommitted; `grant_battle_reward`'s parameter *order*;
-`odds_model_version` and `hit_probability` existing where 150's CREATE said
-otherwise; `max_support` in the duel config. **Enumerate from
-`information_schema` rather than from a migration file.**
+**The repo disagrees with production, repeatedly.** Six times now: 159
+applied-but-uncommitted; `grant_battle_reward`'s parameter *order*;
+`odds_model_version`; `hit_probability`; `max_support`; and a `callout_create` that
+144/145's files no longer describe. **Enumerate from `information_schema`, never
+from a migration file.**
 
-**A coin kind needs FOUR edits, not three.** CHECK constraint, guard branch,
-`COIN_LABELS`, *and* the claim toast's `amounts` map — that last one is a second
-copy of the server's numbers. Missed three times.
-`node tools/falsify-coin-labels.mjs` checks all four against the live guard body.
+**Never edit an applied migration to fix its wording.** It changes the repo and not
+the database. 165 redefines live functions from their own bodies instead;
+`tools/sweep-vocabulary.mjs` has a `SUPERSEDED` map naming which migration replaced
+each historical file.
 
-**Destructive proofs run in `begin … rollback`.** The management API honours it,
-verified repeatedly. Every falsification here seeds production, asserts, and rolls
-back; each then re-checks that production is unchanged.
+**A coin kind needs FOUR edits.** CHECK constraint, guard branch, `COIN_LABELS`, and
+the claim toast's `amounts` map. Missed four times. `node tools/falsify-coin-labels.mjs`
+checks all four against the live guard body — run it after any coin change.
 
-**Falsify every guard.** Three of mine failed for the wrong reason before working
-(string-matching a normalised constraint, probing a CHECK that a BEFORE trigger
-answered first, comparing `pg_get_function_identity_arguments` to a string that
-includes parameter names). One was outright inert: chase prevention filtered on
-`status = 'lost'`, which is not an allowed value.
+**Regenerate the RLS manifest in the same commit as a migration that adds a table.**
+CI failed for six commits because I did not, and the `client` job being green each
+time hid it. `node tools/verify-rls.mjs --write-manifest`.
 
-**Generating JS through a shell heredoc mangles backslashes** — `/\r?\n/` arrived
-as a literal CR three times. Use `String.fromCharCode(10)` or write the patch
-script to a file.
+**Falsify every guard, and assert the control is green first.** One brake was
+outright inert (`status = 'lost'`, not an allowed value). A falsification run once
+reported five clean catches that were all fake — `--reporter=basic` does not exist
+in vitest 4, so every run died at startup and the script read silence as success.
+
+**Generating JS through a shell heredoc mangles backslashes.** `/\r?\n/` arrived as a
+literal CR three times. Use `String.fromCharCode(10)`, or write the patch to a file.
 
 ---
 
 ## Verification loop
 
 ```bash
-cd client && npx tsc --noEmit && npx expo lint && npx vitest run
-node tools/sweep-vocabulary.mjs        # 51 → must reach 0
-node tools/simulate-economy.mjs        # PASS, worst cohort 73.7%
-node tools/falsify-coin-labels.mjs     # 7/7
-# falsify-forge-reveal.sql and falsify-forge-trial.sql run via the management API
+cd client && npx tsc --noEmit && npx expo lint && npx vitest run   # 2318 passing
+node tools/sweep-vocabulary.mjs --strict     # 0 hits; also a CI step
+node tools/simulate-economy.mjs              # PASS, worst cohort 73.7%
+node tools/falsify-coin-labels.mjs           # 7/7; also a CI step
+node tools/verify-rls.mjs                    # manifest + anonymous reads
+# falsify-forge-reveal.sql, falsify-forge-trial.sql, falsify-cache-recovery.sql
+# run via the management API, each inside begin…rollback
 ```
 
-**No completion claim while any non-negotiable invariant fails, and nothing here
-asserts the app is legally cleared** — the one-off external check before first
-submission with Trials live remains open, along with the two questions in
-`V5_MIGRATION_AUDIT.md` §8.
+**Nothing here asserts the app is legally cleared.** The one-off external check
+before first submission with Trials live remains open, along with the two questions
+in `V5_MIGRATION_AUDIT.md` §8 — including whether a free-entry, additive,
+RNG-seeded battle reward sits inside the "no simulated gambling" IARC answer.
