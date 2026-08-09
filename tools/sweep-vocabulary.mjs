@@ -95,6 +95,39 @@ function applyTimeLines(src) {
   return skip;
 }
 
+/**
+ * EVERY LINE INSIDE A MULTI-LINE COMMENT.
+ *
+ * Comments are not user-facing text, and the comments most likely to contain a
+ * banned word are the ones EXPLAINING the ban. A per-line stripper cannot see
+ * that: a JSX comment opens on one line and its middle lines carry no marker at
+ * all, so a sentence quoted from the spec, inside a comment saying why a strip was
+ * deleted, got reported as banned copy.
+ *
+ * Tracked as line ranges instead. This function deliberately contains no literal
+ * comment-opening sequence of its own, because it would count itself.
+ */
+function blockCommentLines(src) {
+  const OPEN = '/' + '*';
+  const CLOSE = '*' + '/';
+  const LF = String.fromCharCode(10);
+  const CR = String.fromCharCode(13);
+  const skip = new Set();
+  let depth = 0;
+  src.split(LF).forEach((rawLine, i) => {
+    const line = rawLine.endsWith(CR) ? rawLine.slice(0, -1) : rawLine;
+    const opens = line.split(OPEN).length - 1;
+    const closes = line.split(CLOSE).length - 1;
+    if (depth > 0) skip.add(i + 1);
+    depth += opens - closes;
+    if (depth < 0) depth = 0;
+    // A line that opens and does not close is a comment line; one that does
+    // both is left to the per-line strip.
+    if (opens > closes) skip.add(i + 1);
+  });
+  return skip;
+}
+
 function walk(p, exts, out = []) {
   let st;
   try { st = statSync(p); } catch { return out; }
@@ -146,10 +179,10 @@ for (const { dir, exts } of SEARCH) {
     const lines = text.split(/\r?\n/);
     // Migration DO-blocks run at apply time and cannot reach a user; see above.
     const applyTime = isSql ? applyTimeLines(text) : new Set();
+    const commentLines = blockCommentLines(text);
     lines.forEach((line, i) => {
       if (applyTime.has(i + 1)) return;
-      // A comment is not a user-facing string. Code comments explaining WHY a
-      // word is banned must not themselves trip the ban.
+      if (commentLines.has(i + 1)) return;
       const code = line.replace(/^\s*(\/\/|--|\*|\/\*).*$/, '');
       if (!code.trim()) return;
       // Developer logging is not user-facing. `console.warn('… wager value
