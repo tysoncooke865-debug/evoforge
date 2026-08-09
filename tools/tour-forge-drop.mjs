@@ -71,7 +71,10 @@ async function waitFor(page, id, timeout = 15000) {
   return null;
 }
 const shot = (p, n) => p.screenshot({ path: `${SHOTS}/${n}.png` }).catch(() => undefined);
-const bal = async () => Number((await sql(`select public.forge_duel_balance('${ALPHA}') v;`))[0].v);
+// EXACT. `forge_duel_balance` returns a rounded integer, which stopped
+// agreeing with the screen the moment coins gained cents (158).
+const bal = async () => Number((await sql(
+  `select round(coalesce(sum(amount),0),2) v from public.coin_events where user_id='${ALPHA}';`))[0].v);
 const setRating = (r) => sql(
   `update public.evo_rating_current set displayed_rating = ${r}, raw_rating = ${r} where user_id = '${ALPHA}';`);
 
@@ -280,11 +283,12 @@ ok('the stake was the one chosen', Number(row.stake) === 15, `staked ${row.stake
 ok('the ledger moved by exactly the net', (await bal()) === before + Number(row.net),
    `${before} → ${await bal()} (net ${row.net})`);
 const cardText = (await (await visible(page, 'drop-result')).innerText()).trim();
+const money = (v) => { const r = Math.round(Number(v) * 100) / 100; return Number.isInteger(r) ? String(r) : r.toFixed(2); };
 ok('the card shows the same net as the ledger',
-   cardText.includes(Number(row.net) > 0 ? `+${row.net}` : String(row.net)),
-   `${cardText.replace(/\s+/g, ' ').slice(0, 70)} vs ${row.net}`);
+   cardText.includes(Number(row.net) > 0 ? `+${money(row.net)}` : money(row.net)),
+   `${cardText.replace(/\s+/g, ' ').slice(0, 70)} vs ${money(row.net)}`);
 ok('and the same payout the server paid',
-   cardText.includes(`${row.payout} BACK`), `expected ${row.payout} BACK`);
+   cardText.includes(`${money(row.payout)} BACK`), `expected ${money(row.payout)} BACK`);
 const summary = (await (await visible(page, 'drop-session-summary')).innerText()).trim();
 ok('and the session summary counts it', /1 drops/.test(summary), summary.replace(/\s+/g, ' '));
 const shownBal = await visible(page, 'drop-balance');

@@ -28,7 +28,10 @@ export function useCoinTotal() {
     enabled: userId !== null,
     queryFn: async (): Promise<number | null> => {
       try {
-        const { data, error } = await supabase.rpc('coin_total');
+        // EXACT, WITH CENTS. `coin_total()` still exists and still returns a
+        // floored integer for the nineteen server functions that gate a spend
+        // on it — this is the reading a human is shown.
+        const { data, error } = await supabase.rpc('coin_total_exact');
         if (error) return null;
         // Number(null) is 0 — an absent body must read as failure (null),
         // never as an empty wallet. Same guard as useLedgerXp.

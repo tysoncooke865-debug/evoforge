@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { formatMultiplier, type DropTier } from '@/domain/forge-drop';
+import { formatCoin, formatMultiplier, type DropTier } from '@/domain/forge-drop';
 import { celebrationFor, outcomeTier, type OutcomeTier } from '@/domain/forge-drop-feel';
 import type { SessionDrop } from '@/domain/forge-drop-session';
 import { useSettingsStore } from '@/state/settings-store';
@@ -138,14 +138,14 @@ export function DropResultCard({
           testID="drop-result-payout"
           style={{ fontSize: 20, color: won ? colors.legendary : colors['text-dim'], ...pixelFont() }}
         >
-          {shownPayout} BACK
+          {formatCoin(shownPayout)} BACK
         </Text>
         <Text
           allowFontScaling={false}
           testID="drop-result-net"
           style={{ fontSize: 13, color: won ? colors.legendary : net < 0 ? colors['text-mute'] : colors['text-dim'], ...pixelFont() }}
         >
-          {net > 0 ? `+${net}` : String(net)}
+          {net > 0 ? `+${formatCoin(net)}` : formatCoin(net)}
         </Text>
       </View>
 
@@ -181,7 +181,7 @@ export function DropResultCard({
 
       {/* 5 — THE BALANCE, counting to its new value. */}
       <Text className="text-2xs" style={{ color: colors['text-dim'] }} testID="drop-result-balance">
-        Balance {shownBalance}
+        Balance {formatCoin(shownBalance)}
       </Text>
 
       {/* 6 — GO AGAIN. Inside the card, under the thumb, no scrolling. */}

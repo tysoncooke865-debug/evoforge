@@ -364,11 +364,27 @@ describe('stake limits cannot be talked past', () => {
   });
 });
 
-describe('the payout is floored, like the ledger', () => {
-  it('rounds down, never up', () => {
-    expect(payoutFor(5, 0.65)).toBe(3);
-    expect(payoutFor(1, 0.9)).toBe(0);
+describe('the payout is exact, like the ledger', () => {
+  /**
+   * Coins carry two decimal places since migration 158, so a payout is simply
+   * `stake x multiplier`. Both of the rounding schemes this replaced are gone:
+   * flooring (which paid 15% on a board advertised at 86%) and the
+   * probabilistic rounding that fixed flooring's bias. There is nothing left to
+   * round, so each tier's published RTP is now true by construction rather than
+   * in expectation.
+   */
+  it('pays the exact product, to the cent', () => {
+    expect(payoutFor(5, 0.65)).toBe(3.25);
+    expect(payoutFor(1, 0.9)).toBe(0.9);
+    expect(payoutFor(1, 0.89)).toBe(0.89);
     expect(payoutFor(10, 3.5)).toBe(35);
+  });
+
+  it('never carries more than two decimal places', () => {
+    for (const [stake, mult] of [[3, 0.7], [7, 1.26], [13, 0.89], [1, 1.08]] as const) {
+      const p = payoutFor(stake, mult);
+      expect(Math.round(p * 100) / 100).toBe(p);
+    }
   });
 
   it('formats the way an athlete reads it', () => {

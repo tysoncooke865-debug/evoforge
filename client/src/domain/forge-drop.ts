@@ -152,14 +152,18 @@ export function tierOdds(tier: DropTier): LaneOdds[] {
  * returns the odds of one more.
  */
 export function payoutFor(stake: number, multiplier: number): number {
-  return Math.floor(stake * multiplier);
+  // EXACT, TO THE CENT. Coins carry two decimal places (migration 158), so
+  // there is no fraction left to floor and none to gamble away — a 1-coin chip
+  // on 0.89x returns 0.89. The probabilistic rounding this replaced existed
+  // only because a payout had to be a whole coin.
+  return Math.round(stake * multiplier * 100) / 100;
 }
 
-/** The chance of ONE more coin on top of `payoutFor` — the fraction, paid
- *  honestly. Zero when the payout is already whole. */
-export function fractionalChance(stake: number, multiplier: number): number {
-  const exact = stake * multiplier;
-  return exact - Math.floor(exact);
+/** Kept at zero: nothing is rounded any more, so nothing is owed as a chance
+ *  of one more coin. The payout table reads this to decide whether to show a
+ *  range, and now never does. */
+export function fractionalChance(_stake?: number, _multiplier?: number): number {
+  return 0;
 }
 
 /** The two amounts a slot can pay, and how often the larger one lands. Used by
@@ -334,4 +338,17 @@ export function clampStake(stake: number, tier: DropTier, balance: number): numb
 
 export function canAfford(tier: DropTier, balance: number): boolean {
   return Math.floor(balance) >= tier.min_stake;
+}
+
+/**
+ * COINS, AS MONEY.
+ *
+ * Whole amounts stay whole — "15", not "15.00", because most of the economy is
+ * whole coins and a wall of trailing zeroes reads as noise. Anything with cents
+ * shows both digits: 10.5 is written 10.50, because a payout that looks like it
+ * has one decimal place invites the question of whether the other one was lost.
+ */
+export function formatCoin(v: number): string {
+  const r = Math.round(v * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2);
 }
