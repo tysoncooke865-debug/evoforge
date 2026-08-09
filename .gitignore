@@ -12,3 +12,6 @@ assets/styles_legacy.css
 tools/shots/
 # and by the browser tours, when DROP_SHOTS is not pointed elsewhere
 drop-shots/
+
+# playwright for the browser tours (tools/browser.mjs) — never a client dep
+tools/.browser/

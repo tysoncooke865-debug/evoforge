@@ -116,6 +116,15 @@ export const COIN_LABELS: Record<string, string> = {
   // renders blank in the one place it matters.
   forge_drop_stake: 'Forge Drop stake',
   forge_drop_payout: 'Forge Drop payout',
+  // 159 — A BOARD BOUGHT EARLY. And the third edit was forgotten AGAIN, one
+  // migration after the comment above was written about forgetting it: 159 added
+  // the kind to the CHECK constraint and the guard branch and stopped there, so
+  // the single largest debit in the game — 75,000 coins for MYTHIC CELESTIAL
+  // FORGE — would have rendered as a blank line. Nothing failed; that is the
+  // whole problem with this edit. tools/falsify-forge-drop.mjs §10 caught it by
+  // reading the live constraint against this map, which is why that check reads
+  // EVERY kind rather than the ones a session happens to remember.
+  forge_drop_unlock: 'Forge Drop board unlock',
 };
 
 /** Claim + refresh + announce, from any screen. */

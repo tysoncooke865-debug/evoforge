@@ -22,12 +22,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { mkdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 
-const require = createRequire(
-  'file:///C:/Users/tyson/AppData/Local/Temp/claude/C--Users-tyson/cff4b4d5-4c36-483e-ad3b-a59a7e9ed112/scratchpad/'
-);
-const { chromium } = require('playwright');
+import { chromium } from './browser.mjs';
 
 const BASE = process.env.TOUR_BASE ?? 'http://localhost:4173';
 const SHOTS = process.env.CALLOUT_SHOTS ?? './callout-shots';

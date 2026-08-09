@@ -10,12 +10,8 @@
  *   node tools/tour-forge-drop.mjs
  */
 import { readFileSync, mkdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
 
-const require = createRequire(
-  'file:///C:/Users/tyson/AppData/Local/Temp/claude/C--Users-tyson/cff4b4d5-4c36-483e-ad3b-a59a7e9ed112/scratchpad/'
-);
-const { chromium } = require('playwright');
+import { chromium } from './browser.mjs';
 
 const BASE = process.env.TOUR_BASE ?? 'http://localhost:4188';
 const SHOTS = process.env.DROP_SHOTS ?? './drop-shots';
@@ -195,7 +191,7 @@ ok('the menu lists Forge Drop', await page.locator('text=Forge Drop').count() > 
 
 // ── 2. THE BOARD AT SEVERAL TIERS ───────────────────────────────────────────
 console.log('\n2. EVERY TIER DRAWS ITS OWN BOARD');
-for (const [rating, label, maxStake] of [[10, 'SCRAP RIG', 5], [50, 'CYBER FOUNDRY', 15], [95, 'CELESTIAL FORGE', 25]]) {
+for (const [rating, label, maxStake] of [[10, 'RUSTWORKS', 5], [50, 'CYBER FOUNDRY', 15], [95, 'MYTHIC CELESTIAL FORGE', 25]]) {
   await setRating(rating);
   await page.goto(`${BASE}/forge-drop`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2600);

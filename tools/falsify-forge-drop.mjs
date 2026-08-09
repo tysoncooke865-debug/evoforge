@@ -64,9 +64,62 @@ async function refused(label, fn, expect) {
   }
 }
 const one = (r) => r[0];
-const bal = async (u) => Number(one(await svc(`select public.forge_duel_balance('${u}') v;`)).v);
+/**
+ * THE BALANCE, TO THE CENT.
+ *
+ * NOT `forge_duel_balance()`, which returns an INT. Since 158 a payout is
+ * `round(stake * multiplier, 2)`, so a 1-coin chip on x0.89 returns 0.89 and the
+ * rounded reading disagrees with the ledger by up to half a coin. Every
+ * "balance moved by exactly this much" assertion below was measuring that
+ * rounding rather than the economy, and eight of them failed for it.
+ */
+const bal = async (u) => Number(one(await svc(
+  `select round(coalesce(sum(amount), 0), 2) v from public.coin_events where user_id = '${u}';`)).v);
+/** Money compared as integer cents. 0.1 + 0.2 !== 0.3 in a float, and a ledger
+ *  assertion that trips over that is a bug in the test, not in the ledger. */
+const c = (x) => Math.round(Number(x) * 100);
+const sameMoney = (a, b) => c(a) === c(b);
 const play = (user, key, stake, lane) =>
   as(user, `select public.forge_drop_play('${key}'::uuid, ${stake}, ${lane}) v;`).then((r) => one(r).v);
+
+/**
+ * THE EXACT SLOT DISTRIBUTION FOR ONE LANE — by enumeration, not sampling.
+ *
+ * HALF COLUMNS, reflecting at the walls exactly as `forge_drop_walk` does: `h`
+ * runs 0…2*rows and the landing slot is h/2. Stepping whole columns is the bug
+ * this shape exists to avoid — after an even number of steps only every OTHER
+ * slot is reachable, and the parity artefact piles the walk against the rim
+ * where the biggest multiplier lives, which once took a side lane over 100%.
+ *
+ * Mirrors the domain's `laneDistribution`. Having it here lets the sampling
+ * section below compare the server's walk against the TRUTH rather than against
+ * a published ceiling, which is what makes its tolerance honest.
+ */
+function distribution(rows, lane) {
+  const H = 2 * rows;
+  let d = new Map([[2 * lane, 1]]);
+  for (let step = 0; step < rows; step += 1) {
+    const next = new Map();
+    for (const [h, p] of d) {
+      for (const dir of [-1, 1]) {
+        const to = h + dir < 0 || h + dir > H ? h - dir : h + dir;
+        next.set(to, (next.get(to) ?? 0) + p / 2);
+      }
+    }
+    d = next;
+  }
+  const out = new Array(rows + 1).fill(0);
+  for (const [h, p] of d) out[h / 2] += p;
+  return out;
+}
+/** Exact expected multiplier for a lane, and the spread around it. */
+function laneStats(mult, dist) {
+  const mean = dist.reduce((s, p, i) => s + p * mult[i], 0);
+  const variance = dist.reduce((s, p, i) => s + p * (mult[i] - mean) ** 2, 0);
+  return { mean, sd: Math.sqrt(variance) };
+}
+const bestLaneRtp = (tier) => Math.max(...tier.lanes.map((lane) =>
+  laneStats(tier.multipliers.map(Number), distribution(tier.rows, lane)).mean));
 
 async function wipe() {
   await svc(`
@@ -88,9 +141,17 @@ ok('five tiers are configured', tiers.length === 5);
 ok('the stake ceilings are the ones specified',
    tiers.map((t) => t.max_stake).join(',') === '5,10,15,20,25',
    tiers.map((t) => t.max_stake).join(','));
+// 159 retuned these with the five named boards: the rim runs 3x/5x/8x/12x/20x,
+// so the ceiling is that multiplier at the stake ceiling.
 ok('the maximum payouts are the ones specified',
-   tiers.map((t) => t.max_payout).join(',') === '15,35,60,100,150',
+   tiers.map((t) => t.max_payout).join(',') === '15,50,120,240,500',
    tiers.map((t) => t.max_payout).join(','));
+ok('the boards are the five named ones, in order',
+   tiers.map((t) => t.label).join(' | ') ===
+     'RUSTWORKS | INDUSTRIAL FORGE | CYBER FOUNDRY | ADVANCED REACTOR | MYTHIC CELESTIAL FORGE',
+   tiers.map((t) => t.label).join(' | '));
+ok('the jackpot rim climbs 3x → 20x',
+   tiers.map((t) => Math.max(...t.multipliers.map(Number))).join(',') === '3,5,8,12,20');
 ok('every board pays its ceiling exactly',
    tiers.every((t) => Math.floor(t.max_stake * Math.max(...t.multipliers.map(Number))) === t.max_payout));
 ok('the Evo bands are contiguous and cover everything',
@@ -162,10 +223,10 @@ const key1 = k();
 const r1 = await play(ALPHA, key1, 5, 6);
 ok('a drop settles', r1.drop_id && r1.replayed === false, `slot ${r1.slot} ×${r1.multiplier}`);
 ok('the stake left the balance and the payout came back',
-   (await bal(ALPHA)) === before - r1.stake + r1.payout,
+   sameMoney(await bal(ALPHA), before - r1.stake + r1.payout),
    `${before} → ${await bal(ALPHA)} (staked ${r1.stake}, paid ${r1.payout})`);
-ok('the returned balance IS the ledger', Number(r1.balance) === (await bal(ALPHA)));
-ok('net agrees with stake and payout', r1.net === r1.payout - r1.stake);
+ok('the returned balance IS the ledger', sameMoney(r1.balance, await bal(ALPHA)));
+ok('net agrees with stake and payout', sameMoney(r1.net, r1.payout - r1.stake));
 ok('there is exactly one stake row', Number(one(await svc(
   `select count(*)::int n from public.coin_events
    where kind='forge_drop_stake' and source_id='${r1.drop_id}';`)).n) === 1);
@@ -217,7 +278,7 @@ const a = one(raced).a, b = one(raced).b;
 ok('both answers are the SAME drop', a.drop_id === b.drop_id, `${a.drop_id} / ${b.drop_id}`);
 ok('exactly one of them settled it', a.replayed !== b.replayed);
 ok('and it was charged exactly once',
-   (await bal(ALPHA)) === beforeRace - a.stake + a.payout,
+   sameMoney(await bal(ALPHA), beforeRace - a.stake + a.payout),
    `${beforeRace} → ${await bal(ALPHA)}`);
 ok('one drop row, not two', Number(one(await svc(
   `select count(*)::int n from public.forge_drops
@@ -231,20 +292,23 @@ const two = await as(ALPHA,
 const t1 = one(two).a, t2 = one(two).b;
 ok('two drops exist', t1.drop_id !== t2.drop_id);
 ok('and the ledger charged for both',
-   (await bal(ALPHA)) === beforeTwo - t1.stake - t2.stake + t1.payout + t2.payout);
+   sameMoney(await bal(ALPHA), beforeTwo - t1.stake - t2.stake + t1.payout + t2.payout));
 
 // ── 7. INSUFFICIENT BALANCE ─────────────────────────────────────────────────
 console.log('\n7. YOU CANNOT STAKE WHAT YOU DO NOT HAVE');
 const poor = await bal(BRAVO);
 await svc(`insert into public.coin_events (user_id, kind, amount, source_id)
            values ('${BRAVO}', 'adjustment', ${-poor}, 'forge-drop-falsify-drain');`);
-ok('BRAVO is broke', (await bal(BRAVO)) === 0);
+ok('BRAVO is broke', sameMoney(await bal(BRAVO), 0));
+// The balance in the refusal is NUMERIC since 158, so it renders "0.00", not
+// "0". Pinning the old spelling made this assert the formatting of a number
+// rather than the refusal itself.
 await refused('a broke athlete cannot drop',
-  () => play(BRAVO, k(), 1, 6), 'you have 0 coins');
+  () => play(BRAVO, k(), 1, 6), 'you have 0(\.00)? coins');
 await svc(`insert into public.coin_events (user_id, kind, amount, source_id)
            values ('${BRAVO}', 'adjustment', 3, 'forge-drop-falsify-topup');`);
 await refused('and cannot stake more than they hold',
-  () => play(BRAVO, k(), 5, 6), 'you have 3 coins, not 5');
+  () => play(BRAVO, k(), 5, 6), 'you have 3(\.00)? coins, not 5');
 ok('but can stake what they do hold', Boolean(await play(BRAVO, k(), 3, 6)));
 await svc(`delete from public.coin_events where source_id in
            ('forge-drop-falsify-drain','forge-drop-falsify-topup');`);
@@ -300,27 +364,55 @@ for (const tier of tiers) {
       from drops;`));
     const mean = Number(r.mean_mult);
     const ceiling = Number(tier.target_rtp);
-    ok(`tier ${tier.tier} lane ${lane}: returns ${(mean * 100).toFixed(1)}%, under its ${(ceiling * 100).toFixed(0)}% ceiling`,
-       mean < ceiling + 0.02 && mean < 1, `${r.n} drops, slots ${r.lo}-${r.hi}`);
+    const exact = laneStats(mult, distribution(tier.rows, lane));
+
+    // THE CEILING IS A PROPERTY OF THE TABLE, NOT OF THE SAMPLE, so it is
+    // asserted exactly (section 11 does this for every lane). What sampling can
+    // prove — and nothing else can — is that the SERVER'S walk is the walk the
+    // table describes.
+    ok(`tier ${tier.tier} lane ${lane}: the board's own return is ${(exact.mean * 100).toFixed(2)}%, under its ${(ceiling * 100).toFixed(0)}% ceiling`,
+       exact.mean < ceiling + 0.01 && exact.mean < 1);
+
+    // …and the sample agrees with it, inside four standard errors.
+    //
+    // A FIXED TOLERANCE CANNOT WORK HERE AND USED TO FAIL FOR IT. The tolerance
+    // was ±2 points regardless of sample size, and MYTHIC's x20 rim — 0.29%
+    // likely per side — carries about 1.5 points of standard error at FAST=1's
+    // 5,000 drops, so a clean board reported 94% against a 92% bound roughly one
+    // run in twenty. An intermittently red harness is a harness people learn to
+    // ignore, so the bound is now derived from the board's own spread and the
+    // sample size: 4 sigma / sqrt(N), which is ~0.06 points at 100k and ~0.27 at
+    // 5k. Tighter than the old bound where it matters, and correct at both sizes.
+    const tol = 4 * exact.sd / Math.sqrt(Number(r.n));
+    ok(`tier ${tier.tier} lane ${lane}: ${r.n} real resolver drops average ${(mean * 100).toFixed(2)}%, within noise of ${(exact.mean * 100).toFixed(2)}%`,
+       Math.abs(mean - exact.mean) < tol,
+       `off by ${((mean - exact.mean) * 100).toFixed(3)} pts, tolerance ${(tol * 100).toFixed(3)}`);
+
     ok(`tier ${tier.tier} lane ${lane}: the walk is not stuck on one slot`,
        Number(r.reached) >= 9, `${r.reached} distinct slots`);
 
-    // ── WHAT IT ACTUALLY PAYS, IN WHOLE COINS ────────────────────────────
+    // ── WHAT IT ACTUALLY PAYS ────────────────────────────────────────────
     //
-    // The mean multiplier above is the board's theory. This samples the
-    // ROUNDING RULE that turns it into coins, at the SMALLEST legal stake —
-    // the one that hurts most and the one nobody looks at.
+    // The mean multiplier above is the board's theory. This samples what the
+    // settlement rule turns it into, at BOTH ends of the stake range — the
+    // smallest being the one that hurts most and the one nobody looks at.
     //
     // This section is here because it did not exist, and its absence is how
     // the feature nearly shipped paying 15% on a board advertised at 86%.
     // Every slot below 1x floored to zero at a 1-coin stake, and no assertion
     // anywhere sampled a payout rather than a multiplier.
     //
-    // Both numbers come from the SAME drops, deliberately. Comparing a payout
-    // sample against a separate multiplier sample adds the two walks' noise
-    // together and needs a tolerance loose enough to hide the bug this is here
-    // to catch. Sharing the drops cancels the walk entirely, so what is left is
-    // the rounding bias alone — which is what is being asserted.
+    // 158 RETIRED THE ROUNDING ENTIRELY. It used to be "floor, then pay the
+    // fraction as a probability", which existed only because payouts had to be
+    // whole coins; this sampled that rule, and went on sampling it for a while
+    // after the rule was gone. Coins now carry cents and the payout is
+    // `round(stake * multiplier, 2)` — and since every multiplier has at most
+    // two decimals and every stake is a whole coin, that round() never actually
+    // moves anything. So the published return is not approached in expectation,
+    // it is EXACT, and the assertion below is exact too.
+    //
+    // Both numbers still come from the SAME drops. That cancels the walk, so a
+    // disagreement can only be the settlement rule.
     for (const stake of [tier.min_stake, tier.max_stake]) {
       const p = one(await svc(`
         with drops as (
@@ -329,23 +421,23 @@ for (const tier of tiers) {
                      public.forge_drop_walk(${tier.rows}, ${lane})) + 1] as m
           from generate_series(1, ${N})
         ), settled as (
-          select m, floor(${stake} * m)
-                    + case when random() < ${stake} * m - floor(${stake} * m)
-                           then 1 else 0 end as pay
+          select m, round(${stake} * m, 2) as pay
           from drops
         )
         select avg(pay)::numeric as mean_pay,
                avg(m)::numeric   as mean_mult,
-               max(pay)::int     as biggest
+               max(pay)::numeric as biggest
         from settled;`));
       const paid = Number(p.mean_pay) / stake;
       const theory = Number(p.mean_mult);
-      // The rounding contributes at most one coin of spread per drop, so over
-      // ${N} drops its standard error is well under a tenth of a point at any
-      // stake. Half a point is comfortably outside the noise and nowhere near
-      // the 71-point miss that flooring produced.
-      ok(`tier ${tier.tier} lane ${lane} stake ${stake}: pays ${(paid * 100).toFixed(1)}%, matching the ${(theory * 100).toFixed(1)}% board it came from`,
-         Math.abs(paid - theory) < 0.005 && paid < 1, `${N} drops`);
+      // EXACT, not approximate. `round(stake * m, 2)` on a 2-dp multiplier and a
+      // whole-coin stake is the identity, so the paid return must equal the
+      // board's own return to the last digit the sample can express. A tolerance
+      // here would be room for a rounding bug to hide in, which is exactly what
+      // happened last time: the old rule missed by 71 points and the assertion
+      // that should have caught it did not exist.
+      ok(`tier ${tier.tier} lane ${lane} stake ${stake}: pays ${(paid * 100).toFixed(2)}%, exactly the ${(theory * 100).toFixed(2)}% board it came from`,
+         Math.abs(paid - theory) < 1e-9 && paid < 1, `${N} drops, no rounding loss`);
       ok(`tier ${tier.tier} lane ${lane} stake ${stake}: no payout beat the published ceiling`,
          Number(p.biggest) <= tier.max_payout, `biggest ${p.biggest} of ${tier.max_payout}`);
     }
@@ -402,12 +494,12 @@ console.log(`
   const start = await bal(ALPHA);
   const STAKE = 15; // tier 3's ceiling, so no payout can fund a second at will
   const surplus = start - STAKE;
-  if (surplus !== 0) {
+  if (c(surplus) !== 0) {
     await svc(`insert into public.coin_events (user_id, kind, amount, source_id, source_table)
                values ('${ALPHA}', 'adjustment', ${-surplus}, 'drop-race-${Date.now()}', 'forge_drops');`);
   }
   ok('the athlete starts with exactly one stake to their name',
-     (await bal(ALPHA)) === STAKE, `${STAKE} coins`);
+     sameMoney(await bal(ALPHA), STAKE), `${STAKE} coins`);
 
   const N = 6;
   const settled = await Promise.allSettled(
@@ -415,7 +507,7 @@ console.log(`
   );
   const accepted = settled.filter((r) => r.status === 'fulfilled').length;
   const refusals = settled.filter((r) => r.status === 'rejected').map((r) => String(r.reason.message));
-  const onBalance = refusals.filter((m) => /you have \d+ coins/.test(m)).length;
+  const onBalance = refusals.filter((m) => /you have [\d.]+ coins/.test(m)).length;
 
   // Without the lock this was 6. With it, the very first drop takes the
   // balance to zero plus whatever it won, and the rest are told the truth.
@@ -436,18 +528,32 @@ console.log(`
   ok('replaying the ledger in order, the balance never goes negative',
      !dipped, `closed at ${running}`);
 
-  const staked = one(await svc(`select coalesce(sum(stake),0)::int s, count(*)::int n
+  // …and the same thing said in gross terms, which is the readable form: the
+  // total ever staked cannot exceed the opening balance plus everything the
+  // board handed back along the way.
+  //
+  // THE BOUND USED TO BE `STAKE + max(0, closing balance)`, WHICH IS WRONG. A
+  // win mid-run legitimately funds the next drop, so an athlete who opens with
+  // 15, wins 20 and stakes again has staked 30 against a closing balance of 5 —
+  // honest, and refused by that bound. It only ever passed because no run had
+  // won enough to expose it.
+  const paidBack = rows
+    .map((r) => Number(r.amount)).filter((a) => a > 0)
+    .reduce((sum, a) => sum + a, 0);
+  const staked = one(await svc(`select coalesce(sum(stake),0)::numeric s, count(*)::int n
                                 from public.forge_drops where user_id = '${ALPHA}';`));
   ok('no more was staked than the athlete could ever have afforded',
-     Number(staked.s) <= STAKE + Math.max(0, running), `staked ${staked.s} across ${staked.n} drops`);
+     c(staked.s) <= c(STAKE + paidBack),
+     `staked ${staked.s} across ${staked.n} drops, against ${STAKE} opening + ${paidBack.toFixed(2)} won`);
 
   await wipe();
   const back = await bal(ALPHA);
-  if (back !== start) {
+  if (!sameMoney(back, start)) {
     await svc(`insert into public.coin_events (user_id, kind, amount, source_id, source_table)
                values ('${ALPHA}', 'adjustment', ${start - back}, 'drop-race-restore-${Date.now()}', 'forge_drops');`);
   }
-  ok('the balance was put back where it started', (await bal(ALPHA)) === start, `${start} coins`);
+  ok('the balance was put back where it started',
+     sameMoney(await bal(ALPHA), start), `${start} coins`);
 }
 
 // ── 9c. RESTORING SEVERAL DROPS AT ONCE ───────────────────────────
@@ -520,14 +626,305 @@ console.log(`
      missing.length === 0,
      missing.length ? `unlabelled: ${missing.join(', ')}` : `${dbKinds.length} kinds all labelled`);
 
-  for (const k of ['forge_drop_stake', 'forge_drop_payout']) {
+  for (const k of ['forge_drop_stake', 'forge_drop_payout', 'forge_drop_unlock']) {
     ok(`${k} is accepted by the constraint AND labelled`,
        dbKinds.includes(k) && labelled.has(k));
   }
 }
 
+// ── 11. THE LADDER RUNS THE RIGHT WAY ───────────────────────────────────────
+//
+// `validateTier` asks each board about its own promises, which is why it has
+// nothing to say about the risk that exists only BETWEEN boards: a rebalance
+// leaving the top of the ladder returning more than the bottom, so the unlock
+// price buys the best expected value in the app. 159 asserts this at apply
+// time; this asserts it against whatever the rows say TODAY, because the whole
+// point of a config table is that it can be changed without a deploy.
+console.log(`
+11. CLIMBING BUYS VARIANCE, NOT EDGE`);
+{
+  const rtp = tiers.map(bestLaneRtp);
+  const pc = (x) => `${(x * 100).toFixed(2)}%`;
+  console.log(`     live returns: ${rtp.map(pc).join('  ')}`);
+
+  ok('every board returns less than it takes', rtp.every((r) => r < 1),
+     rtp.map(pc).join(', '));
+  ok('every board stays under the 95% ceiling', rtp.every((r) => r < 0.95));
+  ok('every board sits at or under its own published target',
+     tiers.every((t, i) => rtp[i] <= Number(t.target_rtp) + 0.01),
+     tiers.map((t, i) => `${t.label} ${pc(rtp[i])} vs ${t.target_rtp}`).join('; '));
+
+  // THE ENDGAME BOARD IS STRICTLY THE LEAST GENEROUS. This is the property that
+  // stops "unlock the top board" being the correct play.
+  const top = rtp[rtp.length - 1];
+  ok('the endgame board is strictly the least generous of the five',
+     rtp.slice(0, -1).every((r) => r > top),
+     `MYTHIC ${pc(top)} vs ${rtp.slice(0, -1).map(pc).join(', ')}`);
+
+  // …and nothing beats the board everyone starts on by more than half a point.
+  // A TOLERANCE, NOT ZERO, and deliberately so: CYBER FOUNDRY is 0.37 of a point
+  // above RUSTWORKS on the gate values as briefed. That is stated rather than
+  // tuned away — see the note at the top of 159.
+  ok('no board beats the entry board by more than half a point',
+     rtp.every((r) => r <= rtp[0] + 0.005),
+     rtp.map((r, i) => `${tiers[i].label} ${pc(r)}`).join('; '));
+
+  // The shape that produces it: the rim climbs, the centre falls.
+  const rim = tiers.map((t) => Math.max(...t.multipliers.map(Number)));
+  const centre = tiers.map((t) => Number(t.multipliers[(t.multipliers.length - 1) / 2]));
+  ok('the rim climbs at every step', rim.every((v, i) => i === 0 || v > rim[i - 1]), rim.join(' → '));
+  ok('the centre gate falls at every step',
+     centre.every((v, i) => i === 0 || v < centre[i - 1]), centre.join(' → '));
+}
+
+// ── 12. BOARDS ARE CHOSEN, AND BOUGHT ONCE ──────────────────────────────────
+//
+// The selector is presentation; the entitlement is settlement. Everything here
+// asks the SERVER, because a screen that offers a locked board is a cosmetic
+// bug and a server that accepts one is an economy bug.
+console.log(`
+12. BOARD ENTITLEMENT AND EARLY UNLOCK`);
+{
+  const unlocked = async (tier) => Boolean(one(await svc(
+    `select public.forge_drop_board_unlocked('${ALPHA}', ${tier}) v;`)).v);
+  const boards = async () => one(await as(ALPHA, `select public.my_forge_drop_boards() v;`)).v;
+  const countedSets = async () => Number(one(await svc(
+    `select public.forge_drop_counted_sets('${ALPHA}') v;`)).v);
+  const unlockRows = async () => Number(one(await svc(
+    `select count(*)::int n from public.forge_drop_unlocks where user_id = '${ALPHA}';`)).n);
+
+  await svc(`delete from public.forge_drop_unlocks where user_id in ('${ALPHA}','${BRAVO}');
+             delete from public.coin_events where kind = 'forge_drop_unlock'
+               and user_id in ('${ALPHA}','${BRAVO}');`);
+
+  // ── a board you have PASSED stays yours ───────────────────────────────────
+  await setRating(90); // tier 5 by rating
+  ok('the rating opens the board it lands on', await unlocked(5));
+  ok('and every board beneath it stays open — progressing never takes one away',
+     (await Promise.all([1, 2, 3, 4].map(unlocked))).every(Boolean));
+
+  await setRating(10); // back to tier 1
+  ok('a board above the rating is closed',
+     !(await unlocked(3)) && !(await unlocked(5)));
+  ok('the starting board is always open', await unlocked(1));
+
+  // ── the two gates, independently ──────────────────────────────────────────
+  const sets = await countedSets();
+  const b = await bal(ALPHA);
+  console.log(`     ALPHA: rating 10, ${sets} counted sets, ${b} coins`);
+
+  // CYBER FOUNDRY costs 7,500 coins AND 250 logged sets. ALPHA is short of at
+  // least one of them; the refusal must name which.
+  await refused('an early unlock is refused when a requirement is missing',
+    () => as(ALPHA, `select public.forge_drop_unlock(3) v;`),
+    sets < 250 ? 'logged training sets' : 'costs');
+
+  // FORGE DROP PLAYS CANNOT BUY A BOARD. Not filtered out — structurally
+  // incapable, because the count reads workout_log and a play is a forge_drops
+  // row. Proven by playing and re-counting.
+  const before = await countedSets();
+  await play(ALPHA, crypto.randomUUID(), 1, 6);
+  await play(ALPHA, crypto.randomUUID(), 1, 6);
+  ok('playing the board does not count as training toward unlocking one',
+     (await countedSets()) === before, `${before} sets before, ${await countedSets()} after`);
+  await wipe();
+
+  // ── the purchase itself ───────────────────────────────────────────────────
+  // Granted enough of both, the unlock must land exactly once and charge the
+  // price the BOARD names — never the price the caller names.
+  const price = Number(tiers[1].unlock_coins); // INDUSTRIAL FORGE, 2500
+  const needSets = Number(tiers[1].unlock_sets);
+  ok('INDUSTRIAL FORGE is priced in both currencies',
+     price === 2500 && needSets === 100, `${price} coins + ${needSets} sets`);
+
+  const shortBy = price - (await bal(ALPHA));
+  if (shortBy > 0) {
+    await svc(`select set_config('evoforge.spend_authorized','harness-topup',true);
+               insert into public.coin_events (user_id, kind, amount, source_id, source_table)
+               values ('${ALPHA}','adjustment',${shortBy + 10},'harness-topup','harness');`);
+  }
+  const haveSets = await countedSets();
+  const balBefore = await bal(ALPHA);
+
+  if (haveSets < needSets) {
+    // Not enough real training to buy it — assert the refusal names the sets,
+    // and skip the purchase rather than fabricate a hundred workout rows.
+    await refused('with the coins but not the sets, the purchase is still refused',
+      () => as(ALPHA, `select public.forge_drop_unlock(2) v;`), 'logged training sets');
+    ok('and nothing was charged for the attempt', (await bal(ALPHA)) === balBefore,
+       `${balBefore} → ${await bal(ALPHA)}`);
+    console.log(`     (ALPHA has ${haveSets}/${needSets} sets — the purchase path is`
+              + ` exercised below against the rating instead)`);
+  } else {
+    const r1 = one(await as(ALPHA, `select public.forge_drop_unlock(2) v;`)).v;
+    ok('the purchase lands', r1.already === false && r1.unlocked_by === 'purchase',
+       JSON.stringify(r1).slice(0, 120));
+    ok('and charges exactly the price the board names',
+       (await bal(ALPHA)) === balBefore - price, `${balBefore} → ${await bal(ALPHA)}`);
+    ok('the board is now open', await unlocked(2));
+
+    // DUPLICATE PURCHASE PREVENTION IS A UNIQUE INDEX, not a code path — a
+    // doubled tap, a refresh and two tabs are all the same purchase.
+    const mid = await bal(ALPHA);
+    const again = await Promise.all([1, 2, 3].map(() =>
+      as(ALPHA, `select public.forge_drop_unlock(2) v;`).then((r) => one(r).v)));
+    ok('three more taps all report "already", none of them charge',
+       again.every((r) => r.already === true) && (await bal(ALPHA)) === mid,
+       `${mid} → ${await bal(ALPHA)}`);
+    ok('and only one purchase row exists', (await unlockRows()) === 1);
+  }
+
+  // ── THE PURCHASE ITSELF, PROVEN IN A TRANSACTION THAT IS THROWN AWAY ──────
+  //
+  // ALPHA has 20 logged sets and the cheapest early board wants 100, so the
+  // purchase path cannot run against production as it stands — and it is the
+  // one path in this feature that moves a five-figure sum. Seeding 80 real
+  // training rows would work, but `workout_log` carries three triggers that
+  // resolve call outs and duels, and a harness that half-cleans those is worse
+  // than one that never ran.
+  //
+  // So the whole thing happens inside `begin … rollback`: the sets, the coins, a
+  // rating low enough for the board to be genuinely out of reach, the purchase,
+  // three repeat taps, and a real drop on the board that was bought. Nothing
+  // survives the statement.
+  //
+  // ONE STATEMENT PER STEP, DELIBERATELY. Collected in a single SELECT with
+  // CTEs, this reported zero unlock rows and an unchanged balance beside a
+  // purchase that had plainly succeeded — inside one statement every CTE reads
+  // the same snapshot, so none of them can observe a volatile function's writes.
+  {
+    const proofSql = `
+      begin;
+      select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+      insert into public.workout_log (user_id, date, workout, exercise, muscle, "set", reps, weight)
+      select '${ALPHA}', current_date - (g % 20), 'PROOF', 'Bench Press', 'chest',
+             (g % 5) + 1, 8, 60
+      from generate_series(1, 100) g;
+      insert into public.coin_events (user_id, kind, amount, source_id, source_table)
+      values ('${ALPHA}', 'adjustment', 5000, 'proof-topup', 'harness');
+      update public.evo_rating_current set displayed_rating = 10, raw_rating = 10
+      where user_id = '${ALPHA}';
+      create temp table proof (ord serial, k text, v jsonb);
+      select set_config('request.jwt.claims',
+        '{"sub":"${ALPHA}","role":"authenticated"}', true);
+      insert into proof (k, v) select 'sets', to_jsonb(public.forge_drop_counted_sets('${ALPHA}'));
+      insert into proof (k, v) select 'openBefore', to_jsonb(public.forge_drop_board_unlocked('${ALPHA}', 2));
+      insert into proof (k, v) select 'balBefore', to_jsonb(public.coin_total_exact());
+      insert into proof (k, v) select 'first', public.forge_drop_unlock(2);
+      insert into proof (k, v) select 'balAfter', to_jsonb(public.coin_total_exact());
+      insert into proof (k, v) select 'openAfter', to_jsonb(public.forge_drop_board_unlocked('${ALPHA}', 2));
+      insert into proof (k, v) select 'second', public.forge_drop_unlock(2);
+      insert into proof (k, v) select 'third', public.forge_drop_unlock(2);
+      insert into proof (k, v) select 'balAfterRepeats', to_jsonb(public.coin_total_exact());
+      insert into proof (k, v) select 'unlockRows', jsonb_build_object(
+        'rows', count(*), 'paid', coalesce(sum(coins_paid), 0),
+        'sets', max(sets_at_unlock), 'rating', max(rating_at_unlock))
+        from public.forge_drop_unlocks where user_id = '${ALPHA}' and tier = 2;
+      insert into proof (k, v) select 'ledger', jsonb_build_object(
+        'rows', count(*), 'total', coalesce(sum(amount), 0))
+        from public.coin_events where user_id = '${ALPHA}' and kind = 'forge_drop_unlock';
+      insert into proof (k, v) select 'dropTier',
+        (public.forge_drop_play(gen_random_uuid(), 5, 6, 2))->'tier';
+      insert into proof (k, v) select 'stillLocked',
+        to_jsonb(public.forge_drop_board_unlocked('${ALPHA}', 5));
+      select jsonb_object_agg(k, v) as proof from proof;
+      rollback;`;
+    const rows = await raw(proofSql);
+    const p = rows.find((r) => r && r.proof)?.proof;
+
+    ok('the purchase proof ran', Boolean(p), p ? `${Object.keys(p).length} readings` : 'no result');
+    if (p) {
+      ok('the pacing gate counts logged training, and sees the seeded sets',
+         Number(p.sets) === 120, `${p.sets} sets`);
+      ok('the board really was out of reach first', p.openBefore === false);
+      ok('the purchase lands and reports itself honestly',
+         p.first.already === false && p.first.unlocked_by === 'purchase'
+           && Number(p.first.coins_paid) === 2500,
+         `paid ${p.first.coins_paid}, sets at unlock ${p.first.sets_at_unlock}`);
+      ok('and charges exactly the price the BOARD names',
+         sameMoney(p.balAfter, Number(p.balBefore) - 2500),
+         `${p.balBefore} → ${p.balAfter}`);
+      ok('the board opens', p.openAfter === true);
+      ok('two more taps both say "already"',
+         p.second.already === true && p.third.already === true
+           && Number(p.second.coins_paid) === 0 && Number(p.third.coins_paid) === 0);
+      ok('and neither charges a coin',
+         sameMoney(p.balAfterRepeats, p.balAfter), `${p.balAfter} → ${p.balAfterRepeats}`);
+      ok('exactly ONE purchase row exists — the unique index, not a code path',
+         Number(p.unlockRows.rows) === 1 && sameMoney(p.unlockRows.paid, 2500),
+         `${p.unlockRows.rows} row, paid ${p.unlockRows.paid}, rating at unlock ${p.unlockRows.rating}`);
+      ok('and exactly ONE ledger row, priced by the board',
+         Number(p.ledger.rows) === 1 && sameMoney(p.ledger.total, -2500),
+         `${p.ledger.rows} row totalling ${p.ledger.total}`);
+      ok('settlement honours the purchase — a drop lands on the bought board',
+         Number(p.dropTier) === 2, `tier ${p.dropTier}`);
+      ok('and a board that was NOT bought is still refused', p.stillLocked === false);
+    }
+  }
+  // …and the transaction above must have left production exactly as it found it.
+  ok('the purchase proof left nothing behind', Number(one(await svc(
+    `select (select count(*) from public.workout_log where workout = 'PROOF')
+          + (select count(*) from public.coin_events where source_id = 'proof-topup')
+          + (select count(*) from public.forge_drop_unlocks where user_id = '${ALPHA}') n;`)).n) === 0);
+
+  // ── the price is the BOARD's, even against a forged ledger row ────────────
+  // The guard reprices from forge_drop_tiers through the unlock row, exactly as
+  // the XP guard reprices a claimed award. A hand-written cheap purchase must
+  // come back at the real price or be refused outright.
+  await refused('a hand-written unlock charge cannot invent its own price',
+    () => asRls(ALPHA, `insert into public.coin_events (user_id, kind, amount, source_id)
+                        values ('${ALPHA}','forge_drop_unlock',-1,'${crypto.randomUUID()}');`),
+    'board purchase|insufficient|violates');
+
+  // ── settlement re-checks the board, whatever the screen sent ──────────────
+  await setRating(10);
+  await refused('a drop on a locked board is refused by the server',
+    () => as(ALPHA, `select public.forge_drop_play('${crypto.randomUUID()}'::uuid, 1, 6, 5) v;`),
+    'locked');
+  const legit = await play(ALPHA, crypto.randomUUID(), 1, 6);
+  ok('a drop with no board named still uses the rating\'s own board',
+     Number(legit.tier) === 1, `tier ${legit.tier}`);
+  await wipe();
+
+  // ── one round trip describes the whole carousel ──────────────────────────
+  const list = await boards();
+  ok('the carousel comes back in one call, with all five boards',
+     Array.isArray(list.boards) && list.boards.length === 5);
+  ok('and carries the three numbers the locked cards count against',
+     list.rating !== undefined && list.coins !== undefined ? true
+       : list.balance !== undefined && list.sets !== undefined,
+     `rating ${list.rating}, sets ${list.sets}, balance ${list.balance}`);
+  ok('every board says whether it is open, and how',
+     list.boards.every((x) => typeof x.unlocked === 'boolean'
+       && typeof x.by_rating === 'boolean' && typeof x.purchased === 'boolean'));
+  ok('the client and the server agree on which boards are open',
+     (await Promise.all(list.boards.map((x) => unlocked(x.tier))))
+       .every((server, i) => server === list.boards[i].unlocked),
+     list.boards.map((x) => `${x.tier}:${x.unlocked ? 'open' : 'shut'}`).join(' '));
+
+  // ── nobody can grant themselves a board ──────────────────────────────────
+  await refused('an athlete cannot write their own unlock row',
+    () => asRls(ALPHA, `insert into public.forge_drop_unlocks
+                          (user_id, tier, coins_paid, sets_at_unlock, rating_at_unlock)
+                        values ('${ALPHA}', 5, 1, 0, 0);`),
+    'policy|permission|denied');
+  ok('and cannot see anybody else\'s', Number(one(await asRls(ALPHA,
+    `select count(*)::int n from public.forge_drop_unlocks where user_id <> '${ALPHA}';`)).n) === 0);
+}
+
 // ── CLEANUP ─────────────────────────────────────────────────────────────────
 console.log('\nCLEANUP');
+// 159's rows first: the purchase debit, the unlock itself, and the top-up the
+// purchase test needed. The debit must go before the balance check below, or
+// "every balance is back where it started" measures the harness's own spending.
+await svc(`
+  delete from public.coin_events
+   where user_id in ('${ALPHA}','${BRAVO}')
+     and (kind = 'forge_drop_unlock' or (kind = 'adjustment' and source_id = 'harness-topup'));
+  delete from public.forge_drop_unlocks where user_id in ('${ALPHA}','${BRAVO}');`);
+ok('no board unlock survives for the smoke accounts', Number(one(await svc(
+  `select count(*)::int n from public.forge_drop_unlocks
+   where user_id in ('${ALPHA}','${BRAVO}');`)).n) === 0);
 await setRating(origRating);
 ok('the Evo rating was restored',
    String(one(await svc(`select displayed_rating from public.evo_rating_current
