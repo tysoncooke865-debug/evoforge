@@ -29,7 +29,12 @@ on:
       - "client/**"
       - "supabase/**"
       - "contracts/**"
-      - "tools/gen_fixtures.py"
+      # ALL of tools/, not just gen_fixtures.py. Four of this workflow's own steps
+      # are scripts in here -- the vocabulary sweep, the coin-label check,
+      # verify-rls, verify-tokens -- and a push that FIXED the sweep did not run
+      # CI once, because the only watched path in this directory was one Python
+      # file. A gate you can edit without re-running is not a gate.
+      - "tools/**"
       - "domain/**"
       - "config/constants.py"
       - "assets/styles.css"
@@ -43,7 +48,7 @@ on:
       - "client/**"
       - "supabase/**"
       - "contracts/**"
-      - "tools/gen_fixtures.py"
+      - "tools/**"
       - "domain/**"
       - "config/constants.py"
       - "assets/styles.css"
