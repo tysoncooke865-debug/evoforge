@@ -10,6 +10,7 @@ import {
   type CalloutConfig,
   type CalloutRow,
 } from '@/domain/callouts';
+import type { TrialAllowance } from '@/domain/forge-trial';
 import { useToastStore } from '@/state/toast-store';
 
 import { track } from './analytics';
@@ -35,6 +36,7 @@ import { supabase } from './supabase';
 
 const KEY = 'workout_callouts';
 const CONFIG_KEY = 'callout_config';
+const ALLOWANCE_KEY = 'forge_trial_allowance';
 
 function useUserId(): string | null {
   const { session } = useAuth();
@@ -52,6 +54,8 @@ export function refreshCallouts(
   void queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
   invalidateTable(queryClient, 'coin_events');
   void queryClient.invalidateQueries({ queryKey: ['notif_unread', userId] });
+  // The ramp is re-read from the athlete's own pledges, so a new one moves it.
+  void queryClient.invalidateQueries({ queryKey: [ALLOWANCE_KEY, userId] });
 }
 
 /** Postgres speaks in constraint names; athletes do not. */
@@ -97,6 +101,41 @@ function missingBackend(message: string): boolean {
 }
 
 // ────────────────────────────────────────────────────────────── the knobs
+
+/**
+ * WHAT MAY THIS EXERCISE CARRY TODAY — asked of the server, not guessed.
+ *
+ * The escalation ramp, the miss-ends-the-day rule and the rest-day check all live
+ * in `forge_trial_allowance`, and none of them are computable here: they read the
+ * athlete's pledge history and their schedule. The tray called none of it until
+ * now and simply offered the wallet, which is why a pledge over the ramp could be
+ * picked, sent and refused.
+ *
+ * NULL ON ANY FAILURE, NEVER A ZERO ALLOWANCE — the coins doctrine, one level up.
+ * An unreadable allowance must not read as "you may pledge nothing"; it falls back
+ * to the wallet and lets the server be the authority it already is.
+ */
+export function useForgeTrialAllowance(exercise: string | null, date: string) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: [ALLOWANCE_KEY, userId, exercise, date],
+    enabled: Boolean(userId && exercise),
+    // It moves with every pledge and every logged set, and refreshCallouts
+    // invalidates it — so this is only a floor on redundant refetches.
+    staleTime: 30_000,
+    queryFn: async (): Promise<TrialAllowance | null> => {
+      const { data, error } = await supabase.rpc('forge_trial_allowance', {
+        p_exercise: exercise,
+        p_date: date,
+      });
+      if (error) {
+        if (missingBackend(error.message)) return null;
+        return null;
+      }
+      return (data ?? null) as TrialAllowance | null;
+    },
+  });
+}
 
 export function useCalloutConfig() {
   return useQuery({

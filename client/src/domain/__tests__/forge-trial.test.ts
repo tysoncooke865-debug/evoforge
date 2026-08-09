@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { ineligibilityNote, trialEligibility, type TrialIneligibility } from '../forge-trial';
+import {
+  ineligibilityNote,
+  trialCeiling,
+  trialEligibility,
+  type TrialAllowance,
+  type TrialIneligibility,
+} from '../forge-trial';
 
 const planned = { added: false, skipped: false, target: 3 };
 const at = (o: Partial<{ restDay: boolean; setsDone: number }> = {}) =>
@@ -50,5 +56,58 @@ describe('only programmed work carries a Golden Dot (v5 §4)', () => {
       // §3 and the physiotherapist test: never suggest making it eligible.
       expect(note.toLowerCase(), r).not.toMatch(/add |try |go for|instead you|why not/);
     }
+  });
+});
+
+describe('the tray never offers what the server will refuse (trialCeiling)', () => {
+  const allowance = (over: Partial<TrialAllowance>): TrialAllowance => ({
+    max_stake: null,
+    reason: null,
+    message: '',
+    ...over,
+  });
+
+  it('falls back to the wallet when the allowance has not loaded', () => {
+    // "Unknown" must never render as "blocked" — that would hide a live feature
+    // behind a slow query, and the server is still the authority either way.
+    expect(trialCeiling(300, undefined)).toEqual({ max: 300, blocked: false, note: null });
+    expect(trialCeiling(300, null)).toEqual({ max: 300, blocked: false, note: null });
+  });
+
+  it('treats a null ceiling as unbounded, NOT as zero', () => {
+    // 170 removed the daily cap, so null is the ordinary case for a first pledge.
+    // Reading it as 0 would refuse every opening pledge.
+    const c = trialCeiling(240, allowance({ max_stake: null, message: 'Pledge whatever you can back.' }));
+    expect(c.blocked).toBe(false);
+    expect(c.max).toBe(240);
+  });
+
+  it('narrows to the ramp when the ramp is the smaller number, and says so', () => {
+    const c = trialCeiling(400, allowance({ max_stake: 120, message: 'Up to 120 per pledge today.' }));
+    expect(c.max).toBe(120);
+    expect(c.blocked).toBe(false);
+    expect(c.note).toBe('Up to 120 per pledge today.');
+  });
+
+  it('stays quiet when the wallet is the binding constraint', () => {
+    // Quoting a 500 limit to someone holding 40 coins is noise dressed as information.
+    const c = trialCeiling(40, allowance({ max_stake: 500, message: 'Up to 500 per pledge today.' }));
+    expect(c.max).toBe(40);
+    expect(c.note).toBeNull();
+  });
+
+  it('blocks outright on zero, and carries the reason', () => {
+    const c = trialCeiling(400, allowance({
+      max_stake: 0, reason: 'missed_today', message: 'The forge takes its due — back tomorrow.',
+    }));
+    expect(c).toEqual({ max: 0, blocked: true, note: 'The forge takes its due — back tomorrow.' });
+  });
+
+  it('can only ever narrow — an allowance cannot raise the wallet ceiling', () => {
+    expect(trialCeiling(50, allowance({ max_stake: 9999 })).max).toBe(50);
+  });
+
+  it('blocks when the wallet is empty even with room on the ramp', () => {
+    expect(trialCeiling(0, allowance({ max_stake: 200 }))).toMatchObject({ max: 0, blocked: true });
   });
 });

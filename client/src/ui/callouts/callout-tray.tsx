@@ -15,8 +15,10 @@ import {
   isAboveProgramRefusal,
   useCalloutConfig,
   useCreateCallout,
+  useForgeTrialAllowance,
   useMyCallouts,
 } from '@/data/callouts';
+import { trialCeiling } from '@/domain/forge-trial';
 import { useTrainingFriends } from '@/data/presence';
 import { useFriends } from '@/data/social';
 import {
@@ -89,6 +91,7 @@ export function CalloutTray({
   const cfgQuery = useCalloutConfig();
   const callouts = useMyCallouts();
   const create = useCreateCallout();
+  const allowanceQuery = useForgeTrialAllowance(visible ? exercise : null, date);
 
   const cfg = cfgQuery.data ?? DEFAULT_CALLOUT_CONFIG;
   // NULL on any failure, never 0 (the coins doctrine) — so an unreadable wallet
@@ -177,9 +180,22 @@ export function CalloutTray({
   // as odds — so there is nothing to estimate and nothing to quote.
 
   const label = calloutTargetLabel(liveTarget, unit);
-  const max = maxCalloutStake(balance ?? 0, cfg);
+  /**
+   * THE RAIL IS SIZED BY THE SERVER'S CEILING, NOT JUST THE WALLET.
+   *
+   * `forge_trial_allowance` holds the escalation ramp, the miss-ends-the-day rule
+   * and the rest-day check — none of which the client can compute. Before this the
+   * tray offered whatever the wallet held, so an athlete whose ramp topped out at
+   * 120 could pick 400, press pledge, and be refused at the moment of commit.
+   *
+   * `trialCeiling` only ever narrows, and a missing allowance falls back to the
+   * wallet — an unread limit must not silently become a zero one.
+   */
+  const ceiling = trialCeiling(maxCalloutStake(balance ?? 0, cfg), allowanceQuery.data);
+  const max = ceiling.max;
   const canSend =
     opponentId !== null &&
+    !ceiling.blocked &&
     stake >= cfg.min_stake &&
     stake <= max &&
     liveTarget.reps > 0 &&
@@ -236,6 +252,13 @@ export function CalloutTray({
       }
     );
   };
+
+  // The ceiling can move under an open tray — a set logged elsewhere, a pledge
+  // that settled. A chip picked under the old one must not survive into a send
+  // the server will refuse.
+  useEffect(() => {
+    if (stake > max) setStake(max >= cfg.min_stake ? max : 0);
+  }, [max, stake, cfg.min_stake]);
 
   if (!visible) return null;
 
@@ -440,6 +463,20 @@ export function CalloutTray({
               </ScrollView>
             )}
 
+            {/* WHAT TODAY ALLOWS, said before the athlete commits rather than
+                after — §4 asks for the limit inline, and the server's own
+                sentence is the one that will be enforced, so it is the one
+                shown. Absent when nothing but the wallet is binding. */}
+            {ceiling.note ? (
+              <Text
+                className="mt-s2 text-2xs"
+                style={{ color: ceiling.blocked ? colors.warn : colors['text-dim'] }}
+                testID="callout-allowance-note"
+              >
+                {ceiling.note}
+              </Text>
+            ) : null}
+
             {/* ── THE MONEY, as objects ── */}
             <View className="mt-s2">
               <ChipWagerTable
@@ -458,7 +495,7 @@ export function CalloutTray({
                 // limit nobody chose, expressed as a missing button. The rail
                 // scrolls; the wallet and the config decide what is affordable.
                 denominations={FORGE_CHIPS}
-                disabled={balance == null}
+                disabled={balance == null || ceiling.blocked}
                 testID="callout-table"
               />
             </View>
@@ -520,9 +557,11 @@ export function CalloutTray({
                   title={
                     create.isPending
                       ? 'SENDING…'
-                      : stake > 0
-                        ? `PLEDGE ${stake} ON THIS SET`
-                        : 'PICK A CHIP'
+                      : ceiling.blocked
+                        ? 'NOT TODAY'
+                        : stake > 0
+                          ? `PLEDGE ${stake} ON THIS SET`
+                          : 'PICK A CHIP'
                   }
                   size="hero"
                   pixel
