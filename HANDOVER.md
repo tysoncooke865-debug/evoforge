@@ -26,6 +26,42 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **ENGAGEMENT v5.1 — THE COMPLIANCE MIGRATION (2026-08-09, migrations 159–176)**
+  A design review rejected the staked Forge Drop plinko outright: coins into a peg
+  board where an RNG bucket can return less than went in is simulated gambling
+  under the Guidelines for the Classification of Computer Games 2023, which
+  mandates R18+ against a 16+ single-app requirement. Earned-only coins and no
+  cash-out do NOT exempt it — it is a mechanics test.
+
+  Spec of record: `docs/ENGAGEMENT_V5.md`. Status, the full deviation register and
+  the traps: **`docs/V5_MIGRATION_STATUS.md` — read it before touching coins.**
+
+  **THE TWO GOVERNING INVARIANTS ARE STRUCTURAL, NOT ASSERTED.**
+
+  1. *A balance may never be lower after an RNG event than before it.* No deduction
+     anywhere is downstream of randomness. The board is retired; `forge_reveal_claim`
+     takes one uuid and no stake, so a staked reveal is unconstructible in the
+     schema rather than refused by a check.
+  2. *Chance and pledge never combine.* Enforced at build time by
+     `client/src/domain/__tests__/module-boundaries.test.ts`, falsified five ways.
+     Pledges are skill-resolved with zero RNG; chance is additive with no pledge.
+
+  **§10 BANS A VOCABULARY** (bet, wager, stake, odds, gamble, jackpot, spin, roll,
+  casino, house, payout, cash out, double down, all-in, near miss) on every
+  user-facing surface including SQL `raise exception` text, which reaches athletes
+  as toasts. Say pledge, back, push, pool, trial, reveal, drop table, bonus, temper,
+  claim, settle. `node tools/sweep-vocabulary.mjs --strict` is a CI step; it went
+  78 → 0 and must stay there.
+
+  **NOTHING HERE CLAIMS THE APP IS LEGALLY CLEARED.** A one-off external legal
+  sanity check before first submission with Trials live is still open.
+
+  **THE OVERRIDE THAT MOST NEEDS RESPECTING**: Tyson lifted v5.1's ban on pledging
+  above your own logged best (174–176, informed consent, recorded per pledge). He
+  did NOT lift its other half — *the app may never solicit a max attempt*. No badge,
+  no hint, no "go bigger" affordance. The confirmation appears only after the
+  athlete has typed an above-best target themselves and the server has refused it.
+
 - **LIVE WORKOUT CALL OUTS (2026-08-08, migrations 150–153)** — "50 says you
   can't hit this." A competitive layer over ONE upcoming working set, attached
   to the set the athlete was already going to perform. Full spec:
