@@ -65,6 +65,36 @@ const SEARCH = [
 ];
 const SKIP_DIR = /node_modules|__tests__|\.expo|dist|\.browser/;
 
+/**
+ * WHICH LINES OF A MIGRATION CAN A USER EVER SEE?
+ *
+ * A `raise exception` inside a `create function` body reaches the client as a
+ * PostgREST error and gets rendered in a toast — that is user-facing text and the
+ * ban applies. A `raise exception` inside a top-level `do $$ … end $$;` block runs
+ * ONCE, at apply time, in front of whoever is applying the migration. It cannot
+ * reach a user by any path.
+ *
+ * The distinction is not pedantry. 161's own invariant guard says "a stake may have
+ * crept in" — a precise message aimed at the next engineer, flagged by this sweep
+ * as banned copy. Without this the choice is to reword a good developer message or
+ * to carry a permanent exception, and both are worse than parsing the file properly.
+ */
+function applyTimeLines(src) {
+  const skip = new Set();
+  const lines = src.split(/\r?\n/);
+  let inDo = false;
+  lines.forEach((line, i) => {
+    // `do $$` at the start of a statement — function bodies always arrive as
+    // `create … function … as $$`, so this is unambiguous.
+    if (!inDo && /^\s*do\s+\$\$/i.test(line)) inDo = true;
+    if (inDo) {
+      skip.add(i + 1);
+      if (/^\s*end\s*\$\$\s*;/i.test(line)) inDo = false;
+    }
+  });
+  return skip;
+}
+
 function walk(p, exts, out = []) {
   let st;
   try { st = statSync(p); } catch { return out; }
@@ -112,8 +142,12 @@ for (const { dir, exts } of SEARCH) {
   for (const file of walk(join(ROOT, dir), exts)) {
     const isSql = extname(file) === '.sql';
     const rel = relative(ROOT, file).replace(/\\/g, '/');
-    const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+    const text = readFileSync(file, 'utf8');
+    const lines = text.split(/\r?\n/);
+    // Migration DO-blocks run at apply time and cannot reach a user; see above.
+    const applyTime = isSql ? applyTimeLines(text) : new Set();
     lines.forEach((line, i) => {
+      if (applyTime.has(i + 1)) return;
       // A comment is not a user-facing string. Code comments explaining WHY a
       // word is banned must not themselves trip the ban.
       const code = line.replace(/^\s*(\/\/|--|\*|\/\*).*$/, '');
