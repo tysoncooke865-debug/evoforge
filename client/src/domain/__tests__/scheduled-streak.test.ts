@@ -35,12 +35,55 @@ describe('computeScheduledStreak', () => {
     expect(s.days.get(TODAY)).toBe('rest'); // Sunday
   });
 
-  it('a missed scheduled day resets', () => {
-    // Thu 07-09 trained, Fri 07-10 missed, Sat 07-11 trained → current 1
-    const s = computeScheduledStreak([WEEK], [set('2026-07-09'), set('2026-07-11')], TODAY, 10);
+  it('a missed scheduled day resets when there is no grace left', () => {
+    // Thu 07-09 trained, Fri 07-10 missed, Sat 07-11 trained.
+    // 179 gives two grace days per rolling 30 by default, so the pre-179 rule
+    // is now the gracePer30d: 0 case — still worth pinning, because it is the
+    // behaviour an athlete gets once their grace is spent.
+    const s = computeScheduledStreak(
+      [WEEK], [set('2026-07-09'), set('2026-07-11')], TODAY, 10, undefined,
+      { gracePer30d: 0 }
+    );
     expect(s.current).toBe(1);
     expect(s.days.get('2026-07-10')).toBe('missed');
     expect(s.best).toBe(1);
+  });
+
+  it('grace absorbs a single missed day (179, Spec v5 §6)', () => {
+    // The SAME history, under the default allowance: the Friday is still shown
+    // as missed on the calendar — it is not rewritten into a rest day — but it
+    // no longer breaks the run.
+    const s = computeScheduledStreak([WEEK], [set('2026-07-09'), set('2026-07-11')], TODAY, 10);
+    expect(s.days.get('2026-07-10')).toBe('missed');
+    expect(s.current).toBe(2);
+  });
+
+  it('grace is rationed, not unlimited', () => {
+    // Three missed days inside one window with an allowance of two: the third
+    // one breaks it. Without this the streak would measure nothing at all.
+    const s = computeScheduledStreak(
+      [WEEK], [set('2026-07-11')], TODAY, 10, undefined, { gracePer30d: 2 }
+    );
+    expect(s.current).toBe(1);
+  });
+
+  it('a declared pause bridges, and is not rationed', () => {
+    // Same three missed days, but the athlete said they were injured. Every one
+    // of them bridges — rationing "I broke my wrist" is the pressure §6 removes.
+    const s = computeScheduledStreak(
+      [WEEK], [set('2026-07-08'), set('2026-07-11')], TODAY, 10, undefined,
+      { gracePer30d: 0, pauses: [{ started_on: '2026-07-09', ended_on: '2026-07-10' }] }
+    );
+    expect(s.days.get('2026-07-09')).toBe('rest');
+    expect(s.current).toBe(2);
+  });
+
+  it('an open pause (no end date) still bridges', () => {
+    const s = computeScheduledStreak(
+      [WEEK], [set('2026-07-08')], TODAY, 10, undefined,
+      { gracePer30d: 0, pauses: [{ started_on: '2026-07-09', ended_on: null }] }
+    );
+    expect(s.current).toBe(1);
   });
 
   it('today pending neither breaks nor extends', () => {
@@ -218,12 +261,16 @@ describe('065 — streak semantics with array slots', () => {
     expect(s.current).toBe(3);
 
     // Same schedule, Sunday NOT trained, judged from Monday: Sunday is a
-    // missed scheduled day now — it breaks the run that Saturday started.
+    // missed scheduled day now — and with no grace left it breaks the run that
+    // Saturday started. (Under the default allowance 179 would absorb it; this
+    // case is specifically about a miss being a MISS, so grace is switched off.)
     const broken = computeScheduledStreak(
       [MULTI],
       [set('2026-07-10'), set('2026-07-11'), set('2026-07-13')],
       '2026-07-13',
-      10
+      10,
+      undefined,
+      { gracePer30d: 0 }
     );
     expect(broken.days.get('2026-07-12')).toBe('missed');
     expect(broken.current).toBe(1); // Monday only

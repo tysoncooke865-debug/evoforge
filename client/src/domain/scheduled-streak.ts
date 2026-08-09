@@ -68,13 +68,41 @@ const planInForce = (sorted: ScheduleRow[], iso: string): Record<string, PlanDay
   return found;
 };
 
+/**
+ * A DECLARED BREAK for injury, illness or travel (179, Spec v5 §6).
+ * `ended_on: null` means it is still running.
+ */
+export interface StreakPause {
+  started_on: string;
+  ended_on: string | null;
+}
+
+/** The server's default in `forge_streak_config`; overridden by `my_streak_state`. */
+export const DEFAULT_GRACE_PER_30D = 2;
+
+function isPaused(pauses: readonly StreakPause[], iso: string): boolean {
+  for (const p of pauses) {
+    if (p.started_on <= iso && (p.ended_on === null || p.ended_on >= iso)) return true;
+  }
+  return false;
+}
+
 export function computeScheduledStreak(
   schedules: ScheduleRow[],
   workoutRows: WorkoutRow[],
   todayIso: string,
   windowDays = 180,
-  extra?: Omit<CompletedSessionsInput, 'workoutRows' | 'fromIso' | 'toIso'>
+  extra?: Omit<CompletedSessionsInput, 'workoutRows' | 'fromIso' | 'toIso'>,
+  /**
+   * 179. Optional so every existing caller keeps compiling and keeps its current
+   * behaviour: no pauses and the default allowance is exactly what the rule was
+   * before, plus grace. A screen that has not been taught about pauses simply
+   * does not benefit from them.
+   */
+  opts?: { pauses?: readonly StreakPause[]; gracePer30d?: number }
 ): ScheduledStreak {
+  const pauses = opts?.pauses ?? [];
+  const gracePer30d = Math.max(0, opts?.gracePer30d ?? DEFAULT_GRACE_PER_30D);
   const sorted = [...schedules].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
   const planFor = (iso: string): Record<string, PlanDayValue> | null => planInForce(sorted, iso);
 
@@ -95,6 +123,11 @@ export function computeScheduledStreak(
     const assigned = dayWorkouts(plan?.[dowOf(iso)]);
     if (!plan || assigned.length === 0) {
       days.set(iso, 'rest');
+    } else if (isPaused(pauses, iso)) {
+      // 179: a declared pause bridges exactly as a rest day does. Classified
+      // BEFORE 'completed' is even asked, because a day you told us you were
+      // injured is not a day you owed us training.
+      days.set(iso, 'rest');
     } else if (trainedOn(stats, iso)) {
       days.set(iso, 'completed');
     } else if (iso === todayIso) {
@@ -104,7 +137,22 @@ export function computeScheduledStreak(
     }
   }
 
-  // Current run: walk back from today; rest/pending bridge, missed breaks.
+  /**
+   * Current run: walk back from today. Rest and pending bridge; a missed planned
+   * day is ABSORBED BY GRACE if any is left, and only breaks the run otherwise
+   * (179, Spec v5 §6).
+   *
+   * The rolling window matters and is not a nicety. Counting grace per calendar
+   * month would let an athlete miss the 30th, the 1st, the 2nd and the 3rd on
+   * four grace days across two "months", which is not what "two a month" means to
+   * anyone. A miss at `iso` is absorbed only if fewer than `gracePer30d` have
+   * already been spent within the 30 days at or after it.
+   *
+   * THE SQL MIRROR IS `scheduled_streak` (migration 179) and the two must agree —
+   * the server counts the streak for anything server-side, this counts the number
+   * on the screen, and an athlete comparing them would be right to trust neither.
+   */
+  const spent: string[] = [];
   let current = 0;
   let runStart: string | null = null;
   for (let iso = todayIso; iso >= start; iso = addDays(iso, -1)) {
@@ -115,20 +163,40 @@ export function computeScheduledStreak(
     } else if (state === 'rest' || state === 'pending') {
       continue;
     } else {
+      const windowEnd = addDays(iso, 30);
+      const nearby = spent.filter((d) => d >= iso && d < windowEnd).length;
+      if (nearby < gracePer30d) {
+        spent.push(iso);
+        continue;
+      }
       break;
     }
   }
 
-  // Best run over the window.
+  /**
+   * Best run over the window, under the SAME rule as the current one.
+   *
+   * If grace saved today's run but not the identical run last month, an athlete
+   * would watch their best drop below a streak they remember finishing. Best is
+   * "preserved permanently" in §6, and permanence you have to re-earn under a
+   * different rule is not permanence.
+   */
   let best = 0;
   let run = 0;
+  const bestSpent: string[] = [];
   for (let iso = start; iso <= todayIso; iso = addDays(iso, 1)) {
     const state = days.get(iso);
     if (state === 'completed') {
       run += 1;
       if (run > best) best = run;
     } else if (state === 'missed') {
-      run = 0;
+      const windowStart = addDays(iso, -30);
+      const nearby = bestSpent.filter((d) => d > windowStart && d <= iso).length;
+      if (nearby < gracePer30d) bestSpent.push(iso);
+      else {
+        run = 0;
+        bestSpent.length = 0;
+      }
     }
     // rest/pending: bridge
   }
