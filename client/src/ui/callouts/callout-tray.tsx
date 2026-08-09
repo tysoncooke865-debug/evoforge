@@ -11,7 +11,12 @@ import { putSetDraft } from '@/state/set-draft';
 import { NumberField } from '@/ui/core/number-field';
 import { displayWeight, toKgForSave, WEIGHT_STEP } from '@/domain/units';
 import { pyFloat, pyInt } from '@/domain/py';
-import { useCalloutConfig, useCreateCallout, useMyCallouts } from '@/data/callouts';
+import {
+  isAboveProgramRefusal,
+  useCalloutConfig,
+  useCreateCallout,
+  useMyCallouts,
+} from '@/data/callouts';
 import { useTrainingFriends } from '@/data/presence';
 import { useFriends } from '@/data/social';
 import {
@@ -181,10 +186,29 @@ export function CalloutTray({
     (!wantsLoad || liveTarget.weightKg !== null) &&
     !create.isPending;
 
-  const send = () => {
+  /**
+   * ABOVE YOUR OWN BEST (174 · 176) — ASKED, NEVER SUGGESTED.
+   *
+   * Tyson overrode the flat refusal on 2026-08-09: an athlete may pledge on a
+   * target above anything they have logged, with the onus on them. What he did
+   * NOT override is v5.1's other half — the app may never solicit a max attempt.
+   *
+   * So there is no badge, no hint and no "go bigger" affordance anywhere in this
+   * tray. Nothing appears until the athlete has typed an above-best target of
+   * their own accord and pressed pledge, and the server has refused it. The
+   * athlete's own decision is the trigger; this panel only spells out what they
+   * are accepting and lets them say yes or change the number.
+   *
+   * IT IS PER TARGET. Editing the weight or the reps clears it, so an
+   * acknowledgement of 110 kg can never travel silently to 130.
+   */
+  const [confirmAbove, setConfirmAbove] = useState(false);
+
+  const send = (aboveProgramAck = false) => {
     if (!canSend || opponentId === null) return;
     create.mutate(
       {
+        aboveProgramAck,
         opponentId,
         workoutDate: date,
         workout,
@@ -201,7 +225,13 @@ export function CalloutTray({
       {
         onSuccess: () => {
           setStake(0);
+          setConfirmAbove(false);
           onClose();
+        },
+        onError: (e) => {
+          // The one refusal with an answer. Everything else has already gone out
+          // as a toast from the mutation itself.
+          if (isAboveProgramRefusal(e)) setConfirmAbove(true);
         },
       }
     );
@@ -308,6 +338,7 @@ export function CalloutTray({
                 value={tgtWeight}
                 onChange={(v) => {
                   setTgtWeight(v);
+                  setConfirmAbove(false);
                   publish(v, tgtReps);
                 }}
                 step={WEIGHT_STEP[unit].step}
@@ -342,6 +373,7 @@ export function CalloutTray({
               value={tgtReps}
               onChange={(v) => {
                 setTgtReps(v);
+                setConfirmAbove(false);
                 publish(tgtWeight, v);
               }}
               step={1}
@@ -438,24 +470,72 @@ export function CalloutTray({
               below the fold on a 390×844 phone. A two-tap interaction whose
               second tap needs a scroll first is not a two-tap interaction. */}
           <View className="mt-s2">
-            <NeonButton
-              title={
-                create.isPending
-                  ? 'SENDING…'
-                  : stake > 0
-                    ? `PLEDGE ${stake} ON THIS SET`
-                    : 'PICK A CHIP'
-              }
-              size="hero"
-              pixel
-              disabled={!canSend}
-              busy={create.isPending}
-              onPress={send}
-              testID="callout-send"
-            />
-            <Text className="mt-s1 text-center text-2xs text-text-mute">
-              Nothing leaves your wallet until they take it.
-            </Text>
+            {confirmAbove ? (
+              /* Plain statement, no encouragement. It says what is true — the
+                 target is above their logged best and the coins are identical
+                 either way — so there is nothing here that makes the attempt
+                 more attractive than it was before they typed it. */
+              <View
+                className="rounded-md border p-s3"
+                style={{ borderColor: `${colors.warn}66`, backgroundColor: `${colors.warn}10` }}
+                testID="callout-above-program"
+              >
+                <Text
+                  allowFontScaling={false}
+                  className="text-2xs"
+                  style={{ color: colors.warn, letterSpacing: 1 }}
+                >
+                  ABOVE YOUR BEST
+                </Text>
+                <Text className="mt-s1 text-2xs text-text-dim">
+                  {label} is more than anything you have logged for {exercise}. The coins
+                  pay the same either way — send this only if you had already decided to
+                  attempt it.
+                </Text>
+                <View className="mt-s2 flex-row" style={{ gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <NeonButton
+                      title="CHANGE THE TARGET"
+                      variant="ghost"
+                      pixel
+                      onPress={() => setConfirmAbove(false)}
+                      testID="callout-above-cancel"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <NeonButton
+                      title={create.isPending ? 'SENDING…' : 'I HAVE DECIDED'}
+                      pixel
+                      disabled={!canSend}
+                      busy={create.isPending}
+                      onPress={() => send(true)}
+                      testID="callout-above-confirm"
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <>
+                <NeonButton
+                  title={
+                    create.isPending
+                      ? 'SENDING…'
+                      : stake > 0
+                        ? `PLEDGE ${stake} ON THIS SET`
+                        : 'PICK A CHIP'
+                  }
+                  size="hero"
+                  pixel
+                  disabled={!canSend}
+                  busy={create.isPending}
+                  onPress={() => send()}
+                  testID="callout-send"
+                />
+                <Text className="mt-s1 text-center text-2xs text-text-mute">
+                  Nothing leaves your wallet until they take it.
+                </Text>
+              </>
+            )}
           </View>
         </Pressable>
       </Pressable>

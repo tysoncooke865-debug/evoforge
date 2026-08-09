@@ -55,6 +55,31 @@ export function refreshCallouts(
 }
 
 /** Postgres speaks in constraint names; athletes do not. */
+/**
+ * THE ONE REFUSAL AN ATHLETE CAN ANSWER (174 · 176).
+ *
+ * Every other guard on a pledge is a wall — a rest day, a workout that is not on
+ * the plan, a miss already taken, over the week's ramp. This one is a question,
+ * and the server marks it as such with a `hint` so the tray does not have to
+ * pattern-match an error sentence to tell the difference.
+ */
+export const ABOVE_PROGRAM_ACK = 'above_program_ack';
+
+/** A refusal that still knows WHICH refusal it was. */
+export class CalloutError extends Error {
+  readonly hint: string | null;
+  constructor(message: string, hint: string | null) {
+    super(message);
+    this.name = 'CalloutError';
+    this.hint = hint;
+  }
+}
+
+/** Is this the above-your-best refusal, the only one the athlete may override? */
+export function isAboveProgramRefusal(e: unknown): boolean {
+  return e instanceof CalloutError && e.hint === ABOVE_PROGRAM_ACK;
+}
+
 function humanise(message: string): string {
   const m = message.replace(/^[a-z_]+:\s*/i, '').trim();
   if (/workout_callouts_one_live|duplicate key/i.test(message)) {
@@ -224,6 +249,8 @@ export interface CreateCalloutInput {
   targetWeightKg: number | null;
   targetLabel: string;
   stake: number;
+  /** Set only after the athlete confirms an above-best target (174). */
+  aboveProgramAck?: boolean;
   /** Analytics only: how long the tray was open before SEND, and how many
    *  calls this athlete has made in this workout. The second one is how we
    *  learn whether people run it back. */
@@ -247,8 +274,14 @@ export function useCreateCallout() {
         p_target_weight_kg: input.targetWeightKg,
         p_target_label: input.targetLabel,
         p_stake: input.stake,
+        // 174: the athlete accepted a target above their own logged best. Defaults
+        // false and is only ever true when the tray has SAID what is being accepted
+        // — the flag is a record of a decision, not a way around a check.
+        p_above_program_ack: input.aboveProgramAck ?? false,
       });
-      if (error) throw new Error(humanise(error.message));
+      // `hint` is carried, not flattened. Without it the tray would have to read
+      // the message text to know whether this refusal has an answer.
+      if (error) throw new CalloutError(humanise(error.message), error.hint ?? null);
       return String((data as { callout_id: string }).callout_id);
     },
     onSuccess: (_id, input) => {
@@ -261,6 +294,10 @@ export function useCreateCallout() {
       });
     },
     onError: (e: Error) => {
+      // The above-best refusal is a question the tray asks in place, so it must
+      // not also fly past as an error toast — that would read as "it broke"
+      // rather than "this is above your best, do you mean it?".
+      if (isAboveProgramRefusal(e)) return;
       useToastStore.getState().push({ kind: 'error', title: 'CALL OUT NOT SENT', subtitle: e.message });
     },
   });
