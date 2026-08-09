@@ -76,21 +76,33 @@ describe('chips', () => {
    * a big chip glowed like a legendary drop. That is the escalating colour ladder a
    * casino uses, and it is what this pins shut.
    */
-  it('every denomination is a real metal, and none is a rarity tier', () => {
+  it('every denomination is a real material, and none is a rarity tier', () => {
     const RARITY = ['common', 'rare', 'epic', 'legendary', 'mythic', 'accent', 'success'];
     expect(FORGE_CHIPS).toEqual([5, 10, 15, 25, 50, 100]);
     for (const v of FORGE_CHIPS) {
       const m = INGOT[v];
       expect(m, String(v)).toBeTruthy();
-      expect(m.name, String(v)).toMatch(/^(Copper|Bronze|Iron|Steel|Silver|Gold)$/);
+      expect(m.name, String(v)).toMatch(/^(Copper|Bronze|Iron|Steel|Sapphire|Ruby)$/);
       // A real colour, not a theme token that could be a rarity.
       expect(m.hex, m.name).toMatch(/^#[0-9A-Fa-f]{6}$/);
       expect(RARITY, m.name).not.toContain(m.hex.toLowerCase());
       expect(ingotLabel(v)).toBe(`${m.name} ${v}`);
     }
-    // Base metals below precious ones — the idiom only works if it is ordered.
+    // Base metals climb, then the material changes KIND. The ladder has to be
+    // ordered for the idiom to work, and the change of kind is what makes the top
+    // of it legible from the silhouette alone.
     expect(FORGE_CHIPS.map((v) => INGOT[v].name))
-      .toEqual(['Copper', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold']);
+      .toEqual(['Copper', 'Bronze', 'Iron', 'Steel', 'Sapphire', 'Ruby']);
+    expect(FORGE_CHIPS.map((v) => INGOT[v].kind))
+      .toEqual(['ingot', 'ingot', 'ingot', 'ingot', 'gem', 'gem']);
+  });
+
+  /** A gem must never appear BELOW a bar — the change of kind is the top of the
+   *  ladder, and a sapphire worth less than a steel bar would read as noise. */
+  it('gems sit above every metal', () => {
+    const firstGem = FORGE_CHIPS.findIndex((v) => INGOT[v].kind === 'gem');
+    expect(firstGem).toBeGreaterThan(0);
+    expect(FORGE_CHIPS.slice(firstGem).every((v) => INGOT[v].kind === 'gem')).toBe(true);
   });
 
   /** The ceiling follows §4's 150 daily pledge cap. A denomination nobody can

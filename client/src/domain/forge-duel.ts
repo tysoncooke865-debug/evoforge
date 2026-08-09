@@ -36,23 +36,33 @@ export const FORGE_CHIPS = [5, 10, 15, 25, 50, 100] as const;
 export type ForgeChipValue = (typeof FORGE_CHIPS)[number];
 
 export interface IngotMaterial {
-  /** The metal, which is what the value actually reads from. */
+  /** The material, which is what the value actually reads from. */
   name: string;
+  /**
+   * INGOT or GEM. The top two tiers are cut stones rather than cast bars, so the
+   * jump in value is a jump in KIND — visible at a glance in a stack, and readable
+   * without the numeral. Base metals climb, then the material changes.
+   *
+   * It also keeps the rule honest twice over: a gem is a different OBJECT, not the
+   * same disc in a different hue, which is the distinction the brief draws between
+   * an all-ages currency idiom and a casino one.
+   */
+  kind: 'ingot' | 'gem';
   /** Its real colour. NOT a rarity token: `CHIP_TONE` used to map 500 to 'mythic'
    *  so a big chip glowed like a legendary drop, which is exactly the escalating
    *  colour ladder a casino uses. Copper is copper-coloured because it is copper. */
   hex: string;
-  /** Foreground for the stamped numeral, chosen for contrast on the metal. */
+  /** Foreground for the stamped numeral, chosen for contrast on the material. */
   stamp: string;
 }
 
 export const INGOT: Readonly<Record<ForgeChipValue, IngotMaterial>> = {
-  5:   { name: 'Copper', hex: '#B87333', stamp: '#2A1A0C' },
-  10:  { name: 'Bronze', hex: '#CD7F32', stamp: '#2A1A0C' },
-  15:  { name: 'Iron',   hex: '#6E7276', stamp: '#EAEEF2' },
-  25:  { name: 'Steel',  hex: '#B0BAC5', stamp: '#1B2129' },
-  50:  { name: 'Silver', hex: '#D8DDE3', stamp: '#1B2129' },
-  100: { name: 'Gold',   hex: '#E8C36A', stamp: '#2A1F08' },
+  5:   { name: 'Copper',   kind: 'ingot', hex: '#B87333', stamp: '#2A1A0C' },
+  10:  { name: 'Bronze',   kind: 'ingot', hex: '#CD7F32', stamp: '#2A1A0C' },
+  15:  { name: 'Iron',     kind: 'ingot', hex: '#6E7276', stamp: '#EAEEF2' },
+  25:  { name: 'Steel',    kind: 'ingot', hex: '#B0BAC5', stamp: '#1B2129' },
+  50:  { name: 'Sapphire', kind: 'gem',   hex: '#2F6FE0', stamp: '#EAF1FF' },
+  100: { name: 'Ruby',     kind: 'gem',   hex: '#D22B4C', stamp: '#FFF0F3' },
 };
 
 /** "Gold 100" — for a screen reader, and for tap-to-identify in a shared pool. */
