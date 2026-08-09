@@ -71,7 +71,15 @@ export function useCoinHistory() {
   });
 }
 
-export type CoinKind = 'workout_complete' | 'pr' | 'streak_milestone' | 'starting_bonus';
+export type CoinKind =
+  | 'workout_complete'
+  | 'pr'
+  | 'streak_milestone'
+  | 'starting_bonus'
+  // 160 — v5 §2's per-set income. Athlete-claimable like the rest of this
+  // union: the guard prices it and the unique index on (user_id, kind,
+  // source_id) makes one payment per logged set a database fact.
+  | 'set_reward';
 
 /** The classified claim result — 'landed' means a real new row (announce
  *  only then). Refusals come back NAMED (domain/coin-claims.ts) so callers
@@ -125,6 +133,8 @@ export const COIN_LABELS: Record<string, string> = {
   // reading the live constraint against this map, which is why that check reads
   // EVERY kind rather than the ones a session happens to remember.
   forge_drop_unlock: 'Forge Drop board unlock',
+  // 160 — the deterministic backbone (v5 §2).
+  set_reward: 'Set logged',
 };
 
 /** Claim + refresh + announce, from any screen. */
@@ -138,11 +148,17 @@ export function useClaimCoin() {
         // claim landing during a token-refresh blip used to invalidate
         // ['coin_total', null] and leave the real counter stale.
         invalidateTable(queryClient, 'coin_events');
+        // THE FOURTH EDIT, and it is not on anybody's list of three. These
+        // strings are a SECOND COPY of the server's amounts, and 160 retuned two
+        // of them (workout_complete 25->20, pr 50->25). Nothing fails when they
+        // drift: the ledger stays right and the toast simply lies about it, in
+        // the one surface an athlete uses to check what they earned.
         const amounts: Record<CoinKind, string> = {
-          workout_complete: '+25',
-          pr: '+50',
+          workout_complete: '+20',
+          pr: '+25',
           streak_milestone: '+',
           starting_bonus: '+100',
+          set_reward: '+12',
         };
         useToastStore.getState().push({
           kind: 'info',
