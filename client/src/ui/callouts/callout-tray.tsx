@@ -416,7 +416,7 @@ export function CalloutTray({
                 balance={balance ?? 0}
                 min={cfg.min_stake}
                 max={max}
-                potLabel="POT IF THEY DOUBT"
+                potLabel="POOL IF THEY PUSH"
                 compact
                 tableHeight={132}
                 chipSize={46}
@@ -443,7 +443,7 @@ export function CalloutTray({
                 create.isPending
                   ? 'SENDING…'
                   : stake > 0
-                    ? `${stake} SAYS I HIT THIS`
+                    ? `PLEDGE ${stake} ON THIS SET`
                     : 'PICK A CHIP'
               }
               size="hero"

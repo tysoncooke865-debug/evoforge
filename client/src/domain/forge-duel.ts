@@ -330,20 +330,20 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
     case 'created': return `${who} sent the challenge`;
     case 'accepted': return `Accepted — ${pot ?? 0} in the pot`;
     case 'declined': return `${who} declined`;
-    case 'cancelled': return 'Cancelled — every stake refunded';
+    case 'cancelled': return 'Cancelled — every pledge refunded';
     case 'expired': return 'The invite expired';
     case 'disputed': return `${who} raised a dispute`;
     case 'counter_stake_proposed': return `${who} countered at ${amount}`;
-    case 'counter_stake_accepted': return `Stake agreed at ${amount}`;
+    case 'counter_stake_accepted': return `Pledge agreed at ${amount}`;
     case 'counter_stake_declined': return `${who} declined the counter`;
     case 'raise_proposed': return `${who} proposed +${amount} each`;
     case 'raise_accepted': return `Raise accepted — pot ${pot}`;
     case 'raise_declined': return `${who} declined the raise`;
     case 'raise_withdrawn': return `${who} withdrew the offer`;
     case 'raise_expired': return 'A raise offer expired';
-    case 'all_in_proposed': return `${who} went ALL IN — ${amount}`;
-    case 'all_in_accepted': return `ALL IN matched — pot ${pot}`;
-    case 'all_in_declined': return `${who} declined the all-in`;
+    case 'all_in_proposed': return `${who} went to MAX PLEDGE — ${amount}`;
+    case 'all_in_accepted': return `MAX PLEDGE matched — pot ${pot}`;
+    case 'all_in_declined': return `${who} declined the max pledge`;
     case 'workout_logged':
       return value === null ? `${who} logged a session` : `${who} logged a session — ${value}${unit ? ` ${unit}` : ''}`;
     case 'lead_change': {
@@ -462,7 +462,7 @@ export type DuelReactionKey = (typeof DUEL_REACTIONS)[number]['key'];
  * lives behind CHALLENGE RULES for anyone who wants it.
  */
 export const AT_RISK: readonly { k: string; v: string; safe: boolean }[] = [
-  { k: 'DRAW', v: 'Stake refunded', safe: true },
+  { k: 'DRAW', v: 'Pledge refunded', safe: true },
   { k: 'XP', v: 'Safe', safe: true },
   { k: 'EVO RATING', v: 'Safe', safe: true },
   { k: 'FORGE LEVEL', v: 'Safe', safe: true },

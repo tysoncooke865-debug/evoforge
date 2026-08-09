@@ -167,7 +167,7 @@ function IncomingCard({ callout, onDismiss }: { callout: CalloutRow; onDismiss: 
         style={{ minHeight: 48, backgroundColor: colors.legendary }}
       >
         <Text allowFontScaling={false} style={{ fontSize: 16, color: '#04121a', ...pixelFont() }}>
-          {respond.isPending ? '…' : `DOUBT ${callout.stake}`}
+          {respond.isPending ? '…' : `PUSH ${callout.stake}`}
         </Text>
       </Pressable>
       <Pressable

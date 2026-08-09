@@ -110,7 +110,7 @@ function Row({ callout }: { callout: CalloutRow }) {
       {mustAnswer ? (
         <View className="mt-s1 flex-row" style={{ gap: 8 }}>
           <Action
-            label={`DOUBT ${callout.stake}`}
+            label={`PUSH ${callout.stake}`}
             onPress={() => respond.mutate({ id: callout.id, accept: true })}
             busy={respond.isPending}
             filled

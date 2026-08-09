@@ -68,7 +68,7 @@ function duelText(n: NotificationRow): string {
       return d.pot ? `accepted your duel — ${d.pot} in the pot` : VERB.duel_accepted;
     case 'duel_raise':
       return d.kind === 'all_in'
-        ? `is ALL IN — ${d.amount} each, pot ${d.pot ?? '?'}`
+        ? `is at MAX PLEDGE — ${d.amount} each, pool ${d.pot ?? '?'}`
         : d.pot
           ? `wants to raise the pot to ${d.pot}`
           : VERB.duel_raise;

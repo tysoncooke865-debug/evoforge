@@ -270,7 +270,7 @@ export default function WatchDuelScreen() {
                   const other = backing === d.challenger_id ? d.support_opponent : d.support_challenger;
                   const est = estimateSupportReturn(amount, pool + amount, other, cfg.support_rake_bp);
                   return other > 0
-                    ? `If they win you would take about ${formatCoins(est)} back — your stake plus a share of the ${formatCoins(other)} on the other side. The estimate moves as more people back a side.`
+                    ? `If they win you would take about ${formatCoins(est)} back — your pledge plus a share of the ${formatCoins(other)} on the other side. The estimate moves as more people back a side.`
                     : 'Nobody is backing the other side yet, so there is nothing to win. If that stays true you simply get your coins back.';
                 })()}
               </Text>

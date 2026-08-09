@@ -134,7 +134,7 @@ export function useDuelSweep() {
         useToastStore.getState().push({
           kind: 'info',
           title: 'ESCROW RETURNED',
-          subtitle: 'A duel you had coins in no longer exists. Your stake is back.',
+          subtitle: 'A duel you had coins in no longer exists. Your pledge is back.',
         });
       }
       // The phone twin for every duel the hub just settled. The in-app row was
@@ -195,7 +195,7 @@ export function useProposeOffer() {
       });
       useToastStore.getState().push({
         kind: 'info',
-        title: input.kind === 'all_in' ? 'ALL IN SENT' : input.counterOf ? 'COUNTER SENT' : 'RAISE SENT',
+        title: input.kind === 'all_in' ? 'MAX PLEDGE SENT' : input.counterOf ? 'COUNTER SENT' : 'RAISE SENT',
         subtitle:
           r.opponent_can_match === false
             ? `They only need to accept — but they cannot cover ${r.amount} right now.`

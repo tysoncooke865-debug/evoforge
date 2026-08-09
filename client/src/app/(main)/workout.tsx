@@ -54,6 +54,7 @@ import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { XP_PER_SET } from '@/domain/xp';
+import { trialEligibility } from '@/domain/forge-trial';
 import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
@@ -887,7 +888,28 @@ export default function WorkoutScreen() {
             }}
             onLogged={() => markActive(workoutName, preferredSource)}
             durable
-            onCallOut={editable && calloutsOn ? (setNo) => openCallOut(exercise, setNo) : undefined}
+            /**
+             * THE GOLDEN DOT, GATED TO PROGRAMMED WORK (v5 §4).
+             *
+             * It used to appear on every exercise. Migration 163 refuses an
+             * ineligible pledge server-side, so nothing unsafe could be created —
+             * but the screen was offering something settlement would reject, which
+             * teaches an athlete the app is unreliable at the exact moment they are
+             * about to commit coins.
+             *
+             * `restDay: false` is honest rather than lazy: you are on this screen
+             * because you opened a workout, and the schedule is not read here. A
+             * rest-day pledge is caught by the server, and the tray shows
+             * `forge_trial_allowance`'s own message — which is why that function
+             * returns prose and not just a number.
+             */
+            onCallOut={
+              editable
+              && calloutsOn
+              && trialEligibility(entry, { restDay: false, setsDone: facts.validCount }).eligible
+                ? (setNo) => openCallOut(exercise, setNo)
+                : undefined
+            }
             calloutFor={
               calloutsOn
                 ? (setNo) =>

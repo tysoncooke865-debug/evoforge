@@ -236,10 +236,10 @@ export default function NewChallengeScreen() {
             <DuelRow k="CONTEST" v={info?.name ?? '—'} />
             {type === 'most_improved_lift' ? <DuelRow k="LIFT" v="Barbell Bench Press" /> : null}
             <DuelRow k="RUNS" v={`${start} → ${end ?? '—'}`} />
-            <DuelRow k="STAKE EACH" v={`${formatCoins(stake)} coins`} tint={colors.text} />
+            <DuelRow k="PLEDGE EACH" v={`${formatCoins(stake)} coins`} tint={colors.text} />
             <DuelRow k="POT" v={`${formatCoins(stake * 2)} coins`} tint={colors.legendary} />
             <DuelRow k="RAISING" v={`Either of you may propose one after you have both trained. Up to ${cfg.max_raises}.`} />
-            <DuelRow k="THE RULES" v="Contest, length and opening stake lock the moment they accept." />
+            <DuelRow k="THE RULES" v="Contest, length and opening pledge lock the moment they accept." />
 
             <View className="mt-s3">
               <AtRiskGrid stake={stake} testID="new-duel-at-risk" />

@@ -160,7 +160,7 @@ export function DuelResult({
             allowFontScaling={false}
             style={{ fontSize: 9, letterSpacing: 1.4, ...pixelFont(false) }}
           >
-            {outcome === 'drew' ? 'STAKE REFUNDED' : outcome === 'won' ? 'POT TAKEN' : 'STAKE LOST'}
+            {outcome === 'drew' ? 'PLEDGE REFUNDED' : outcome === 'won' ? 'POT TAKEN' : 'PLEDGE LOST'}
           </Text>
           <Text allowFontScaling={false} style={{ fontSize: 18, color: tint, letterSpacing: 0, ...pixelFont() }}>
             {coinDelta > 0 ? `+${formatCoins(coinDelta)}` : coinDelta < 0 ? `−${formatCoins(-coinDelta)}` : formatCoins(pot / 2)}
@@ -195,7 +195,7 @@ export function DuelResult({
           ? 'Level all the way. Both stakes came back — a draw costs nobody anything, and it keeps a run alive.'
           : outcome === 'won'
             ? 'The escrow is yours. Every coin came from the two of you; nothing was minted.'
-            : `${theirName} trained harder inside the window. Your stake went to them — the training still counted for everything else.`}
+            : `${theirName} trained harder inside the window. Your pledge went to them — the training still counted for everything else.`}
       </Text>
     </View>
   );

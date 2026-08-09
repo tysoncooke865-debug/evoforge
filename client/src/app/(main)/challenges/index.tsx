@@ -68,7 +68,7 @@ export default function ChallengesScreen() {
   if (challenges.isPending || friends.isPending) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="STAKE YOUR TRAINING" title="DUELS" />
+        <ScreenHeader kicker="PLEDGE ON YOUR TRAINING" title="DUELS" />
         <SkeletonScreen cards={3} testID="challenges-loading" />
       </ScreenShell>
     );
@@ -77,7 +77,7 @@ export default function ChallengesScreen() {
   if (challenges.isError) {
     return (
       <ScreenShell>
-        <ScreenHeader kicker="STAKE YOUR TRAINING" title="DUELS" />
+        <ScreenHeader kicker="PLEDGE ON YOUR TRAINING" title="DUELS" />
         <GlowCard>
           <Text className="text-sm text-text-dim">
             We couldn&apos;t load your duels. Your training and your coins are safe.
@@ -108,7 +108,7 @@ export default function ChallengesScreen() {
   return (
     <ScreenShell>
       <ScreenHeader
-        kicker="STAKE YOUR TRAINING"
+        kicker="PLEDGE ON YOUR TRAINING"
         title="DUELS"
         right={<CoinBalance coins={coins.data ?? null} testID="challenges-balance" />}
       />

@@ -121,6 +121,30 @@ jobs:
       - name: verify-arena-purity — arena game-engine imports no UI
         run: node scripts/verify-arena-purity.mjs
 
+      # Spec v5 §10's vocabulary ban (docs/ENGAGEMENT_V5.md). An acceptance
+      # criterion, and the kind of rule that decays silently: a single "stake" in a
+      # new button label is invisible in review and visible in a store submission.
+      # Cleared from 78 hits to zero on 2026-08-09; this keeps it there.
+      # Runs from the REPO ROOT — it sweeps migrations and edge functions too, not
+      # just client/src.
+      - name: vocabulary sweep — no banned wording on any user-facing surface
+        working-directory: .
+        run: node tools/sweep-vocabulary.mjs --strict
+
+      # Four edits, not three: CHECK constraint, guard branch, COIN_LABELS, and the
+      # claim toast's copy of the amounts. The last two fail silently — the ledger
+      # stays right and the screen lies about it. Missed three times before this
+      # existed. Needs the management token, so it is skipped on forks.
+      - name: coin kinds — every kind is labelled, every amount matches the guard
+        working-directory: .
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
+        run: |
+          mkdir -p client
+          printf '%s' "$SUPABASE_ACCESS_TOKEN" > client/.env.sbtoken.local
+          node tools/falsify-coin-labels.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       # Arena 2.0 P0: every imported champion's AutoSprite animation metadata
       # must satisfy the runtime contract (128px cells, required clips, feet
       # anchors in tolerance, sheets present + sized). Falsified 2026-07-24.

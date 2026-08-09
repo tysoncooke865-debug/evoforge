@@ -281,7 +281,12 @@ describe('the timeline reads as one line each', () => {
   it('says who did what, with the number that makes it actionable', () => {
     expect(describeEvent(ev('raise_proposed', { amount: 100 }), names)).toBe('Jesse proposed +100 each');
     expect(describeEvent(ev('raise_accepted', { pot: 400 }), names)).toBe('Raise accepted — pot 400');
-    expect(describeEvent(ev('all_in_proposed', { amount: 782 }), names)).toContain('ALL IN — 782');
+    // v5 §10 bans "all in"; the sanctioned wording is MAX PLEDGE. The event KEY
+    // stays `all_in_proposed` — the ban is on what a human reads, not on an
+    // identifier, and renaming a live event key would be a data migration for a
+    // copy rule.
+    expect(describeEvent(ev('all_in_proposed', { amount: 782 }), names))
+      .toContain('MAX PLEDGE — 782');
   });
 
   it('uses the second person for my own actions', () => {

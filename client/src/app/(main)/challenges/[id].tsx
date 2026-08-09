@@ -539,11 +539,11 @@ function DuelBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; toda
           <DuelRow k="WINNER" v={info.winner} />
           <DuelRow k="COUNTS" v={info.counts.join(' · ')} />
           <DuelRow k="DOES NOT COUNT" v={info.doesNotCount.join(' · ')} />
-          <DuelRow k="A DRAW" v="Refunds every stake in full." />
-          <DuelRow k="CANCELLING" v="Refunds every stake, and every supporter." />
+          <DuelRow k="A DRAW" v="Refunds every pledge in full." />
+          <DuelRow k="CANCELLING" v="Refunds every pledge in full." />
           <DuelRow k="RAISING" v={`Both of you must agree. Up to ${cfg.max_raises} raises, and one unlocks each time you have both trained since the last.`} />
           <DuelRow k="SUPPORTERS" v="A separate pool. Winners divide the other side's stakes in proportion to their own." />
-          <DuelRow k="RULES" v="The duel's type, length and opening stake locked when it was accepted." />
+          <DuelRow k="RULES" v="The duel's type, length and opening pledge locked when it was accepted." />
           <Text className="mt-s3 text-2xs text-text-mute">{SAFETY_NOTE}</Text>
         </GlowCard>
       ) : null}
@@ -686,7 +686,7 @@ function IncomingInvite({
           <Fact k="LENGTH" v={`${c.duration_days} days`} />
         </View>
         <View className="mt-s2 flex-row" style={{ gap: 8 }}>
-          <Fact k="STAKE EACH" v={formatCoins(c.stake)} tint={colors.text} />
+          <Fact k="PLEDGE EACH" v={formatCoins(c.stake)} tint={colors.text} />
           <Fact k="POT" v={formatCoins(c.stake * 2)} tint={colors.legendary} />
           <Fact k="EXPIRES IN" v={countdown(msToExpiry(c, nowMs))} />
         </View>
@@ -701,7 +701,7 @@ function IncomingInvite({
 
       {countering && !hasOffer ? (
         <GlowCard testID="duel-counter-stake">
-          <DuelCardLabel>COUNTER THE STAKE</DuelCardLabel>
+          <DuelCardLabel>COUNTER THE PLEDGE</DuelCardLabel>
           <Text className="mt-s1 text-2xs text-text-dim">
             Name your number. They accept or decline it, and nothing moves either way until they do.
           </Text>
@@ -731,7 +731,7 @@ function IncomingInvite({
       ) : (
         <>
           <NeonButton
-            title={busy ? 'ACCEPTING…' : `ACCEPT · STAKE ${formatCoins(c.stake)}`}
+            title={busy ? 'ACCEPTING…' : `ACCEPT · PLEDGE ${formatCoins(c.stake)}`}
             size="hero"
             pixel
             disabled={!canAfford || busy}
@@ -742,7 +742,7 @@ function IncomingInvite({
           <View className="flex-row" style={{ gap: 8 }}>
             <View style={{ flex: 1 }}>
               <NeonButton
-                title="COUNTER STAKE"
+                title="COUNTER PLEDGE"
                 variant="ghost"
                 pixel
                 disabled={busy || hasOffer || counterMax < cfg.min_stake}
@@ -800,7 +800,7 @@ function AwaitingReply({
           </Text>
         </View>
         <View className="mt-s3 flex-row" style={{ gap: 8 }}>
-          <Fact k="STAKE SENT" v={formatCoins(stake)} />
+          <Fact k="PLEDGE SENT" v={formatCoins(stake)} />
           <Fact k="LOCKED SO FAR" v="0" tint={colors.success} />
           <Fact k="EXPIRES IN" v={countdown(msLeft)} />
         </View>

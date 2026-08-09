@@ -57,6 +57,34 @@ const ALLOWED = new Map([
   ['Ride or spin', 'cardio activity: a spin class, not a reel'],
 ]);
 
+/**
+ * MIGRATIONS WHOSE MESSAGES CAN NO LONGER REACH A USER.
+ *
+ * A `raise exception` inside a function that has since been DROPPED is history,
+ * not copy. 162 retired the staked board, so `forge_drop_play`'s "stake must be
+ * between % and %" is unreachable by any caller — and editing an applied
+ * migration to satisfy a copy rule would make the repo lie about what actually
+ * ran, which is a worse problem than the word.
+ *
+ * Each entry needs the migration that superseded it, so the claim is checkable.
+ */
+const SUPERSEDED = new Map([
+  ['migrations/155_forge_drop_play.sql', 'forge_drop_play dropped by 162'],
+  ['migrations/156_forge_drop_concurrent.sql', 'forge_drop_play dropped by 162'],
+  ['migrations/157_forge_drop_xp.sql', 'forge_drop_play dropped by 162'],
+  ['migrations/158_decimal_coins.sql', 'forge_drop_play dropped by 162'],
+  ['migrations/159_forge_drop_boards.sql', 'the whole board dropped by 162'],
+  // 165 rewrote these functions IN PLACE from their live bodies, so the wording in
+  // the applied files is a record of what once ran. Editing an applied migration to
+  // match would make the file lie about history — the divergence this session hit
+  // four times. 165's own guard asserts none of these phrases survive in any live
+  // function, which is the check that actually matters.
+  ['migrations/144_forge_duel_economy.sql', 'duel messages reworded by 165'],
+  ['migrations/145_forge_duel_functions.sql', 'duel messages reworded by 165'],
+  ['migrations/152_callout_functions.sql', 'callout_create reworded by 165'],
+  ['migrations/163_forge_trial.sql', 'its callout_create copy reworded by 165'],
+]);
+
 const SEARCH = [
   { dir: 'client/src', exts: ['.ts', '.tsx'] },
   { dir: 'client/app.json', exts: ['.json'] },
@@ -175,15 +203,24 @@ for (const { dir, exts } of SEARCH) {
   for (const file of walk(join(ROOT, dir), exts)) {
     const isSql = extname(file) === '.sql';
     const rel = relative(ROOT, file).replace(/\\/g, '/');
+    if (SUPERSEDED.has(rel)) continue;
     const text = readFileSync(file, 'utf8');
     const lines = text.split(/\r?\n/);
     // Migration DO-blocks run at apply time and cannot reach a user; see above.
     const applyTime = isSql ? applyTimeLines(text) : new Set();
     const commentLines = blockCommentLines(text);
+    // `comment on … is` often puts its string on the NEXT line; carry the skip.
+    let sqlCommentOn = false;
     lines.forEach((line, i) => {
       if (applyTime.has(i + 1)) return;
       if (commentLines.has(i + 1)) return;
-      const code = line.replace(/^\s*(\/\/|--|\*|\/\*).*$/, '');
+      // A comment is not user-facing text — including a TRAILING one, and including
+      // Postgres's own `comment on … is '…'`, which is schema documentation read
+      // through \d+ and never rendered anywhere near a person.
+      if (isSql && /^\s*comment\s+on\s/i.test(line)) { sqlCommentOn = true; return; }
+      if (isSql && sqlCommentOn) { sqlCommentOn = false; return; }
+      const code = (isSql ? line.split('--')[0] : line)
+        .replace(/^\s*(\/\/|--|\*|\/\*).*$/, '');
       if (!code.trim()) return;
       // Developer logging is not user-facing. `console.warn('… wager value
       // untouched')` is a note to whoever is debugging chip physics.

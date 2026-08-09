@@ -74,7 +74,7 @@ export function ChipWagerTable({
   balance,
   min,
   max,
-  potLabel = 'POT IF ACCEPTED',
+  potLabel = 'POOL IF ACCEPTED',
   potOf = (v: number) => v * 2,
   allInLabel,
   onAllIn,
@@ -291,7 +291,7 @@ export function ChipWagerTable({
           gets the room the interaction needs, and still the loudest number
           on the card.
           COMPACT DROPS IT ENTIRELY: in the call out tray the number already
-          lives on the SEND button ("50 SAYS I HIT THIS"), and a tray that
+          lives on the SEND button ("PLEDGE 50 ON THIS SET"), and a tray that
           prints the same figure twice pushes the chip rail below the fold —
           which breaks the two-tap path this whole feature is built around. ── */}
       <View className="items-center" style={compact ? { display: 'none' } : undefined}>
@@ -344,7 +344,7 @@ export function ChipWagerTable({
       {/* ── THE THREE NUMBERS, always legible, simulation or not. ── */}
       {compact ? null : (
         <View className="mt-s3 flex-row" style={{ gap: 8 }}>
-          <Figure label="YOUR STAKE" value={formatCoins(shown)} tint={colors.accent} testID="wager-stake" />
+          <Figure label="YOUR PLEDGE" value={formatCoins(shown)} tint={colors.accent} testID="wager-stake" />
           <Figure label="AVAILABLE" value={formatCoins(remaining)} tint={colors.text} testID="wager-available" />
           <Figure label="MAX HERE" value={formatCoins(max)} tint={colors['text-dim']} testID="wager-max" />
         </View>
@@ -381,7 +381,7 @@ export function ChipWagerTable({
         ) : null}
         {onAllIn ? (
           <Quick
-            label={allInLabel ?? 'ALL IN'}
+            label={allInLabel ?? 'MAX PLEDGE'}
             tone="danger"
             onPress={() => {
               playAllInSlam();
@@ -602,7 +602,7 @@ function TrayChip({
     <GestureDetector gesture={composed}>
       <Animated.View
         accessibilityRole="button"
-        accessibilityLabel={`Add a ${value} coin chip to your stake`}
+        accessibilityLabel={`Add a ${value} coin ingot to your pledge`}
         accessibilityState={{ disabled: !affordable }}
         testID={`wager-chip-${value}`}
         onTouchStart={() => {

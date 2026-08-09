@@ -169,7 +169,7 @@ export function ChallengeCard({
             allowFontScaling={false}
             style={{ fontSize: 9, letterSpacing: 1.2, color: colors.legendary, ...pixelFont(false) }}
           >
-            {offer.kind === 'all_in' ? 'ALL IN OFFER' : 'RAISE OFFER'}
+            {offer.kind === 'all_in' ? 'MAX PLEDGE OFFER' : 'RAISE OFFER'}
           </Text>
           <Text className="text-2xs text-text-dim" numberOfLines={1} style={{ flex: 1 }}>
             +{formatCoins(offer.amount)} each → pot {formatCoins(offer.pot_if_accepted)}

@@ -91,7 +91,7 @@ export function RaiseSheet({
             <View className="mt-s3 rounded-lg border p-s3" style={{ borderColor: colors.border }}>
               <Row k="CURRENT POT" v={formatCoins(currentPot)} />
               <Row k="YOU EACH HAVE IN" v={formatCoins(perAthlete)} />
-              <Row k="YOUR ADDITIONAL STAKE" v={`+${formatCoins(amount)}`} tint={colors.accent} />
+              <Row k="YOUR ADDITIONAL PLEDGE" v={`+${formatCoins(amount)}`} tint={colors.accent} />
               <Row k="THEY MUST MATCH" v={`+${formatCoins(amount)}`} />
               <Row k="NEW POT" v={formatCoins(currentPot + amount * 2)} tint={colors.legendary} />
             </View>
@@ -110,7 +110,7 @@ export function RaiseSheet({
             <Pressable
               onPress={onAllIn}
               accessibilityRole="button"
-              accessibilityLabel="Go all in instead"
+              accessibilityLabel="Go to max pledge instead"
               testID="raise-go-all-in"
               style={{ minHeight: 44, justifyContent: 'center' }}
             >
@@ -200,7 +200,7 @@ export function AllInSheet({
 
           <View className="mt-s4">
             <HoldToConfirm
-              label="HOLD TO SEND ALL IN"
+              label="HOLD TO SEND MAX PLEDGE"
               holdingLabel="KEEP HOLDING…"
               onConfirm={onConfirm}
               disabled={busy || balance <= 0}
@@ -255,7 +255,7 @@ export function IncomingOfferCard({
   const counterMax = Math.max(0, Math.min(balance, isCounterStake ? config.max_stake : config.max_raise));
 
   const heading =
-    offer.kind === 'all_in' ? `${theirName.toUpperCase()} IS ALL IN`
+    offer.kind === 'all_in' ? `${theirName.toUpperCase()} IS AT MAX PLEDGE`
       : isCounterStake ? `${theirName.toUpperCase()} WANTS ${formatCoins(offer.amount)} EACH`
         : `${theirName.toUpperCase()} WANTS TO RAISE`;
 
@@ -282,7 +282,7 @@ export function IncomingOfferCard({
 
       <View className="mt-s2 flex-row" style={{ gap: 8 }}>
         <Figure
-          label={isCounterStake ? 'STAKE EACH' : '+ EACH'}
+          label={isCounterStake ? 'PLEDGE EACH' : '+ EACH'}
           value={formatCoins(offer.amount)}
           tint={colors.text}
         />
@@ -309,7 +309,7 @@ export function IncomingOfferCard({
             balance={balance}
             min={Math.min(config.min_stake, counterMax)}
             max={counterMax}
-            potLabel={isCounterStake ? 'POT AT YOUR NUMBER' : 'POT IF THEY ACCEPT'}
+            potLabel={isCounterStake ? 'POOL AT YOUR NUMBER' : 'POOL IF THEY ACCEPT'}
             potOf={(v) => (isCounterStake ? v * 2 : currentPot + v * 2)}
             testID="counter-table"
           />
@@ -400,7 +400,7 @@ export function PendingOfferCard({
           allowFontScaling={false}
           style={{ fontSize: 12, letterSpacing: 1.2, color: colors.legendary, ...pixelFont() }}
         >
-          {offer.kind === 'all_in' ? 'ALL IN SENT' : offer.kind === 'counter_stake' ? 'COUNTER SENT' : 'RAISE SENT'}
+          {offer.kind === 'all_in' ? 'MAX PLEDGE SENT' : offer.kind === 'counter_stake' ? 'COUNTER SENT' : 'RAISE SENT'}
         </Text>
       </View>
       <Text className="mt-s2 text-2xs text-text-dim">
