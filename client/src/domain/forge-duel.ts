@@ -19,24 +19,46 @@
 // ────────────────────────────────────────────────────────────────── chips
 
 /**
- * THE DENOMINATIONS. Seven, because a wager table needs enough to make 125
- * feel like a decision (100 + 25) and few enough to fit one row on a phone.
+ * THE DENOMINATIONS ARE MATERIALS (v5.1 physics-pool brief).
+ *
+ * Six, one per forge material, and the value is carried by the METAL plus a stamped
+ * number — never by an arbitrary colour on a disc. That distinction is the whole
+ * rule: value-by-metal is the standard all-ages game-currency idiom (a copper piece
+ * is worth less than a gold one in every RPG ever written), while value-by-colour on
+ * a flat disc is the poker convention and reads as a casino chip however it is
+ * themed.
+ *
+ * 250 and 500 are gone and 15 is new. The ceiling follows the 150 daily pledge cap
+ * from §4 — a 500 ingot could never be committed, and a denomination nobody can use
+ * is decoration that implies the cap is higher than it is.
  */
-export const FORGE_CHIPS = [5, 10, 25, 50, 100, 250, 500] as const;
+export const FORGE_CHIPS = [5, 10, 15, 25, 50, 100] as const;
 export type ForgeChipValue = (typeof FORGE_CHIPS)[number];
 
-/** Each denomination's colour, borrowed from the rarity ladder so a 500 chip
- *  reads as rare the same way a legendary item does. Never invented here —
- *  these are token names, resolved against the live theme at render. */
-export const CHIP_TONE: Readonly<Record<ForgeChipValue, string>> = {
-  5: 'common',
-  10: 'rare',
-  25: 'accent',
-  50: 'success',
-  100: 'legendary',
-  250: 'epic',
-  500: 'mythic',
+export interface IngotMaterial {
+  /** The metal, which is what the value actually reads from. */
+  name: string;
+  /** Its real colour. NOT a rarity token: `CHIP_TONE` used to map 500 to 'mythic'
+   *  so a big chip glowed like a legendary drop, which is exactly the escalating
+   *  colour ladder a casino uses. Copper is copper-coloured because it is copper. */
+  hex: string;
+  /** Foreground for the stamped numeral, chosen for contrast on the metal. */
+  stamp: string;
+}
+
+export const INGOT: Readonly<Record<ForgeChipValue, IngotMaterial>> = {
+  5:   { name: 'Copper', hex: '#B87333', stamp: '#2A1A0C' },
+  10:  { name: 'Bronze', hex: '#CD7F32', stamp: '#2A1A0C' },
+  15:  { name: 'Iron',   hex: '#6E7276', stamp: '#EAEEF2' },
+  25:  { name: 'Steel',  hex: '#B0BAC5', stamp: '#1B2129' },
+  50:  { name: 'Silver', hex: '#D8DDE3', stamp: '#1B2129' },
+  100: { name: 'Gold',   hex: '#E8C36A', stamp: '#2A1F08' },
 };
+
+/** "Gold 100" — for a screen reader, and for tap-to-identify in a shared pool. */
+export function ingotLabel(value: ForgeChipValue): string {
+  return `${INGOT[value].name} ${value}`;
+}
 
 /**
  * The PILE that represents an amount: largest denominations first, greedily.

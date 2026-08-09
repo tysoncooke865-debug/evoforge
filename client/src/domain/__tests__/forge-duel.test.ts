@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DUEL_CONFIG,
   FORGE_CHIPS,
+  INGOT,
+  ingotLabel,
   MAX_TABLE_BODIES,
   chipBreakdown,
   chipPile,
@@ -64,10 +66,47 @@ describe('chips', () => {
     expect(chipBreakdown(7)).toEqual([{ value: 5, count: 1 }]);
   });
 
+  /**
+   * VALUE READS FROM THE METAL (v5.1 physics-pool brief).
+   *
+   * "Value-by-metal is the standard all-ages game-currency idiom and is permitted;
+   * value-by-arbitrary-colour on discs is the casino convention and is not."
+   *
+   * The ladder used to map denominations onto RARITY tokens — 500 was 'mythic', so
+   * a big chip glowed like a legendary drop. That is the escalating colour ladder a
+   * casino uses, and it is what this pins shut.
+   */
+  it('every denomination is a real metal, and none is a rarity tier', () => {
+    const RARITY = ['common', 'rare', 'epic', 'legendary', 'mythic', 'accent', 'success'];
+    expect(FORGE_CHIPS).toEqual([5, 10, 15, 25, 50, 100]);
+    for (const v of FORGE_CHIPS) {
+      const m = INGOT[v];
+      expect(m, String(v)).toBeTruthy();
+      expect(m.name, String(v)).toMatch(/^(Copper|Bronze|Iron|Steel|Silver|Gold)$/);
+      // A real colour, not a theme token that could be a rarity.
+      expect(m.hex, m.name).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(RARITY, m.name).not.toContain(m.hex.toLowerCase());
+      expect(ingotLabel(v)).toBe(`${m.name} ${v}`);
+    }
+    // Base metals below precious ones — the idiom only works if it is ordered.
+    expect(FORGE_CHIPS.map((v) => INGOT[v].name))
+      .toEqual(['Copper', 'Bronze', 'Iron', 'Steel', 'Silver', 'Gold']);
+  });
+
+  /** The ceiling follows §4's 150 daily pledge cap. A denomination nobody can
+   *  commit is decoration that implies the cap is higher than it is. */
+  it('no denomination exceeds what a day may pledge', () => {
+    expect(Math.max(...FORGE_CHIPS)).toBeLessThanOrEqual(150);
+  });
+
   it('stacks ONE denomination, the smallest that fits the budget', () => {
-    expect(chipPile(50, 12)).toEqual(Array(10).fill(5));
-    expect(chipPile(125, 12)).toEqual(Array(5).fill(25));
-    expect(chipPile(2000, 12)).toEqual(Array(8).fill(250));
+    // v5.1 reladdered these to material tiers: 5/10/15/25/50/100. 15 is new and
+    // 250/500 are gone, so 125 now fits in eight iron rather than five steel and
+    // the top of the range is gold. The RULE is unchanged — smallest denomination
+    // that fits the budget — and these are its answers on the new ladder.
+    expect(chipPile(50, 12)).toEqual(Array(10).fill(5));      // copper
+    expect(chipPile(125, 12)).toEqual(Array(8).fill(15));     // iron
+    expect(chipPile(2000, 12)).toEqual(Array(12).fill(100));  // gold, pile capped
   });
 
   it('uses a BIGGER denomination for a bigger pot, always', () => {

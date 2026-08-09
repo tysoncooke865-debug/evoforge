@@ -138,16 +138,17 @@ export const STACK_BASE_INERTIA = 60;
 /** How hard a stack's base chip grips the table. See the note in spawn(). */
 export const STACK_BASE_GRIP = 2.2;
 
-/** Radius in px. Deliberately a narrow range — the brief's rule is that a 250
- *  feels more substantial, not that it is a different object. */
+/** Radius in px. Deliberately a narrow range — a gold ingot feels more
+ *  substantial, not like a different object. */
 const RADIUS: Readonly<Record<ForgeChipValue, number>> = {
-  5: 15, 10: 15.5, 25: 16, 50: 16.5, 100: 17, 250: 17.5, 500: 18,
+  5: 15, 10: 15.5, 15: 15.8, 25: 16, 50: 16.5, 100: 17,
 };
 
-/** Density, and therefore mass and therefore impact energy. A 500 hits about
- *  twice as hard as a 5 at the same speed — noticeable, never unfair. */
+/** Density, and therefore mass and therefore impact energy. Gold hits about
+ *  twice as hard as copper at the same speed — noticeable, never unfair, and now
+ *  physically apt rather than arbitrary: the denser metal is the heavier one. */
 const DENSITY: Readonly<Record<ForgeChipValue, number>> = {
-  5: 0.0016, 10: 0.0018, 25: 0.0021, 50: 0.0024, 100: 0.0027, 250: 0.0031, 500: 0.0035,
+  5: 0.0016, 10: 0.0018, 15: 0.0020, 25: 0.0024, 50: 0.0028, 100: 0.0035,
 };
 
 export const chipRadius = (v: ForgeChipValue): number => RADIUS[v] ?? 16;

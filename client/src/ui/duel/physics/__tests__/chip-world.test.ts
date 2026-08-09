@@ -61,7 +61,7 @@ describe('a loose chip', () => {
 
   it('never escapes the table, however hard it is thrown', () => {
     const w = make();
-    w.spawn({ chipId: 'a', value: 500, x: 20, y: 10, vx: 9000, vy: 9000, spin: 40 });
+    w.spawn({ chipId: 'a', value: 100, x: 20, y: 10, vx: 9000, vy: 9000, spin: 40 });
     settle(w, 300);
     const p = points(w)[0];
     expect(p.x).toBeGreaterThan(-60);
@@ -102,7 +102,7 @@ describe('a stack', () => {
   it('holds its shape, and keeps holding it', () => {
     const w = make();
     buildStack(w, 5);
-    settle(w, 500);
+    settle(w, 100);
     const a = points(w);
     settle(w, 120);
     const b = points(w);
@@ -141,7 +141,7 @@ describe('a stack', () => {
     settle(w);
     expect(w.stackSize('stack-under-test')).toBe(5);
     // A heavy chip thrown across the table into the column.
-    w.spawn({ chipId: 'wrecker', value: 500, x: 20, y: H - 40, vx: 4200, vy: -200 });
+    w.spawn({ chipId: 'wrecker', value: 100, x: 20, y: H - 40, vx: 4200, vy: -200 });
     settle(w, 240);
     // Some of it came apart, and whatever came apart is a loose chip again.
     expect(w.stackSize('stack-under-test')).toBeLessThan(5);

@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Circle, Defs, G, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-import { CHIP_TONE, type ForgeChipValue } from '@/domain/forge-duel';
+import { INGOT, type ForgeChipValue } from '@/domain/forge-duel';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
@@ -48,8 +48,19 @@ export const ForgeChip = memo(function ForgeChip({
   tone?: string;
 }) {
   const colors = useThemeColors();
-  const token = toneToken ?? CHIP_TONE[value as ForgeChipValue];
-  const tone = colors[token as keyof typeof colors] ?? colors.accent;
+  /**
+   * THE COLOUR IS THE METAL (v5.1). It used to come from `CHIP_TONE`, which mapped
+   * denominations onto the RARITY ladder — 500 rendered 'mythic' so a big chip
+   * glowed like a legendary drop. That is the escalating colour ladder a casino
+   * uses, and it is the thing the physics-pool brief singles out: value must read
+   * from the material, not from an arbitrary hue on a disc.
+   *
+   * `tone` remains overridable so a caller can still tint for state (owner colour
+   * in a shared pool, dimmed when spent); absent that, copper looks like copper.
+   */
+  const tone = toneToken
+    ? (colors[toneToken as keyof typeof colors] ?? toneToken)
+    : (INGOT[value as ForgeChipValue]?.hex ?? colors.accent);
   const r = size / 2;
   const notchW = size * 0.16;
   const notchH = size * 0.1;

@@ -50,11 +50,10 @@ const RATTLE_COOLDOWN_MS = 320;
 const WEIGHT: Readonly<Record<ForgeChipValue, { pitch: number; body: number }>> = {
   5: { pitch: 1.16, body: 0.55 },
   10: { pitch: 1.11, body: 0.62 },
+  15: { pitch: 1.08, body: 0.67 },
   25: { pitch: 1.05, body: 0.72 },
   50: { pitch: 1.0, body: 0.8 },
   100: { pitch: 0.95, body: 0.9 },
-  250: { pitch: 0.9, body: 1.0 },
-  500: { pitch: 0.85, body: 1.12 },
 };
 
 let noise: AudioBuffer | null = null;
