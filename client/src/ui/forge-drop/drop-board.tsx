@@ -141,6 +141,7 @@ export function DropBoard({
   // Velocity in board units per second — the trail's direction and length.
   const pVx = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
   const pVy = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const pSpin = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
   const MAX_PUCKS = px.length;
 
   /** Board recoil, shared by every impact. One value, so five landings shake
@@ -196,6 +197,14 @@ export function DropBoard({
       };
       pOpacity[free].value = 1;
       pGlow[free].value = 0;
+      pSpin[free].value = 0;
+      // THE LAUNCH. A sharp burst where the chip enters the board, plus the
+      // board's own recoil — the moment the machine accepts the token.
+      fx.current?.land(p.columns[0] + 0.5, 0.1, 0.45, p.stake >= tier.max_stake * 0.6);
+      recoil.value = withSequence(
+        withTiming(0.7, { duration: 70 }),
+        withTiming(0, { duration: 200 })
+      );
       changed = true;
     }
     if (changed) {
@@ -296,6 +305,7 @@ export function DropBoard({
         // Suspense: the puck brightens and its trail thickens as it falls.
         pGlow[i].value = tension(p.y, tier.rows);
         pSquash[i].value = p.bounce;
+        pSpin[i].value = p.spin;
 
         // A peg strike is a CHANGE of peg index, not a bounce threshold — the
         // frames already carry which peg was struck, so this cannot double-fire
@@ -429,6 +439,7 @@ export function DropBoard({
                 squash={pSquash[i]}
                 vx={pVx[i]}
                 vy={pVy[i]}
+                spin={pSpin[i]}
                 cell={cell}
                 rows={tier.rows}
                 boardHeight={boardHeight}
@@ -558,7 +569,7 @@ function LaneMark({
  * entirely by shared values — so it never re-renders during a fall.
  */
 function Puck({
-  x, y, opacity, glow, squash, vx, vy, cell, rows, boardHeight, gold, tint, stake, tone,
+  x, y, opacity, glow, squash, vx, vy, spin, cell, rows, boardHeight, gold, tint, stake, tone,
 }: {
   x: ReturnType<typeof useSharedValue<number>>;
   y: ReturnType<typeof useSharedValue<number>>;
@@ -567,6 +578,7 @@ function Puck({
   squash: ReturnType<typeof useSharedValue<number>>;
   vx: ReturnType<typeof useSharedValue<number>>;
   vy: ReturnType<typeof useSharedValue<number>>;
+  spin: ReturnType<typeof useSharedValue<number>>;
   cell: number; rows: number; boardHeight: number; gold: string; tint: string; stake: number; tone: string;
 }) {
   const size = cell * 0.6;
@@ -616,6 +628,9 @@ function Puck({
     transform: [
       { translateX: px(x.value) },
       { translateY: py(y.value) },
+      // The token TURNS. A disc that falls without rotating reads as a sprite
+      // being moved down a screen; one that turns reads as an object.
+      { rotate: `${spin.value}deg` },
       { scaleX: 1 + squash.value * 0.18 },
       { scaleY: 1 - squash.value * 0.18 },
     ],
