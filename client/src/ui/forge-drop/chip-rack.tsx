@@ -55,7 +55,7 @@ import { chipImpactHaptic } from '@/ui/duel/physics/chip-haptics';
  * already disabled, with the reason attached.
  */
 
-const CHIP_SIZE = 46;
+const CHIP_SIZE = 40;
 
 export function ChipRack({
   offers,
@@ -86,7 +86,7 @@ export function ChipRack({
   testID?: string;
 }) {
   const colors = useThemeColors();
-  const size = compact ? 38 : CHIP_SIZE;
+  const size = compact ? 34 : CHIP_SIZE;
 
   return (
     <View testID={testID} style={{ width: '100%' }}>
@@ -96,7 +96,7 @@ export function ChipRack({
           className="text-text-mute"
           style={{ fontSize: 8, letterSpacing: 1.4 }}
         >
-          {blocker ? 'CHIPS' : 'PICK A CHIP · FLICK IT AT THE BOARD'}
+          {blocker ? 'CHIPS' : 'PICK A CHIP · FLICK IT'}
         </Text>
         {laneLabel ? (
           <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: colors.accent }}>
@@ -108,7 +108,10 @@ export function ChipRack({
       {/* Wraps rather than scrolls: a horizontally scrolling rack hides
           denominations on a narrow phone, and a chip nobody can see is a chip
           nobody knows they can play. */}
-      <View className="mt-s1 flex-row flex-wrap" style={{ gap: compact ? 6 : 8 }}>
+      {/* ONE ROW. Six chips wrapped onto two rows pushed the drop button
+          under the fold on a 390px phone, and a rack you have to scroll to
+          finish reading is a rack that slows the loop down. */}
+      <View className="mt-s1 flex-row items-center justify-between" style={{ gap: 2 }}>
         {offers.map((offer) => (
           <RackChip
             key={offer.value}
@@ -320,7 +323,7 @@ function RackChip({
               color: selected ? colors.accent : colors['text-mute'],
             }}
           >
-            {dragging ? 'AIM' : selected ? 'FLICK TO LAUNCH' : enabled ? ' ' : 'LOCKED'}
+            {dragging ? 'AIM' : selected ? 'FLICK' : ' '}
           </Text>
         </Pressable>
       </Animated.View>

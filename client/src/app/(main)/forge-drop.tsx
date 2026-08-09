@@ -263,10 +263,11 @@ export default function ForgeDropScreen() {
             label="IN PLAY"
             value={String(balance.reserved)}
             tone={balance.reserved > 0 ? colors.accent : colors['text-mute']}
+            emphasis={balance.reserved > 0}
             testID="drop-in-play"
           />
           <Stat
-            label="WHEN THEY LAND"
+            label="PROJECTED BALANCE"
             value={String(balance.projected)}
             tone={colors['text-dim']}
             testID="drop-projected"
@@ -295,7 +296,7 @@ export default function ForgeDropScreen() {
         {/* THE KEYBOARD AND SCREEN-READER PATH. Everything the flick can do,
             as ordinary buttons — a gesture cannot be tabbed to, described, or
             performed one-handed on a bus. */}
-        <Text allowFontScaling={false} className="mt-s3 text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
+        <Text allowFontScaling={false} className="mt-s2 text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
           DROP FROM
         </Text>
         <View className="mt-s1 flex-row" style={{ gap: 8 }}>
@@ -329,7 +330,7 @@ export default function ForgeDropScreen() {
           })}
         </View>
 
-        <View className="mt-s3">
+        <View className="mt-s2">
           <NeonButton
             title={
               loading
@@ -453,14 +454,20 @@ export default function ForgeDropScreen() {
 }
 
 function Stat({
-  label, value, tone, testID,
-}: { label: string; value: string; tone: string; testID?: string }) {
+  label, value, tone, testID, emphasis = false,
+}: { label: string; value: string; tone: string; testID?: string; emphasis?: boolean }) {
   return (
     <View style={{ flex: 1, minWidth: 0 }} testID={testID}>
-      <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 7, letterSpacing: 1 }}>
+      <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 7, letterSpacing: 1 }} numberOfLines={2}>
         {label}
       </Text>
-      <Text allowFontScaling={false} numberOfLines={1} style={{ fontSize: 14, color: tone, ...pixelFont() }}>
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        // Coins that are committed but not yet resolved are the number an
+        // athlete actually watches, so it is the one that grows.
+        style={{ fontSize: emphasis ? 17 : 14, color: tone, ...pixelFont() }}
+      >
         {value}
       </Text>
     </View>

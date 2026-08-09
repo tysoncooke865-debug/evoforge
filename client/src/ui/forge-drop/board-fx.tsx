@@ -51,88 +51,66 @@ export interface BoardFxHandle {
 // ───────────────────────────────────────────────────────────── ambient layer
 
 /**
- * THE ENERGY FIELD.
+ * THE EDGES, NOT THE MIDDLE.
  *
- * Three very dim discs drifting on a long cycle, each larger than the board so
- * every edge falls OUTSIDE the clip. That last part is the whole trick: a disc
- * whose boundary is visible reads as a blob sitting on the board, while one
- * that overflows it reads as light coming through it. The first version was
- * sized to the board and looked like three grey balloons.
+ * This began as three broad drifting discs behind the pegs. Dimmed twice and
+ * enlarged once, they still read as translucent shapes laid OVER the board —
+ * because that is what they were. A soft-edged form crossing the peg field is
+ * an obstruction however faint it is, and the chip has to be the brightest
+ * thing on the board.
  *
- * They sit at 2-3% opacity, rising to about 7% with chips in play: enough that
- * the board is never still, far too little to compete with a peg or a chip.
+ * So the ambient light now lives on the FRAME: four thin bars that breathe
+ * along the border, and a line down the centre divider. The playfield itself
+ * stays dark and empty, which is the only way a 3px chip can be the most
+ * visible object on it.
  *
- * `charged` lifts the whole field when a chip is selected and lifts it further
- * with each chip in the air, so the machine visibly spools up as play begins.
+ * IT GETS OUT OF THE WAY WHEN SOMETHING IS FALLING. `live` scales the whole
+ * layer down to about a third — ambient energy is for an idle machine, and
+ * the moment there is a real event to watch it stops competing with it.
  */
-function EnergyField({ charged, live }: { charged: boolean; live: number }) {
+function EdgeEnergy({ charged, live, tint }: { charged: boolean; live: number; tint: string }) {
   const drift = useSharedValue(0);
   const glow = useSharedValue(0);
-  // Gated HERE as well as at the call site. `BoardFx` already declines to
-  // render the ambient layer under reduced motion, but a loop that only
-  // behaves because of where it happens to be mounted is one refactor away
-  // from misbehaving — and verify-motion is right to insist.
   const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (reduced) { drift.value = 0.5; return; } // held still, mid-drift
+    if (reduced) { drift.value = 0.5; return; }
     drift.value = withRepeat(
-      withTiming(1, { duration: 17000, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
   }, [drift, reduced]);
 
   useEffect(() => {
-    // One target, driven by state — not a second repeating animation to keep
-    // in step with the first.
-    glow.value = withTiming(Math.min(1, (charged ? 0.45 : 0) + live * 0.28), {
-      duration: 420,
-      easing: Easing.out(Easing.quad),
-    });
+    // Idle is the loud state here. Anything falling pushes this DOWN.
+    const base = charged ? 1 : 0.62;
+    const quieten = live > 0 ? 0.32 : 1;
+    glow.value = withTiming(base * quieten, { duration: 320, easing: Easing.out(Easing.quad) });
   }, [charged, live, glow]);
 
-  const cyan = useAnimatedStyle(() => ({
-    opacity: 0.028 + glow.value * 0.042,
-    transform: [
-      { translateX: -30 + drift.value * 60 },
-      { translateY: 10 - drift.value * 40 },
-      { scale: 1 + glow.value * 0.14 },
-    ],
+  const top = useAnimatedStyle(() => ({
+    opacity: 0.1 + glow.value * 0.3,
+    transform: [{ translateX: (drift.value - 0.5) * 40 }],
   }));
-  const violet = useAnimatedStyle(() => ({
-    opacity: 0.026 + glow.value * 0.038,
-    transform: [
-      { translateX: 40 - drift.value * 70 },
-      { translateY: -20 + drift.value * 50 },
-      { scale: 1.05 + glow.value * 0.1 },
-    ],
+  const bottom = useAnimatedStyle(() => ({
+    opacity: 0.08 + glow.value * 0.26,
+    transform: [{ translateX: (0.5 - drift.value) * 40 }],
   }));
-  const deep = useAnimatedStyle(() => ({
-    opacity: 0.022 + glow.value * 0.032,
-    transform: [{ translateY: -30 + drift.value * 80 }, { scale: 1.1 }],
+  const side = useAnimatedStyle(() => ({ opacity: 0.06 + glow.value * 0.2 }));
+  const divider = useAnimatedStyle(() => ({
+    opacity: 0.05 + glow.value * 0.16,
+    transform: [{ scaleY: 0.9 + drift.value * 0.1 }],
   }));
 
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-      <Animated.View
-        style={[
-          { position: 'absolute', left: '-60%', top: '-55%', width: '160%', height: '130%', borderRadius: 999, backgroundColor: '#22d3ee' },
-          cyan,
-        ]}
-      />
-      <Animated.View
-        style={[
-          { position: 'absolute', right: '-65%', top: '-10%', width: '165%', height: '135%', borderRadius: 999, backgroundColor: '#a855f7' },
-          violet,
-        ]}
-      />
-      <Animated.View
-        style={[
-          { position: 'absolute', left: '-30%', bottom: '-60%', width: '160%', height: '120%', borderRadius: 999, backgroundColor: '#3b82f6' },
-          deep,
-        ]}
-      />
+      <Animated.View style={[{ position: 'absolute', top: 0, left: '-10%', width: '120%', height: 2, backgroundColor: tint }, top]} />
+      <Animated.View style={[{ position: 'absolute', bottom: 0, left: '-10%', width: '120%', height: 2, backgroundColor: '#a855f7' }, bottom]} />
+      <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 1, backgroundColor: tint }, side]} />
+      <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 1, backgroundColor: tint }, side]} />
+      {/* The centre divider, lit — the board's spine. */}
+      <Animated.View style={[{ position: 'absolute', top: '6%', bottom: '6%', left: '50%', width: 1, backgroundColor: '#a855f7' }, divider]} />
     </View>
   );
 }
@@ -145,7 +123,7 @@ function EnergyField({ charged, live }: { charged: boolean; live: number }) {
  * convection rather than snowfall and keeps them clearly distinct from a
  * falling chip.
  */
-function Motes({ tint }: { tint: string }) {
+function Motes({ tint, live }: { tint: string; live: number }) {
   const seeds = useMemo(
     () =>
       Array.from({ length: FX_BUDGET.motes }, (_, i) => ({
@@ -162,15 +140,15 @@ function Motes({ tint }: { tint: string }) {
   return (
     <View pointerEvents="none" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {seeds.map((s, i) => (
-        <Mote key={i} {...s} tint={tint} />
+        <Mote key={i} {...s} tint={tint} live={live} />
       ))}
     </View>
   );
 }
 
 function Mote({
-  left, delay, duration, drift, size, tint,
-}: { left: string; delay: number; duration: number; drift: number; size: number; tint: string }) {
+  left, delay, duration, drift, size, tint, live,
+}: { left: string; delay: number; duration: number; drift: number; size: number; tint: string; live: number }) {
   const t = useSharedValue(0);
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -183,7 +161,8 @@ function Mote({
 
   const style = useAnimatedStyle(() => ({
     // Fade in and out at the ends so a mote never pops into or out of being.
-    opacity: Math.sin(t.value * Math.PI) * 0.5,
+    // Faint, and fainter still while something is falling.
+    opacity: Math.sin(t.value * Math.PI) * (live > 0 ? 0.1 : 0.28),
     transform: [{ translateY: (1 - t.value) * 260 - 20 }, { translateX: t.value * drift }],
   }));
 
@@ -302,6 +281,34 @@ function Ring({ slot, cell, tint, gold, thickness = 1 }: {
   );
 }
 
+/**
+ * A STRUCK PEG, BRIGHTENED.
+ *
+ * Drawn as a short-lived bright dot exactly over the peg rather than by
+ * wiring a shared value into all 78 peg components — same result on screen,
+ * a fraction of the machinery, and it recycles from a pool like everything
+ * else here.
+ */
+function PegFlash({ slot, cell, tint, gold }: { slot: Slot; cell: number; tint: string; gold: string }) {
+  const style = useAnimatedStyle(() => {
+    const l = slot.life.value;
+    const size = cell * 0.26;
+    return {
+      opacity: l > 0 ? (1 - l) * 0.95 : 0,
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: slot.gold.value > 0.5 ? gold : tint,
+      transform: [
+        { translateX: slot.x.value * cell - size / 2 },
+        { translateY: slot.y.value * cell - size / 2 },
+        { scale: 1 + (1 - l) * 0.6 },
+      ],
+    };
+  });
+  return <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, top: 0, opacity: 0 }, style]} />;
+}
+
 /** ONE SPARK. A short directional streak, angle derived from its own index so
  *  a burst fans out instead of stacking. */
 function Spark({ slot, cell, tint, gold, index }: {
@@ -394,9 +401,11 @@ export function BoardFx({
   reduced: boolean;
 }) {
   const rings = usePool(FX_BUDGET.pegRings);
+  const flashes = usePool(FX_BUDGET.pegRings);
   const lands = usePool(FX_BUDGET.landingRings);
   const sparks = usePool(FX_BUDGET.sparks > 14 ? 14 : FX_BUDGET.sparks);
   const nextRing = useRef(0);
+  const nextFlash = useRef(0);
   const nextLand = useRef(0);
   const nextSpark = useRef(0);
 
@@ -412,6 +421,14 @@ export function BoardFx({
         // Recycled by index: the oldest ring is simply restarted, so the pool
         // is the cap and nothing is ever allocated mid-fall.
         s.life.value = withTiming(1, { duration: reduced ? 90 : 340, easing: Easing.out(Easing.quad) });
+
+        // The peg itself lights up — 100-250ms, in place, then gone.
+        const f = flashes[nextFlash.current % flashes.length];
+        nextFlash.current += 1;
+        f.x.value = x; f.y.value = y;
+        f.gold.value = isGold ? 1 : 0;
+        f.life.value = 0;
+        f.life.value = withTiming(1, { duration: reduced ? 100 : 200, easing: Easing.out(Easing.quad) });
 
         if (intensity > 0.7) {
           const k = sparks[nextSpark.current % sparks.length];
@@ -445,7 +462,7 @@ export function BoardFx({
       },
     };
     return () => { handleRef.current = null; };
-  }, [handleRef, rings, lands, sparks, reduced]);
+  }, [handleRef, rings, lands, sparks, flashes, reduced]);
 
   return (
     <>
@@ -453,17 +470,20 @@ export function BoardFx({
           information in it, so there is nothing to preserve. */}
       {!reduced ? (
         <>
-          <EnergyField charged={charged} live={live} />
-          <Motes tint={tint} />
-          {Array.from({ length: FX_BUDGET.arcs }, (_, i) => (
-            <Arc key={i} index={i} size={{ w: cell * (rows + 1), h: cell * (rows + 1.6) }} tint={tint} />
-          ))}
+          <EdgeEnergy charged={charged} live={live} tint={tint} />
+          <Motes tint={tint} live={live} />
+          {live === 0
+            ? Array.from({ length: FX_BUDGET.arcs }, (_, i) => (
+                <Arc key={i} index={i} size={{ w: cell * (rows + 1), h: cell * (rows + 1.6) }} tint={tint} />
+              ))
+            : null}
         </>
       ) : null}
 
       {cell > 0 ? (
         <View pointerEvents="none" style={{ position: 'absolute', inset: 0 }}>
           {rings.map((s, i) => <Ring key={`r${i}`} slot={s} cell={cell} tint={tint} gold={gold} />)}
+          {flashes.map((s, i) => <PegFlash key={`f${i}`} slot={s} cell={cell} tint={tint} gold={gold} />)}
           {lands.map((s, i) => <Ring key={`l${i}`} slot={s} cell={cell} tint={tint} gold={gold} thickness={2} />)}
           {sparks.map((s, i) => <Spark key={`s${i}`} slot={s} cell={cell} tint={tint} gold={gold} index={i} />)}
         </View>

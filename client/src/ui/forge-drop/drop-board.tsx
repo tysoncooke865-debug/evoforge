@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { formatMultiplier, type DropTheme, type DropTier } from '@/domain/forge-drop';
+import { DROP_CHIP_TONE, type DropChipValue } from '@/domain/forge-drop-session';
 import {
   landingStagger,
   strikeIntensity,
@@ -137,6 +138,9 @@ export function DropBoard({
   const pOpacity = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
   const pGlow = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
   const pSquash = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  // Velocity in board units per second — the trail's direction and length.
+  const pVx = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const pVy = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
   const MAX_PUCKS = px.length;
 
   /** Board recoil, shared by every impact. One value, so five landings shake
@@ -149,6 +153,9 @@ export function DropBoard({
   // The stake drawn on each puck slot. React state rather than a ref read
   // during render — it changes once per drop, never per frame.
   const [slotStakes, setSlotStakes] = useState<number[]>(() => Array(MAX_PUCKS).fill(0));
+  // One tone per slot, taken from the chip's own denomination — three chips
+  // in the air are three different colours, so none of them is 'the other one'.
+  const [slotTones, setSlotTones] = useState<string[]>(() => Array(MAX_PUCKS).fill(''));
   const raf = useRef<number | null>(null);
   /** Starts the loop if it is asleep. Set by the loop effect, called by the
    *  adopt effect — so a chip leaving the rack wakes the board. */
@@ -165,6 +172,8 @@ export function DropBoard({
       if (r && !live.has(r.key)) {
         runners.current[i] = null;
         pOpacity[i].value = 0;
+        pVx[i].value = 0;
+        pVy[i].value = 0;
       }
     }
     let queued = 0;
@@ -191,6 +200,18 @@ export function DropBoard({
     }
     if (changed) {
       setSlotStakes(runners.current.map((r) => r?.stake ?? 0));
+      setSlotTones(runners.current.map((r) => {
+        if (!r) return gold;
+        const token = DROP_CHIP_TONE[r.stake as DropChipValue];
+        // A PUCK IS NEVER DIM. The rack can render a 1-coin chip in a muted
+        // tone — it is one of six sitting still on a lit panel. On the board it
+        // is a 25px object that has to be the brightest thing there, and the
+        // screenshot showed the 1 chip almost invisible against the dark
+        // playfield. The quiet tokens are promoted for the puck only; the rack
+        // keeps its own palette.
+        const bright = token === 'text-dim' || token === 'text-mute' ? 'rare' : token;
+        return (colors[bright as keyof typeof colors] as string) ?? gold;
+      }));
       pump.current();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,6 +275,8 @@ export function DropBoard({
           // No fall: place it in the slot and settle on the next tick.
           px[i].value = r.traj.slot + 0.5;
           py[i].value = tier.rows + 0.85;
+          pVx[i].value = 0;
+          pVy[i].value = 0;
           r.landed = true;
           settleQueue.current.push(r.key);
           fx.current?.land(r.traj.slot + 0.5, tier.rows + 0.85, 0.3, r.gold);
@@ -262,7 +285,12 @@ export function DropBoard({
 
         const t = Math.max(0, r.clock - r.stagger);
         const p = puckAt(r.traj, t);
-        px[i].value = p.x + 0.5;
+        const nx = p.x + 0.5;
+        if (dt > 0) {
+          pVx[i].value = (nx - px[i].value) / dt;
+          pVy[i].value = (p.y - py[i].value) / dt;
+        }
+        px[i].value = nx;
         py[i].value = p.y;
 
         // Suspense: the puck brightens and its trail thickens as it falls.
@@ -399,12 +427,15 @@ export function DropBoard({
                 opacity={pOpacity[i]}
                 glow={pGlow[i]}
                 squash={pSquash[i]}
+                vx={pVx[i]}
+                vy={pVy[i]}
                 cell={cell}
                 rows={tier.rows}
                 boardHeight={boardHeight}
                 gold={gold}
                 tint={tint}
                 stake={slotStakes[i] ?? 0}
+                tone={slotTones[i] ?? gold}
               />
             ))
           : null}
@@ -527,45 +558,83 @@ function LaneMark({
  * entirely by shared values — so it never re-renders during a fall.
  */
 function Puck({
-  x, y, opacity, glow, squash, cell, rows, boardHeight, gold, tint, stake,
+  x, y, opacity, glow, squash, vx, vy, cell, rows, boardHeight, gold, tint, stake, tone,
 }: {
   x: ReturnType<typeof useSharedValue<number>>;
   y: ReturnType<typeof useSharedValue<number>>;
   opacity: ReturnType<typeof useSharedValue<number>>;
   glow: ReturnType<typeof useSharedValue<number>>;
   squash: ReturnType<typeof useSharedValue<number>>;
-  cell: number; rows: number; boardHeight: number; gold: string; tint: string; stake: number;
+  vx: ReturnType<typeof useSharedValue<number>>;
+  vy: ReturnType<typeof useSharedValue<number>>;
+  cell: number; rows: number; boardHeight: number; gold: string; tint: string; stake: number; tone: string;
 }) {
   const size = cell * 0.6;
+  const px = (v: number) => v * cell - size / 2;
+  const py = (v: number) => (v / (rows + 1.6)) * boardHeight - size / 2;
+
+  /**
+   * THE TRAIL IS A STREAK, NOT A SHAPE.
+   *
+   * The first version drew a fixed gold rectangle 1.6x the puck's height
+   * underneath it, at up to 52% opacity. With three chips falling that is
+   * three large opaque blocks sliding down the board — the single biggest
+   * thing obscuring the peg field.
+   *
+   * Now it is a thin bar the width of the puck, ROTATED to the chip's actual
+   * direction of travel and stretched by its speed. It is only visible while
+   * the chip is moving, it points where the chip is going, and it disappears
+   * the moment it lands.
+   */
+  const trail = useAnimatedStyle(() => {
+    const speed = Math.min(1, Math.hypot(vx.value, vy.value) / 9);
+    const angle = Math.atan2(vy.value, vx.value) * (180 / Math.PI) - 90;
+    return {
+      opacity: opacity.value * speed * 0.5,
+      transform: [
+        { translateX: px(x.value) },
+        { translateY: py(y.value) },
+        { rotate: `${angle}deg` },
+        { scaleY: 0.5 + speed * 2.2 },
+      ],
+    };
+  });
+
+  /** A COMPACT HALO. Tight to the chip, brightening as it nears the slot —
+   *  never a glow field spreading across the board. */
+  const halo = useAnimatedStyle(() => ({
+    opacity: opacity.value * (0.18 + glow.value * 0.3),
+    transform: [
+      { translateX: px(x.value) - size * 0.3 },
+      { translateY: py(y.value) - size * 0.3 },
+      { scale: 1 + glow.value * 0.18 },
+    ],
+  }));
+
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [
-      { translateX: x.value * cell - size / 2 },
-      { translateY: (y.value / (rows + 1.6)) * boardHeight - size / 2 },
-      // Squash on impact, stretch between pegs — the cheapest possible way to
-      // read as a physical object rather than a moving dot.
+      { translateX: px(x.value) },
+      { translateY: py(y.value) },
       { scaleX: 1 + squash.value * 0.18 },
       { scaleY: 1 - squash.value * 0.18 },
-    ],
-  }));
-  const trail = useAnimatedStyle(() => ({
-    opacity: opacity.value * (0.12 + glow.value * 0.4),
-    transform: [
-      { translateX: x.value * cell - size * 0.55 },
-      { translateY: (y.value / (rows + 1.6)) * boardHeight - size * 1.5 },
-      { scaleY: 1 + glow.value * 1.4 },
     ],
   }));
 
   return (
     <>
-      {/* The trail sits UNDER the puck and lengthens as it falls — the
-          suspense ramp, drawn. */}
       <Animated.View
         pointerEvents="none"
         style={[
-          { position: 'absolute', left: 0, top: 0, width: size * 1.1, height: size * 1.6, borderRadius: size, backgroundColor: gold, opacity: 0 },
+          { position: 'absolute', left: 0, top: 0, width: size * 0.5, height: size, marginLeft: size * 0.25, borderRadius: size, backgroundColor: tone, opacity: 0 },
           trail,
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', left: 0, top: 0, width: size * 1.6, height: size * 1.6, borderRadius: size, borderWidth: 1, borderColor: tone, opacity: 0 },
+          halo,
         ]}
       />
       <Animated.View
@@ -579,9 +648,10 @@ function Puck({
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: gold,
-            borderWidth: 1,
-            borderColor: tint,
+            // The chip is the brightest object on the board, always.
+            backgroundColor: tone,
+            borderWidth: 1.5,
+            borderColor: '#ffffff',
             alignItems: 'center',
             justifyContent: 'center',
             opacity: 0,
