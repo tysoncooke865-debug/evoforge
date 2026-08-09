@@ -141,6 +141,12 @@ export const COIN_LABELS: Record<string, string> = {
   // which is the whole problem — tools/falsify-coin-labels.mjs exists because
   // only a machine comparing the live constraint against this map ever notices.
   reveal_bonus: 'Forge bonus',
+  // 166 — §6's deterministic ladder and floor. Caught unlabelled by
+  // tools/falsify-coin-labels.mjs on the run right after the migration, which
+  // is the fourth time this edit has been missed and the second time the tool
+  // has been the only thing that noticed.
+  forge_cache: 'Daily Forge Cache',
+  recovery_cache: 'Recovery Cache',
 };
 
 /** Claim + refresh + announce, from any screen. */
