@@ -15,6 +15,7 @@ import {
   type LaneChoice,
   type SessionDrop,
 } from '@/domain/forge-drop-session';
+import { useDropSpeedStore, type DropSpeed } from '@/state/drop-speed-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { CoinIcon } from '@/ui/core/coin-icon';
@@ -75,6 +76,8 @@ export default function ForgeDropScreen() {
   // History is secondary on a phone: the loop is board -> chip -> result, and
   // a growing list between them pushes the rack under the fold.
   const [showHistory, setShowHistory] = useState(false);
+  const speed = useDropSpeedStore((st) => st.speed);
+  const setSpeed = useDropSpeedStore((st) => st.setSpeed);
 
   const lane = laneFor(laneChoice, tier);
   const offers = chipOffers(tier, balance, capacity);
@@ -278,6 +281,50 @@ export default function ForgeDropScreen() {
             tone={balance.activeCount >= capacity ? colors.danger : colors['text-mute']}
             testID="drop-active-count"
           />
+        </View>
+        {/* DROP SPEED. Presentation only — it scales the animation clock and
+            nothing else, so the outcome, the coins and the XP are identical at
+            either setting. Placed beside the live counters rather than in
+            Settings: a speed you have to leave the board to change is a speed
+            nobody changes. */}
+        <View className="mt-s2 flex-row items-center justify-between" testID="drop-speed">
+          <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 7, letterSpacing: 1 }}>
+            DROP SPEED
+          </Text>
+          <View className="flex-row" style={{ gap: 6 }}>
+            {([1, 2] as DropSpeed[]).map((v) => {
+              const on = speed === v;
+              return (
+                <Pressable
+                  key={v}
+                  onPress={() => setSpeed(v)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={v === 1 ? 'Normal drop speed' : 'Fast drop speed, double'}
+                  testID={`drop-speed-${v}x`}
+                  style={{
+                    minHeight: 34,
+                    minWidth: 74,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: on ? colors.accent : colors.border,
+                    backgroundColor: on ? 'rgba(34,211,238,0.12)' : 'transparent',
+                  }}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={{ fontSize: 10, color: on ? colors.accent : colors['text-dim'], ...pixelFont() }}
+                  >
+                    {/* Never colour alone, and never "slow": 1x is the full
+                        experience, not a lesser one. */}
+                    {on ? '● ' : ''}{v === 1 ? '1× NORMAL' : '2× FAST'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </GlowCard>
 

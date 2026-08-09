@@ -21,6 +21,7 @@ import {
   timeScale,
 } from '@/domain/forge-drop-feel';
 import { buildTrajectory, pegPositions, puckAt, type DropTrajectory } from '@/domain/forge-drop-physics';
+import { useDropSpeedStore } from '@/state/drop-speed-store';
 import { useSettingsStore } from '@/state/settings-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -118,6 +119,10 @@ export function DropBoard({
   const reducedPref = useReducedMotion();
   const perfMode = useSettingsStore((s) => s.perfMode);
   const reduced = reducedPref || perfMode;
+  const speed = useDropSpeedStore((s) => s.speed);
+  // Read through a ref so changing speed mid-fall does not rebuild the loop
+  // — a rebuilt loop would reset `last` and stutter every chip in the air.
+  const speedRef = useRef(speed);
   const tint = themeTint(tier.theme, colors as unknown as Record<string, string>);
   const gold = colors.legendary;
 
@@ -163,6 +168,8 @@ export function DropBoard({
   const pump = useRef<() => void>(() => undefined);
   const settleQueue = useRef<string[]>([]);
   const [, forceSettle] = useState(0);
+
+  useEffect(() => { speedRef.current = speed; }, [speed]);
 
   // Adopt new pucks / release finished ones. This is the ONLY place React and
   // the loop meet, and it runs once per drop rather than once per frame.
@@ -278,7 +285,10 @@ export function DropBoard({
 
         const total = r.traj.duration + r.stagger;
         const progress = total <= 0 ? 1 : r.clock / total;
-        r.clock += dt * timeScale(progress, reduced);
+        // THE ONLY THING SPEED TOUCHES. Position is a pure function of this
+        // clock, so a faster clock walks the same path faster: no restart, no
+        // teleport, no skipped landing, and `r.landed` still fires once.
+        r.clock += dt * timeScale(progress, reduced) * speedRef.current;
 
         if (reduced) {
           // No fall: place it in the slot and settle on the next tick.
@@ -586,42 +596,54 @@ function Puck({
   const py = (v: number) => (v / (rows + 1.6)) * boardHeight - size / 2;
 
   /**
-   * THE TRAIL IS A STREAK, NOT A SHAPE.
+   * THE TRAIL IS ELECTRICITY, NOT A SHAPE.
    *
-   * The first version drew a fixed gold rectangle 1.6x the puck's height
-   * underneath it, at up to 52% opacity. With three chips falling that is
-   * three large opaque blocks sliding down the board — the single biggest
-   * thing obscuring the peg field.
+   * This has now been three things. A fixed gold rectangle 1.6x the puck's
+   * height (three opaque blocks sliding down the board). Then a single rotated
+   * streak plus a circular halo — and the halo was the problem: a ring drawn
+   * around the whole chip reads as a target reticle, and with three chips down
+   * the board it is three reticles competing with the pegs.
    *
-   * Now it is a thin bar the width of the puck, ROTATED to the chip's actual
-   * direction of travel and stretched by its speed. It is only visible while
-   * the chip is moving, it points where the chip is going, and it disappears
-   * the moment it lands.
+   * The halo is gone. What is left is three thin filaments trailing BEHIND the
+   * chip, aligned to its actual direction of travel, offset backwards so none
+   * of them is ever drawn in front of it. They fan a few degrees apart, they
+   * are brightest at the chip and taper away, and they flicker — which is what
+   * makes an arc read as current rather than as a motion blur.
+   *
+   * They are rendered before the chip in source order, so the chip is always
+   * on top. Nothing here is drawn over the token.
    */
-  const trail = useAnimatedStyle(() => {
+  // THREE HOOKS, ONE SHARED CALCULATION. The maths is a plain function called
+  // from inside each worklet; the hooks themselves are top-level and fixed in
+  // number. Calling `useAnimatedStyle` from a helper would work today and break
+  // the first time somebody makes the filament count conditional.
+  const arc = (spread: number, len: number, dim: number) => {
+    'worklet';
     const speed = Math.min(1, Math.hypot(vx.value, vy.value) / 9);
-    const angle = Math.atan2(vy.value, vx.value) * (180 / Math.PI) - 90;
+    const mag = Math.hypot(vx.value, vy.value) || 1;
+    // The unit vector pointing BACK along the path.
+    const bx = -vx.value / mag;
+    const by = -vy.value / mag;
+    const reach = size * len * speed;
+    const angle = Math.atan2(vy.value, vx.value) * (180 / Math.PI) - 90 + spread;
     return {
-      opacity: opacity.value * speed * 0.5,
+      // Flicker: fast, shallow, and derived from the chip's own position so
+      // three chips never strobe in unison.
+      opacity: opacity.value * speed * dim * (0.62 + 0.38 * Math.abs(Math.sin(y.value * 9 + spread))),
       transform: [
-        { translateX: px(x.value) },
-        { translateY: py(y.value) },
+        // Offset backwards by half the filament, so it starts at the chip and
+        // extends away from it — never across it.
+        { translateX: px(x.value) + (bx * reach) / 2 },
+        { translateY: py(y.value) + (by * reach) / 2 },
         { rotate: `${angle}deg` },
-        { scaleY: 0.5 + speed * 2.2 },
+        { scaleY: Math.max(0.05, reach / size) },
       ],
     };
-  });
+  };
 
-  /** A COMPACT HALO. Tight to the chip, brightening as it nears the slot —
-   *  never a glow field spreading across the board. */
-  const halo = useAnimatedStyle(() => ({
-    opacity: opacity.value * (0.18 + glow.value * 0.3),
-    transform: [
-      { translateX: px(x.value) - size * 0.3 },
-      { translateY: py(y.value) - size * 0.3 },
-      { scale: 1 + glow.value * 0.18 },
-    ],
-  }));
+  const f0 = useAnimatedStyle(() => arc(0, 2.6, 0.85));
+  const f1 = useAnimatedStyle(() => arc(-13, 1.9, 0.5));
+  const f2 = useAnimatedStyle(() => arc(15, 1.6, 0.42));
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -638,20 +660,26 @@ function Puck({
 
   return (
     <>
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          { position: 'absolute', left: 0, top: 0, width: size * 0.5, height: size, marginLeft: size * 0.25, borderRadius: size, backgroundColor: tone, opacity: 0 },
-          trail,
-        ]}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          { position: 'absolute', left: 0, top: 0, width: size * 1.6, height: size * 1.6, borderRadius: size, borderWidth: 1, borderColor: tone, opacity: 0 },
-          halo,
-        ]}
-      />
+      {[f0, f1, f2].map((style, i) => (
+        <Animated.View
+          key={i}
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: i === 0 ? 2.5 : 1.5,
+              height: size,
+              marginLeft: size / 2 - (i === 0 ? 1.25 : 0.75),
+              borderRadius: 2,
+              backgroundColor: tone,
+              opacity: 0,
+            },
+            style,
+          ]}
+        />
+      ))}
       <Animated.View
         pointerEvents="none"
         testID="drop-puck"

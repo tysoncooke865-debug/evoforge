@@ -154,12 +154,37 @@ export function DropResultCard({
         Staked {drop.stake} · {tier.label}
       </Text>
 
-      {/* 4 — THE BALANCE, counting to its new value. */}
+      {/* 4 — FORGE XP. Every completed drop earns some, which is the whole
+             point: a x0.7 still moved you forward, and saying so is not the
+             same as pretending it made a profit. Secondary to the coins by
+             size and position, deliberately. */}
+      {drop.xp ? (
+        <View className="mt-s1 flex-row items-center" style={{ gap: 6 }} testID="drop-result-xp">
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: colors.accent, ...pixelFont() }}>
+            +{drop.xp} XP
+          </Text>
+          {drop.milestone ? (
+            <Text
+              allowFontScaling={false}
+              testID="drop-result-milestone"
+              style={{ fontSize: 9, letterSpacing: 1, color: colors.legendary }}
+            >
+              {drop.milestone} DROPS · +{drop.milestoneXp} BONUS
+            </Text>
+          ) : drop.dropsTotal ? (
+            <Text allowFontScaling={false} className="text-2xs text-text-mute">
+              {nextMilestoneCopy(drop.dropsTotal)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* 5 — THE BALANCE, counting to its new value. */}
       <Text className="text-2xs" style={{ color: colors['text-dim'] }} testID="drop-result-balance">
         Balance {shownBalance}
       </Text>
 
-      {/* 5 — GO AGAIN. Inside the card, under the thumb, no scrolling. */}
+      {/* 6 — GO AGAIN. Inside the card, under the thumb, no scrolling. */}
       <View className="mt-s2">
         <AgainButton onPress={onAgain} enabled={canAgain} tone={won ? colors.legendary : colors.accent} />
       </View>
@@ -268,6 +293,14 @@ export function JackpotMoment({
       </Animated.View>
     </View>
   );
+}
+
+/** How far to the next milestone. Progress, never pressure — it states a
+ *  fact and stops, with no countdown, no urgency and nothing to lose. */
+function nextMilestoneCopy(total: number): string {
+  const next = [10, 25, 50, 100].find((m) => m > total);
+  if (!next) return `${total} drops`;
+  return `${next - total} to ${next}`;
 }
 
 export type { OutcomeTier };

@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // clock itself — a running countdown must not greet the next athlete.
     void import('@/state/rest-ui-store').then(({ useRestUiStore }) => useRestUiStore.getState().reset());
     void import('@/ui/forge-drop/rest-drop-panel').then(({ useRestDropStore }) => useRestDropStore.getState().reset());
+    void import('@/state/drop-speed-store').then(({ useDropSpeedStore }) => useDropSpeedStore.getState().reset());
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
     );

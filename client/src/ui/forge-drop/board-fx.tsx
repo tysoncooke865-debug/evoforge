@@ -260,9 +260,12 @@ function Ring({ slot, cell, tint, gold, thickness = 1 }: {
 }) {
   const style = useAnimatedStyle(() => {
     const l = slot.life.value;
-    const size = cell * (0.5 + l * (1.6 + slot.power.value * 1.8));
+    // COMPACT. This used to reach 3.4 cells across, which on a twelve-slot
+    // board is a third of its width — an expanding oval over the pegs. A
+    // collision is a spark at a point, so it stays near the size of one.
+    const size = cell * (0.28 + l * (0.55 + slot.power.value * 0.5));
     return {
-      opacity: l > 0 ? (1 - l) * 0.85 * (0.4 + slot.power.value * 0.6) : 0,
+      opacity: l > 0 ? (1 - l) * 0.7 * (0.4 + slot.power.value * 0.6) : 0,
       width: size,
       height: size,
       borderRadius: size / 2,

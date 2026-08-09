@@ -77,6 +77,14 @@ export interface SessionDrop {
   tier?: number;
   /** Set when `phase === 'failed'`, so the rail can say why. */
   error?: string;
+  /** Forge XP the SERVER awarded for this drop. Never computed here — the
+   *  amount is priced by `xp_events_guard()` from the drop row itself. */
+  xp?: number;
+  /** A drop-count milestone this drop reached, if it reached one. */
+  milestone?: number | null;
+  milestoneXp?: number;
+  /** Lifetime completed drops, for the progress line. */
+  dropsTotal?: number;
 }
 
 export const isInFlight = (d: SessionDrop): boolean =>

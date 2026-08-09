@@ -203,6 +203,10 @@ export function useDropSession(tier: DropTier | null): DropSession {
                   net: Number(r.net),
                   tier: Number(r.tier),
                   path,
+                  xp: Number(r.xp ?? 0),
+                  milestone: r.milestone == null ? null : Number(r.milestone),
+                  milestoneXp: Number(r.milestone_xp ?? 0),
+                  dropsTotal: Number(r.drops_total ?? 0),
                 }
               : d
           )
