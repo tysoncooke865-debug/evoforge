@@ -21,7 +21,7 @@
  * correct and the screen lies about it, in the one place an athlete goes to check
  * what they earned.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const TOKEN = readFileSync(new URL('../client/.env.sbtoken.local', import.meta.url), 'utf8')
   .trim().replace(/^[A-Z_]+=/, '').replace(/^["']|["']$/g, '');
@@ -76,9 +76,14 @@ const [{ body }] = await sql(`
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = 'coin_events_guard';`);
 
+// The map is now EXPORTED, because it had been copied. See the fifth check below.
+const AMOUNTS_DECL = 'export const COIN_AMOUNTS: Record<CoinKind, string>';
+if (src.indexOf(AMOUNTS_DECL) === -1) {
+  ok('the amounts map is where this tool expects it', false, `no ${AMOUNTS_DECL}`);
+}
 const amountsBody = src.slice(
-  src.indexOf('const amounts: Record<CoinKind, string>'),
-  src.indexOf('};', src.indexOf('const amounts: Record<CoinKind, string>'))
+  src.indexOf(AMOUNTS_DECL),
+  src.indexOf('};', src.indexOf(AMOUNTS_DECL))
 );
 const clientAmounts = Object.fromEntries(
   [...amountsBody.matchAll(/^\s*([a-z_]+):\s*'\+?(\d*)'/gm)].map((m) => [m[1], m[2]])
@@ -101,6 +106,40 @@ for (const kind of ['workout_complete', 'pr', 'set_reward', 'starting_bonus']) {
      client === server,
      `server ${server}, toast ${client ?? '(absent)'}`);
 }
+
+/**
+ * THE FIFTH EDIT: NO SECOND COPY OF AN AMOUNT, ANYWHERE.
+ *
+ * The four checks above compare ONE map against the live guard, and that map was
+ * right. It was also not the only copy: `mutations.ts` and `set-queue.ts` each
+ * carried a hardcoded 'COINS BANKED +50' for the PR toast, and 160 retuned pr from
+ * 50 to 25. Both save paths had been overstating a PR by 25 coins ever since, and
+ * this tool passed every time because it was reading the copy that was correct.
+ *
+ * So the rule is now structural rather than comparative: a coin amount may appear
+ * in exactly one place. Any literal number next to COINS BANKED is a second copy
+ * by definition, whatever it happens to say today.
+ */
+const clientDir = new URL('../client/src/', import.meta.url);
+function walk(dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const child = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+    if (e.isDirectory()) out.push(...walk(child));
+    else if (/\.tsx?$/.test(e.name)) out.push(child);
+  }
+  return out;
+}
+const hardcoded = [];
+for (const file of walk(clientDir)) {
+  const text = readFileSync(file, 'utf8');
+  for (const m of text.matchAll(/COINS BANKED\s*\+\s*\d+/g)) {
+    hardcoded.push(`${file.pathname.split('/client/src/')[1]}: ${m[0]}`);
+  }
+}
+ok('no coin amount is hardcoded outside COIN_AMOUNTS',
+   hardcoded.length === 0,
+   hardcoded.join(', ') || 'none');
 
 console.log(`\n=== ${pass} passed, ${fail} failed ===`);
 if (fail) console.log('FAILURES:\n  - ' + failures.join('\n  - '));

@@ -260,6 +260,18 @@ export function useSaveSet() {
       if (verdict.action === 'insert') {
         // The real value of a set. Announcing more than lands is a lie the bar exposes.
         announceXp(XP_PER_SET);
+        // 160's per-set reward, which nothing had ever claimed. Fire-and-forget
+        // and silent: the guard re-proves the set server-side and the 30-a-day
+        // cap absorbs the rest. Queued sets are handled in set-queue.ts, after
+        // THEIR insert is confirmed — claiming before the row exists loses the
+        // race with the guard's `workout_log` lookup (the 2026-07-24 lesson).
+        if (verdict.rowId && !queued) {
+          void import('./coins').then(({ claimSetReward }) =>
+            claimSetReward(verdict.rowId as string).then(() =>
+              invalidateTable(queryClient, 'coin_events')
+            )
+          );
+        }
       }
       if ((verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr) {
         // The e1RM values are kg (the stored truth); the TOAST paints them in
@@ -293,11 +305,15 @@ export function useSaveSet() {
         // right after ITS insert is confirmed.
         const prRowId = verdict.action === 'insert' ? verdict.rowId : verdict.rowId ?? undefined;
         if (prRowId && !queued) {
-          void import('./coins').then(({ claimCoin }) =>
+          void import('./coins').then(({ claimCoin, COIN_AMOUNTS }) =>
             claimCoin('pr', prRowId).then((result) => {
               if (result.outcome === 'landed') {
                 invalidateTable(queryClient, 'coin_events'); // total AND /coins history (A5)
-                useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
+                useToastStore.getState().push({
+                  kind: 'info',
+                  title: `COINS BANKED ${COIN_AMOUNTS.pr}`,
+                  subtitle: 'Personal record',
+                });
               }
             })
           );

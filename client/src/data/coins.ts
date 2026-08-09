@@ -84,6 +84,51 @@ export type CoinKind =
 /** The classified claim result — 'landed' means a real new row (announce
  *  only then). Refusals come back NAMED (domain/coin-claims.ts) so callers
  *  can be honest where it matters; only 'error' toasts here. */
+/**
+ * WHAT EACH KIND PAYS, as the athlete is told.
+ *
+ * A SECOND COPY OF THE SERVER'S AMOUNTS, and there is no way around that: the
+ * toast has to name a number before the ledger has been re-read. Nothing FAILS
+ * when it drifts, which is exactly the danger — the ledger stays right and the
+ * toast simply lies, on the one surface an athlete uses to check what they earned.
+ * `tools/falsify-coin-labels.mjs` reads the live guard body and compares.
+ *
+ * IT IS EXPORTED because there were three copies. 160 retuned pr from 50 to 25
+ * and this map was updated; two hardcoded '+50' strings in mutations.ts and
+ * set-queue.ts were not, so every PR toast on both save paths had been
+ * overstating by 25 coins since that migration.
+ */
+export const COIN_AMOUNTS: Record<CoinKind, string> = {
+  workout_complete: '+20',
+  pr: '+25',
+  streak_milestone: '+',
+  starting_bonus: '+100',
+  set_reward: '+12',
+};
+
+/**
+ * THE PER-SET REWARD (160), claimed quietly.
+ *
+ * v5 §2 wants the large majority of a day's coins to come from predictable,
+ * effort-linked work rather than from anything variable, and 12 coins a set is
+ * what carries that. The kind, the server validation and the 30-a-day cap all
+ * shipped in 160 — NOTHING EVER CLAIMED IT, so it had paid out zero coins in
+ * production. The backbone of the economy existed only as a guard.
+ *
+ * NO TOAST, deliberately. A notification on every single set is the opposite of
+ * the calm, predictable income the spec describes; the coin total updates and
+ * that is the feedback. Failures are swallowed for the same reason the PR claim
+ * swallows them — the set is already saved, and the daily cap refusing the 31st
+ * set is normal, not an error worth interrupting a workout for.
+ */
+export async function claimSetReward(rowId: string): Promise<void> {
+  try {
+    await claimCoin('set_reward', rowId);
+  } catch {
+    /* the set is safe; coins are not worth a failure surface mid-workout */
+  }
+}
+
 export async function claimCoin(kind: CoinKind, sourceId: string): Promise<ClaimOutcome> {
   const { error } = await supabase.from('coin_events').insert({ kind, amount: 1, source_id: sourceId });
   if (!error) return { outcome: 'landed' };
@@ -165,16 +210,9 @@ export function useClaimCoin() {
         // of them (workout_complete 25->20, pr 50->25). Nothing fails when they
         // drift: the ledger stays right and the toast simply lies about it, in
         // the one surface an athlete uses to check what they earned.
-        const amounts: Record<CoinKind, string> = {
-          workout_complete: '+20',
-          pr: '+25',
-          streak_milestone: '+',
-          starting_bonus: '+100',
-          set_reward: '+12',
-        };
         useToastStore.getState().push({
           kind: 'info',
-          title: `COINS BANKED ${amounts[kind] ?? '+'}`,
+          title: `COINS BANKED ${COIN_AMOUNTS[kind] ?? '+'}`,
           subtitle: COIN_LABELS[kind],
         });
         return;

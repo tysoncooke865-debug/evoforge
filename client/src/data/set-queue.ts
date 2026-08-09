@@ -151,15 +151,25 @@ export async function flushQueue(): Promise<void> {
         if (grantError && !/duplicate|unique/i.test(grantError.message)) {
           // Set is safe; ledger will catch up via the 002 backfill.
         }
+        // The per-set reward, now that the row is CONFIRMED present. Same
+        // ordering rule as the PR claim below and for the same reason.
+        {
+          const { claimSetReward } = await import('./coins');
+          await claimSetReward(row.id);
+        }
         if (row.isPr) {
           // Only reachable now that the row is CONFIRMED present — the guard's
           // `workout_log` lookup can no longer race it. Cache invalidation
           // rides the same natural-refetch rule as workout_log/xp_total above
           // (comment in mutations.ts onSuccess): no eager invalidate here.
-          const { claimCoin } = await import('./coins');
+          const { claimCoin, COIN_AMOUNTS } = await import('./coins');
           const result = await claimCoin('pr', row.id);
           if (result.outcome === 'landed') {
-            useToastStore.getState().push({ kind: 'info', title: 'COINS BANKED +50', subtitle: 'Personal record' });
+            useToastStore.getState().push({
+              kind: 'info',
+              title: `COINS BANKED ${COIN_AMOUNTS.pr}`,
+              subtitle: 'Personal record',
+            });
           }
         }
         rows.splice(rows.indexOf(row), 1);
