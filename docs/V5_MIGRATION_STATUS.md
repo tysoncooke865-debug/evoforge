@@ -3,8 +3,8 @@
 Updated 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
 Spec of record: `docs/ENGAGEMENT_V5.md`. Audit: `docs/V5_MIGRATION_AUDIT.md`.
 
-All on `expo-rewrite` (auto-deploys). **Migrations 159–178 applied to production.
-Next free number is 179.**
+All on `expo-rewrite` (auto-deploys). **Migrations 159–179 applied to production.
+Next free number is 180.**
 
 ---
 
@@ -18,7 +18,7 @@ Next free number is 179.**
 | 4 Forge Reveal + board retirement — 161, 162 | ✅ |
 | 5 Forge Trial — server 163 ✅, Golden Dot ✅, allowance in the tray ✅, **pools ❌** | ⚠️ |
 | 6 Physics pool — **domain ✅, visuals ❌** | ⚠️ |
-| 7 Margin 164 ✅, Cache + Recovery 166 ✅, supporter UI removed ✅, **streak grace/pause ❌** | ⚠️ |
+| 7 Margin 164 ✅, Cache + Recovery 166 ✅, supporter UI removed ✅, §6 grace/pause 179 ✅ | ✅ |
 | 8 Copy sweep — **78 → 0**, CI-enforced | ✅ |
 
 **Numbering shifted by one from the plan**: 162 became the board retirement, so
@@ -57,7 +57,14 @@ owner identification on every pool ingot, per-person settlement lines.
 `describe('supporter maths')` removed. Spectating kept per audit §4. Removing it
 exposed four §10 violations the sweep could not see — see Traps.
 
-### 4. §6 streaks — reviewed, two gaps
+### 4. ~~§6 streaks~~ — **DONE** (179, `84c621e`)
+Grace (2 per rolling 30, on by default) and an unrationed one-tap pause. Both the
+SQL and the TS port implement the rule — the number on screen never came from
+`scheduled_streak`, so the migration alone would have changed nothing visible.
+Neither is purchasable and the harness asserts no pause function reaches
+`coin_events`. 11/11 through real JWTs including owner-only.
+
+### 4b. What §6 looked like before (kept for the record)
 **Already compliant**: `scheduled_streak` is plan-aware and rest BRIDGES rather
 than breaks; best is preserved; the framing is positive throughout
 ("CONSISTENCY IS THE CHEAT CODE") and there is no "streak about to die" copy
@@ -68,7 +75,53 @@ anywhere in the tree. Cache + Recovery Run shipped in 166.
   currently breaks the run outright.
 - **one-tap pause** for injury, illness, travel.
 
-### 5. Golden Dot pools (Phase 5/6) — BLOCKED ON A PRODUCT DECISION
+### 5. Golden Dot pools (Phase 5/6) — **DECIDED: BUILD IT** (Tyson, 2026-08-09)
+
+He chose the spec as written: the athlete pledges on their own set and up to seven
+others join across two sides, with an independent verifier at ≥200. Recorded as a
+product decision — it is skill-resolved with zero RNG and the money walls hold, so
+it trips neither governing invariant, but it IS third parties putting coins on
+another person's performance and it should be named as such at review.
+
+**THE FIVE `hitdoubt-pot` MIGRATIONS CANNOT BE PORTED BY RENAMING.** 2,803 lines
+written against the pre-v5 schema, referencing four things that no longer exist:
+
+| reference | killed by |
+|---|---|
+| `hit_probability` | 163 (odds columns dropped) |
+| `odds` throughout | 163, and §10 bans the concept |
+| `workout_callouts_one_live` | 172, replaced by `..._one_live_per_set` |
+| `forge_drop_play` | 162/167 (board retired) |
+
+So this is a rewrite against the current schema, not a rename plus a renumber.
+**Do not apply them as they stand** — they will fail, and a partly-applied set is
+the worst possible state for the callouts table.
+
+THE REWRITE, in the order it should land as 180+:
+
+1. **Schema** — `mode` ('duel' default, 'pot'), `workout_callout_entries`
+   (athlete side + joiners, BACK/PUSH, unequal stakes), owner-or-participant RLS.
+   Must respect `workout_callouts_one_live_per_set` (172) rather than the index
+   it replaced.
+2. **Join** — `callout_pot_join(callout, side, stake)`. Reuses
+   `forge_trial_allowance` for the joiner's own ceiling; the athlete's escalation
+   ramp must NOT bound a third party, and a third party's stake must not feed the
+   athlete's ramp. Both directions need a test.
+3. **Verify** — independent verifier at ≥200 total: not a participant, cannot
+   pick a side, chooses COUNTS / DOESN'T COUNT, deterministic and final.
+4. **Resolve** — proportional split of the losing side, **no rake of any kind**
+   (164 deleted the duel's; do not reintroduce it here under another name), and
+   settlement idempotent under the existing advisory-lock + idempotency-key
+   pattern.
+5. **Client + Phase 6** — two-pan balance scale (BACK one pan, PUSH the other,
+   never merged), crucible commit, owner identification on every ingot,
+   per-person settlement lines. `client/src/ui/duel/physics/` stays untouched:
+   identity only.
+
+Vocabulary: 58 HIT/DOUBT occurrences across the five files, all of which become
+BACK/PUSH. The sweep will catch any that survive.
+
+### 5b. The decision that was open (resolved above)
 The five `hitdoubt-pot` migrations add a `mode = 'pot'`: the athlete pledges on
 their own set and up to seven others join across two sides, with an independent
 verifier at ≥200.
