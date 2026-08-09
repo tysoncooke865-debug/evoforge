@@ -198,9 +198,6 @@ export interface DuelConfig {
   max_wallet_pct: number;
   max_raises: number;
   max_raise: number;
-  max_support: number;
-  support_close_pct: number;
-  support_rake_bp: number;
   invite_expiry_hours: number;
   offer_expiry_hours: number;
   max_open_duels: number;
@@ -212,9 +209,6 @@ export const DEFAULT_DUEL_CONFIG: DuelConfig = {
   max_wallet_pct: 100,
   max_raises: 6,
   max_raise: 1000,
-  max_support: 500,
-  support_close_pct: 50,
-  support_rake_bp: 0,
   invite_expiry_hours: 48,
   offer_expiry_hours: 24,
   max_open_duels: 12,
@@ -281,44 +275,21 @@ export function urgencyOf(msRemaining: number): Urgency {
   return 'calm';
 }
 
-// ──────────────────────────────────────────────────────────── supporters
-
-export interface SupportSplit {
-  /** 0–100, rounded, and the two ALWAYS sum to 100 when there is any money. */
-  challengerPct: number;
-  opponentPct: number;
-  total: number;
-}
-
-/**
- * The sentiment meter. With nothing staked it is an even 50/50, which is the
- * honest picture of "nobody has an opinion yet" — not a 0/0 bar that reads as
- * broken.
- */
-export function supportSplit(challenger: number, opponent: number): SupportSplit {
-  const total = Math.max(0, challenger) + Math.max(0, opponent);
-  if (total <= 0) return { challengerPct: 50, opponentPct: 50, total: 0 };
-  const challengerPct = Math.round((challenger / total) * 100);
-  return { challengerPct, opponentPct: 100 - challengerPct, total };
-}
-
-/**
- * WHAT A SUPPORTER WOULD TAKE, pari-mutuel, if the duel ended as it stands.
+/*
+ * THIRD-PARTY STAKING IS RETIRED (V5_MIGRATION_AUDIT.md §4, migration 164).
  *
- * Shown as an ESTIMATE and labelled as one, because the pools move until
- * support closes. The server recomputes it at settlement and its number is the
- * one that pays.
+ * `supportSplit` and `estimateSupportReturn` lived here: a pari-mutuel book on a
+ * duel between two OTHER people, with a configurable platform cut of the LOSING
+ * pool. That is a bookmaker, and no renaming of it survives v5.
+ *
+ * Do not reintroduce it as a Golden Dot pool either. BACK/PUSH is a response to
+ * the athlete's OWN pledge on their OWN planned set; re-pointing it at somebody
+ * else's duel is the same mechanic under a sanctioned word, which §1 of the
+ * briefing forbids by name.
+ *
+ * SPECTATING SURVIVES with no coins attached — `forge_duel_watch`,
+ * `forge_duel_react` and `forge_duel_timeline` are all still live.
  */
-export function estimateSupportReturn(
-  stake: number,
-  myPool: number,
-  otherPool: number,
-  rakeBp = 0
-): number {
-  if (stake <= 0 || myPool <= 0) return 0;
-  const distributable = Math.max(0, otherPool - Math.floor((otherPool * rakeBp) / 10_000));
-  return stake + Math.floor((stake * distributable) / myPool);
-}
 
 // ───────────────────────────────────────────────────────────── the timeline
 
@@ -328,7 +299,6 @@ export type DuelEventKind =
   | 'raise_proposed' | 'raise_accepted' | 'raise_declined' | 'raise_withdrawn' | 'raise_expired'
   | 'all_in_proposed' | 'all_in_accepted' | 'all_in_declined'
   | 'workout_logged' | 'lead_change' | 'personal_record'
-  | 'support_placed' | 'support_closed' | 'support_settled'
   | 'reaction';
 
 export interface DuelEvent {
@@ -384,9 +354,6 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
       return leader === names.myId ? 'You took the lead' : `${e.actor_name} took the lead`;
     }
     case 'personal_record': return `${who} hit a new best — ${value}${unit ? ` ${unit}` : ''}`;
-    case 'support_placed': return `${who} backed a side`;
-    case 'support_closed': return 'Support closed';
-    case 'support_settled': return 'Supporters paid';
     case 'settled': {
       const outcome = e.detail.outcome;
       if (outcome === 'draw') return `A draw — ${pot} refunded`;
@@ -400,7 +367,7 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
 export function eventTone(kind: DuelEventKind): 'money' | 'lead' | 'training' | 'quiet' {
   if (kind === 'lead_change' || kind === 'personal_record' || kind === 'settled') return 'lead';
   if (kind.startsWith('raise') || kind.startsWith('all_in') || kind.startsWith('counter')
-      || kind.startsWith('support') || kind === 'accepted' || kind === 'cancelled') return 'money';
+      || kind === 'accepted' || kind === 'cancelled') return 'money';
   if (kind === 'workout_logged') return 'training';
   return 'quiet';
 }

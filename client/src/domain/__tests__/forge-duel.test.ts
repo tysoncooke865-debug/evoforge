@@ -12,12 +12,10 @@ import {
   decompose,
   countdown,
   describeEvent,
-  estimateSupportReturn,
   eventTone,
   formatCoins,
   maxStakeFor,
   raiseLockCopy,
-  supportSplit,
   unitLabel,
   urgencyOf,
   type DuelEvent,
@@ -258,43 +256,17 @@ describe('the clock', () => {
   });
 });
 
-describe('supporter maths', () => {
-  it('splits the meter and always totals 100', () => {
-    const s = supportSplit(300, 200);
-    expect(s).toEqual({ challengerPct: 60, opponentPct: 40, total: 500 });
-    const odd = supportSplit(1, 2);
-    expect(odd.challengerPct + odd.opponentPct).toBe(100);
-  });
-
-  it('shows an even bar when nobody has an opinion', () => {
-    // Not 0/0, which reads as broken.
-    expect(supportSplit(0, 0)).toEqual({ challengerPct: 50, opponentPct: 50, total: 0 });
-  });
-
-  it('pays a winner their stake plus a proportional share of the losing pool', () => {
-    // Pools 300 vs 200; a 100-coin backer of the winner owns a third of the
-    // winning pool and takes a third of the 200 that lost.
-    expect(estimateSupportReturn(100, 300, 200)).toBe(166);
-  });
-
-  it('returns only the stake when nobody backed the other side', () => {
-    expect(estimateSupportReturn(100, 300, 0)).toBe(100);
-  });
-
-  it('never pays out more than the two pools hold', () => {
-    const mine = 40;
-    const myPool = 40;
-    const otherPool = 60;
-    expect(estimateSupportReturn(mine, myPool, otherPool)).toBe(100);
-    expect(estimateSupportReturn(mine, myPool, otherPool)).toBeLessThanOrEqual(myPool + otherPool);
-  });
-
-  it('honours a configured rake without ever going negative', () => {
-    // 10% of the losing pool is burned; the rest is distributed.
-    expect(estimateSupportReturn(100, 100, 200, 1000)).toBe(280);
-    expect(estimateSupportReturn(0, 0, 200)).toBe(0);
-  });
-});
+/*
+ * `describe('supporter maths')` USED TO LIVE HERE, and its deletion is the point.
+ *
+ * It tested a pari-mutuel book on a third party's duel: proportional shares of the
+ * LOSING pool, and a configured rake that "burns 10% of the losing pool". Those
+ * were correct tests of a mechanic v5 does not permit, and migration 164 dropped
+ * the functions underneath them.
+ *
+ * A test asserting the payout curve of a retired bookmaker is not coverage, it is
+ * a spec for rebuilding it. See V5_MIGRATION_AUDIT.md §4.
+ */
 
 describe('the raise lock explains itself', () => {
   const state = (over: Record<string, unknown>) =>
@@ -360,7 +332,7 @@ describe('the timeline reads as one line each', () => {
       'created', 'accepted', 'declined', 'cancelled', 'expired',
       'counter_stake_proposed', 'counter_stake_accepted', 'raise_declined',
       'raise_withdrawn', 'all_in_accepted', 'personal_record',
-      'support_placed', 'support_closed', 'support_settled', 'settled',
+      'settled',
     ];
     for (const k of kinds) {
       const line = describeEvent(ev(k, { amount: 10, pot: 20 }), names);
@@ -371,7 +343,6 @@ describe('the timeline reads as one line each', () => {
 
   it('colours money, the lead and training differently', () => {
     expect(eventTone('raise_accepted')).toBe('money');
-    expect(eventTone('support_placed')).toBe('money');
     expect(eventTone('lead_change')).toBe('lead');
     expect(eventTone('workout_logged')).toBe('training');
     expect(eventTone('disputed')).toBe('quiet');

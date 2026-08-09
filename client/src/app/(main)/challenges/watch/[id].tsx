@@ -1,38 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAuth } from '@/data/auth-context';
-import { useCoinTotal } from '@/data/coins';
 import {
-  useDuelConfig,
   useDuelTimeline,
   useDuelWatch,
   useReactToDuel,
-  useSupportDuel,
 } from '@/data/forge-duel';
 import { CHALLENGE_INFO, type ChallengeType } from '@/domain/forge-challenge';
-import {
-  DEFAULT_DUEL_CONFIG,
-  clampStake,
-  countdown,
-  estimateSupportReturn,
-  formatCoins,
-  supportSplit,
-  unitLabel,
-  type DuelReactionKey,
-} from '@/domain/forge-duel';
+import { countdown, unitLabel, type DuelReactionKey } from '@/domain/forge-duel';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SkeletonScreen } from '@/ui/core/skeleton';
-import { ChipWagerTable } from '@/ui/duel/chip-table';
-import { CoinBalance, DuelCountdown, useNow } from '@/ui/duel/duel-hud';
+import { DuelCountdown, useNow } from '@/ui/duel/duel-hud';
 import { DuelCardLabel, DuelTimeline } from '@/ui/duel/duel-timeline';
 import { ForgePot } from '@/ui/duel/forge-pot';
-import { DuelReactions, MySupport, SupporterMeter } from '@/ui/duel/supporter-meter';
+import { DuelReactions } from '@/ui/duel/duel-reactions';
 
 /**
  * WATCHING A FRIEND'S DUEL.
@@ -60,14 +46,7 @@ export default function WatchDuelScreen() {
   const nowMs = useNow();
   const watch = useDuelWatch(id);
   const timeline = useDuelTimeline(id);
-  const coins = useCoinTotal();
-  const support = useSupportDuel();
   const react = useReactToDuel();
-  const cfgQuery = useDuelConfig();
-  const cfg = cfgQuery.data ?? DEFAULT_DUEL_CONFIG;
-
-  const [backing, setBacking] = useState<string | null>(null);
-  const [amount, setAmount] = useState(0);
 
   if (watch.isPending) {
     return (
@@ -98,12 +77,7 @@ export default function WatchDuelScreen() {
 
   const d = watch.data;
   const info = CHALLENGE_INFO[d.challenge_type as ChallengeType];
-  const balance = coins.data ?? 0;
   const settled = d.status === 'settled';
-  const supportOpen =
-    d.status === 'active' && d.support_closes_at !== null && Date.parse(d.support_closes_at) > nowMs;
-  const canBack = supportOpen && !d.i_am_participant && d.my_support === null;
-  const maxBack = Math.max(0, Math.min(balance, cfg.max_support));
 
   const scoreOf = (side: 'challenger' | 'opponent'): number => {
     const cur = side === 'challenger' ? d.challenger_current : d.opponent_current;
@@ -121,13 +95,6 @@ export default function WatchDuelScreen() {
       : d.leader_id === d.opponent_id ? d.opponent_name
         : null;
 
-  const split = supportSplit(d.support_challenger, d.support_opponent);
-  const myPool = d.my_support
-    ? d.my_support.backed_id === d.challenger_id ? d.support_challenger : d.support_opponent
-    : 0;
-  const otherPool = d.my_support
-    ? d.my_support.backed_id === d.challenger_id ? d.support_opponent : d.support_challenger
-    : 0;
 
   return (
     <ScreenShell>
@@ -136,9 +103,11 @@ export default function WatchDuelScreen() {
         title="THE DUEL"
         onBack={() => router.back()}
         right={
-          settled ? (
-            <CoinBalance coins={coins.data ?? null} size="sm" testID="watch-balance" />
-          ) : (
+          /* A spectator's own balance used to sit here, because a settled duel was
+             the moment supporters got paid. With third-party staking retired
+             (164) nothing about this screen can move their coins, so showing a
+             wallet on it is a leftover that implies otherwise. */
+          settled ? null : (
             <DuelCountdown endsAt={d.ends_at} nowMs={nowMs} testID="watch-countdown" />
           )
         }
@@ -190,131 +159,25 @@ export default function WatchDuelScreen() {
         testID="watch-pot"
       />
 
-      {/* ── THE CROWD ── */}
-      <GlowCard testID="watch-crowd">
-        <DuelCardLabel>THE CROWD</DuelCardLabel>
-        <View className="mt-s3">
-          <SupporterMeter
-            challengerName={d.challenger_name}
-            opponentName={d.opponent_name}
-            challengerTotal={d.support_challenger}
-            opponentTotal={d.support_opponent}
-            supporterCount={d.supporter_count}
-            closesAt={d.support_closes_at}
-            nowMs={nowMs}
-            live={d.status === 'active'}
-            testID="watch-support-meter"
-          />
-        </View>
+      {/*
+        THE CROWD CARD IS GONE, AND NOT COMING BACK.
 
-        {d.my_support ? (
-          <View className="mt-s3">
-            <MySupport
-              backedName={d.my_support.backed_id === d.challenger_id ? d.challenger_name : d.opponent_name}
-              amount={d.my_support.amount}
-              payout={d.my_support.payout}
-              estimate={estimateSupportReturn(d.my_support.amount, myPool, otherPool, cfg.support_rake_bp)}
-              settled={d.my_support.settled_at !== null}
-              testID="watch-my-support"
-            />
-          </View>
-        ) : null}
+        It held a two-sided supporter book on somebody else's duel: BACK one
+        athlete, share the LOSING side's pool in proportion to your stake, with a
+        configurable platform cut. That is a bookmaker with a fitness skin, and
+        V5_MIGRATION_AUDIT.md §4 retired it (migration 164 dropped the functions;
+        `forge_duel_support` no longer exists, so this UI had been calling a
+        function that was not there).
 
-        {canBack ? (
-          backing === null ? (
-            <View className="mt-s3 flex-row" style={{ gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <NeonButton
-                  title={`BACK ${shortName(d.challenger_name)}`}
-                  variant="ghost"
-                  pixel
-                  disabled={maxBack < 1}
-                  onPress={() => { setBacking(d.challenger_id); setAmount(Math.min(25, maxBack)); }}
-                  testID="watch-back-challenger"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <NeonButton
-                  title={`BACK ${shortName(d.opponent_name)}`}
-                  variant="ghost"
-                  pixel
-                  disabled={maxBack < 1}
-                  onPress={() => { setBacking(d.opponent_id); setAmount(Math.min(25, maxBack)); }}
-                  testID="watch-back-opponent"
-                />
-              </View>
-            </View>
-          ) : (
-            <View className="mt-s3">
-              <Text
-                allowFontScaling={false}
-                style={{ fontSize: 13, color: colors.accent, letterSpacing: 1, ...pixelFont() }}
-              >
-                BACKING {(backing === d.challenger_id ? d.challenger_name : d.opponent_name).toUpperCase()}
-              </Text>
-              <View className="mt-s3">
-                <ChipWagerTable
-                  value={amount}
-                  onChange={(v) => setAmount(clampStake(v, balance, { ...cfg, max_stake: cfg.max_support }))}
-                  balance={balance}
-                  min={1}
-                  max={maxBack}
-                  potLabel="YOUR SUPPORT"
-                  potOf={(v) => v}
-                  testID="watch-support-table"
-                />
-              </View>
-              <Text className="mt-s2 text-2xs text-text-mute">
-                {(() => {
-                  const pool = backing === d.challenger_id ? d.support_challenger : d.support_opponent;
-                  const other = backing === d.challenger_id ? d.support_opponent : d.support_challenger;
-                  const est = estimateSupportReturn(amount, pool + amount, other, cfg.support_rake_bp);
-                  return other > 0
-                    ? `If they win you would take about ${formatCoins(est)} back — your pledge plus a share of the ${formatCoins(other)} on the other side. The estimate moves as more people back a side.`
-                    : 'Nobody is backing the other side yet, so there is nothing to win. If that stays true you simply get your coins back.';
-                })()}
-              </Text>
-              <View className="mt-s3">
-                <NeonButton
-                  title={support.isPending ? 'PLACING…' : `CONFIRM · ${formatCoins(amount)} COINS`}
-                  pixel
-                  disabled={amount < 1 || support.isPending}
-                  busy={support.isPending}
-                  onPress={() =>
-                    support.mutate(
-                      { challengeId: d.id, backedId: backing, amount },
-                      { onSuccess: () => setBacking(null) }
-                    )
-                  }
-                  testID="watch-support-confirm"
-                />
-              </View>
-              <NeonButton title="CANCEL" variant="ghost" pixel onPress={() => setBacking(null)} testID="watch-support-cancel" />
-            </View>
-          )
-        ) : (
-          <Text className="mt-s3 text-2xs text-text-mute" testID="watch-support-note">
-            {d.i_am_participant
-              ? 'You are in this duel — raise the stakes instead of backing it.'
-              : d.my_support
-                ? 'One position per duel. Yours is locked in.'
-                : settled
-                  ? 'This duel has settled.'
-                  : 'Support has closed for this duel.'}
-          </Text>
-        )}
+        WATCHING SURVIVES, deliberately. The score, the pot between the two
+        athletes, the timeline and reactions are all still here — spectating a
+        friend's duel was never the mechanic that was rejected. What is gone is
+        the ability to put coins on it.
 
-        <Text className="mt-s3 text-2xs text-text-mute">
-          Backers share the losing side&apos;s pool in proportion to their own stake. No odds, no
-          house cut{cfg.support_rake_bp > 0 ? ` beyond ${(cfg.support_rake_bp / 100).toFixed(1)}%` : ''}, and
-          nothing is minted —{' '}
-          {split.total === 0
-            ? 'the pool is empty'
-            : settled
-              ? `${formatCoins(split.total)} was in the pool`
-              : `${formatCoins(split.total)} is in the pool`}.
-        </Text>
-      </GlowCard>
+        Do not restore this as a Golden Dot pool. BACK/PUSH belongs to the
+        athlete's own pledge on their own planned set; aiming it at a third
+        party's duel is the same mechanic under an approved word.
+      */}
 
       {/* ── REACTIONS ── */}
       <GlowCard testID="watch-reactions">
@@ -356,13 +219,6 @@ export default function WatchDuelScreen() {
  * rather than a long name. Two buttons side by side on a 390pt screen have
  * about twelve characters each after the verb; a display name is capped at 24.
  */
-function shortName(name: string): string {
-  const upper = name.toUpperCase();
-  if (upper.length <= 12) return upper;
-  const cut = upper.slice(0, 12);
-  const boundary = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('-'));
-  return `${(boundary >= 6 ? cut.slice(0, boundary) : cut.slice(0, 11)).trim()}…`;
-}
 
 function Contender({
   name,

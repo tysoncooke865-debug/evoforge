@@ -259,7 +259,8 @@ export function useWithdrawOffer() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────── support
+// Third-party staking is retired (164). `forge_duel_support` no longer exists
+// server-side; `useSupportDuel` was calling a function that had been dropped.
 
 export function useSupportDuel() {
   const queryClient = useQueryClient();

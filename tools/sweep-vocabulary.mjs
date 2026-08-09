@@ -190,6 +190,43 @@ function proseOn(line, isSql) {
   // accessibility props even when the value is an expression
   const a11y = line.match(/accessibility(?:Label|Hint|Value)\s*[=:]\s*[{"'`]([^"'`}]+)/);
   if (a11y) out.push(a11y[1]);
+
+  /**
+   * A MULTI-LINE JSX TEXT NODE, which is how the longest copy in the app is written
+   * and which this sweep could not see until 2026-08-09.
+   *
+   * The rule above only matches text BETWEEN a `>` and a `<` on the same line. Real
+   * paragraphs do not look like that; they look like this:
+   *
+   *     <Text className="...">
+   *       A Forge Duel is a wager between friends. Both of you
+   *       stake coins you earned.
+   *     </Text>
+   *
+   * The middle lines carry no tag, no quote and no `>` — so every banned word in
+   * the longest, most explanatory copy in the product was invisible, and the sweep
+   * reported clean while the Challenges screen said "wager", "stake" and "raise the
+   * stakes" to every athlete who opened it.
+   *
+   * A bare prose line is one with no markup, no assignment and no punctuation that
+   * belongs to code. Requiring two spaces keeps identifiers and single words out.
+   */
+  if (!isSql) {
+    const t = line.trim();
+    const bare =
+      t.length > 8 &&
+      (t.match(/ /g) ?? []).length >= 2 &&
+      !/[<>{}=;`"']/.test(t) &&
+      // Code that happens to contain only word characters and punctuation:
+      // an object key (`spin: (spec.spin ?? 0) + jitter(0.5),`), a property
+      // access, an operator. Prose has none of these.
+      !/^\w+\s*:/.test(t) &&
+      !/\w\.\w/.test(t) &&
+      !/\?\?|=>|\+\+|&&|\|\|/.test(t) &&
+      /^[A-Za-z]/.test(t) &&
+      /^[A-Za-z0-9 ,.:;!?()/&%+’'—–-]+$/.test(t);
+    if (bare) out.push(t);
+  }
   return out;
 }
 

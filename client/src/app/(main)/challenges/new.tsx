@@ -80,8 +80,8 @@ export default function NewChallengeScreen() {
         <GlowCard testID="new-challenge-no-friends">
           <Text className="text-sm text-text">You need a friend first.</Text>
           <Text className="mt-s1 text-2xs text-text-dim">
-            Duels are between people who already know each other — there is no public matchmaking,
-            and never will be for a wager.
+            Duels are between people who already know each other — there is no public
+            matchmaking, and never will be where coins are involved.
           </Text>
           <View className="mt-s3">
             <NeonButton title="FIND FRIENDS" pixel onPress={() => router.push('/friends' as never)} testID="new-challenge-friends" />

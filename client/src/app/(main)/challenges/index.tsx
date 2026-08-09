@@ -159,9 +159,9 @@ export default function ChallengesScreen() {
         <GlowCard testID="challenges-none-active">
           <Text className="text-sm text-text">No duel running.</Text>
           <Text className="mt-s1 text-2xs text-text-dim">
-            A Forge Duel is a wager between friends, settled by your real training. Both of you
-            stake coins you earned; the app reads your logged sessions and pays the winner. Raise
-            the stakes mid-duel, and let friends back a side.
+            A Forge Duel is a pledge between friends, settled by your real training. Both of
+            you put up coins you earned; the app reads your logged sessions and pays the winner.
+            Raise it mid-duel if you both agree.
           </Text>
         </GlowCard>
       )}
@@ -228,9 +228,7 @@ export default function ChallengesScreen() {
                 </View>
                 <View className="mt-s1 flex-row items-center justify-between">
                   <Text className="text-2xs text-text-mute" numberOfLines={1}>
-                    {leaderName ? `${leaderName} leads` : 'Level'} ·{' '}
-                    {w.supporter_count} backing
-                    {w.my_backed_id ? ' · you are in' : ''}
+                    {leaderName ? `${leaderName} leads` : 'Level'}
                   </Text>
                   <Text className="text-2xs text-text-mute">
                     {countdown(Date.parse(w.ends_at) - nowMs)} left

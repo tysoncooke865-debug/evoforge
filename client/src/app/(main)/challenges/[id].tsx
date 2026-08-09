@@ -64,7 +64,6 @@ import {
   RaiseSheet,
 } from '@/ui/duel/offer-sheet';
 import { RivalryCard } from '@/ui/duel/rivalry-card';
-import { SupporterMeter } from '@/ui/duel/supporter-meter';
 
 /**
  * ONE DUEL, in full — and ONE screen for its whole life: the invite, the live
@@ -461,8 +460,8 @@ function DuelBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; toda
         <GlowCard glow={colors.warn} testID="challenge-disputed">
           <Text className="text-sm" style={{ color: colors.warn }}>Settlement is paused.</Text>
           <Text className="mt-s1 text-2xs text-text-dim">
-            A dispute is open on this duel. The coins stay in escrow — nobody is paid and nobody
-            loses their stake — until it is reviewed.
+            A dispute is open on this duel. The coins stay in escrow — nobody is paid and
+            nobody loses their pledge — until it is reviewed.
           </Text>
         </GlowCard>
       ) : null}
@@ -483,29 +482,14 @@ function DuelBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; toda
         </GlowCard>
       ) : null}
 
-      {/* ── THE CROWD ── */}
-      {c.spectators_enabled && c.status !== 'pending' ? (
-        <GlowCard testID="duel-supporters">
-          <DuelCardLabel>THE CROWD</DuelCardLabel>
-          <View className="mt-s3">
-            <SupporterMeter
-              challengerName={c.i_am_challenger ? 'YOU' : c.challenger_name}
-              opponentName={c.i_am_challenger ? c.opponent_name : 'YOU'}
-              challengerTotal={c.support_challenger}
-              opponentTotal={c.support_opponent}
-              supporterCount={c.supporter_count}
-              closesAt={c.support_closes_at}
-              nowMs={nowMs}
-              live={c.status === 'active'}
-              testID="duel-support-meter"
-            />
-          </View>
-          <Text className="mt-s3 text-2xs text-text-mute">
-            Friends can back either of you with their own coins. Their pool is settled separately
-            and never touches your escrow.
-          </Text>
-        </GlowCard>
-      ) : null}
+      {/*
+        THE CROWD CARD IS RETIRED (V5_MIGRATION_AUDIT.md §4, migration 164).
+
+        It showed a supporter book on this duel — two sides, a pool, and a cut of
+        the losing side. The server functions are gone, so it rendered a meter over
+        columns nothing writes. Spectators still exist and can still watch and
+        react; they simply cannot stake on the outcome.
+      */}
 
       {/* ── WHAT IS ACTUALLY AT RISK ── */}
       <GlowCard testID="challenge-escrow">
@@ -542,7 +526,7 @@ function DuelBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; toda
           <DuelRow k="A DRAW" v="Refunds every pledge in full." />
           <DuelRow k="CANCELLING" v="Refunds every pledge in full." />
           <DuelRow k="RAISING" v={`Both of you must agree. Up to ${cfg.max_raises} raises, and one unlocks each time you have both trained since the last.`} />
-          <DuelRow k="SUPPORTERS" v="A separate pool. Winners divide the other side's stakes in proportion to their own." />
+          <DuelRow k="WATCHING" v="Friends can follow this duel and react. Nobody can put coins on it but the two of you." />
           <DuelRow k="RULES" v="The duel's type, length and opening pledge locked when it was accepted." />
           <Text className="mt-s3 text-2xs text-text-mute">{SAFETY_NOTE}</Text>
         </GlowCard>
