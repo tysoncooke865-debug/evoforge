@@ -22,9 +22,23 @@ interface SettingsState {
    * missing sensor has to degrade to plain downward gravity anyway.
    */
   motionPhysics: boolean;
+  /**
+   * revealsHidden (Spec v5 §8, 2026-08-09): "Hide Forge reveals forever."
+   *
+   * THE REWARD IS STILL GRANTED AND STILL PAID. This hides the ceremony, not the
+   * coins — a hidden reveal is claimed silently and reported as a plain bonus
+   * line. Anything else would make opting out of a chance feature cost money,
+   * which turns the setting into a penalty and the feature into something you
+   * cannot really decline.
+   *
+   * Off by default, and once on it stays on: §8 wants leaving frictionless, and a
+   * setting that quietly re-enables itself is not a setting.
+   */
+  revealsHidden: boolean;
   setPerfMode: (on: boolean) => void;
   setSoundEnabled: (on: boolean) => void;
   setMotionPhysics: (on: boolean) => void;
+  setRevealsHidden: (on: boolean) => void;
   reset: () => void;
 }
 
@@ -32,8 +46,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   perfMode: false,
   soundEnabled: true,
   motionPhysics: true,
+  revealsHidden: false,
   setPerfMode: (on) => set({ perfMode: on }),
   setSoundEnabled: (on) => set({ soundEnabled: on }),
   setMotionPhysics: (on) => set({ motionPhysics: on }),
-  reset: () => set({ perfMode: false, soundEnabled: true, motionPhysics: true }),
+  setRevealsHidden: (on) => set({ revealsHidden: on }),
+  reset: () =>
+    set({ perfMode: false, soundEnabled: true, motionPhysics: true, revealsHidden: false }),
 }));
