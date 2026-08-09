@@ -118,7 +118,7 @@ export function CalloutTray({
 
   const [picked, setPicked] = useState<string | null>(null);
   const opponentId = picked ?? suggested;
-  const [stake, setStake] = useState(0);
+  const [pickedStake, setStake] = useState(0);
 
   /**
    * THE CALL IS EDITABLE (Tyson, 2026-08-08).
@@ -193,6 +193,16 @@ export function CalloutTray({
    */
   const ceiling = trialCeiling(maxCalloutStake(balance ?? 0, cfg), allowanceQuery.data);
   const max = ceiling.max;
+  /**
+   * THE CEILING CAN MOVE UNDER AN OPEN TRAY: a set logged on another device, a
+   * pledge that settled, or the allowance query simply landing a moment after
+   * the sheet did. A chip picked under the old ceiling must not survive into a
+   * send the server will refuse.
+   *
+   * DERIVED, NOT AN EFFECT. Clamping in a useEffect is a second render pass over
+   * state React can compute directly, and the compiler rejects it, correctly.
+   */
+  const stake = Math.min(pickedStake, max);
   const canSend =
     opponentId !== null &&
     !ceiling.blocked &&
@@ -252,13 +262,6 @@ export function CalloutTray({
       }
     );
   };
-
-  // The ceiling can move under an open tray — a set logged elsewhere, a pledge
-  // that settled. A chip picked under the old one must not survive into a send
-  // the server will refuse.
-  useEffect(() => {
-    if (stake > max) setStake(max >= cfg.min_stake ? max : 0);
-  }, [max, stake, cfg.min_stake]);
 
   if (!visible) return null;
 

@@ -18,14 +18,18 @@ describe('only programmed work carries a Golden Dot (v5 §4)', () => {
   });
 
   /**
-   * THE CHECK THE SERVER CANNOT MAKE. Migration 163 enforces rest days, the
-   * scheduled workout and above-program loads — but the database has no copy of a
-   * built-in split's exercise list, so "is this exercise in the plan at all" is the
-   * client's to answer. If this is wrong, an ad-hoc stunt set gets a Dot.
+   * AN ADDED EXERCISE IS STILL YOUR TRAINING (reported from production,
+   * 2026-08-09: a mate added a lift and the Dot vanished).
+   *
+   * This used to assert the opposite, on the reasoning that the database has no
+   * copy of a built-in split so only the client can know an exercise is ad-hoc.
+   * True, and beside the point — the SERVER NEVER REFUSED IT. The client was not
+   * mirroring a server rule, it was inventing one, and the only thing it achieved
+   * was hiding a working feature from anyone who trains off-script.
    */
-  it('an athlete-added exercise is NOT eligible', () => {
+  it('an athlete-added exercise IS eligible', () => {
     expect(trialEligibility({ ...planned, added: true }, at()))
-      .toEqual({ eligible: false, reason: 'ad-hoc' });
+      .toEqual({ eligible: true, reason: null });
   });
 
   it('a rest day beats everything else', () => {
@@ -49,7 +53,7 @@ describe('only programmed work carries a Golden Dot (v5 §4)', () => {
   });
 
   it('every reason has a note, and none of them solicit', () => {
-    const reasons: TrialIneligibility[] = ['rest-day', 'ad-hoc', 'skipped', 'finished'];
+    const reasons: TrialIneligibility[] = ['rest-day', 'skipped', 'finished'];
     for (const r of reasons) {
       const note = ineligibilityNote(r);
       expect(note.length, r).toBeGreaterThan(0);

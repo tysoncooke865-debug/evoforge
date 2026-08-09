@@ -27,7 +27,6 @@ import type { EffectiveEntry } from './session-plan';
  */
 
 export type TrialIneligibility =
-  | 'ad-hoc'
   | 'skipped'
   | 'rest-day'
   | 'finished';
@@ -54,10 +53,22 @@ export function trialEligibility(
   // the plan says to rest may be worth coins.
   if (opts.restDay) return { eligible: false, reason: 'rest-day' };
 
-  // An athlete-added exercise is not programmed work. This is the single most
-  // important client-side check, because it is the one the server cannot make:
-  // it has no copy of the built-in split's exercise list.
-  if (entry.added) return { eligible: false, reason: 'ad-hoc' };
+  // AN ATHLETE-ADDED EXERCISE CARRIES A DOT (Tyson, 2026-08-09, reported from
+  // production: "my mate added an exercise and there is no yellow pledge
+  // feature"). It used to be refused here as "not programmed work".
+  //
+  // That was my over-implementation, and the same mistake 173 fixed one layer
+  // down. THE SERVER HAS NO SUCH RULE and never did: the trigger checks that the
+  // WORKOUT is on today's plan and that the target is not above the athlete's own
+  // logged best. It has no notion of where an exercise came from — `workout_log`
+  // stores a name, not a provenance — so this client check was not mirroring a
+  // server rule, it was inventing one and then hiding a working feature behind it.
+  //
+  // Nor does it protect anything. Adding a lift to your own session is an ordinary
+  // training decision, not a max attempt; the harm rationale in the physiotherapist
+  // test is about load, and load is guarded separately and explicitly. Coins pay a
+  // fixed 2x either way, so they are never the reason to add an exercise, and a
+  // pledge still needs an opponent to accept it before anything moves.
 
   if (entry.skipped || entry.target <= 0) return { eligible: false, reason: 'skipped' };
 
@@ -73,8 +84,6 @@ export function ineligibilityNote(reason: TrialIneligibility): string {
   switch (reason) {
     case 'rest-day':
       return 'Rest day — trials are for planned training.';
-    case 'ad-hoc':
-      return 'Trials are for exercises in your plan.';
     case 'skipped':
       return 'This exercise is skipped today.';
     case 'finished':
