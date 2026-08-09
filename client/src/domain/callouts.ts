@@ -362,7 +362,7 @@ export function calloutHeadline(c: CalloutRow): string {
     case 'offered':
       return c.i_am_athlete ? `WAITING ON ${them}` : `${them} CALLED IT`;
     case 'accepted':
-      return c.i_am_athlete ? `${them} DOUBTS YOU` : `YOU DOUBTED ${them}`;
+      return c.i_am_athlete ? `${them} PUSHED BACK` : `YOU PUSHED ${them}`;
     case 'awaiting_verification':
       return c.i_am_athlete ? `AWAITING ${them}` : `VERIFY ${them}`;
     case 'settled':

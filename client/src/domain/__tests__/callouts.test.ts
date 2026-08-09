@@ -252,7 +252,7 @@ describe('the words are gym words', () => {
   });
 
   it('live, from the athlete\'s side', () => {
-    expect(calloutHeadline(callout({ status: 'accepted' }))).toBe('JESSE DOUBTS YOU');
+    expect(calloutHeadline(callout({ status: 'accepted' }))).toBe('JESSE PUSHED BACK');
   });
 
   it('the verification prompt', () => {
@@ -296,7 +296,7 @@ describe('what the ledger did, from the reader\'s side', () => {
     expect(calloutOutcomeCoins(callout({ status: 'settled', result: 'miss' }))).toBe(-50);
   });
 
-  it('the doubter wins the pot on a miss', () => {
+  it('the pusher takes the pool on a miss', () => {
     expect(calloutOutcomeCoins(callout({ status: 'settled', result: 'miss', i_am_athlete: false })))
       .toBe(100);
   });

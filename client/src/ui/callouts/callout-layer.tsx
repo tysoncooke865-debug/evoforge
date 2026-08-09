@@ -161,7 +161,7 @@ function IncomingCard({ callout, onDismiss }: { callout: CalloutRow; onDismiss: 
         }}
         disabled={respond.isPending}
         accessibilityRole="button"
-        accessibilityLabel={`Doubt it for ${callout.stake} coins`}
+        accessibilityLabel={`Push it for ${callout.stake} coins`}
         testID="callout-doubt"
         className="mt-s2 items-center justify-center rounded-lg"
         style={{ minHeight: 48, backgroundColor: colors.legendary }}

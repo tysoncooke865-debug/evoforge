@@ -172,7 +172,7 @@ export default function ProfileScreen() {
               <Text className="text-sm font-bold text-text">Workout call outs</Text>
               <Text className="text-2xs text-text-mute">
                 &ldquo;50 says you can&apos;t hit this.&rdquo; Put coins on a set you are about to do,
-                and let a friend doubt it. Off means off both ways — no call out button in
+                and let a friend push back. Off means off both ways — no pledge button in
                 Train, and nobody can call you out either.
               </Text>
             </View>
