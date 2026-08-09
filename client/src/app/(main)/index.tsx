@@ -49,6 +49,7 @@ import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -379,6 +380,11 @@ export default function HomeScreen() {
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
   const missionCard = (
+    <>
+      {/* A BANKED REVEAL, SAID ONCE AND QUIETLY (v5 §3). Renders nothing when
+          there is nothing banked — no teaser, no "train to earn one", because
+          soliciting a chance feature is what the physiotherapist test refuses. */}
+      <RevealChip />
     <MissionCard
       mission={mission}
       title={missionName.title}
@@ -395,6 +401,7 @@ export default function HomeScreen() {
       features={homeFeatures}
       evoPerSession={evoPerSession}
     />
+    </>
   );
 
   return (

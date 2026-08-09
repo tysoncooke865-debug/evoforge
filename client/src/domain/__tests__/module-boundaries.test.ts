@@ -40,6 +40,12 @@ const MODULES: Record<string, string[]> = {
     'ui/callouts/', 'ui/trial/',
   ],
   // The chance side. RNG lives here and nowhere else that touches coins.
+  //
+  // `forge-drop` is deliberately still listed. The staked board is deleted, and
+  // leaving its prefixes here means that if anybody ever recreates a file under one
+  // of those names it lands INSIDE the guarded module rather than outside every
+  // rule — which is the difference between a re-introduction being caught and it
+  // being invisible. The non-empty check in rule 5 is satisfied by forge-reveal.
   chanceReveals: [
     'domain/forge-drop', 'domain/forge-reveal',
     'data/forge-drop', 'data/forge-reveal',

@@ -135,6 +135,13 @@ export const COIN_LABELS: Record<string, string> = {
   forge_drop_unlock: 'Forge Drop board unlock',
   // 160 — the deterministic backbone (v5 §2).
   set_reward: 'Set logged',
+  // 161 — THE REVEAL, and this label was forgotten too. A THIRD time: 139 taught
+  // the guard and not the constraint, 159 taught both and not the label, and 161
+  // taught constraint + guard + a CHECK enforcing invariant 1 and still stopped
+  // one line short of the word an athlete reads. Nothing failed either time,
+  // which is the whole problem — tools/falsify-coin-labels.mjs exists because
+  // only a machine comparing the live constraint against this map ever notices.
+  reveal_bonus: 'Forge bonus',
 };
 
 /** Claim + refresh + announce, from any screen. */

@@ -111,10 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The floating rest timer's collapsed flag (in-memory only) + the rest
     // clock itself — a running countdown must not greet the next athlete.
     void import('@/state/rest-ui-store').then(({ useRestUiStore }) => useRestUiStore.getState().reset());
-    void import('@/ui/forge-drop/rest-drop-panel').then(({ useRestDropStore }) => useRestDropStore.getState().reset());
-    void import('@/state/drop-speed-store').then(({ useDropSpeedStore }) => useDropSpeedStore.getState().reset());
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
       AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
+    );
+    // v5.1: the retired board's persisted choices. The STORES are gone but the
+    // keys are still on every device that ran the old build, and sign-out is the
+    // one place that reliably runs for an existing athlete. Removing them is
+    // harmless when absent, so this stays until it is certainly pointless.
+    void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      Promise.all([
+        AsyncStorage.removeItem('evoforge-forge-drop-board-v1'),
+        AsyncStorage.removeItem('evoforge-drop-speed-v1'),
+      ]).catch(() => undefined)
     );
     // The Arena card-battler's stores (battle loop + player save). Its
     // persistence is per-user namespaced on disk; this stops any running

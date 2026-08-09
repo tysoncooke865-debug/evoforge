@@ -17,7 +17,6 @@ const ITEMS: { href: string; title: string; sub: string; glyph: string }[] = [
   { href: '/schedule', title: 'Schedule', sub: 'Map your training week', glyph: '◫' },
   { href: '/routine', title: 'My Routine', sub: 'Build your own split and exercises', glyph: '⚒' },
   { href: '/coins', title: 'Coins', sub: 'Every coin, server-verified', glyph: '◍' },
-  { href: '/forge-drop', title: 'Forge Drop', sub: 'Wager coins on the board your Evo Rating unlocks', glyph: '◈' },
   { href: '/profile', title: 'Profile', sub: 'Rank ladder, identity, sign out', glyph: '◉' },
   { href: '/data', title: 'Data', sub: 'Export everything · delete data', glyph: '⛃' },
 ];

@@ -5,7 +5,6 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRestUiStore } from '@/state/rest-ui-store';
-import { useRestDropStore } from '@/ui/forge-drop/rest-drop-panel';
 import { useThemeColors } from '@/theme/use-theme';
 import { playRestOver } from '@/ui/core/sound';
 
@@ -23,7 +22,6 @@ export const DEFAULT_REST_SECONDS = 120;
 
 /** Forge Drop is not offered below this much remaining rest — there is no
  *  point opening a board somebody has to close ten seconds later. */
-export const REST_DROP_MIN_SECONDS = 20;
 
 let listeners: (() => void)[] = [];
 
@@ -235,26 +233,13 @@ export function FloatingRestTimer() {
         >
           {over ? '✓' : `${mm}:${ss}`}
         </Text>
-        {/* FORGE DROP, OPTIONAL AND OPT-IN.
-            Offered only while a rest is actually running, and never in the
-            last ten seconds. Nothing opens the panel except this button — a
-            gambling surface that appeared by itself after every set would be a
-            slot machine attached to a barbell. Hidden entirely once rest is
-            over, so it can never compete with the next set. */}
-        {!over && remaining > REST_DROP_MIN_SECONDS ? (
-          <Pressable
-            onPress={() => useRestDropStore.getState().setOpen(!useRestDropStore.getState().open)}
-            accessibilityRole="button"
-            accessibilityLabel="Open Forge Drop for this rest"
-            className="items-center justify-center"
-            style={{ minWidth: 36, minHeight: 40 }}
-            testID="rest-float-drop"
-          >
-            <Text className="text-2xs font-bold" style={{ color: colors.legendary, letterSpacing: 1 }}>
-              DROP
-            </Text>
-          </Pressable>
-        ) : null}
+        {/* NO CHANCE SURFACE IN THE REST TIMER (v5 §3, which names it).
+            There used to be a DROP button here, hedged about as carefully as it
+            could be — opt-in, never in the last ten seconds, hidden once rest was
+            over, with a comment observing that a surface appearing by itself would
+            be "a slot machine attached to a barbell". The hedging was good and the
+            surface was still a staked board between sets. A reveal is now granted
+            silently and waits for the summary. */}
         <Pressable
           onPress={clearRest}
           accessibilityRole="button"

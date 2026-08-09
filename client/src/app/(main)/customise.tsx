@@ -293,23 +293,21 @@ export default function CustomiseScreen() {
         testID="equip-loadout"
       />
 
-      {/* A LINE, NOT A PROMPT. Only when what they are looking at costs more
-          than they have, and it states the honest terms rather than dangling a
-          win. Training is named first because that is where coins come from. */}
+      {/* A LINE, NOT A PROMPT. Only when what they are looking at costs more than
+          they have, and it names the one honest way to close the gap.
+          v5.1: it used to offer the staked board — "or wager some on Forge Drop,
+          which returns less than it takes". That sentence was scrupulously honest
+          about the odds and still pointed a short-of-coins athlete at a wager,
+          which is the loss-chasing prompt §8 refuses. Training is now the only
+          answer offered, and it is no longer a link to anywhere. */}
       {shortBy > 0 ? (
-        <Pressable
-          onPress={() => router.push('/forge-drop' as never)}
-          accessibilityRole="button"
-          accessibilityLabel={`Open Forge Drop. You are ${shortBy} coins short.`}
-          testID="customise-forge-drop"
-          style={{ minHeight: 44, justifyContent: 'center' }}
+        <Text
+          className="text-center text-2xs text-text-mute"
+          testID="customise-coins-short"
+          style={{ minHeight: 44, textAlignVertical: 'center' }}
         >
-          <Text className="text-center text-2xs text-text-mute">
-            {shortBy} short. Train to earn more — or wager some on{' '}
-            <Text style={{ color: colors.accent }}>Forge Drop</Text>, which returns less than it
-            takes.
-          </Text>
-        </Pressable>
+          {shortBy} short. Training earns more.
+        </Text>
       ) : null}
     </ScreenShell>
   );

@@ -19,6 +19,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
+import { RevealClaimCard } from '@/ui/forge-reveal/reveal-chip';
 import { SpriteCompanion } from '@/ui/character/sprite-avatar';
 import { XpBar } from '@/ui/character/xp-bar';
 
@@ -524,6 +525,10 @@ function SummaryPhase({ data, accent }: { data: WorkoutSummaryData; accent: stri
           <Cell key={c.label} value={c.value} label={c.label} tint={c.tint} />
         ))}
       </View>
+      {/* THE FORGE, AFTER THE WORKOUT AND NOT DURING IT (v5 §3). This is the
+          primary claim surface: a PR grants a reveal silently mid-session and it
+          waits here, so nothing variable ever lands between sets. */}
+      <RevealClaimCard />
       {/* Why there are no coins, in the guard's own words. Silence here read
           as "coins are broken". */}
       {data.coins?.blocked ? (

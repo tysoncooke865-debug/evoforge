@@ -65,7 +65,6 @@ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ReorderableList } from '@/ui/train/reorderable-list';
 import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/ui/core/neon-button';
-import { RestDropPanel } from '@/ui/forge-drop/rest-drop-panel';
 import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -1289,7 +1288,10 @@ export default function WorkoutScreen() {
     {/* Opened only from the rest timer's DROP button, closed automatically
         when rest ends. A sibling overlay: it shares nothing with the logger
         but the screen, so opening it cannot disturb a set in progress. */}
-    {editable ? <RestDropPanel /> : null}
+    {/* NOTHING FROM THE FORGE BETWEEN SETS (v5 §3). The rest timer used to
+        carry a playable board; a reveal is now granted silently and waits for the
+        summary, so the logger stays a logger. Do not reintroduce a chance surface
+        here — §3 names the rest timer explicitly. */}
 
     {/* CALL THIS SET — a tray over the workout, never a screen. */}
     {callFor && callTarget ? (

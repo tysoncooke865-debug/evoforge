@@ -335,7 +335,6 @@ export default function MainLayout() {
       <Tabs.Screen name="avatar" options={{ href: null }} />
       {/* FORGE DROP: the coin board, pushed over the Vault. Routable, hidden
           from the bar — it is reached from the places coins already live. */}
-      <Tabs.Screen name="forge-drop" options={{ href: null }} />
       <Tabs.Screen name="workout" options={{ href: null }} />
       {/* CUSTOMISE: the champion-select page, pushed over Home. */}
       <Tabs.Screen name="customise" options={{ href: null }} />

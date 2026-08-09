@@ -156,6 +156,19 @@ export default function ProfileScreen() {
           </View>
           <View className="mt-s3 flex-row items-center justify-between">
             <View className="flex-1 pr-s3">
+              <Text className="text-sm font-bold text-text">Hide forge reveals</Text>
+              {/* THE COINS STILL ARRIVE. Saying so plainly is the point of the
+                  setting: an opt-out that quietly cost money would not be one. */}
+              <Text className="text-2xs text-text-mute">
+                Training sometimes earns a bonus from the forge. Hide it and you still receive
+                every coin — it just lands as a line in your summary, with no animation and no
+                separate screen. Nothing expires and nothing is lost.
+              </Text>
+            </View>
+            <RevealSwitch />
+          </View>
+          <View className="mt-s3 flex-row items-center justify-between">
+            <View className="flex-1 pr-s3">
               <Text className="text-sm font-bold text-text">Workout call outs</Text>
               <Text className="text-2xs text-text-mute">
                 &ldquo;50 says you can&apos;t hit this.&rdquo; Put coins on a set you are about to do,
@@ -818,6 +831,32 @@ function SoundSwitch() {
  * Turning it OFF never revokes anything — only the OS can — so it simply stops
  * steering gravity, and turning it back on will not re-prompt.
  */
+/**
+ * HIDE FORGE REVEALS FOREVER (Spec v5 §8).
+ *
+ * A plain switch with no confirmation and no "are you sure" — §8 wants leaving
+ * frictionless, and a dialog defending a feature against being turned off is the
+ * sunk-cost pattern the same section bans.
+ *
+ * It hides the CEREMONY. `forge_reveal_claim` still pays, and the summary still
+ * reports the coins, because an opt-out that cost money would make the feature
+ * something an athlete cannot really decline.
+ */
+function RevealSwitch() {
+  const colors = useThemeColors();
+  const revealsHidden = useSettingsStore((s) => s.revealsHidden);
+  const setRevealsHidden = useSettingsStore((s) => s.setRevealsHidden);
+  return (
+    <Switch
+      value={revealsHidden}
+      onValueChange={setRevealsHidden}
+      trackColor={{ false: colors.border, true: colors.accent }}
+      testID="settings-hide-reveals"
+      accessibilityLabel="Hide forge reveals. Coins are still awarded."
+    />
+  );
+}
+
 function MotionSwitch() {
   const colors = useThemeColors();
   const motionPhysics = useSettingsStore((s) => s.motionPhysics);
