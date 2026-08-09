@@ -254,8 +254,21 @@ for (const { dir, exts } of SEARCH) {
       // A comment is not user-facing text — including a TRAILING one, and including
       // Postgres's own `comment on … is '…'`, which is schema documentation read
       // through \d+ and never rendered anywhere near a person.
-      if (isSql && /^\s*comment\s+on\s/i.test(line)) { sqlCommentOn = true; return; }
-      if (isSql && sqlCommentOn) { sqlCommentOn = false; return; }
+      /**
+       * `comment on ... is '...'` is schema documentation, read through \d+ and
+       * never rendered near a person. It is skipped until its terminating
+       * semicolon, NOT for one line: the previous version carried the skip
+       * exactly one line, so a three-line comment leaked its third line and
+       * reported `callout.stake` — a column reference — as banned copy.
+       */
+      if (isSql && /^\s*comment\s+on\s/i.test(line)) {
+        sqlCommentOn = !/;\s*$/.test(line);
+        return;
+      }
+      if (isSql && sqlCommentOn) {
+        if (/;\s*$/.test(line)) sqlCommentOn = false;
+        return;
+      }
       const code = (isSql ? line.split('--')[0] : line)
         .replace(/^\s*(\/\/|--|\*|\/\*).*$/, '');
       if (!code.trim()) return;
