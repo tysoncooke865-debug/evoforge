@@ -1,46 +1,66 @@
-import { useEffect, useRef, useState } from 'react';
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are
+   mutated from the animation loop by design; the compiler lint cannot see that
+   .value writes are animation state rather than render state. */
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
 import { formatMultiplier, type DropTheme, type DropTier } from '@/domain/forge-drop';
-import { buildTrajectory, pegPositions, puckAt } from '@/domain/forge-drop-physics';
+import {
+  landingStagger,
+  strikeIntensity,
+  tension,
+  timeScale,
+} from '@/domain/forge-drop-feel';
+import { buildTrajectory, pegPositions, puckAt, type DropTrajectory } from '@/domain/forge-drop-physics';
 import { useSettingsStore } from '@/state/settings-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { chipImpactHaptic } from '@/ui/duel/physics/chip-haptics';
+
+import { BoardFx, type BoardFxHandle } from './board-fx';
+import { playDropLand, playDropStrike } from './drop-audio';
 
 /**
- * THE BOARD, WITH SEVERAL CHIPS IN THE AIR.
- *
- * Thirteen slots and twelve peg rows, drawn from the tier's own numbers so a
- * rebalance in SQL redraws it with no code change.
+ * THE BOARD — a machine that is always running, and a fall that is always a
+ * replay.
  *
  * EVERY FALL IS A REPLAY, NOT A SIMULATION. The server already decided where
  * each puck lands; `buildTrajectory` derives believable motion along the route
- * it actually took. A physics engine let loose here would land somewhere else,
- * and nudging one until it agreed would be a rigged simulation pretending to be
- * an honest one. That matters more with several chips falling, not less: two
- * pucks that collided would have to change each other's outcome, and their
+ * it actually took. That matters more with several chips falling, not less:
+ * two pucks that collided would have to change each other's outcome, and their
  * outcomes were settled before either of them moved. So they pass through one
  * another, because the alternative is a lie about what the board did.
  *
- * EACH PUCK OWNS ITS OWN ANIMATION. One component, one rAF loop, one set of
- * shared values per chip — mounted when the server answers and unmounted when
- * the athlete has been told. Results therefore land in whatever order they
- * finish, which is the same order the server settled them in only by
- * coincidence, and nothing anywhere depends on it being so.
+ * ONE LOOP FOR EVERYTHING. There used to be a `requestAnimationFrame` per
+ * puck. Five chips meant five loops, five sets of timers to clean up, and five
+ * independent clocks that could drift apart mid-cascade. Now a single loop
+ * advances every puck, detects every peg strike and fires every effect — so
+ * the cost of a fifth chip is one more entry in an array rather than one more
+ * scheduler.
  *
- * REDUCED MOTION SKIPS THE FALL, NOT THE RESULT. There is no version of this
- * where somebody waits longer or learns less because they asked for less
- * movement: the puck appears in its slot and the result is announced.
+ * THE LOOP OWNS NO REACT STATE. It writes shared values and calls into the
+ * effect layer's ref. A chip crossing twelve pegs therefore causes zero
+ * renders anywhere in the tree; the only render in a whole fall is the one
+ * that reveals the result.
+ *
+ * SLOW MOTION CHANGES WHEN, NEVER WHAT. Time is scaled down over the last
+ * stretch of the fall so the landing has a held breath before it. The
+ * trajectory is already fixed and the slot is already paid — this delays the
+ * reveal by a beat and cannot alter it.
+ *
+ * REDUCED MOTION SKIPS THE FALL, NOT THE RESULT. The puck appears in its slot
+ * and the result is announced identically. There is no version of this where
+ * somebody waits longer or learns less because they asked for less movement.
  */
 
-/** Themes are the tier's identity, resolved to real tokens rather than invented
- *  colours — the palette stays the app's. */
 function themeTint(theme: DropTheme, colors: Record<string, string>): string {
   switch (theme) {
     case 'rust': return colors['text-dim'];
@@ -53,12 +73,24 @@ function themeTint(theme: DropTheme, colors: Record<string, string>): string {
 }
 
 export interface BoardPuck {
-  /** The drop's idempotency key — stable, unique, and never reused. */
   key: string;
-  /** The settled column path from the server. */
   columns: number[];
-  /** Drawn on the puck, so three chips in the air stay tellable apart. */
   stake: number;
+}
+
+/** Everything the loop needs for one chip, and nothing React needs. */
+interface Runner {
+  key: string;
+  stake: number;
+  traj: DropTrajectory;
+  startedAt: number;
+  /** Scaled clock — advanced by dt * timeScale, so slow motion is local. */
+  clock: number;
+  lastPeg: number | null;
+  landed: boolean;
+  stagger: number;
+  intensity: number;
+  gold: boolean;
 }
 
 export function DropBoard({
@@ -68,32 +100,235 @@ export function DropBoard({
   pucks,
   onSettled,
   highlights,
+  charged = false,
   testID = 'drop-board',
 }: {
   tier: DropTier;
-  /** The lane a drop would use right now. */
   lane: number;
-  /** The lane a chip is being dragged over, if any — shown differently from
-   *  the committed one, because previewing must not look like choosing. */
   previewLane?: number | null;
   pucks: BoardPuck[];
-  /** Fires when a puck has landed — the ONLY moment its result is shown. */
   onSettled: (key: string) => void;
-  /** Slots to mark, one per recently landed drop. */
   highlights: number[];
+  /** A chip is selected — the machine spools up before anything is thrown. */
+  charged?: boolean;
   testID?: string;
 }) {
   const colors = useThemeColors();
+  const reducedPref = useReducedMotion();
+  const perfMode = useSettingsStore((s) => s.perfMode);
+  const reduced = reducedPref || perfMode;
   const tint = themeTint(tier.theme, colors as unknown as Record<string, string>);
+  const gold = colors.legendary;
 
   const [width, setWidth] = useState(0);
   const slots = tier.rows + 1;
-  // The board is measured, never assumed: a fixed pixel size would overflow a
-  // 320px phone and float on a desktop.
   const cell = width > 0 ? width / slots : 0;
   const boardHeight = cell * (tier.rows + 1.6);
 
-  const pegs = cell > 0 ? pegPositions(tier.rows) : [];
+  const fx = useRef<BoardFxHandle | null>(null);
+  const pegs = useMemo(() => (cell > 0 ? pegPositions(tier.rows) : []), [cell, tier.rows]);
+
+  // ── the pucks, as animation state ────────────────────────────────────────
+  //
+  // Positions live in ONE pair of shared-value arrays rather than per-component
+  // state, so the loop can write them without touching React at all.
+  const px = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const py = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const pOpacity = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const pGlow = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const pSquash = [useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  const MAX_PUCKS = px.length;
+
+  /** Board recoil, shared by every impact. One value, so five landings shake
+   *  the board once rather than fighting over it. */
+  const recoil = useSharedValue(0);
+
+  // Which runner occupies which slot index. Stable for a puck's whole life so
+  // its shared values never jump to another chip mid-fall.
+  const runners = useRef<(Runner | null)[]>(Array(MAX_PUCKS).fill(null));
+  // The stake drawn on each puck slot. React state rather than a ref read
+  // during render — it changes once per drop, never per frame.
+  const [slotStakes, setSlotStakes] = useState<number[]>(() => Array(MAX_PUCKS).fill(0));
+  const raf = useRef<number | null>(null);
+  /** Starts the loop if it is asleep. Set by the loop effect, called by the
+   *  adopt effect — so a chip leaving the rack wakes the board. */
+  const pump = useRef<() => void>(() => undefined);
+  const settleQueue = useRef<string[]>([]);
+  const [, forceSettle] = useState(0);
+
+  // Adopt new pucks / release finished ones. This is the ONLY place React and
+  // the loop meet, and it runs once per drop rather than once per frame.
+  useEffect(() => {
+    const live = new Set(pucks.map((p) => p.key));
+    for (let i = 0; i < MAX_PUCKS; i += 1) {
+      const r = runners.current[i];
+      if (r && !live.has(r.key)) {
+        runners.current[i] = null;
+        pOpacity[i].value = 0;
+      }
+    }
+    let queued = 0;
+    let changed = false;
+    for (const p of pucks) {
+      if (runners.current.some((r) => r?.key === p.key)) continue;
+      const free = runners.current.findIndex((r) => r === null);
+      if (free < 0) break; // at capacity: the session model already caps this
+      runners.current[free] = {
+        key: p.key,
+        stake: p.stake,
+        traj: buildTrajectory(p.columns),
+        startedAt: Date.now(),
+        clock: 0,
+        lastPeg: null,
+        landed: false,
+        stagger: landingStagger(queued++),
+        intensity: strikeIntensity(p.stake, tier),
+        gold: p.stake >= tier.max_stake * 0.6,
+      };
+      pOpacity[free].value = 1;
+      pGlow[free].value = 0;
+      changed = true;
+    }
+    if (changed) {
+      setSlotStakes(runners.current.map((r) => r?.stake ?? 0));
+      pump.current();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pucks, tier]);
+
+  // ── THE LOOP ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (cell <= 0) return;
+    let last = Date.now();
+    let alive = true;
+
+    /**
+     * THE LOOP SLEEPS WHEN THE BOARD IS IDLE.
+     *
+     * It used to run for as long as the screen was mounted, which is a frame
+     * callback every 16ms to animate nothing — a real battery cost on a phone
+     * sitting open in a gym, and enough continuous work that Playwright judged
+     * the page never "stable" and timed out clicking the header.
+     *
+     * Now it runs only while a chip is in the air. The ambient layer is
+     * declarative Reanimated and keeps breathing without it, so an idle board
+     * still looks alive while costing nothing.
+     */
+    const tick = () => {
+      if (!alive) return;
+      let live = false;
+      try {
+        live = step();
+      } catch {
+        // A decoration must never strand a chip. If anything in a frame
+        // throws, the loop keeps running and the fall keeps going — the
+        // result is already settled on the server either way.
+        live = true;
+      }
+      if (!live) { raf.current = null; return; }
+      raf.current = requestAnimationFrame(tick);
+    };
+
+    pump.current = () => {
+      if (raf.current !== null) return;
+      last = Date.now(); // no phantom dt from however long it slept
+      raf.current = requestAnimationFrame(tick);
+    };
+
+    const step = (): boolean => {
+      const now = Date.now();
+      const dt = Math.min(0.05, (now - last) / 1000); // clamp: a backgrounded
+      last = now;                                     // tab must not teleport
+
+      let anyLive = false;
+      for (let i = 0; i < MAX_PUCKS; i += 1) {
+        const r = runners.current[i];
+        if (!r || r.landed) continue;
+        anyLive = true;
+
+        const total = r.traj.duration + r.stagger;
+        const progress = total <= 0 ? 1 : r.clock / total;
+        r.clock += dt * timeScale(progress, reduced);
+
+        if (reduced) {
+          // No fall: place it in the slot and settle on the next tick.
+          px[i].value = r.traj.slot + 0.5;
+          py[i].value = tier.rows + 0.85;
+          r.landed = true;
+          settleQueue.current.push(r.key);
+          fx.current?.land(r.traj.slot + 0.5, tier.rows + 0.85, 0.3, r.gold);
+          continue;
+        }
+
+        const t = Math.max(0, r.clock - r.stagger);
+        const p = puckAt(r.traj, t);
+        px[i].value = p.x + 0.5;
+        py[i].value = p.y;
+
+        // Suspense: the puck brightens and its trail thickens as it falls.
+        pGlow[i].value = tension(p.y, tier.rows);
+        pSquash[i].value = p.bounce;
+
+        // A peg strike is a CHANGE of peg index, not a bounce threshold — the
+        // frames already carry which peg was struck, so this cannot double-fire
+        // on a slow frame or miss one on a fast machine.
+        if (p.peg !== null && p.peg !== r.lastPeg) {
+          r.lastPeg = p.peg;
+          fx.current?.strike(p.x + 0.5, p.y, r.intensity, r.gold);
+          playDropStrike(r.intensity);
+          if (r.intensity > 0.8) chipImpactHaptic(0.25);
+        }
+
+        if (t >= r.traj.duration) {
+          r.landed = true;
+          settleQueue.current.push(r.key);
+          const power = Math.min(1, r.intensity);
+          fx.current?.land(r.traj.slot + 0.5, tier.rows + 0.85, power, r.gold);
+          playDropLand(power);
+          chipImpactHaptic(0.6);
+          // ONE SEQUENCE, NOT A NESTED CALLBACK. A `withTiming` completion
+          // callback runs on the UI thread, so assigning another animation
+          // from inside it throws — and the throw happened INSIDE the rAF
+          // loop, which killed the loop outright. The first chip landed and
+          // the next two hung in the air forever.
+          recoil.value = withSequence(
+            withTiming(1, { duration: 90 }),
+            withTiming(0, { duration: 260 })
+          );
+        }
+      }
+
+      if (settleQueue.current.length > 0) forceSettle((n) => n + 1);
+      return anyLive;
+    };
+
+    pump.current();
+    return () => {
+      alive = false;
+      pump.current = () => undefined;
+      if (raf.current !== null) cancelAnimationFrame(raf.current);
+      raf.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cell, reduced, tier.rows]);
+
+  // Drain the settle queue in an effect — the loop must never call back into
+  // React from inside a frame.
+  useEffect(() => {
+    if (settleQueue.current.length === 0) return;
+    const keys = settleQueue.current;
+    settleQueue.current = [];
+    for (const k of keys) onSettled(k);
+  });
+
+  const boardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: recoil.value * 3 },
+      { scale: 1 - recoil.value * 0.004 },
+    ],
+  }));
+
+  const liveCount = pucks.length;
 
   return (
     <View
@@ -102,74 +337,84 @@ export function DropBoard({
         setWidth((prev) => (Math.abs(prev - w) < 1 ? prev : w));
       }}
       testID={testID}
-      // The board is a picture of the odds; the odds themselves are read out by
-      // the payout table below, which is a real list a screen reader can walk.
       accessible
       accessibilityRole="image"
       accessibilityLabel={
         `${tier.label} board, ${tier.rows} rows of pegs and ${slots} payout slots` +
-        (pucks.length ? `, ${pucks.length} ${pucks.length === 1 ? 'chip' : 'chips'} falling` : '')
+        (liveCount ? `, ${liveCount} ${liveCount === 1 ? 'chip' : 'chips'} falling` : '')
       }
       style={{ width: '100%' }}
     >
-      <View
-        style={{
-          height: boardHeight,
-          borderRadius: 14,
-          overflow: 'hidden',
-          backgroundColor: 'rgba(4,7,14,0.6)',
-          borderWidth: 1,
-          borderColor: `${tint}33`,
-        }}
+      <Animated.View
+        style={[
+          {
+            height: boardHeight,
+            borderRadius: 14,
+            overflow: 'hidden',
+            backgroundColor: 'rgba(4,7,14,0.72)',
+            borderWidth: 1,
+            borderColor: `${tint}55`,
+          },
+          boardStyle,
+        ]}
       >
-        {/* The lane a drop would enter from — shown before the throw so the
-            choice is visible, not implied. A dragged chip previews in a
-            brighter line, so "where it would go" never reads as "where it is
-            going". */}
+        <BoardFx
+          handleRef={fx}
+          cell={cell}
+          rows={tier.rows}
+          tint={tint}
+          gold={gold}
+          charged={charged}
+          live={liveCount}
+          reduced={reduced}
+        />
+
+        {/* The lane a drop would enter from, and — brighter — the one a
+            dragged chip is currently over. Previewing must never read as
+            choosing. */}
         {cell > 0 ? (
-          <LaneMark lane={lane} cell={cell} height={boardHeight} colour={`${tint}22`} testID="lane-mark" />
+          <LaneMark lane={lane} cell={cell} height={boardHeight} colour={`${tint}33`} testID="lane-mark" charged={charged} />
         ) : null}
         {cell > 0 && previewLane != null && previewLane !== lane ? (
-          <LaneMark lane={previewLane} cell={cell} height={boardHeight} colour={`${colors.accent}66`} testID="lane-preview" />
+          <LaneMark lane={previewLane} cell={cell} height={boardHeight} colour={`${colors.accent}88`} testID="lane-preview" charged />
         ) : null}
 
         {pegs.map((peg, i) => (
-          <View
+          <Peg
             key={i}
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: (peg.x + 0.5) * cell - 2,
-              top: (peg.y / (tier.rows + 1.6)) * boardHeight - 2,
-              width: 4,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: `${tint}77`,
-            }}
+            left={(peg.x + 0.5) * cell}
+            top={(peg.y / (tier.rows + 1.6)) * boardHeight}
+            tint={tint}
+            index={i}
+            reduced={reduced}
           />
         ))}
 
         {cell > 0
-          ? pucks.map((p) => (
+          ? Array.from({ length: MAX_PUCKS }, (_, i) => (
               <Puck
-                key={p.key}
-                puck={p}
+                key={i}
+                x={px[i]}
+                y={py[i]}
+                opacity={pOpacity[i]}
+                glow={pGlow[i]}
+                squash={pSquash[i]}
                 cell={cell}
                 rows={tier.rows}
                 boardHeight={boardHeight}
-                onSettled={onSettled}
+                gold={gold}
+                tint={tint}
+                stake={slotStakes[i] ?? 0}
               />
             ))
           : null}
-      </View>
+      </Animated.View>
 
-      {/* THE SLOTS. Real text, not a legend — the multiplier is readable at
-          every width, and a landed one is marked by a border AND a caret,
-          never by colour alone. */}
       <View className="mt-s1 flex-row" style={{ width: '100%' }}>
         {tier.multipliers.map((m, i) => {
           const hits = highlights.filter((h) => h === i).length;
           const hit = hits > 0;
+          const big = m >= 2;
           return (
             <View
               key={i}
@@ -180,9 +425,9 @@ export function DropBoard({
                 alignItems: 'center',
                 paddingVertical: 3,
                 borderRadius: 4,
-                borderWidth: hit ? 1 : 0,
-                borderColor: hit ? colors.legendary : 'transparent',
-                backgroundColor: hit ? 'rgba(251,191,36,0.14)' : 'transparent',
+                borderWidth: hit ? 1 : big ? 1 : 0,
+                borderColor: hit ? colors.legendary : big ? `${colors.legendary}44` : 'transparent',
+                backgroundColor: hit ? 'rgba(251,191,36,0.16)' : 'transparent',
               }}
             >
               <Text
@@ -191,14 +436,14 @@ export function DropBoard({
                 adjustsFontSizeToFit
                 style={{
                   fontSize: 8,
-                  color: hit ? colors.legendary : m >= 1 ? colors['text-dim'] : colors['text-mute'],
+                  color: hit ? colors.legendary : big ? colors.legendary : m >= 1 ? colors['text-dim'] : colors['text-mute'],
                   ...pixelFont(false),
                 }}
               >
                 {formatMultiplier(m)}
               </Text>
-              {/* Not colour alone: a landed slot carries a mark, and two chips
-                  in the same slot say so rather than looking like one. */}
+              {/* Never colour alone: a landed slot carries a mark, and two
+                  chips in the same slot say so rather than looking like one. */}
               <Text allowFontScaling={false} style={{ fontSize: 7, color: colors.legendary, height: 9 }}>
                 {hits > 1 ? `▲${hits}` : hit ? '▲' : ' '}
               </Text>
@@ -210,18 +455,66 @@ export function DropBoard({
   );
 }
 
+/** A peg, with a slow idle pulse offset by its own index so the board breathes
+ *  rather than blinks. */
+function Peg({ left, top, tint, index, reduced }: {
+  left: number; top: number; tint: string; index: number; reduced: boolean;
+}) {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) return;
+    const id = setTimeout(() => {
+      // ONE REPEATING SEQUENCE, NOT A CALLBACK THAT RE-ARMS ITSELF.
+      // Assigning a new animation from inside a `withTiming` completion
+      // callback runs on the UI thread and recurses — with 78 pegs each doing
+      // it, that is "Maximum call stack size exceeded" the moment the board
+      // mounts. It is the same mistake the board recoil made; a completion
+      // callback is not a place to start another animation.
+      pulse.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1600 }),
+          withTiming(0, { duration: 1600 })
+        ),
+        -1,
+        false
+      );
+    }, (index * 137) % 2600);
+    return () => clearTimeout(id);
+  }, [index, pulse, reduced]);
+
+  const style = useAnimatedStyle(() => ({ opacity: 0.55 + pulse.value * 0.35 }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: left - 2,
+          top: top - 2,
+          width: 4,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: tint,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
 function LaneMark({
-  lane, cell, height, colour, testID,
-}: { lane: number; cell: number; height: number; colour: string; testID: string }) {
+  lane, cell, height, colour, testID, charged,
+}: { lane: number; cell: number; height: number; colour: string; testID: string; charged: boolean }) {
   return (
     <View
       testID={testID}
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: (lane + 0.5) * cell - 1,
+        left: (lane + 0.5) * cell - (charged ? 1.5 : 1),
         top: 0,
-        width: 2,
+        width: charged ? 3 : 2,
         height,
         backgroundColor: colour,
       }}
@@ -230,111 +523,76 @@ function LaneMark({
 }
 
 /**
- * ONE FALLING CHIP.
- *
- * Its own component so its own rAF loop and shared values mount and unmount
- * with it. Five of these run independently; none of them knows the others
- * exist, which is exactly why a result arriving out of order changes nothing.
+ * ONE PUCK SLOT. It renders whatever runner currently owns its index, driven
+ * entirely by shared values — so it never re-renders during a fall.
  */
 function Puck({
-  puck,
-  cell,
-  rows,
-  boardHeight,
-  onSettled,
+  x, y, opacity, glow, squash, cell, rows, boardHeight, gold, tint, stake,
 }: {
-  puck: BoardPuck;
-  cell: number;
-  rows: number;
-  boardHeight: number;
-  onSettled: (key: string) => void;
+  x: ReturnType<typeof useSharedValue<number>>;
+  y: ReturnType<typeof useSharedValue<number>>;
+  opacity: ReturnType<typeof useSharedValue<number>>;
+  glow: ReturnType<typeof useSharedValue<number>>;
+  squash: ReturnType<typeof useSharedValue<number>>;
+  cell: number; rows: number; boardHeight: number; gold: string; tint: string; stake: number;
 }) {
-  const colors = useThemeColors();
-  const reduced = useReducedMotion();
-  const perfMode = useSettingsStore((s) => s.perfMode);
-  const calm = reduced || perfMode;
-
-  const px = useSharedValue(0);
-  const py = useSharedValue(0);
-  const opacity = useSharedValue(0);
-  const raf = useRef<number | null>(null);
-  const done = useRef(false);
-
-  useEffect(() => {
-    if (cell <= 0) return;
-    done.current = false;
-    const traj = buildTrajectory(puck.columns);
-
-    const finish = () => {
-      if (done.current) return;
-      done.current = true;
-      onSettled(puck.key);
-    };
-
-    // REDUCED MOTION: the puck is placed where it landed, at once. Same result,
-    // same announcement, no fall.
-    if (calm) {
-      px.value = (traj.slot + 0.5) * cell;
-      py.value = boardHeight - cell * 0.75;
-      opacity.value = withTiming(1, { duration: 120 });
-      const t = setTimeout(finish, 160);
-      return () => clearTimeout(t);
-    }
-
-    opacity.value = 1;
-    const started = Date.now();
-    const tick = () => {
-      const t = (Date.now() - started) / 1000;
-      const p = puckAt(traj, t);
-      px.value = (p.x + 0.5) * cell;
-      py.value = (p.y / (rows + 1.6)) * boardHeight;
-      if (t >= traj.duration) {
-        finish();
-        return;
-      }
-      raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => {
-      if (raf.current !== null) cancelAnimationFrame(raf.current);
-      raf.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puck.key, cell, boardHeight, calm]);
-
+  const size = cell * 0.6;
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateX: px.value - cell * 0.3 }, { translateY: py.value - cell * 0.3 }],
+    transform: [
+      { translateX: x.value * cell - size / 2 },
+      { translateY: (y.value / (rows + 1.6)) * boardHeight - size / 2 },
+      // Squash on impact, stretch between pegs — the cheapest possible way to
+      // read as a physical object rather than a moving dot.
+      { scaleX: 1 + squash.value * 0.18 },
+      { scaleY: 1 - squash.value * 0.18 },
+    ],
+  }));
+  const trail = useAnimatedStyle(() => ({
+    opacity: opacity.value * (0.12 + glow.value * 0.4),
+    transform: [
+      { translateX: x.value * cell - size * 0.55 },
+      { translateY: (y.value / (rows + 1.6)) * boardHeight - size * 1.5 },
+      { scaleY: 1 + glow.value * 1.4 },
+    ],
   }));
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      testID={`drop-puck-${puck.key}`}
-      style={[
-        {
-          position: 'absolute',
-          width: cell * 0.6,
-          height: cell * 0.6,
-          borderRadius: cell * 0.3,
-          backgroundColor: colors.legendary,
-          alignItems: 'center',
-          justifyContent: 'center',
-          // The resting value lives in the STATIC style: a Reanimated style
-          // applies on the worklet's first evaluation, not the first paint.
-          opacity: 0,
-        },
-        style,
-      ]}
-    >
-      {/* Its stake, so three chips in the air are three distinguishable chips
-          rather than three identical dots. */}
-      <Text
-        allowFontScaling={false}
-        style={{ fontSize: Math.max(6, cell * 0.26), color: '#04070e', ...pixelFont() }}
+    <>
+      {/* The trail sits UNDER the puck and lengthens as it falls — the
+          suspense ramp, drawn. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', left: 0, top: 0, width: size * 1.1, height: size * 1.6, borderRadius: size, backgroundColor: gold, opacity: 0 },
+          trail,
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        testID="drop-puck"
+        style={[
+          {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: gold,
+            borderWidth: 1,
+            borderColor: tint,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0,
+          },
+          style,
+        ]}
       >
-        {puck.stake}
-      </Text>
-    </Animated.View>
+        <Text allowFontScaling={false} style={{ fontSize: Math.max(6, cell * 0.26), color: '#04070e', ...pixelFont() }}>
+          {stake}
+        </Text>
+      </Animated.View>
+    </>
   );
 }

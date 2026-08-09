@@ -261,10 +261,14 @@ const dropsBefore = Number((await sql(
   `select count(*)::int n from public.forge_drops where user_id='${ALPHA}';`))[0].n);
 await (await visible(page, 'drop-play')).click();
 
-const resultCard = await waitFor(page, 'drop-result-rail', 20000);
-ok('a result appears in the rail', resultCard !== null);
-// The rail must not cover the board — the whole point of a rail is that a
-// second chip can be thrown while the first one's result is on screen.
+const resultCard = await waitFor(page, 'drop-result', 20000);
+ok('a result card appears', resultCard !== null);
+ok('and it leads with the multiplier, not a row of equal numbers',
+   await seen(page, 'drop-result-headline'));
+ok('with the coins that came back', await seen(page, 'drop-result-payout'));
+ok('and an immediate way to go again', await seen(page, 'drop-again'));
+// The result must not cover the board — the whole point of a card rather than
+// a modal is that a second chip can be thrown while the first result is up.
 ok('the board is still visible with a result showing', await seen(page, 'drop-board'));
 ok('and the rack is still there to throw another', await seen(page, 'chip-rack'));
 await shot(page, '5-result');
@@ -275,10 +279,12 @@ ok('exactly one drop was recorded', Number((await sql(
 ok('the stake was the one chosen', Number(row.stake) === 15, `staked ${row.stake}`);
 ok('the ledger moved by exactly the net', (await bal()) === before + Number(row.net),
    `${before} → ${await bal()} (net ${row.net})`);
-const railText = (await (await visible(page, 'drop-result-rail')).innerText()).trim();
-ok('the rail shows the same net as the ledger',
-   railText.includes(Number(row.net) > 0 ? `+${row.net}` : String(row.net)),
-   `${railText.replace(/\s+/g, ' ').slice(0, 60)} vs ${row.net}`);
+const cardText = (await (await visible(page, 'drop-result')).innerText()).trim();
+ok('the card shows the same net as the ledger',
+   cardText.includes(Number(row.net) > 0 ? `+${row.net}` : String(row.net)),
+   `${cardText.replace(/\s+/g, ' ').slice(0, 70)} vs ${row.net}`);
+ok('and the same payout the server paid',
+   cardText.includes(`${row.payout} BACK`), `expected ${row.payout} BACK`);
 const summary = (await (await visible(page, 'drop-session-summary')).innerText()).trim();
 ok('and the session summary counts it', /1 drops/.test(summary), summary.replace(/\s+/g, ' '));
 const shownBal = await visible(page, 'drop-balance');
@@ -384,7 +390,12 @@ console.log(`
   ok('the ledger moved by the sum of all three nets, and nothing else',
      (await bal()) === startBal + netSum, `${startBal} → ${await bal()} (net ${netSum})`);
 
-  // Every result is on screen, and the rail did not swallow any of them.
+  // Session history is collapsed by default now — the loop is board, chip,
+  // result, and a growing list between them pushes the rack under the fold.
+  // Open it and check nothing was swallowed.
+  const histToggle = await visible(page, 'drop-history-toggle');
+  if (histToggle) { await histToggle.click(); await page.waitForTimeout(500); }
+  ok('the session history opens on request', await seen(page, 'drop-result-rail'));
   const rail = (await (await visible(page, 'drop-result-rail')).innerText()).trim();
   ok('all three results are in the rail',
      rail.split(String.fromCharCode(10)).filter((l) => l.trim()).length >= thrown.length,
@@ -480,7 +491,7 @@ console.log('\n8. REDUCED MOTION resolves quickly, and resolves the same');
   await (await visible(p3, 'chip-1')).click();
   const t0 = Date.now();
   await (await visible(p3, 'drop-play')).click();
-  const res = await waitFor(p3, 'drop-result-rail', 20000);
+  const res = await waitFor(p3, 'drop-result', 20000);
   // The rail shows a chip the moment it is thrown, so it is NOT the signal that
   // the drop resolved. Wait for the announcement, which only exists once the
   // athlete has actually been told.

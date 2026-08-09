@@ -23,7 +23,7 @@ import {
 } from '@/domain/forge-drop-session';
 import { useSettingsStore } from '@/state/settings-store';
 import { useThemeColors } from '@/theme/use-theme';
-import { playSelect } from '@/ui/core/sound';
+import { playChipReady } from './drop-audio';
 import { ForgeChip } from '@/ui/duel/forge-chip';
 import { chipImpactHaptic } from '@/ui/duel/physics/chip-haptics';
 
@@ -263,9 +263,12 @@ function RackChip({
     transform: [
       { translateX: tx.value },
       { translateY: ty.value },
-      { scale: 1 + lifted.value * 0.12 },
+      // Armed chips sit slightly proud of the rack even before they are
+      // touched, so "which one am I about to throw" is answered at a glance
+      // rather than by reading a ring.
+      { scale: (selected ? 1.1 : 1) + lifted.value * 0.12 },
     ],
-    zIndex: lifted.value > 0 ? 40 : 1,
+    zIndex: lifted.value > 0 ? 40 : selected ? 20 : 1,
   }));
 
   const label = enabled
@@ -280,7 +283,7 @@ function RackChip({
           onPress={() => {
             if (!enabled) return;
             onSelect(offer.value);
-            playSelect();
+            playChipReady();
           }}
           disabled={!enabled}
           accessibilityRole="button"
@@ -294,7 +297,10 @@ function RackChip({
             borderWidth: 1,
             // Selection is a ring AND a tick below — never colour alone.
             borderColor: selected ? colors.accent : 'transparent',
-            backgroundColor: selected ? 'rgba(34,211,238,0.10)' : 'transparent',
+            backgroundColor: selected ? 'rgba(34,211,238,0.12)' : 'transparent',
+            shadowColor: colors.accent,
+            shadowOpacity: selected ? 0.55 : 0,
+            shadowRadius: selected ? 10 : 0,
             opacity: pressed && enabled ? 0.85 : 1,
           })}
         >
@@ -309,12 +315,12 @@ function RackChip({
             numberOfLines={1}
             style={{
               marginTop: 1,
-              fontSize: 7,
-              letterSpacing: 0.6,
+              fontSize: selected ? 6 : 7,
+              letterSpacing: selected ? 0.2 : 0.6,
               color: selected ? colors.accent : colors['text-mute'],
             }}
           >
-            {dragging ? 'AIM' : selected ? '● SET' : enabled ? ' ' : 'LOCKED'}
+            {dragging ? 'AIM' : selected ? 'FLICK TO LAUNCH' : enabled ? ' ' : 'LOCKED'}
           </Text>
         </Pressable>
       </Animated.View>

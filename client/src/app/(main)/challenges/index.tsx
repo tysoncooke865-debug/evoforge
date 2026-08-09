@@ -118,6 +118,35 @@ export default function ChallengesScreen() {
           duel. It renders nothing at all when the athlete has none. */}
       <CalloutList />
 
+      {/* FORGE DROP.
+          Challenges is where an athlete comes to spend coins competitively, so
+          it is the one place the solo board belongs beside the social ones —
+          and the only board here that needs no friend, no acceptance and no
+          waiting. Placed BELOW the call-outs and the at-risk line on purpose:
+          a wager somebody is waiting on always outranks one nobody is. */}
+      <Pressable
+        onPress={() => router.push('/forge-drop' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Open Forge Drop, the solo coin board"
+        testID="challenges-forge-drop-cta"
+        className="flex-row items-center justify-between rounded-lg border p-s3"
+        style={{ borderColor: `${colors.legendary}4d`, backgroundColor: 'rgba(251,191,36,0.05)' }}
+      >
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            allowFontScaling={false}
+            style={{ fontSize: 12, color: colors.legendary, ...pixelFont() }}
+          >
+            FORGE DROP →
+          </Text>
+          <Text className="mt-s1 text-2xs text-text-mute">
+            No opponent, no waiting. Flick a chip at the board your Evo Rating unlocks — the exact
+            odds are shown before you commit.
+          </Text>
+        </View>
+        <Text allowFontScaling={false} style={{ fontSize: 18, color: colors.legendary }}>◎</Text>
+      </Pressable>
+
       {potAtRisk > 0 ? (
         <Text className="text-2xs text-text-mute" testID="challenges-at-risk">
           {formatCoins(potAtRisk)} of your coins are in escrow across {active.length}{' '}

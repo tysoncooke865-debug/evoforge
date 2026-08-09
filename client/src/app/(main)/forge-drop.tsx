@@ -6,6 +6,7 @@ import { track } from '@/data/analytics';
 import { useMyDropTier } from '@/data/forge-drop';
 import { useDropSession } from '@/data/forge-drop-session';
 import { columnsFor, formatMultiplier, type DropTier } from '@/domain/forge-drop';
+import { celebrationFor, outcomeTier } from '@/domain/forge-drop-feel';
 import {
   chipOffers,
   dropCapacity,
@@ -23,6 +24,8 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { ChipRack } from '@/ui/forge-drop/chip-rack';
 import { DropBoard, type BoardPuck } from '@/ui/forge-drop/drop-board';
 import { PayoutTable, laneName } from '@/ui/forge-drop/payout-table';
+import { DropResultCard, JackpotMoment } from '@/ui/forge-drop/result-card';
+import { playDropOutcome, resetDropAudio } from '@/ui/forge-drop/drop-audio';
 
 /**
  * FORGE DROP.
@@ -68,6 +71,10 @@ export default function ForgeDropScreen() {
   const [preview, setPreview] = useState<LaneChoice | null>(null);
   const [announce, setAnnounce] = useState('');
   const [showOdds, setShowOdds] = useState(false);
+  const [jackpot, setJackpot] = useState<{ multiplier: number; payout: number } | null>(null);
+  // History is secondary on a phone: the loop is board -> chip -> result, and
+  // a growing list between them pushes the rack under the fold.
+  const [showHistory, setShowHistory] = useState(false);
 
   const lane = laneFor(laneChoice, tier);
   const offers = chipOffers(tier, balance, capacity);
@@ -81,7 +88,10 @@ export default function ForgeDropScreen() {
     return offers.find((o) => o.enabled)?.value ?? null;
   }, [chip, offers]);
 
-  useEffect(() => { track('forge_drop_opened', {}); }, []);
+  useEffect(() => {
+    track('forge_drop_opened', {});
+    return resetDropAudio;
+  }, []);
   const seenTier = useRef<number | null>(null);
   useEffect(() => {
     if (!ready || seenTier.current === tier.tier) return;
@@ -149,8 +159,20 @@ export default function ForgeDropScreen() {
   const onSettled = (key: string) => {
     const d = drops.find((x) => x.key === key);
     reveal(key);
-    if (d) setAnnounce(describe(d, tier, balance.available));
+    if (!d) return;
+    setAnnounce(describe(d, tier, balance.available));
+    // Graded from the ledger, once, here — so the sound, the card and the
+    // ceiling moment can never disagree about how big this was.
+    const grade = outcomeTier(d.stake, d.payout ?? 0, d.multiplier ?? 1, tier);
+    playDropOutcome(grade);
+    if (celebrationFor(grade).dim) {
+      setJackpot({ multiplier: d.multiplier ?? 1, payout: d.payout ?? 0 });
+    }
   };
+
+  // The most recent chip the athlete has actually been shown. The hero card is
+  // about THAT drop, not about whatever is still in the air.
+  const latest = [...drops].reverse().find((d) => d.phase === 'revealed') ?? null;
 
   const canDrop = selected !== null && !blocker;
 
@@ -225,6 +247,7 @@ export default function ForgeDropScreen() {
             tier={tier}
             lane={lane}
             previewLane={preview ? laneFor(preview, tier) : null}
+            charged={selected !== null}
             pucks={pucks}
             highlights={highlights}
             onSettled={onSettled}
@@ -323,20 +346,6 @@ export default function ForgeDropScreen() {
           />
         </View>
 
-        {/* DROP AGAIN repeats what is already selected. It never fires by
-            itself, and it is here — under the thumb — rather than inside a
-            result card that would have to be dismissed first. */}
-        {summary.drops > 0 ? (
-          <View className="mt-s2">
-            <NeonButton
-              title="DROP AGAIN"
-              variant="ghost"
-              disabled={!canDrop}
-              onPress={() => { if (selected !== null) void throwChip(selected, laneChoice); }}
-              testID="drop-again"
-            />
-          </View>
-        ) : null}
 
         {balance.available < tier.min_stake && balance.activeCount === 0 ? (
           <View className="mt-s2" testID="drop-cannot-afford">
@@ -356,33 +365,48 @@ export default function ForgeDropScreen() {
         ) : null}
       </GlowCard>
 
-      {/* ── THE RESULT RAIL. Compact, never over the board: a modal result
-             would make a second chip impossible.
+      {/* ── THE RESULT. One hero card for the drop just shown, then the
+             session behind a toggle. The old version led with a rail of
+             equal-weight rows and made the athlete work out which line was
+             the answer to what they had just done. ── */}
+      {latest ? (
+        <DropResultCard
+          drop={latest}
+          tier={tier}
+          balance={balance.available}
+          canAgain={canDrop}
+          onAgain={() => { if (selected !== null) void throwChip(selected, laneChoice); }}
+        />
+      ) : null}
 
-             BELOW the rack on purpose. It grows as the session goes on, and
-             above the rack it pushed the chips further from the board with
-             every drop — until choosing a chip meant scrolling away from the
-             thing you were aiming at. The board and the chips stay together;
-             the history moves. ── */}
       {rail.length > 0 ? (
         <GlowCard>
-          <View className="flex-row items-center justify-between">
-            <Text allowFontScaling={false} className="text-text-mute" style={{ fontSize: 8, letterSpacing: 1.6 }}>
-              THIS SESSION
+          <Pressable
+            onPress={() => setShowHistory((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showHistory }}
+            accessibilityLabel={showHistory ? 'Hide this session' : 'Show every drop this session'}
+            testID="drop-history-toggle"
+            className="flex-row items-center justify-between"
+            style={{ minHeight: 40 }}
+          >
+            <Text allowFontScaling={false} className="text-2xs font-bold" style={{ color: colors.accent }}>
+              {showHistory ? '▾ THIS SESSION' : '▸ THIS SESSION'}
             </Text>
             <Text allowFontScaling={false} className="text-2xs text-text-mute" testID="drop-session-summary">
-              {summary.drops} drops · staked {summary.staked} · back{' '}
-              {summary.returned} ·{' '}
+              {summary.drops} drops · staked {summary.staked} · back {summary.returned} ·{' '}
               <Text style={{ color: summary.net > 0 ? colors.legendary : colors['text-dim'] }}>
                 {summary.net > 0 ? `+${summary.net}` : summary.net}
               </Text>
             </Text>
-          </View>
-          <View className="mt-s1" testID="drop-result-rail">
-            {rail.map((d) => (
-              <RailRow key={d.key} drop={d} tier={tier} />
-            ))}
-          </View>
+          </Pressable>
+          {showHistory ? (
+            <View className="mt-s1" testID="drop-result-rail">
+              {rail.map((d) => (
+                <RailRow key={d.key} drop={d} tier={tier} />
+              ))}
+            </View>
+          ) : null}
         </GlowCard>
       ) : null}
 
@@ -417,6 +441,13 @@ export default function ForgeDropScreen() {
           </Text>
         )}
       </GlowCard>
+      {jackpot ? (
+        <JackpotMoment
+          multiplier={jackpot.multiplier}
+          payout={jackpot.payout}
+          onDone={() => setJackpot(null)}
+        />
+      ) : null}
     </ScreenShell>
   );
 }
