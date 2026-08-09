@@ -101,10 +101,15 @@ describe('the tray never offers what the server will refuse (trialCeiling)', () 
   });
 
   it('blocks outright on zero, and carries the reason', () => {
+    // 178 removed the miss rule, so a rest day is now the live example of a hard
+    // zero. The BEHAVIOUR under test is unchanged: 0 blocks and the server's own
+    // sentence is what gets shown.
     const c = trialCeiling(400, allowance({
-      max_stake: 0, reason: 'missed_today', message: 'The forge takes its due — back tomorrow.',
+      max_stake: 0, reason: 'rest_day', message: 'Today is a rest day. Rest is part of the plan.',
     }));
-    expect(c).toEqual({ max: 0, blocked: true, note: 'The forge takes its due — back tomorrow.' });
+    expect(c).toEqual({
+      max: 0, blocked: true, note: 'Today is a rest day. Rest is part of the plan.',
+    });
   });
 
   it('can only ever narrow — an allowance cannot raise the wallet ceiling', () => {
