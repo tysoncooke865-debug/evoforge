@@ -175,7 +175,7 @@ export default function NewChallengeScreen() {
       </View>
 
       {/* ── 4 ── THE TABLE. */}
-      <SectionLabel>4 · PUSH YOUR CHIPS IN</SectionLabel>
+      <SectionLabel>4 · SET THE PLEDGE</SectionLabel>
       <GlowCard testID="challenge-stake-table" padding={16}>
         <ChipWagerTable
           value={stake}
@@ -183,7 +183,7 @@ export default function NewChallengeScreen() {
           balance={balance}
           min={cfg.min_stake}
           max={maxStake}
-          potLabel="POT IF THEY ACCEPT"
+          potLabel="POOL IF THEY ACCEPT"
           testID="new-duel-table"
         />
         <Text className="mt-s2 text-2xs text-text-mute">

@@ -35,6 +35,13 @@ const BANNED = [
   ['gamble', '—'], ['gambling', '—'], ['jackpot', '—'], ['spin', '—'], ['roll', '—'],
   ['casino', '—'], ['house', '—'], ['payout', 'settlement'], ['cash out', '—'],
   ['cashout', '—'], ['double down', '—'], ['all-in', '—'], ['near miss', '—'],
+  // Added 2026-08-09 (Tyson: "it still references chips a lot"). Neither is on
+  // §10's original list, and neither decides classification — a pledge is
+  // skill-resolved and coins cannot be bought, which is what keeps it out of R18+.
+  // They are here for the SCREENSHOT TEST, which bans "poker-pot" imagery by name,
+  // and because the objects on that table have been forge materials since the ingot
+  // art landed while the words stayed in a card room.
+  ['chip', 'ingot'], ['pot', 'pool'],
 ];
 /** Innocent English that contains a banned word. Matched case-insensitively as
  *  whole words and removed before the ban patterns run. */
@@ -54,6 +61,10 @@ const INNOCENT = new RegExp(
  * worse to no compliance end. Each entry needs a reason.
  */
 const ALLOWED = new Map([
+  ['chips (fries)', 'a FOOD in the meal scanner match table, not a card room'],
+  ['muscle-chip-${muscle ?? p}', 'a testID prefix for a muscle pill, never rendered as words'],
+  ['These chips filter by category — Milestones, Consistency, Strength, Physique, Volume, Cardio and Rank — and each shows how many you have earned.',
+   'UI pills on the awards screen, not the card-room sense — nothing is staked on them'],
   ['Ride or spin', 'cardio activity: a spin class, not a reel'],
 ]);
 
@@ -230,9 +241,17 @@ function proseOn(line, isSql) {
   return out;
 }
 
+/**
+ * PLURALS COUNT, and they did not until 2026-08-09.
+ *
+ * The pattern was `\bstake\b`, so `'Stakes refunded'` — live in the duel
+ * notification tray — never matched: the trailing `s` defeats the word boundary.
+ * Every banned word had the same hole, so wagers, payouts, jackpots and chips all
+ * passed. The sweep had been reporting clean over plural copy since it was written.
+ */
 const patterns = BANNED.map(([w, use]) => ({
   word: w, use,
-  re: new RegExp(`\\b${w.replace(/[-\s]/g, '[-\\s]')}\\b`, 'i'),
+  re: new RegExp(`\\b${w.replace(/[-\s]/g, '[-\\s]')}(?:s|es)?\\b`, 'i'),
 }));
 
 const hits = [];

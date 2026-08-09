@@ -103,7 +103,7 @@ function Row({ callout }: { callout: CalloutRow }) {
       ) : null}
       {disputed ? (
         <Text className="text-2xs text-text-mute">
-          Frozen. Nobody is paid until you both call it off, or it times out and both stakes return.
+          Frozen. Nobody is paid until you both call it off, or it times out and both pledges return.
         </Text>
       ) : null}
 

@@ -84,7 +84,7 @@ export function RivalryCard({
           </View>
           <View className="mt-s3 flex-row flex-wrap" style={{ columnGap: 20, rowGap: 10 }}>
             <Stat label="DUELS" value={String(rivalry.total)} />
-            <Stat label="BIGGEST POT" value={formatCoins(rivalry.biggest_pot)} tint={colors.legendary} />
+            <Stat label="BIGGEST POOL" value={formatCoins(rivalry.biggest_pot)} tint={colors.legendary} />
             <Stat
               label="NET COINS"
               value={`${rivalry.net_coins >= 0 ? '+' : ''}${formatCoins(rivalry.net_coins)}`}

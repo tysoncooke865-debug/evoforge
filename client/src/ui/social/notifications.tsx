@@ -29,7 +29,7 @@ const VERB: Record<NotificationRow['type'], string> = {
   duel_invite: 'challenged you to a Forge Duel',
   duel_accepted: 'accepted your Forge Duel',
   duel_declined: 'declined your Forge Duel',
-  duel_raise: 'wants to raise the stakes',
+  duel_raise: 'wants to raise the pledge',
   duel_raise_accepted: 'accepted your raise',
   duel_raise_declined: 'declined your raise',
   duel_lead_change: 'took the lead in your duel',
@@ -65,15 +65,15 @@ function duelText(n: NotificationRow): string {
   const d = n.detail ?? {};
   switch (n.type) {
     case 'duel_accepted':
-      return d.pot ? `accepted your duel — ${d.pot} in the pot` : VERB.duel_accepted;
+      return d.pot ? `accepted your duel — ${d.pot} in the pool` : VERB.duel_accepted;
     case 'duel_raise':
       return d.kind === 'all_in'
         ? `is at MAX PLEDGE — ${d.amount} each, pool ${d.pot ?? '?'}`
         : d.pot
-          ? `wants to raise the pot to ${d.pot}`
+          ? `wants to raise the pool to ${d.pot}`
           : VERB.duel_raise;
     case 'duel_raise_accepted':
-      return d.pot ? `matched your raise — pot is now ${d.pot}` : VERB.duel_raise_accepted;
+      return d.pot ? `matched your raise — pool is now ${d.pot}` : VERB.duel_raise_accepted;
     case 'duel_lead_change':
       return d.lost_lead ? 'just took the lead in your duel' : VERB.duel_lead_change;
     case 'duel_support':
@@ -81,7 +81,15 @@ function duelText(n: NotificationRow): string {
     case 'duel_ending':
       return '— your duel ends within the day';
     case 'duel_settled':
-      if (d.outcome === 'draw') return `— your duel drew. ${d.pot ? `${d.pot / 2} refunded` : 'Stakes refunded'}`;
+      if (d.outcome === 'draw') {
+        // Unnested on purpose. A template literal inside a `${}` defeats the
+        // vocabulary sweep's tokenizer: it reads the inner backtick as the end of
+        // the outer string, so the interpolation is never stripped and `d.pot`
+        // gets reported as the word "pot". The sweep is right to be simple here —
+        // the cheaper fix is to not nest.
+        const half = d.pot ? `${d.pot / 2} refunded` : 'Pledges refunded';
+        return `— your duel drew. ${half}`;
+      }
       return d.won ? `— you won ${d.pot ?? ''} coins` : '— your duel has settled';
     default:
       return VERB[n.type];
@@ -104,17 +112,17 @@ function calloutText(n: NotificationRow): string {
         ? `called ${what} — ${d.amount} on themselves`
         : VERB.callout_offered;
     case 'callout_accepted':
-      return d.pot ? `doubted your call — ${d.pot} in the pot` : VERB.callout_accepted;
+      return d.pot ? `doubted your call — ${d.pot} in the pool` : VERB.callout_accepted;
     case 'callout_logged':
       return d.reps != null
         ? `logged ${d.reps} — verify when you can`
         : VERB.callout_logged;
     case 'callout_verified':
       return d.outcome === 'disputed'
-        ? 'did not see your set — the pot is frozen'
+        ? 'did not see your set — the pool is frozen'
         : VERB.callout_verified;
     case 'callout_settled':
-      if (d.outcome === 'called_off') return '— your call out was called off, stakes returned';
+      if (d.outcome === 'called_off') return '— your call out was called off, pledges returned';
       if (d.outcome === 'hit') return d.amount ? `— you hit it. +${d.amount}` : '— you hit it';
       if (d.outcome === 'miss') return '— you missed that one';
       return VERB.callout_settled;

@@ -69,7 +69,7 @@ export function RaiseSheet({
               allowFontScaling={false}
               style={{ fontSize: 20, color: colors.legendary, letterSpacing: 1, ...pixelFont() }}
             >
-              RAISE THE STAKES
+              RAISE THE PLEDGE
             </Text>
             <Text className="mt-s1 text-2xs text-text-dim">
               You both add the same amount. Nothing moves until they accept.
@@ -82,18 +82,18 @@ export function RaiseSheet({
                 balance={balance}
                 min={Math.min(config.min_stake, max)}
                 max={max}
-                potLabel="PROPOSED NEW POT"
+                potLabel="PROPOSED NEW POOL"
                 potOf={(v) => currentPot + v * 2}
                 testID="raise-table"
               />
             </View>
 
             <View className="mt-s3 rounded-lg border p-s3" style={{ borderColor: colors.border }}>
-              <Row k="CURRENT POT" v={formatCoins(currentPot)} />
+              <Row k="CURRENT POOL" v={formatCoins(currentPot)} />
               <Row k="YOU EACH HAVE IN" v={formatCoins(perAthlete)} />
               <Row k="YOUR ADDITIONAL PLEDGE" v={`+${formatCoins(amount)}`} tint={colors.accent} />
               <Row k="THEY MUST MATCH" v={`+${formatCoins(amount)}`} />
-              <Row k="NEW POT" v={formatCoins(currentPot + amount * 2)} tint={colors.legendary} />
+              <Row k="NEW POOL" v={formatCoins(currentPot + amount * 2)} tint={colors.legendary} />
             </View>
 
             <View className="mt-s3">
@@ -193,7 +193,7 @@ export function AllInSheet({
 
           <View className="mt-s3 rounded-lg border p-s3" style={{ borderColor: colors.border }}>
             <Row k="THEY MUST MATCH" v={formatCoins(balance)} />
-            <Row k="NEW POT" v={formatCoins(newPot)} tint={colors.legendary} />
+            <Row k="NEW POOL" v={formatCoins(newPot)} tint={colors.legendary} />
             <Row k="IF YOU LOSE" v={`−${formatCoins(balance)} coins`} />
             <Row k="XP · EVO · FORGE LEVEL" v="Untouched" tint={colors.success} />
           </View>
@@ -286,7 +286,7 @@ export function IncomingOfferCard({
           value={formatCoins(offer.amount)}
           tint={colors.text}
         />
-        <Figure label="NEW POT" value={formatCoins(offer.pot_if_accepted)} tint={colors.legendary} />
+        <Figure label="NEW POOL" value={formatCoins(offer.pot_if_accepted)} tint={colors.legendary} />
         <Figure label="EXPIRES IN" value={countdown(Date.parse(offer.expires_at) - nowMs)} tint={colors['text-dim']} />
       </View>
 
@@ -436,7 +436,7 @@ export function RaiseButton({
   return (
     <View testID={testID}>
       <NeonButton
-        title={unlocked ? 'RAISE THE STAKES' : 'RAISE LOCKED'}
+        title={unlocked ? 'RAISE THE PLEDGE' : 'RAISE LOCKED'}
         pixel
         disabled={!unlocked}
         onPress={onPress}

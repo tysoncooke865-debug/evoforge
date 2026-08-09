@@ -300,7 +300,7 @@ export function ChipWagerTable({
           allowFontScaling={false}
           style={{ fontSize: 9, letterSpacing: 1.6, ...pixelFont(false) }}
         >
-          {locked ? 'POT LOCKED' : potLabel}
+          {locked ? 'POOL LOCKED' : potLabel}
         </Text>
         <View style={{ position: 'relative' }}>
           <Animated.View
@@ -400,10 +400,10 @@ export function ChipWagerTable({
         numberOfLines={compact ? 1 : undefined}
       >
         {locked
-          ? 'The pot is locked. Nothing else goes in.'
+          ? 'The pool is locked. Nothing else goes in.'
           : compact
-            ? 'Tap a chip · or flick it at the table'
-            : 'Tap a chip · hold to build a stack · flick it at the table · drag a chip out to take it back'}
+            ? 'Tap an ingot · or flick it onto the table'
+            : 'Tap an ingot · hold to build a stack · flick it onto the table · drag one out to take it back'}
       </Text>
       {/* WHAT THE SENSOR IS ACTUALLY DOING, in one line. Not decoration: tilt
           has four ways to be unavailable (no sensor, permission not asked,
@@ -419,7 +419,7 @@ export function ChipWagerTable({
           {table.motion === 'on'
             ? calm
               ? 'TILT ON · gentle, because your device asks for reduced motion'
-              : 'TILT ON · lean the phone and the chips slide'
+              : 'TILT ON · lean the phone and the ingots slide'
             : table.motion === 'prompt'
               ? 'TILT NEEDS PERMISSION · tap ENABLE TILT'
               : table.motion === 'denied'
@@ -472,12 +472,12 @@ export function ChipWagerTable({
         <Pressable
           onPress={() => setTo(0)}
           accessibilityRole="button"
-          accessibilityLabel="Take back every chip"
+          accessibilityLabel="Take back every ingot"
           testID="wager-take-back"
           style={{ minHeight: 44, justifyContent: 'center' }}
         >
           <Text className="text-2xs" style={{ color: colors['text-dim'] }}>
-            Take the chips back ›
+            Take the ingots back ›
           </Text>
         </Pressable>
       ) : null}

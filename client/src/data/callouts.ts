@@ -392,8 +392,8 @@ export function useCallOffCallout() {
       refreshCallouts(queryClient, userId);
       useToastStore.getState().push(
         result.awaiting_other_side
-          ? { kind: 'info', title: 'ASKED TO CALL IT OFF', subtitle: 'They have to agree — the pot stays put until then.' }
-          : { kind: 'info', title: 'CALLED OFF', subtitle: 'Both stakes returned.' }
+          ? { kind: 'info', title: 'ASKED TO CALL IT OFF', subtitle: 'They have to agree — the pool stays put until then.' }
+          : { kind: 'info', title: 'CALLED OFF', subtitle: 'Both pledges returned.' }
       );
     },
     onError: (e: Error) => {
@@ -455,7 +455,7 @@ export function useCalloutSweep() {
       if (result.refunded > 0 || result.repaired > 0) {
         useToastStore.getState().push({
           kind: 'info',
-          title: 'STAKES RETURNED',
+          title: 'PLEDGES RETURNED',
           subtitle: 'A call out ran out of time. Nobody won it.',
         });
       }

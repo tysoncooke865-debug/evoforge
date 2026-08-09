@@ -564,7 +564,7 @@ export function CalloutTray({
                         ? 'NOT TODAY'
                         : stake > 0
                           ? `PLEDGE ${stake} ON THIS SET`
-                          : 'PICK A CHIP'
+                          : 'PICK AN INGOT'
                   }
                   size="hero"
                   pixel

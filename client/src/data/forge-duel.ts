@@ -237,7 +237,7 @@ export function useRespondOffer() {
       });
       useToastStore.getState().push(
         input.accept
-          ? { kind: 'achievement', title: 'POT RAISED', subtitle: `${r.pot ?? 0} coins on the line.` }
+          ? { kind: 'achievement', title: 'POOL RAISED', subtitle: `${r.pot ?? 0} coins on the line.` }
           : { kind: 'info', title: 'RAISE DECLINED', subtitle: 'The duel carries on unchanged.' }
       );
     },

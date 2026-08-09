@@ -58,7 +58,7 @@ export function CalloutBadge({ callout, unit }: { callout: CalloutRow; unit?: st
           ? `OFFERED · ${other}`
           : awaiting
             ? `AWAITING ${other}`
-            : `POT · ${callout.target_label}`}
+            : `POOL · ${callout.target_label}`}
       </Text>
 
       {/* THE UNDO IS PERSISTENT, NOT A FIVE-SECOND WINDOW.

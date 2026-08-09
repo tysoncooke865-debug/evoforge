@@ -249,7 +249,7 @@ export default function ArenaScreen() {
           tint={colors.accent}
           title="TRAINING"
           note="Test moves without affecting your record."
-          tag="NO STAKES"
+          tag="NO PLEDGE"
           onPress={() => router.push('/battle?mode=training' as never)}
           testID="mode-training"
         />

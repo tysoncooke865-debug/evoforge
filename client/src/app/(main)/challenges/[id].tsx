@@ -292,7 +292,7 @@ function DuelBody({ c, myId, todayIso }: { c: ForgeChallenge; myId: string; toda
         <ForgePot
           pot={result ? settledPot(c) : potOf(c)}
           perAthlete={myEscrow(c, myId)}
-          label={result ? 'FINAL POT' : 'CURRENT POT'}
+          label={result ? 'FINAL POOL' : 'CURRENT POOL'}
           note={
             result
               ? c.outcome === 'draw' ? 'Refunded to both of you' : 'Settled'
@@ -696,7 +696,7 @@ function IncomingInvite({
               balance={balance}
               min={cfg.min_stake}
               max={counterMax}
-              potLabel="POT AT YOUR NUMBER"
+              potLabel="POOL AT YOUR NUMBER"
               testID="invite-counter-table"
             />
           </View>

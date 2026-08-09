@@ -330,7 +330,7 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
   const unit = typeof e.detail.unit === 'string' ? e.detail.unit : '';
   switch (e.kind) {
     case 'created': return `${who} sent the challenge`;
-    case 'accepted': return `Accepted — ${pot ?? 0} in the pot`;
+    case 'accepted': return `Accepted — ${pot ?? 0} in the pool`;
     case 'declined': return `${who} declined`;
     case 'cancelled': return 'Cancelled — every pledge refunded';
     case 'expired': return 'The invite expired';
@@ -339,12 +339,12 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
     case 'counter_stake_accepted': return `Pledge agreed at ${amount}`;
     case 'counter_stake_declined': return `${who} declined the counter`;
     case 'raise_proposed': return `${who} proposed +${amount} each`;
-    case 'raise_accepted': return `Raise accepted — pot ${pot}`;
+    case 'raise_accepted': return `Raise accepted — pool ${pot}`;
     case 'raise_declined': return `${who} declined the raise`;
     case 'raise_withdrawn': return `${who} withdrew the offer`;
     case 'raise_expired': return 'A raise offer expired';
     case 'all_in_proposed': return `${who} went to MAX PLEDGE — ${amount}`;
-    case 'all_in_accepted': return `MAX PLEDGE matched — pot ${pot}`;
+    case 'all_in_accepted': return `MAX PLEDGE matched — pool ${pot}`;
     case 'all_in_declined': return `${who} declined the max pledge`;
     case 'workout_logged':
       return value === null ? `${who} logged a session` : `${who} logged a session — ${value}${unit ? ` ${unit}` : ''}`;
@@ -357,7 +357,7 @@ export function describeEvent(e: DuelEvent, names: { me: string; myId: string })
     case 'settled': {
       const outcome = e.detail.outcome;
       if (outcome === 'draw') return `A draw — ${pot} refunded`;
-      return e.detail.winner_id === names.myId ? `You won ${pot}` : `The pot went to ${pot ? '' : ''}the winner`;
+      return e.detail.winner_id === names.myId ? `You won ${pot}` : `The pool went to ${pot ? '' : ''}the winner`;
     }
     default: return e.kind.replace(/_/g, ' ');
   }

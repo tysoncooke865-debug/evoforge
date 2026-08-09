@@ -159,7 +159,7 @@ export function ChipSurface({
         ))}
         {table.committed.length === 0 ? (
           <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text className="text-2xs text-text-mute">Throw chips in.</Text>
+            <Text className="text-2xs text-text-mute">Throw ingots in.</Text>
           </View>
         ) : null}
       </Animated.View>

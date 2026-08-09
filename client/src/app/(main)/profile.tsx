@@ -147,7 +147,7 @@ export default function ProfileScreen() {
             <View className="flex-1 pr-s3">
               <Text className="text-sm font-bold text-text">Motion physics</Text>
               <Text className="text-2xs text-text-mute">
-                Tilt your phone and the chips on a pledge table slide with it. Switching it on
+                Tilt your phone and the ingots on a pledge table slide with it. Switching it on
                 here asks your phone for motion access once, so a call out never has to. Off
                 here, or
                 with your device&apos;s reduced-motion setting on, gravity just points down.
@@ -883,7 +883,7 @@ function MotionSwitch() {
             useToastStore.getState().push({
               kind: 'info',
               title: 'NO MOTION SENSOR',
-              subtitle: 'This device has none. Chips still fall, they just do not lean.',
+              subtitle: 'This device has none. Ingots still fall, they just do not lean.',
             });
           }
         });

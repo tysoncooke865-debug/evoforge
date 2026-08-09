@@ -30,7 +30,7 @@ const VERB: Record<string, string> = {
   // 24-hour clock is the strongest case in this app for a notification that
   // reaches a closed phone.
   duel_accepted: 'accepted your Forge Duel',
-  duel_raise: 'wants to raise the stakes',
+  duel_raise: 'wants to raise the pledge',
   duel_raise_accepted: 'matched your raise',
   duel_settled: '— your Forge Duel has settled',
 };

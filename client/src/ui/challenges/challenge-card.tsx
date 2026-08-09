@@ -73,7 +73,7 @@ export function ChallengeCard({
       onPress={() => router.push(`/challenges/${c.id}` as never)}
       accessibilityRole="button"
       accessibilityLabel={`${info.name} against ${theirName}. ${
-        needsMe ? 'They want to raise the stakes.' : STATUS_LABEL[c.status]
+        needsMe ? 'They want to raise the pledge.' : STATUS_LABEL[c.status]
       }`}
       testID={testID ?? `challenge-card-${c.id}`}
       className="w-full rounded-xl border p-s3"
@@ -139,7 +139,7 @@ export function ChallengeCard({
           <Text className="text-2xs text-text-mute">
             {c.status === 'pending'
               ? `${formatCoins(c.stake)} each · nothing locked yet`
-              : `POT ${formatCoins(pot)} · ${formatCoins(myEscrow(c, myId))} yours`}
+              : `POOL ${formatCoins(pot)} · ${formatCoins(myEscrow(c, myId))} yours`}
           </Text>
         </View>
         {result ? (

@@ -143,8 +143,8 @@ export default function WatchDuelScreen() {
         <Text className="mt-s3 text-center text-2xs text-text-mute">
           {settled
             ? d.outcome === 'draw'
-              ? 'A draw — both stakes refunded.'
-              : `${d.winner_id === d.challenger_id ? d.challenger_name : d.opponent_name} took the pot.`
+              ? 'A draw — both pledges refunded.'
+              : `${d.winner_id === d.challenger_id ? d.challenger_name : d.opponent_name} took the pool.`
             : leaderName
               ? `${leaderName} is ahead. ${countdown(Date.parse(d.ends_at ?? '') - nowMs)} left.`
               : 'Nothing between them.'}
@@ -154,7 +154,7 @@ export default function WatchDuelScreen() {
       <ForgePot
         pot={d.pot}
         perAthlete={Math.round(d.pot / 2)}
-        label={settled ? 'FINAL POT' : 'CURRENT POT'}
+        label={settled ? 'FINAL POOL' : 'CURRENT POOL'}
         note="Between the two of them"
         testID="watch-pot"
       />

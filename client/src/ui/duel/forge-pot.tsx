@@ -33,7 +33,7 @@ export function ForgePot({
   pot,
   perAthlete,
   note,
-  label = 'CURRENT POT',
+  label = 'CURRENT POOL',
   testID,
 }: {
   pot: number;
