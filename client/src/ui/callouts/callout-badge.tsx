@@ -2,7 +2,9 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useCallOffCallout, useCancelCallout } from '@/data/callouts';
 import { chipPile } from '@/domain/forge-duel';
+import { useState } from 'react';
 import { type CalloutRow } from '@/domain/callouts';
+import { PoolOpenSheet } from './pool-open';
 import { useThemeColors } from '@/theme/use-theme';
 import { ForgeChipStack } from '@/ui/duel/forge-chip';
 
@@ -22,6 +24,7 @@ export function CalloutBadge({ callout, unit }: { callout: CalloutRow; unit?: st
   const colors = useThemeColors();
   const cancel = useCancelCallout();
   const callOff = useCallOffCallout();
+  const [asking, setAsking] = useState(false);
   void unit;
 
   const offered = callout.status === 'offered';
@@ -60,6 +63,40 @@ export function CalloutBadge({ callout, unit }: { callout: CalloutRow; unit?: st
             ? `AWAITING ${other}`
             : `POOL · ${callout.target_label}`}
       </Text>
+
+      {/* ASK FRIENDS (180-185). The athlete's own set only, and only while it is
+          still ahead of them — once it is logged, joining would be backing a
+          result somebody can already read.
+
+          THIS IS THE ONLY WAY AN INVITATION IS EVER ISSUED. There is no browsable
+          list of open pools anywhere, so if this control is absent nobody outside
+          the two principals can put a coin on this set. */}
+      {callout.i_am_athlete && (offered || callout.status === 'accepted') ? (
+        <Pressable
+          onPress={() => setAsking(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Ask friends to take a side on this set"
+          testID={`callout-ask-friends-${callout.set_no}`}
+          style={{ minWidth: 44, minHeight: 32, alignItems: 'flex-end', justifyContent: 'center' }}
+        >
+          <Text allowFontScaling={false} className="text-2xs" style={{ color: colors.accent }}>
+            {(callout.joiners ?? 0) > 0 ? `+${callout.joiners}` : '+'}
+          </Text>
+        </Pressable>
+      ) : null}
+      {asking ? (
+        <PoolOpenSheet
+          calloutId={callout.id}
+          exercise={callout.exercise}
+          targetLabel={callout.target_label}
+          stake={callout.stake}
+          backTotal={callout.back_total ?? callout.stake}
+          pushTotal={callout.push_total ?? callout.stake}
+          joiners={callout.joiners ?? 0}
+          alreadyOpen={callout.mode === 'pot'}
+          onClose={() => setAsking(false)}
+        />
+      ) : null}
 
       {/* THE UNDO IS PERSISTENT, NOT A FIVE-SECOND WINDOW.
           An offer nobody has answered can be withdrawn for as long as it stands,

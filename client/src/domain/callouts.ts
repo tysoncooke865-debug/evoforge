@@ -77,7 +77,13 @@ export interface CalloutRow {
   target_weight_kg: number | null;
   target_label: string;
   stake: number;
+  /** The REAL pool (185): both sides including joiners. `stake * 2` for a duel. */
   pot: number;
+  /** 180: 'duel' is a matched pair; 'pot' means friends may join. */
+  mode?: 'duel' | 'pot';
+  back_total?: number;
+  push_total?: number;
+  joiners?: number;
   status: CalloutStatus;
   result: CalloutResult | null;
   actual_reps: number | null;

@@ -184,8 +184,18 @@ function walk(p, exts, out = []) {
  */
 function proseOn(line, isSql) {
   const out = [];
-  // JSX text between tags: >Some words<
-  for (const m of line.matchAll(/>([^<>{}\n]{2,})</g)) out.push(m[1]);
+  /**
+   * JSX text between tags: >Some words<
+   *
+   * A COMPARISON LOOKS EXACTLY LIKE THIS. `stake >= cfg.min_stake && stake <= max`
+   * has a `>` and a `<` with words in between, so this matcher happily extracted
+   * `= cfg.min_stake && stake` and reported it as banned copy. Prose does not
+   * contain a bare `=`, `&` or `|`; code in this position nearly always does.
+   */
+  for (const m of line.matchAll(/>([^<>{}\n]{2,})</g)) {
+    if (/[=&|;]/.test(m[1])) continue;
+    out.push(m[1]);
+  }
   // quoted literals — single, double, backtick
   for (const m of line.matchAll(/(['"`])((?:\\.|(?!\1)[^\\])*?)\1/g)) {
     const s = m[2];

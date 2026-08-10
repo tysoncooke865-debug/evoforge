@@ -49,6 +49,7 @@ import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
 import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
@@ -384,6 +385,10 @@ export default function HomeScreen() {
       {/* A BANKED REVEAL, SAID ONCE AND QUIETLY (v5 §3). Renders nothing when
           there is nothing banked — no teaser, no "train to earn one", because
           soliciting a chance feature is what the physiotherapist test refuses. */}
+      {/* Both render NOTHING when there is nothing waiting — no empty states,
+          no teasers. A reveal nobody earned and an invitation nobody sent are
+          not news, and manufacturing either would be soliciting (§3). */}
+      <PoolInviteChip />
       <RevealChip />
     <MissionCard
       mission={mission}
