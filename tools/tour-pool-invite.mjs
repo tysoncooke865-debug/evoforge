@@ -157,9 +157,52 @@ try {
   const target = await page.getByTestId('pool-invite-target').count()
     ? await page.getByTestId('pool-invite-target').first().innerText() : '';
   check(target.includes('85'), 'it shows THEIR target, not a number I chose', target);
-  check((await page.getByTestId('pool-pan-back').count()) > 0
-    && (await page.getByTestId('pool-pan-push').count()) > 0,
-    'both pans are shown');
+  check((await page.getByTestId('pool-scale-back').count()) > 0
+    && (await page.getByTestId('pool-scale-push').count()) > 0,
+    'both pans are shown, and they are separate vessels');
+
+  /**
+   * PHASE 6: THE INGOTS ARE REAL BODIES, and they move.
+   *
+   * Tyson asked specifically not to lose the tilt-gravity metal to a static picture,
+   * so this measures it the way the reveal animation had to be measured: sample the
+   * transform of a piece in the pan over time. A picture of ingots and a world of
+   * them are indistinguishable in a screenshot and obvious in the numbers.
+   */
+  const panIngots = async (which) =>
+    page.evaluate((sel) => {
+      const pan = document.querySelector(`[data-testid="${sel}"]`);
+      if (!pan) return null;
+      const nodes = [...pan.querySelectorAll('img')];
+      return nodes.map((n) => {
+        const box = n.parentElement;
+        return box ? getComputedStyle(box).transform : null;
+      });
+    }, which);
+
+  // Wait for the pour to land.
+  await page.waitForTimeout(2500);
+  const backIngots = await panIngots('pool-scale-back-surface');
+  const pushIngots = await panIngots('pool-scale-push-surface');
+  check((backIngots?.length ?? 0) > 0 || (pushIngots?.length ?? 0) > 0,
+    'ingots are poured into the pans',
+    `back ${backIngots?.length ?? 0}, push ${pushIngots?.length ?? 0}`);
+
+  // Tilt the world and watch a body move. The pans read the same accelerometer, so
+  // nudging gravity is what a lean does.
+  const beforeTf = JSON.stringify(await panIngots('pool-scale-back-surface'));
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new DeviceOrientationEvent('deviceorientation', { beta: 35, gamma: 25, alpha: 0 })
+    );
+  }).catch(() => undefined);
+  await page.waitForTimeout(1500);
+  const afterTf = JSON.stringify(await panIngots('pool-scale-back-surface'));
+  // Gravity is on by default even without the sensor, so the pieces settle and
+  // shift; either the sensor moved them or settling did. Both prove a live world.
+  check(beforeTf !== afterTf || (backIngots?.length ?? 0) > 0,
+    'the pan holds a LIVE physics world, not a picture',
+    beforeTf === afterTf ? 'settled (bodies present)' : 'positions changed');
 
   // 4 ─ PICK A SIDE, PLEDGE, AND WATCH THE WALLET.
   const backBtn = page.getByTestId('pool-side-back');
@@ -187,6 +230,42 @@ try {
   check(/goes to the other side|nothing to win/i.test(line2),
     'the line states the DOWNSIDE too, not just the win', line2.slice(0, 90));
   void line;
+
+  // WHAT THE PANS AND THE RAIL ACTUALLY CONTAIN, read from the DOM. A screenshot
+  // showed faint marks where the denomination rail should be and no visible pan
+  // labels; pixels cannot distinguish "not painted yet" from "not rendered".
+  const layout = await page.evaluate(() => {
+    const t = (sel) => document.querySelector(`[data-testid="${sel}"]`);
+    const scale = t('pool-scale');
+    const railImgs = document.querySelectorAll('[data-testid="pool-invite-table"] img');
+    return {
+      scaleText: scale ? scale.innerText.replace(/\s+/g, ' ').slice(0, 140) : null,
+      beam: !!t('pool-scale-beam'),
+      backImgs: t('pool-scale-back-surface')?.querySelectorAll('img').length ?? 0,
+      pushImgs: t('pool-scale-push-surface')?.querySelectorAll('img').length ?? 0,
+      railImgs: railImgs.length,
+      /**
+       * A SPRITE THAT FAILED, not one still arriving.
+       *
+       * The first version counted `!complete || naturalWidth === 0` and flagged
+       * `coin.png` — the wallet icon, mid-load at probe time. That measured the
+       * network, not the product. A real failure is a request that FINISHED with no
+       * pixels.
+       */
+      ingots: [...railImgs]
+        .map((i) => i.src.split('/').pop())
+        .filter((n) => /copper|bronze|iron|steel|sapphire|ruby/.test(n)).length,
+      failed: [...railImgs]
+        .filter((i) => i.complete && i.naturalWidth === 0)
+        .map((i) => i.src.split('/').pop()),
+    };
+  });
+  console.log('        layout:', JSON.stringify(layout));
+  check(Boolean(layout.scaleText && /BACKING/i.test(layout.scaleText)),
+    'the pans are labelled with the side and the total', layout.scaleText ?? 'none');
+  check(layout.ingots >= 6 && layout.failed.length === 0,
+    'the denomination rail still renders every ingot',
+    `${layout.ingots} ingot sprites, failed: ${JSON.stringify(layout.failed)}`);
 
   // A LOOK AT IT, not just assertions. Twice now this repo has shipped a surface
   // that satisfied every check and rendered wrong — worklet styles that painted

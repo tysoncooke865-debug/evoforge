@@ -122,3 +122,28 @@ export function needsIndependentVerifier(
 ): boolean {
   return Math.max(0, totals.back) + Math.max(0, totals.push) >= threshold;
 }
+
+// ───────────────────────────────────────────── who each ingot belongs to
+
+/**
+ * OWNER COLOURS (§5: every piece in a shared pool identifies whose it is, "no
+ * anonymous tokens").
+ *
+ * DELIBERATELY NOT THE THEME'S SEMANTIC COLOURS. `success` and `danger` already
+ * mean BACK and PUSH on this screen, so tinting a person with either would make
+ * their ingot read as a side. These six have no other meaning in the product.
+ *
+ * Lives in the domain rather than beside the renderer because it is pure arithmetic
+ * on an id, and because a test that imports it should not have to parse JSX.
+ */
+export const OWNER_TONES = [
+  '#F9A8D4', '#A5B4FC', '#6EE7B7', '#FCD34D', '#FDBA74', '#C4B5FD',
+] as const;
+
+/** Stable across renders, devices and sessions — a piece that changes colour
+ *  identifies nobody. */
+export function ownerTone(userId: string): string {
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) h = (h * 31 + userId.charCodeAt(i)) >>> 0;
+  return OWNER_TONES[h % OWNER_TONES.length];
+}

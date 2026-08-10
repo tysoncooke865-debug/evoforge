@@ -69,6 +69,14 @@ export interface ChipTableApi {
     source?: CommittedChip['source'];
     /** Bond it to the top of this stack instead of dropping it loose. */
     stackId?: string;
+    /**
+     * WHOSE PIECE THIS IS, when the table holds more than one person's metal.
+     *
+     * A shared pool is several people's ingots in one pan, and §5 requires every
+     * one of them to identify its owner — "no anonymous tokens". Defaults to the
+     * table's own owner, so a private table behaves exactly as before.
+     */
+    ownerId?: string;
   }) => void;
   /** Take one back — by id, or the most recent of a value. */
   takeBack: (chipId: string) => void;
@@ -281,11 +289,12 @@ export function useChipTable(opts: {
       spin?: number;
       source?: CommittedChip['source'];
       stackId?: string;
+      ownerId?: string;
     }) => {
       const chip: CommittedChip = {
         chipId: nextId(),
         value: spec.value,
-        ownerId,
+        ownerId: spec.ownerId ?? ownerId,
         side,
         source: spec.source ?? 'tap',
         stackId: spec.stackId ?? null,

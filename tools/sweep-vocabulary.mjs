@@ -204,6 +204,13 @@ function proseOn(line, isSql) {
     const looksLikeProse = /\s/.test(s) || /^[A-Z][a-z]+$/.test(s) || /^[A-Z ]{4,}$/.test(s);
     if (!looksLikeProse) continue;
     if (/^[\w.\-/@]+$/.test(s)) continue;              // module paths
+    /**
+     * A POSTGREST COLUMN LIST is not prose. `.select('user_id, side, stake')`
+     * has spaces and commas, so it passed the prose test and reported `stake`
+     * as banned copy — a column name in a query, which no athlete ever reads.
+     * Lowercase identifiers separated by commas, and nothing else.
+     */
+    if (/^[a-z_][a-z0-9_]*(?:\s*,\s*[a-z_][a-z0-9_]*)+$/.test(s)) continue;
     if (/^(?:[a-z0-9-]+\s)+[a-z0-9-]+$/.test(s) && isSql === false
         && /className|class=/.test(line)) continue;    // tailwind class lists
     out.push(s);

@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useCoinTotal } from '@/data/coins';
-import { usePoolInvitations, useJoinPool, type PoolInvitation } from '@/data/callout-pool';
+import {
+  usePoolInvitations,
+  usePoolPositions,
+  useJoinPool,
+  type PoolInvitation,
+} from '@/data/callout-pool';
 import { useCalloutConfig } from '@/data/callouts';
 import { DEFAULT_CALLOUT_CONFIG, clampCalloutStake } from '@/domain/callouts';
 import { FORGE_CHIPS } from '@/domain/forge-duel';
@@ -10,12 +15,12 @@ import {
   needsIndependentVerifier,
   poolJoinable,
   poolReturnLine,
-  poolShare,
   type PoolSide,
 } from '@/domain/forge-pool';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ChipWagerTable } from '@/ui/duel/chip-table';
+import { PoolScale } from './pool-scale';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
@@ -36,60 +41,13 @@ import { NeonButton } from '@/ui/core/neon-button';
  * position rather than quoting the upside.
  */
 
-/** The two pans, as bars. Phase 6 replaces this with the physical scale. */
-function Pans({
-  back,
-  push,
-  athlete,
-  mySide,
-}: {
-  back: number;
-  push: number;
-  athlete: string;
-  mySide: PoolSide | null;
-}) {
-  const colors = useThemeColors();
-  const { backPct, pushPct } = poolShare({ back, push });
-  const row = (
-    label: string,
-    total: number,
-    pct: number,
-    tint: string,
-    mine: boolean,
-    testID: string
-  ) => (
-    <View className="mt-s2" testID={testID}>
-      <View className="flex-row items-center justify-between">
-        <Text
-          allowFontScaling={false}
-          className="text-2xs"
-          style={{ color: mine ? tint : colors['text-dim'], letterSpacing: 1 }}
-        >
-          {label}
-          {mine ? ' · YOURS' : ''}
-        </Text>
-        <Text allowFontScaling={false} className="text-2xs" style={{ color: tint, ...pixelFont() }}>
-          {total}
-        </Text>
-      </View>
-      {/* A weighed pan, not a progress bar: it shows how much metal is on each
-          side, which is the only thing that decides the split. */}
-      <View
-        className="mt-s1 rounded-pill"
-        style={{ height: 8, backgroundColor: 'rgba(13,21,36,0.9)', overflow: 'hidden' }}
-      >
-        <View style={{ width: `${pct}%`, height: 8, backgroundColor: tint }} />
-      </View>
-    </View>
-  );
-  return (
-    <View testID="pool-pans">
-      {row(`BACKING ${athlete.toUpperCase()}`, back, backPct, colors.success, mySide === 'back',
-        'pool-pan-back')}
-      {row('PUSHING BACK', push, pushPct, colors.danger, mySide === 'push', 'pool-pan-push')}
-    </View>
-  );
-}
+/*
+ * THE BAR VERSION OF THE PANS LIVED HERE and is gone (Phase 6). It was an honest
+ * placeholder — two proportional bars — but §5 asks for a balance scale holding real
+ * metal, and Tyson asked specifically to keep the tilt-gravity ingots rather than
+ * lose them to a static picture. `pool-scale.tsx` is that: two genuine ChipWorlds,
+ * one per side, both reading the same accelerometer.
+ */
 
 function InviteSheet({
   invite,
@@ -107,6 +65,7 @@ function InviteSheet({
   // no affordance rather than a wrong one.
   const balance = balanceQuery.data;
 
+  const positions = usePoolPositions(invite.callout_id);
   const [side, setSide] = useState<PoolSide | null>(invite.my_side);
   const [stake, setStake] = useState(0);
 
@@ -157,11 +116,13 @@ function InviteSheet({
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <View className="mt-s3">
-              <Pans
+              <PoolScale
                 back={totals.back}
                 push={totals.push}
-                athlete={invite.athlete_name}
-                mySide={invite.my_side}
+                positions={positions.data ?? []}
+                athleteId={invite.athlete_id}
+                opponentId={invite.opponent_id}
+                athleteName={invite.athlete_name}
               />
             </View>
 

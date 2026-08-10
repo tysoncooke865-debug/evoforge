@@ -35,6 +35,7 @@ export function ChipSurface({
   height,
   onReturn,
   locked = false,
+  toneFor,
   testID,
 }: {
   table: ChipTableApi;
@@ -44,6 +45,14 @@ export function ChipSurface({
   onReturn?: (chip: CommittedChip, total: number) => void;
   /** After acceptance the table is a picture, not a toy. */
   locked?: boolean;
+  /**
+   * OWNER COLOUR PER PIECE (§5: "no anonymous tokens").
+   *
+   * The pieces in a shared pool belong to different people and must say so. The
+   * tint is drawn by `ForgeChip` as an underline plus corner ticks, which survive
+   * overlap — a piece on top covers the middle of the one below, never its corners.
+   */
+  toneFor?: (chip: CommittedChip) => string | undefined;
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -155,7 +164,13 @@ export function ChipSurface({
           }}
         />
         {table.committed.map((c, i) => (
-          <PhysicsChip key={c.chipId} index={i} pose={table.pose} value={c.value} />
+          <PhysicsChip
+            key={c.chipId}
+            index={i}
+            pose={table.pose}
+            value={c.value}
+            tone={toneFor?.(c)}
+          />
         ))}
         {table.committed.length === 0 ? (
           <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -178,10 +193,13 @@ const PhysicsChip = memo(function PhysicsChip({
   index,
   pose,
   value,
+  tone,
 }: {
   index: number;
   pose: SharedValue<number[]>;
   value: ForgeChipValue;
+  /** Owner colour for a shared pool; undefined on a private table. */
+  tone?: string;
 }) {
   const r = chipRadius(value);
   const style = useAnimatedStyle(() => {
@@ -205,7 +223,7 @@ const PhysicsChip = memo(function PhysicsChip({
       pointerEvents="none"
       style={[{ position: 'absolute', left: 0, top: 0, width: r * 2, height: r * 2 }, style]}
     >
-      <ForgeChip value={value} size={r * 2} />
+      <ForgeChip value={value} size={r * 2} tone={tone} />
     </Animated.View>
   );
 });

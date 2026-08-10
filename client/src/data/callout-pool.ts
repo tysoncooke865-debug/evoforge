@@ -51,6 +51,8 @@ export interface PoolInvitation {
   callout_id: string;
   athlete_id: string;
   athlete_name: string;
+  /** 186: the PUSH pan's anchor — the opponent's stake is on the callout row. */
+  opponent_id: string;
   exercise: string;
   target_label: string;
   workout_date: string;
@@ -88,6 +90,35 @@ export function usePoolInvitations() {
   });
 }
 
+/**
+ * WHO IS IN, AND FOR HOW MUCH — one row per joiner.
+ *
+ * Read straight from `workout_callout_entries`: RLS (180) already lets everybody in
+ * a pool see every position in it, which §5 requires — an anonymous pool cannot
+ * carry owner identification on its ingots, and the sides are the proposition.
+ *
+ * NO NAMES. The scale tints each ingot by a colour derived from the user id, so it
+ * never needs one, and asking for names here would mean a join and a definer
+ * function for information the picture does not use.
+ */
+export function usePoolPositions(calloutId: string | null) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['pool_positions', userId, calloutId],
+    enabled: Boolean(userId && calloutId),
+    staleTime: 15_000,
+    queryFn: async (): Promise<{ user_id: string; side: 'back' | 'push'; stake: number }[]> => {
+      const { data, error } = await supabase
+        .from('workout_callout_entries')
+        .select('user_id, side, stake')
+        .eq('callout_id', calloutId)
+        .order('joined_at');
+      if (error) return [];
+      return (data ?? []) as { user_id: string; side: 'back' | 'push'; stake: number }[];
+    },
+  });
+}
+
 /** The live totals for one call out — the two pans. */
 export function useCalloutPool(calloutId: string | null) {
   const userId = useUserId();
@@ -106,6 +137,7 @@ export function useCalloutPool(calloutId: string | null) {
 function refresh(queryClient: ReturnType<typeof useQueryClient>, userId: string | null) {
   void queryClient.invalidateQueries({ queryKey: [INVITES_KEY, userId] });
   void queryClient.invalidateQueries({ queryKey: [POOL_KEY, userId] });
+  void queryClient.invalidateQueries({ queryKey: ['pool_positions', userId] });
   void queryClient.invalidateQueries({ queryKey: ['workout_callouts', userId] });
   void queryClient.invalidateQueries({ queryKey: ['coin_total', userId] });
 }
