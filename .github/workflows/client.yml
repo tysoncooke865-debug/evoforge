@@ -136,6 +136,24 @@ jobs:
         working-directory: .
         run: node tools/sweep-vocabulary.mjs --strict
 
+      # THE COMPLIANCE GATE. Not a legal opinion — the FACTS a legal review would
+      # otherwise have to take on trust, measured from the live database: that only
+      # one random function can reach the ledger and it can only add, that a staked
+      # reveal is unconstructible, that zero randomness exists in any pledge path,
+      # that no purchase or cash-out table or payment SDK exists, and that the
+      # ledger is append-only. Every one of these is a mechanic that decides a
+      # classification answer, and each would be invisible in review.
+      # Falsified: creating a table matching the cash-out pattern turns it red.
+      - name: compliance gate — the mechanics that decide the rating
+        working-directory: .
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' }}
+        run: |
+          mkdir -p client
+          printf '%s' "$SUPABASE_ACCESS_TOKEN" > client/.env.sbtoken.local
+          node tools/compliance-gate.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       # Four edits, not three: CHECK constraint, guard branch, COIN_LABELS, and the
       # claim toast's copy of the amounts. The last two fail silently — the ledger
       # stays right and the screen lies about it. Missed three times before this
