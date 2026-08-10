@@ -138,11 +138,14 @@ migration headers:
 | 173 | first-time exercises became eligible |
 | 174–176 | pledging above your own logged best, by explicit per-pledge consent |
 | 178 | the "a miss ends the day" brake removed |
+| 188 | escalation ramp widened from 2x to 5x of the previous week's largest pledge |
 
 **Consumer-protection framing, not classification:** with 170, 171 and 178 all
-removed, the remaining bounds on a single session are the escalation ramp (twice the
-previous week's largest pledge, fixed at the start of the day), a 500 per-pledge
-config limit, and the athlete's balance. An athlete with no pledge history has no ramp
+removed, the remaining bounds on a single session are the escalation ramp (**five
+times** the previous week's largest pledge since 188, fixed at the start of the day),
+a 500 per-pledge config limit, and the athlete's balance. At 5x the ramp stops binding
+once an athlete has pledged 100 in the previous week, because 5 x 100 exceeds the 500
+per-pledge limit that then takes over. An athlete with no pledge history has no ramp
 to bound them on their first day. Coins cannot be purchased, so the floor is a balance
 near zero, and a Recovery Run returns 50 coins for three legitimate sets — nobody can
 be locked out. We flag this as a duty-of-care question rather than a rating one.
