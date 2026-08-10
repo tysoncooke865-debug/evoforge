@@ -29,6 +29,7 @@ import { SpriteAvatar } from '@/ui/character/sprite-avatar';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { Chip } from '@/ui/core/neon-button';
 import { playSelect } from '@/ui/core/sound';
+import { Icon } from '@/ui/core/icons';
 
 import { formArt } from './art';
 import { StepperWheel } from './wheel';
@@ -274,7 +275,9 @@ function CosmeticCard({
               <CoinIcon size={12} />
             </View>
           ) : (
-            <Text style={{ position: 'absolute', bottom: -2, right: -6, fontSize: 10 }}>🔒</Text>
+            <View style={{ position: 'absolute', bottom: -2, right: -6 }}>
+                      <Icon name="lock" size={10} label={null} />
+                    </View>
           )
         ) : null}
       </View>

@@ -33,6 +33,7 @@ import {
 import { useThemeColors } from '@/theme/use-theme';
 
 import { NeonButton } from '@/ui/core/neon-button';
+import { Icon } from '@/ui/core/icons';
 
 /**
  * ADD EXERCISE (redesigned 2026-07-14, Tyson's spec).
@@ -307,7 +308,9 @@ export function ExercisePicker({
 
               {/* STICKY SEARCH */}
               <View className="mt-s1 flex-row items-center rounded-xl border bg-surface-2 px-s3" style={{ borderColor: colors.border, minHeight: 48 }}>
-                <Text className="mr-s2 text-sm text-text-mute">🔍</Text>
+                <View className="mr-s2">
+            <Icon name="search" size={14} state="inactive" label={null} />
+          </View>
                 <TextInput
                   className="flex-1 text-base text-text"
                   style={{ minHeight: 48 }}

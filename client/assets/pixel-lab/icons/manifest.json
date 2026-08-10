@@ -1,0 +1,137 @@
+{
+  "trophy": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a single victory trophy cup with two handles on a square plinth, warm gold and amber highlights, polished gold cup with a cool steel base, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1301,
+    "size": "64x64",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "🏆",
+    "replacedSites": [
+      "src/ui/train/summary-sheet.tsx:561",
+      "src/app/(main)/arena/index.tsx:214",
+      "src/ui/arena/battle-arena.tsx:204",
+      "src/app/(main)/arena/battle/[id].tsx:66"
+    ],
+    "output": "assets/pixel-lab/icons/status/trophy.png",
+    "manualCleanup": "none"
+  },
+  "medal-gold": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a large round gold medal disc seen face on, filling almost the entire frame, bright saturated yellow-gold, thick raised rim, a tiny blue ribbon loop at the very top, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1361,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "🥇",
+    "replacedSites": [
+      "src/ui/arena/leaderboard-row.tsx:29",
+      "src/ui/arena/leaderboard-teaser.tsx:143"
+    ],
+    "output": "assets/pixel-lab/icons/status/medal-gold.png",
+    "manualCleanup": "none"
+  },
+  "medal-silver": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a large round silver medal disc seen face on, filling almost the entire frame, bright cool white-silver, thick raised rim, a tiny blue ribbon loop at the very top, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1362,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "🥈",
+    "replacedSites": [
+      "src/ui/arena/leaderboard-row.tsx:29",
+      "src/ui/arena/leaderboard-teaser.tsx:143"
+    ],
+    "output": "assets/pixel-lab/icons/status/medal-silver.png",
+    "manualCleanup": "none"
+  },
+  "medal-bronze": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a large round bronze medal disc seen face on, filling almost the entire frame, deep saturated orange-brown copper, clearly darker than gold, thick raised rim, a tiny blue ribbon loop at the very top, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1363,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "🥉",
+    "replacedSites": [
+      "src/ui/arena/leaderboard-row.tsx:29",
+      "src/ui/arena/leaderboard-teaser.tsx:143"
+    ],
+    "output": "assets/pixel-lab/icons/status/medal-bronze.png",
+    "manualCleanup": "none"
+  },
+  "badge": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a single bold five-pointed gold star filling the frame, no ribbon, no tails, warm gold and amber highlights, bright gold with a darker gold bevel, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1371,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "🎖",
+    "replacedSites": [
+      "src/ui/battle/result-modal.tsx:142",
+      "src/app/(main)/arena/index.tsx:263"
+    ],
+    "output": "assets/pixel-lab/icons/status/badge.png",
+    "manualCleanup": "none"
+  },
+  "crown": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a single simple five-point royal crown, warm gold and amber highlights, gold band with three small blue gems, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1331,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "👑",
+    "replacedSites": [
+      "src/app/(main)/arena/battle/[id].tsx:1376"
+    ],
+    "output": "assets/pixel-lab/icons/status/crown.png",
+    "manualCleanup": "none"
+  },
+  "ghost": {
+    "endpoint": "https://api.pixellab.ai/v1/generate-image-pixflux",
+    "model": "pixflux",
+    "prompt": "a single translucent ghost figure with a rounded top and a wavy bottom edge, neon cyan and electric blue highlights, cool steel blue-grey metal, glowing cyan spectral body with dark eyes, pixel art game icon, single object centered on empty background, chunky readable silhouette, bold dark outline, three-tone shading, dark navy background-free, crisp hard pixel edges, limited palette, no text, no numbers, no letters, no border, no frame",
+    "seed": 1341,
+    "size": "32x32",
+    "transparent": true,
+    "view": "side",
+    "styleReference": "assets/arena-pixellab-src/champion-shredder.png (EvoForge arena family)",
+    "palette": "EvoForge: dark navy base, neon cyan/electric blue, gold/amber for rewards",
+    "generated": "2026-08-10",
+    "replaces": "👻",
+    "replacedSites": [
+      "src/ui/train/summary-sheet.tsx:267",
+      "src/ui/train/summary-sheet.tsx:271",
+      "src/app/(main)/arena/index.tsx:294"
+    ],
+    "output": "assets/pixel-lab/icons/challenges/ghost.png",
+    "manualCleanup": "none"
+  }
+}

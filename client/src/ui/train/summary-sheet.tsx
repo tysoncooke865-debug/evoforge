@@ -264,7 +264,7 @@ function Ceremony({
               {onShareGhost ? (
                 ghosted ? (
                   <Text className="text-center text-2xs font-bold" style={{ color: colors.epic, letterSpacing: 1.5 }}>
-                    👻 GHOST PUBLISHED — FRIENDS CAN BATTLE IT
+                    GHOST PUBLISHED — FRIENDS CAN BATTLE IT
                   </Text>
                 ) : (
                   <NeonButton

@@ -571,3 +571,56 @@ export const PixelTarget = ({ size = 14, color, testID }: IconProps) => (
 export const PixelShield = ({ size = 18, color, testID }: IconProps) => (
   <PixelGlyph rows={SHIELD} size={size} color={color} testID={testID ?? 'pixel-shield'} />
 );
+
+/**
+ * ICON CONSISTENCY PASS (2026-08-11, docs/ICON_AUDIT.md).
+ *
+ * Three concepts the app expressed with COLOUR EMOJI — 🔒 (14 sites), 🔍 (2),
+ * ⚖ (2) — drawn as grids instead. They are here rather than in the PixelLab
+ * set for the reason the audit settles on: they render at 10–16px, and at that
+ * size a tintable monochrome grid beats a baked raster on every axis that
+ * matters. `🔒` in particular is drawn as a 10px corner badge over a cosmetic
+ * tile, where a colour emoji was both off-palette and unreadable.
+ */
+const LOCK = [
+  '..####..',
+  '.##..##.',
+  '.##..##.',
+  '########',
+  '###..###',
+  '###..###',
+  '########',
+  '########',
+] as const;
+
+const SEARCH = [
+  '.#####..',
+  '##...##.',
+  '#.....#.',
+  '#.....#.',
+  '##...##.',
+  '.#####..',
+  '.....###',
+  '......##',
+] as const;
+
+const SCALES = [
+  '....#....',
+  '#########',
+  '#...#...#',
+  '#...#...#',
+  '###.#.###',
+  '.#..#..#.',
+  '....#....',
+  '..#####..',
+] as const;
+
+export const PixelLock = ({ size = 14, color, testID }: IconProps) => (
+  <PixelGlyph rows={LOCK} size={size} color={color} testID={testID ?? 'pixel-lock'} />
+);
+export const PixelSearch = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={SEARCH} size={size} color={color} testID={testID ?? 'pixel-search'} />
+);
+export const PixelScales = ({ size = 16, color, testID }: IconProps) => (
+  <PixelGlyph rows={SCALES} size={size} color={color} testID={testID ?? 'pixel-scales'} />
+);

@@ -10,6 +10,7 @@ import { rankByMetric } from '@/domain/leaderboard';
 import { durations } from '@/theme/animations';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import { Icon, isArtIcon, type ArtIconName } from '@/ui/core/icons';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardRowView } from '@/ui/arena/leaderboard-row';
 
@@ -140,7 +141,11 @@ function TeaserBody() {
   );
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'] as const;
+/** ICON PASS (2026-08-11): the podium was three colour emoji, rendered by the
+ *  platform's emoji font and belonging to no part of this app's palette. Same
+ *  PixelLab art the full leaderboard row uses, so the teaser and the board
+ *  cannot show two different podiums. */
+const MEDALS = ['medal-gold', 'medal-silver', 'medal-bronze'] as const;
 
 /**
  * The top three, and YOUR line when you are not one of them.
@@ -190,7 +195,9 @@ function PodiumRow({
   rating,
   self,
 }: {
-  badge: string;
+  /** Podium art for the top three; a plain rank string ("#7") for the "you"
+   *  line below the fold. Fourth place has no medal and never gets one. */
+  badge: ArtIconName | string;
   name: string;
   rating: number;
   self: boolean;
@@ -198,9 +205,15 @@ function PodiumRow({
   const colors = useThemeColors();
   return (
     <View className="flex-row items-center py-s1" style={{ gap: 8 }}>
-      <Text allowFontScaling={false} style={{ fontSize: 12, minWidth: 22 }}>
-        {badge}
-      </Text>
+      <View style={{ minWidth: 22 }}>
+        {isArtIcon(badge as ArtIconName) ? (
+          <Icon name={badge as ArtIconName} size={14} label={null} />
+        ) : (
+          <Text allowFontScaling={false} style={{ fontSize: 12, color: colors['text-mute'] }}>
+            {badge}
+          </Text>
+        )}
+      </View>
       <Text
         className={self ? 'text-text' : 'text-text-dim'}
         numberOfLines={1}

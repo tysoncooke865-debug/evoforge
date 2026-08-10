@@ -56,6 +56,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { playSelect } from '@/ui/core/sound';
 import { useAmbient } from '@/ui/core/use-ambient';
+import { Icon } from '@/ui/core/icons';
 
 const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 /** Each pip's pop occupies this slice of the entrance clock; the rest of the
@@ -199,9 +200,14 @@ export function WeekStrip({
             >
               {streak}
             </Text>
-            <Text allowFontScaling={false} style={{ fontSize: 15, opacity: streak > 0 ? 1 : 0.35 }}>
-              🔥
-            </Text>
+            {/* ICON PASS (2026-08-11): was a 🔥 colour emoji — the one glossy
+                orange thing on a card of cyan pixel type. `PixelFlame` already
+                existed; this call site simply predated it. It dims rather than
+                disappears at streak 0, which is the same signal it always
+                gave. */}
+            <View style={{ opacity: streak > 0 ? 1 : 0.35 }}>
+              <Icon name="flame" size={14} color={colors.legendary} label={null} />
+            </View>
           </View>
         </View>
         </View>

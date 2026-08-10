@@ -2,6 +2,15 @@ import { Text, View } from 'react-native';
 
 import type { LeaderboardMetric, RankedEntry } from '@/domain/leaderboard';
 import { pixelFont } from '@/theme/fonts';
+import { Icon, type ArtIconName } from '@/ui/core/icons';
+
+/** Podium art by position. Fourth place has no medal, and inventing one would
+ *  be worse than a number. */
+const MEDAL_FOR: Record<number, ArtIconName | undefined> = {
+  1: 'medal-gold',
+  2: 'medal-silver',
+  3: 'medal-bronze',
+};
 
 /** One leaderboard row — extracted VERBATIM from rank.tsx (P2 C5) so the
  *  Home teaser and the Rank screen render identically.
@@ -19,15 +28,28 @@ export function LeaderboardRowView({
   self: boolean;
   metric?: LeaderboardMetric;
 }) {
+  const medal = MEDAL_FOR[entry.position];
   return (
     <View
       className={`mb-s2 flex-row items-center rounded-md border p-s3 ${
         self ? 'border-border-strong bg-surface-3' : 'border-border bg-surface-2'
       }`}
     >
-      <Text className="w-s10 text-accent" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
-        {({ 1: '🥇', 2: '🥈', 3: '🥉' } as Record<number, string>)[entry.position] ?? `#${entry.position}`}
-      </Text>
+      {/* THE PODIUM (icon pass, 2026-08-11). Was three colour emoji, which
+          rendered in the platform's own emoji font — round, glossy, and from a
+          different app to everything around them. The medals are the one place
+          colour genuinely IS the information (gold vs silver vs bronze cannot
+          be a tint of one shape), so they are PixelLab art rather than glyphs.
+          Positions 4+ keep the number: there is no medal for fourth. */}
+      <View className="w-s10">
+        {medal ? (
+          <Icon name={medal} size={16} label={`position ${entry.position}`} />
+        ) : (
+          <Text className="text-accent" allowFontScaling={false} style={{ fontSize: 14, ...pixelFont() }}>
+            {`#${entry.position}`}
+          </Text>
+        )}
+      </View>
       <Text
         className="flex-1 text-text"
         numberOfLines={1}

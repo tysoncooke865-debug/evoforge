@@ -7,6 +7,7 @@ import { PIXEL, PIXEL_BOLD } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { avatarArtV2, stillAvatar } from '@/ui/character/avatar-art';
 import { playSelect } from '@/ui/core/sound';
+import { Icon } from '@/ui/core/icons';
 
 /**
  * The battle champion picker — a 2×2 grid of cards with LOCK state (champions
@@ -65,7 +66,11 @@ export function ChampionPicker({
                   style={{ width: 46, height: 46, opacity: isUnlocked ? 1 : 0.4, ...({ imageRendering: 'pixelated' } as object) }}
                   contentFit="contain"
                 />
-                {!isUnlocked ? <Text style={{ position: 'absolute', fontSize: 16 }}>🔒</Text> : null}
+                {!isUnlocked ? (
+          <View style={{ position: 'absolute' }}>
+            <Icon name="lock" size={16} label="locked" />
+          </View>
+        ) : null}
               </View>
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} allowFontScaling={false} style={{ fontSize: 10, color: selected ? colors.accent : colors.text, fontFamily: PIXEL_BOLD }}>
