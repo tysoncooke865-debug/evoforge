@@ -3,8 +3,8 @@
 Updated 2026-08-09. Plan: `~/.claude/plans/you-are-implementing-the-quizzical-stardust.md`.
 Spec of record: `docs/ENGAGEMENT_V5.md`. Audit: `docs/V5_MIGRATION_AUDIT.md`.
 
-All on `expo-rewrite` (auto-deploys). **Migrations 159–183 applied to production.
-Next free number is 184.**
+All on `expo-rewrite` (auto-deploys). **Migrations 159–187 applied to production.
+Next free number is 188.**
 
 ---
 
@@ -16,8 +16,8 @@ Next free number is 184.**
 | 2 Module boundaries (enforced by test) | ✅ |
 | 3 Economy + ledger — 160 | ✅ |
 | 4 Forge Reveal + board retirement — 161, 162 | ✅ |
-| 5 Forge Trial ✅ · pool server 180–183 ✅, **pool client ❌** | ⚠️ |
-| 6 Physics pool — **domain ✅, visuals ❌** | ⚠️ |
+| 5 Forge Trial ✅ · pool server 180–183 ✅ · pool client 184–186 ✅ | ✅ |
+| 6 Physics pool — two-pan scale, owner tints, crucible, settlement lines 187 | ✅ |
 | 7 Margin 164 ✅, Cache + Recovery 166 ✅, supporter UI removed ✅, §6 grace/pause 179 ✅ | ✅ |
 | 8 Copy sweep — **78 → 0**, CI-enforced | ✅ |
 
@@ -46,11 +46,28 @@ settlement, renumber to **167+**. Verifier ≥200 per §5.
 `domain/forge-trial.ts::trialCeiling` reconciles wallet against allowance, the rail
 narrows to it, and the server's own sentence is captioned inline before commitment.
 
-### 2. Physics pool visuals (Phase 6)
-Domain is done (metals, radii, densities, audio). The visual half is not:
-two-pan balance scale (BACK one pan, PUSH the other, never merged), crucible commit,
-owner identification on every pool ingot, per-person settlement lines.
-`client/src/ui/duel/physics/` stays untouched — identity only.
+### 2. ~~Physics pool visuals~~ — **DONE** (Phase 6, `a49f650` + `bc8dd52`)
+`chip-world.ts` untouched, as required. Each pan is a REAL world, so the tilt-gravity
+ingots survived (Tyson asked for that explicitly).
+
+| piece | where |
+|---|---|
+| two-pan scale, never merged | `ui/callouts/pool-scale.tsx` |
+| owner tint on every ingot | `commit({ownerId})` + `ChipSurface toneFor` + `ownerTone` |
+| crucible for your OWN pledge | `ChipWagerTable vessel="crucible"` |
+| per-person settlement lines | 187 + `ui/callouts/pool-settlement.tsx` |
+
+**The distinction that makes the pans work:** the WORLD stays unlocked so it keeps
+reading the phone; the SURFACE is locked so nobody drags another person's ingot out.
+Push the pool around, but you cannot take metal that is not yours.
+
+**A crucible is about whose metal it is**, not who is training — both pledge surfaces
+use it. The pans are the shared table.
+
+**Settlement reads `sum(coin_events.amount)`, never `entries.payout`** — only joiners
+have an entry row, so the payout column would omit both principals, who are usually
+the largest positions. The lines sum to zero and the total is shown so it is
+checkable.
 
 ### 3. ~~Dead supporter UI~~ — **DONE** (`cfab5f2`)
 14 files, `supporter-meter.tsx` deleted, reactions split to `duel-reactions.tsx`,
