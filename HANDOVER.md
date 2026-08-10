@@ -26,6 +26,57 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE ICON CONSISTENCY OVERHAUL (2026-08-11)** — `docs/ICON_AUDIT.md` is the
+  inventory and the classification; read it before replacing any icon.
+
+  **The finding that shaped everything: EvoForge has almost no icon FILES.** Of
+  118 assets, six were UI icons. The icon system is three systems — 35
+  hand-authored SVG pixel glyphs (`ui/core/pixel-icons.tsx`), 45 PixelLab
+  sprites, and **577 raw Unicode characters across 40 files**.
+
+  **THE SVG GLYPH SET IS PRESERVED, DELIBERATELY.** It has no PixelLab
+  provenance and is a replacement candidate by the letter of the brief.
+  Replacing it would be a downgrade: the glyphs are TINTABLE (every
+  active/inactive state depends on `color` being a prop), resolution
+  independent, and drawn at **14–19px** where a 64px raster is a 4:1 downscale
+  to mush. `forge-materials-gen.mjs` already recorded both halves of that
+  lesson — "a baked PNG is one size and one colour", and "32px, not the arena's
+  64 … a smaller source keeps the pixels honest".
+
+  What was replaced is the **colour emoji**, which render in the platform's own
+  emoji font and belong to no part of this palette. Nine of the fourteen
+  most-used needed NO generation — `PixelBolt`, `PixelCamera`, `PixelFlame`,
+  `PixelPeople`, `PixelBell`, `PixelShield`, `PixelTarget` and `PixelDumbbell`
+  already existed and the emoji was simply an older call site. Three new grids
+  (`lock`, `search`, `scales`) cover the small functional symbols.
+
+  **Seven are PixelLab art**, chosen by one question: *does colour carry the
+  meaning, and is it drawn bigger than ~20px?* Gold beside silver beside bronze
+  cannot be a tint of one shape. `scripts/pixellab/{icon-manifest,generate-icons,
+  validate-icons}.mjs`; provenance (endpoint, prompt, seed, date, what it
+  replaced) in `assets/pixel-lab/icons/manifest.json`; review page at
+  `docs/icon-preview.html`. Total payload **25KB**.
+
+  **THE FIRST PASS OF FOUR OF THEM FAILED** at the size they actually render:
+  the medals spent ~45% of the canvas on ribbon, leaving a seven-pixel disc,
+  and the badge's ribbon tails read as three stray red pixels at 14px. Judge
+  every icon at its REAL size, never at 64×64 — that is what the size ladder in
+  the review page is for. Prompts reworked, seeds bumped, regenerated.
+
+  **`ui/core/icons.tsx` is the registry**: one typed name → glyph or raster, the
+  caller never chooses which. Rasters render `imageRendering: pixelated`;
+  `label` is required and null-able so every caller makes an accessibility
+  decision.
+
+  **Guards, falsified:** the PixelLab key must not appear under `src/`, and no
+  `src/` file may reference `api.pixellab.ai`. Both had to learn that
+  **comments are not code** first — `ui/boot/forge-intro.tsx` contains a
+  paragraph explaining that the key must never enter the bundle, and a naive
+  substring search fails on the documentation of the rule it enforces. Same for
+  the emoji-regression check. `__tests__` is excluded from both (test files are
+  not bundled, and the icon test necessarily contains the strings it bans).
+
+
 - **THE TRAINING SYSTEM UPGRADE (2026-08-10/11, migrations 192–194)**
 
   Four things, in the order they matter. The whole of it rests on ONE rule:
