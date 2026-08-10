@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useAuth } from '@/data/auth-context';
 import { useCoinTotal } from '@/data/coins';
 import {
   usePoolInvitations,
@@ -21,6 +22,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { ChipWagerTable } from '@/ui/duel/chip-table';
 import { PoolScale } from './pool-scale';
+import { PoolSettlement } from './pool-settlement';
 import { NeonButton } from '@/ui/core/neon-button';
 
 /**
@@ -57,6 +59,7 @@ function InviteSheet({
   onClose: () => void;
 }) {
   const colors = useThemeColors();
+  const { session } = useAuth();
   const balanceQuery = useCoinTotal();
   const cfgQuery = useCalloutConfig();
   const join = useJoinPool();
@@ -133,7 +136,11 @@ function InviteSheet({
               </Text>
             ) : null}
 
-            {alreadyIn ? (
+            {invite.status === 'settled' ? (
+              /* §5: per-person lines, not ingots sweeping to a winner. The pans
+                 above still show the metal that was in play. */
+              <PoolSettlement calloutId={invite.callout_id} myId={session?.user?.id ?? null} />
+            ) : alreadyIn ? (
               <Text className="mt-s3 text-2xs" style={{ color: colors.accent }} testID="pool-my-position">
                 You are {invite.my_side === 'back' ? 'backing' : 'pushing against'}{' '}
                 {invite.athlete_name} for {invite.my_stake}. One position each.
@@ -179,6 +186,17 @@ function InviteSheet({
                       tableHeight={132}
                       chipSize={46}
                       denominations={FORGE_CHIPS}
+                      /**
+                       * A CRUCIBLE HERE TOO (§5).
+                       *
+                       * The rule is about WHOSE metal it is, not about who is doing
+                       * the training: anywhere you are committing your OWN ingots is
+                       * a vessel being filled. The two PANS above are the shared
+                       * table — other people's metal, which you cannot pour or take
+                       * back. Writing this only on the athlete's tray would have
+                       * made a joiner's own pledge look like somebody else's pool.
+                       */
+                      vessel="crucible"
                       disabled={balance == null}
                       testID="pool-invite-table"
                     />

@@ -119,6 +119,41 @@ export function usePoolPositions(calloutId: string | null) {
   });
 }
 
+/** One person's outcome on a settled call out. `net` is up or down, from the ledger. */
+export interface SettlementLine {
+  user_id: string;
+  display_name: string;
+  side: 'back' | 'push';
+  staked: number;
+  net: number;
+}
+
+/**
+ * WHO ENDED UP WHERE (§5: per-person ledger lines, not ingots sweeping to a winner).
+ *
+ * `net` is `sum(coin_events.amount)` for the call out — the only source that covers
+ * BOTH principals and joiners. `workout_callout_entries.payout` exists but only
+ * joiners have an entry row, so a screen built on it would silently omit the athlete
+ * and their opponent, who are usually the largest positions in the pool.
+ *
+ * The lines sum to zero on a settled pool, because nothing is minted and nothing is
+ * taken. Migration 187 asserts that against real settled rows.
+ */
+export function usePoolSettlement(calloutId: string | null, enabled = true) {
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ['pool_settlement', userId, calloutId],
+    enabled: Boolean(userId && calloutId && enabled),
+    // A settled pool never changes again, so this is worth holding on to.
+    staleTime: 10 * 60_000,
+    queryFn: async (): Promise<SettlementLine[]> => {
+      const { data, error } = await supabase.rpc('callout_settlement', { p_callout: calloutId });
+      if (error) return [];
+      return (data ?? []) as SettlementLine[];
+    },
+  });
+}
+
 /** The live totals for one call out — the two pans. */
 export function useCalloutPool(calloutId: string | null) {
   const userId = useUserId();

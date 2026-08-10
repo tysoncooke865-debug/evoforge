@@ -498,6 +498,9 @@ export function CalloutTray({
                 // limit nobody chose, expressed as a missing button. The rail
                 // scrolls; the wallet and the config decide what is affordable.
                 denominations={FORGE_CHIPS}
+                // §5: the athlete's OWN pledge is metal being poured, not a bet
+                // placed on a table. Same world, same tilt, same flick.
+                vessel="crucible"
                 disabled={balance == null || ceiling.blocked}
                 testID="callout-table"
               />

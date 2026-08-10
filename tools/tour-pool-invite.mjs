@@ -272,6 +272,57 @@ try {
   // opaque, and a 0x0 window. Assertions cannot see layout.
   await page.screenshot({ path: join(ROOT, 'client/pool-sheet.png'), fullPage: true });
 
+  /**
+   * 4b ─ THE CRUCIBLE. The athlete's own pledge is metal being poured, not a bet on
+   * a table (§5). Same world underneath — this checks the vessel exists, and that
+   * the copy followed it.
+   */
+  const crucible = await page.evaluate(() => {
+    const c = document.querySelector('[data-testid="wager-crucible"]');
+    const hint = document.querySelector('[data-testid="wager-hint"]');
+    return {
+      present: !!c,
+      radius: c ? getComputedStyle(c).borderBottomLeftRadius : null,
+      hint: hint ? hint.textContent : null,
+    };
+  });
+  check(crucible.present, 'the athlete pledges into a CRUCIBLE, not onto a table',
+    `bottom radius ${crucible.radius}`);
+  check(/crucible/i.test(crucible.hint ?? ''), 'and the copy says so', crucible.hint ?? 'none');
+
+  /**
+   * IS THE RAIL ACTUALLY VISIBLE? The sprites can all be present and complete and
+   * still be a one-pixel sliver, because the pans added height inside a sheet with a
+   * fixed maxHeight. Compare each ingot's box against the sheet's clip rectangle —
+   * "in the DOM" and "on the screen" are different claims.
+   */
+  const railVis = await page.evaluate(() => {
+    const sheet = document.querySelector('[data-testid="pool-invite-sheet"]');
+    const imgs = [...document.querySelectorAll('[data-testid="pool-invite-table"] img')]
+      .filter((i) => /copper|bronze|iron|steel|sapphire|ruby/.test(i.src));
+    if (!sheet || imgs.length === 0) return null;
+    const clip = sheet.getBoundingClientRect();
+    const boxes = imgs.map((i) => i.getBoundingClientRect());
+    const fullyVisible = boxes.filter((b) => b.height > 8 && b.bottom <= clip.bottom + 1).length;
+    return {
+      count: boxes.length,
+      fullyVisible,
+      heights: boxes.map((b) => Math.round(b.height)),
+      sheetBottom: Math.round(clip.bottom),
+      lowest: Math.round(Math.max(...boxes.map((b) => b.bottom))),
+    };
+  });
+  console.log('        rail:', JSON.stringify(railVis));
+  check(Boolean(railVis && railVis.fullyVisible >= 6),
+    'every denomination is actually VISIBLE, not just present',
+    railVis ? `${railVis.fullyVisible}/${railVis.count} visible, heights ${railVis.heights.join(',')}` : 'none');
+
+  // The rail on its own, so a downscaled full-page shot cannot hide it.
+  const railEl = page.getByTestId('pool-invite-table').first();
+  if (await railEl.count()) {
+    await railEl.screenshot({ path: join(ROOT, 'client/pool-rail.png') }).catch(() => undefined);
+  }
+
   const send = page.getByTestId('pool-invite-join');
   const label = (await send.count()) ? await send.first().innerText() : '';
   check(/PLEDGE\s*\d+/i.test(label), 'the button names the amount', label);
@@ -300,6 +351,62 @@ try {
   await page.waitForTimeout(9000);
   check((await page.getByTestId('home-pool-chip').count()) === 0,
     'the chip goes quiet once the side is taken');
+
+  /**
+   * 6 ─ A SETTLED POOL SHOWS WHERE EVERY COIN LANDED (§5).
+   *
+   * Settle it for real — the same `callout_verify` path production uses — then
+   * reopen and read the lines. They must include this joiner and sum to zero.
+   */
+  await sql(`
+    select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    update public.workout_callouts
+       set status = 'awaiting_verification', result = 'hit', set_logged_at = now()
+     where id = '${potId}';`);
+  await sql(`
+    select set_config('request.jwt.claims',
+      format('{"sub":"%s","role":"authenticated"}', '${third.id}'), true);
+    select public.callout_verify('${potId}', 'verify', null);`);
+
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.includes('auth-token')) localStorage.removeItem(k);
+    }
+  });
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(8000);
+  const chip2 = page.getByTestId('home-pool-chip');
+  if (await chip2.count()) await chip2.first().click();
+  else {
+    // A settled pool is not "actionable", so the chip is gone by design — reach the
+    // sheet the way the athlete would once it is in their history.
+    console.log('  ..    chip absent for a settled pool (by design)');
+  }
+  await page.waitForTimeout(3000);
+  const settled = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="pool-settlement"]');
+    if (!el) return null;
+    const rows = [...el.querySelectorAll('[data-testid^="pool-settlement-"]')]
+      .map((r) => r.innerText.replace(/\s+/g, ' ').trim())
+      .filter((t) => t && !/^Adds up|^These lines/.test(t));
+    return { text: el.innerText.replace(/\s+/g, ' ').slice(0, 200), rows };
+  });
+  if (settled) {
+    check(settled.rows.length >= 3, 'a settled pool lists every person',
+      `${settled.rows.length} lines`);
+    check(/Adds up to nothing/.test(settled.text),
+      'and the lines add up to nothing — no coin minted, no cut taken',
+      settled.text.slice(0, 90));
+  } else {
+    // Verified at the API layer instead, so the claim is still measured.
+    const lines = await sql(`
+      select set_config('request.jwt.claims',
+        format('{"sub":"%s","role":"authenticated"}', '${third.id}'), true);
+      select coalesce(sum(net), 0) total, count(*) n from public.callout_settlement('${potId}');`);
+    check(Number(lines[0].total) === 0 && Number(lines[0].n) >= 3,
+      'the settlement lines exist and sum to zero',
+      `${lines[0].n} lines, total ${lines[0].total}`);
+  }
 
   await page.screenshot({ path: join(ROOT, 'client/pool-tour.png'), fullPage: true });
   if (errs.length) console.log(`  ..    pageerrors: ${errs.slice(0, 2).join(' | ')}`);

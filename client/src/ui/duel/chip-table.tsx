@@ -85,6 +85,7 @@ export function ChipWagerTable({
   chipSize = 46,
   denominations = FORGE_CHIPS,
   compact = false,
+  vessel = 'table',
   testID,
 }: {
   value: number;
@@ -123,6 +124,18 @@ export function ChipWagerTable({
   /** Drop the three-figure row, the quick ladder and the instructional copy.
    *  In a tray the athlete is mid-workout and already knows what a chip does. */
   compact?: boolean;
+  /**
+   * WHAT THE INGOTS ARE SITTING IN (Spec v5 §5, Phase 6).
+   *
+   * 'table'    the shared surface — a duel's matched pair, or a pool's pan.
+   * 'crucible' YOUR OWN pledge: metal you are pouring in, ready to be committed.
+   *            §5 asks for the athlete's own stake to read as a vessel being
+   *            filled rather than as a bet being placed on a table, and the two
+   *            are different acts — one is yours until you send it.
+   *
+   * Defaults to 'table', so every existing surface is untouched.
+   */
+  vessel?: 'table' | 'crucible';
   testID?: string;
 }) {
   const colors = useThemeColors();
@@ -331,14 +344,49 @@ export function ChipWagerTable({
         </View>
       </View>
 
-      {/* ── THE TABLE ── */}
+      {/* ── THE VESSEL ── */}
       <View className="mt-s2">
-        <ChipSurface
-          table={table}
-          height={tableHeight}
-          locked={locked}
-          testID="wager-table"
-        />
+        {vessel === 'crucible' ? (
+          /**
+           * A CRUCIBLE, not a card table.
+           *
+           * Tapered toward the base, warm rim, and an ember bed under the metal, so
+           * the athlete's own pledge reads as something being POURED rather than
+           * staked. The physics is identical — same world, same tilt, same flick —
+           * because the object is the same object; only what holds it changed.
+           */
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: `${colors.legendary}66`,
+              borderTopLeftRadius: 10,
+              borderTopRightRadius: 10,
+              borderBottomLeftRadius: 28,
+              borderBottomRightRadius: 28,
+              backgroundColor: 'rgba(28,16,6,0.72)',
+              overflow: 'hidden',
+            }}
+            testID="wager-crucible"
+          >
+            <ChipSurface table={table} height={tableHeight} locked={locked} testID="wager-table" />
+            {/* The heat, under the metal. pointerEvents none so it never steals a
+                drag from an ingot. */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute', left: 0, right: 0, bottom: 0, height: 5,
+                backgroundColor: colors.legendary, opacity: 0.5,
+              }}
+            />
+          </View>
+        ) : (
+          <ChipSurface
+            table={table}
+            height={tableHeight}
+            locked={locked}
+            testID="wager-table"
+          />
+        )}
       </View>
 
       {/* ── THE THREE NUMBERS, always legible, simulation or not. ── */}
@@ -402,8 +450,12 @@ export function ChipWagerTable({
         {locked
           ? 'The pool is locked. Nothing else goes in.'
           : compact
-            ? 'Tap an ingot · or flick it onto the table'
-            : 'Tap an ingot · hold to build a stack · flick it onto the table · drag one out to take it back'}
+            ? vessel === 'crucible'
+              ? 'Tap an ingot · or flick it into the crucible'
+              : 'Tap an ingot · or flick it onto the table'
+            : vessel === 'crucible'
+              ? 'Tap an ingot · hold to build a stack · flick it into the crucible · drag one out to take it back'
+              : 'Tap an ingot · hold to build a stack · flick it onto the table · drag one out to take it back'}
       </Text>
       {/* WHAT THE SENSOR IS ACTUALLY DOING, in one line. Not decoration: tilt
           has four ways to be unavailable (no sensor, permission not asked,
