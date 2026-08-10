@@ -37,10 +37,14 @@ Forge Trial is 163, third-party staking 164, vocabulary 165, cache/recovery 166.
 
 ## What remains
 
-### 1. Golden Dot pools (Phase 5)
-The five unapplied `hitdoubt-pot` migrations in `../hitdoubt-pot/migrations/` are
-still HIT/DOUBT-shaped and numbered 159–163. Rework to BACK/PUSH + pool +
-settlement, renumber to **167+**. Verifier ≥200 per §5.
+**ONE ITEM: the external legal review.** Every phase of the plan is built, applied
+and deployed. See `docs/LEGAL_REVIEW_PACK.md` and `node tools/compliance-gate.mjs`.
+
+### 1. ~~Golden Dot pools~~ — **DONE** (180–187)
+The five `hitdoubt-pot` migrations were never applied and never could be — they
+referenced `hit_probability`, `odds`, `workout_callouts_one_live` and
+`forge_drop_play`, all dropped by 162/163/167/172. Rewritten from scratch as 180–187
+rather than ported. Server and client both shipped; see §5 below.
 
 ~~Also: the tray should call `forge_trial_allowance`~~ — **done** (`26ee0d3`).
 `domain/forge-trial.ts::trialCeiling` reconciles wallet against allowance, the rail
@@ -139,7 +143,10 @@ like.
   passed on code that could not execute. Settlement must be driven with real
   balances.
 
-**Still outstanding:** the client. No athlete can open a pool yet.
+**The client shipped too** (184–186, `abc3657`): `my_pool_invitations` for the
+joiner's inbox, a pool-aware `my_workout_callouts` (it computed `stake * 2`, which is
+wrong for every pot), the Home chip, the invite sheet, and the athlete's `+` control.
+Phase 6 then replaced the placeholder bars with the two-pan scale (187, `bc8dd52`).
 
 THE ORIGINAL PLAN, for reference:
 
