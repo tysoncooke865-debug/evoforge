@@ -49,6 +49,7 @@ import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
 import { PoolInviteChip } from '@/ui/callouts/pool-invite';
 import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { MissionCard } from '@/ui/home/mission-card';
@@ -390,6 +391,12 @@ export default function HomeScreen() {
           not news, and manufacturing either would be soliciting (§3). */}
       <PoolInviteChip />
       <RevealChip />
+      {/* THE DAILY FORGE CACHE (§6). Directly under the mission, because it says what
+          today is worth and what today's plan is — and because until this shipped the
+          cache and the Recovery Run had never paid a single coin: 166 built both and
+          nothing ever called them. No countdown, no expiry, and opening the app pays
+          nothing (§6: "never app-opening"). */}
+      <ForgeCacheCard />
     <MissionCard
       mission={mission}
       title={missionName.title}
