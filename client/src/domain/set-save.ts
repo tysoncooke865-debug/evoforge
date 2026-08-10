@@ -11,11 +11,13 @@
  * the XP or strand the grant. Never reintroduce it.
  */
 
+import { exerciseIdFor, type UserExerciseRef } from './exercise-identity';
 import {
   type CanonicalSet,
   calculateEffectiveResistanceKg,
   normaliseExerciseSet,
 } from './exercise-load';
+import { rowExerciseId } from './last-performance';
 import { type ExerciseLoadModel, loadModelFor } from './exercise-load-models';
 import { pyFloat, pyInt } from './py';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
@@ -43,6 +45,11 @@ export interface SetInput {
   load?: Partial<CanonicalSet>;
   /** Resolved by the caller (it holds the library + custom exercises). */
   loadModel?: ExerciseLoadModel;
+  /** The athlete's own exercises, so a CUSTOM lift resolves to its permanent
+   *  `custom_<uuid>` identity rather than to a name-derived one. Optional:
+   *  absence means "no custom exercises", which is day one for most people
+   *  and byte-identical to the pre-identity behaviour. */
+  userExercises?: readonly UserExerciseRef[];
 }
 
 /**
@@ -100,16 +107,28 @@ export type SetVerdict =
       rowId?: string;
     };
 
-/** `get_previous_best_1rm`: best e1RM for the exercise, excluding the set being saved. */
+/**
+ * `get_previous_best_1rm`: best e1RM for the exercise, excluding the set being
+ * saved.
+ *
+ * 2026-08-10: matched by CANONICAL IDENTITY (domain/exercise-identity.ts).
+ * With a name-only match, an AI plan that renamed the lift reset the PR
+ * baseline to zero — so the first set of `Bench Press (Strength Focused)`
+ * could never be a PR (`previousBest > 0` fails) and the second set was
+ * crowned a PR against a one-set history. Both directions were wrong; both
+ * are fixed by asking which exercise it IS.
+ */
 export function previousBest1rm(
   rows: WorkoutRow[],
   exercise: string,
   excludeDate?: string,
-  excludeSet?: number
+  excludeSet?: number,
+  userExercises: readonly UserExerciseRef[] = []
 ): number {
   let best = 0;
+  const wanted = exerciseIdFor(exercise, userExercises);
   for (const r of rows) {
-    if (String(r.exercise) !== exercise) continue;
+    if (String(r.exercise) !== exercise && rowExerciseId(r, userExercises) !== wanted) continue;
     if (
       excludeDate !== undefined &&
       excludeSet !== undefined &&
@@ -143,7 +162,13 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
   const effective = calculateEffectiveResistanceKg(set);
   const loadForRm = effective ?? legacyWeightFor(set);
 
-  const previousBest = previousBest1rm(rows, input.exercise, input.workoutDate, input.setNo);
+  const previousBest = previousBest1rm(
+    rows,
+    input.exercise,
+    input.workoutDate,
+    input.setNo,
+    input.userExercises
+  );
   const current1rm = estimated1rm(loadForRm, Math.trunc(input.reps));
   const is_pr = current1rm > previousBest && previousBest > 0;
 
@@ -184,6 +209,19 @@ export function decideSetSave(rows: WorkoutRow[], input: SetInput): SetVerdict {
   return { action: 'insert', is_pr, current1rm, previousBest };
 }
 
+/**
+ * The column migration 192 adds — the set's canonical exercise identity.
+ *
+ * A SEPARATE GROUP FROM THE 133 ONES ON PURPOSE. Migration 133 is NOT applied
+ * in production (verified against information_schema 2026-08-10: workout_log
+ * still carries only the original thirteen columns), so every set save already
+ * fails once and retries stripped. If `exercise_id` rode in the same group it
+ * would be stripped by that retry and NEVER be written — the column would be
+ * live, correct, and permanently empty. Grouping lets the retry drop exactly
+ * what the database is actually missing.
+ */
+export const IDENTITY_COLUMNS = ['exercise_id'] as const;
+
 /** The columns migration 133 adds. Named once so the fallback below and the
  *  migration can be checked against each other by eye. */
 export const LOAD_COLUMNS = [
@@ -208,24 +246,53 @@ export const LOAD_COLUMNS = [
  * find (PGRST204), which would fail EVERY set save — the release-critical
  * regression this whole feature exists to avoid.
  *
- * So a write that fails on an unknown column is retried once without them.
- * The set lands with its legacy meaning intact (weight/reps/e1RM/volume are
- * all still correct — see legacyWeightFor) and only the new detail is lost,
- * which is exactly the pre-133 behaviour. Applying the migration turns the
- * detail on with no further deploy.
+ * So a write that fails on an unknown column is retried without them. The set
+ * lands with its legacy meaning intact (weight/reps/e1RM/volume are all still
+ * correct — see legacyWeightFor) and only the new detail is lost, which is
+ * exactly the pre-133 behaviour. Applying the migration turns the detail on
+ * with no further deploy.
+ *
+ * 2026-08-10 — WHICH COLUMNS THE RETRY DROPS NOW MATTERS.
+ *
+ * There are two independent optional groups (133's load columns and 192's
+ * exercise_id) and production currently has 192 but not 133. A retry that
+ * blindly dropped everything optional would therefore drop exercise_id on
+ * every single save, leaving a live column permanently empty. `stripped()`
+ * drops only the group the error actually names, and callers loop while the
+ * error keeps naming a new one — so any combination of applied migrations
+ * converges on a successful write rather than a lost set.
  */
+const OPTIONAL_GROUPS: readonly (readonly string[])[] = [LOAD_COLUMNS, IDENTITY_COLUMNS];
+
 export function isMissingLoadColumn(message: string | null | undefined): boolean {
   if (!message) return false;
-  return (
-    /PGRST204|schema cache|does not exist|could not find/i.test(message) &&
-    LOAD_COLUMNS.some((c) => message.includes(c))
-  );
+  if (!/PGRST204|schema cache|does not exist|could not find/i.test(message)) return false;
+  return OPTIONAL_GROUPS.some((g) => g.some((c) => message.includes(c)));
 }
 
-export function stripLoadColumns<T extends Record<string, unknown>>(row: T): Partial<T> {
+/**
+ * The row minus the optional columns the error names — or minus ALL of them
+ * when no message is given, which is the old signature's behaviour.
+ *
+ * Returns null when there is nothing left to strip, so a caller's retry loop
+ * has a termination condition that is not a counter.
+ */
+export function stripLoadColumns<T extends Record<string, unknown>>(
+  row: T,
+  message?: string | null
+): Partial<T> {
   const out: Record<string, unknown> = { ...row };
-  for (const c of LOAD_COLUMNS) delete out[c];
+  for (const group of OPTIONAL_GROUPS) {
+    const named = message == null || group.some((c) => message.includes(c));
+    if (named) for (const c of group) delete out[c];
+  }
   return out as Partial<T>;
+}
+
+/** True once every optional column has already been stripped from `row` —
+ *  the retry loop's stop condition. */
+export function hasOptionalColumns(row: Record<string, unknown>): boolean {
+  return OPTIONAL_GROUPS.some((g) => g.some((c) => c in row));
 }
 
 /**
@@ -253,6 +320,13 @@ export function buildSetRow(input: SetInput, muscle: string, timestamp: string) 
     date: input.workoutDate,
     workout: input.workout,
     exercise: input.exercise,
+    // 192 — THE SET'S CANONICAL IDENTITY, stored beside the name it was
+    // logged under. The name stays exactly what the athlete saw (nothing
+    // renames history); the id is what future server-side work will GROUP BY.
+    // Client reads do not depend on this column — they derive the same id
+    // from the name — so a row written before 192 was applied is not a second
+    // class of row, merely one that costs a resolve.
+    exercise_id: exerciseIdFor(input.exercise, input.userExercises),
     set: Math.trunc(input.setNo),
     weight: legacyWeight,
     reps,

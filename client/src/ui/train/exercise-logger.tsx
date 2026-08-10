@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { useExercisePrefs, unitFor, useSetExerciseUnit } from '@/data/exercise-prefs';
+import { useUserExercises } from '@/data/exercises';
 import { useSaveSet } from '@/data/mutations';
 import {
   defaultModeForModel,
@@ -11,6 +12,7 @@ import {
   modesForModel,
   type ExerciseLoadMode,
 } from '@/domain/exercise-load';
+import { exerciseIdFor } from '@/domain/exercise-identity';
 import { loadModelFor } from '@/domain/exercise-load-models';
 import { pixelFont } from '@/theme/fonts';
 import { LoadModeSelector } from '@/ui/train/load-mode-selector';
@@ -174,7 +176,15 @@ export function ExerciseCard({
   const setExerciseUnit = useSetExerciseUnit();
   const unit: WeightUnit = unitFor(prefs.data, exercise);
   // What this athlete did LAST session on this exercise (IMPROVEMENT_PLAN #2).
-  const last = lastPerformance(allRows, exercise, date);
+  //
+  // 2026-08-10: matched by CANONICAL IDENTITY, not by the exact string, so an
+  // AI plan that writes `Bench Press (Strength Focused)` still shows — and
+  // still prefills — the athlete's real bench numbers. The athlete's own
+  // exercises come along so a CUSTOM lift resolves to its permanent id
+  // instead of a name-derived one (the query is TanStack-cached; this is the
+  // same read useExercisePrefs above already makes).
+  const userExercises = useUserExercises();
+  const last = lastPerformance(allRows, exercise, date, userExercises.data ?? []);
   // Tyson 2026-07-13: the purple "you are here" highlight belongs to the
   // WHOLE exercise card, not one set row. Battles follow their tint.
   const activeColor = tint === colors.accent ? colors.epic : tint;
@@ -671,7 +681,21 @@ function SetRow({
           if (verdict.action === 'insert') {
             setFloatXp(true);
             // P2: the rest clock starts the moment a NEW set banks.
-            startRest();
+            //
+            // 2026-08-10: it now carries WHAT it is resting between, so a
+            // notification arriving on a locked phone can name the exercise
+            // instead of saying "rest is over" about nothing in particular.
+            // The identity is the canonical one, not the display string.
+            //
+            // The id is resolved WITHOUT the athlete's custom exercises here:
+            // it is association metadata for the notification and a future
+            // Live Activity, never a history key, so a custom lift landing on
+            // its name-derived id costs nothing and saves this row a query.
+            startRest(undefined, {
+              exerciseId: exerciseIdFor(exercise),
+              exerciseName: exercise,
+              setNumber: setNo,
+            });
           }
           const isPr = (verdict.action === 'insert' || verdict.action === 'update') && verdict.is_pr;
           if (isPr) onPr();

@@ -15,9 +15,11 @@
  * handler — an /_expo/static/* response that arrives as text/html is always
  * wrong, and a reload cannot fix it because the URL is unchanged.
  */
-// v2: bumped with the poisoned-asset healing so the new worker takes over
-// and the old shell cache is dropped on activate.
-const SHELL_CACHE = 'evoforge-shell-v2';
+// v3: bumped with the rest alarm (2026-08-10) so the new worker takes over —
+// a rest timer handed to the OLD worker would be dropped on the floor, and
+// the athlete would stand there waiting for a buzz that no code was going to
+// send. (v2 was the poisoned-asset healing.)
+const SHELL_CACHE = 'evoforge-shell-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -59,6 +61,65 @@ self.addEventListener('push', (event) => {
       }),
     ])
   );
+});
+
+// ---- THE REST ALARM (2026-08-10). ----
+//
+// The page hands this worker an absolute instant and it fires the "rest is
+// over" notification on its own clock. It lives HERE rather than in the page
+// for the obvious reason: a frozen tab has no timers, and a frozen tab is
+// exactly when the athlete has put the phone down between sets.
+//
+// EXACTLY ONE REST TIMEOUT EXISTS AT A TIME. `restTimer` is a single slot and
+// scheduling always clears it first, which is what makes every cancellation
+// case in the spec — skip, restart, duration change, a second timer replacing
+// the first, the workout ending — collapse into one rule and makes a
+// duplicate notification structurally impossible. The shared `tag` is the
+// belt to that braces: even if two ever raced, the browser collapses them.
+//
+// HONEST LIMIT: iOS may terminate this worker while the PWA is backgrounded,
+// and a terminated worker has no timers either. There is no client-side fix —
+// the only delivery iOS guarantees to a suspended PWA is a remote push. The
+// app therefore also catches up on resume (ui/train/rest-timer.tsx): an
+// expired rest buzzes and says so the moment EvoForge is looked at again.
+let restTimer = null;
+
+function clearRestTimer() {
+  if (restTimer !== null) {
+    clearTimeout(restTimer);
+    restTimer = null;
+  }
+}
+
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type === 'evoforge-rest-cancel') {
+    clearRestTimer();
+    return;
+  }
+  if (data.type !== 'evoforge-rest-schedule') return;
+
+  clearRestTimer();
+  const delay = Number(data.at) - Date.now();
+  if (!isFinite(delay)) return;
+  // A rest that is already over fires immediately rather than never: the page
+  // only reaches this path when it believes a rest is running, and setTimeout
+  // with a negative delay is a zero-delay timeout anyway. Guard the far side
+  // too — a corrupt timestamp must not arm a notification for next year.
+  if (delay > 1000 * 60 * 60) return;
+
+  restTimer = setTimeout(() => {
+    restTimer = null;
+    self.registration.showNotification('EvoForge', {
+      body: data.body || 'Rest complete. Time for your next set.',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: data.tag || 'evoforge-rest',
+      // One pulse, not a pattern that nags. Ignored where unsupported.
+      vibrate: [180, 90, 180],
+      data: { url: '/workout' },
+    });
+  }, Math.max(0, delay));
 });
 
 self.addEventListener('notificationclick', (event) => {

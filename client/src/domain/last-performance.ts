@@ -1,3 +1,4 @@
+import { exerciseIdFor, type UserExerciseRef } from './exercise-identity';
 import { canonicalFromRow, copyPreviousSet, loadFieldValue, type CanonicalSet } from './exercise-load';
 import { pyFloat, pyInt } from './py';
 import { isCountedSet } from './workouts';
@@ -8,6 +9,20 @@ import { normaliseWorkoutLog, type WorkoutRow } from './summary';
  * Pure over the cached workout rows (the same client-side filtering
  * previousBest1rm uses). "Last" means the most recent PRIOR date — today's
  * rows are excluded so an in-progress session never prefills itself.
+ *
+ * 2026-08-10 — MATCHED BY CANONICAL IDENTITY, NOT BY STRING.
+ *
+ * This function used to ask `String(r.exercise) !== exercise`, which meant an
+ * AI plan writing `Bench Press (Strength Focused)` found nothing: no "last
+ * time", no prefill, and the athlete typing four years of bench history back
+ * in from memory. It now asks whether the two names denote the SAME EXERCISE
+ * (domain/exercise-identity.ts), so history follows the movement rather than
+ * the wording — across AI plans, quick workouts, routines, challenges and
+ * every split the athlete has ever run.
+ *
+ * A row's STORED exercise_id (migration 192) is preferred when present, so a
+ * backfilled row skips resolution entirely; a row written before 192 resolves
+ * from its name and reaches the same answer.
  */
 export interface LastPerformance {
   date: string;
@@ -20,14 +35,24 @@ export interface LastPerformance {
   sets: { set: number; weight: number; reps: number; load?: CanonicalSet }[];
 }
 
+/** A row's identity: its stored id when it has one, else resolved from name. */
+export function rowExerciseId(r: WorkoutRow, userExercises: readonly UserExerciseRef[] = []): string {
+  const stored = (r as WorkoutRow & { exercise_id?: unknown }).exercise_id;
+  if (typeof stored === 'string' && stored !== '') return stored;
+  return exerciseIdFor(String(r.exercise ?? ''), userExercises);
+}
+
 export function lastPerformance(
   rows: WorkoutRow[],
   exercise: string,
-  todayIso: string
+  todayIso: string,
+  userExercises: readonly UserExerciseRef[] = []
 ): LastPerformance | null {
   let lastDate: string | null = null;
+  const wanted = exerciseIdFor(exercise, userExercises);
   const valid = normaliseWorkoutLog(rows).filter((r) => {
-    if (String(r.exercise) !== exercise) return false;
+    // The raw-name check first: it is the common case and it costs nothing.
+    if (String(r.exercise) !== exercise && rowExerciseId(r, userExercises) !== wanted) return false;
     const d = String(r.date);
     return isCountedSet(r.weight, r.reps) && d < todayIso;
   });

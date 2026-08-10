@@ -12,6 +12,7 @@ import {
   decideSetSave,
   buildSetRow,
   canonicalSetFor,
+  hasOptionalColumns,
   isMissingLoadColumn,
   stripLoadColumns,
   type SetInput,
@@ -101,7 +102,18 @@ export function useSaveSet() {
         | undefined;
       if (rows === undefined) rows = await fetchWorkoutLog();
 
-      const verdict = decideSetSave(rows, input);
+      // STAGE 1: an exercise the athlete CREATED carries the muscle they
+      // chose; everything else infers, exactly as before (inferMuscleGroup is
+      // parity-pinned and must not move). Read from the cache — a custom lift
+      // must not make LOG SET wait on a network round-trip.
+      //
+      // Read BEFORE the verdict (2026-08-10): decideSetSave now resolves the
+      // set's canonical exercise identity to find the PR baseline, and a
+      // custom lift's identity is its `user_exercises` row.
+      const userExercises =
+        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
+
+      const verdict = decideSetSave(rows, { ...input, userExercises });
       if (verdict.action === 'reject' || verdict.action === 'noop') {
         return verdict;
       }
@@ -115,12 +127,6 @@ export function useSaveSet() {
       (verdict as SetVerdict & { firstEver?: boolean }).firstEver = rows.length === 0;
 
       const timestamp = new Date().toISOString().slice(0, 19);
-      // STAGE 1: an exercise the athlete CREATED carries the muscle they
-      // chose; everything else infers, exactly as before (inferMuscleGroup is
-      // parity-pinned and must not move). Read from the cache — a custom lift
-      // must not make LOG SET wait on a network round-trip.
-      const userExercises =
-        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
       // Precedence: what the ATHLETE said it trains > what the LIBRARY says >
       // what the name heuristic can infer. inferMuscleGroup is parity-pinned
       // and stays the last resort, never the first answer for a name the
@@ -165,35 +171,36 @@ export function useSaveSet() {
       }
 
       if (verdict.action === 'update') {
-        const { error } = await supabase.from('workout_log').update(row).eq('id', verdict.rowId);
-        // 133 lands by hand, after the deploy. A database without the load
-        // columns must not fail the save — retry with the legacy row.
-        if (error && isMissingLoadColumn(error.message)) {
-          const { error: retry } = await supabase
-            .from('workout_log')
-            .update(stripLoadColumns(row))
-            .eq('id', verdict.rowId);
-          if (retry) throw retry;
-          return verdict;
+        // 133 and 192 land by hand, after the deploy, and INDEPENDENTLY — as
+        // of 2026-08-10 production has 192's exercise_id and not 133's load
+        // columns. So the retry drops only the group the error names, and
+        // loops while a new one is named: any combination of applied
+        // migrations converges on a written set rather than a lost one.
+        let payload: Record<string, unknown> = row;
+        for (;;) {
+          const { error } = await supabase.from('workout_log').update(payload).eq('id', verdict.rowId);
+          if (!error) return verdict;
+          if (!isMissingLoadColumn(error.message) || !hasOptionalColumns(payload)) throw error;
+          payload = stripLoadColumns(payload, error.message);
         }
-        if (error) throw error;
-        return verdict;
       }
 
       // insert: user_id comes from DEFAULT auth.uid(), never the payload.
-      let { data, error } = await supabase
-        .from('workout_log')
-        .insert(row)
-        .select('id,timestamp')
-        .single();
-      if (error && isMissingLoadColumn(error.message)) {
-        ({ data, error } = await supabase
+      let payload: Record<string, unknown> = row;
+      let data: { id: unknown; timestamp: unknown } | null = null;
+      for (;;) {
+        const res = await supabase
           .from('workout_log')
-          .insert(stripLoadColumns(row))
+          .insert(payload)
           .select('id,timestamp')
-          .single());
+          .single();
+        if (!res.error) {
+          data = res.data as { id: unknown; timestamp: unknown } | null;
+          break;
+        }
+        if (!isMissingLoadColumn(res.error.message) || !hasOptionalColumns(payload)) throw res.error;
+        payload = stripLoadColumns(payload, res.error.message);
       }
-      if (error) throw error;
       if (!data) throw new Error('workout_log insert returned no row');
       verdict.rowId = String(data.id); // the confirmed row, for battle events
 
@@ -542,8 +549,14 @@ export function useAcceptPlan() {
       // 062 (2026-07-19): user_plans kind='ai' is THE home. The legacy
       // custom_workout_plan double-write is retired (Streamlit, its only
       // reader, is gone; the migration one-shot-copied surviving plans).
+      //
+      // 2026-08-10: saveUserPlanDirect settles exercise identity for every
+      // plan path; this one hands it the athlete's own exercises so a custom
+      // lift resolves to its permanent id rather than being left alone.
+      const userExercises =
+        (queryClient.getQueryData(['user_exercises', userId]) as UserExercise[] | undefined) ?? [];
       const { saveUserPlanDirect } = await import('./user-plans');
-      await saveUserPlanDirect('ai', plan);
+      await saveUserPlanDirect('ai', plan, userExercises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user_plans', userId] });

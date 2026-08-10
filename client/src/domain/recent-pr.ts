@@ -10,6 +10,7 @@
  * own convention writes.
  */
 
+import { exerciseIdFor } from './exercise-identity';
 import { pyFloat, pyInt } from './py';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
 import { estimated1rm } from './workouts';
@@ -40,10 +41,13 @@ export function recentPr(rows: WorkoutRow[] | undefined): RecentPr | null {
       a.date < b.date ? -1 : a.date > b.date ? 1 : a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0
     );
 
+  // Keyed by CANONICAL IDENTITY (2026-08-10), the same key set-save's live
+  // PR pipeline now uses — otherwise a plan that renamed the lift restarts
+  // the baseline here and Home celebrates a "record" that beat nothing.
   const best = new Map<string, number>();
   let latest: RecentPr | null = null;
   for (const s of sets) {
-    const key = s.exercise.toLowerCase();
+    const key = exerciseIdFor(s.exercise);
     const previousBest = best.get(key) ?? 0;
     const current = estimated1rm(s.weight, s.reps);
     if (current > previousBest && previousBest > 0) {

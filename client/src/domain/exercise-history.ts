@@ -7,6 +7,7 @@
  * Pure, so the sections and the ranking can be tested without a network.
  */
 
+import { exerciseIdFor, type UserExerciseRef } from './exercise-identity';
 import { pyFloat, pyInt } from './py';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
 import { displayWeight, type WeightUnit } from './units';
@@ -26,6 +27,16 @@ export interface ExerciseHistory {
   last: ReadonlyMap<string, LastPerformance>;
   /** Lowercased name → how many valid sets, ever. */
   counts: ReadonlyMap<string, number>;
+  /**
+   * CANONICAL IDENTITY (2026-08-10). The two maps above are keyed by the
+   * literal name that was logged, which is what the ranker's own key space
+   * (`e.name.toLowerCase()`) expects — so they stay exactly as they were.
+   * These two are keyed by canonical exercise id, so an athlete who logged
+   * `Bench Press` still sees "Last: 80 kg × 8" against `Barbell Bench Press`
+   * in the picker, and still gets the performed-before boost on it.
+   */
+  lastById: ReadonlyMap<string, LastPerformance>;
+  performedIds: ReadonlySet<string>;
 }
 
 const EMPTY: ExerciseHistory = {
@@ -33,6 +44,8 @@ const EMPTY: ExerciseHistory = {
   recent: [],
   last: new Map(),
   counts: new Map(),
+  lastById: new Map(),
+  performedIds: new Set(),
 };
 
 /**
@@ -40,7 +53,11 @@ const EMPTY: ExerciseHistory = {
  * is by the newest row per exercise — a set logged today beats one from March,
  * however many times March happened.
  */
-export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10): ExerciseHistory {
+export function digestHistory(
+  rows: WorkoutRow[] | undefined,
+  recentLimit = 10,
+  userExercises: readonly UserExerciseRef[] = []
+): ExerciseHistory {
   if (!rows || rows.length === 0) return EMPTY;
 
   const performed = new Set<string>();
@@ -48,6 +65,9 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
   const counts = new Map<string, number>();
   const newest = new Map<string, string>(); // key -> newest timestamp seen
   const display = new Map<string, string>(); // key -> the name as written
+  const performedIds = new Set<string>();
+  const lastById = new Map<string, LastPerformance>();
+  const newestById = new Map<string, string>();
 
   for (const r of normaliseWorkoutLog(rows)) {
     const name = String(r.exercise ?? '').trim();
@@ -66,6 +86,14 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
       newest.set(key, stamp);
       last.set(key, { weight, reps, date: String(r.date ?? '') });
     }
+
+    const storedId = (r as WorkoutRow & { exercise_id?: unknown }).exercise_id;
+    const id = typeof storedId === 'string' && storedId !== '' ? storedId : exerciseIdFor(name, userExercises);
+    performedIds.add(id);
+    if (!newestById.has(id) || stamp > (newestById.get(id) as string)) {
+      newestById.set(id, stamp);
+      lastById.set(id, { weight, reps, date: String(r.date ?? '') });
+    }
   }
 
   const recent = [...newest.entries()]
@@ -73,17 +101,24 @@ export function digestHistory(rows: WorkoutRow[] | undefined, recentLimit = 10):
     .slice(0, recentLimit)
     .map(([key]) => display.get(key) as string);
 
-  return { performed, recent, last, counts };
+  return { performed, recent, last, counts, lastById, performedIds };
 }
 
 /** "Last: 30 kg × 8" (or "Last: 66.1 lb × 8") — null when never done.
- *  `p.weight` is kg from the log; `unit` is the athlete's per-exercise lens. */
+ *  `p.weight` is kg from the log; `unit` is the athlete's per-exercise lens.
+ *
+ *  The exact name is asked first (cheapest, and the answer for most rows);
+ *  canonical identity catches the rest, so an athlete who logged `Bench Press`
+ *  sees their numbers on `Barbell Bench Press`. */
 export function lastPerformanceLabel(
   history: ExerciseHistory,
   exercise: string,
-  unit: WeightUnit = 'kg'
+  unit: WeightUnit = 'kg',
+  userExercises: readonly UserExerciseRef[] = []
 ): string | null {
-  const p = history.last.get(exercise.toLowerCase());
+  const p =
+    history.last.get(exercise.toLowerCase()) ??
+    history.lastById.get(exerciseIdFor(exercise, userExercises));
   if (!p) return null;
   // 061: a 0 kg set is bodyweight work — "BW × 12" reads honest, "0 kg × 12"
   // reads like a data error.

@@ -17,6 +17,7 @@
  * record is a deterministic max or min over stored rows.
  */
 
+import { exerciseIdFor, type UserExerciseRef } from './exercise-identity';
 import { calculateEffectiveResistanceKg, canonicalFromRow, type CanonicalSet } from './exercise-load';
 import { estimated1rm } from './workouts';
 
@@ -57,8 +58,20 @@ const num = (v: unknown): number | null => {
  * achievements, not competing candidates for one slot, and collapsing them
  * is what produced the original bug.
  */
-export function bodyweightRecords(rows: Row[], exercise: string): BodyweightRecord[] {
-  const mine = rows.filter((r) => String(r.exercise) === exercise);
+export function bodyweightRecords(
+  rows: Row[],
+  exercise: string,
+  userExercises: readonly UserExerciseRef[] = []
+): BodyweightRecord[] {
+  // Canonical identity (2026-08-10): a renamed pull-up must not restart the
+  // record book. Exact name first — it is the common case and costs nothing.
+  const wanted = exerciseIdFor(exercise, userExercises);
+  const mine = rows.filter((r) => {
+    if (String(r.exercise) === exercise) return true;
+    const stored = r.exercise_id;
+    const id = typeof stored === 'string' && stored !== '' ? stored : exerciseIdFor(String(r.exercise ?? ''), userExercises);
+    return id === wanted;
+  });
   if (mine.length === 0) return [];
 
   const out: BodyweightRecord[] = [];

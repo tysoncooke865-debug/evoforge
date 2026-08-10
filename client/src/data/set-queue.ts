@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // this import path decides whether the full library rides the boot chunk.
 import { libraryMuscleFor } from '@/domain/muscle-lookup';
 import { buildSetRow, type SetInput } from '@/domain/set-save';
-import { isMissingLoadColumn, stripLoadColumns } from '@/domain/set-save';
+import { hasOptionalColumns, isMissingLoadColumn, stripLoadColumns } from '@/domain/set-save';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
 import { useToastStore } from '@/state/toast-store';
@@ -131,11 +131,17 @@ export async function flushQueue(): Promise<void> {
           row.timestamp
         ),
       };
-      let { error } = await supabase.from('workout_log').insert(built);
-      // 133 ships before its migration is applied by hand; a database without
-      // the load columns must still accept a queued set (see set-save.ts).
-      if (error && isMissingLoadColumn(error.message)) {
-        ({ error } = await supabase.from('workout_log').insert(stripLoadColumns(built)));
+      // 133 and 192 ship before their migrations are applied by hand, and
+      // independently of each other; a database missing either must still
+      // accept a queued set. Drop only the group the error names and try
+      // again (see set-save.ts) — an offline set is the one that must never
+      // be lost to a schema gap.
+      let payload: Record<string, unknown> = built;
+      let error: { message: string } | null = null;
+      for (;;) {
+        ({ error } = await supabase.from('workout_log').insert(payload));
+        if (!error || !isMissingLoadColumn(error.message) || !hasOptionalColumns(payload)) break;
+        payload = stripLoadColumns(payload, error.message);
       }
       row.attempts += 1;
       if (!error || /duplicate|unique|already exists/i.test(error.message)) {

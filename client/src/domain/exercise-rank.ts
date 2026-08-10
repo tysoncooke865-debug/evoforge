@@ -13,6 +13,7 @@
  * popularity and finally, deterministically, by name.
  */
 
+import { exerciseIdFor } from './exercise-identity';
 import {
   ALIASES,
   normaliseTerm,
@@ -28,6 +29,10 @@ export interface RankContext {
   inProgram?: ReadonlySet<string>;
   /** Every exercise they have ever logged (lowercased names). */
   performed?: ReadonlySet<string>;
+  /** The same history, keyed by CANONICAL EXERCISE ID (2026-08-10) — so an
+   *  athlete who logged `Bench Press` gets the performed-before boost on
+   *  `Barbell Bench Press` too, instead of it ranking as never-tried. */
+  performedIds?: ReadonlySet<string>;
   /** Starred. */
   favourites?: ReadonlySet<string>;
   /** The muscles today's workout is already hitting. */
@@ -145,7 +150,7 @@ export function passesFilters(
     return false;
   }
   if (f.favouritesOnly && !ctx.favourites?.has(key)) return false;
-  if (f.performedOnly && !ctx.performed?.has(key)) return false;
+  if (f.performedOnly && !hasPerformed(e, ctx, key)) return false;
   if (f.inProgramOnly && !ctx.inProgram?.has(key)) return false;
   if (f.customOnly && !isCustom(e.name)) return false;
   return true;
@@ -193,12 +198,19 @@ function matchScore(e: LibraryExercise, rawQuery: string, expanded: string[]): S
   return null;
 }
 
+/** Has this athlete ever logged this exercise — by name, or by identity? */
+function hasPerformed(e: LibraryExercise, ctx: RankContext, key: string): boolean {
+  if (ctx.performed?.has(key)) return true;
+  if (!ctx.performedIds || ctx.performedIds.size === 0) return false;
+  return ctx.performedIds.has(exerciseIdFor(e.name));
+}
+
 /** The athlete-signal part of the score. */
 function contextBoost(e: LibraryExercise, ctx: RankContext): number {
   const key = e.name.toLowerCase();
   let b = 0;
   if (ctx.inProgram?.has(key)) b += B_IN_PROGRAM;
-  if (ctx.performed?.has(key)) b += B_PERFORMED;
+  if (hasPerformed(e, ctx, key)) b += B_PERFORMED;
   if (ctx.favourites?.has(key)) b += B_FAVOURITE;
   if (ctx.targetMuscles && ctx.targetMuscles.size > 0) {
     if (ctx.targetMuscles.has(e.muscle)) b += B_TARGET_MUSCLE;

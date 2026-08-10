@@ -87,6 +87,10 @@ export function MissionBriefCard({
   onFlip,
   onMusclePress,
   onStart,
+  onQuickWorkout,
+  onTrainEarly,
+  movedTo,
+  onPutBack,
   isToday,
   intro,
   clock,
@@ -108,6 +112,35 @@ export function MissionBriefCard({
    *  i.e. show everything; a MuscleId = opened from a named chip. */
   onMusclePress?: (muscle: MuscleId | null) => void;
   onStart: () => void;
+  /**
+   * QUICK WORKOUT (§1, 2026-08-10) — present on TODAY's card whenever there is
+   * one, and never conditional on whether a session is planned.
+   *
+   * THE BUG THIS CLOSES: when a day resolved, this card was the whole hero and
+   * it had exactly one door. Quick Workout existed only on the REST-DAY card
+   * and two taps deep inside MANAGE PLAN — so on precisely the days an athlete
+   * has a plan, "I want to do something else today" was the hardest thing in
+   * the app to say. The plan is a recommendation, not a lock.
+   *
+   * WHY IT SITS BESIDE THE CTA AND NOT UNDER IT. The brief sketches them
+   * stacked, and stacking is ~26pt this card does not have: the height is a
+   * fixed, device-MEASURED budget (train-scale.ts) in which START WORKOUT
+   * clears the iPhone SE fold by about three points. A second row would push
+   * the primary action under the fold on the smallest tier — trading a
+   * discoverability problem for a worse one. Side by side costs nothing,
+   * and START keeps the glow, the sweep, the hero size and ~70% of the width,
+   * so "visually dominant" survives intact.
+   */
+  onQuickWorkout?: () => void;
+  /**
+   * TRAIN EARLY (§2) — on a FUTURE card, the CTA becomes this. `plannedFor`
+   * is the date it was scheduled for, so the helper line can say when.
+   */
+  onTrainEarly?: () => void;
+  /** Set when this future session has already been trained early; the card
+   *  reports where it went and offers the one-tap undo. */
+  movedTo?: string | null;
+  onPutBack?: () => void;
   isToday: boolean;
   intro: SharedValue<number>;
   clock: SharedValue<number>;
@@ -145,7 +178,22 @@ export function MissionBriefCard({
     ...data.pills.slice(0, MAX_CHIPS),
     ...(data.pills.length > MAX_CHIPS ? [`+${data.pills.length - MAX_CHIPS}`] : []),
   ];
-  const buttonTitle = data.finished ? 'VIEW WORKOUT' : data.done > 0 ? 'CONTINUE WORKOUT' : 'START WORKOUT';
+  /**
+   * THE DOOR, in four states. `moved` outranks everything: a session already
+   * trained early is not startable again from its original day — offering
+   * START there is how a duplicate session gets created, which §29 names as
+   * the thing that would make "train early" fake.
+   */
+  const moved = Boolean(movedTo);
+  const buttonTitle = moved
+    ? 'TRAINED EARLY'
+    : onTrainEarly
+      ? 'TRAIN EARLY'
+      : data.finished
+        ? 'VIEW WORKOUT'
+        : data.done > 0
+          ? 'CONTINUE WORKOUT'
+          : 'START WORKOUT';
   const showProgress = data.done > 0 && data.sets > 0;
 
   return (
@@ -397,27 +445,91 @@ export function MissionBriefCard({
             ) : null}
           </Animated.View>
 
-          {/* 5 — THE ONE DOOR. Nothing on this card may compete with it. */}
+          {/* 5 — THE DOOR. Still ONE dominant door; the secondary beside it is
+              deliberately quiet (ghost, no glow, no sweep, ~30% width) and
+              exists because "the plan is a recommendation, not a lock". */}
           <Animated.View
-            style={[{ marginTop: 10, shadowColor: colors.accent, shadowRadius: 30 }, ctaStyle]}
+            style={[
+              { marginTop: 10, flexDirection: 'row', alignItems: 'stretch', gap: 8, shadowColor: colors.accent, shadowRadius: 30 },
+              ctaStyle,
+            ]}
           >
-            <NeonButton
-              title={buttonTitle}
-              pixel
-              size="hero"
-              sweep={isToday && !data.finished}
-              onPress={onStart}
-              rightIcon={
+            <View style={{ flex: 1 }}>
+              <NeonButton
+                title={buttonTitle}
+                pixel
+                size="hero"
+                sweep={isToday && !data.finished}
+                disabled={moved}
+                onPress={moved ? () => undefined : (onTrainEarly ?? onStart)}
+                rightIcon={
+                  moved ? undefined : (
+                    <Text
+                      allowFontScaling={false}
+                      style={{ color: colors['accent-ink'], fontSize: 16, lineHeight: 16, marginTop: -2, fontWeight: '800' }}
+                    >
+                      ›
+                    </Text>
+                  )
+                }
+                testID={startTestID}
+              />
+            </View>
+            {onQuickWorkout && !moved ? (
+              <Pressable
+                onPress={onQuickWorkout}
+                accessibilityRole="button"
+                accessibilityLabel="start a quick workout instead"
+                testID="hero-quick-workout"
+                className="items-center justify-center rounded-md border px-s3"
+                style={{
+                  minWidth: 88,
+                  borderColor: `${colors.accent}59`,
+                  backgroundColor: 'rgba(34,211,238,0.07)',
+                }}
+              >
                 <Text
+                  className="text-2xs text-accent"
                   allowFontScaling={false}
-                  style={{ color: colors['accent-ink'], fontSize: 16, lineHeight: 16, marginTop: -2, fontWeight: '800' }}
+                  numberOfLines={2}
+                  style={{ letterSpacing: 0, textAlign: 'center', ...pixelFont() }}
                 >
-                  ›
+                  QUICK{'\n'}WORKOUT
                 </Text>
-              }
-              testID={startTestID}
-            />
+              </Pressable>
+            ) : null}
+            {moved && onPutBack ? (
+              <Pressable
+                onPress={onPutBack}
+                accessibilityRole="button"
+                accessibilityLabel="put this session back on its scheduled day"
+                testID="hero-put-back"
+                className="items-center justify-center rounded-md border px-s3"
+                style={{ minWidth: 88, borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
+              >
+                <Text
+                  className="text-2xs text-accent"
+                  allowFontScaling={false}
+                  numberOfLines={2}
+                  style={{ letterSpacing: 0, textAlign: 'center', ...pixelFont() }}
+                >
+                  PUT IT{'\n'}BACK
+                </Text>
+              </Pressable>
+            ) : null}
           </Animated.View>
+
+          {/* §2: "Avoid unnecessary warning modals." One quiet line instead. */}
+          {onTrainEarly || moved ? (
+            <Text
+              className="mt-s1 text-center text-2xs text-text-mute"
+              numberOfLines={1}
+              allowFontScaling={false}
+              testID="hero-early-hint"
+            >
+              {moved ? `Trained on ${movedTo}` : 'Your plan adapts around when you actually train.'}
+            </Text>
+          ) : null}
         </View>
       </GlowCard>
     </View>

@@ -1,4 +1,5 @@
 import { ROUTINE, ROUTINE_ORDER } from './catalogs';
+import { resolveExercise, type UserExerciseRef } from './exercise-identity';
 import { libraryMuscleFor, userMuscleFor, type UserExercise } from './muscle-lookup';
 import { pyInt } from './py';
 import { inferMuscleGroup } from './workouts';
@@ -14,6 +15,7 @@ import { inferMuscleGroup } from './workouts';
 export const PPPPLA_DAYS: readonly string[] = ROUTINE_ORDER.filter((d) => ROUTINE[d].length > 0);
 
 export interface PlanExercise {
+  /** THE DISPLAY NAME. Never the identity — see `exerciseId`. */
   exercise: string;
   sets: number;
   reps: string;
@@ -22,6 +24,25 @@ export interface PlanExercise {
    *  the SAME day). Backward-compatible — older payloads simply lack it; the
    *  ai-plan edge function never emits it. */
   supersetWith?: string;
+
+  /**
+   * IDENTITY, SEPARATED FROM PRESCRIPTION (2026-08-10).
+   *
+   * Everything below is OPTIONAL and every field is additive, so a plan
+   * payload written before this release loads and behaves exactly as it did
+   * — which matters, because these payloads are jsonb rows in user_plans
+   * belonging to live athletes.
+   *
+   * `exerciseId` is what history is matched on. The rest is what the AI used
+   * to smuggle into the NAME ("Bench Press (Strength Focused)"), and each of
+   * them now has somewhere honest to live.
+   */
+  exerciseId?: string;
+  trainingFocus?: string;
+  repMin?: number;
+  repMax?: number;
+  rir?: number;
+  tempo?: string;
 }
 export interface PlanDay {
   day: string;
@@ -57,12 +78,26 @@ export function validatePlan(data: unknown): { plan: CustomPlan | null; error: s
       const exercise = String(e.exercise ?? '').trim();
       const reps = String(e.reps ?? '').trim();
       if (!exercise || !reps) return { plan: null, error: `${day}: exercise/reps missing` };
+      const s = (k: string): string | undefined =>
+        String((e as Record<string, unknown>)[k] ?? '').trim() || undefined;
+      const n = (k: string): number | undefined => {
+        const v = pyInt((e as Record<string, unknown>)[k]);
+        return v === null ? undefined : v;
+      };
       exercises.push({
         exercise,
         sets: Math.max(1, Math.min(8, pyInt(e.sets) ?? 3)),
         reps,
         reason: String(e.reason ?? '').trim(),
         supersetWith: String((e as { supersetWith?: unknown }).supersetWith ?? '').trim() || undefined,
+        // Identity + prescription (2026-08-10). Accepts both the edge
+        // function's snake_case wire shape and this module's camelCase.
+        exerciseId: s('exerciseId') ?? s('exercise_id'),
+        trainingFocus: s('trainingFocus') ?? s('training_focus'),
+        repMin: n('repMin') ?? n('rep_min'),
+        repMax: n('repMax') ?? n('rep_max'),
+        rir: n('rir'),
+        tempo: s('tempo'),
       });
     }
     // A supersetWith must name ANOTHER exercise in the same day — anything
@@ -76,6 +111,56 @@ export function validatePlan(data: unknown): { plan: CustomPlan | null; error: s
     days.push({ day, goal: String(raw.goal ?? '').trim(), exercises });
   }
   return { plan: { plan_name: planName, rationale: String(d.rationale ?? ''), days }, error: null };
+}
+
+/**
+ * THE LAST GATE BEFORE A PLAN REACHES THE DATABASE (2026-08-10).
+ *
+ * The edge function already refuses to let a model mint an identity, but it
+ * is not the only door: a plan can arrive from the PLAN SCAN photo importer,
+ * from a cached pre-2026-08-10 response, or from a client running ahead of a
+ * deployed function. So identity is settled HERE too, on the one path every
+ * plan takes, using the one resolver.
+ *
+ * What it does, per exercise:
+ *   - resolves (exerciseId, exercise) to a canonical identity;
+ *   - REWRITES `exercise` to the catalogue's own name when it resolved, so
+ *     `Bench Press (Strength Focused)` is stored as `Barbell Bench Press`;
+ *   - lifts the descriptor it stripped into `trainingFocus` when the model
+ *     did not name one itself, so the intent is kept rather than deleted.
+ *
+ * A name nothing recognises is left EXACTLY as the athlete or the model wrote
+ * it. Renaming something we could not identify would be a guess, and this
+ * file's whole job is to stop guesses becoming identities.
+ */
+export function canonicalisePlan(
+  plan: CustomPlan,
+  userExercises: readonly UserExerciseRef[] = []
+): CustomPlan {
+  return {
+    ...plan,
+    days: plan.days.map((day) => ({
+      ...day,
+      exercises: day.exercises.map((e) => {
+        const r = resolveExercise({ exerciseId: e.exerciseId, name: e.exercise }, userExercises);
+        if (r.source === 'unknown') return e;
+        const focus = e.trainingFocus ?? focusFromDescriptor(e.exercise);
+        return {
+          ...e,
+          exercise: r.canonicalName,
+          exerciseId: r.exerciseId,
+          ...(focus ? { trainingFocus: focus } : {}),
+        };
+      }),
+    })),
+  };
+}
+
+/** The intent hiding in "Bench Press (Strength Focused)" — kept, not binned. */
+const FOCUS_WORDS = ['strength', 'hypertrophy', 'power', 'endurance', 'technique'] as const;
+function focusFromDescriptor(name: string): string | undefined {
+  const lower = name.toLowerCase();
+  return FOCUS_WORDS.find((w) => lower.includes(w));
 }
 
 export interface PlanRow {

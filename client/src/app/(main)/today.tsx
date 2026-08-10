@@ -17,6 +17,12 @@ import { useExercisePrefs } from '@/data/exercise-prefs';
 import { buildCorpus } from '@/data/exercise-corpus';
 
 import { useDeleteRoutine, useRoutines, type Routine } from '@/data/routines';
+import {
+  useClaimPlanSession,
+  usePlanSessionClaims,
+  useReleasePlanSession,
+} from '@/data/plan-claims';
+import { canTrainEarly, EARLY_REFUSAL_MESSAGE, indexClaims } from '@/domain/plan-claims';
 import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
@@ -355,7 +361,37 @@ export default function TodayScreen() {
     return sourceDayFor(date, schedule.data ?? [], planDays, todayIso);
   };
 
-  const weekBars = buildWeekBars(schedule.data ?? [], sessions.data ?? [], setsFor, todayIso, dayInSource);
+  /**
+   * ── TRAIN EARLY (§2, migration 194) ──
+   *
+   * "Users should be able to train early, late, or differently without
+   * breaking their plan." Wednesday's Legs, trained on Tuesday, logs to
+   * TUESDAY — the same sets, the same XP, the same finish marker, the same
+   * streak, through the same code that has always written them. The only
+   * thing a claim changes is whether Wednesday still asks for Legs.
+   *
+   * That is the whole design, and it is why this could be added to a live app
+   * without touching progression: nothing about COMPLETION moved. What moved
+   * is the calendar's memory of what is still owed.
+   *
+   * Declared HERE, above the week bars, because they consume it.
+   */
+  const claims = usePlanSessionClaims();
+  const claimIndex = indexClaims(claims.data);
+  const claimPlanSession = useClaimPlanSession();
+  const releasePlanSession = useReleasePlanSession();
+  const claimFor = (date: string, workout: string) => claimIndex.for(date, workout);
+
+  const weekBars = buildWeekBars(
+    schedule.data ?? [],
+    sessions.data ?? [],
+    setsFor,
+    todayIso,
+    dayInSource,
+    // A session trained early reads COMPLETED on its scheduled day rather
+    // than UPCOMING — the week must not ask for a workout that is done.
+    (d, w) => claimIndex.isClaimed(d, w)
+  );
   const scheduledToday = dayInSource(todayIso);
 
   /**
@@ -552,16 +588,56 @@ export default function TodayScreen() {
     return out;
   };
 
+  /** Every workout NAME that already owns a session on today's date — the
+   *  collision check `canTrainEarly` refuses on. */
+  const namesInPlayToday = (): string[] => [
+    ...(scheduledToday ? [scheduledToday] : []),
+    ...todaysExtras,
+    ...(adhoc?.name ? [adhoc.name] : []),
+    ...extraBars.map((b) => b.workout ?? ''),
+  ];
+
+  const trainEarly = (plannedDate: string, workout: string) => {
+    const verdict = canTrainEarly({
+      plannedDate,
+      workout,
+      todayIso,
+      claims: claimIndex,
+      namesInPlayToday: namesInPlayToday(),
+    });
+    if (!verdict.ok) {
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'NOT TODAY',
+        subtitle: EARLY_REFUSAL_MESSAGE[verdict.reason],
+      });
+      return;
+    }
+    // The claim is written on START, not on the first set: tapping TRAIN EARLY
+    // IS the decision to move the session, and the week should say so before
+    // the athlete has touched a barbell. PUT IT BACK on the moved card — and
+    // reopening the session — undo it, so the decision is never a trap.
+    claimPlanSession.mutate({ plannedDate, workout, completedDate: todayIso });
+    // The session opens on TODAY (that is where the sets belong) but carries
+    // the PLANNED day's source — a per-day source (066) means Wednesday's
+    // "Legs" can be the AI plan's while today follows MY PLAN, and resolving
+    // it against today's source would silently hand over a different workout.
+    launch(todayIso, workout, sourceForDate(plannedDate));
+  };
+
+  const putBack = (plannedDate: string, workout: string) =>
+    releasePlanSession.mutate({ plannedDate, workout });
+
   const carouselRef = useRef<DailyCarouselHandle>(null);
 
   /** The ONE entry path into a workout — and the SOURCE goes with it. Without
    *  that, the workout page had to guess whose plan you meant, and guessed the
    *  same way every time (whichever plan held the day name). */
-  const open = (date: string, workout: string) =>
+  const open = (date: string, workout: string, sourceOverride?: SourceIndex) =>
     router.push(
       `/workout?date=${encodeURIComponent(date)}&workout=${encodeURIComponent(
         workout
-      )}&source=${sourceForDate(date)}` as never
+      )}&source=${sourceOverride ?? sourceForDate(date)}` as never
     );
 
   /**
@@ -569,13 +645,13 @@ export default function TodayScreen() {
    * ui/train/mission-launch.tsx for why the transition must never be something
    * the athlete waits through. This is still the one door: `open` is unchanged.
    */
-  const launch = (date: string, workout: string) => {
+  const launch = (date: string, workout: string, sourceOverride?: SourceIndex) => {
     // MISSION START gets a MEDIUM tick, not the button's default light one:
     // this is the page's one committing action and it should feel heavier in
     // the hand than switching a plan does.
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLaunching(workout);
-    open(date, workout);
+    open(date, workout, sourceOverride);
   };
 
   /** ONE day of the carousel — always the same card shell, five states. */
@@ -751,6 +827,20 @@ export default function TodayScreen() {
             : undefined
         }
         onStart={() => launch(date, data.workout)}
+        /* §1 — QUICK WORKOUT IS ALWAYS REACHABLE. It opens the SAME sheet the
+           rest-day card's ADD WORKOUT opens and runs the SAME startEmpty()
+           path, which names the session uniquely against everything already
+           in play today (adhocNameError / autoWorkoutName). So a quick
+           session cannot merge into the planned one, cannot mark it complete,
+           and cannot delete it — it simply becomes a second workout on the
+           day, with its own bar, which the week rail has supported since 065. */
+        onQuickWorkout={isToday ? () => setEmptyOpen(true) : undefined}
+        /* §2 — an upcoming day is a door, not a wall. */
+        onTrainEarly={date > todayIso && !claimFor(date, data.workout) ? () => trainEarly(date, data.workout) : undefined}
+        movedTo={claimFor(date, data.workout)?.completed_date ?? null}
+        onPutBack={
+          claimFor(date, data.workout) ? () => putBack(date, data.workout) : undefined
+        }
         isToday={isToday}
         intro={intro}
         clock={clock}

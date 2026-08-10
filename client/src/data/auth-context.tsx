@@ -111,7 +111,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The floating rest timer's collapsed flag (in-memory only) + the rest
     // clock itself — a running countdown must not greet the next athlete.
     void import('@/state/rest-ui-store').then(({ useRestUiStore }) => useRestUiStore.getState().reset());
+    // The clock itself (2026-08-10). `reset()` also CANCELS the scheduled
+    // notification — otherwise the next athlete on this device gets buzzed
+    // about a rest that belonged to somebody who has signed out.
+    void import('@/state/rest-timer').then(({ useRestTimerStore }) => useRestTimerStore.getState().reset());
+    void import('@/state/rest-alarm-prompt-store').then(({ useRestAlarmPromptStore }) =>
+      useRestAlarmPromptStore.getState().reset()
+    );
     void import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
+      // The pre-2026-08-10 key. Removing it is harmless when absent and stops
+      // a legacy value outliving the store that replaced it.
       AsyncStorage.removeItem('evoforge-rest-end-v1').catch(() => undefined)
     );
     // v5.1: the retired board's persisted choices. The STORES are gone but the

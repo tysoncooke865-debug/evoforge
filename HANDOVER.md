@@ -26,6 +26,99 @@ Owner: Tyson. He works through other Claude sessions too — **always
 
 ## 2. State (all shipped, CI-green, deployed)
 
+- **THE TRAINING SYSTEM UPGRADE (2026-08-10/11, migrations 192–194)**
+
+  Four things, in the order they matter. The whole of it rests on ONE rule:
+  **AI generates programming. EvoForge owns exercise identity.**
+
+  **1. CANONICAL EXERCISE IDENTITY — the architectural fix.**
+  `workout_log.exercise` is a text column and every history lookup compared it
+  with `===`. So an AI plan writing `Bench Press (Strength Focused)` had NO
+  history, NO prefill and a PR baseline of zero — and production carried the
+  scar: 43 rows under that spelling beside 42 under `Barbell Bench Press`,
+  eighty-five sets of one lift that could not see each other.
+
+  `domain/exercise-identity.ts` is the ONE resolver (§6): exact id → curated
+  alias → normalised catalogue name → plural fold → the athlete's own exercise
+  → peel a *prescription* descriptor and retry → a stable `name_<slug>`.
+  Wired into `last-performance`, `set-save::previousBest1rm`, `exercise-history`,
+  `recent-pr`, `bodyweight-records` and the picker's ranking.
+
+  **THE SAFETY PROPERTY, and it is why this could ship against live tester
+  data:** the resolver only ever MERGES on high confidence and its fallback is
+  name-identity — i.e. exactly the old behaviour. It can make history more
+  connected than it is; it cannot invent a connection between two lifts. A
+  missing alias costs a little history; a wrong one fuses two athletes' numbers
+  forever. Those are not symmetric, so when in doubt it does nothing.
+
+  - `PRESCRIPTION_WORDS` in exercise-identity.ts is the *only* vocabulary a
+    trailing descriptor may be made of. **NOTHING MECHANICAL MAY EVER JOIN IT**
+    — incline, dumbbell, smith, close-grip, seated, paused, single-arm. Each
+    would merge two real exercises. `pause` and `rest` are deliberately absent
+    (rest-pause is a real prescription, but `Paused Barbell Bench Press` is a
+    real and different lift, and the second mistake is the expensive one).
+  - The catalogue is GENERATED: `node client/scripts/gen-exercise-ids.mjs`
+    emits `src/domain/exercise-ids.generated.ts` (1,099 ids, hot-path safe —
+    it must never import EXERCISE_LIBRARY, the muscle-lookup.ts lesson) AND
+    `supabase/functions/_shared/exercise-catalogue.ts` in the SAME run, so the
+    edge function and the client cannot drift. Pinned by
+    `__tests__/exercise-identity.test.ts`, which also asserts the generator's
+    normaliser matches the runtime's byte for byte.
+  - There is exactly ONE resolver. The edge function only VALIDATES ids; a
+    second implementation is the drift this change exists to remove.
+  - Migration **192** adds nullable `workout_log.exercise_id`; **193** backfills
+    it. The backfill is not hand-written — every distinct production name was
+    run through the real resolver and transcribed. It merged eleven groups
+    (123 names → 112 identities) and left 30 ambiguous names as islands.
+    **The fingerprint of exercise/weight/reps/date/set/workout was byte-identical
+    before and after** (`dfb83ef4a108bc06d79f7eed772d16eb`, 1,159 rows).
+  - **Migration 133 is STILL not applied** (verified against
+    information_schema): workout_log has none of the load columns, so every set
+    save already fails once and retries stripped. `exercise_id` is therefore in
+    its OWN optional group — a retry that dropped everything optional would
+    leave the new column live and permanently empty. The write paths now loop,
+    dropping only the group the error names.
+
+  **2. QUICK WORKOUT IS ALWAYS REACHABLE (§1).** It used to exist only on the
+  rest-day card and two taps inside MANAGE PLAN — so on precisely the days you
+  had a plan, "something else today" was the hardest thing in the app to say.
+  It now sits BESIDE the hero CTA. Beside, not under, because `train-scale.ts`
+  is a device-MEASURED budget in which START WORKOUT clears the iPhone SE fold
+  by ~3pt; a stacked second row would push the primary action under it.
+
+  **3. TRAIN EARLY (§2, migration 194).** A planned session's identity is
+  `(planned_date, workout)` — there is no session row in this schema, a plan is
+  a weekday map over `user_plans`. `plan_session_claims` claims that pair.
+  **The sets log to TODAY**, through the paths that have always written them, so
+  XP, streaks, PRs, coins, Evo and the finish marker are untouched; the only
+  thing a claim changes is whether the future day still asks. A claimed day
+  reads COMPLETED and is **NOT locked** — locking keys only on the finish
+  marker, which lives on the day actually trained. Refused when the workout
+  NAME is already in play today: sets are keyed (date, workout) and two
+  sessions may not share one key. `PUT IT BACK` is the undo.
+
+  **4. THE REST TIMER (§13–§19).** The absolute-timestamp design was already
+  right and is kept verbatim — only `endAt` is stored, remaining is derived
+  from `Date.now()`, so backgrounding and lock screens are survived BY
+  CONSTRUCTION. What was added: `state/rest-timer.ts` (identity, ±30s),
+  `domain/rest-clock.ts` (the pure arithmetic — it EXPIRES rather than showing
+  a stale REST OVER from breakfast, which the old linger check got wrong),
+  `data/rest-alarm.ts` scheduling a local notification through the service
+  worker (`public/sw.js`, cache bumped to v3 — a timer handed to the old
+  worker would be dropped on the floor), one-pulse vibration, and the ENABLE
+  ALERTS ask on the FIRST rest and never again.
+
+  **LIVE ACTIVITIES / DYNAMIC ISLAND ARE NOT IMPLEMENTED, DELIBERATELY.** There
+  is no `ios/`, no `android/`, no `eas.json`; CI runs `expo export -p web` and
+  the product is an installed PWA. A Live Activity needs a widget extension, an
+  App Group and a native target. `data/rest-alarm.ts` is the seam §17 asks for:
+  a native module implements two functions and nothing else changes. **Honest
+  limit:** iOS may terminate the service worker while the PWA is backgrounded
+  and the scheduled notification then never fires — the only guaranteed
+  delivery is remote push, which §14 rules out. The catch-up on resume is what
+  makes the experience correct anyway.
+
+
 - **ENGAGEMENT v5.1 — THE COMPLIANCE MIGRATION (2026-08-09, migrations 159–176)**
   A design review rejected the staked Forge Drop plinko outright: coins into a peg
   board where an RNG bucket can return less than went in is simulated gambling

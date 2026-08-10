@@ -66,7 +66,7 @@ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ReorderableList } from '@/ui/train/reorderable-list';
 import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/ui/core/neon-button';
-import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
+import { clearRest, FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet';
@@ -607,6 +607,11 @@ export default function WorkoutScreen() {
       });
     }
     finishWorkout.mutate({ date, workout: workoutName });
+    // §14: "cancel or replace scheduled notifications when ... the workout
+    // ends". A rest between sets stops meaning anything the moment there are
+    // no more sets, and a buzz five minutes into the drive home is the kind
+    // of thing that gets notifications turned off for good.
+    clearRest();
     clearActive();
     // An ad-hoc workout is DONE — releasing it restores START AN EMPTY WORKOUT.
     // It used to survive forever, capping the athlete at one ad-hoc per day.

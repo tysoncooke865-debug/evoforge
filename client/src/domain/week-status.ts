@@ -167,7 +167,22 @@ export function buildWeekBars(
   sessions: readonly SessionMarker[],
   progressFor: (date: string, workout: string) => DayProgress,
   todayIso: string,
-  dayFor?: (date: string) => string | null
+  dayFor?: (date: string) => string | null,
+  /**
+   * TRAIN EARLY (2026-08-10, migration 194). True when this planned session
+   * was already trained on another day. Optional, and absent means "no", so
+   * every existing caller and every existing test is unaffected.
+   *
+   * A claimed day reads COMPLETED and is NOT locked. Both halves matter:
+   *   completed — because it WAS completed; showing UPCOMING on Wednesday for
+   *     a session finished on Monday is the duplicate §29 forbids, drawn on
+   *     screen.
+   *   not locked — locking keys ONLY on the finish marker (the rule in this
+   *     file's header), and the marker for that session lives on the day it
+   *     was actually trained. Claiming a lock here would lock a day nobody
+   *     agreed to lock, and REOPEN would have nothing to delete.
+   */
+  isClaimed?: (date: string, workout: string) => boolean
 ): WeekBar[] | null {
   if (scheduleRows.length === 0) return null;
 
@@ -190,6 +205,7 @@ export function buildWeekBars(
 
     let status: WorkoutStatus;
     if (marker) status = statusForMarked(progress);
+    else if (isClaimed?.(date, workout)) status = 'completed';
     else if (date > todayIso) status = 'upcoming';
     else if (date === todayIso) status = 'in_progress';
     else if (progress.trained) status = 'completed'; // pre-marker history stays green

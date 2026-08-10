@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { CustomPlan } from '@/domain/custom-plan';
+import { canonicalisePlan, type CustomPlan } from '@/domain/custom-plan';
+import type { UserExerciseRef } from '@/domain/exercise-identity';
 import { useToastStore } from '@/state/toast-store';
 
 import { useAuth } from './auth-context';
@@ -65,13 +66,26 @@ export function useUserPlans() {
 
 /** Write (or replace) one kind's slot. The unique index makes it one per kind:
  *  saving a new hand-built split replaces the old one and CANNOT touch the AI
- *  one — which is the entire point of 018. */
-export async function saveUserPlanDirect(kind: PlanKind, plan: CustomPlan): Promise<void> {
+ *  one — which is the entire point of 018.
+ *
+ *  2026-08-10 — THE CHOKE POINT FOR EXERCISE IDENTITY. Every plan that
+ *  reaches the database passes through here: the AI forge, the PLAN SCAN
+ *  importer, the routine builder, the workout page's SAVE CHANGES, onboarding
+ *  and the origin seeder. So this is where a canonical identity is stamped on
+ *  each exercise, rather than in six callers that must each remember to.
+ *  `userExercises` is optional — without it a CUSTOM lift simply resolves to
+ *  nothing and is left exactly as written, which is the safe no-op. */
+export async function saveUserPlanDirect(
+  kind: PlanKind,
+  plan: CustomPlan,
+  userExercises: readonly UserExerciseRef[] = []
+): Promise<void> {
+  const canonical = canonicalisePlan(plan, userExercises);
   const { error } = await supabase.from('user_plans').upsert(
     {
       kind,
-      name: plan.plan_name,
-      payload: plan,
+      name: canonical.plan_name,
+      payload: canonical,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,kind' }

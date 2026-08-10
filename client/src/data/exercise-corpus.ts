@@ -42,7 +42,7 @@ export function buildCorpus(
   const programExercises = opts.programExercises ?? [];
   const excludeNames = opts.excludeNames ?? [];
 
-  const history = digestHistory(sources.workoutRows);
+  const history = digestHistory(sources.workoutRows, 10, sources.userExercises ?? []);
   const { favourites, hidden } = prefSets(sources.prefRows);
 
   // The athlete's own exercises are part of the library, not a special case.
@@ -68,6 +68,7 @@ export function buildCorpus(
   const context: Required<RankContext> = {
     inProgram: new Set(programExercises.map((p) => p.toLowerCase())),
     performed: history.performed,
+    performedIds: history.performedIds,
     favourites,
     targetMuscles,
     alreadyAdded,
