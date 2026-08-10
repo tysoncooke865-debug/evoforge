@@ -164,6 +164,7 @@
     "pending_evo_evidence",
     "physique_assessments",
     "physique_ratings",
+    "plan_session_claims",
     "player_stats",
     "player_traits",
     "profile",
