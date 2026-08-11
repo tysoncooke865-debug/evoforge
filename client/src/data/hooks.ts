@@ -155,12 +155,18 @@ export function useWorkoutLog() {
  *  useCurrentStats used to run five bestE1rmFor scans over the 2,500-row log
  *  INLINE per render of Home/avatar surfaces; a module-scope TanStack select
  *  memoises them per observer exactly like useWorkoutIndex. The bench
- *  precedence (Strength variant first, then flat/paused best) is the pinned
- *  order use-current-stats has always applied. */
+ *  precedence is the pinned order use-current-stats has always applied.
+ *
+ *  2026-08-11: the first lookup now matches by CANONICAL IDENTITY, so it
+ *  already covers `Barbell Bench Press`, `Bench Press` and every other
+ *  spelling of the flat barbell bench. The fallback survives for the ONE
+ *  thing identity deliberately keeps separate: `Paused Barbell Bench Press`
+ *  is its own catalogue exercise, and an athlete who only ever paused should
+ *  still be graded rather than read as having no bench at all. */
 const selectLiftBests = (rows: WorkoutRow[]) => {
   let bench = bestE1rmFor(rows, 'Barbell Bench Press (Strength)');
   if (bench <= 0) {
-    bench = Math.max(bestE1rmFor(rows, 'Barbell Bench Press'), bestE1rmFor(rows, 'Paused Barbell Bench Press'));
+    bench = bestE1rmFor(rows, 'Paused Barbell Bench Press');
   }
   return {
     bench,

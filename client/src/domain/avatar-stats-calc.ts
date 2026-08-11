@@ -11,6 +11,8 @@
  */
 
 import { determineAvatarBranch, type Branch } from './avatar-stats';
+import { exerciseIdFor } from './exercise-identity';
+import { rowExerciseId } from './last-performance';
 import { safeNum, score0100 } from './physique-ratings';
 import { normaliseWorkoutLog, type WorkoutRow } from './summary';
 import { estimated1rm, inferMuscleGroup, isCountedSet } from './workouts';
@@ -54,11 +56,43 @@ export interface AvatarStats {
   bodyweight: number;
 }
 
-/** `current_exercise_best_1rm`, over injected rows. */
+/**
+ * `current_exercise_best_1rm`, over injected rows.
+ *
+ * 2026-08-11 — MATCHED BY CANONICAL IDENTITY (domain/exercise-identity.ts).
+ *
+ * THE BUG THIS CLOSES. The avatar's strength score reads three lifts by NAME,
+ * and the names it asks for are the built-in routine's exact spellings —
+ * `Barbell Bench Press (Strength)`, `Barbell Back Squat`, `Barbell Deadlift`.
+ * An athlete whose log says `Bench Press`, `Barbell Squat` or `Deadlift`
+ * therefore had a bench of zero, a squat of zero and a deadlift of zero, and
+ * their character was graded on lifts it could not see. Production has three
+ * `Barbell Squat` rows and thirty distinct names that are not the routine's.
+ *
+ * There WAS a fallback — bench dropped to `Barbell Bench Press` /
+ * `Paused Barbell Bench Press` when the first came back empty — which is why
+ * this was narrower than it looked. But it was a hand-written list of three
+ * spellings, squat and deadlift had none at all, and no list of spellings can
+ * keep up with what an AI plan or an athlete types.
+ *
+ * Identity does. `Bench Press`, `Flat Bench Press` and `Bench Press - Heavy`
+ * all resolve to `barbell_bench_press`; `Incline`, `Dumbbell` and `Smith
+ * Machine` bench presses resolve elsewhere and still count for nothing here,
+ * which is correct — they are different lifts and the strength standards are
+ * calibrated on the barbell one.
+ *
+ * PARITY: `domain/avatar_stats.py` keeps the three-name list. The canonical
+ * catalogue is generated from the client's own exercise library and the
+ * retired Streamlit app has no access to it; `calculate_avatar_stats` is
+ * explicitly excluded from the goldens as unfixturable (tools/gen_fixtures.py
+ * says so), so nothing pins the two together. Recorded in PARITY.md.
+ */
 export function bestE1rmFor(rows: WorkoutRow[], exerciseName: string): number {
   let best = 0;
+  const wanted = exerciseIdFor(exerciseName);
   for (const r of normaliseWorkoutLog(rows)) {
-    if (String(r.exercise) === exerciseName) {
+    // The exact name first: it is the common case and costs nothing.
+    if (String(r.exercise) === exerciseName || rowExerciseId(r) === wanted) {
       const weight = pyFloat(r.weight) ?? 0;
       const reps = Math.trunc(pyFloat(r.reps) ?? 0);
       best = Math.max(best, estimated1rm(weight, reps));
@@ -212,12 +246,14 @@ export function calculateAvatarStats(
 ): AvatarStats {
   const heat = muscleHeatMap(inputs.workoutRows);
 
+  // The first lookup matches by canonical identity (see bestE1rmFor), so it
+  // covers every spelling of the flat barbell bench in one pass. The fallback
+  // remains for the one thing identity keeps separate on purpose: a paused
+  // bench is its own exercise, and somebody who only ever pauses should be
+  // graded rather than read as having no bench.
   let bench = bestE1rmFor(inputs.workoutRows, 'Barbell Bench Press (Strength)');
   if (bench <= 0) {
-    bench = Math.max(
-      bestE1rmFor(inputs.workoutRows, 'Barbell Bench Press'),
-      bestE1rmFor(inputs.workoutRows, 'Paused Barbell Bench Press')
-    );
+    bench = bestE1rmFor(inputs.workoutRows, 'Paused Barbell Bench Press');
   }
   const squat = bestE1rmFor(inputs.workoutRows, 'Barbell Back Squat');
   // Deadlift: logged barbell deadlifts if that lift ever enters the catalog

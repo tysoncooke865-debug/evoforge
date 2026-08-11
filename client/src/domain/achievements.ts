@@ -10,6 +10,8 @@
  */
 
 import { ACHIEVEMENTS } from './catalogs';
+import { exerciseIdFor } from './exercise-identity';
+import { rowExerciseId } from './last-performance';
 import { completedSessions } from './session-stats';
 import { pyFloat } from './py';
 import type { WorkoutRow } from './summary';
@@ -82,12 +84,24 @@ export function muscleSetsCount(heat: ReadonlyMap<string, number>, names: string
   return Math.trunc(total);
 }
 
+/**
+ * The best weight and e1RM for one lift.
+ *
+ * 2026-08-11: matched by CANONICAL IDENTITY, for the same reason the avatar's
+ * strength score is (avatar-stats-calc.ts::bestE1rmFor). The bench and squat
+ * achievements ask for the built-in routine's exact spellings, so an athlete
+ * logging `Bench Press` or `Barbell Squat` could lift a hundred kilos and
+ * never unlock a plate milestone. Achievements are append-only and
+ * server-swept, so this only ever GRANTS what was already earned — it cannot
+ * take one back.
+ */
 export function exerciseMaxes(rows: WorkoutRow[], exercise: string): { maxWeight: number; maxE1rm: number } {
   let maxWeight = 0;
   let maxE1rm = 0;
   let any = false;
+  const wanted = exerciseIdFor(exercise);
   for (const r of rows) {
-    if (String(r.exercise) !== exercise) continue;
+    if (String(r.exercise) !== exercise && rowExerciseId(r) !== wanted) continue;
     any = true;
     const weight = pyFloat(r.weight) ?? 0;
     const reps = pyFloat(r.reps) ?? 0;

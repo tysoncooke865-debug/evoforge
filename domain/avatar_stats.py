@@ -233,6 +233,16 @@ def calculate_avatar_stats():
     physique = latest_physique_rating_values()
     cardio = get_cardio_stats()
 
+    # CLIENT DIVERGENCE (2026-08-11, recorded in PARITY.md). The Expo client
+    # matches these three lifts by CANONICAL EXERCISE ID rather than by an
+    # exact string, so "Bench Press", "Barbell Squat" and "Deadlift" reach the
+    # strength score there and read as zero here. The canonical catalogue is
+    # generated from the client's own exercise library and this app has no
+    # access to it; calculate_avatar_stats is excluded from the goldens as
+    # unfixturable (tools/gen_fixtures.py says so), so nothing pins the two
+    # together. Kept as-is deliberately -- Streamlit is retired, and porting
+    # 1,099 catalogue entries into code nothing runs would be worse than the
+    # divergence.
     bench = current_exercise_best_1rm("Barbell Bench Press (Strength)")
     if bench <= 0:
         bench = max(

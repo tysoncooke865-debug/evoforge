@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { exerciseMaxes } from '../achievements';
+import { calculateAvatarStats } from '../avatar-stats-calc';
 import { canonicalisePlan } from '../custom-plan';
 import { digestHistory, lastPerformanceLabel } from '../exercise-history';
 import { lastPerformance, prefillForSet } from '../last-performance';
@@ -248,5 +250,70 @@ describe('§4 / §5 — a prescription can never become an identity', () => {
   it('is idempotent — canonicalising twice changes nothing', () => {
     const once = canonicalisePlan(plan);
     expect(canonicalisePlan(once)).toEqual(once);
+  });
+});
+
+describe('§21 — the avatar and the achievements see the same lifts the logger does', () => {
+  const bw = 80;
+  const lifts = (rows: WorkoutRow[]) =>
+    calculateAvatarStats({
+      workoutRows: rows,
+      level: 10,
+      latestBodyweight: bw,
+      bfMid: 15,
+      physique: { physique_score: null, leanness_score: null, symmetry_score: null, muscularity_score: null },
+      cardioMinutes: 0,
+      cardioDistanceKm: 0,
+      profileDeadliftE1rm: null,
+    });
+
+  it('a bench logged under ANY spelling reaches the strength score', () => {
+    // Before: the avatar asked for the built-in routine's exact string and a
+    // 100kg bench logged as "Bench Press" was a bench of zero.
+    for (const name of [
+      'Barbell Bench Press (Strength)',
+      'Barbell Bench Press',
+      'Bench Press',
+      'Flat Bench Press',
+      'Bench Press (Strength Focused)',
+    ]) {
+      const s = lifts([row('2026-08-01', name, 1, 100, 5)]);
+      expect(s.benchE1rm, `${name} did not reach the avatar`).toBeCloseTo(100 * (1 + 5 / 30), 6);
+    }
+  });
+
+  it('a squat and a deadlift do too — neither had ANY fallback before', () => {
+    expect(lifts([row('2026-08-01', 'Barbell Squat', 1, 140, 3)]).squatE1rm).toBeCloseTo(140 * 1.1, 6);
+    expect(lifts([row('2026-08-01', 'Back Squat', 1, 140, 3)]).squatE1rm).toBeCloseTo(140 * 1.1, 6);
+    expect(lifts([row('2026-08-01', 'Deadlift', 1, 180, 3)]).deadliftE1rm).toBeCloseTo(180 * 1.1, 6);
+    expect(lifts([row('2026-08-01', 'Conventional Deadlift', 1, 180, 3)]).deadliftE1rm).toBeCloseTo(180 * 1.1, 6);
+  });
+
+  it('and a DIFFERENT lift still counts for nothing — the standards are barbell ones', () => {
+    for (const name of [
+      'Incline Barbell Bench Press',
+      'Dumbbell Bench Press',
+      'Smith Machine Bench Press',
+      'Close-Grip Bench Press',
+    ]) {
+      expect(lifts([row('2026-08-01', name, 1, 100, 5)]).benchE1rm, `${name} leaked in`).toBe(0);
+    }
+    expect(lifts([row('2026-08-01', 'Front Squat', 1, 140, 3)]).squatE1rm).toBe(0);
+    expect(lifts([row('2026-08-01', 'Romanian Deadlift', 1, 180, 3)]).deadliftE1rm).toBe(0);
+  });
+
+  it('a paused-only bench is still graded — identity keeps it separate on purpose', () => {
+    expect(lifts([row('2026-08-01', 'Paused Barbell Bench Press', 1, 90, 5)]).benchE1rm)
+      .toBeCloseTo(90 * (1 + 5 / 30), 6);
+  });
+
+  it('the plate achievements unlock on any spelling', () => {
+    expect(exerciseMaxes([row('2026-08-01', 'Bench Press', 1, 100, 5)], 'Barbell Bench Press (Strength)').maxWeight)
+      .toBe(100);
+    expect(exerciseMaxes([row('2026-08-01', 'Barbell Squat', 1, 140, 3)], 'Barbell Back Squat').maxWeight)
+      .toBe(140);
+    // ...and never on a different lift.
+    expect(exerciseMaxes([row('2026-08-01', 'Dumbbell Bench Press', 1, 100, 5)], 'Barbell Bench Press (Strength)').maxWeight)
+      .toBe(0);
   });
 });

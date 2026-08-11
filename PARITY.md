@@ -117,6 +117,42 @@ them in `client/src/ui/avatar-art.ts` (one require + hasArt flip each):
 - female_titan 1-3 · female_cardio 1-3 · female_shredder 1-4
 - transparent-background re-exports of male shredder 1-4 (optional, unlocks staging)
 
+## Canonical exercise identity (2026-08-11, client-side only)
+
+`bestE1rmFor` (avatar-stats-calc.ts) and `exerciseMaxes` (achievements.ts) now
+match a lift by **canonical exercise id** rather than by an exact name string.
+Their Python counterparts — `domain/workouts.py::current_exercise_best_1rm` and
+`domain/achievements.py` — keep the literal `df["exercise"] == name` compare.
+
+**What it fixes.** Both surfaces ask for the built-in routine's exact
+spellings: `Barbell Bench Press (Strength)`, `Barbell Back Squat`,
+`Barbell Deadlift`. An athlete whose log says `Bench Press`, `Barbell Squat`
+or `Deadlift` had a bench, squat or deadlift of ZERO — their character graded,
+and their plate achievements withheld, on lifts the app could not see.
+Production carries three `Barbell Squat` rows and thirty distinct names that
+are not the routine's. Bench had a hand-written 3-spelling fallback; squat and
+deadlift had none.
+
+**Why the two sides may diverge here.** The canonical catalogue is GENERATED
+from the client's own exercise library (`client/scripts/gen-exercise-ids.mjs`,
+1,099 entries) and the retired Streamlit app has no access to it. More to the
+point, nothing pins them together: `tools/gen_fixtures.py` states in its own
+header that `calculate_avatar_stats` and `check_achievements` "are not
+fixturable and are excluded", so neither function has ever had a golden.
+`strength_score_from_ratios` — the actual pinned math — is untouched, and
+`gen_fixtures.py --check` stays green.
+
+**What it cannot do.** It only ever finds MORE of an athlete's own lifts; it
+never widens across a mechanical difference. Incline, dumbbell, Smith machine
+and close-grip bench presses still count for nothing toward the barbell bench
+standard, which is correct — the standards are calibrated on the barbell lift.
+Asserted both directions in `__tests__/exercise-history-continuity.test.ts`.
+`Paused Barbell Bench Press` remains a separate fallback: identity keeps it
+distinct on purpose, and somebody who only ever pauses should still be graded.
+
+Achievements are append-only and server-swept, so this can only GRANT a
+milestone that was already earned — it cannot take one back.
+
 ## Known gaps (tracked, deliberate)
 - ai-coach / ai-plan Edge Functions (custom plan generator) — not yet built.
 - Navy-formula body-fat entry mode (non-AI) — domain math is ported and
