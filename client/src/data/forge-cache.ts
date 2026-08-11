@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { friendlyCacheError } from '@/domain/forge-cache-errors';
+import { todayIso } from '@/domain/today';
 import { useToastStore } from '@/state/toast-store';
 
 import { track } from './analytics';
@@ -32,6 +34,9 @@ import { supabase } from './supabase';
  */
 
 const CACHE_KEY = 'forge_cache_state';
+
+/** The pure mapping lives in domain/ — testable without react-query. */
+export { friendlyCacheError } from '@/domain/forge-cache-errors';
 const RECOVERY_KEY = 'recovery_run_state';
 
 function useUserId(): string | null {
@@ -81,7 +86,12 @@ export function useForgeCacheState() {
     enabled: Boolean(userId),
     staleTime: 60_000,
     queryFn: async (): Promise<ForgeCacheState | null> => {
-      const { data, error } = await supabase.rpc('forge_cache_state');
+      // 198: the athlete's OWN calendar date, not the server's UTC one.
+      // domain/today.ts carries the lesson: east of Greenwich the UTC date is
+      // yesterday for the first hours of every day, which is exactly when
+      // people train. The server clamps what it is sent to +/-1 day, so this
+      // is the athlete's answer without being a trusted one.
+      const { data, error } = await supabase.rpc('forge_cache_state', { p_today: todayIso() });
       if (error) return null;
       return (data ?? null) as ForgeCacheState | null;
     },
@@ -120,8 +130,8 @@ export function useClaimForgeCache() {
   const userId = useUserId();
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('forge_cache_claim');
-      if (error) throw new Error(error.message);
+      const { data, error } = await supabase.rpc('forge_cache_claim', { p_today: todayIso() });
+      if (error) throw new Error(friendlyCacheError(error.message));
       return data as {
         already: boolean;
         cycle: number;
@@ -163,8 +173,8 @@ export function useConfirmRestDay() {
   const userId = useUserId();
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.rpc('forge_rest_confirm', {});
-      if (error) throw new Error(error.message);
+      const { data, error } = await supabase.rpc('forge_rest_confirm', { p_day: todayIso() });
+      if (error) throw new Error(friendlyCacheError(error.message));
       return data as { rest_day: string; already: boolean };
     },
     onSuccess: (r) => {

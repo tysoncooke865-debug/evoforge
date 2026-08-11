@@ -5,6 +5,12 @@ import { router } from 'expo-router';
 import { COIN_LABELS, useCoinHistory, useCoinTotal, type CoinEvent } from '@/data/coins';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
+import {
+  COIN_REWARDS,
+  REWARD_COPY,
+  rewardSummarySentence,
+  STREAK_MILESTONE_MULTIPLIER,
+} from '@/domain/coin-rewards';
 import { CoinIcon } from '@/ui/core/coin-icon';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
@@ -160,9 +166,21 @@ export default function CoinsScreen() {
         <CoinIcon size={22} />
       </Pressable>
 
-      <Text className="mt-s1 text-2xs text-text-mute">
-        Every coin is server-verified: workout complete +25, PR +50, streak milestones 10× the
-        milestone, plus the 100-coin starting bonus.
+      {/* THE NUMBERS COME FROM THE TABLE, NOT FROM A SENTENCE (2026-08-11).
+          This line used to read "workout complete +25, PR +50" — typed by hand,
+          and wrong on both counts: the ledger records 20 and 25. An athlete who
+          read it and then checked their balance had every reason to think the
+          app was shorting them. domain/coin-rewards.ts mirrors the server guard
+          that actually decides the amount, so the description and the ledger
+          now move together. */}
+      <Text
+        className="mt-s1 text-2xs text-text-mute"
+        accessibilityLabel={`Every coin is server verified. ${REWARD_COPY.map((r) => r.a11y).join('. ')}. Streak milestones pay ${STREAK_MILESTONE_MULTIPLIER} times the milestone, plus a ${COIN_REWARDS.starting_bonus} coin starting bonus.`}
+        testID="coins-reward-summary"
+      >
+        Every coin is server-verified: {rewardSummarySentence()}, streak milestones{' '}
+        {STREAK_MILESTONE_MULTIPLIER}× the milestone, plus the {COIN_REWARDS.starting_bonus}-coin
+        starting bonus.
       </Text>
 
       <Text className="mt-s2 text-2xs text-text-mute" style={{ letterSpacing: 1.5 }}>HISTORY</Text>
