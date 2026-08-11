@@ -123,6 +123,20 @@ Owner: Tyson. He works through other Claude sessions too — **always
     (123 names → 112 identities) and left 30 ambiguous names as islands.
     **The fingerprint of exercise/weight/reps/date/set/workout was byte-identical
     before and after** (`dfb83ef4a108bc06d79f7eed772d16eb`, 1,159 rows).
+  - **THE AVATAR COULD NOT SEE A BENCH CALLED "BENCH PRESS" (2026-08-11).**
+    The strength score and the plate achievements read three lifts by NAME —
+    the built-in routine's exact spellings — so `Bench Press`, `Barbell Squat`
+    and `Deadlift` all read ZERO. Bench had a hand-written 3-spelling fallback;
+    squat and deadlift had none. All four surfaces (avatar, live current stats,
+    achievement sweep, its progress bars) now match by canonical id. It only
+    ever finds MORE of an athlete's own lifts — incline/dumbbell/Smith/close-
+    grip still count for nothing toward the barbell standard, asserted both
+    directions. **Python keeps the literal compare on purpose**: gen_fixtures.py
+    says in its own header that `calculate_avatar_stats` and
+    `check_achievements` "are not fixturable and are excluded", so nothing pins
+    them; `strength_score_from_ratios` (the pinned math) is untouched and the
+    goldens are green. Deviation recorded in PARITY.md and pointed at from
+    `domain/avatar_stats.py`.
   - **Migration 133 is STILL not applied** (verified against
     information_schema): workout_log has none of the load columns, so every set
     save already fails once and retries stripped. `exercise_id` is therefore in
