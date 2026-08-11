@@ -137,6 +137,23 @@ Owner: Tyson. He works through other Claude sessions too — **always
     them; `strength_score_from_ratios` (the pinned math) is untouched and the
     goldens are green. Deviation recorded in PARITY.md and pointed at from
     `domain/avatar_stats.py`.
+  - **THE REST BUZZ SURVIVES iOS EATING THE SERVICE WORKER (196/197).**
+    The worker holding a timeout is the MECHANISM and still fires first; iOS
+    terminating a backgrounded PWA's worker is the case it cannot cover, and
+    there is no client-side fix — the only delivery iOS guarantees to a
+    suspended PWA is a remote push. So `rest_alarms` (ONE row per athlete,
+    user_id is the PK) plus a ten-second `rest-alarm-tick` cron is the
+    BACKSTOP. Not "requiring push for a rest timer" (§14): the in-app timer
+    and the worker path work with no server at all, and no permission means no
+    row. **Duplicates are structurally impossible** — the PK, `rest_alarms_due()`
+    marking sent in the same statement it returns, the shared `evoforge-rest`
+    tag, and the foreground completion cancelling the row before it can send.
+    **THE CRON GUARDS ITS OWN COST**: an unguarded 10s job would be ~259K edge
+    invocations/month, over half the FREE plan's allowance, to poll an empty
+    table — so the job checks `exists(...)` in Postgres and only calls the
+    function when something is genuinely due. `rest_alarms_due()` returns other
+    people's push endpoints and is service-role only, revoked from
+    `authenticated` as well as guarded in the body.
   - **PREFERENCES AND PR CROSSINGS (2026-08-11, migration 195).** A star, a
     hide and the KG⇄LB lens were keyed on the literal name, so an AI rename
     dropped all three — and the unit one is the dangerous member: an athlete
