@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { deriveMission } from '../home-mission';
 import type { ScheduleRow } from '../scheduled-streak';
 import {
   completedSessionCount,
@@ -203,5 +204,45 @@ describe('progress counts only what was really finished', () => {
     expect(uniqueTrainingDayCount(undefined)).toBe(0);
     // Sets without a marker are not a completed session either.
     expect(completedSessionCount([{ date: '2026-08-01', workout: 'X', finished: false }])).toBe(0);
+  });
+});
+
+describe('an extra session never claims to be the plan', () => {
+  // Found by the browser tour, not by the unit tests: the mission card said
+  // TODAY'S MISSION for a session on a planned rest day, while the cache card
+  // directly above it correctly said TODAY'S PLAN: REST. Two true statements
+  // reading as a contradiction, because one claimed to be the plan.
+  const base = {
+    hasSchedule: true,
+    hasEverTrained: true,
+    assignedWorkout: null,
+    adhocWorkout: 'Quick Chest',
+    finished: false,
+    doneSets: 2,
+    targetSets: 0,
+    loggedSets: 2,
+    starterWorkout: null,
+    firstWorkoutStarted: false,
+  };
+
+  it('a rest-day session is an EXTRA, not today`s mission', () => {
+    expect(deriveMission(base).status).toBe('extra_session');
+  });
+
+  it('a scheduled session is still the plan', () => {
+    expect(deriveMission({ ...base, assignedWorkout: 'Push', adhocWorkout: null }).status).not.toBe(
+      'extra_session'
+    );
+  });
+
+  it('completion still wins — a finished extra is finished', () => {
+    expect(deriveMission({ ...base, finished: true }).status).toBe('completed');
+  });
+
+  it('a first-ever session is offered, not labelled an extra', () => {
+    // Before the first completed workout a rest day cannot apply, so day one
+    // of the plan is still offered — that is `first_workout`, not an extra.
+    const fresh = { ...base, hasEverTrained: false, adhocWorkout: null, starterWorkout: 'Push' };
+    expect(deriveMission(fresh).status).not.toBe('extra_session');
   });
 });

@@ -29,6 +29,19 @@ export type MissionStatus =
    */
   | 'ready_to_finish'
   | 'completed'
+  /**
+   * TRAINING ON A PLANNED REST DAY (2026-08-11).
+   *
+   * §1: "if a user performs an extra workout on a rest day, label it as an
+   * optional extra session rather than changing the planned rest state."
+   *
+   * Without this the mission card presented the session as TODAY'S MISSION
+   * while the cache card above it — correctly reading the stored plan — said
+   * TODAY'S PLAN: REST. Two true statements that read as a contradiction,
+   * because one of them was claiming to be the plan and was not. The plan is
+   * not rewritten by what somebody decided to do this afternoon.
+   */
+  | 'extra_session'
   /** Never trained, and today is not a scheduled day — a first session is
    *  still offered. You cannot be on a rest day before you have trained. */
   | 'first_workout'
@@ -120,7 +133,16 @@ export function deriveMission(input: MissionInput): Mission {
     opened:
       input.loggedSets > 0 || (input.assignedWorkout === null && input.adhocWorkout !== null),
   });
+  /**
+   * AN EXTRA IS A THIRD KIND, not a promotion of the day. The rest day stays a
+   * rest day for the streak, the cache ladder and the plan; only the CARD
+   * changes, and only to stop calling this session "today's mission".
+   * Completion still wins — a finished extra is finished.
+   */
+  const isExtra =
+    input.assignedWorkout === null && input.adhocWorkout !== null && input.hasSchedule && input.hasEverTrained;
   if (canonical === 'completed') return { ...base, status: 'completed' };
+  if (isExtra) return { ...base, status: 'extra_session' };
   if (canonical === 'ready_to_finish') return { ...base, status: 'ready_to_finish' };
   if (canonical === 'in_progress') return { ...base, status: 'in_progress' };
   return { ...base, status: 'scheduled' };

@@ -225,6 +225,9 @@ export function MissionCard({
    * itself, and asking somebody who had finished every set to resume.
    */
   const readyToFinish = mission.status === 'ready_to_finish';
+  /** Trained on a planned rest day. The plan above still says REST, and that
+   *  is correct — this card must stop calling the session "today's mission". */
+  const isExtra = mission.status === 'extra_session';
   const underway = inProgress || readyToFinish;
   const showRewards = features.showMissionRewards && mission.xpReward > 0 && !underway;
   const evoLabel = evoEvidenceLabel(evoEvidenceFor({ sets: mission.targetSets, cardioMinutes: 0 }));
@@ -246,7 +249,13 @@ export function MissionCard({
               sets row already say which card this is. */}
           <View className="flex-row items-baseline" style={{ minWidth: 0 }}>
             <Kicker>
-              {readyToFinish ? 'READY TO FINISH' : inProgress ? 'IN PROGRESS' : "TODAY'S MISSION"}
+              {isExtra
+                ? 'EXTRA SESSION'
+                : readyToFinish
+                  ? 'READY TO FINISH'
+                  : inProgress
+                    ? 'IN PROGRESS'
+                    : "TODAY'S MISSION"}
             </Kicker>
             {sub ? (
               // NBSP, not a space: RN-web renders each Text as its own DOM
