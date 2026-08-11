@@ -30,12 +30,12 @@ import { completedSessions } from '@/domain/session-stats';
 import { computeStreak } from '@/domain/streak';
 import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
 import { todayIso as calendarToday } from '@/domain/today';
-import { sourceDayFor } from '@/domain/week-status';
+import { resolvePlannedDay } from '@/domain/session-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
 import { XP_PER_SET } from '@/domain/xp';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
-import { adhocOf, useSessionStore } from '@/state/session-store';
+import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
@@ -178,6 +178,9 @@ export default function HomeScreen() {
   const prefs = useExercisePrefs();
   const { sources, resolveDay, preferredSource, loading: plansLoading } = useDayPlan();
   const adhoc = useSessionStore(adhocOf);
+  // The today-only day swap — Train honours it, so Home must too or the two
+  // screens look up different workout names (see resolvePlannedDay below).
+  const daySwap = useSessionStore(daySwapOf);
 
   const scheduleRows = schedule.data ?? [];
   const hasSchedule = scheduleRows.length > 0;
@@ -213,7 +216,36 @@ export default function HomeScreen() {
   // B3 (2026-07-19): the shared index — Home used to re-normalise the same
   // 2500 rows ~5× per render across mission/PR/totals/streak derivations.
   const workoutIndex = useWorkoutIndex();
-  const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
+  /**
+   * TODAY'S WORKOUT NAME — the SAME resolution Train uses (2026-08-11).
+   *
+   * This line used to call `sourceDayFor` directly, which is only the LAST of
+   * the three branches Train applies. It saw neither the today-only DAY SWAP
+   * nor the per-day SOURCE map (migration 066), so the moment an athlete used
+   * either, Home resolved a different workout NAME from Train — and finish
+   * markers are keyed (date, workout). Home's marker lookup missed, the
+   * session read as unfinished, and the card said IN PROGRESS · RESUME MISSION
+   * while Train showed the very same workout COMPLETED.
+   *
+   * `resolvePlannedDay` is that resolution, extracted once
+   * (domain/session-status.ts). Neither screen may answer this for itself.
+   */
+  const latestScheduleRow = scheduleRows.length > 0 ? scheduleRows[scheduleRows.length - 1] : null;
+  const explicitSourceToday = (() => {
+    const map = (latestScheduleRow as { sources?: Record<string, number> } | null)?.sources;
+    if (!map) return false;
+    const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
+    const v = map[dow];
+    return v === 0 || v === 1 || v === 2;
+  })();
+  const scheduledToday = resolvePlannedDay({
+    date: todayIso,
+    todayIso,
+    scheduleRows,
+    planDays,
+    daySwap,
+    hasExplicitSource: explicitSourceToday,
+  });
   // ALREADY UNDER WAY? Server truth from the log, not the session store —
   // it survives a refresh, a second device and a cleared cache, which is
   // what "return to the app after partially logging" actually needs.

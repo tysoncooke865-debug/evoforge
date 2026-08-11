@@ -218,7 +218,15 @@ export function MissionCard({
   // action and has to clear the PHONE's fold, and 2pt of inner air is a
   // cheaper thing to spend than the champion's size.
   const inProgress = mission.status === 'in_progress';
-  const showRewards = features.showMissionRewards && mission.xpReward > 0 && !inProgress;
+  /**
+   * READY TO FINISH (2026-08-11). Every planned set logged, FINISH not yet
+   * pressed. Before this state existed the card said IN PROGRESS · RESUME
+   * MISSION directly beside "17/17 SETS COMPLETED" — the card contradicting
+   * itself, and asking somebody who had finished every set to resume.
+   */
+  const readyToFinish = mission.status === 'ready_to_finish';
+  const underway = inProgress || readyToFinish;
+  const showRewards = features.showMissionRewards && mission.xpReward > 0 && !underway;
   const evoLabel = evoEvidenceLabel(evoEvidenceFor({ sets: mission.targetSets, cardioMinutes: 0 }));
   const muscles = pills.slice(0, 3);
 
@@ -237,7 +245,9 @@ export function MissionCard({
               "MISSION" for the same width — the RESUME MISSION button and the
               sets row already say which card this is. */}
           <View className="flex-row items-baseline" style={{ minWidth: 0 }}>
-            <Kicker>{inProgress ? 'IN PROGRESS' : "TODAY'S MISSION"}</Kicker>
+            <Kicker>
+              {readyToFinish ? 'READY TO FINISH' : inProgress ? 'IN PROGRESS' : "TODAY'S MISSION"}
+            </Kicker>
             {sub ? (
               // NBSP, not a space: RN-web renders each Text as its own DOM
               // node and HTML collapses a leading space, so " · STRENGTH"
@@ -345,7 +355,9 @@ export function MissionCard({
 
       <View className="mt-s3">
         <NeonButton
-          title={inProgress ? 'RESUME MISSION' : 'START MISSION'}
+          // FINISH, never RESUME, once every set is in. The two used to be one
+          // branch, which is how the audit found RESUME beside 17/17.
+          title={readyToFinish ? 'FINISH WORKOUT' : inProgress ? 'RESUME MISSION' : 'START MISSION'}
           pixel
           size="hero"
           sweep

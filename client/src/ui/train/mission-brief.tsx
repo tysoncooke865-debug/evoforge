@@ -42,6 +42,7 @@ import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reani
 import type { Difficulty } from '@/domain/mission-brief';
 import type { MapFocus, MuscleId, MuscleView } from '@/domain/muscle-map';
 import { formatEvoEstimate } from '@/domain/progression/evo-per-session';
+import { sessionStatus } from '@/domain/session-status';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { MissionLabel as Label, MissionProgressBar as ProgressBar } from '@/ui/core/mission-kit';
@@ -185,15 +186,30 @@ export function MissionBriefCard({
    * the thing that would make "train early" fake.
    */
   const moved = Boolean(movedTo);
+  /**
+   * READY TO FINISH (2026-08-11). `data.done >= data.sets` with no finish
+   * marker means every planned set is in and the only thing left is the
+   * button — so it must SAY so. Home offered RESUME beside "17/17 SETS
+   * COMPLETED" and Train offered CONTINUE; both are the same omission, and
+   * both now read from the canonical status (domain/session-status.ts).
+   */
+  const canonical = sessionStatus({
+    workout: data.workout,
+    targetSets: data.sets,
+    doneSets: data.done,
+    finished: data.finished,
+  });
   const buttonTitle = moved
     ? 'TRAINED EARLY'
     : onTrainEarly
       ? 'TRAIN EARLY'
-      : data.finished
+      : canonical === 'completed'
         ? 'VIEW WORKOUT'
-        : data.done > 0
-          ? 'CONTINUE WORKOUT'
-          : 'START WORKOUT';
+        : canonical === 'ready_to_finish'
+          ? 'FINISH WORKOUT'
+          : canonical === 'in_progress'
+            ? 'CONTINUE WORKOUT'
+            : 'START WORKOUT';
   const showProgress = data.done > 0 && data.sets > 0;
 
   return (

@@ -13,11 +13,21 @@
  * renders as banked XP only.
  */
 
+import { sessionStatus } from './session-status';
 import { activityXp } from './xp';
 
 export type MissionStatus =
   | 'scheduled'
   | 'in_progress'
+  /**
+   * Every planned set logged, FINISH not yet pressed (2026-08-11).
+   *
+   * This state did not exist, so 17 of 17 sets read exactly like 1 of 17 and
+   * the card offered RESUME MISSION to somebody who had finished every set.
+   * The audit caught it beside "17/17 SETS COMPLETED", which is the card
+   * disagreeing with its own button.
+   */
+  | 'ready_to_finish'
   | 'completed'
   /** Never trained, and today is not a scheduled day — a first session is
    *  still offered. You cannot be on a rest day before you have trained. */
@@ -93,13 +103,25 @@ export function deriveMission(input: MissionInput): Mission {
     }
     return { ...base, status: input.hasSchedule ? 'rest_day' : 'no_plan' };
   }
-  if (input.finished) {
-    return { ...base, status: 'completed' };
-  }
-  // Underway: sets already banked today, or an ad-hoc was explicitly started
-  // (starting one IS the commitment — the card must say RESUME, not START).
-  if (input.loggedSets > 0 || (input.assignedWorkout === null && input.adhocWorkout !== null)) {
-    return { ...base, status: 'in_progress' };
-  }
+  /**
+   * THE CANONICAL STATUS DECIDES (domain/session-status.ts), so Home, Train
+   * and the workout page cannot describe one session three ways. `finished`
+   * is checked inside it, first and before any set arithmetic — a completed
+   * workout can never report as in progress, which is exactly what the audit
+   * found it doing.
+   */
+  const canonical = sessionStatus({
+    workout,
+    targetSets: input.targetSets,
+    doneSets: input.doneSets,
+    finished: input.finished,
+    // An ad-hoc session is under way the moment it is started: starting one
+    // IS the commitment, and it can have zero logged sets.
+    opened:
+      input.loggedSets > 0 || (input.assignedWorkout === null && input.adhocWorkout !== null),
+  });
+  if (canonical === 'completed') return { ...base, status: 'completed' };
+  if (canonical === 'ready_to_finish') return { ...base, status: 'ready_to_finish' };
+  if (canonical === 'in_progress') return { ...base, status: 'in_progress' };
   return { ...base, status: 'scheduled' };
 }
