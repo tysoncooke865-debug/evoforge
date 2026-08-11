@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { supabase } from './supabase';
+
 /**
  * THE REST ALARM — one seam, and the only place that knows how a phone gets
  * told a rest has ended (§14/§15/§17, 2026-08-10).
@@ -31,15 +33,28 @@ import { Platform } from 'react-native';
  * shows notifications (public/sw.js handles web push), so the alarm is handed
  * to it and it fires `showNotification` on its own clock.
  *
- * HONEST LIMIT, and it is a real one: iOS may terminate a service worker
- * while the PWA is backgrounded, and when it does the scheduled notification
- * does not fire. That is a platform limit, not a bug this code can fix — the
- * only delivery iOS guarantees to a suspended PWA is a REMOTE push, which
- * §14 explicitly rules out ("do not require remote push infrastructure just
- * to notify a user their rest period has ended"). So the alarm is
- * best-effort, and the catch-up in ui/train/rest-timer.tsx is what makes the
- * athlete's experience correct regardless: reopening the app to an expired
- * rest buzzes and says so immediately.
+ * ---- THE iOS BACKSTOP (2026-08-11, migration 196) ----
+ *
+ * iOS may terminate a service worker while the PWA is backgrounded, and a
+ * terminated worker has no timers — so on the platform most likely to be
+ * running this app, the notification could simply never arrive. There is no
+ * client-side fix for that: the only delivery iOS guarantees to a suspended
+ * PWA is a REMOTE push.
+ *
+ * So the alarm is armed in TWO places, and the distinction matters:
+ *
+ *   THE SERVICE WORKER is the mechanism. Instant, precise, no server, and it
+ *   is what fires in the overwhelming majority of cases.
+ *   THE SERVER ROW is the backstop. `rest_alarms` holds ONE row per athlete
+ *   and a ten-second cron delivers what is due (supabase/functions/
+ *   rest-alarm). It exists for the case where the worker is gone.
+ *
+ * This is not "requiring push for a rest timer" — §14's concern. The in-app
+ * timer and the worker path are unchanged and work with no server at all;
+ * an athlete who never grants permission never writes a row. Both paths carry
+ * the SAME notification tag, so if they ever both land the browser collapses
+ * them onto one notification rather than stacking two — and the foreground
+ * completion cancels the row before it can be sent at all.
  */
 
 /** Message names — shared with public/sw.js, which is plain JS and cannot
@@ -100,23 +115,57 @@ export async function requestRestAlarmPermission(): Promise<RestAlarmPermission>
 export async function scheduleRestAlarm(endAt: number, body: string): Promise<void> {
   if (restAlarmPermission() !== 'granted') return;
   const sw = worker();
-  if (!sw) return;
-  try {
-    sw.postMessage({ type: REST_ALARM_SCHEDULE, at: endAt, body, tag: REST_ALARM_TAG });
-  } catch {
-    /* best effort — the in-app timer is the source of truth either way */
+  if (sw) {
+    try {
+      sw.postMessage({ type: REST_ALARM_SCHEDULE, at: endAt, body, tag: REST_ALARM_TAG });
+    } catch {
+      /* best effort — the in-app timer is the source of truth either way */
+    }
   }
+  // THE BACKSTOP (196). Fire-and-forget and deliberately un-awaited by the
+  // caller: a rest timer must start on the frame it was started, and a slow
+  // network is not the athlete's problem. `user_id` defaults to auth.uid()
+  // and the primary key makes this an upsert, so restarting a rest replaces
+  // the pending alarm rather than adding a second one.
+  void supabase
+    .from('rest_alarms')
+    .upsert(
+      { fire_at: new Date(endAt).toISOString(), body: body.slice(0, 140), sent_at: null },
+      { onConflict: 'user_id' }
+    )
+    .then(
+      () => undefined,
+      () => undefined
+    );
 }
 
-/** Disarm. Safe to call when nothing is armed. */
+/**
+ * Disarm BOTH paths. Safe to call when nothing is armed.
+ *
+ * Called on skip, cancel, workout end, sign-out — and, importantly, the
+ * moment the timer completes while the app is in the FOREGROUND. An athlete
+ * who watched the countdown reach zero has already been told; sending them a
+ * push about it seconds later is the kind of thing that gets notifications
+ * switched off for good.
+ */
 export async function cancelRestAlarm(): Promise<void> {
   const sw = worker();
-  if (!sw) return;
-  try {
-    sw.postMessage({ type: REST_ALARM_CANCEL, tag: REST_ALARM_TAG });
-  } catch {
-    /* best effort */
+  if (sw) {
+    try {
+      sw.postMessage({ type: REST_ALARM_CANCEL, tag: REST_ALARM_TAG });
+    } catch {
+      /* best effort */
+    }
   }
+  // RLS scopes the delete to the caller's own row; there is at most one.
+  void supabase
+    .from('rest_alarms')
+    .delete()
+    .not('user_id', 'is', null)
+    .then(
+      () => undefined,
+      () => undefined
+    );
 }
 
 /**

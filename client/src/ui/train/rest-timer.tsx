@@ -4,6 +4,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  cancelRestAlarm,
   restAlarmPermission,
   restAlarmSupported,
   restCompleteVibration,
@@ -146,6 +147,11 @@ export function useRestClock(): RestClockView | null {
     if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     restCompleteVibration(); // web: one pulse where the platform supports it
     playRestOver(); // the retro rest-over chime (settings-gated)
+    // WE ARE HERE, SO THE PUSH IS NOT NEEDED (196). This effect only runs with
+    // a clock mounted and the app awake — the athlete has just been told, in
+    // the app, with a buzz. Disarming both alarms now is what keeps the server
+    // backstop from arriving seconds later about a rest they already saw end.
+    void cancelRestAlarm();
   }, [over, endAt]);
 
   // Self-clear once REST OVER has been seen for long enough. Idempotent —
