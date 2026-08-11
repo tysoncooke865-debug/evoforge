@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { siblingNames, type ExercisePref } from '@/domain/exercise-prefs';
 import type { WeightUnit } from '@/domain/units';
 import { useToastStore } from '@/state/toast-store';
 
@@ -9,28 +10,40 @@ import { supabase } from './supabase';
 /**
  * Favourites and hidden exercises (migration 019), for the Add Exercise menu.
  *
- * Keyed by exercise NAME — the same key workout_log has always used. The
- * library has no database ids (it is a bundled constant), and giving it some
- * would mean migrating every historical logged row, which the append-only XP
- * ledger cannot survive: those rows are what granted the XP.
+ * STORED by exercise NAME — `(user_id, exercise)` is the upsert's conflict
+ * target and the table's identity, and that does not move: changing it would
+ * strand every existing row behind a key nothing looks under.
+ *
+ * READ by CANONICAL IDENTITY (2026-08-11). A preference is about the
+ * EXERCISE, not about the wording that happened to be on screen when it was
+ * set. Starring `Bench Press` and then being handed `Bench Press (Strength
+ * Focused)` by an AI plan lost the star; worse, the KG⇄LB toggle silently
+ * reverted to kg, so an athlete who works in pounds got a card in kilos and
+ * typed their next set into it.
+ *
+ * WRITES KEEP THE SIBLINGS COHERENT. Reading canonically without doing this
+ * would introduce a bug worse than the one it fixes: un-starring under a new
+ * spelling would write `is_favourite: false` on a NEW row while the old row
+ * still said true, the canonical read would still find the true one, and the
+ * star would refuse to switch off. So every write applies to the row being
+ * named AND to every cached row sharing its identity.
  *
  * Optimistic: starring an exercise mid-workout must feel instant, and the worst
  * case of a failed write is a star that comes back next refetch. Reads degrade
  * to empty while the table is absent.
  */
 
-export interface ExercisePref {
-  exercise: string;
-  is_favourite: boolean;
-  is_hidden: boolean;
-  /** KG ⇄ LB (migration 020). Display/input only — the database stays kg. */
-  weight_unit?: WeightUnit;
-}
-
-export interface PrefSets {
-  favourites: ReadonlySet<string>;
-  hidden: ReadonlySet<string>;
-}
+/** The pure rules live in domain/exercise-prefs.ts — testable without
+ *  react-query or react-native. Re-exported so callers keep one import path. */
+export {
+  isFavourite,
+  isHidden,
+  prefSets,
+  siblingNames,
+  unitFor,
+  type ExercisePref,
+  type PrefSets,
+} from '@/domain/exercise-prefs';
 
 export function useExercisePrefs() {
   const { session } = useAuth();
@@ -59,17 +72,6 @@ export function useExercisePrefs() {
   });
 }
 
-/** Lowercased sets — the ranking engine's key format. */
-export function prefSets(rows: ExercisePref[] | undefined): PrefSets {
-  const favourites = new Set<string>();
-  const hidden = new Set<string>();
-  for (const r of rows ?? []) {
-    if (r.is_favourite) favourites.add(r.exercise.toLowerCase());
-    if (r.is_hidden) hidden.add(r.exercise.toLowerCase());
-  }
-  return { favourites, hidden };
-}
-
 export function useToggleFavourite() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -78,12 +80,13 @@ export function useToggleFavourite() {
 
   return useMutation({
     mutationFn: async (input: { exercise: string; favourite: boolean }) => {
+      // Every spelling of this lift moves together — see the header. Without
+      // this, un-starring under a new name leaves an older row still saying
+      // `true` and the canonical read keeps the star lit.
+      const names = siblingNames(queryClient.getQueryData<ExercisePref[]>(key), input.exercise);
+      const stamp = new Date().toISOString();
       const { error } = await supabase.from('user_exercise_prefs').upsert(
-        {
-          exercise: input.exercise,
-          is_favourite: input.favourite,
-          updated_at: new Date().toISOString(),
-        },
+        names.map((exercise) => ({ exercise, is_favourite: input.favourite, updated_at: stamp })),
         { onConflict: 'user_id,exercise' }
       );
       if (error) throw error;
@@ -93,9 +96,13 @@ export function useToggleFavourite() {
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<ExercisePref[]>(key) ?? [];
-      const next = prev.some((p) => p.exercise === input.exercise)
-        ? prev.map((p) => (p.exercise === input.exercise ? { ...p, is_favourite: input.favourite } : p))
-        : [...prev, { exercise: input.exercise, is_favourite: input.favourite, is_hidden: false }];
+      const names = new Set(siblingNames(prev, input.exercise));
+      const next = prev.map((p) =>
+        names.has(p.exercise) ? { ...p, is_favourite: input.favourite } : p
+      );
+      if (!prev.some((p) => p.exercise === input.exercise)) {
+        next.push({ exercise: input.exercise, is_favourite: input.favourite, is_hidden: false });
+      }
       queryClient.setQueryData(key, next);
       return { prev };
     },
@@ -109,12 +116,6 @@ export function useToggleFavourite() {
   });
 }
 
-/** The unit an athlete sees/types for one exercise. Absent row/column = kg. */
-export function unitFor(rows: ExercisePref[] | undefined, exercise: string): WeightUnit {
-  const row = (rows ?? []).find((r) => r.exercise === exercise);
-  return row?.weight_unit === 'lb' ? 'lb' : 'kg';
-}
-
 export function useSetExerciseUnit() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -123,12 +124,10 @@ export function useSetExerciseUnit() {
 
   return useMutation({
     mutationFn: async (input: { exercise: string; unit: WeightUnit }) => {
+      const names = siblingNames(queryClient.getQueryData<ExercisePref[]>(key), input.exercise);
+      const stamp = new Date().toISOString();
       const { error } = await supabase.from('user_exercise_prefs').upsert(
-        {
-          exercise: input.exercise,
-          weight_unit: input.unit,
-          updated_at: new Date().toISOString(),
-        },
+        names.map((exercise) => ({ exercise, weight_unit: input.unit, updated_at: stamp })),
         { onConflict: 'user_id,exercise' }
       );
       if (error) throw error;
@@ -138,12 +137,11 @@ export function useSetExerciseUnit() {
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<ExercisePref[]>(key) ?? [];
-      const next = prev.some((p) => p.exercise === input.exercise)
-        ? prev.map((p) => (p.exercise === input.exercise ? { ...p, weight_unit: input.unit } : p))
-        : [
-            ...prev,
-            { exercise: input.exercise, is_favourite: false, is_hidden: false, weight_unit: input.unit },
-          ];
+      const names = new Set(siblingNames(prev, input.exercise));
+      const next = prev.map((p) => (names.has(p.exercise) ? { ...p, weight_unit: input.unit } : p));
+      if (!prev.some((p) => p.exercise === input.exercise)) {
+        next.push({ exercise: input.exercise, is_favourite: false, is_hidden: false, weight_unit: input.unit });
+      }
       queryClient.setQueryData(key, next);
       return { prev };
     },
@@ -163,8 +161,11 @@ export function useHideExercise() {
   const userId = session?.user?.id ?? null;
   return useMutation({
     mutationFn: async (input: { exercise: string; hidden: boolean }) => {
+      const cached = queryClient.getQueryData<ExercisePref[]>(['user_exercise_prefs', userId]);
+      const names = siblingNames(cached, input.exercise);
+      const stamp = new Date().toISOString();
       const { error } = await supabase.from('user_exercise_prefs').upsert(
-        { exercise: input.exercise, is_hidden: input.hidden, updated_at: new Date().toISOString() },
+        names.map((exercise) => ({ exercise, is_hidden: input.hidden, updated_at: stamp })),
         { onConflict: 'user_id,exercise' }
       );
       if (error) throw error;

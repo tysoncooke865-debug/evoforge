@@ -35,6 +35,12 @@ export interface RankContext {
   performedIds?: ReadonlySet<string>;
   /** Starred. */
   favourites?: ReadonlySet<string>;
+  /** Starred / hidden by CANONICAL EXERCISE ID (2026-08-11), so a preference
+   *  set under one spelling holds under every other. Kept beside the
+   *  name-keyed sets rather than merged into them: this file's key space is
+   *  `e.name.toLowerCase()` throughout. */
+  favouriteIds?: ReadonlySet<string>;
+  hiddenIds?: ReadonlySet<string>;
   /** The muscles today's workout is already hitting. */
   targetMuscles?: ReadonlySet<string>;
   /** Already added to this workout — still listed, but never ranked up. */
@@ -149,7 +155,7 @@ export function passesFilters(
   if (f.difficulties && f.difficulties.length > 0 && !f.difficulties.includes(e.difficulty ?? 'Intermediate')) {
     return false;
   }
-  if (f.favouritesOnly && !ctx.favourites?.has(key)) return false;
+  if (f.favouritesOnly && !hasFavourite(e, ctx, key)) return false;
   if (f.performedOnly && !hasPerformed(e, ctx, key)) return false;
   if (f.inProgramOnly && !ctx.inProgram?.has(key)) return false;
   if (f.customOnly && !isCustom(e.name)) return false;
@@ -198,6 +204,20 @@ function matchScore(e: LibraryExercise, rawQuery: string, expanded: string[]): S
   return null;
 }
 
+/** Starred — by name, or by identity? */
+function hasFavourite(e: LibraryExercise, ctx: RankContext, key: string): boolean {
+  if (ctx.favourites?.has(key)) return true;
+  if (!ctx.favouriteIds || ctx.favouriteIds.size === 0) return false;
+  return ctx.favouriteIds.has(exerciseIdFor(e.name));
+}
+
+/** Hidden — by name, or by identity? */
+export function isHiddenFor(e: LibraryExercise, ctx: RankContext): boolean {
+  if (ctx.hidden?.has(e.name.toLowerCase())) return true;
+  if (!ctx.hiddenIds || ctx.hiddenIds.size === 0) return false;
+  return ctx.hiddenIds.has(exerciseIdFor(e.name));
+}
+
 /** Has this athlete ever logged this exercise — by name, or by identity? */
 function hasPerformed(e: LibraryExercise, ctx: RankContext, key: string): boolean {
   if (ctx.performed?.has(key)) return true;
@@ -211,7 +231,7 @@ function contextBoost(e: LibraryExercise, ctx: RankContext): number {
   let b = 0;
   if (ctx.inProgram?.has(key)) b += B_IN_PROGRAM;
   if (hasPerformed(e, ctx, key)) b += B_PERFORMED;
-  if (ctx.favourites?.has(key)) b += B_FAVOURITE;
+  if (hasFavourite(e, ctx, key)) b += B_FAVOURITE;
   if (ctx.targetMuscles && ctx.targetMuscles.size > 0) {
     if (ctx.targetMuscles.has(e.muscle)) b += B_TARGET_MUSCLE;
     else if ((e.secondary ?? []).some((m) => ctx.targetMuscles!.has(m))) b += B_TARGET_MUSCLE / 3;
@@ -244,9 +264,10 @@ export function rankExercises(
 
   const out: Scored[] = [];
   for (const e of library) {
-    const key = e.name.toLowerCase();
     // Hidden exercises stay hidden unless the athlete literally types the name.
-    if (context.hidden?.has(key) && !(q !== '' && normaliseTerm(e.name).includes(q))) continue;
+    // Hidden follows IDENTITY too: hiding `Bench Press` hides the exercise,
+    // not one wording of it.
+    if (isHiddenFor(e, context) && !(q !== '' && normaliseTerm(e.name).includes(q))) continue;
     if (!passesFilters(e, filters, context, isCustom)) continue;
 
     const m = matchScore(e, query, expanded);

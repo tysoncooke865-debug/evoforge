@@ -43,7 +43,8 @@ export function buildCorpus(
   const excludeNames = opts.excludeNames ?? [];
 
   const history = digestHistory(sources.workoutRows, 10, sources.userExercises ?? []);
-  const { favourites, hidden } = prefSets(sources.prefRows);
+  const prefs = prefSets(sources.prefRows);
+  const { favourites, hidden } = prefs;
 
   // The athlete's own exercises are part of the library, not a special case.
   const library: LibraryExercise[] = [
@@ -70,6 +71,11 @@ export function buildCorpus(
     performed: history.performed,
     performedIds: history.performedIds,
     favourites,
+    // A star or a hide set under one spelling must hold under another
+    // (data/exercise-prefs.ts). Kept as separate id-keyed sets because the
+    // ranker's own key space is lowercased names.
+    favouriteIds: prefs.favouriteIds,
+    hiddenIds: prefs.hiddenIds,
     targetMuscles,
     alreadyAdded,
     hidden,

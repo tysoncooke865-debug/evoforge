@@ -137,6 +137,19 @@ Owner: Tyson. He works through other Claude sessions too — **always
     them; `strength_score_from_ratios` (the pinned math) is untouched and the
     goldens are green. Deviation recorded in PARITY.md and pointed at from
     `domain/avatar_stats.py`.
+  - **PREFERENCES AND PR CROSSINGS (2026-08-11, migration 195).** A star, a
+    hide and the KG⇄LB lens were keyed on the literal name, so an AI rename
+    dropped all three — and the unit one is the dangerous member: an athlete
+    who works in pounds got a card relabelled to kilos mid-set. Prefs are
+    still STORED by name (`(user_id, exercise)` is the upsert target and does
+    not move) but READ canonically, and **every write carries its siblings** —
+    without that, un-starring under a new spelling leaves an older row saying
+    `true` and the star will not switch off. `report_pr_crossings` gained an
+    optional `p_exercise_id`; a friend's `Bench Press` best is now crossable
+    by your `Barbell Bench Press`, and the 12h anti-spam bucket stopped being
+    one bucket per wording. **Every 079 security property preserved and
+    re-falsified**, plus a coherence check: a supplied id must be one the
+    caller has actually logged under that name, or it is discarded.
   - **Migration 133 is STILL not applied** (verified against
     information_schema): workout_log has none of the load columns, so every set
     save already fails once and retries stripped. `exercise_id` is therefore in

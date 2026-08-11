@@ -153,6 +153,28 @@ distinct on purpose, and somebody who only ever pauses should still be graded.
 Achievements are append-only and server-swept, so this can only GRANT a
 milestone that was already earned — it cannot take one back.
 
+## Preferences and PR crossings by identity (2026-08-11)
+
+Two more surfaces stopped keying on the literal exercise string. Neither has a
+Python counterpart that matters: `user_exercise_prefs` is migration 019, after
+the Streamlit app's feature set, and `report_pr_crossings` is a Postgres RPC
+with no Python side at all.
+
+- **`user_exercise_prefs`** is still STORED by name — `(user_id, exercise)` is
+  the upsert's conflict target and moving it would strand every existing row.
+  It is now READ by canonical identity, and every write carries its siblings
+  so two spellings cannot disagree. Without that second half, un-starring
+  under a new spelling would leave an older row saying `true` and the star
+  would refuse to switch off. Rules in `domain/exercise-prefs.ts` (pure).
+- **`report_pr_crossings`** (migration 195) takes an optional
+  `p_exercise_id`. Every security property 079 added is preserved and
+  falsified: the caller's own server-side anchor, the 1.6×+25 / 0.5× clamps,
+  the no-history refusal, the 25-target cap. The 12h dedup is STRENGTHENED —
+  it keyed on the literal name, so two spellings were two anti-spam buckets.
+  A supplied id must be one the caller has actually logged under that name,
+  which stops a mismatched pair anchoring on one lift while naming another.
+  A three-argument call still works and behaves exactly as it did pre-195.
+
 ## Known gaps (tracked, deliberate)
 - ai-coach / ai-plan Edge Functions (custom plan generator) — not yet built.
 - Navy-formula body-fat entry mode (non-AI) — domain math is ported and

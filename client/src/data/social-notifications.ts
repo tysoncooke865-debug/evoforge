@@ -1,6 +1,8 @@
 import { useIsFocused } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { exerciseIdFor } from '@/domain/exercise-identity';
+
 import { pushNotify } from './push';
 import { useAuth } from './auth-context';
 import { supabase } from './supabase';
@@ -123,11 +125,26 @@ export function useNotifications() {
  */
 export async function reportPrCrossings(exercise: string, newE1rm: number, prevE1rm: number): Promise<void> {
   try {
-    const { data, error } = await supabase.rpc('report_pr_crossings', {
+    // 195: the canonical id rides along so a crossing follows the EXERCISE
+    // rather than its spelling — your `Barbell Bench Press` can now cross a
+    // friend's `Bench Press`, and the 12h anti-spam bucket stops being one
+    // bucket per wording. The server verifies the pair against the caller's
+    // own log and silently ignores an id it cannot corroborate, so passing it
+    // can only ever match MORE of the same lift, never something else.
+    const args: Record<string, unknown> = {
       p_exercise: exercise,
       p_new_e1rm: newE1rm,
       p_prev_e1rm: prevE1rm,
-    });
+      p_exercise_id: exerciseIdFor(exercise),
+    };
+    let { data, error } = await supabase.rpc('report_pr_crossings', args);
+    // THE CLIENT SHIPS BEFORE THE MIGRATION DOES. A server still on the
+    // three-argument function rejects the fourth; retry without it and the
+    // crossing behaves exactly as it did pre-195 rather than being lost.
+    if (error && /p_exercise_id|does not exist|schema cache|PGRST202/i.test(error.message)) {
+      delete args.p_exercise_id;
+      ({ data, error } = await supabase.rpc('report_pr_crossings', args));
+    }
     if (error || !Array.isArray(data)) return;
     for (const friendId of data as string[]) {
       pushNotify({ type: 'pr_beaten', toUser: friendId, exercise });

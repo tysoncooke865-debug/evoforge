@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildCorpus } from '@/data/exercise-corpus';
-import { unitFor, useExercisePrefs, useToggleFavourite } from '@/data/exercise-prefs';
+import { unitFor, useExercisePrefs, useToggleFavourite, isFavourite } from '@/data/exercise-prefs';
 import { useCreateUserExercise, useUserExercises } from '@/data/exercises';
 import { useWorkoutLog } from '@/data/hooks';
 import { lastPerformanceLabel } from '@/domain/exercise-history';
@@ -246,16 +246,19 @@ export function ExercisePicker({
       }
       const e = item.exercise;
       const key = e.name.toLowerCase();
+      // The star follows the EXERCISE, not the wording: one set on
+      // `Bench Press` is still lit on `Barbell Bench Press`.
+      const starred = isFavourite(context, e.name);
       return (
         <ExerciseRow
           exercise={e}
           match={item.match}
           last={lastPerformanceLabel(history, e.name, unitFor(prefs.data, e.name))}
-          favourite={favourites.has(key)}
+          favourite={starred}
           added={alreadyAdded.has(key)}
           selected={selected.includes(e.name)}
           onAdd={() => add(e)}
-          onFavourite={() => toggleFav.mutate({ exercise: e.name, favourite: !favourites.has(key) })}
+          onFavourite={() => toggleFav.mutate({ exercise: e.name, favourite: !starred })}
         />
       );
   };
