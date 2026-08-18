@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 // Relative runtime imports on purpose: the vitest suite drives seedLabCache
 // and the test runner resolves no '@/' alias (same rule as domain/ modules).
 import { activityXp } from '../../domain/xp';
-import { todayIso } from '../../domain/today';
+import { addDaysIso, todayIso } from '../../domain/today';
 
 import { LAB_USER_ID } from '../lab-user';
 import {
@@ -63,7 +63,19 @@ export function seedLabCache(queryClient: QueryClient): void {
   const seed = (name: string, data: unknown) =>
     queryClient.setQueryData([name, LAB_USER_ID], data);
 
-  seed('profile', LAB_PROFILE);
+  // Reforge fields are computed HERE, not in LAB_PROFILE (static dates rot):
+  // with a null anchor and training history, useReforgeDay's lazy anchor
+  // write PATCHes profile ON MOUNT — signed out that "succeeds" against zero
+  // rows, and its onSuccess invalidation REFETCHES the seeded profile into
+  // an RLS-empty null, un-hiding every profile-gated surface (the physique
+  // card came back from the dead this way). A stored anchor disarms the
+  // write at its own storedAnchor != null gate; the recent last_reforge_at
+  // keeps the 28-day cadence quietly mid-cycle.
+  seed('profile', {
+    ...LAB_PROFILE,
+    reforge_anchor_at: `${addDaysIso(today, -64)}T00:00:00Z`,
+    last_reforge_at: `${addDaysIso(today, -8)}T09:00:00Z`,
+  });
   seed('workout_log', workoutLog);
   seed('cardio_log', cardioLog);
   seed('bodyweight_log', labBodyweightLog(today));

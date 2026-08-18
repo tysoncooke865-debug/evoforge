@@ -4,6 +4,7 @@ import { BUILT_IN_DAYS } from '@/data/use-day-plan';
 
 import { LAB_PAGE_META } from './registry-meta';
 import type { LabPage, LabPageId, LabVariant } from './types';
+import { HomeArcade } from './variants/home/arcade';
 import { HomeBaseline } from './variants/home/baseline';
 import { HomeClarity } from './variants/home/clarity';
 import { HomeCommand } from './variants/home/command';
@@ -31,6 +32,7 @@ const COMPONENTS: Record<string, ComponentType> = {
   'home/stillness': HomeStillness,
   'home/command': HomeCommand,
   'home/saga': HomeSaga,
+  'home/arcade': HomeArcade,
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
   'workout/compact': WorkoutCompact,

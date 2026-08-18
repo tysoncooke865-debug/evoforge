@@ -67,6 +67,14 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
+      {
+        id: 'arcade',
+        title: 'ARCADE',
+        description:
+          "The game start-screen — character-select stage with scanlines, TODAY'S QUEST banner, the week as a 7-segment power gauge. Max cabinet energy, two gated loops.",
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
     ],
   },
   {

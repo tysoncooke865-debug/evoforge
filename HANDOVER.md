@@ -754,6 +754,28 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB, phase E — the wild card, and the mount-write the
+  re-sync surfaced (2026-08-18, no migration)** — `home/arcade` (game
+  start-screen: character-select card with static scanlines + corner
+  brackets, TODAY'S QUEST banner, the week as a 7-segment WEEK POWER
+  gauge; two gated loops, reduced-motion still complete). Home now has
+  SIX lab entries. **The real find:** restoring ReforgeDayCard to the
+  baseline armed `useReforgeDay`'s lazy anchor write — with the fixture's
+  null `reforge_anchor_at` it PATCHes profile ON MOUNT, and signed out
+  the zero-row PATCH *succeeds*, so its onSuccess invalidation refetched
+  the seeded profile into RLS-empty null, un-hiding PhysiqueBaselineCard
+  (whose own mount `track()` then fired into the real analytics rail).
+  Fix: seedLabCache computes `reforge_anchor_at` (-64d) and
+  `last_reforge_at` (-8d, quietly mid-cycle) at seed time; lab.test.ts
+  pins all three disarm fields non-null. Playwright tour over the
+  PAGE_LAB-flagged export: gallery lists 6, all six render in mock mode,
+  the switcher flips in place, and mock mode's only network is the
+  documented `app_flag_enabled` RPC. Known artifacts, NOT regressions:
+  the /lab gallery fires one React #418 (reproduced identically on the
+  deployed lab branch), and deep-linking /lab/<page>/<variant> on a
+  plain static server 404s unless the service worker is installed (the
+  dev server has neither issue).
+
 - **HOME DESIGN LAB, phase D — the two bold restructures (2026-08-18, no
   migration)** — `home/command` (the veteran's HUD: condensed mission strip
   with the full state machine, WeekStrip + TrainingOverview promoted above

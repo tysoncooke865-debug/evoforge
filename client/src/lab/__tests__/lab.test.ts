@@ -52,6 +52,23 @@ describe('seedLabCache', () => {
     }
   });
 
+  it('the seeded profile disarms Home\'s mount-time profile writes', () => {
+    // Two live components write profile ON MOUNT when their field is null —
+    // PhysiqueBaselineCard fires track('photo_baseline_prompted') without a
+    // physique_baseline_at, and useReforgeDay lazily PATCHes a null
+    // reforge_anchor_at. The second is the nastier one: signed out the
+    // PATCH "succeeds" against zero rows and its onSuccess invalidation
+    // refetches the seeded profile into RLS-empty null, un-hiding every
+    // profile-gated surface mid-comparison. Non-null fields disarm both at
+    // their own write-once gates.
+    const qc = new QueryClient();
+    seedLabCache(qc);
+    const profile = qc.getQueryData(['profile', LAB_USER_ID]) as Record<string, unknown>;
+    expect(profile.physique_baseline_at).not.toBeNull();
+    expect(profile.reforge_anchor_at).not.toBeNull();
+    expect(profile.last_reforge_at).not.toBeNull();
+  });
+
   it('plants the param-carrying keys in full', () => {
     const qc = new QueryClient();
     seedLabCache(qc);
