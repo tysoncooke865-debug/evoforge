@@ -754,6 +754,18 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB, phase D — the two bold restructures (2026-08-18, no
+  migration)** — `home/command` (the veteran's HUD: condensed mission strip
+  with the full state machine, WeekStrip + TrainingOverview promoted above
+  the fold, identity compressed to ONE 96pt Pressable rail — 32px rating,
+  tier/form, LV + XP bar, 80pt still portrait; zero Reanimated, stationary
+  by doctrine) and `home/saga` (identity-maximal: champion + rating +
+  forge level fused into ONE monumental Pressable — the live page's three
+  stacked tap zones become one — with the mission DOCKED at the bottom
+  edge outside the scroll, thumb-first; exactly one gated ambient loop,
+  the aura breath). Both read the shared model; both fix rather than
+  reproduce the audit's P1s (44pt targets, 10px floor, no sub-12px mute).
+
 - **HOME DESIGN LAB, phase C — the shared model and the two safe variants
   (2026-08-18, no migration)** — `src/lab/variants/home/shared/
   use-home-model.ts` is Home's derivation half forked ONCE (the recipe's

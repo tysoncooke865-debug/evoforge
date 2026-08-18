@@ -51,6 +51,22 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
+      {
+        id: 'command',
+        title: 'COMMAND',
+        description:
+          "The veteran's HUD — mission strip, week and stats first; identity compressed to a one-tap rail. Built for the 200th-session athlete, stationary by doctrine.",
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
+      {
+        id: 'saga',
+        title: 'SAGA',
+        description:
+          'Identity-maximal — champion, rating and forge level fused into one monumental tap zone; the mission docked at the thumb; one ambient breath in the whole page.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
     ],
   },
   {
