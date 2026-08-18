@@ -35,6 +35,22 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
+      {
+        id: 'clarity',
+        title: 'CLARITY',
+        description:
+          'Legibility rebuilt, structure untouched — 10px type floor, AA contrast for every small label, a drawn pixel flame, honest drift copy, a visible crest affordance.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
+      {
+        id: 'stillness',
+        title: 'STILLNESS',
+        description:
+          'Motion halved to two living things — the champion breathes and today beats; every other idle loop is gone so the rating entrance is the only ceremony.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
     ],
   },
   {

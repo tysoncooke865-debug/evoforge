@@ -5,6 +5,8 @@ import { BUILT_IN_DAYS } from '@/data/use-day-plan';
 import { LAB_PAGE_META } from './registry-meta';
 import type { LabPage, LabPageId, LabVariant } from './types';
 import { HomeBaseline } from './variants/home/baseline';
+import { HomeClarity } from './variants/home/clarity';
+import { HomeStillness } from './variants/home/stillness';
 import { TrainBaseline } from './variants/train/baseline';
 import { WorkoutBaseline } from './variants/workout/baseline';
 import { WorkoutCompact } from './variants/workout/compact';
@@ -23,6 +25,8 @@ import { WorkoutCompact } from './variants/workout/compact';
  */
 const COMPONENTS: Record<string, ComponentType> = {
   'home/baseline': HomeBaseline,
+  'home/clarity': HomeClarity,
+  'home/stillness': HomeStillness,
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
   'workout/compact': WorkoutCompact,

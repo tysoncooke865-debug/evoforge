@@ -754,6 +754,21 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB, phase C — the shared model and the two safe variants
+  (2026-08-18, no migration)** — `src/lab/variants/home/shared/
+  use-home-model.ts` is Home's derivation half forked ONCE (the recipe's
+  "copy beside" rule protects src/ui, not sharing BETWEEN variants —
+  workout/compact/model.ts precedent); baseline does NOT use it and stays
+  the diff-anchor; both rot-with-live and re-sync together. Variants
+  `home/clarity` (10px type floor, mute→dim under 12px, drawn PixelGlyph
+  flame, full-contrast missed pips + "N missed" a11y label, athlete-facing
+  drift copy, crest-affordance whisper) and `home/stillness` (ambient
+  loops removed from copied evo-hero/next-rank-card/forge-hint/
+  home-ambience; exactly two living movements — the champion's breath and
+  the today-pip beat — plus one-shot ceremony). Both from the Impeccable
+  critique/audit of 2026-08-18 (Nielsen 30/40, audit 16/20; findings live
+  in that session, directions approved by Tyson).
+
 - **HOME DESIGN LAB, phase B — the in-page variant switcher (2026-08-18,
   no migration)** — flipping between takes of a page no longer detours
   through the gallery: every lab variant now carries a floating pill
