@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 import { LabDataProvider } from '@/lab/lab-data-provider';
 import { findLabVariant } from '@/lab/registry';
 import type { LabDataMode } from '@/lab/types';
+import { LabVariantSwitcher } from '@/lab/variant-switcher';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -33,9 +34,15 @@ export default function LabVariantHost() {
 
   const Variant = found.variant.component;
   return (
-    <LabDataProvider key={`${found.page.id}/${found.variant.id}/${mode}`} mode={mode}>
-      <Variant />
-    </LabDataProvider>
+    <View style={{ flex: 1 }}>
+      <LabDataProvider key={`${found.page.id}/${found.variant.id}/${mode}`} mode={mode}>
+        <Variant />
+      </LabDataProvider>
+      {/* OUTSIDE the provider on purpose: the switcher must survive the
+          mode-keyed remount and must never read the mock QueryClient — it is
+          lab chrome, not part of the design under judgement. */}
+      <LabVariantSwitcher page={found.page} current={found.variant.id} mode={mode} />
+    </View>
   );
 }
 

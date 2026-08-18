@@ -754,6 +754,22 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB, phase B — the in-page variant switcher (2026-08-18,
+  no migration)** — flipping between takes of a page no longer detours
+  through the gallery: every lab variant now carries a floating pill
+  (bottom-right, collapsed) that expands into one chip per sibling variant
+  and `router.replace`s across (`src/lab/variant-switcher.tsx`, mounted by
+  the host OUTSIDE LabDataProvider so it survives the mode-keyed remount
+  and never reads the mock client). The pure half is
+  `src/lab/switcher-model.ts`: page-contract params (workout's
+  date/workout/source) ride the swap, only the routing triple
+  (page/variant/data) is rewritten — pinned in lab.test.ts and falsified
+  once. The switcher carries NO motion of its own (it is judged next to
+  designs being compared) and no Reanimated. testID contract for tours:
+  `lab-switcher-toggle`, `lab-switcher-option-<page>-<variant>`.
+
+- **HOME DESIGN LAB, phase A — baseline re-synced, fixture gap closed
+  (2026-08-18, no migration)** — Tyson: analyse Home with the Impeccable
   design plugin and stage 5 alternative designs in the Page Lab. Groundwork
   first: `src/lab/variants/home/baseline.tsx` had DRIFTED from live Home
   (missing ReforgeDayCard, PhysiqueBaselineCard, the neverTrained
