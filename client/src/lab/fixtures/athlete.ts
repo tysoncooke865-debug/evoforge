@@ -47,7 +47,14 @@ export const LAB_PROFILE: ProfileRow = {
   photo_prompts_disabled: false,
   photo_consent_at: null,
   photo_consent_version: null,
-  physique_baseline_at: null,
+  // NOT null: with no baseline, PhysiqueBaselineCard becomes eligible and
+  // fires track('photo_baseline_prompted') ON MOUNT — the same class of
+  // un-shimmed mount write as the activation step (mock/mutations.ts), which
+  // would emit into the real analytics_events rail whenever a real session
+  // sits under the fake one. A three-years-in cutter having a baseline is
+  // also the more believable fixture. Static date on purpose: nothing
+  // renders or gates on its distance from today.
+  physique_baseline_at: '2026-02-10T18:30:00',
   reforge_anchor_at: null,
   last_reforge_at: null,
   // The lab photographs a settled athlete: the tour is long behind them.
@@ -134,6 +141,51 @@ export function labEvoRating(todayIso: string): Record<string, unknown> {
     created_at: `${addDaysIso(todayIso, -60)}T08:00:00Z`,
     updated_at: `${addDaysIso(todayIso, -4)}T08:00:00Z`,
   };
+}
+
+/** useEvoSnapshots's limit argument is part of its query key — the fixture
+ *  must plant the key Home actually reads (['evo_rating_snapshots', user, 26])
+ *  or the seed is an entry nothing ever hits. Home passes 26; if the live
+ *  screen ever changes that number, this constant and the seeded key follow. */
+export const LAB_EVO_SNAPSHOT_LIMIT = 26;
+
+/**
+ * The review history behind labEvoRating: 28 → 42 across ~9 weekly reviews,
+ * matching that row's starting_displayed (28), displayed_rating (42),
+ * lifetime_evolution (14) and last_review_at (4 days ago) EXACTLY — the
+ * mission card's "+N.N EVO" rate is (42 − oldest-in-window) ÷ training days,
+ * so an inconsistent history would print a rate the crest contradicts.
+ * Latest-first, matching the query's calculated_at DESC contract; columns
+ * match useEvoSnapshots's select list.
+ */
+export function labEvoSnapshots(todayIso: string): Record<string, unknown>[] {
+  const reviews: [daysAgo: number, displayed: number, trigger: string][] = [
+    [4, 42, 'scheduled'],
+    [11, 40, 'scheduled'],
+    [18, 38, 'scheduled'],
+    [25, 37, 'scheduled'],
+    [32, 35, 'scheduled'],
+    [39, 34, 'scheduled'],
+    [46, 33, 'scheduled'],
+    [53, 30, 'scheduled'],
+    [60, 28, 'initial'],
+  ];
+  return reviews.map(([daysAgo, displayed, trigger], i) => ({
+    id: `lab-snapshot-${i + 1}`,
+    raw_rating: displayed - 0.4,
+    displayed_rating: displayed,
+    evolution_progress: 60,
+    size_score: 44.2,
+    aesthetics_score: 47.8,
+    strength_score: 45.1,
+    cardio_score: 29.6,
+    confidence: 64,
+    descriptor: 'Developed',
+    trigger_type: trigger,
+    changes: null,
+    recommendations: null,
+    calculated_at: `${addDaysIso(todayIso, -daysAgo)}T08:00:00Z`,
+  }));
 }
 
 /** One pending projection, so the EVO CORE card's "· N pending" tail renders.

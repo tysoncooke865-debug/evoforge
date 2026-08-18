@@ -15,7 +15,9 @@ import {
   LAB_PHYSIQUE,
   LAB_PROFILE,
   LAB_SKIN_UNLOCKS,
+  LAB_EVO_SNAPSHOT_LIMIT,
   labEvoRating,
+  labEvoSnapshots,
   labPendingEvoEvidence,
 } from './athlete';
 import {
@@ -95,6 +97,12 @@ export function seedLabCache(queryClient: QueryClient): void {
     ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
     LAB_LEADERBOARD
   );
+  // The mission card's "+N.N EVO" rate reads the review history with its
+  // limit inside the key (useEvoSnapshots(26)).
+  queryClient.setQueryData(
+    ['evo_rating_snapshots', LAB_USER_ID, LAB_EVO_SNAPSHOT_LIMIT],
+    labEvoSnapshots(today)
+  );
 }
 
 /** The contract the registry test pins: every key here must be planted by
@@ -131,4 +139,5 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
  *  ['leaderboard_metric', user] would plant an entry nothing ever reads. */
 export const LAB_SEEDED_PARAM_KEYS: readonly (readonly unknown[])[] = [
   ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
+  ['evo_rating_snapshots', LAB_USER_ID, LAB_EVO_SNAPSHOT_LIMIT],
 ];
