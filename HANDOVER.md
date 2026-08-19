@@ -754,6 +754,18 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **DEV-ONLY RED OVERLAY: tailwind darkMode 'class' (2026-08-20, no
+  migration)** — on `npx expo start`, every route painted the dev error
+  overlay ("Cannot manually set color scheme, as dark mode is type
+  'media'"): NativeWind's web runtime watches <html> attributes and calls
+  `colorScheme.set()` on any mutation, which react-native-web forbids
+  under the default `darkMode: 'media'`. `darkMode: 'class'` in
+  tailwind.config.js is the documented pairing; the app has one dark
+  theme and zero `dark:` classes (palettes ride CSS vars via ThemeRoot),
+  so no rendered style changes. Production builds never showed the
+  overlay (it is dev-only chrome) but the underlying throw was real
+  everywhere.
+
 - **HOME DESIGN LAB, phase E — the wild card, and the mount-write the
   re-sync surfaced (2026-08-18, no migration)** — `home/arcade` (game
   start-screen: character-select card with static scanlines + corner

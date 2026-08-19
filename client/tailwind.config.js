@@ -21,6 +21,13 @@ module.exports = {
   // no style rather than an error.
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
+  // 'class', not the default 'media': NativeWind's web runtime watches <html>
+  // attributes and calls colorScheme.set() on any mutation — under 'media'
+  // react-native-web THROWS ("Cannot manually set color scheme"), which in dev
+  // paints the red error overlay over every route on first interaction. The
+  // app has a single dark theme (zero `dark:` classes; palettes ride CSS vars
+  // via ThemeRoot), so the strategy switch changes no rendered style.
+  darkMode: 'class',
   theme: {
     extend: {
       // Every value comes from src/theme/tokens.js -- one copy, verified against
