@@ -2,21 +2,25 @@
    mutated inside effects and press handlers by design; the compiler lint
    cannot see that .value writes are UI-thread animation state. */
 /**
- * CLARITY copy of ui/home/week-strip.tsx — same strip, legible and honest.
- * Jersey 10 is drawn on a 10px grid, so the STREAK label renders at 10 on
- * text-dim (the AA tier) rather than 9 on text-mute. The streak flame is now
- * DRAWN — a pixel grid through PixelGlyph, the same convention as every icon
- * in ui/core/pixel-icons.tsx — because a system emoji was the one glyph in a
- * hand-built set that wasn't ours. A missed day's letter reads at full
- * danger (the 60%-alpha letter was 3.2:1, below AA), and the strip's spoken
- * label now says how many scheduled days were missed — colour was the only
- * carrier before, which a screen reader never hears.
+ * PAGE LAB — CLARITY copy of src/ui/home/week-strip.tsx (fork recipe:
+ * copied because it changes; re-sync when the live file moves). The copy's
+ * constraint: no type renders under 10px — Jersey 10 is drawn on a 10px
+ * grid — and every sub-12px label sits on text-dim, the AA tier. The pixel
+ * flame, the pop entrance and both motion gates are the live file's.
+ */
+/**
+ * HOME §4 — THIS WEEK.
  *
- * HOME §4 — THIS WEEK. Seven days and a streak. Not statistics: the brief's
- * rule for this band is that it answers "am I keeping my word this week" in
- * one glance and then gets out of the way. The four weekly METRICS are the
- * TrainingOverview card, below the fold where a number that needs reading
+ * Seven days and a streak. Not statistics: the brief's rule for this band is
+ * that it answers "am I keeping my word this week" in one glance and then
+ * gets out of the way. The four weekly METRICS (sets, cardio minutes, XP,
+ * workouts done/target) did not disappear — they are the TrainingOverview
+ * card, which now lives below the fold where a number that needs reading
  * belongs.
+ *
+ * This strip and that card used to draw the SAME seven pips twice on one
+ * page. They are merged here: the pips are the strip's job, and
+ * TrainingOverview no longer renders them.
  *
  * States come straight from weeklyContract (Monday-start, effective-dated,
  * judged against the plan in force on each day). Completed days glow, today
@@ -57,9 +61,9 @@ import Animated, {
 import type { WeekDayPip } from '@/domain/scheduled-streak';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { PixelGlyph } from '@/ui/core/pixel-icons';
 import { playSelect } from '@/ui/core/sound';
 import { useAmbient } from '@/ui/core/use-ambient';
+import { Icon } from '@/ui/core/icons';
 
 const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 /** Each pip's pop occupies this slice of the entrance clock; the rest of the
@@ -67,32 +71,22 @@ const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
  *  one starts as the fourth finishes — a wave, not a queue. */
 const POP_WINDOW = 0.42;
 
-/** The streak's mark, drawn on the pixel grid like every other icon in the
- *  set (ui/core/pixel-icons.tsx convention): a tapering tongue, a stray lick
- *  off the right flank, a hollow core near the base. Tinted legendary — the
- *  streak number beside it already speaks that colour. */
-const FLAME = [
-  '...#...',
-  '...##..',
-  '..###..',
-  '..###.#',
-  '.#####.',
-  '.######',
-  '###.###',
-  '##...##',
-  '###.###',
-  '.#####.',
-] as const;
-
-const PixelFlame = ({ size = 15, color }: { size?: number; color?: string }) => (
-  <PixelGlyph rows={FLAME} size={size} color={color} testID="pixel-flame" />
-);
+export interface WeekTotalsSummary {
+  sessionsDone: number;
+  sessionsTarget: number;
+  hasSchedule: boolean;
+  sets: number;
+  cardioMinutes: number;
+  xp: number;
+}
 
 export function WeekStrip({
   pips,
   todayIso,
   streak,
   streakLabel,
+  totals,
+  lastSession,
 }: {
   /** weeklyContract().pips — always 7, Monday first. */
   pips: WeekDayPip[];
@@ -101,14 +95,17 @@ export function WeekStrip({
   /** 'FORGE STREAK' when a schedule drives it, 'DAY STREAK' otherwise —
    *  spoken to screen readers; the visual label stays the short word. */
   streakLabel: string;
+  /** THE WEEK'S NUMBERS, folded in (2026-08-07). They were a separate
+   *  full-width card below the fold, so the seven days and the four numbers
+   *  describing those same days never appeared together. */
+  totals?: WeekTotalsSummary;
+  /** The last completed session, one line. Was its own full-width card. */
+  lastSession?: { name: string; when: string; detail: string } | null;
 }) {
   const colors = useThemeColors();
   const ambient = useAmbient();
   const reduced = useReducedMotion();
   const done = pips.filter((p) => p.state === 'completed').length;
-  // Spoken as well as seen: the missed pips' red is invisible to a screen
-  // reader, so the count rides the strip's one label.
-  const missed = pips.filter((p) => p.state === 'missed').length;
 
   // The entrance is a ONE-SHOT and therefore not perf-gated (the animations.ts
   // doctrine: never disable one-shots). Reduced motion pins it complete.
@@ -151,11 +148,13 @@ export function WeekStrip({
           press.value = withSpring(1, { damping: 15, stiffness: 300 });
         }}
         accessibilityRole="button"
-        accessibilityLabel={`This week: ${done} of 7 days trained${missed > 0 ? `, ${missed} missed` : ''}. ${streakLabel.toLowerCase()} ${streak}. Opens your streak.`}
+        accessibilityLabel={`This week: ${done} of 7 days trained. ${streakLabel.toLowerCase()} ${streak}. Opens your streak.`}
         testID="week-strip"
-        className="w-full flex-row items-center rounded-xl border px-s4 py-s3"
-        style={{ gap: 12, borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
+        className="w-full rounded-xl border px-s4 py-s3"
+        style={{ borderColor: colors.border, backgroundColor: 'rgba(13,21,36,0.55)' }}
       >
+        {/* The seven days and the streak, side by side as before. */}
+        <View className="w-full flex-row items-center" style={{ gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             className="text-accent"
@@ -186,6 +185,8 @@ export function WeekStrip({
         <View style={{ width: 1, height: 40, backgroundColor: colors.border }} />
 
         <View className="items-center" style={{ minWidth: 56 }}>
+          {/* Jersey 10 is drawn on a 10px grid; sub-12px labels sit on
+              text-dim, the AA tier for whisper type. */}
           <Text
             className="text-text-dim"
             numberOfLines={1}
@@ -208,13 +209,56 @@ export function WeekStrip({
             >
               {streak}
             </Text>
-            {/* A dead streak dims the flame the way the emoji used to dim —
-                the mark stays, the fire is out. */}
+            {/* ICON PASS (2026-08-11): was a 🔥 colour emoji — the one glossy
+                orange thing on a card of cyan pixel type. `PixelFlame` already
+                existed; this call site simply predated it. It dims rather than
+                disappears at streak 0, which is the same signal it always
+                gave. */}
             <View style={{ opacity: streak > 0 ? 1 : 0.35 }}>
-              <PixelFlame size={15} color={colors.legendary} />
+              <Icon name="flame" size={14} color={colors.legendary} label={null} />
             </View>
           </View>
         </View>
+        </View>
+
+        {/* THE WEEK'S NUMBERS, in the card that shows the week. Three
+            full-width cards became one (2026-08-07): the pips, the totals and
+            the last session all described the same seven days from three
+            different places on the page. */}
+        {totals ? (
+          <View
+            className="mt-s3 flex-row flex-wrap border-t pt-s3"
+            style={{ borderColor: colors.border, columnGap: 18, rowGap: 8 }}
+            testID="week-strip-totals"
+          >
+            {/* HIERARCHY, not four equal numbers (2026-08-07). SESSIONS and
+                XP are the week's story and carry the weight; sets and cardio
+                are the detail behind them and step back a size. */}
+            <Metric
+              label="SESSIONS"
+              value={
+                totals.hasSchedule
+                  ? `${totals.sessionsDone} / ${totals.sessionsTarget}`
+                  : String(totals.sessionsDone)
+              }
+              lead
+            />
+            <Metric label="XP" value={`+${totals.xp}`} tint={colors.accent} lead />
+            <Metric label="SETS" value={String(totals.sets)} />
+            <Metric label="CARDIO" value={`${Math.trunc(totals.cardioMinutes)}m`} tint={colors.rare} />
+          </View>
+        ) : null}
+
+        {lastSession ? (
+          <Text
+            className="mt-s2 text-2xs text-text-dim"
+            numberOfLines={1}
+            testID="week-strip-last"
+            style={{ letterSpacing: 0.3 }}
+          >
+            LAST · {lastSession.name} · {lastSession.when} · {lastSession.detail}
+          </Text>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
@@ -239,14 +283,11 @@ function DayPip({
 }) {
   const colors = useThemeColors();
   const done = state === 'completed';
-  // The missed LETTER wears full danger — the 60%-alpha letter sat at 3.2:1.
-  // The border keeps its alpha: the ring is allowed to whisper, the letter
-  // is the part that must be read.
   const palette: Record<string, { border: string; bg: string; text: string }> = {
     completed: { bg: colors.accent, border: colors.accent, text: colors['accent-ink'] },
-    missed: { bg: 'transparent', border: `${colors.danger}59`, text: colors.danger },
+    missed: { bg: 'transparent', border: `${colors.danger}59`, text: `${colors.danger}99` },
     pending: { bg: 'rgba(34,211,238,0.12)', border: colors.accent, text: colors.accent },
-    rest: { bg: 'transparent', border: colors.border, text: colors['text-mute'] },
+    rest: { bg: 'transparent', border: colors.border, text: colors['text-dim'] },
     future: { bg: 'transparent', border: colors.border, text: colors['text-dim'] },
   };
   const c = palette[state] ?? palette.future;
@@ -263,10 +304,13 @@ function DayPip({
     return { transform: [{ scale: 0.6 + p * 0.4 + overshoot }], opacity: p };
   });
 
-  // TODAY's ring breathes; every other pip's ring is static.
+  // TODAY's ring breathes; every other pip's ring is static. A day that is
+  // BOTH today and DONE breathes brighter and wider — the strongest state on
+  // the strip belongs to the thing the athlete just earned (2026-08-07).
   const ringStyle = useAnimatedStyle(() => {
     if (!today) return { opacity: 0 };
     const wave = (1 - Math.cos(beat.value * Math.PI * 2)) / 2;
+    if (done) return { opacity: 0.45 + wave * 0.55, transform: [{ scale: 1 + wave * 0.24 }] };
     return { opacity: 0.25 + wave * 0.55, transform: [{ scale: 1 + wave * 0.16 }] };
   });
 
@@ -345,6 +389,48 @@ function DayPip({
           </Text>
         )}
       </Animated.View>
+    </View>
+  );
+}
+
+/** One of the week's four numbers. Compact by design — these SUPPORT the seven
+ *  days above them; they do not compete with them. */
+function Metric({
+  label,
+  value,
+  tint,
+  lead,
+}: {
+  label: string;
+  value: string;
+  tint?: string;
+  /** The week's headline numbers. Everything else supports them. */
+  lead?: boolean;
+}) {
+  const colors = useThemeColors();
+  return (
+    <View>
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{
+          fontSize: lead ? 18 : 14,
+          letterSpacing: 0,
+          color: tint ?? (lead ? colors.text : colors['text-dim']),
+          ...pixelFont(),
+        }}
+      >
+        {value}
+      </Text>
+      {/* 10px is the floor (Jersey 10's own grid) — a label under it is
+          decoration, not something anyone reads. */}
+      <Text
+        className="text-text-dim"
+        allowFontScaling={false}
+        style={{ fontSize: 10, letterSpacing: 1, ...pixelFont(false) }}
+      >
+        {label}
+      </Text>
     </View>
   );
 }

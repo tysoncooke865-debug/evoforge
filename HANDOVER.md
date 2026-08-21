@@ -754,6 +754,28 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB: all five variants rebuilt on the CURRENT Home
+  (2026-08-21, no migration)** — Tyson caught that the variants still
+  expressed the pre-2026-08-07 page. A fresh Impeccable critique of the
+  current Home (30/40 again; fixed: pixel flame, glosses; persisting:
+  7px/mute floor at ~4.05:1, ~13 ambient loops; NEW: ForgeCacheCard's
+  ghost button is ALSO labelled "TODAY'S MISSION" one card above the
+  real one routing elsewhere, and evo-pillars labels the WEAKEST pillar
+  "YOUR EDGE") drove the rebuilds. `clarity` re-copied 9 components from
+  current sources: ≥10px floor, mute→dim ≤12px, "· BREAKDOWN ›" cue in
+  the crest pill, standing-rail 0.7 baseline opacity removed, cache
+  ghost button → "VIEW TRAIN PLAN" + cache moved below the mission,
+  "YOUR EDGE" → "FOCUS", DriftWarning speaks athlete ("N XP IS BEING
+  VERIFIED — YOUR SETS ARE SAFE"). `stillness` re-copied evo-hero (+ new
+  evo-standing-rail copy whose glow now genuinely is "one breath, then
+  rests"); keeps champion breath + today-ring beat, documents the
+  sweep/shine/podium residue riding inside live primitives.
+  `command`/`saga`/`arcade` gained the current content model: chips +
+  ForgeCacheCard (all self-hiding) and the ProgressHub/EvoPillars
+  progression story replacing the retired flat stack. Full loop green
+  (2,515 tests; lint's 14 warnings are ALL pre-existing upstream files);
+  Playwright tour: 6 render, tabs cycle, no unexpected errors.
+
 - **LAB SWITCHER v2: browser-style tabs on top (2026-08-21, no
   migration)** — Tyson: expanding a pill hides the comparison; make the
   variants one tap apart. The bottom-right collapsed pill is replaced by

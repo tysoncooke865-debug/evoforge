@@ -1,13 +1,15 @@
 /**
- * STILLNESS — the conservative refinement of Home (Page Lab design variant).
+ * STILLNESS — the current live Home with its ambient motion halved (Page Lab).
  *
- * Same sections, same order as the live page; the ambient motion halved to
- * exactly TWO movements — the champion's breathing (the character is alive)
- * and the week strip's today-pip beat (the day is now). Every other idle loop
- * is gone: the crest's entrance assembly, the celebrations and press feedback
- * all survive as one-shots, and then the page HOLDS. Throne room, not casino.
- * Forked from baseline 2026-08-18; copies: evo-hero, next-rank-card (the
- * sheen lives there), forge-hint, home-ambience.
+ * Same sections, same order as the live page; exactly TWO living movements —
+ * the champion's breathing (live AvatarHero) and the week strip's today-ring
+ * beat (live WeekStrip). Every other idle loop is retired; the crest's
+ * entrance assembly, the celebrations, the pip pop and press feedback all
+ * survive as one-shots, and then the page HOLDS. Throne room, not casino.
+ * The mission button's light sweep, the coin shine and the podium tech loop
+ * live inside live core primitives and ride along as accepted residue.
+ * Rebuilt on the current Home 2026-08-21; copies: evo-hero,
+ * evo-standing-rail, next-rank-card, forge-hint, home-ambience.
  */
 import { Text, View } from 'react-native';
 
@@ -19,6 +21,9 @@ import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { EdgeLabel } from '@/ui/core/hud';
@@ -26,7 +31,8 @@ import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
+import { ProgressHub } from '@/ui/home/progress-hub';
 
 import { useHomeModel } from './shared/use-home-model';
 import { EvoHero } from './stillness/evo-hero';
@@ -61,25 +67,6 @@ export function HomeStillness() {
   const model = useHomeModel();
   const { mission, identity, week, belowFold } = model;
 
-  const missionCard = (
-    <MissionCard
-      mission={mission.mission}
-      title={mission.title}
-      sub={mission.sub}
-      pills={mission.pills}
-      minutes={mission.minutes}
-      kcal={mission.kcal}
-      next={mission.next}
-      loading={mission.loading}
-      error={mission.error}
-      onRetry={mission.retry}
-      onOpen={mission.open}
-      onTrainAnyway={mission.trainAnyway}
-      features={homeFeatures}
-      evoPerSession={mission.evoPerSession}
-    />
-  );
-
   return (
     // STILLNESS backdrop: the same fog tints as live, frozen at rest — the
     // page's weather system is retired so the champion's breath reads.
@@ -94,18 +81,38 @@ export function HomeStillness() {
         xpNeeded={model.forgeProgress.xpForNextLevel}
       />
 
-      {/* ONBOARDING V3 (spec §8). For an athlete who has NEVER TRAINED the
-          page's job is different: there is no identity to lead with yet — the
-          rating is calibrating and the champion has one workout of history.
-          So the mission leads, and identity follows.
+      {/* 1. TODAY'S MISSION — the visually dominant card, and the first thing
+          under the masthead FOR EVERYONE (the live 2026-08-06 order: an
+          athlete who has to scroll past their own rating to find out what to
+          train today has been asked the wrong question first). The chips and
+          the cache render NOTHING when there is nothing waiting — no empty
+          states, no teasers. */}
+      <PoolInviteChip />
+      <RevealChip />
+      <ForgeCacheCard />
+      <MissionCard
+        mission={mission.mission}
+        title={mission.title}
+        sub={mission.sub}
+        pills={mission.pills}
+        minutes={mission.minutes}
+        kcal={mission.kcal}
+        next={mission.next}
+        loading={mission.loading}
+        error={mission.error}
+        onRetry={mission.retry}
+        onOpen={mission.open}
+        onTrainAnyway={mission.trainAnyway}
+        features={homeFeatures}
+        evoPerSession={mission.evoPerSession}
+      />
 
-          This does NOT reverse the 2026-08-03 order for everybody. The moment
-          a first workout is logged, the established identity-first page
-          returns and stays. The exception is scoped to exactly the athletes
-          the funnel says we lose: 16 bound an Origin, 11 ever logged a set. */}
-      {model.neverTrained ? missionCard : null}
+      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
+          IS due it sits directly under the mission, because it is the only
+          other thing on the page with a deadline. */}
+      <ReforgeDayCard testID="home-reforge-day" />
 
-      {/* 2. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
+      {/* 2 + 3. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
           thing on the page, so they are one slot in the shell's gap stack and
           set their own tighter internal rhythm. Separate slots spent 24pt of
           the fold on air between parts of the same sentence. */}
@@ -144,20 +151,9 @@ export function HomeStillness() {
         </View>
       </View>
 
-      {/* 3. TODAY'S MISSION — the one dominant CTA on the page, and the
-          reason the page exists. It moves ABOVE the identity block for an
-          athlete who has never trained (see missionCard's note). */}
-      {model.neverTrained ? null : missionCard}
-
-      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
-          IS due it sits directly under the mission, because it is the only
-          other thing on the page with a deadline. */}
-      <ReforgeDayCard testID="home-reforge-day" />
-
-      {/* 4. THIS WEEK — seven days and a streak. LIVE WeekStrip on purpose:
-          the today-pip beat is the other ambient movement STILLNESS keeps.
-          The merged card (live 2026-08-07) carries the four numbers and the
-          last session, so the old TrainingOverview card below is retired. */}
+      {/* 4. THIS WEEK — ONE card, the live merged strip on purpose: the
+          today-ring beat is the other ambient movement STILLNESS keeps, and
+          the card carries the four numbers and the last session itself. */}
       <WeekStrip
         pips={week.pips}
         todayIso={week.todayIso}
@@ -181,21 +177,24 @@ export function HomeStillness() {
             or no path exists. */}
         <PathSummary />
 
-        {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
-            silhouette + readiness columns need the full width — at half width
-            "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
+        {/* ONE PROGRESSION STORY (live 2026-08-07): the PR, the form it
+            advanced and where the pillars head next were three unrelated
+            cards in a stack. They are the same sentence, so a spine and one
+            heading say so. */}
+        <ProgressHub testID="progress-hub">
         <RecentPrCard pr={belowFold.pr} unit={belowFold.prUnit} />
-        <EvolutionTeaser branch={belowFold.stats.branch} evolution={belowFold.evolution} />
+        <EvolutionTeaser
+          branch={belowFold.stats.branch}
+          evolution={belowFold.evolution}
+          currentName={identity.formName}
+          currentSource={identity.stillSource}
+        />
 
-        {/* Character build — the radar. Sourced from the Evo Rating's four
-            pillars so the wheel LINES UP with the rating above (Tyson
-            2026-07-19), with a dashed projection of where they head after a
-            block of consistent training. Falls back to the legacy live stats
-            before the first Evo review. */}
+        {/* Where those pillars head next — the third beat of the story. */}
         <View>
           <EdgeLabel>{`${belowFold.stats.characterClass.toUpperCase()} · ${belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
           <View className="mt-s3">
-            <EvoRadar
+            <EvoPillars
               fallbackStats={[
                 { label: 'STR', value: belowFold.stats.strengthScore },
                 { label: 'SIZE', value: belowFold.stats.sizeScore },
@@ -206,6 +205,7 @@ export function HomeStillness() {
             />
           </View>
         </View>
+        </ProgressHub>
 
         {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
         <LeaderboardTeaser />

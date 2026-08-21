@@ -17,12 +17,16 @@ import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { BelowFold } from '@/ui/home/below-fold';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
+import { ProgressHub } from '@/ui/home/progress-hub';
 
 import { CharacterCard } from './arcade/character-card';
 import { ArcadeMasthead } from './arcade/masthead';
@@ -58,7 +62,16 @@ export function HomeArcade() {
   const model = useHomeModel();
   const { mission, identity, week, belowFold } = model;
 
-  const questBanner = <QuestBanner quest={mission} />;
+  const questBanner = (
+    <>
+      {/* The current page's news chips + daily cache travel with the quest
+          (all three render NOTHING when there is nothing waiting). */}
+      <PoolInviteChip />
+      <RevealChip />
+      <ForgeCacheCard />
+      <QuestBanner quest={mission} />
+    </>
+  );
 
   return (
     <ScreenShell>
@@ -107,32 +120,31 @@ export function HomeArcade() {
 
         {/* The week by the numbers lives in the live merged week card now
             (2026-08-07); ARCADE's power gauge above carries the segments and
-            streak, so no overview card renders here. */}
-        {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
-            silhouette + readiness columns need the full width — at half width
-            "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}
-        <RecentPrCard pr={belowFold.pr} unit={belowFold.prUnit} />
-        <EvolutionTeaser branch={belowFold.stats.branch} evolution={belowFold.evolution} />
-
-        {/* Character build — the radar. Sourced from the Evo Rating's four
-            pillars so the wheel LINES UP with the rating above (Tyson
-            2026-07-19), with a dashed projection of where they head after a
-            block of consistent training. Falls back to the legacy live stats
-            before the first Evo review. */}
-        <View>
-          <EdgeLabel>{`${belowFold.stats.characterClass.toUpperCase()} · ${belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
-          <View className="mt-s3">
-            <EvoRadar
-              fallbackStats={[
-                { label: 'STR', value: belowFold.stats.strengthScore },
-                { label: 'SIZE', value: belowFold.stats.sizeScore },
-                { label: 'LEAN', value: belowFold.stats.leannessScore },
-                { label: 'COND', value: belowFold.stats.conditioningScore },
-                { label: 'AES', value: belowFold.stats.aestheticScore },
-              ]}
-            />
+            streak. ONE PROGRESSION STORY below, as current live Home tells
+            it: PR + next form + pillars on one spine. */}
+        <ProgressHub testID="progress-hub">
+          <RecentPrCard pr={belowFold.pr} unit={belowFold.prUnit} />
+          <EvolutionTeaser
+            branch={belowFold.stats.branch}
+            evolution={belowFold.evolution}
+            currentName={identity.formName}
+            currentSource={identity.stillSource}
+          />
+          <View>
+            <EdgeLabel>{`${belowFold.stats.characterClass.toUpperCase()} · ${belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
+            <View className="mt-s3">
+              <EvoPillars
+                fallbackStats={[
+                  { label: 'STR', value: belowFold.stats.strengthScore },
+                  { label: 'SIZE', value: belowFold.stats.sizeScore },
+                  { label: 'LEAN', value: belowFold.stats.leannessScore },
+                  { label: 'COND', value: belowFold.stats.conditioningScore },
+                  { label: 'AES', value: belowFold.stats.aestheticScore },
+                ]}
+              />
+            </View>
           </View>
-        </View>
+        </ProgressHub>
 
         {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
         <LeaderboardTeaser />

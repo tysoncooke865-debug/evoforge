@@ -18,12 +18,16 @@ import { BelowFold } from '@/ui/home/below-fold';
 import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
+import { ProgressHub } from '@/ui/home/progress-hub';
 
 import { CommandIdentityRail } from './command/identity-rail';
 import { CommandMissionStrip } from './command/mission-strip';
@@ -66,6 +70,11 @@ export function HomeCommand() {
           which also makes the neverTrained reorder structural: the mission
           ALREADY leads for everyone, so the funnel's exception needs no
           branch here. ---- */}
+      {/* The current page's news chips + daily cache ride along (all three
+          render NOTHING when there is nothing waiting — live doctrine). */}
+      <PoolInviteChip />
+      <RevealChip />
+      <ForgeCacheCard />
       <CommandMissionStrip
         mission={m.mission.mission}
         title={m.mission.title}
@@ -117,27 +126,32 @@ export function HomeCommand() {
             or no path exists. */}
         <PathSummary />
 
-        {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
-            silhouette + readiness columns need the full width. */}
-        <RecentPrCard pr={m.belowFold.pr} unit={m.belowFold.prUnit} />
-        <EvolutionTeaser branch={m.belowFold.stats.branch} evolution={m.belowFold.evolution} />
-
-        {/* Character build — the radar, sourced from the Evo Rating's four
-            pillars so the wheel LINES UP with the rating in the rail. */}
-        <View>
-          <EdgeLabel>{`${m.belowFold.stats.characterClass.toUpperCase()} · ${m.belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
-          <View className="mt-s3">
-            <EvoRadar
-              fallbackStats={[
-                { label: 'STR', value: m.belowFold.stats.strengthScore },
-                { label: 'SIZE', value: m.belowFold.stats.sizeScore },
-                { label: 'LEAN', value: m.belowFold.stats.leannessScore },
-                { label: 'COND', value: m.belowFold.stats.conditioningScore },
-                { label: 'AES', value: m.belowFold.stats.aestheticScore },
-              ]}
-            />
+        {/* ONE PROGRESSION STORY, exactly as current live Home tells it:
+            the PR, the form it advanced and where the pillars head next on
+            one spine (ProgressHub + EvoPillars, the 2026-08-07 merge). */}
+        <ProgressHub testID="progress-hub">
+          <RecentPrCard pr={m.belowFold.pr} unit={m.belowFold.prUnit} />
+          <EvolutionTeaser
+            branch={m.belowFold.stats.branch}
+            evolution={m.belowFold.evolution}
+            currentName={m.identity.formName}
+            currentSource={m.identity.stillSource}
+          />
+          <View>
+            <EdgeLabel>{`${m.belowFold.stats.characterClass.toUpperCase()} · ${m.belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
+            <View className="mt-s3">
+              <EvoPillars
+                fallbackStats={[
+                  { label: 'STR', value: m.belowFold.stats.strengthScore },
+                  { label: 'SIZE', value: m.belowFold.stats.sizeScore },
+                  { label: 'LEAN', value: m.belowFold.stats.leannessScore },
+                  { label: 'COND', value: m.belowFold.stats.conditioningScore },
+                  { label: 'AES', value: m.belowFold.stats.aestheticScore },
+                ]}
+              />
+            </View>
           </View>
-        </View>
+        </ProgressHub>
 
         {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
         <LeaderboardTeaser />

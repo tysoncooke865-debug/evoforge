@@ -1,22 +1,32 @@
 /**
- * CLARITY copy of ui/home/forge-hint.tsx — same door, same motion, legible
- * plaque. Jersey 10 is DRAWN on a 10px grid (theme/fonts.ts): below 10px it
- * antialiases to mush, so nothing in this file renders under 10. The plaque's
- * caption also leaves text-mute for text-dim — sub-12px labels need the
- * AA-passing tier (tokens.js: text-dim is 7.4:1 on the page ground).
+ * PAGE LAB — CLARITY copy of src/ui/home/forge-hint.tsx (fork recipe:
+ * copied because it changes; re-sync when the live file moves). The copy's
+ * constraint: the plaque caption holds the 10px floor on text-dim. NOTE:
+ * the live AvatarHero renders the LIVE ForgeNameplate internally — this
+ * copy's nameplate states the target; only ForgeHint renders from here.
+ */
+/**
+ * HOME — THE FORGE DOOR, in two parts.
  *
  * `ForgeHint` sits directly under the masthead, ABOVE the Evo Rating. Tyson
  * (2026-08-03, third brief): "it teaches interaction before the user sees the
- * Champion." An athlete who has not yet learned the champion is a button
- * never scrolls far enough to find a hint sitting under it.
+ * Champion." It moved to the podium for one revision and moved back — the
+ * argument for the top is stronger than the argument against, because an
+ * athlete who has not yet learned the champion is a button never scrolls far
+ * enough to find out.
  *
- * `ForgeNameplate` is the plate across the podium's front face — a STATE, not
- * an instruction: the champion's form name and nothing else.
+ * `ForgeNameplate` is the plate across the podium's front face, and it is now
+ * a STATE, not an instruction: it carries the champion's form name and nothing
+ * else. "Tap to enter the Forge" left it, because the hint above already says
+ * that and a plaque that repeats it is a label arguing with itself. THE GRIND
+ * is who the champion is right now.
  *
  * MOTION (the hint only, one driver): the whole line breathes between 0.9 and
- * 1.0 opacity and the chevron nudges right once per cycle. Both derive from
- * one 4.4s clock, and it rides `useAmbient` like every other loop: an
- * unfocused tab, reduced motion or perf mode all hold it still and fully lit.
+ * 1.0 opacity — a wider swing reads as a fault rather than a pulse — and the
+ * chevron nudges right once per cycle, which is the part the eye actually
+ * reads as "this goes somewhere". Both derive from one 4.4s clock, and it
+ * rides `useAmbient` like every other loop: an unfocused tab, reduced motion
+ * or perf mode all hold it still and fully lit.
  *
  * The plate is deliberately STILL. The deck below it already carries a
  * rotating ring, a light sweep and three chasing LEDs; a breathing label on
@@ -135,12 +145,12 @@ export function ForgeNameplate({ formName }: { formName: string }) {
         >
           {formName.toUpperCase()}
         </Text>
-        {/* 10, never lower — Jersey 10's design grid — and the tracking eases
-            to 0.8 so the longer glyph run still clears the plate's 86% cap. */}
+        {/* The plaque's caption holds the 10px floor and the AA (dim)
+            tier — a 7px engraving under a 13px name is theatre, not type. */}
         <Text
           numberOfLines={1}
           allowFontScaling={false}
-          style={{ fontSize: 10, letterSpacing: 0.8, color: colors['text-dim'], ...pixelFont(false) }}
+          style={{ fontSize: 10, letterSpacing: 1.4, color: colors['text-dim'], ...pixelFont(false) }}
         >
           CURRENT FORM
         </Text>

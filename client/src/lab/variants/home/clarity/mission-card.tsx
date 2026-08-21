@@ -1,5 +1,13 @@
+/**
+ * PAGE LAB — CLARITY copy of src/ui/home/mission-card.tsx (fork recipe:
+ * copied because it changes; re-sync when the live file moves). The copy's
+ * constraint: no label under 10px, and every sub-12px line — kicker,
+ * rewards heading, benefit and duration — sits on text-dim, the AA tier.
+ * Every state, door and estimate is the live card's.
+ */
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import type { Mission } from '@/domain/home-mission';
 import { formatEvoEstimate } from '@/domain/progression/evo-per-session';
@@ -11,19 +19,14 @@ import { NeonButton } from '@/ui/core/neon-button';
 import { PixelBolt, PixelDumbbell } from '@/ui/core/pixel-icons';
 import { RewardPill } from '@/ui/core/reward-pill';
 import { GlowCard } from '@/ui/core/shell';
+
 import type { HomeFeatures } from '@/ui/home/home-features';
 import { useHomeScale } from '@/ui/home/home-scale';
+import { MissionCompleteFlourish, useCompletionPulse } from '@/ui/home/mission-complete-flourish';
 
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
 /**
- * CLARITY copy of ui/home/mission-card.tsx — same states, same hierarchy,
- * legible whispers. Jersey 10 is drawn on a 10px grid, so no label renders
- * under 10 here, and every sub-12px label sits on text-dim (7.4:1) rather
- * than text-mute (~3.6:1, below AA on this ground). The hierarchy survives
- * because it was never carried by the greyness — size, tracking and the
- * single-weight faces already do that work.
- *
  * HOME §3 — TODAY'S MISSION. One card, every honest state:
  * scheduled (brief + real reward + the page's ONE dominant CTA), in
  * progress (RESUME), completed (banked XP), rest day, no plan (four
@@ -33,20 +36,37 @@ const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDA
  * Train opens, source included, so Home can never start a different plan's
  * version of the day (the resolveDayIn lesson).
  *
+ * ---- THE HIERARCHY (premium pass, 2026-08-03) ----
+ *
+ * The brief asks that an athlete know six things at a glance, in this order,
+ * and the card is now laid out as exactly that list — one idea per line, each
+ * quieter than the one above it:
+ *
+ *   WORKOUT     the kicker carries the qualifier, the NAME owns its own line
+ *   REWARD      one row of two pills: what it pays, and what it proves
+ *   MUSCLES     a muted line, not pills — three outlined chips for three
+ *               words was chrome competing with the reward above them
+ *   DURATION    the estimates line, ~ marked, same honesty as the Train hero
+ *   CTA         a hero button with a light sweep across it
+ *
  * ---- ESTIMATED REWARDS, WITH EVO FIRST (2026-08-03, third brief) ----
  *
- * "+0.4 EVO" is a MEASUREMENT rather than a forecast:
+ * Tyson asked three times for "+0.4 EVO", ranked ABOVE the XP. It is here, and
+ * it is a MEASUREMENT rather than the forecast the mock implied:
  * `domain/progression/evo-per-session.ts` divides the athlete's real rating
- * gain by the training days that produced it. A forecast of what this
- * specific session will be worth still cannot exist — the rating is
+ * gain by the training days that produced it, so "+0.4" is *their own recent
+ * rate*, personal and checkable against their own history. A forecast of what
+ * this specific session will be worth still cannot exist — the rating is
  * recomputed from the whole evidence base at review time (see
  * `session-evidence.ts`) — which is why the block is headed ESTIMATED and why
  * the number DISAPPEARS entirely rather than degrading to a default when the
- * athlete has too little history to have a rate.
+ * athlete has too little history to have a rate. A new athlete sees the pillar
+ * benefit only, until they have earned a number of their own.
  *
  * PRIMARY BENEFIT is the pillar read, which needs no history and is true from
- * the first session. XP is real (10/set) and sits second by size and by
- * colour. Coins are still never implied per-workout.
+ * the first session: a logged resistance set is Strength and Size evidence,
+ * straight off the review's own inputs. XP is real (10/set) and now sits
+ * second by size and by colour. Coins are still never implied per-workout.
  */
 export function MissionCard({
   mission,
@@ -60,6 +80,7 @@ export function MissionCard({
   error,
   onRetry,
   onOpen,
+  onTrainAnyway,
   features,
   evoPerSession,
 }: {
@@ -76,6 +97,8 @@ export function MissionCard({
   onRetry: () => void;
   /** Opens the workout page for (today, mission.workout) with the source. */
   onOpen: () => void;
+  /** Starts a real session for TODAY from a rest day. Never a tab change. */
+  onTrainAnyway: () => void;
   features: HomeFeatures;
   /** The athlete's OWN measured Evo-per-training-day, or null when they have
    *  too little history for the average to mean anything. Never defaulted —
@@ -111,6 +134,35 @@ export function MissionCard({
 
   const nextLine = next ? `Next mission: ${next.day} · ${whenLabel(next)}` : null;
 
+  /* THE FIRST SESSION. Nothing scheduled today, and this athlete has never
+     trained — so there is nothing to recover from and no reason to make them
+     wait until tomorrow. Day one of their own plan, offered now, through the
+     same door every other state uses. */
+  if (mission.status === 'first_workout') {
+    return (
+      <GlowCard glow={colors.accent} padding={16}>
+        <Kicker>TODAY&apos;S MISSION</Kicker>
+        <Text className="mt-s2 text-text" allowFontScaling={false} style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }}>
+          {title.toUpperCase()}
+        </Text>
+        {sub ? <Text className="text-sm text-text-dim">{sub}</Text> : null}
+        <Text className="mt-s2 text-sm text-text-dim">
+          Your first session. Start it whenever you are ready — your week begins from here.
+        </Text>
+        <View className="mt-s3">
+          <NeonButton
+            title="START FIRST WORKOUT"
+            size="hero"
+            sweep
+            onPress={onOpen}
+            testID="mission-start"
+            rightIcon={<Text style={{ color: colors['accent-ink'], fontSize: 16, fontWeight: '800' }}>›</Text>}
+          />
+        </View>
+      </GlowCard>
+    );
+  }
+
   if (mission.status === 'rest_day') {
     return (
       <GlowCard padding={16}>
@@ -122,11 +174,16 @@ export function MissionCard({
           Rest, recover and prepare for your next mission.{nextLine ? ` ${nextLine}.` : ''}
         </Text>
         <View className="mt-s3">
+          {/* TRAIN ANYWAY used to be `router.push('/today')` — it changed
+              tabs and left the athlete to find a workout themselves, which on
+              a rest day meant there was nothing there to find. It opens a
+              real session for TODAY now, through the same door as every other
+              state. */}
           <NeonButton
             title="TRAIN ANYWAY"
             variant="ghost"
             pixel
-            onPress={() => router.push('/today' as never)}
+            onPress={onTrainAnyway}
             testID="mission-rest-train"
           />
         </View>
@@ -153,31 +210,14 @@ export function MissionCard({
   }
 
   if (mission.status === 'completed') {
-    return (
-      <GlowCard glow={colors.success} padding={16}>
-        <Text className="text-2xs font-bold" style={{ letterSpacing: 2, color: colors.success }}>
-          ✓ MISSION COMPLETE
-        </Text>
-        <Text className="mt-s1 text-text" allowFontScaling={false} style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }} numberOfLines={1}>
-          {title.toUpperCase()}
-        </Text>
-        <Text className="mt-s1 text-xs text-text-dim">
-          {mission.doneSets > 0 || mission.xpBanked > 0
-            ? `${mission.doneSets}${mission.targetSets > 0 ? ` / ${mission.targetSets}` : ''} sets · +${mission.xpBanked} XP banked`
-            : 'Finished for today.'}
-          {nextLine ? `  ·  ${nextLine}` : ''}
-        </Text>
-        {/* The loop closed: the sets are banked AND they are now evidence.
-            Said once, at the moment it becomes true. */}
-        <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
-          ◈ BANKED AS EVIDENCE FOR YOUR NEXT EVO REVIEW
-          {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
-        </Text>
-        <View className="mt-s3">
-          <NeonButton title="VIEW SUMMARY" variant="ghost" pixel onPress={onOpen} testID="mission-view" />
-        </View>
-      </GlowCard>
-    );
+    return <CompletedMission
+      mission={mission}
+      title={title}
+      nextLine={nextLine}
+      evoPerSession={evoPerSession}
+      scale={scale}
+      onOpen={onOpen}
+    />;
   }
 
   // scheduled / in_progress — the briefing card. Its padding is 14 rather
@@ -185,7 +225,18 @@ export function MissionCard({
   // action and has to clear the PHONE's fold, and 2pt of inner air is a
   // cheaper thing to spend than the champion's size.
   const inProgress = mission.status === 'in_progress';
-  const showRewards = features.showMissionRewards && mission.xpReward > 0 && !inProgress;
+  /**
+   * READY TO FINISH (2026-08-11). Every planned set logged, FINISH not yet
+   * pressed. Before this state existed the card said IN PROGRESS · RESUME
+   * MISSION directly beside "17/17 SETS COMPLETED" — the card contradicting
+   * itself, and asking somebody who had finished every set to resume.
+   */
+  const readyToFinish = mission.status === 'ready_to_finish';
+  /** Trained on a planned rest day. The plan above still says REST, and that
+   *  is correct — this card must stop calling the session "today's mission". */
+  const isExtra = mission.status === 'extra_session';
+  const underway = inProgress || readyToFinish;
+  const showRewards = features.showMissionRewards && mission.xpReward > 0 && !underway;
   const evoLabel = evoEvidenceLabel(evoEvidenceFor({ sets: mission.targetSets, cardioMinutes: 0 }));
   const muscles = pills.slice(0, 3);
 
@@ -204,7 +255,15 @@ export function MissionCard({
               "MISSION" for the same width — the RESUME MISSION button and the
               sets row already say which card this is. */}
           <View className="flex-row items-baseline" style={{ minWidth: 0 }}>
-            <Kicker>{inProgress ? 'IN PROGRESS' : "TODAY'S MISSION"}</Kicker>
+            <Kicker>
+              {isExtra
+                ? 'EXTRA SESSION'
+                : readyToFinish
+                  ? 'READY TO FINISH'
+                  : inProgress
+                    ? 'IN PROGRESS'
+                    : "TODAY'S MISSION"}
+            </Kicker>
             {sub ? (
               // NBSP, not a space: RN-web renders each Text as its own DOM
               // node and HTML collapses a leading space, so " · STRENGTH"
@@ -312,7 +371,9 @@ export function MissionCard({
 
       <View className="mt-s3">
         <NeonButton
-          title={inProgress ? 'RESUME MISSION' : 'START MISSION'}
+          // FINISH, never RESUME, once every set is in. The two used to be one
+          // branch, which is how the audit found RESUME beside 17/17.
+          title={readyToFinish ? 'FINISH WORKOUT' : inProgress ? 'RESUME MISSION' : 'START MISSION'}
           pixel
           size="hero"
           sweep
@@ -371,4 +432,64 @@ function Door({
 function whenLabel(next: NextSession): string {
   if (next.inDays === 1) return 'tomorrow';
   return `${WEEKDAYS[new Date(`${next.date}T00:00:00Z`).getUTCDay()].toLowerCase()} (in ${next.inDays} days)`;
+}
+
+/**
+ * MISSION COMPLETE — the same facts, delivered as a moment.
+ *
+ * Split out of MissionCard because the completed state now owns animation
+ * state, and hooks cannot live inside a conditional branch. The numbers are
+ * unchanged: sets done, sets asked for, XP banked. Only the delivery moved.
+ */
+function CompletedMission({
+  mission,
+  title,
+  nextLine,
+  evoPerSession,
+  scale,
+  onOpen,
+}: {
+  mission: Mission;
+  title: string;
+  nextLine: string | null;
+  evoPerSession: number | null;
+  scale: ReturnType<typeof useHomeScale>;
+  onOpen: () => void;
+}) {
+  const colors = useThemeColors();
+  const ctaStyle = useCompletionPulse(true);
+
+  return (
+    <GlowCard glow={colors.success} padding={16}>
+      <MissionCompleteFlourish
+        sets={mission.doneSets}
+        targetSets={mission.targetSets}
+        xp={mission.xpBanked}
+        testID="mission-complete-flourish"
+      />
+      <Text
+        className="mt-s2 text-text"
+        allowFontScaling={false}
+        style={{ fontSize: scale.missionTitle, letterSpacing: 0, ...pixelFont() }}
+        numberOfLines={1}
+      >
+        {title.toUpperCase()}
+      </Text>
+      <Text className="mt-s1 text-xs text-text-dim">
+        {mission.doneSets > 0 || mission.xpBanked > 0
+          ? `${mission.doneSets}${mission.targetSets > 0 ? ` / ${mission.targetSets}` : ''} sets banked`
+          : 'Finished for today.'}
+        {nextLine ? `  ·  ${nextLine}` : ''}
+      </Text>
+      {/* The loop closed: the sets are banked AND they are now evidence.
+          Said once, at the moment it becomes true. */}
+      <Text className="mt-s2 text-2xs" style={{ color: colors.epic, letterSpacing: 1 }} testID="mission-evo-banked">
+        ◈ BANKED AS EVIDENCE FOR YOUR EVO RATING
+        {evoPerSession !== null ? `  ·  ${formatEvoEstimate(evoPerSession)} EVO/SESSION` : ''}
+      </Text>
+      <Animated.View className="mt-s3" style={ctaStyle}>
+        <NeonButton title="VIEW SUMMARY" variant="ghost" pixel onPress={onOpen} testID="mission-view" />
+      </Animated.View>
+    </GlowCard>
+  );
 }

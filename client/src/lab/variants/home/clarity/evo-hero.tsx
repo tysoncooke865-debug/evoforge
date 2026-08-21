@@ -5,9 +5,14 @@
    argument it must protect. (The same documented exception as
    neon-button.tsx and avatar-hero.tsx.) */
 /**
- * STILLNESS COPY of ui/home/evo-hero.tsx (Page Lab; rebuilt against the
- * current source 2026-08-21).
- *
+ * PAGE LAB — CLARITY copy of src/ui/home/evo-hero.tsx (fork recipe:
+ * copied because it changes; re-sync when the live file moves). The copy's
+ * constraint: the descriptor pill carries a persistent BREAKDOWN cue —
+ * the crest is a button and needs one visible affordance. Choreography,
+ * gating and every state are the live file's; the standing rail is the
+ * sibling copy, everything else imports live.
+ */
+/**
  * HOME §1 — THE EVO RATING HERO.
  *
  * The brief's thesis is that the rating IS the product ("I'm Evo 51", not "I
@@ -29,7 +34,7 @@
  *   270–530ms   the digits materialise — twelve pixel shards converge on the
  *               numeral as it resolves from 1.18 scale
  *   530–620ms   it locks, with one soft overshoot
- *   620–700ms   done — and then the crest HOLDS.
+ *   620–700ms   the ambient glow takes over
  *
  * It is a ONE-SHOT, so perf mode does not disable it (the animations.ts
  * doctrine); reduced motion pins it complete on the first frame, because an
@@ -43,19 +48,17 @@
  * the CHAMPION bloom and the PLATFORM brighten, because both subscribe to that
  * same store. One event, four surfaces reacting, no new plumbing.
  *
- * ---- MOTION BUDGET (STILLNESS) ----
+ * ---- MOTION BUDGET ----
  *
- * TWO drivers, both one-shots: `intro` (the entrance) and `emphasis` (the
- * level-up). The live hero's third driver — the 7s ambient `pulse` that fed
- * the bloom breath, the crest sweep and the ring rotation — does not exist
- * here. Once the entrance seats the number, the crest is a monument: ring,
- * glow and glyphs hold their resting values, so the only things that ever
- * move on this page are the champion's breath and the today pip. Prestige
- * is stillness next to motion.
+ * THREE drivers for everything above: `intro` (one-shot), `pulse` (the only
+ * ambient loop — bloom breath, crest sweep and ring rotation all derive from
+ * it) and `emphasis` (one-shot). On web every Reanimated loop runs on the main
+ * JS thread, so the count that matters is DRIVERS, not effects.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
@@ -64,6 +67,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
@@ -81,13 +85,14 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
 import { playPowerUp, playSelect } from '@/ui/core/sound';
+import { useAmbient } from '@/ui/core/use-ambient';
+
 import { EvoBurst } from '@/ui/home/evo-burst';
 import { EvoCoachMark } from '@/ui/home/evo-coach-mark';
 import { EvoDetailSheet } from '@/ui/home/evo-detail';
 import { EvoEmblem, EvoEnergyRing } from '@/ui/home/evo-emblem';
 import { useHomeScale } from '@/ui/home/home-scale';
-
-import { NextRankRail } from './next-rank-card';
+import { NextRankRail } from '@/ui/home/next-rank-card';
 import { EvoStandingRail } from './evo-standing-rail';
 
 /** The rating this DEVICE last showed. One integer; see useRatingCelebration. */
@@ -179,6 +184,7 @@ export function EvoHero({
 } = {}) {
   const colors = useThemeColors();
   const scale = useHomeScale();
+  const ambient = useAmbient();
   const reduced = useReducedMotion();
   const current = useEvoRatingCurrent();
   const pending = usePendingEvoEvidence();
@@ -208,10 +214,16 @@ export function EvoHero({
     }, [reduced, intro])
   );
 
-  // STILLNESS: no ambient driver. The live hero runs a 7s `pulse` loop here
-  // that breathes the bloom, sweeps the crest and turns the ring; this
-  // variant's crest finishes its entrance and then HOLDS, so the entrance
-  // ceremony is the only spectacle the identity block ever performs.
+  // ---- The ONE ambient driver: bloom breath, crest sweep, ring rotation. ----
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (!ambient) {
+      pulse.value = 0;
+      return;
+    }
+    pulse.value = 0;
+    pulse.value = withRepeat(withTiming(1, { duration: 7000, easing: Easing.linear }), -1);
+  }, [ambient, pulse]);
 
   // ---- THE LEVEL-UP: soft camera emphasis, and the digits counting. ----
   const emphasis = useSharedValue(0);
@@ -253,6 +265,7 @@ export function EvoHero({
   // emblem's outer arcs and at the emblem's own opacities, the two read as one
   // concentric crest.
   const ringW = Math.round(crestW * 0.64);
+  const SHEEN_W = 96;
 
   /** A 0→1 ramp across [a,b] of the entrance clock. */
   const seg = (t: number, a: number, b: number): number => {
@@ -260,27 +273,24 @@ export function EvoHero({
     return Math.max(0, Math.min(1, (t - a) / (b - a)));
   };
 
-  // STILLNESS: the ring fades in and settles, then stands at its resting
-  // pose — 0.85 opacity, no rotation. A turning ring reads as a loading
-  // spinner; a still one is a setting for the number.
   const ringStyle = useAnimatedStyle(() => {
     const e = seg(intro.value, 0, 0.2);
+    // A third of a turn per 7s loop — ~21s per revolution. Any faster and an
+    // identity crest reads as a loading spinner.
     return {
-      opacity: e * 0.85,
-      transform: [{ translateY: -6 }, { scale: 0.9 + e * 0.1 }],
+      opacity: e * (0.85 + 0.15 * Math.sin(pulse.value * Math.PI * 2)),
+      transform: [{ translateY: -6 }, { scale: 0.9 + e * 0.1 }, { rotate: `${pulse.value * 120}deg` }],
     };
   });
 
   const glyphStyle = useAnimatedStyle(() => ({ opacity: seg(intro.value, 0.14, 0.4) }));
 
-  // STILLNESS: the glow expands with the entrance and answers the level-up's
-  // emphasis, but it does not breathe — it holds at the live hero's resting
-  // exposure so the crest reads as lit, not alive.
   const bloomStyle = useAnimatedStyle(() => {
     const e = seg(intro.value, 0.24, 0.58);
+    const breath = (1 - Math.cos(pulse.value * Math.PI * 4)) / 2; // two breaths per loop
     return {
-      opacity: e * (0.5 + emphasis.value * 0.6),
-      transform: [{ scale: (0.72 + e * 0.22) * (0.94 + emphasis.value * 0.18) }],
+      opacity: e * (0.5 + breath * 0.5 + emphasis.value * 0.6),
+      transform: [{ scale: (0.72 + e * 0.22) * (0.94 + breath * 0.1 + emphasis.value * 0.18) }],
     };
   });
 
@@ -291,6 +301,18 @@ export function EvoHero({
     return {
       opacity: e,
       transform: [{ scale: 1.18 - e * 0.18 + lock + emphasis.value * 0.1 }],
+    };
+  });
+
+  const sweepStyle = useAnimatedStyle(() => {
+    // The sweep owns the first 16% of the loop; the remaining ~5.9s is
+    // stillness, so the crest "occasionally catches the light" instead of
+    // strobing. It waits for the entrance to finish.
+    const p = pulse.value / 0.16;
+    if (p > 1 || intro.value < 0.9) return { opacity: 0, transform: [{ translateX: -SHEEN_W }] };
+    return {
+      opacity: Math.sin(p * Math.PI) * 0.9,
+      transform: [{ translateX: -SHEEN_W + p * (crestW + SHEEN_W) }],
     };
   });
 
@@ -424,7 +446,7 @@ export function EvoHero({
         <Label colour={colors.epic}>EVO RATING</Label>
 
         <View className="items-center justify-center" style={{ marginTop: scale.heroGap }}>
-          {/* 1. THE ENERGY RING — first in, and then perfectly still. */}
+          {/* 1. THE ENERGY RING — first in, and the only thing that turns. */}
           <Animated.View pointerEvents="none" style={[{ position: 'absolute' }, ringStyle]}>
             <EvoEnergyRing size={ringW} colour={colors.epic} />
           </Animated.View>
@@ -448,12 +470,29 @@ export function EvoHero({
             ]}
           />
 
-          {/* 3. THE GLYPHS. STILLNESS: the live hero drives a recurring light
-              sweep across the emblem here; this crest never catches the light
-              — engraved metal, not a slot machine. */}
+          {/* 3. THE GLYPHS. */}
           <Animated.View pointerEvents="none" style={[{ position: 'absolute' }, glyphStyle]}>
             <EvoEmblem width={crestW} colour={colors.epic} />
           </Animated.View>
+
+          {/* The light sweep, clipped to the crest's own box. It crosses the
+              EMBLEM rather than the glyph: masking a shimmer to text needs
+              MaskedView, and an unmasked bar over the numeral would read as a
+              rendering fault rather than a shine. */}
+          <View
+            pointerEvents="none"
+            className="overflow-hidden"
+            style={{ position: 'absolute', width: crestW, height: crestH, borderRadius: crestH / 2 }}
+          >
+            <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, width: SHEEN_W }, sweepStyle]}>
+              <LinearGradient
+                colors={['rgba(216,180,254,0)', 'rgba(216,180,254,0.30)', 'rgba(216,180,254,0)']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={{ flex: 1 }}
+              />
+            </Animated.View>
+          </View>
 
           {/* 4. THE DIGITS, materialising. */}
           <Animated.View style={digitsStyle}>
@@ -511,6 +550,12 @@ export function EvoHero({
                 {'  ·  PROVISIONAL'}
               </Text>
             ) : null}
+            {/* The crest is a button, and this pill is its only flat
+                surface: the breakdown sheet needs one persistent, quiet
+                cue or the tap stays a secret. */}
+            <Text style={{ color: colors.epic }} testID="evo-breakdown-cue">
+              {'  ·  BREAKDOWN ›'}
+            </Text>
           </Text>
         </View>
 

@@ -16,12 +16,16 @@ import { BelowFold } from '@/ui/home/below-fold';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { WeekStrip } from '@/ui/home/week-strip';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
 import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
 import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
-import { EvoRadar } from '@/ui/home/evo-radar';
+import { EvoPillars } from '@/ui/home/evo-pillars';
+import { ProgressHub } from '@/ui/home/progress-hub';
 
 import { MissionDock, DOCK_CONTENT_HEIGHT } from './saga/mission-dock';
 import { SagaMonument } from './saga/monument';
@@ -75,9 +79,14 @@ export function HomeSaga() {
           xpNeeded={m.forgeProgress.xpForNextLevel}
         />
 
-        {/* 2. THE CARD DECK, scrolling under the monument. The merged week
+        {/* 2. THE CARD DECK, scrolling under the monument. The current
+            page's news chips + daily cache lead it (all three render NOTHING
+            when there is nothing waiting — live doctrine); the merged week
             card (live 2026-08-07) carries the four numbers and the last
             session, so no separate overview card follows below the fold. */}
+        <PoolInviteChip />
+        <RevealChip />
+        <ForgeCacheCard />
         <WeekStrip
           pips={m.week.pips}
           todayIso={m.week.todayIso}
@@ -102,32 +111,32 @@ export function HomeSaga() {
               or no path exists. */}
           <PathSummary />
 
-          {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
-              silhouette + readiness columns need the full width — at half
-              width "Advanced Form" wraps mid-word, exactly the fragment the
-              brief bans. */}
-          <RecentPrCard pr={m.belowFold.pr} unit={m.belowFold.prUnit} />
-          <EvolutionTeaser branch={m.belowFold.stats.branch} evolution={m.belowFold.evolution} />
-
-          {/* Character build — the radar. Sourced from the Evo Rating's four
-              pillars so the wheel LINES UP with the rating above, with a
-              dashed projection of where they head after a block of
-              consistent training. Falls back to the legacy live stats before
-              the first Evo review. */}
-          <View>
-            <EdgeLabel>{`${m.belowFold.stats.characterClass.toUpperCase()} · ${m.belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
-            <View className="mt-s3">
-              <EvoRadar
-                fallbackStats={[
-                  { label: 'STR', value: m.belowFold.stats.strengthScore },
-                  { label: 'SIZE', value: m.belowFold.stats.sizeScore },
-                  { label: 'LEAN', value: m.belowFold.stats.leannessScore },
-                  { label: 'COND', value: m.belowFold.stats.conditioningScore },
-                  { label: 'AES', value: m.belowFold.stats.aestheticScore },
-                ]}
-              />
+          {/* ONE PROGRESSION STORY, as current live Home tells it: the PR,
+              the form it advanced and where the pillars head next on one
+              spine (ProgressHub + EvoPillars, the 2026-08-07 merge). */}
+          <ProgressHub testID="progress-hub">
+            <RecentPrCard pr={m.belowFold.pr} unit={m.belowFold.prUnit} />
+            <EvolutionTeaser
+              branch={m.belowFold.stats.branch}
+              evolution={m.belowFold.evolution}
+              currentName={m.identity.formName}
+              currentSource={m.identity.stillSource}
+            />
+            <View>
+              <EdgeLabel>{`${m.belowFold.stats.characterClass.toUpperCase()} · ${m.belowFold.stats.buildType.toUpperCase()}`}</EdgeLabel>
+              <View className="mt-s3">
+                <EvoPillars
+                  fallbackStats={[
+                    { label: 'STR', value: m.belowFold.stats.strengthScore },
+                    { label: 'SIZE', value: m.belowFold.stats.sizeScore },
+                    { label: 'LEAN', value: m.belowFold.stats.leannessScore },
+                    { label: 'COND', value: m.belowFold.stats.conditioningScore },
+                    { label: 'AES', value: m.belowFold.stats.aestheticScore },
+                  ]}
+                />
+              </View>
             </View>
-          </View>
+          </ProgressHub>
 
           {/* P2 C5: collapsed-by-default leaderboard teaser, cyan-framed. */}
           <LeaderboardTeaser />
