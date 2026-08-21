@@ -17,7 +17,6 @@ import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { BelowFold } from '@/ui/home/below-fold';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
@@ -106,15 +105,9 @@ export function HomeArcade() {
             or no path exists. */}
         <PathSummary />
 
-        {/* This week, by the numbers (the segments live above now). */}
-        <TrainingOverview
-          contract={week.contract}
-          weekSets={week.totals.sets}
-          weekCardioMinutes={week.totals.cardioMinutes}
-          weekXp={week.totals.xp}
-          hasSchedule={week.hasSchedule}
-        />
-
+        {/* The week by the numbers lives in the live merged week card now
+            (2026-08-07); ARCADE's power gauge above carries the segments and
+            streak, so no overview card renders here. */}
         {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
             silhouette + readiness columns need the full width — at half width
             "Advanced Form" wraps mid-word, exactly the fragment the brief bans. */}

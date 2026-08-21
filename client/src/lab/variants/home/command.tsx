@@ -18,7 +18,6 @@ import { BelowFold } from '@/ui/home/below-fold';
 import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
@@ -85,24 +84,17 @@ export function HomeCommand() {
           the HUD band, directly under the mission. */}
       <ReforgeDayCard testID="home-reforge-day" />
 
-      {/* The week's contract and the streak — the second and third glance. */}
+      {/* The week — contract, streak AND the four numbers in one card (the
+          live 2026-08-07 merge did the HUD's promotion job for us: WeekStrip
+          itself now carries the by-the-numbers rows and the last session,
+          above the fold, exactly where the veteran wants them). */}
       <WeekStrip
         pips={m.week.pips}
         todayIso={m.week.todayIso}
         streak={m.week.streak}
         streakLabel={m.week.streakLabel}
-      />
-
-      {/* The week BY THE NUMBERS — surfaced from below the fold. On the
-          live page these four metrics render after first paint; the veteran
-          this variant serves checks them daily, so they earn HUD rank.
-          (They leave BelowFold below — one copy per page, as always.) */}
-      <TrainingOverview
-        contract={m.week.contract}
-        weekSets={m.week.totals.sets}
-        weekCardioMinutes={m.week.totals.cardioMinutes}
-        weekXp={m.week.totals.xp}
-        hasSchedule={m.week.hasSchedule}
+        totals={m.week.weekCard}
+        lastSession={m.week.lastSessionLine}
       />
 
       {/* ---- 2. IDENTITY, COMPRESSED TO A RAIL — rating · tier · forge

@@ -754,6 +754,24 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **HOME DESIGN LAB rebased onto the 2026-08-07+ Home (2026-08-21, no
+  migration)** — the lab work (phases A–E below) was built against the
+  pre-restructure Home and rebased across ~111 upstream commits. What the
+  re-sync changed: `home/baseline` re-forked wholesale from the NEW live
+  index.tsx (mission-first for everyone, resolvePlannedDay, session-
+  evidence streak/contract/totals, the merged week card, ForgeCacheCard/
+  PoolInviteChip/RevealChip — diff-anchor is 24 lines, all fork recipe);
+  `shared/use-home-model.ts` re-synced to the same derivation (+
+  `mission.trainAnyway`, `week.weekCard`, `week.lastSessionLine`);
+  variants updated for the retired `training-overview` (its numbers live
+  in WeekStrip's `totals` prop now — stillness/command/saga pass
+  `weekCard` + `lastSessionLine`; arcade's gauge carries the segments).
+  Also: `scripts/gen-exercise-ids.mjs` needs LF on disk — the
+  exercise-identity test regexes its bytes, and a CRLF checkout (Windows
+  autocrlf during rebase) fails it while git shows the file clean.
+  Playwright over the flagged export: 6 home variants render, switcher
+  flips, the known single #418 only.
+
 - **DEV-ONLY RED OVERLAY: tailwind darkMode 'class' (2026-08-20, no
   migration)** — on `npx expo start`, every route painted the dev error
   overlay ("Cannot manually set color scheme, as dark mode is type

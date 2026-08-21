@@ -29,13 +29,16 @@ import { estimateEvoPerSession } from '@/domain/progression/evo-per-session';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
+import { completedSessions } from '@/domain/session-stats';
 import { computeStreak } from '@/domain/streak';
+import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
 import { todayIso as calendarToday } from '@/domain/today';
-import { sourceDayFor } from '@/domain/week-status';
+import { resolvePlannedDay } from '@/domain/session-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
+import { XP_PER_SET } from '@/domain/xp';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
-import { adhocOf, useSessionStore } from '@/state/session-store';
+import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
 import { useEvoRatingCurrent, useEvoSnapshots } from '@/data/progression/use-evo-rating';
@@ -55,7 +58,9 @@ import { useEvoRatingCurrent, useEvoSnapshots } from '@/data/progression/use-evo
  *
  * The BASELINE does NOT use this hook — it stays the verbatim diff-anchor
  * against live Home. Like the baseline, this file rots-with-live by design:
- * when index.tsx's derivation changes, re-sync both.
+ * when index.tsx's derivation changes, re-sync both. (Re-synced 2026-08-21:
+ * resolvePlannedDay resolution, session-evidence streak/contract/totals,
+ * the starter-mission inputs, trainAnyway, the week card's merged line.)
  *
  * mission.open() routes to the BASELINE lab workout: the comparison under
  * way is Home, and every variant opening the same workout door keeps the
@@ -88,26 +93,64 @@ export function useHomeModel() {
   const prefs = useExercisePrefs();
   const { sources, resolveDay, preferredSource, loading: plansLoading } = useDayPlan();
   const adhoc = useSessionStore(adhocOf);
+  const daySwap = useSessionStore(daySwapOf);
 
   const scheduleRows = schedule.data ?? [];
   const hasSchedule = scheduleRows.length > 0;
+  // THE CANONICAL COUNT (domain/session-stats.ts): cardio rows and finish
+  // markers travel with the sets, matching live Home exactly.
+  const sessionEvidence = { cardioRows: cardio.data ?? [], finishes: sessions.data ?? [] };
   const streak = hasSchedule
-    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
-    : computeStreak(workouts.data ?? [], todayIso);
-  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso);
+    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso, 180, sessionEvidence)
+    : computeStreak(workouts.data ?? [], todayIso, sessionEvidence);
+  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso, sessionEvidence);
+  const allSessions = completedSessions({ workoutRows: workouts.data ?? [], ...sessionEvidence });
+  const lastSession = allSessions.sessions[allSessions.sessions.length - 1] ?? null;
+  /** The last session as ONE line — the merged week card renders it. */
+  const lastSessionLine =
+    lastSession === null
+      ? null
+      : {
+          name: splitWorkoutName(lastSession.name).title,
+          when: lastSession.date === todayIso ? 'today' : lastSession.date.slice(5),
+          detail:
+            lastSession.kind === 'cardio'
+              ? `${Math.trunc(lastSession.minutes)} min`
+              : `${lastSession.sets} sets · +${lastSession.sets * XP_PER_SET} XP`,
+        };
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
-  // ---- Today's mission — the Train hub's own resolution, replayed here. ----
+  // ---- Today's mission — the Train hub's own resolution, replayed here
+  // (resolvePlannedDay: the day swap and per-day source map included). ----
   const source = preferredSource;
   const planDays = daysForSource(source, sources, BUILT_IN_DAYS);
   const workoutIndex = useWorkoutIndex();
-  const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
-  const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
+  const latestScheduleRow = scheduleRows.length > 0 ? scheduleRows[scheduleRows.length - 1] : null;
+  const explicitSourceToday = (() => {
+    const map = (latestScheduleRow as { sources?: Record<string, number> } | null)?.sources;
+    if (!map) return false;
+    const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
+    const v = map[dow];
+    return v === 0 || v === 1 || v === 2;
+  })();
+  const scheduledToday = resolvePlannedDay({
+    date: todayIso,
+    todayIso,
+    scheduleRows,
+    planDays,
+    daySwap,
+    hasExplicitSource: explicitSourceToday,
+  });
+  const startedToday = startedWorkoutToday(workouts.data ?? [], todayIso);
+  const hasEverTrained = (workoutIndex.data?.byDate.size ?? 0) > 0;
+  const starterWorkout = planDays.find((d) => d.trim() !== '') ?? null;
+  const missionWorkout = scheduledToday ?? adhoc?.name ?? startedToday ?? (hasEverTrained ? null : starterWorkout);
 
+  const fromPlan = missionWorkout !== null && planDays.includes(missionWorkout);
   const entries: [string, number][] =
     missionWorkout === null
       ? []
-      : scheduledToday !== null
+      : fromPlan
         ? resolveDay(missionWorkout, source).entries.map(([e, s]) => [e, s] as [string, number])
         : (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]);
 
@@ -127,11 +170,14 @@ export function useHomeModel() {
   const mission = deriveMission({
     hasSchedule,
     assignedWorkout: scheduledToday,
-    adhocWorkout: adhoc?.name ?? null,
+    adhocWorkout: adhoc?.name ?? startedToday,
     finished,
     doneSets,
     targetSets,
     loggedSets: dayRows.length,
+    starterWorkout,
+    hasEverTrained,
+    firstWorkoutStarted: profile.data?.first_workout_at != null,
   });
 
   const bodyweightKg =
@@ -162,15 +208,35 @@ export function useHomeModel() {
     void sessions.refetch();
     void workouts.refetch();
   };
+  const openWorkout = (name: string) => {
+    router.push(
+      labWorkoutHref('baseline', { date: todayIso, workout: name, source }, labMode) as never
+    );
+  };
   const openMission = () => {
     if (!mission.workout) return;
-    router.push(
-      labWorkoutHref('baseline', { date: todayIso, workout: mission.workout, source }, labMode) as never
-    );
+    openWorkout(mission.workout);
+  };
+  /** TRAIN ANYWAY from a rest day — same resolution as live Home, but the
+   *  door it opens stays inside the lab. */
+  const trainAnyway = () => {
+    const session = resolveTodaySession({
+      scheduledToday,
+      startedToday,
+      planDays,
+      hasEverTrained: false, // this button IS the athlete overriding the rest day
+    });
+    if (session.workout) openWorkout(session.workout);
   };
 
   // ---- This week (Monday-start, the contract's window). ----
-  const weekTotals = periodTotals(workouts.data ?? [], cardio.data ?? [], weekStart(todayIso), todayIso);
+  const weekTotals = periodTotals(
+    workouts.data ?? [],
+    cardio.data ?? [],
+    weekStart(todayIso),
+    todayIso,
+    sessions.data ?? []
+  );
 
   // ---- Character identity (the display identity, gates re-validated). ----
   const identity = useDisplayIdentity();
@@ -214,7 +280,9 @@ export function useHomeModel() {
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
-  /** Never logged a set — the live page leads with the mission for these. */
+  /** Never logged a set. Live Home no longer reorders for these athletes
+   *  (mission leads for everyone since 2026-08-06), but variants may still
+   *  read it to soften identity surfaces that have nothing to show. */
   const neverTrained = !workoutIndex.isPending && (workoutIndex.data?.byDate.size ?? 0) === 0;
 
   return {
@@ -232,6 +300,7 @@ export function useHomeModel() {
       error: missionError && !missionLoading,
       retry: retryMission,
       open: openMission,
+      trainAnyway,
       evoPerSession,
     },
     identity: {
@@ -255,6 +324,16 @@ export function useHomeModel() {
       contract,
       hasSchedule,
       totals: weekTotals,
+      /** The merged week card's extra rows (live WeekStrip's totals prop). */
+      weekCard: {
+        sessionsDone: contract.done,
+        sessionsTarget: contract.target,
+        hasSchedule,
+        sets: weekTotals.sets,
+        cardioMinutes: weekTotals.cardioMinutes,
+        xp: weekTotals.xp,
+      },
+      lastSessionLine,
     },
     belowFold: {
       pr,

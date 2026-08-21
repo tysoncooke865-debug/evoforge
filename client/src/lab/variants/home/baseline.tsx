@@ -5,7 +5,9 @@
  * workout variant instead of /workout, and the two writes Home fires ON MOUNT
  * — the activation step and the retroactive coin claim — go through the
  * mock-safe shims. Everything else is verbatim; diff against index.tsx to
- * review a variant.
+ * review a variant. (Re-synced 2026-08-21 after the 2026-08-07 live
+ * restructure: mission-first for everyone, the week card absorbed the
+ * overview + last session, ProgressHub/EvoPillars below the fold.)
  */
 import { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
@@ -39,13 +41,16 @@ import { estimateEvoPerSession } from '@/domain/progression/evo-per-session';
 import { weekStart, periodTotals } from '@/domain/progress-aggregates';
 import { recentPr } from '@/domain/recent-pr';
 import { computeScheduledStreak, nextScheduledSession, weeklyContract } from '@/domain/scheduled-streak';
+import { completedSessions } from '@/domain/session-stats';
 import { computeStreak } from '@/domain/streak';
+import { resolveTodaySession, startedWorkoutToday } from '@/domain/today-session';
 import { todayIso as calendarToday } from '@/domain/today';
-import { sourceDayFor } from '@/domain/week-status';
+import { resolvePlannedDay } from '@/domain/session-status';
 import { estimateMinutes, estimateNetKcal, splitWorkoutName } from '@/domain/workout-estimates';
 import { inferMuscleGroup } from '@/domain/workouts';
+import { XP_PER_SET } from '@/domain/xp';
 import { dwKey, lastSessionForWorkout } from '@/domain/workout-index';
-import { adhocOf, useSessionStore } from '@/state/session-store';
+import { adhocOf, daySwapOf, useSessionStore } from '@/state/session-store';
 import { useThemeColors } from '@/theme/use-theme';
 import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { ORIGIN_FLAGS, useClassification, useOriginStatus } from '@/data/origin';
@@ -59,11 +64,16 @@ import { WeekStrip } from '@/ui/home/week-strip';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
+import { ForgeCacheCard } from '@/ui/home/forge-cache-card';
+import { PoolInviteChip } from '@/ui/callouts/pool-invite';
+import { RevealChip } from '@/ui/forge-reveal/reveal-chip';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
+import { PhysiqueBaselineCard } from '@/ui/progression/physique-baseline-card';
+import { ReforgeDayCard } from '@/ui/progression/reforge-day-card';
 import { EvoPillars } from '@/ui/home/evo-pillars';
 import { ProgressHub } from '@/ui/home/progress-hub';
 
@@ -71,16 +81,26 @@ import { ProgressHub } from '@/ui/home/progress-hub';
  * HOME — the RPG character hub (HOME_REDESIGN_PLAN; slimmed 2026-07-22;
  * re-stacked 2026-08-02; REDESIGNED 2026-08-03; PREMIUM PASS 2026-08-03).
  *
- * The page answers three questions in two seconds, and it now does it in
- * THREE sections instead of five:
- *   WHO AM I / WHY CARE   the Evo Rating crest — the number, what it means
- *                         ("OVERALL FITNESS SCORE"), the rank it is about to
- *                         become — and the champion standing under it
- *   WHAT NEXT             TODAY'S MISSION, the one dominant CTA
- * and then THIS WEEK, the promise the athlete made to themselves. Everything
- * that reads rather than acts — the evolution path, the weekly numbers, the
- * PR, the next form, the radar, the leaderboard — lives below the fold in
- * BelowFold, mounted after the first paint. Nothing was deleted.
+ * THE ORDER (redesigned 2026-08-07). Five slots above the fold, and the page
+ * is meant to feel like opening a GAME, not a spreadsheet:
+ *
+ *   1  TODAY'S MISSION      the one primary action, visually dominant
+ *   2  REFORGE DAY          only when it is due; a small reminder otherwise
+ *   3  CHAMPION + RATING    ONE block. The crest carries the rating, the
+ *                           weekly delta, the board position and the next
+ *                           rank; the champion stands directly under it, so
+ *                           "I train this mission to improve THIS character"
+ *                           reads as one continuous thought.
+ *   4  THIS WEEK            ONE card: seven days, streak, the four numbers
+ *                           and the last session.
+ *   5  OPTIONAL BASELINE    an offer; never a gate on anything
+ *      then BelowFold       evolution, PR, leaderboard, paths
+ *
+ * WHAT THIS PASS MERGED, and why it is not simply "less": LAST SESSION and
+ * TRAINING OVERVIEW were separate full-width cards describing the same seven
+ * days as the week strip, from two other places on the page. Three cards
+ * became one. Nothing was deleted — every number they carried is still here,
+ * in the card that was already about the week.
  *
  * WHAT THE PREMIUM PASS MERGED, AND WHY IT IS NOT SIMPLY "LESS":
  *   - NEXT RANK stopped being its own card and became the crest's bottom rail
@@ -98,12 +118,14 @@ import { ProgressHub } from '@/ui/home/progress-hub';
  * CTA still clears the PHONE's fold (paddingTop 47 + an 88pt tab bar) with
  * more room than it had before.
  *
- * THE ORDER REVERSED ON 2026-08-03. Between 2026-08-02 and that commit the
- * mission led the page, because the old hero rig (a 192pt champion inside a
- * 450pt stage) could not fit above it. That constraint is gone rather than
- * ignored: home-scale.ts sizes the champion to the viewport and HeroStage
- * takes a `headroom` multiplier. If a future change pushes START MISSION off
- * the fold again, shrink the rig; do not re-order.
+ * THE ORDER HAS MOVED TWICE, AND THIS IS WHY IT IS WHERE IT IS. The mission
+ * led until 2026-08-03, when the identity block took the top because the hero
+ * rig could not fit under it. 2026-08-06 puts the mission back in front for
+ * EVERYONE — an athlete who has to scroll past their own rating to find out
+ * what to train today has been asked the wrong question first. The rig fits
+ * either way now: home-scale.ts sizes the champion to the viewport and
+ * HeroStage takes a `headroom` multiplier. If a future change pushes START
+ * MISSION off the fold, shrink the rig; do not re-order.
  *
  * Every value is real state; systems without backends are hidden by
  * home-features / progressionFeatures, never mocked. In particular there is
@@ -172,13 +194,36 @@ export function HomeBaseline() {
   const prefs = useExercisePrefs();
   const { sources, resolveDay, preferredSource, loading: plansLoading } = useDayPlan();
   const adhoc = useSessionStore(adhocOf);
+  // The today-only day swap — Train honours it, so Home must too or the two
+  // screens look up different workout names (see resolvePlannedDay below).
+  const daySwap = useSessionStore(daySwapOf);
 
   const scheduleRows = schedule.data ?? [];
   const hasSchedule = scheduleRows.length > 0;
+  // THE CANONICAL COUNT (domain/session-stats.ts): cardio rows and finish
+  // markers travel with the sets, so a completed cardio session and a workout
+  // finished with no counted set both count as the sessions they are.
+  const sessionEvidence = { cardioRows: cardio.data ?? [], finishes: sessions.data ?? [] };
   const streak = hasSchedule
-    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso)
-    : computeStreak(workouts.data ?? [], todayIso);
-  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso);
+    ? computeScheduledStreak(scheduleRows, workouts.data ?? [], todayIso, 180, sessionEvidence)
+    : computeStreak(workouts.data ?? [], todayIso, sessionEvidence);
+  const contract = weeklyContract(scheduleRows, workouts.data ?? [], todayIso, sessionEvidence);
+  // THE LAST COMPLETED SESSION — the canonical list's final entry, so this
+  // card and the week counter can never disagree about what happened.
+  const allSessions = completedSessions({ workoutRows: workouts.data ?? [], ...sessionEvidence });
+  const lastSession = allSessions.sessions[allSessions.sessions.length - 1] ?? null;
+  /** The last session as ONE line, for the week card it now lives inside. */
+  const lastSessionLine =
+    lastSession === null
+      ? null
+      : {
+          name: splitWorkoutName(lastSession.name).title,
+          when: lastSession.date === todayIso ? 'today' : lastSession.date.slice(5),
+          detail:
+            lastSession.kind === 'cardio'
+              ? `${Math.trunc(lastSession.minutes)} min`
+              : `${lastSession.sets} sets · +${lastSession.sets * XP_PER_SET} XP`,
+        };
   const nextSession = nextScheduledSession(scheduleRows, todayIso);
 
   // ---- Today's mission — the Train hub's own resolution, replayed here. ----
@@ -187,15 +232,54 @@ export function HomeBaseline() {
   // B3 (2026-07-19): the shared index — Home used to re-normalise the same
   // 2500 rows ~5× per render across mission/PR/totals/streak derivations.
   const workoutIndex = useWorkoutIndex();
-  const scheduledToday = sourceDayFor(todayIso, scheduleRows, planDays, todayIso);
-  const missionWorkout = scheduledToday ?? adhoc?.name ?? null;
+  /**
+   * TODAY'S WORKOUT NAME — the SAME resolution Train uses (2026-08-11).
+   *
+   * This line used to call `sourceDayFor` directly, which is only the LAST of
+   * the three branches Train applies. It saw neither the today-only DAY SWAP
+   * nor the per-day SOURCE map (migration 066), so the moment an athlete used
+   * either, Home resolved a different workout NAME from Train — and finish
+   * markers are keyed (date, workout). Home's marker lookup missed, the
+   * session read as unfinished, and the card said IN PROGRESS · RESUME MISSION
+   * while Train showed the very same workout COMPLETED.
+   *
+   * `resolvePlannedDay` is that resolution, extracted once
+   * (domain/session-status.ts). Neither screen may answer this for itself.
+   */
+  const latestScheduleRow = scheduleRows.length > 0 ? scheduleRows[scheduleRows.length - 1] : null;
+  const explicitSourceToday = (() => {
+    const map = (latestScheduleRow as { sources?: Record<string, number> } | null)?.sources;
+    if (!map) return false;
+    const dow = String(new Date(`${todayIso}T00:00:00Z`).getUTCDay());
+    const v = map[dow];
+    return v === 0 || v === 1 || v === 2;
+  })();
+  const scheduledToday = resolvePlannedDay({
+    date: todayIso,
+    todayIso,
+    scheduleRows,
+    planDays,
+    daySwap,
+    hasExplicitSource: explicitSourceToday,
+  });
+  // ALREADY UNDER WAY? Server truth from the log, not the session store —
+  // it survives a refresh, a second device and a cleared cache, which is
+  // what "return to the app after partially logging" actually needs.
+  const startedToday = startedWorkoutToday(workouts.data ?? [], todayIso);
+  // Never completed a workout: a rest day cannot apply yet, so day one of
+  // their own plan stays reachable (domain/today-session.ts).
+  const hasEverTrained = (workoutIndex.data?.byDate.size ?? 0) > 0;
+  const starterWorkout = planDays.find((d) => d.trim() !== '') ?? null;
+  const missionWorkout = scheduledToday ?? adhoc?.name ?? startedToday ?? (hasEverTrained ? null : starterWorkout);
 
-  // The day's plan entries: the chosen source first (the resolveDayIn rule);
-  // an ad-hoc day's plan is the ad-hoc's own picks.
+  // The day's plan entries: a named plan day resolves from the plan (whether
+  // the schedule assigned it today or it is the starter being offered); an
+  // ad-hoc day's plan is the ad-hoc's own picks.
+  const fromPlan = missionWorkout !== null && planDays.includes(missionWorkout);
   const entries: [string, number][] =
     missionWorkout === null
       ? []
-      : scheduledToday !== null
+      : fromPlan
         ? resolveDay(missionWorkout, source).entries.map(([e, s]) => [e, s] as [string, number])
         : (adhoc?.exercises ?? []).map((e) => [e.exercise, e.sets] as [string, number]);
 
@@ -217,15 +301,14 @@ export function HomeBaseline() {
   const mission = deriveMission({
     hasSchedule,
     assignedWorkout: scheduledToday,
-    adhocWorkout: adhoc?.name ?? null,
+    adhocWorkout: adhoc?.name ?? startedToday,
     finished,
     doneSets,
     targetSets,
     loggedSets: dayRows.length,
-    // The lab photographs an established athlete: a rest day is real for them.
-    starterWorkout: null,
-    hasEverTrained: true,
-    firstWorkoutStarted: true,
+    starterWorkout,
+    hasEverTrained,
+    firstWorkoutStarted: profile.data?.first_workout_at != null,
   });
 
   // A6: ONE bodyweight chain app-wide (latest log → profile → caller's
@@ -259,15 +342,40 @@ export function HomeBaseline() {
     void sessions.refetch();
     void workouts.refetch();
   };
+  const openWorkout = (name: string) => {
+    router.push(
+      labWorkoutHref('baseline', { date: todayIso, workout: name, source }, labMode) as never
+    );
+  };
   const openMission = () => {
     if (!mission.workout) return;
-    router.push(
-      labWorkoutHref('baseline', { date: todayIso, workout: mission.workout, source }, labMode) as never
-    );
+    openWorkout(mission.workout);
+  };
+  /**
+   * TRAIN ANYWAY, from a genuine rest day. Resolves the same way every other
+   * entry point does (domain/today-session.ts) and always ends at a real
+   * session for TODAY — resume what is already started, else the scheduled
+   * day, else day one of their own plan. It never merely changes tabs, which
+   * is what it used to do.
+   */
+  const trainAnyway = () => {
+    const session = resolveTodaySession({
+      scheduledToday,
+      startedToday,
+      planDays,
+      hasEverTrained: false, // this button IS the athlete overriding the rest day
+    });
+    if (session.workout) openWorkout(session.workout);
   };
 
   // ---- This week (Monday-start, the contract's window). ----
-  const weekTotals = periodTotals(workouts.data ?? [], cardio.data ?? [], weekStart(todayIso), todayIso);
+  const weekTotals = periodTotals(
+    workouts.data ?? [],
+    cardio.data ?? [],
+    weekStart(todayIso),
+    todayIso,
+    sessions.data ?? []
+  );
 
   // ---- Character identity — the DISPLAY identity (CUSTOMISE, 2026-07-16):
   // the derived truth with the equipped loadout applied, re-validated
@@ -321,6 +429,41 @@ export function HomeBaseline() {
   const forge = useForgeProgression();
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
 
+  const missionCard = (
+    <>
+      {/* A BANKED REVEAL, SAID ONCE AND QUIETLY (v5 §3). Renders nothing when
+          there is nothing banked — no teaser, no "train to earn one", because
+          soliciting a chance feature is what the physiotherapist test refuses. */}
+      {/* Both render NOTHING when there is nothing waiting — no empty states,
+          no teasers. A reveal nobody earned and an invitation nobody sent are
+          not news, and manufacturing either would be soliciting (§3). */}
+      <PoolInviteChip />
+      <RevealChip />
+      {/* THE DAILY FORGE CACHE (§6). Directly under the mission, because it says what
+          today is worth and what today's plan is — and because until this shipped the
+          cache and the Recovery Run had never paid a single coin: 166 built both and
+          nothing ever called them. No countdown, no expiry, and opening the app pays
+          nothing (§6: "never app-opening"). */}
+      <ForgeCacheCard />
+    <MissionCard
+      mission={mission}
+      title={missionName.title}
+      sub={missionName.sub}
+      pills={pills}
+      minutes={estimateMinutes(targetSets)}
+      kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
+      next={nextSession}
+      loading={missionLoading}
+      error={missionError && !missionLoading}
+      onRetry={retryMission}
+      onOpen={openMission}
+      onTrainAnyway={trainAnyway}
+      features={homeFeatures}
+      evoPerSession={evoPerSession}
+    />
+    </>
+  );
+
   return (
     <ScreenShell backdrop={<HomeAmbience />}>
       {/* 1. Identity + the level module — FORGE LEVEL (Tyson, 2026-07-16:
@@ -333,7 +476,24 @@ export function HomeBaseline() {
         xpNeeded={forgeProgress.xpForNextLevel}
       />
 
-      {/* 2. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
+      {/* 1. TODAY'S MISSION — the visually dominant card, and the first thing
+          under the masthead FOR EVERYONE (Tyson, 2026-08-06: the Home
+          hierarchy is mission → last workout → next action → Evo Rating →
+          champion + Forge → optional baseline → projection).
+
+          It used to lead only for an athlete who had never trained; everyone
+          else met the identity block first and had to scroll past their own
+          rating to find out what to do today. "The user must always understand
+          what to do next" is the product's first principle, and the page's
+          first card is where that is answered. */}
+      {missionCard}
+
+      {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. When it
+          IS due it sits directly under the mission, because it is the only
+          other thing on the page with a deadline. */}
+      <ReforgeDayCard testID="home-reforge-day" />
+
+      {/* 2 + 3. THE IDENTITY BLOCK — the Evo Rating and the champion are ONE
           thing on the page, so they are one slot in the shell's gap stack and
           set their own tighter internal rhythm. Separate slots spent 24pt of
           the fold on air between parts of the same sentence.
@@ -357,7 +517,7 @@ export function HomeBaseline() {
         {/* 10pt, not 0: at HOME_ART_SCALE the champion's head reaches ABOVE
             the rig's own top edge (the sprite frame overflows into the sky it
             reclaimed), and without this it crowds the descriptor pill. */}
-        <View className="w-full" style={{ marginTop: 10 }}>
+        <View className="w-full" style={{ marginTop: 6 }}>
           <AvatarHero
             originUnset={originUnset}
             originChoiceReady={originChoiceReady}
@@ -375,35 +535,31 @@ export function HomeBaseline() {
         </View>
       </View>
 
-      {/* 3. TODAY'S MISSION — the one dominant CTA on the page, and the
-          reason the page exists.
-          NEXT RANK used to sit here as its own card. It is the bottom rail of
-          the Evo crest now (ui/home/next-rank-card.tsx): one purple identity
-          block instead of two competing ones, and ~58pt of fold back. */}
-      <MissionCard
-        mission={mission}
-        title={missionName.title}
-        sub={missionName.sub}
-        pills={pills}
-        minutes={estimateMinutes(targetSets)}
-        kcal={estimateNetKcal(kcalSets, kcalRepsPerSet, bodyweightKg)}
-        next={nextSession}
-        loading={missionLoading}
-        error={missionError && !missionLoading}
-        onRetry={retryMission}
-        onOpen={openMission}
-        onTrainAnyway={openMission}
-        features={homeFeatures}
-        evoPerSession={evoPerSession}
-      />
-
-      {/* 4. THIS WEEK — seven days and a streak, nothing else. */}
+      {/* 4. THIS WEEK — ONE card now. The seven days, the streak, the four
+          numbers and the last session used to be THREE full-width cards
+          describing the same week from three places on the page. */}
       <WeekStrip
         pips={contract.pips}
         todayIso={todayIso}
         streak={streak.current}
         streakLabel={hasSchedule ? 'FORGE STREAK' : 'DAY STREAK'}
+        totals={{
+          sessionsDone: contract.done,
+          sessionsTarget: contract.target,
+          hasSchedule,
+          sets: weekTotals.sets,
+          cardioMinutes: weekTotals.cardioMinutes,
+          xp: weekTotals.xp,
+        }}
+        lastSession={lastSessionLine}
       />
+
+      {/* 6. TERTIARY — the optional private baseline. Self-hides until a
+          workout has been COMPLETED, hides for good once the athlete says
+          don't ask again, and is deliberately styled as an offer rather than
+          an outstanding task (spec §6, §8). NEVER a gate: logging, the Evo
+          Rating, character progression and PR tracking all work without it. */}
+      <PhysiqueBaselineCard testID="home-physique-baseline" />
 
       {/* ---- THE FOLD. Everything below still exists, still reads live
           state, and still opens the same doors — it just no longer competes
@@ -412,10 +568,6 @@ export function HomeBaseline() {
         {/* THE EVOLUTION PATH (beta flag) — self-hides when the flag is off
             or no path exists. */}
         <PathSummary />
-
-        {/* The week's numbers moved INTO the week strip on 2026-08-07 (three
-            cards describing the same seven days became one), so the lab's
-            baseline no longer renders them separately either. */}
 
         {/* ONE PROGRESSION STORY (2026-08-07): the PR, the form it advanced
             and where the pillars head next were three unrelated cards in a

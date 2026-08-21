@@ -15,7 +15,6 @@ import { EvolutionTeaser } from '@/ui/character/evolution-teaser';
 import { BelowFold } from '@/ui/home/below-fold';
 import { PathSummary } from '@/ui/origin-path/path-summary';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { WeekStrip } from '@/ui/home/week-strip';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
@@ -76,12 +75,16 @@ export function HomeSaga() {
           xpNeeded={m.forgeProgress.xpForNextLevel}
         />
 
-        {/* 2. THE CARD DECK, scrolling under the monument. */}
+        {/* 2. THE CARD DECK, scrolling under the monument. The merged week
+            card (live 2026-08-07) carries the four numbers and the last
+            session, so no separate overview card follows below the fold. */}
         <WeekStrip
           pips={m.week.pips}
           todayIso={m.week.todayIso}
           streak={m.week.streak}
           streakLabel={m.week.streakLabel}
+          totals={m.week.weekCard}
+          lastSession={m.week.lastSessionLine}
         />
 
         {/* REFORGE DAY — self-hides unless a 28-day cycle has elapsed. */}
@@ -98,15 +101,6 @@ export function HomeSaga() {
           {/* THE EVOLUTION PATH (beta flag) — self-hides when the flag is off
               or no path exists. */}
           <PathSummary />
-
-          {/* This week, by the numbers (the pips live above now). */}
-          <TrainingOverview
-            contract={m.week.contract}
-            weekSets={m.week.totals.sets}
-            weekCardioMinutes={m.week.totals.cardioMinutes}
-            weekXp={m.week.totals.xp}
-            hasSchedule={m.week.hasSchedule}
-          />
 
           {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
               silhouette + readiness columns need the full width — at half

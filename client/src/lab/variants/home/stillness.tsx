@@ -21,7 +21,6 @@ import { homeFeatures } from '@/ui/home/home-features';
 import { HomeHeader } from '@/ui/home/home-header';
 import { MissionCard } from '@/ui/home/mission-card';
 import { RecentPrCard } from '@/ui/home/recent-pr-card';
-import { TrainingOverview } from '@/ui/home/training-overview';
 import { EdgeLabel } from '@/ui/core/hud';
 import { LeaderboardTeaser } from '@/ui/arena/leaderboard-teaser';
 import { ScreenShell } from '@/ui/core/shell';
@@ -75,6 +74,7 @@ export function HomeStillness() {
       error={mission.error}
       onRetry={mission.retry}
       onOpen={mission.open}
+      onTrainAnyway={mission.trainAnyway}
       features={homeFeatures}
       evoPerSession={mission.evoPerSession}
     />
@@ -155,12 +155,16 @@ export function HomeStillness() {
       <ReforgeDayCard testID="home-reforge-day" />
 
       {/* 4. THIS WEEK — seven days and a streak. LIVE WeekStrip on purpose:
-          the today-pip beat is the other ambient movement STILLNESS keeps. */}
+          the today-pip beat is the other ambient movement STILLNESS keeps.
+          The merged card (live 2026-08-07) carries the four numbers and the
+          last session, so the old TrainingOverview card below is retired. */}
       <WeekStrip
         pips={week.pips}
         todayIso={week.todayIso}
         streak={week.streak}
         streakLabel={week.streakLabel}
+        totals={week.weekCard}
+        lastSession={week.lastSessionLine}
       />
 
       {/* 5. TERTIARY — the optional private baseline. Self-hides until a
@@ -176,15 +180,6 @@ export function HomeStillness() {
         {/* THE EVOLUTION PATH (beta flag) — self-hides when the flag is off
             or no path exists. */}
         <PathSummary />
-
-        {/* This week, by the numbers (the pips live above now). */}
-        <TrainingOverview
-          contract={week.contract}
-          weekSets={week.totals.sets}
-          weekCardioMinutes={week.totals.cardioMinutes}
-          weekXp={week.totals.xp}
-          hasSchedule={week.hasSchedule}
-        />
 
         {/* Recent PR + next evolution. Always stacked: EvolutionTeaser's
             silhouette + readiness columns need the full width — at half width
