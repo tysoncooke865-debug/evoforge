@@ -35,13 +35,15 @@ export default function LabVariantHost() {
   const Variant = found.variant.component;
   return (
     <View style={{ flex: 1 }}>
+      {/* The tab strip renders FIRST, in flow — the design gets the rest of
+          the viewport and is never overlaid by lab chrome. OUTSIDE the
+          provider on purpose: the tabs must survive the mode-keyed remount
+          and must never read the mock QueryClient — they are lab chrome, not
+          part of the design under judgement. */}
+      <LabVariantSwitcher page={found.page} current={found.variant.id} mode={mode} />
       <LabDataProvider key={`${found.page.id}/${found.variant.id}/${mode}`} mode={mode}>
         <Variant />
       </LabDataProvider>
-      {/* OUTSIDE the provider on purpose: the switcher must survive the
-          mode-keyed remount and must never read the mock QueryClient — it is
-          lab chrome, not part of the design under judgement. */}
-      <LabVariantSwitcher page={found.page} current={found.variant.id} mode={mode} />
     </View>
   );
 }

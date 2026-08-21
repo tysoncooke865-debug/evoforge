@@ -754,6 +754,17 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **LAB SWITCHER v2: browser-style tabs on top (2026-08-21, no
+  migration)** — Tyson: expanding a pill hides the comparison; make the
+  variants one tap apart. The bottom-right collapsed pill is replaced by
+  a persistent tab strip across the top of every lab variant page
+  (`src/lab/variant-switcher.tsx`, still mounted by the host OUTSIDE
+  LabDataProvider, now IN FLOW above the design — never overlays it).
+  Same pure href model (switcher-model.ts, params forwarded,
+  router.replace). testID contract CHANGED for tours:
+  `lab-tab-<page>-<variant>` (the old `lab-switcher-toggle` /
+  `lab-switcher-option-*` ids are gone). Still zero motion, no Reanimated.
+
 - **HOME DESIGN LAB rebased onto the 2026-08-07+ Home (2026-08-21, no
   migration)** — the lab work (phases A–E below) was built against the
   pre-restructure Home and rebased across ~111 upstream commits. What the

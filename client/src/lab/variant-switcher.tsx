@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
@@ -10,22 +10,26 @@ import { switcherHref } from './switcher-model';
 import type { LabDataMode, LabPage } from './types';
 
 /**
- * The in-page variant switcher — a floating pill on every lab variant so
- * flipping between takes of the same page never detours through the gallery.
+ * The in-page variant TABS — a persistent strip across the top of every lab
+ * variant so flipping between takes of the same page is one tap, always
+ * visible, browser-tab style. (This replaced the collapsed bottom-right pill
+ * on Tyson's brief, 2026-08-21: a switcher you must expand hides the very
+ * comparison the lab exists for.)
  *
  * Design constraints, in order:
+ *  - it sits IN FLOW above the design (never overlays it): the strip costs
+ *    ~44pt of viewport, and in exchange no variant's own bottom-right corner
+ *    is ever occluded by lab chrome;
  *  - it is judged NEXT TO designs being compared, so it carries no motion of
- *    its own (plain useState, no Reanimated — it must also never be the file
- *    that trips verify-motion) and sits collapsed in the bottom-right corner;
- *  - pointerEvents="box-none" on every wrapper: only the pill itself eats
- *    taps, the design underneath keeps its whole surface;
+ *    its own (no Reanimated — it must also never be the file that trips
+ *    verify-motion) and stays visually quiet: dim tabs, one accent
+ *    underline for the current take;
  *  - router.replace, not push — flipping six variants must not grow a back
  *    stack the BACK gesture then replays six times;
  *  - page-contract params ride across the swap (switcher-model.ts).
  *
  * testID contract (the Playwright tour drives these):
- *   lab-switcher-toggle
- *   lab-switcher-option-<page>-<variant>
+ *   lab-tab-<page>-<variant>
  */
 export function LabVariantSwitcher({
   page,
@@ -38,88 +42,62 @@ export function LabVariantSwitcher({
 }) {
   const colors = useThemeColors();
   const params = useLocalSearchParams();
-  const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   if (page.variants.length < 2) return null;
 
   const swap = (variantId: string) => {
-    setOpen(false);
     if (variantId === current) return;
     router.replace(switcherHref(page.id, variantId, mode, params) as never);
   };
 
   return (
     <View
-      pointerEvents="box-none"
-      style={{ position: 'absolute', right: 12, bottom: 16, alignItems: 'flex-end' }}
+      style={{
+        paddingTop: insets.top,
+        backgroundColor: colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}
     >
-      {open
-        ? page.variants.map((v) => {
-            const active = v.id === current;
-            return (
-              <Pressable
-                key={v.id}
-                testID={`lab-switcher-option-${page.id}-${v.id}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`Switch to the ${v.title} variant`}
-                onPress={() => swap(v.id)}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 8 }}
+      >
+        {page.variants.map((v) => {
+          const active = v.id === current;
+          return (
+            <Pressable
+              key={v.id}
+              testID={`lab-tab-${page.id}-${v.id}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${v.title} variant`}
+              onPress={() => swap(v.id)}
+              style={{
+                minHeight: 44,
+                justifyContent: 'center',
+                paddingHorizontal: 12,
+                borderBottomWidth: 2,
+                borderBottomColor: active ? colors.accent : 'transparent',
+              }}
+            >
+              <Text
+                allowFontScaling={false}
                 style={{
-                  minHeight: 44,
-                  justifyContent: 'center',
-                  paddingHorizontal: 14,
-                  marginBottom: 6,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: active ? colors.accent : colors.border,
-                  backgroundColor: `${colors.surface}f2`,
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  color: active ? colors.accent : colors['text-dim'],
+                  ...pixelFont(false),
                 }}
               >
-                <Text
-                  allowFontScaling={false}
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: 1,
-                    color: active ? colors.accent : colors['text-dim'],
-                    ...pixelFont(false),
-                  }}
-                >
-                  {v.title}
-                </Text>
-              </Pressable>
-            );
-          })
-        : null}
-      <Pressable
-        testID="lab-switcher-toggle"
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={
-          open ? 'Close the variant switcher' : `Variant switcher — showing ${current}`
-        }
-        onPress={() => setOpen((o) => !o)}
-        style={{
-          minHeight: 44,
-          justifyContent: 'center',
-          paddingHorizontal: 14,
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: colors.accent,
-          backgroundColor: `${colors.surface}f2`,
-        }}
-      >
-        <Text
-          allowFontScaling={false}
-          style={{
-            fontSize: 10,
-            letterSpacing: 1,
-            color: colors.accent,
-            ...pixelFont(false),
-          }}
-        >
-          {open ? 'CLOSE' : `◈ ${current.toUpperCase()}`}
-        </Text>
-      </Pressable>
+                {v.title}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
