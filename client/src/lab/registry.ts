@@ -11,6 +11,8 @@ import { HomeCommand } from './variants/home/command';
 import { HomeSaga } from './variants/home/saga';
 import { HomeStillness } from './variants/home/stillness';
 import { TrainBaseline } from './variants/train/baseline';
+import { FuelBaseline } from './variants/fuel/baseline';
+import { FuelCalculator } from './variants/fuel/calculator';
 import { WorkoutBaseline } from './variants/workout/baseline';
 import { WorkoutCompact } from './variants/workout/compact';
 
@@ -36,6 +38,8 @@ const COMPONENTS: Record<string, ComponentType> = {
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
   'workout/compact': WorkoutCompact,
+  'fuel/baseline': FuelBaseline,
+  'fuel/calculator': FuelCalculator,
 };
 
 /** Query params the gallery appends per page — the workout page's ONE-door

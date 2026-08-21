@@ -754,6 +754,29 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **FUEL LAB: the recalculate fix + dual rates, prototyped (2026-08-21,
+  no migration)** — Tyson's three Fuel asks, lab-first: (1) RECALCULATE
+  "does nothing" — traced: it opens the AI intake, which short-circuits
+  (ai-nutrition returns instantly when no fields are missing) to a
+  READ-ONLY review of the numbers already in force; there was no editable
+  calculator anywhere. (2) BULK mirrors the cut rate (goalTargets spreads
+  ONE ratePerWeekKg). (3) The unit converter defaults closed. Lab pages
+  `fuel/baseline` (verbatim fork; AI intake gated real-mode-only — its
+  MOUNT fires a real edge call, the activation-step class) and
+  `fuel/calculator`: a LOCAL recalculate sheet (you/activity/two
+  independent rate rows/live asymmetric triple preview that doubles as
+  the goal selector/one APPLY), dual-rate model in
+  `variants/fuel/calculator/model.ts` (12 tests; gain defaults 0.25
+  kg/wk when a stored row predates it — owner-confirmed, never mirrors
+  the cut), converter open. `rateGainKgPerWeek` rides the inputs jsonb —
+  NO migration. New: fixtures/nutrition.ts (6 keys seeded, 3
+  date-parameterised in LAB_SEEDED_PARAM_KEYS), useLabSaveTarget/
+  LogCalories/DeleteEntry shims, LabPageId 'fuel'. Playwright: sheet
+  end-to-end (BULK preview jumps +275→+550 live, APPLY re-renders the
+  hero asymmetric, TARGET SET toast) and **zero ai-nutrition requests**
+  across the tour. Promotion checklist lives in the plan doc — domain
+  fold-in changes the pinned symmetric-triple test (3348→3073).
+
 - **HOME DESIGN LAB: all five variants rebuilt on the CURRENT Home
   (2026-08-21, no migration)** — Tyson caught that the variants still
   expressed the pre-2026-08-07 page. A fresh Impeccable critique of the

@@ -40,6 +40,14 @@ import {
   labSessionMarkers,
   labWorkoutLog,
 } from './training';
+import {
+  LAB_CARDIO_BURN,
+  LAB_MEAL_NAMES,
+  LAB_SAVED_MEALS,
+  labNutritionDates,
+  labNutritionLog,
+  labNutritionTargets,
+} from './nutrition';
 
 /**
  * Seed the mock QueryClient at every key the Home, Train and Workout screens
@@ -115,6 +123,16 @@ export function seedLabCache(queryClient: QueryClient): void {
     ['evo_rating_snapshots', LAB_USER_ID, LAB_EVO_SNAPSHOT_LIMIT],
     labEvoSnapshots(today)
   );
+
+  // FUEL (2026-08-21): the whole hero hinges on nutrition_targets; the
+  // meter, streak and burn line carry today's date INSIDE their keys, so
+  // they are planted in full like the leaderboard.
+  seed('nutrition_targets', labNutritionTargets(today));
+  seed('nutrition_prefs', LAB_MEAL_NAMES);
+  seed('saved_meals', LAB_SAVED_MEALS);
+  queryClient.setQueryData(['nutrition_log', LAB_USER_ID, today], labNutritionLog(today));
+  queryClient.setQueryData(['nutrition_dates', LAB_USER_ID, today], labNutritionDates(today));
+  queryClient.setQueryData(['cardio_calories', LAB_USER_ID, today], LAB_CARDIO_BURN);
 }
 
 /** The contract the registry test pins: every key here must be planted by
@@ -143,6 +161,9 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
   'user_skin_unlocks',
   'user_character_unlocks',
   'public_profile',
+  'nutrition_targets',
+  'nutrition_prefs',
+  'saved_meals',
 ];
 
 /** The other half of the contract: keys whose query params sit past the user
@@ -152,4 +173,10 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
 export const LAB_SEEDED_PARAM_KEYS: readonly (readonly unknown[])[] = [
   ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
   ['evo_rating_snapshots', LAB_USER_ID, LAB_EVO_SNAPSHOT_LIMIT],
+  // FUEL's day-scoped reads: todayIso() here and in seedLabCache evaluate in
+  // the same process, so the keys agree (the training-fixtures midnight
+  // caveat applies — a session straddling midnight reseeds on remount).
+  ['nutrition_log', LAB_USER_ID, todayIso()],
+  ['nutrition_dates', LAB_USER_ID, todayIso()],
+  ['cardio_calories', LAB_USER_ID, todayIso()],
 ];

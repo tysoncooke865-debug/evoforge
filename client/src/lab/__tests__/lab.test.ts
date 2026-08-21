@@ -19,6 +19,12 @@ import { LAB_LEADERBOARD } from '../fixtures/social';
 import { labSessionMarkers, labWorkoutLog } from '../fixtures/training';
 import { LAB_USER_ID } from '../lab-user';
 import { labWorkoutHref } from '../links';
+import {
+  labNutritionDates,
+  labNutritionLog,
+  labNutritionTargets,
+  labNutritionTriple,
+} from '../fixtures/nutrition';
 import { LAB_PAGE_META } from '../registry-meta';
 import { LAB_RESERVED_PARAMS, switcherExtras, switcherHref } from '../switcher-model';
 
@@ -116,6 +122,38 @@ describe('lab training fixtures', () => {
     );
     const markedDays = new Set(labSessionMarkers(today).map((m) => `${m.date}|${m.workout}`));
     expect(markedDays).toEqual(loggedDays);
+  });
+});
+
+describe('lab fuel fixtures', () => {
+  const today = todayIso();
+
+  it('the stored triple IS the dual-rate computation (fixture and math cannot disagree)', () => {
+    const [row] = labNutritionTargets(today);
+    const triple = labNutritionTriple();
+    expect(row.kcal_lose).toBe(triple.lose);
+    expect(row.kcal_maintain).toBe(triple.maintain);
+    expect(row.kcal_gain).toBe(triple.gain);
+    expect(row.daily_kcal).toBe(triple.lose);
+  });
+
+  it('the target row is effective strictly behind today (targetInForce must find it)', () => {
+    const [row] = labNutritionTargets(today);
+    expect(row.effective_from < today).toBe(true);
+  });
+
+  it('every log entry is dated today (the meter reads the day key)', () => {
+    for (const e of labNutritionLog(today)) expect(e.date).toBe(today);
+  });
+
+  it('the streak run is unbroken and ends at today', () => {
+    const dates = labNutritionDates(today);
+    expect(dates[dates.length - 1]).toBe(today);
+    for (let i = 1; i < dates.length; i += 1) {
+      const prev = Date.parse(`${dates[i - 1]}T00:00:00Z`);
+      const cur = Date.parse(`${dates[i]}T00:00:00Z`);
+      expect(cur - prev).toBe(86_400_000);
+    }
   });
 });
 

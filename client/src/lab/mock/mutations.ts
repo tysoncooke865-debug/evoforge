@@ -4,6 +4,13 @@ import * as Crypto from 'expo-crypto';
 import { useActivationStep } from '@/data/activation';
 import { useClaimCoin, type CoinKind } from '@/data/coins';
 import { useSaveSet } from '@/data/mutations';
+import {
+  useDeleteEntry,
+  useLogCalories,
+  useSaveTarget,
+  type NutritionEntry,
+  type NutritionTargetRow,
+} from '@/data/nutrition';
 import { useFinishWorkout, useReopenWorkout } from '@/data/sessions';
 import type { ClaimOutcome } from '@/domain/coin-claims';
 import { libraryMuscleFor } from '@/domain/exercise-library';
@@ -143,6 +150,95 @@ export function useLabFinishWorkout(): ReturnType<typeof useFinishWorkout> {
           if (prev.some((m) => m.date === input.date && m.workout === input.workout)) return prev;
           return [...prev, { id: `lab-finish-${input.date}-${input.workout}`, ...input }];
         }
+      );
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}
+
+/** The FUEL target upsert. Mock mirrors the server's (user, effective_from)
+ *  conflict rule against the seeded cache and keeps rows ascending (that is
+ *  targetInForce's walk order). NO invalidation on purpose: a refetch in
+ *  mock mode would replace the seed with an RLS-empty read and blank the
+ *  hero mid-comparison. The real hook's toast is replayed so APPLY feels
+ *  identical in both modes. */
+export function useLabSaveTarget(): ReturnType<typeof useSaveTarget> {
+  const real = useSaveTarget();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    mutationFn: async (input: Parameters<ReturnType<typeof useSaveTarget>['mutate']>[0]) => {
+      const key = ['nutrition_targets', LAB_USER_ID];
+      const rows = (queryClient.getQueryData(key) as NutritionTargetRow[] | undefined) ?? [];
+      const next = rows.filter((r) => r.effective_from !== input.effectiveFrom);
+      next.push({
+        id: `lab-target-${input.effectiveFrom}`,
+        effective_from: input.effectiveFrom,
+        daily_kcal: input.dailyKcal,
+        goal: input.goal,
+        inputs: input.inputs,
+        kcal_lose: input.triple?.lose ?? null,
+        kcal_maintain: input.triple?.maintain ?? null,
+        kcal_gain: input.triple?.gain ?? null,
+      });
+      next.sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+      queryClient.setQueryData(key, next);
+    },
+    onSuccess: () => {
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'TARGET SET',
+        subtitle: 'Effective today onward',
+      });
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}
+
+export function useLabLogCalories(): ReturnType<typeof useLogCalories> {
+  const real = useLogCalories();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    // The context type must match the real hook's (its onMutate returns the
+    // optimistic-rollback snapshot) or the mode-select below fails to
+    // typecheck — the finish-shim lesson.
+    onMutate: async (input): Promise<{ before: NutritionEntry[] | undefined; key: (string | null)[] }> => ({
+      before: queryClient.getQueryData<NutritionEntry[]>(['nutrition_log', LAB_USER_ID, input.date]),
+      key: ['nutrition_log', LAB_USER_ID, input.date],
+    }),
+    mutationFn: async (input: { date: string; kcal: number; label: string | null; mealNo?: number | null }) => {
+      const key = ['nutrition_log', LAB_USER_ID, input.date];
+      const entry: NutritionEntry = {
+        id: `lab-nl-${Crypto.randomUUID()}`,
+        date: input.date,
+        kcal: input.kcal,
+        label: input.label,
+        source: 'manual',
+        meal_no: input.mealNo ?? null,
+        timestamp: new Date().toISOString(),
+      };
+      queryClient.setQueryData(key, (old: NutritionEntry[] | undefined) => [...(old ?? []), entry]);
+    },
+  });
+
+  return mode === 'mock' ? mock : real;
+}
+
+export function useLabDeleteEntry(): ReturnType<typeof useDeleteEntry> {
+  const real = useDeleteEntry();
+  const mode = useLabDataMode();
+  const queryClient = useQueryClient();
+
+  const mock = useMutation({
+    mutationFn: async (entry: { id: string; date: string }) => {
+      const key = ['nutrition_log', LAB_USER_ID, entry.date];
+      queryClient.setQueryData(key, (old: NutritionEntry[] | undefined) =>
+        (old ?? []).filter((r) => r.id !== entry.id)
       );
     },
   });

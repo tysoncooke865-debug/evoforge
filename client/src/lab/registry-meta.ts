@@ -113,4 +113,26 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
       },
     ],
   },
+  {
+    id: 'fuel',
+    title: 'FUEL',
+    variants: [
+      {
+        id: 'baseline',
+        title: 'BASELINE',
+        description:
+          'Verbatim fork of the live Fuel page — target/log/delete writes shimmed; the AI intake stays real-mode only.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
+      {
+        id: 'calculator',
+        title: 'CALCULATOR',
+        description:
+          'Recalculate is a local editable calculator — dual cut/bulk rates, live triple preview, one APPLY; the unit converter opens ready.',
+        modes: ['real', 'mock'],
+        defaultMode: 'mock',
+      },
+    ],
+  },
 ];
