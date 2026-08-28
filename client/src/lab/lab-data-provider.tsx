@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import { AuthContext, useAuth } from '@/data/auth-context';
@@ -7,46 +7,35 @@ import { pixelFont } from '@/theme/fonts';
 
 import { seedLabCache } from './fixtures';
 import { LAB_SESSION } from './lab-user';
-import type { LabDataMode } from './types';
 
 /**
- * The lab's data seam — one provider, two modes:
+ * The lab's data seam — MOCK, and only mock.
  *
- * REAL: children render bare. Root QueryClient, real auth, real Zustand —
- * a real-mode lab workout IS a real workout (that is the point; use the
- * smoke accounts, HANDOVER §5). Signed out, hooks are disabled and screens
- * sit on their honest empty states.
+ * A fresh QueryClient pre-seeded at every key the screens read (staleTime
+ * Infinity — the queryFn never fires), under a fake session so hooks resolve
+ * userId = LAB_USER_ID. Fully interactive with zero network — PROVIDED the
+ * variant's writes go through lab/mock/mutations.ts.
  *
- * MOCK: a fresh QueryClient pre-seeded at every key the screens read
- * (staleTime Infinity — the queryFn never fires), under a fake session so
- * hooks resolve userId = LAB_USER_ID. Fully interactive with zero network —
- * PROVIDED the variant's writes go through lab/mock/mutations.ts. Writes
- * that don't are still real writes; the banner below says so whenever a
- * real signed-in session exists underneath.
+ * There used to be a REAL mode that rendered children bare on the app's own
+ * providers. It is gone: signed out it showed empty states nobody can judge a
+ * design by, and signed in a lab workout was a real workout on a real account.
  *
- * NOT isolated in either mode: the Zustand stores (session-store's
- * skips/ad-hoc, rest timer, toasts). Documented in src/lab/README.md.
+ * THE HARD TRUTH, unchanged by that removal: faking the auth CONTEXT does not
+ * make writes safe. The supabase client is a module singleton holding its own
+ * session — a write this file has not shimmed still goes out over the real
+ * client with the real JWT (or strands junk in the durable AsyncStorage
+ * set-queue when signed out). Only the eight paths in mock/mutations.ts are
+ * intercepted. The banner below says so whenever a real session exists
+ * underneath the fake one, which is exactly when it can bite.
+ *
+ * NOT isolated: the Zustand stores (session-store's skips/ad-hoc, rest timer,
+ * toasts). Documented in src/lab/README.md.
  */
-
-const LabDataContext = createContext<LabDataMode>('real');
-
-/** Which mode the enclosing lab host mounted — 'real' outside the lab. */
-export function useLabDataMode(): LabDataMode {
-  return useContext(LabDataContext);
-}
-
-export function LabDataProvider({ mode, children }: { mode: LabDataMode; children: ReactNode }) {
-  if (mode === 'real') {
-    return <LabDataContext.Provider value="real">{children}</LabDataContext.Provider>;
-  }
-  return <MockProviders>{children}</MockProviders>;
-}
-
-function MockProviders({ children }: { children: ReactNode }) {
+export function LabDataProvider({ children }: { children: ReactNode }) {
   const real = useAuth();
   // useState, not module scope — one seeded client per mount, same doctrine
-  // as RootLayout's. The host keys this provider by mode, so toggling
-  // REAL ⇄ MOCK remounts and reseeds from scratch.
+  // as RootLayout's. The host keys this provider by page/variant, so every
+  // variant swap remounts and reseeds from scratch.
   const [client] = useState(() => {
     const qc = new QueryClient({
       defaultOptions: {
@@ -57,18 +46,16 @@ function MockProviders({ children }: { children: ReactNode }) {
     return qc;
   });
   return (
-    <LabDataContext.Provider value="mock">
-      <QueryClientProvider client={client}>
-        <AuthContext.Provider
-          value={{ session: LAB_SESSION, loading: false, signOut: async () => {} }}
-        >
-          <View style={{ flex: 1 }}>
-            {real.session ? <MockWriteWarning /> : null}
-            <View style={{ flex: 1 }}>{children}</View>
-          </View>
-        </AuthContext.Provider>
-      </QueryClientProvider>
-    </LabDataContext.Provider>
+    <QueryClientProvider client={client}>
+      <AuthContext.Provider
+        value={{ session: LAB_SESSION, loading: false, signOut: async () => {} }}
+      >
+        <View style={{ flex: 1 }}>
+          {real.session ? <MockWriteWarning /> : null}
+          <View style={{ flex: 1 }}>{children}</View>
+        </View>
+      </AuthContext.Provider>
+    </QueryClientProvider>
   );
 }
 

@@ -18,7 +18,6 @@ import {
   useLabActivationStep as useActivationStep,
   useLabClaimCoin as useClaimCoin,
 } from '@/lab/mock/mutations';
-import { useLabDataMode } from '@/lab/lab-data-provider';
 import { labWorkoutHref } from '@/lab/links';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
@@ -163,7 +162,6 @@ function DriftWarning({ drift, source }: { drift: number; source: string }) {
 
 export function HomeBaseline() {
   const colors = useThemeColors();
-  const labMode = useLabDataMode();
   const { summary, stats, bfMid, ready } = useAvatarData();
   const workouts = useWorkoutLog();
   const cardio = useCardioLog();
@@ -344,7 +342,7 @@ export function HomeBaseline() {
   };
   const openWorkout = (name: string) => {
     router.push(
-      labWorkoutHref('baseline', { date: todayIso, workout: name, source }, labMode) as never
+      labWorkoutHref('baseline', { date: todayIso, workout: name, source }) as never
     );
   };
   const openMission = () => {

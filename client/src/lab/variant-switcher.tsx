@@ -7,7 +7,7 @@ import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
 import { switcherHref } from './switcher-model';
-import type { LabDataMode, LabPage } from './types';
+import type { LabPage } from './types';
 
 /**
  * The in-page variant TABS — a persistent strip across the top of every lab
@@ -31,15 +31,7 @@ import type { LabDataMode, LabPage } from './types';
  * testID contract (the Playwright tour drives these):
  *   lab-tab-<page>-<variant>
  */
-export function LabVariantSwitcher({
-  page,
-  current,
-  mode,
-}: {
-  page: LabPage;
-  current: string;
-  mode: LabDataMode;
-}) {
+export function LabVariantSwitcher({ page, current }: { page: LabPage; current: string }) {
   const colors = useThemeColors();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -48,7 +40,7 @@ export function LabVariantSwitcher({
 
   const swap = (variantId: string) => {
     if (variantId === current) return;
-    router.replace(switcherHref(page.id, variantId, mode, params) as never);
+    router.replace(switcherHref(page.id, variantId, params) as never);
   };
 
   return (

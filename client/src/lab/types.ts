@@ -7,26 +7,24 @@ import type { ComponentType } from 'react';
  * workflow) registered under /lab/<page>/<variant>. Variants are committed to
  * the normal working branch — CI typechecks and lints them like any screen —
  * but the (lab) route group renders nothing outside __DEV__ / the lab deploy.
+ *
+ * Every variant runs on MOCK data: a seeded QueryClient under a fake session,
+ * interactive with no network and no account. The old REAL mode (ride the
+ * app's own providers) is gone — signed out it rendered empty states nobody
+ * could judge a design by, and signed in a lab workout was a REAL workout.
  */
-
-/** REAL rides the app's own providers untouched (a lab workout IS a real
- *  workout); MOCK swaps in a seeded QueryClient + a fake session so the
- *  variant is interactive without a network or an account. */
-export type LabDataMode = 'real' | 'mock';
 
 export type LabPageId = 'home' | 'train' | 'workout' | 'fuel';
 
 export interface LabVariant {
-  /** URL slug, unique within its page: /lab/<page>/<id>. */
+  /** URL slug, unique within its page: /lab/<page>/<id>. Every page carries
+   *  a `baseline` (the diff-anchor fork of the live screen); every other
+   *  slug is a codename unique across the WHOLE lab, so a design is never
+   *  confused with a same-named take on another page. Pinned by lab.test.ts. */
   id: string;
   title: string;
   /** One line: what is different about this take. */
   description: string;
-  /** Which modes the variant supports. MOCK belongs here only when the
-   *  variant's write paths are shimmed (lab/mock/mutations.ts) — an
-   *  un-shimmed write in mock mode still talks to the real backend. */
-  modes: readonly LabDataMode[];
-  defaultMode: LabDataMode;
   component: ComponentType;
 }
 

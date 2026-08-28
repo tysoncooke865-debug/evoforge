@@ -21,23 +21,25 @@ import { inferMuscleGroup } from '@/domain/workouts';
 import { announceXp, useToastStore } from '@/state/toast-store';
 import { XP_PER_SET } from '@/domain/xp';
 
-import { useLabDataMode } from '../lab-data-provider';
 import { LAB_USER_ID } from '../lab-user';
 
 /**
- * The write shims — the reason mock mode is SAFE to interact with.
+ * The write shims — the reason the lab is SAFE to interact with.
  *
  * Faking the auth context does NOT make writes safe: the server stamps
  * user_id from auth.uid() (never the payload), and useSaveSet enqueues into
  * the DURABLE AsyncStorage set-queue before any network — so an un-shimmed
- * LOG SET in mock mode would insert a real row under the real account (or
- * strand junk in the queue signed out). These shims write the seeded cache
- * instead: same verdict logic (decideSetSave), same announcements, zero
- * durability, zero network.
+ * LOG SET would insert a real row under the real account (or strand junk in
+ * the queue signed out). These shims write the seeded cache instead: same
+ * verdict logic (decideSetSave), same announcements, zero durability, zero
+ * network.
  *
- * Each shim calls BOTH hooks unconditionally (rules of hooks) and returns
- * whichever the enclosing LabDataProvider's mode selects — so a fork that
- * swaps its import runs UNCHANGED in real mode.
+ * Each shim's return type is pinned to the REAL hook's
+ * (ReturnType<typeof useX>) — that is the fork call-site contract: a variant
+ * swaps only its import and the rest of the screen compiles untouched. Since
+ * the lab lost its REAL mode the shims no longer select between two live
+ * hooks; every mutation hook below is imported for its TYPE alone. (The one
+ * exception is useActivationStep, still mounted and explained at its shim.)
  *
  * Fork usage (see src/lab/README.md):
  *   import { useLabSaveSet as useSaveSet } from '@/lab/mock/mutations';
@@ -51,9 +53,8 @@ import { LAB_USER_ID } from '../lab-user';
 export function useLabActivationStep(
   ...args: Parameters<typeof useActivationStep>
 ): ReturnType<typeof useActivationStep> {
-  const mode = useLabDataMode();
   const [step, opts] = args;
-  useActivationStep(step, mode === 'mock' ? { ...(opts ?? {}), ready: false } : opts ?? {});
+  useActivationStep(step, { ...(opts ?? {}), ready: false });
 }
 
 /** The retroactive starting bonus fires from a MOUNT effect on Home, so it
@@ -69,21 +70,16 @@ export function useLabActivationStep(
  *  claim to LAND has to teach this shim what landing means; inventing an
  *  amount here would contradict the 013 guard, which recomputes it. */
 export function useLabClaimCoin(): ReturnType<typeof useClaimCoin> {
-  const real = useClaimCoin();
-  const mode = useLabDataMode();
-
   const mock = useMutation({
     mutationFn: async (_claim: { kind: CoinKind; sourceId: string }): Promise<ClaimOutcome> => ({
       outcome: 'duplicate',
     }),
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 export function useLabSaveSet(): ReturnType<typeof useSaveSet> {
-  const real = useSaveSet();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
@@ -125,17 +121,15 @@ export function useLabSaveSet(): ReturnType<typeof useSaveSet> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 export function useLabFinishWorkout(): ReturnType<typeof useFinishWorkout> {
-  const real = useFinishWorkout();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
     // The context type must match the real hook's (its onMutate returns the
-    // rollback snapshot) or the mode-select below fails to typecheck.
+    // rollback snapshot) or the declared ReturnType fails to typecheck.
     onMutate: async (): Promise<{ prev: SessionMarker[] }> => ({
       prev:
         (queryClient.getQueryData(['workout_sessions', LAB_USER_ID]) as
@@ -154,18 +148,16 @@ export function useLabFinishWorkout(): ReturnType<typeof useFinishWorkout> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 /** The FUEL target upsert. Mock mirrors the server's (user, effective_from)
  *  conflict rule against the seeded cache and keeps rows ascending (that is
- *  targetInForce's walk order). NO invalidation on purpose: a refetch in
- *  mock mode would replace the seed with an RLS-empty read and blank the
- *  hero mid-comparison. The real hook's toast is replayed so APPLY feels
- *  identical in both modes. */
+ *  targetInForce's walk order). NO invalidation on purpose: a refetch here
+ *  would replace the seed with an RLS-empty read and blank the hero
+ *  mid-comparison. The real hook's toast is replayed so APPLY feels the same
+ *  as it does on the live page. */
 export function useLabSaveTarget(): ReturnType<typeof useSaveTarget> {
-  const real = useSaveTarget();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
@@ -195,12 +187,10 @@ export function useLabSaveTarget(): ReturnType<typeof useSaveTarget> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 export function useLabLogCalories(): ReturnType<typeof useLogCalories> {
-  const real = useLogCalories();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
@@ -226,12 +216,10 @@ export function useLabLogCalories(): ReturnType<typeof useLogCalories> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 export function useLabDeleteEntry(): ReturnType<typeof useDeleteEntry> {
-  const real = useDeleteEntry();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
@@ -243,12 +231,10 @@ export function useLabDeleteEntry(): ReturnType<typeof useDeleteEntry> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }
 
 export function useLabReopenWorkout(): ReturnType<typeof useReopenWorkout> {
-  const real = useReopenWorkout();
-  const mode = useLabDataMode();
   const queryClient = useQueryClient();
 
   const mock = useMutation({
@@ -273,5 +259,5 @@ export function useLabReopenWorkout(): ReturnType<typeof useReopenWorkout> {
     },
   });
 
-  return mode === 'mock' ? mock : real;
+  return mock;
 }

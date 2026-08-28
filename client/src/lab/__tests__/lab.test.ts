@@ -1,7 +1,8 @@
 /**
  * PAGE LAB pins:
- *  - registry metadata is well-formed (unique slugs, defaultMode ∈ modes) —
- *    a duplicate slug would silently shadow a variant in the URL space;
+ *  - registry metadata is well-formed (every page keeps its baseline anchor,
+ *    codenames unique lab-wide, URL-safe slugs) — a duplicate slug would
+ *    silently shadow a variant in the URL space;
  *  - seedLabCache plants EVERY key in LAB_SEEDED_KEYS under [name, LAB_USER_ID]
  *    — an unseeded key silently degrades a mock variant to a network fetch,
  *    which is exactly the class of quiet rot this file exists to catch;
@@ -18,7 +19,7 @@ import { labEvoRating } from '../fixtures/athlete';
 import { LAB_LEADERBOARD } from '../fixtures/social';
 import { labSessionMarkers, labWorkoutLog } from '../fixtures/training';
 import { LAB_USER_ID } from '../lab-user';
-import { labWorkoutHref } from '../links';
+import { labVariantHref, labWorkoutHref } from '../links';
 import {
   labNutritionDates,
   labNutritionLog,
@@ -39,13 +40,23 @@ describe('lab registry metadata', () => {
     }
   });
 
-  it('every variant defaults to a mode it supports', () => {
+  it('every page keeps a baseline — the diff-anchor a round forks from', () => {
+    // A page whose baseline was culled has nothing to compare a new take
+    // AGAINST, and the next fork starts from whatever design won last time
+    // rather than from the live screen.
     for (const page of LAB_PAGE_META) {
-      for (const v of page.variants) {
-        expect(v.modes.length).toBeGreaterThan(0);
-        expect(v.modes).toContain(v.defaultMode);
-      }
+      expect(page.variants.map((v) => v.id), page.id).toContain('baseline');
     }
+  });
+
+  it('codenames are unique across the WHOLE lab, not just their page', () => {
+    // The naming doctrine: only `baseline` repeats (it is namespaced by page
+    // and means the same thing on each). Every other slug is a codename, so
+    // "the compact one" names exactly one design in a review.
+    const codenames = LAB_PAGE_META.flatMap((p) => p.variants.map((v) => v.id)).filter(
+      (id) => id !== 'baseline'
+    );
+    expect(new Set(codenames).size).toBe(codenames.length);
   });
 });
 
@@ -159,22 +170,30 @@ describe('lab fuel fixtures', () => {
 
 describe('labWorkoutHref', () => {
   it('keeps the ONE-door contract and encodes the workout name', () => {
-    const href = labWorkoutHref(
-      'baseline',
-      { date: '2026-07-20', workout: 'Push 1 - Strength', source: 2 },
-      'mock'
-    );
+    const href = labWorkoutHref('baseline', {
+      date: '2026-07-20',
+      workout: 'Push 1 - Strength',
+      source: 2,
+    });
     expect(href).toBe(
-      '/lab/workout/baseline?date=2026-07-20&workout=Push%201%20-%20Strength&source=2&data=mock'
+      '/lab/workout/baseline?date=2026-07-20&workout=Push%201%20-%20Strength&source=2'
     );
   });
 });
 
+describe('labVariantHref', () => {
+  it('carries no query string when the page has no contract params', () => {
+    // The retired data-mode flag used to hang a `?` on every lab URL.
+    expect(labVariantHref('home', 'baseline')).toBe('/lab/home/baseline');
+  });
+});
+
 describe('switcher model', () => {
-  it('forwards page-contract params, strips its own routing triple', () => {
+  it('forwards page-contract params, strips its own routing params', () => {
     // The workout page's ONE-door params must ride a variant swap unchanged —
-    // page/variant/data are the switcher's to rewrite, nothing else is.
-    const href = switcherHref('workout', 'compact', 'mock', {
+    // page/variant are the switcher's to rewrite, nothing else is. A stale
+    // ?data= from the two-mode era is dropped, never forwarded as an extra.
+    const href = switcherHref('workout', 'compact', {
       page: 'workout',
       variant: 'baseline',
       data: 'mock',
@@ -183,13 +202,7 @@ describe('switcher model', () => {
       source: '2',
     });
     expect(href).toBe(
-      '/lab/workout/compact?date=2026-07-20&workout=Push%201%20-%20Strength&source=2&data=mock'
-    );
-  });
-
-  it('keeps the CURRENT data mode on the swapped URL', () => {
-    expect(switcherHref('home', 'baseline', 'real', {})).toBe(
-      '/lab/home/baseline?data=real'
+      '/lab/workout/compact?date=2026-07-20&workout=Push%201%20-%20Strength&source=2'
     );
   });
 

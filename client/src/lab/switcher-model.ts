@@ -1,5 +1,4 @@
 import { labVariantHref } from './links';
-import type { LabDataMode } from './types';
 
 /**
  * The in-page variant switcher's PURE half (the registry-meta split, for the
@@ -7,10 +6,14 @@ import type { LabDataMode } from './types';
  *
  * The switcher lives on the variant host and replaces the route with a
  * sibling variant of the SAME page. The only params it may touch are its own
- * routing triple — everything else on the URL is a page contract (the
- * workout's date/workout/source ONE-door params) and must ride across the
- * swap unchanged, or flipping a workout variant would land on a workout page
- * with no idea which day it is briefing.
+ * routing pair — everything else on the URL is a page contract (the workout's
+ * date/workout/source ONE-door params) and must ride across the swap
+ * unchanged, or flipping a workout variant would land on a workout page with
+ * no idea which day it is briefing.
+ *
+ * `data` is RETIRED (the lab is mock-only) but stays reserved: a bookmark
+ * from the two-mode era carries ?data=mock, and an unreserved `data` would be
+ * forwarded as a page-contract extra onto every swap from then on.
  */
 export const LAB_RESERVED_PARAMS = ['page', 'variant', 'data'] as const;
 
@@ -30,14 +33,12 @@ export function switcherExtras(
   return extras;
 }
 
-/** replace-href to a sibling variant: same page, same data mode, page
- *  contract params forwarded. If the target does not support the mode, the
- *  host's own fallback (requested ∉ modes → defaultMode) absorbs it. */
+/** replace-href to a sibling variant: same page, page contract params
+ *  forwarded. */
 export function switcherHref(
   pageId: string,
   targetVariant: string,
-  mode: LabDataMode,
   params: Record<string, string | string[] | undefined>
 ): string {
-  return labVariantHref(pageId, targetVariant, mode, switcherExtras(params));
+  return labVariantHref(pageId, targetVariant, switcherExtras(params));
 }

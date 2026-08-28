@@ -10,12 +10,11 @@
  *      (useLogCalories lives inside QuickLogCard, not here, so there is
  *      nothing to swap for it in this file.)
  *   4. THE AI INTAKE GUARD: NutritionIntake fires a REAL `ai-nutrition`
- *      edge call on mount — under the lab's fake session in mock mode that
- *      burns the real AI budget (the activation-step class of un-shimmed
- *      side effect). Every setIntakeOpen(true) call site goes through
- *      openIntake(), which in mock mode shows an info toast instead of
- *      opening the sheet, and the modal itself only renders when
- *      useLabDataMode() === 'real'.
+ *      edge call on mount — under the lab's fake session that burns the real
+ *      AI budget (the activation-step class of un-shimmed side effect). The
+ *      lab is mock-only, so the sheet is not mounted here at ALL: every
+ *      setIntakeOpen(true) call site goes through openIntake(), which always
+ *      shows an info toast pointing at SET TARGET MANUALLY instead.
  * Everything else is verbatim; diff against fuel.tsx to review a variant.
  */
 import { useState } from 'react';
@@ -28,7 +27,6 @@ import {
   useNutritionLog,
   useNutritionTargets,
 } from '@/data/nutrition';
-import { useLabDataMode } from '@/lab/lab-data-provider';
 import {
   useLabDeleteEntry as useDeleteEntry,
   useLabSaveTarget as useSaveTarget,
@@ -52,7 +50,6 @@ import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { Chip, NeonButton } from '@/ui/core/neon-button';
-import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { AiNotice } from '@/ui/legal/ai-badge';
@@ -95,7 +92,6 @@ const METER_COLOUR = {
 
 export function FuelBaseline() {
   const colors = useThemeColors();
-  const labMode = useLabDataMode();
   const todayIso = calendarToday();
 
   const log = useNutritionLog(todayIso);
@@ -121,19 +117,15 @@ export function FuelBaseline() {
   // The target modals — the AI intake asks, the manual sheet is the escape
   // hatch; both save through the same mutation.
   const [targetOpen, setTargetOpen] = useState(false);
-  const [intakeOpen, setIntakeOpen] = useState(false);
-  /** THE AI INTAKE GUARD (fork divergence #4): the intake is real-mode only
-   *  in the lab — in mock mode a toast explains instead of opening it. */
+  /** THE AI INTAKE GUARD (fork divergence #4): the intake would fire a real
+   *  ai-nutrition edge call on mount, so the lab never opens it — a toast
+   *  points at the manual sheet, which saves through the same shim. */
   const openIntake = () => {
-    if (labMode !== 'real') {
-      useToastStore.getState().push({
-        kind: 'info',
-        title: 'AI INTAKE IS REAL-MODE ONLY',
-        subtitle: 'The baseline keeps the live flow; open the CALCULATOR tab for the local sheet.',
-      });
-      return;
-    }
-    setIntakeOpen(true);
+    useToastStore.getState().push({
+      kind: 'info',
+      title: 'AI INTAKE IS LIVE-APP ONLY',
+      subtitle: 'The lab is mock-only — use SET TARGET MANUALLY for a local target.',
+    });
   };
   /** The first-run explainer, collapsed by default (brief §9: "move longer
    *  explanations into Learn more"). */
@@ -386,14 +378,6 @@ export function FuelBaseline() {
           </View>
         ) : null}
       </GlowCard>
-
-      {intakeOpen && labMode === 'real' ? (
-        <NutritionIntake
-          onClose={() => setIntakeOpen(false)}
-          onManual={() => setTargetOpen(true)}
-          previous={target?.inputs ?? null}
-        />
-      ) : null}
 
       {targetOpen ? (
         <ManualTargetSheet

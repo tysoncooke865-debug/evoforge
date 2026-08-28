@@ -30,8 +30,7 @@ const COMPONENTS: Record<string, ComponentType> = {
 
 /** Query params the gallery appends per page — the workout page's ONE-door
  *  contract (/workout?date&workout&source) must ride the lab URL too.
- *  BUILT_IN_DAYS[0] matches the mock schedule's Monday and exists in every
- *  data mode. */
+ *  BUILT_IN_DAYS[0] matches the seeded schedule's Monday. */
 const EXAMPLE_PARAMS: Partial<Record<LabPageId, (todayIso: string) => Record<string, string>>> = {
   workout: (todayIso) => ({
     date: todayIso,

@@ -22,7 +22,6 @@ import { buildSections } from '@/domain/exercise-sections';
 import { useDeleteRoutine, useRoutines, type Routine } from '@/data/routines';
 import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useWorkoutSessions } from '@/data/sessions';
-import { useLabDataMode } from '@/lab/lab-data-provider';
 import { labWorkoutHref } from '@/lab/links';
 import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
 import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
@@ -119,7 +118,6 @@ const datesAround = (todayIso: string): string[] => {
 
 export function TrainBaseline() {
   const colors = useThemeColors();
-  const labMode = useLabDataMode();
   const todayIso = calendarToday();
 
   const workouts = useWorkoutLog();
@@ -371,11 +369,7 @@ export function TrainBaseline() {
    *  same way every time (whichever plan held the day name). */
   const open = (date: string, workout: string) =>
     router.push(
-      labWorkoutHref(
-        'baseline',
-        { date, workout, source: sourceForDate(date) },
-        labMode
-      ) as never
+      labWorkoutHref('baseline', { date, workout, source: sourceForDate(date) }) as never
     );
 
   /** ONE day of the carousel — always the same card shell, five states. */
