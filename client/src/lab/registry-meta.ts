@@ -35,46 +35,6 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
-      {
-        id: 'clarity',
-        title: 'CLARITY',
-        description:
-          'Legibility rebuilt, structure untouched — 10px type floor, AA contrast for every small label, a drawn pixel flame, honest drift copy, a visible crest affordance.',
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
-      {
-        id: 'stillness',
-        title: 'STILLNESS',
-        description:
-          'Motion halved to two living things — the champion breathes and today beats; every other idle loop is gone so the rating entrance is the only ceremony.',
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
-      {
-        id: 'command',
-        title: 'COMMAND',
-        description:
-          "The veteran's HUD — mission strip, week and stats first; identity compressed to a one-tap rail. Built for the 200th-session athlete, stationary by doctrine.",
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
-      {
-        id: 'saga',
-        title: 'SAGA',
-        description:
-          'Identity-maximal — champion, rating and forge level fused into one monumental tap zone; the mission docked at the thumb; one ambient breath in the whole page.',
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
-      {
-        id: 'arcade',
-        title: 'ARCADE',
-        description:
-          "The game start-screen — character-select stage with scanlines, TODAY'S QUEST banner, the week as a 7-segment power gauge. Max cabinet energy, two gated loops.",
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
     ],
   },
   {
@@ -103,14 +63,6 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },
-      {
-        id: 'compact',
-        title: 'COMPACT',
-        description:
-          'Density redesign — collapsible cards, three-state LOG, prominent inline labels, no rest timer.',
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
     ],
   },
   {
@@ -122,14 +74,6 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         title: 'BASELINE',
         description:
           'Verbatim fork of the live Fuel page — target/log/delete writes shimmed; the AI intake stays real-mode only.',
-        modes: ['real', 'mock'],
-        defaultMode: 'mock',
-      },
-      {
-        id: 'calculator',
-        title: 'CALCULATOR',
-        description:
-          'Recalculate is a local editable calculator — dual cut/bulk rates, live triple preview, one APPLY; the unit converter opens ready.',
         modes: ['real', 'mock'],
         defaultMode: 'mock',
       },

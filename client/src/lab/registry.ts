@@ -4,17 +4,10 @@ import { BUILT_IN_DAYS } from '@/data/use-day-plan';
 
 import { LAB_PAGE_META } from './registry-meta';
 import type { LabPage, LabPageId, LabVariant } from './types';
-import { HomeArcade } from './variants/home/arcade';
 import { HomeBaseline } from './variants/home/baseline';
-import { HomeClarity } from './variants/home/clarity';
-import { HomeCommand } from './variants/home/command';
-import { HomeSaga } from './variants/home/saga';
-import { HomeStillness } from './variants/home/stillness';
 import { TrainBaseline } from './variants/train/baseline';
 import { FuelBaseline } from './variants/fuel/baseline';
-import { FuelCalculator } from './variants/fuel/calculator';
 import { WorkoutBaseline } from './variants/workout/baseline';
-import { WorkoutCompact } from './variants/workout/compact';
 
 /**
  * THE REGISTRY — every page the lab can fork, every variant it holds.
@@ -30,16 +23,9 @@ import { WorkoutCompact } from './variants/workout/compact';
  */
 const COMPONENTS: Record<string, ComponentType> = {
   'home/baseline': HomeBaseline,
-  'home/clarity': HomeClarity,
-  'home/stillness': HomeStillness,
-  'home/command': HomeCommand,
-  'home/saga': HomeSaga,
-  'home/arcade': HomeArcade,
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
-  'workout/compact': WorkoutCompact,
   'fuel/baseline': FuelBaseline,
-  'fuel/calculator': FuelCalculator,
 };
 
 /** Query params the gallery appends per page — the workout page's ONE-door

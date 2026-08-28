@@ -4,10 +4,7 @@ import type { NutritionEntry, NutritionTargetRow, SavedMeal } from '@/data/nutri
 // and the test runner resolves no '@/' alias (the domain/ rule). Type-only
 // imports above are erased before it ever runs, so they can stay aliased.
 import { addDaysIso } from '../../domain/today';
-import {
-  DEFAULT_GAIN_RATE_KG_PER_WEEK,
-  dualRateTargets,
-} from '../variants/fuel/calculator/model';
+import { DEFAULT_GAIN_RATE_KG_PER_WEEK, dualRateTargets } from './nutrition-model';
 
 /**
  * The lab athlete's FUEL day: a believable mid-cut afternoon — target set
