@@ -6,15 +6,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 
+import { isCulled } from './cull-model';
+import { useCulled } from './cull-store';
 import { switcherHref } from './switcher-model';
 import type { LabPage } from './types';
 
 /**
- * The in-page variant TABS — a persistent strip across the top of every lab
- * variant so flipping between takes of the same page is one tap, always
- * visible, browser-tab style. (This replaced the collapsed bottom-right pill
- * on Tyson's brief, 2026-08-21: a switcher you must expand hides the very
- * comparison the lab exists for.)
+ * The lab's chrome bar — the way back to the gallery, and the variant TABS.
+ *
+ * A persistent strip across the top of every lab variant so flipping between
+ * takes of the same page is one tap, always visible, browser-tab style.
+ * (This replaced the collapsed bottom-right pill on Tyson's brief,
+ * 2026-08-21: a switcher you must expand hides the very comparison the lab
+ * exists for.)
+ *
+ * v2.1 (2026-08-28) renders the strip even for a page holding ONE variant.
+ * It used to return null there, which left a lab page with no route back to
+ * the gallery except the browser's own BACK — the lab stopped looking like a
+ * lab and started looking like the app with a strange URL.
  *
  * Design constraints, in order:
  *  - it sits IN FLOW above the design (never overlays it): the strip costs
@@ -29,14 +38,19 @@ import type { LabPage } from './types';
  *  - page-contract params ride across the swap (switcher-model.ts).
  *
  * testID contract (the Playwright tour drives these):
- *   lab-tab-<page>-<variant>
+ *   lab-gallery, lab-tab-<page>-<variant>
  */
 export function LabVariantSwitcher({ page, current }: { page: LabPage; current: string }) {
   const colors = useThemeColors();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const culled = useCulled();
 
-  if (page.variants.length < 2) return null;
+  // A culled variant leaves the strip — except the one being VIEWED, which
+  // must keep its tab or the bar would claim you are somewhere you are not.
+  const tabs = page.variants.filter(
+    (v) => v.id === current || !isCulled(culled, page.id, v.id)
+  );
 
   const swap = (variantId: string) => {
     if (variantId === current) return;
@@ -50,14 +64,47 @@ export function LabVariantSwitcher({ page, current }: { page: LabPage; current: 
         backgroundColor: colors.surface,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
+        flexDirection: 'row',
+        alignItems: 'stretch',
       }}
     >
+      {/* Outside the ScrollView so it never scrolls away: from any variant,
+          the gallery is always exactly one tap. replace, not back — the
+          history behind a variant is other variants (see swap above), so a
+          pop would land on whichever take was flipped through last. */}
+      <Pressable
+        testID="lab-gallery"
+        accessibilityRole="button"
+        accessibilityLabel="Back to the lab gallery"
+        onPress={() => router.replace('/lab' as never)}
+        style={{
+          minHeight: 44,
+          minWidth: 44,
+          justifyContent: 'center',
+          paddingHorizontal: 12,
+          borderRightWidth: 1,
+          borderRightColor: colors.border,
+        }}
+      >
+        <Text
+          allowFontScaling={false}
+          style={{
+            fontSize: 10,
+            letterSpacing: 1,
+            color: colors['text-dim'],
+            ...pixelFont(false),
+          }}
+        >
+          {'← LAB'}
+        </Text>
+      </Pressable>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 8 }}
       >
-        {page.variants.map((v) => {
+        {tabs.map((v) => {
           const active = v.id === current;
           return (
             <Pressable

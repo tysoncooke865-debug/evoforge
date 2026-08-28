@@ -8,11 +8,21 @@
  *    which is exactly the class of quiet rot this file exists to catch;
  *  - fixture history stays behind today, and every fully-logged day carries
  *    its finish marker (COMPLETED bars depend on it);
- *  - the lab workout href keeps the ONE-door param contract.
+ *  - the lab workout href keeps the ONE-door param contract;
+ *  - the cull model is total — it parses during the gallery's render, so a
+ *    corrupt localStorage entry must answer "nothing is culled", never throw.
  */
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
+import {
+  LAB_CULL_STORAGE_KEY,
+  isCulled,
+  parseCulled,
+  serializeCulled,
+  withCulled,
+  withoutCulled,
+} from '../cull-model';
 import { todayIso } from '../../domain/today';
 import { LAB_SEEDED_KEYS, LAB_SEEDED_PARAM_KEYS, seedLabCache } from '../fixtures';
 import { labEvoRating } from '../fixtures/athlete';
@@ -216,6 +226,55 @@ describe('switcher model', () => {
   it('reserves exactly the routing triple', () => {
     // Reserving MORE than the triple would silently eat a page-contract
     // param; reserving less would duplicate routing state onto the query.
+    // `data` is retired but still reserved — see switcher-model.ts.
     expect([...LAB_RESERVED_PARAMS].sort()).toEqual(['data', 'page', 'variant']);
+  });
+});
+
+describe('cull model', () => {
+  it('the storage key is the one the lab has always used', () => {
+    // A rename would silently un-cull every design on every device.
+    expect(LAB_CULL_STORAGE_KEY).toBe('evoforge-lab-culled');
+  });
+
+  it('reads back what it wrote', () => {
+    const keys = withCulled(withCulled([], 'home', 'clarity'), 'fuel', 'calculator');
+    expect(parseCulled(serializeCulled(keys))).toEqual(['home/clarity', 'fuel/calculator']);
+  });
+
+  it('culling twice is idempotent', () => {
+    const once = withCulled([], 'home', 'clarity');
+    expect(withCulled(once, 'home', 'clarity')).toEqual(['home/clarity']);
+  });
+
+  it('restoring removes only its own key', () => {
+    const keys = withCulled(withCulled([], 'home', 'clarity'), 'home', 'saga');
+    expect(withoutCulled(keys, 'home', 'clarity')).toEqual(['home/saga']);
+    expect(isCulled(withoutCulled(keys, 'home', 'clarity'), 'home', 'saga')).toBe(true);
+  });
+
+  it('a same-named variant on another page is a different design', () => {
+    // The keys are page-scoped: culling home/baseline must not hide the
+    // workout page's own baseline.
+    const keys = withCulled([], 'home', 'baseline');
+    expect(isCulled(keys, 'home', 'baseline')).toBe(true);
+    expect(isCulled(keys, 'workout', 'baseline')).toBe(false);
+  });
+
+  it('survives every shape of corrupt storage without throwing', () => {
+    // This parses during the gallery's render — anything that throws here
+    // blanks the lab, so every failure has to answer "nothing is culled".
+    expect(parseCulled(null)).toEqual([]);
+    expect(parseCulled('')).toEqual([]);
+    expect(parseCulled('not json')).toEqual([]);
+    expect(parseCulled('{"page":"home"}')).toEqual([]);
+    expect(parseCulled('"home/clarity"')).toEqual([]);
+  });
+
+  it('drops individual malformed entries, keeping the good ones', () => {
+    // One hand-edited key must not discard the rest of the list.
+    expect(parseCulled(JSON.stringify(['home/clarity', 42, 'nope', 'a/b/c', null, 'fuel/x']))).toEqual(
+      ['home/clarity', 'fuel/x']
+    );
   });
 });

@@ -29,7 +29,7 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
     variants: [
       {
         id: 'baseline',
-        title: 'BASELINE',
+        title: 'CURRENT',
         description:
           'Verbatim fork of the live character hub — the mission door opens the lab workout, and both mount-time writes are shimmed.',
       },
@@ -41,7 +41,7 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
     variants: [
       {
         id: 'baseline',
-        title: 'BASELINE',
+        title: 'CURRENT',
         description:
           'Verbatim fork of the live Train hub — the diff-zero starting point for new takes.',
       },
@@ -53,7 +53,7 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
     variants: [
       {
         id: 'baseline',
-        title: 'BASELINE',
+        title: 'CURRENT',
         description:
           'Verbatim fork of the live workout page — logging, finish and reopen are mock-safe.',
       },
@@ -65,7 +65,7 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
     variants: [
       {
         id: 'baseline',
-        title: 'BASELINE',
+        title: 'CURRENT',
         description:
           'Verbatim fork of the live Fuel page — target/log/delete writes shimmed; the AI intake is disabled in the lab.',
       },
