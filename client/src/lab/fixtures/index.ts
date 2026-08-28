@@ -22,7 +22,7 @@ import {
 } from './athlete';
 import {
   LAB_BOARD_METRIC,
-  LAB_BOARD_ROWS,
+  LAB_BOARD_ROW_COUNTS,
   LAB_LEADERBOARD,
   LAB_PUBLIC_IDENTITY,
 } from './social';
@@ -48,6 +48,14 @@ import {
   labNutritionLog,
   labNutritionTargets,
 } from './nutrition';
+import {
+  LAB_EVOLUTION_PATH_BETA,
+  LAB_POOL_INVITATIONS,
+  LAB_RECOVERY_RUN,
+  LAB_REVEAL_STATE,
+  labForgeCacheState,
+  labOriginPathState,
+} from './economy';
 
 /**
  * Seed the mock QueryClient at every key the Home, Train and Workout screens
@@ -111,12 +119,38 @@ export function seedLabCache(queryClient: QueryClient): void {
   seed('user_character_unlocks', LAB_CHARACTER_UNLOCKS);
   seed('public_profile', LAB_PUBLIC_IDENTITY);
 
+  // HOME's coin-economy surfaces (2026-08-28). Unseeded, all four escaped to
+  // the real network and came back RLS-empty, which hid the DAILY FORGE CACHE
+  // card outright — the lab was comparing a Home missing a whole card. The
+  // cache state is DERIVED from the same schedule as the week bars, so the two
+  // cannot disagree on whether today is a rest day.
+  seed('forge_cache_state', labForgeCacheState(today));
+  seed('recovery_run_state', LAB_RECOVERY_RUN);
+  seed('forge_reveals', LAB_REVEAL_STATE);
+  seed('pool_invitations', LAB_POOL_INVITATIONS);
+  // Armed BY the flag below: enabling evolution_path_beta switches on
+  // useOriginPathState, and Home's PathSummary reads it.
+  seed('origin_path_state', labOriginPathState(today));
+
   // Keys carrying params BEYOND the user id cannot use `seed` — plant them
   // in full, and keep LAB_SEEDED_PARAM_KEYS below in step.
+  // The feature flag's key puts the FLAG NAME between the name and the user id
+  // (['app_flag', <key>, userId]), so it cannot use `seed` either.
   queryClient.setQueryData(
-    ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
-    LAB_LEADERBOARD
+    ['app_flag', 'evolution_path_beta', LAB_USER_ID],
+    LAB_EVOLUTION_PATH_BETA
   );
+  // The ROW COUNT is inside the key, and Home reads the board at TWO sizes:
+  // the teaser asks for 10, the standing rail and the expanded board ask for
+  // 100. Seeding only 10 left the rail fetching for real on every Home mount
+  // — the exact "planted an entry nothing reads" trap this comment warns
+  // about, from the other direction.
+  for (const rows of LAB_BOARD_ROW_COUNTS) {
+    queryClient.setQueryData(
+      ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, rows],
+      LAB_LEADERBOARD
+    );
+  }
   // The mission card's "+N.N EVO" rate reads the review history with its
   // limit inside the key (useEvoSnapshots(26)).
   queryClient.setQueryData(
@@ -164,6 +198,11 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
   'nutrition_targets',
   'nutrition_prefs',
   'saved_meals',
+  'forge_cache_state',
+  'recovery_run_state',
+  'forge_reveals',
+  'pool_invitations',
+  'origin_path_state',
 ];
 
 /** The other half of the contract: keys whose query params sit past the user
@@ -171,7 +210,7 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
  *  leaderboard's metric and row count are part of its key — seeding
  *  ['leaderboard_metric', user] would plant an entry nothing ever reads. */
 export const LAB_SEEDED_PARAM_KEYS: readonly (readonly unknown[])[] = [
-  ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, LAB_BOARD_ROWS],
+  ...LAB_BOARD_ROW_COUNTS.map((n) => ['leaderboard_metric', LAB_USER_ID, LAB_BOARD_METRIC, n]),
   ['evo_rating_snapshots', LAB_USER_ID, LAB_EVO_SNAPSHOT_LIMIT],
   // FUEL's day-scoped reads: todayIso() here and in seedLabCache evaluate in
   // the same process, so the keys agree (the training-fixtures midnight
@@ -179,4 +218,6 @@ export const LAB_SEEDED_PARAM_KEYS: readonly (readonly unknown[])[] = [
   ['nutrition_log', LAB_USER_ID, todayIso()],
   ['nutrition_dates', LAB_USER_ID, todayIso()],
   ['cardio_calories', LAB_USER_ID, todayIso()],
+  // The flag name sits BETWEEN the key name and the user id.
+  ['app_flag', 'evolution_path_beta', LAB_USER_ID],
 ];

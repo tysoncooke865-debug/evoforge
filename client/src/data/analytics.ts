@@ -17,6 +17,36 @@
 
 import { supabase } from './supabase';
 
+/**
+ * THE PAGE LAB EMITS NOTHING (2026-08-28).
+ *
+ * Every lab variant renders REAL shared components, and a shared component is
+ * not allowed to be forked just to silence it (src/lab/README.md). So the one
+ * honest place to stop lab telemetry is the emitter itself.
+ *
+ * Without this, opening a Home variant inserts analytics_events rows under
+ * whatever session sits beneath the lab's fake one — polluting the very funnel
+ * the events exist to measure with the activity of a developer comparing
+ * designs. `useLabActivationStep` already made this argument for the
+ * activation rail; this closes the rest of it, including ForgeCacheCard's
+ * mount-time `daily_checkin_viewed`.
+ *
+ * Both tests, because both are needed: the FLAG covers the whole lab deploy
+ * (whose root redirects to /lab, so a pathname test alone is false at mount —
+ * the boot-gate lesson), and the PATH covers /lab in a dev build, which
+ * carries no flag. Metro inlines the flag, so on a production build this
+ * collapses to the path test.
+ */
+function inPageLab(): boolean {
+  if (process.env.EXPO_PUBLIC_PAGE_LAB === '1') return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.location.pathname.startsWith('/lab');
+  } catch {
+    return false;
+  }
+}
+
 /** A rating value into a decade bucket ("40s") — never the exact value. */
 export function ratingBand(rating: number | null | undefined): string | null {
   if (rating == null || !Number.isFinite(rating)) return null;
@@ -25,6 +55,7 @@ export function ratingBand(rating: number | null | undefined): string | null {
 }
 
 export function track(eventName: string, props: Record<string, unknown> = {}): void {
+  if (inPageLab()) return;
   void (async () => {
     try {
       await supabase.from('analytics_events').insert({ event_name: eventName, props });
@@ -75,6 +106,7 @@ export function trackError(area: string, e: unknown, extra: Record<string, unkno
  * refreshes last_seen. Fire-and-forget, same contract as track().
  */
 export function touchActivity(login: boolean, ms = 0): void {
+  if (inPageLab()) return; // same rule as track(): the lab is not a session
   void (async () => {
     try {
       await supabase.rpc('touch_activity', { p_login: login, p_ms: Math.max(0, Math.round(ms)) });

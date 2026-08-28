@@ -27,7 +27,9 @@ import { todayIso } from '../../domain/today';
 import { LAB_SEEDED_KEYS, LAB_SEEDED_PARAM_KEYS, seedLabCache } from '../fixtures';
 import { labEvoRating } from '../fixtures/athlete';
 import { LAB_LEADERBOARD } from '../fixtures/social';
-import { labSessionMarkers, labWorkoutLog } from '../fixtures/training';
+import { labScheduledWorkoutFor, labSessionMarkers, labWorkoutLog } from '../fixtures/training';
+import { LAB_RECOVERY_RUN, LAB_REVEAL_STATE, labForgeCacheState } from '../fixtures/economy';
+import { DEFAULT_REVEAL_TABLE, REVEAL_WEIGHT_TOTAL } from '../../domain/forge-reveal';
 import { LAB_USER_ID } from '../lab-user';
 import { labVariantHref, labWorkoutHref } from '../links';
 import {
@@ -175,6 +177,44 @@ describe('lab fuel fixtures', () => {
       const cur = Date.parse(`${dates[i]}T00:00:00Z`);
       expect(cur - prev).toBe(86_400_000);
     }
+  });
+});
+
+describe('lab economy fixtures', () => {
+  const today = todayIso();
+
+  it('the cache state agrees with the schedule the week bars are drawn from', () => {
+    // Both must answer "is today a rest day" the same way, or the card says
+    // REST while the bars show a planned session. Derived, so it cannot drift.
+    const s = labForgeCacheState(today);
+    expect(s.today_is_rest).toBe(labScheduledWorkoutFor(today) === null);
+    expect(s.today_plan).toBe(labScheduledWorkoutFor(today));
+  });
+
+  it('offers no action the lab would send to the real backend', () => {
+    // CLAIM, CONFIRM REST DAY and the recovery claim are all un-shimmed real
+    // mutations. The card's affordances are driven by exactly these fields,
+    // so a fixture that flipped one would put a live write on screen.
+    const s = labForgeCacheState(today);
+    expect(s.claimable).toBe(false);
+    expect(s.today_is_rest && !s.today_rest_confirmed).toBe(false);
+    expect(LAB_RECOVERY_RUN.armed).toBe(false);
+    expect(LAB_REVEAL_STATE.banked).toEqual([]);
+  });
+
+  it('the rung is a real count of the cycle, and never past the ladder', () => {
+    const s = labForgeCacheState(today);
+    expect(s.rung).toBe(s.adherent_this_cycle);
+    expect(s.rung).toBeGreaterThan(0);
+    expect(s.rung).toBeLessThanOrEqual(7);
+    expect(s.trained_this_cycle).toBeLessThanOrEqual(s.adherent_this_cycle);
+    expect(s.floor_met).toBe(s.trained_this_cycle >= s.training_floor);
+  });
+
+  it('the reveal odds ARE the shipped table, never a copy of it', () => {
+    // Spec v5 §3: the odds on screen must be the odds the server offers.
+    expect(LAB_REVEAL_STATE.table).toBe(DEFAULT_REVEAL_TABLE);
+    expect(LAB_REVEAL_STATE.tableTotal).toBe(REVEAL_WEIGHT_TOTAL);
   });
 });
 

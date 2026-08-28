@@ -139,15 +139,20 @@ Promoting a variant = replacing the live screen's content with the fork's
 
 - Un-shimmed mutations reach the real backend (banner + list above). Shim more
   of `data/` as variants need them.
-- **"MOCK DATA ONLY" is true of the seeded keys, not of every read.** A hook
-  whose key is absent from `LAB_SEEDED_KEYS` / `LAB_SEEDED_PARAM_KEYS` has no
-  cache entry, so its `queryFn` runs and hits the network. Measured on the
-  2026-08-28 tour of `home/baseline`, signed out: `my_pool_invitations`,
-  `my_forge_reveals`, `forge_cache_state`, `recovery_run_state`,
-  `app_flag_enabled`. They are READS, and RLS answers them empty, so the
-  surfaces they feed render as if the athlete has nothing there. Seed a key to
-  fix its surface — and add it to `LAB_SEEDED_KEYS`, which is what makes the
-  vitest pin catch the next one.
+- **An UNSEEDED key still reaches the network.** A hook whose key is absent
+  from `LAB_SEEDED_KEYS` / `LAB_SEEDED_PARAM_KEYS` has no cache entry, so its
+  `queryFn` runs for real; RLS answers it empty and the surface renders as if
+  the athlete has nothing there. That is how Home lost its whole DAILY FORGE
+  CACHE card until the economy keys were seeded (2026-08-28). When you find
+  one: add the fixture, seed it, and add the name to `LAB_SEEDED_KEYS` — the
+  list is what makes the vitest pin catch the next one.
+  Two rules the economy fixtures set, worth keeping:
+  **derive, never hardcode** (`labForgeCacheState` reads the same schedule the
+  week bars do, so they cannot disagree about whether today is a rest day),
+  and **never seed a state whose only affordance is an un-shimmed write** —
+  CLAIM, CONFIRM REST DAY and both claim buttons are real mutations, so the
+  seeded athlete's day is honestly settled and offers none of them. Design one
+  of those states and you shim the mutation first.
 - A mutation's cache invalidation can refetch a seeded key and replace it with
   an RLS-empty read — cosmetic, fixed by remounting (reopen the variant).
 - The leaderboard teaser's board polls every 60s while focused

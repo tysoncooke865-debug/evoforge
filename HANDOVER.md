@@ -811,7 +811,12 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
     The old `lab-mode-*` ids are gone with the modes.
   - Also: `.gitattributes` pins `client/scripts/gen-exercise-ids.mjs` to LF.
     It is regexed byte-for-byte by `exercise-identity.test.ts`, so a CRLF
-    checkout failed that test while git reported the file clean.
+    checkout fails that test while git reports the file clean. **With the pin
+    in place, `git checkout -- ` that file is now the FIX, not the hazard** —
+    the old "never restore it" advice predates the pin. It bit once more this
+    round: checking out `lab` at a commit BEFORE the pin rewrote the file
+    CRLF, and git does not re-normalise an existing working file when the
+    attribute arrives. `rm` it and check it out again.
   - **Refreshing the `lab` branch: reset to the REMOTE first.** The local
     `lab` ref still held the PRE-REBASE originals of the 2026-08-21 lab work
     (`a37e212`…), so `merge --ff-only expo-rewrite` aborts with "not possible

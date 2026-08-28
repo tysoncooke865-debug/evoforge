@@ -29,6 +29,12 @@ export const LAB_PUBLIC_IDENTITY: { displayName: string | null; isPublic: boolea
 export const LAB_BOARD_METRIC = 'evo';
 export const LAB_BOARD_ROWS = 10;
 
+/** EVERY row count Home asks the board for. `useLeaderboardByMetric(metric, n)`
+ *  puts n in the key, and Home reads it at two sizes: the teaser's 10 and the
+ *  standing rail / expanded board's 100. Seeding one size leaves the other
+ *  fetching for real, silently, on every mount. */
+export const LAB_BOARD_ROW_COUNTS: readonly number[] = [LAB_BOARD_ROWS, 100];
+
 export const LAB_LEADERBOARD: MetricRow[] = [
   { display_name: 'IRONCLAD', xp: 41_200, base_level: 4, forge_level: 22, evo_rating: 71, momentum_weeks: 9, rank_position: 1 },
   { display_name: 'NOVA', xp: 38_450, base_level: 3, forge_level: 20, evo_rating: 66, momentum_weeks: 7, rank_position: 2 },
