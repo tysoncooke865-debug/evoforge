@@ -139,6 +139,15 @@ Promoting a variant = replacing the live screen's content with the fork's
 
 - Un-shimmed mutations reach the real backend (banner + list above). Shim more
   of `data/` as variants need them.
+- **"MOCK DATA ONLY" is true of the seeded keys, not of every read.** A hook
+  whose key is absent from `LAB_SEEDED_KEYS` / `LAB_SEEDED_PARAM_KEYS` has no
+  cache entry, so its `queryFn` runs and hits the network. Measured on the
+  2026-08-28 tour of `home/baseline`, signed out: `my_pool_invitations`,
+  `my_forge_reveals`, `forge_cache_state`, `recovery_run_state`,
+  `app_flag_enabled`. They are READS, and RLS answers them empty, so the
+  surfaces they feed render as if the athlete has nothing there. Seed a key to
+  fix its surface — and add it to `LAB_SEEDED_KEYS`, which is what makes the
+  vitest pin catch the next one.
 - A mutation's cache invalidation can refetch a seeded key and replace it with
   an RLS-empty read — cosmetic, fixed by remounting (reopen the variant).
 - The leaderboard teaser's board polls every 60s while focused

@@ -82,8 +82,15 @@ let launched = false;
  * PHOTOGRAPHS the real app in a sandbox, and a 2.7-second curtain in front of
  * every shot would appear in every photograph it takes. A launch animation is
  * for a launch; the lab is not launching anything.
+ *
+ * The FLAG, not just the path (2026-08-28): a build compiled with
+ * EXPO_PUBLIC_PAGE_LAB is a lab deploy end to end, and its root redirects to
+ * /lab — but this runs at MOUNT, when the pathname is still '/', so the path
+ * test alone let the curtain play over the gallery it was meant to spare.
+ * Metro inlines the value, so on every other build this is dead code.
  */
 function suppressed(): boolean {
+  if (process.env.EXPO_PUBLIC_PAGE_LAB === '1') return true;
   if (typeof window === 'undefined') return false;
   try {
     if (window.location.pathname.startsWith('/lab')) return true;
