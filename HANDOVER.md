@@ -812,6 +812,21 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
   - Also: `.gitattributes` pins `client/scripts/gen-exercise-ids.mjs` to LF.
     It is regexed byte-for-byte by `exercise-identity.test.ts`, so a CRLF
     checkout failed that test while git reported the file clean.
+  - **Refreshing the `lab` branch: reset to the REMOTE first.** The local
+    `lab` ref still held the PRE-REBASE originals of the 2026-08-21 lab work
+    (`a37e212`…), so `merge --ff-only expo-rewrite` aborts with "not possible
+    to fast-forward" and reads like a real conflict. `origin/lab` was fine
+    and IS an ancestor of `expo-rewrite`; nothing is lost. Full recipe:
+    ```bash
+    git checkout lab && git reset --hard origin/lab
+    git merge --ff-only expo-rewrite && git push && git checkout expo-rewrite
+    ```
+  - **Touring the lab locally needs an SPA fallback.** `expo export` writes a
+    LITERAL `dist/lab/[page]/[variant].html`, so a plain `npx serve` 404s
+    every deep link and the tour reads as a broken lab. `npx serve dist -l
+    4173 --single` reproduces how Cloudflare answers unknown paths. Expect
+    two DOM copies of a screen after a route change (expo-router leaves the
+    previous one mounted at 0×0) — drive `visible=true` nodes, §5's gotcha.
   - Loop green at each commit; **2,520 tests** (lint's 14 warnings are ALL
     pre-existing upstream files).
 
