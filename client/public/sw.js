@@ -15,11 +15,10 @@
  * handler — an /_expo/static/* response that arrives as text/html is always
  * wrong, and a reload cannot fix it because the URL is unchanged.
  */
-// v3: bumped with the rest alarm (2026-08-10) so the new worker takes over —
-// a rest timer handed to the OLD worker would be dropped on the floor, and
-// the athlete would stand there waiting for a buzz that no code was going to
-// send. (v2 was the poisoned-asset healing.)
-const SHELL_CACHE = 'evoforge-shell-v3';
+// v4: bumped with the /lab navigation bypass (2026-08-28) to evict every v3
+// cache still holding the shell those deep links were being answered from.
+// (v3 was the rest alarm; v2 was the poisoned-asset healing.)
+const SHELL_CACHE = 'evoforge-shell-v4';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -199,6 +198,17 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.method !== 'GET' || req.mode !== 'navigate') return; // shell only
+
+  // THE PAGE LAB IS NOT THE APP (2026-08-28). Cache-first-from-'/' answers
+  // every navigation with the HOME shell, so a deep link to /lab painted the
+  // real Home page before the router had any say — the dev lab looked like an
+  // exact copy of the live site, which is precisely what a design lab must
+  // never look like. Straight to the network here: Cloudflare answers any
+  // path with the current build's HTML, and the lab is a dev tool that owes
+  // nobody an offline launch.
+  var labPath = new URL(req.url).pathname;
+  if (labPath === '/lab' || labPath.indexOf('/lab/') === 0) return;
+
   event.respondWith(
     caches.open(SHELL_CACHE).then(async (cache) => {
       const cached = await cache.match('/');

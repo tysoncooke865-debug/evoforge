@@ -754,6 +754,67 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB v2: mock-only, culled to baselines, links that work
+  (2026-08-28, no migration)** — the lab had stopped working as a lab. Its
+  link painted the live Home page, the comparison machinery was invisible
+  from the URL you actually opened, and seven finished designs were still
+  competing for attention. Rebuilt in four commits:
+  - **The seven alternatives are gone** (home clarity/stillness/command/
+    saga/arcade, workout compact, fuel calculator — 10,948 lines). Each
+    page keeps its `baseline`, titled **CURRENT** on screen: the diff-zero
+    fork a new round forks FROM and gets compared AGAINST. Slug stays
+    `baseline`, so URLs, testIDs and the diff-anchor commands are unchanged.
+    **Trap for the next cull:** `fixtures/nutrition.ts` imported the
+    dual-rate model out of `variants/fuel/calculator/`, so the model moved
+    to `fixtures/nutrition-model.ts` in the same commit. Fixtures may not
+    depend on a variant that can be culled — check imports before deleting.
+  - **REAL mode deleted.** Signed out it rendered the honest empty states
+    of a page with no data (nothing to judge); signed in a lab workout WAS
+    a real workout. Every variant already defaulted to mock. Gone with it:
+    `data=` on the URL, `modes`/`defaultMode` in the registry, the gallery's
+    two duplicate toggles, the mode-select in all eight write shims.
+    `LAB_RESERVED_PARAMS` still reserves `data` — a two-mode-era bookmark
+    carries it, and unreserved it would ride every later swap as a
+    page-contract extra. **MockWriteWarning STAYS**: faking the auth
+    CONTEXT never made writes safe, because the supabase client is a module
+    singleton holding its own session — only the eight shimmed paths are
+    intercepted. Fuel's AI intake is no longer real-gated but unmounted
+    outright (it fires `ai-nutrition` on mount).
+  - **CULL.** A losing design hides instantly and per-device
+    (`localStorage`, `evoforge-lab-culled`) and lands in the gallery's
+    CULLED · PENDING REMOVAL list, which is the work list for the deletion
+    commit (variant files + meta entry + COMPONENTS line). RESTORE undoes
+    it. The registry stays the only truth about what exists, so a key whose
+    variant is already deleted is ignored. Pure/impure split as usual:
+    `cull-model.ts` is total and vitest-pinned (it parses during render, so
+    corrupt storage answers "nothing is culled", never throws);
+    `cull-store.ts` guards localStorage for native and caches its snapshot —
+    `useSyncExternalStore` compares by identity, so a fresh array per call
+    is an infinite render loop.
+  - **THE LINK WORKS.** Two separate bugs wore one symptom. (1) `sw.js`
+    served EVERY navigation cache-first from the cached `/` shell, so a deep
+    link to `/lab` painted real Home markup before the router spoke — the
+    lab looked like an exact copy of the live site. Navigations under
+    `/lab` now go straight to the network; `SHELL_CACHE` → **v4** to evict
+    the caches still holding it. This also retires the README's "one #418
+    per deep load" limit. (2) `lab.evoforge.pages.dev` root landed on Home
+    (or the sign-in redirect); `(main)/_layout.tsx` now redirects `/` → `/lab`
+    when the flag is inlined — verified dead-code-eliminated in the
+    unflagged export. Production `/lab` says it is a dev tool instead of
+    rendering blank (muscle-lab doctrine — a dead-looking screen teaches
+    whoever followed the link that the app is broken).
+  - **The strip always renders**, leading with a `lab-gallery` button: it
+    used to return null on a one-variant page, leaving no route back but
+    browser BACK. Culled takes drop out of it, except the one being viewed.
+  - testID contract for tours: `lab-open-<page>-<variant>`,
+    `lab-cull-…`, `lab-uncull-…`, `lab-tab-<page>-<variant>`, `lab-gallery`.
+    The old `lab-mode-*` ids are gone with the modes.
+  - Also: `.gitattributes` pins `client/scripts/gen-exercise-ids.mjs` to LF.
+    It is regexed byte-for-byte by `exercise-identity.test.ts`, so a CRLF
+    checkout failed that test while git reported the file clean.
+  - Loop green at each commit; **2,520 tests** (lint's 14 warnings are ALL
+    pre-existing upstream files).
+
 - **FUEL LAB: the recalculate fix + dual rates, prototyped (2026-08-21,
   no migration)** — Tyson's three Fuel asks, lab-first: (1) RECALCULATE
   "does nothing" — traced: it opens the AI intake, which short-circuits
@@ -4743,8 +4804,8 @@ test it instead.
 cd client
 rm -rf .eslintcache node_modules/.cache      # WARM CACHES LIE
 npx tsc --noEmit
-npx expo lint                                # must be 0 problems
-npx vitest run src                           # 427 tests
+npx expo lint                                # 0 ERRORS (14 warnings are pre-existing)
+npx vitest run src                           # 2,520 tests (2026-08-28)
 node scripts/verify-tokens.mjs
 node scripts/verify-battle-engine.mjs
 node scripts/verify-motion.mjs

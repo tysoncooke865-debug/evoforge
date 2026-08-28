@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { Redirect, Tabs, router } from 'expo-router';
+import { Redirect, Tabs, router, usePathname } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 
@@ -56,6 +56,9 @@ export { ErrorBoundary } from '@/ui/core/route-error-boundary';
 export default function MainLayout() {
   const colors = useThemeColors();
   const { session, loading } = useAuth();
+  // Unconditional, with the other hooks — the lab-deploy redirect that reads
+  // it sits below several early returns.
+  const pathname = usePathname();
   // TRANSFORM P2: resume flushing any offline-logged sets after a cold
   // start; also re-flushes on the browser 'online' event.
   useEffect(() => {
@@ -210,6 +213,17 @@ export default function MainLayout() {
     }
     prevLevelRef.current = level;
   }, [forge.data, ready]);
+
+  // THE LAB DEPLOY ROOTS AT THE GALLERY (2026-08-28). lab.evoforge.pages.dev
+  // is a build that exists only to host the page lab, so landing on Home there
+  // is landing in the wrong app — and the sign-in redirect below fires first
+  // for the signed-out visitor who is the common case on that host. Metro
+  // INLINES EXPO_PUBLIC_ values, so on every other build this reads
+  // `'' === '1'` and the whole branch is dead code. Only '/' redirects: a lab
+  // variant's honest out-links (/evo, /rank) still reach the live pages.
+  if (process.env.EXPO_PUBLIC_PAGE_LAB === '1' && pathname === '/') {
+    return <Redirect href="/lab" />;
+  }
 
   // THE HOLD, not a spinner (2026-08-03). This was a bare ActivityIndicator on
   // a flat background — the app's entire "loading experience", and it read
