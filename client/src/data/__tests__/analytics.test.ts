@@ -5,7 +5,7 @@
  * Falsified: an awaited/throwing track fails the 'does not throw' test.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ratingBand, track, touchActivity } from '../analytics';
 
@@ -18,9 +18,17 @@ vi.mock('../supabase', () => ({
   },
 }));
 
-afterEach(() => {
+// HERMETIC ON PURPOSE. The `lab` branch's CI job exports
+// EXPO_PUBLIC_PAGE_LAB=1 for every step, so a test that merely ASSUMED the
+// flag was unset passed on expo-rewrite and failed on lab — same commit, same
+// code. Each test states the build it is describing.
+beforeEach(() => {
   delete process.env.EXPO_PUBLIC_PAGE_LAB;
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  delete process.env.EXPO_PUBLIC_PAGE_LAB;
 });
 
 describe('track()', () => {
