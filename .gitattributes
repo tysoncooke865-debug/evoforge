@@ -9,3 +9,8 @@ contracts/fixtures/*.json text eol=lf
 
 # Avatar art is binary. Never touch it.
 *.png binary
+
+# gen-exercise-ids.mjs is regexed byte-for-byte by exercise-identity.test.ts; a
+# CRLF checkout (Windows autocrlf) fails that test while git reports the file
+# clean. Pin LF in the working copy on every platform.
+client/scripts/gen-exercise-ids.mjs text eol=lf
