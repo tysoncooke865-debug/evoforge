@@ -155,6 +155,7 @@
     "gym_messages",
     "gym_progress",
     "gyms",
+    "lab_culls",
     "legacy_state_backup_20260717",
     "measurements",
     "nutrition_log",

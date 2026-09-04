@@ -754,6 +754,20 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **Migration 200 — `lab_culls`, the cull list's durable home
+  (2026-09-04, applied + falsified)** — one row per (developer, culled
+  batch), `cull_key` CHECK-pinned to the client's exact
+  `<page>/batch-<n>` grammar so a corrupt write can never round-trip into
+  `parseCulled` as garbage. Owner-only RLS (select/insert/delete, NO
+  update — a cull is insert-or-delete), `DEFAULT auth.uid()`, PK
+  (user_id, cull_key) so re-cull is an idempotent upsert. Falsified per
+  the header checklist with the smoke accounts: cross-user select and
+  delete → 0 rows, spoofed `user_id` insert → 42501, retired variant
+  grammar → 23514, anon select → 0, ignore-duplicates re-insert clean;
+  smoke rows deleted after. `contracts/rls-tables.json` regenerated (209
+  tables) and `verify-rls` green. The client write path lands next commit
+  (cull-sync).
+
 - **PAGE LAB: gallery regrouped, batch-level cull with a confirm
   (2026-09-04, no migration)** — the gallery is page-first now: one 24pt
   heading per app page, a CURRENT box under each (NO cull affordance — the
