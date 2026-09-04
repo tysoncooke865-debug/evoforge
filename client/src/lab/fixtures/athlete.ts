@@ -63,7 +63,13 @@ export const LAB_PROFILE: ProfileRow = {
   first_workout_at: '2026-01-06T10:00:00Z',
   first_workout_name: 'Push 1 - Strength',
   first_workout_date: '2026-01-06',
-  callouts_enabled: true,
+  // OFF, deliberately (2026-09-04): the setting gates EVERYTHING about call
+  // outs, including the read — useMyCallouts polls an RPC every 8s with
+  // staleTime 0, so a seeded list would be refetched away instantly (the
+  // leaderboard-teaser class, README known limits) and the lab would hum
+  // with network. Callouts-off is a real product state; the lab photographs
+  // that one.
+  callouts_enabled: false,
 };
 
 export const LAB_FORGE: ForgeRow = {

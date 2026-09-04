@@ -131,6 +131,18 @@ export function seedLabCache(queryClient: QueryClient): void {
   // Armed BY the flag below: enabling evolution_path_beta switches on
   // useOriginPathState, and Home's PathSummary reads it.
   seed('origin_path_state', labOriginPathState(today));
+  // TRAIN EARLY (plan claims, 2026-09-04): the carousel indexes the claim
+  // list on every render; empty = no session has been moved, which is the
+  // honest state for an athlete whose week is on schedule. The CLAIM and
+  // RELEASE writes stay un-shimmed (plan saves doctrine) — the banner rule.
+  seed('plan_session_claims', []);
+  // The workout summary's coin lines (useCoinHistory). Empty is the truth:
+  // the lab claim shim answers 'duplicate', so no coin event ever lands.
+  seed('coin_events', []);
+  // useCalloutsAvailable calls useFriends unconditionally (hooks cannot be
+  // conditional), so the workout page reads this even with callouts OFF.
+  // No friends is the seeded athlete's honest state.
+  seed('friends', []);
 
   // Keys carrying params BEYOND the user id cannot use `seed` — plant them
   // in full, and keep LAB_SEEDED_PARAM_KEYS below in step.
@@ -203,6 +215,9 @@ export const LAB_SEEDED_KEYS: readonly string[] = [
   'forge_reveals',
   'pool_invitations',
   'origin_path_state',
+  'plan_session_claims',
+  'coin_events',
+  'friends',
 ];
 
 /** The other half of the contract: keys whose query params sit past the user

@@ -1,10 +1,13 @@
 /**
  * PAGE LAB FORK of src/app/(main)/workout.tsx — the diff-zero baseline.
- * Diverges from the live screen in exactly four ways (the fork recipe,
+ * Diverges from the live screen in exactly five ways (the fork recipe,
  * src/lab/README.md): named export, back pops the LAB stack, finish/reopen
- * go through the mock-safe shims, and ExerciseCard comes from the local
- * fork whose useSaveSet is shimmed. Everything else is verbatim; diff
- * against workout.tsx to review a variant.
+ * and the activation step go through the mock-safe shims, the COMPLETION
+ * coin claim is shimmed too (it fires from an effect the moment the last
+ * set lands — the mount-write class, the developer never asked for it),
+ * and ExerciseCard comes from the local fork whose useSaveSet is shimmed.
+ * Everything else is verbatim; diff against workout.tsx to review a
+ * variant (scripts/lab-sync.mjs --check pins it).
  */
 import { router, useLocalSearchParams } from 'expo-router';
 import { isCountedSet } from '@/domain/workouts';
@@ -14,15 +17,26 @@ import * as Haptics from 'expo-haptics';
 
 import {
   useLabActivationStep as useActivationStep,
+  useLabClaimCoin as useClaimCoin,
   useLabFinishWorkout as useFinishWorkout,
   useLabReopenWorkout as useReopenWorkout,
 } from '@/lab/mock/mutations';
+import { track } from '@/data/analytics';
 import { useAuth } from '@/data/auth-context';
-import { useClaimCoin } from '@/data/coins';
+import { useCalloutsAvailable, useMyCallouts } from '@/data/callouts';
+import { useTrainingPresence } from '@/data/presence';
+import { isAttachedToSet } from '@/domain/callouts';
+import { unitFor, useExercisePrefs } from '@/data/exercise-prefs';
+import { getSetDraft, clearSetDrafts } from '@/state/set-draft';
+import { CalloutLayer } from '@/ui/callouts/callout-layer';
+import { CalloutTray } from '@/ui/callouts/callout-tray';
+import { loadModelFor } from '@/domain/exercise-load-models';
+import { defaultModeForModel } from '@/domain/exercise-load';
+import { useCoinHistory } from '@/data/coins';
 import { useOriginStatus } from '@/data/origin';
 import { originAsBranch } from '@/domain/customise';
 import { usePublishGhost } from '@/data/ghosts';
-import { useWorkoutLog } from '@/data/hooks';
+import { useCardioLog, useWorkoutLog } from '@/data/hooks';
 import { useRoutines, useSaveRoutine, useUpdateRoutine } from '@/data/routines';
 import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
 import { useSaveUserPlan, useUserPlans } from '@/data/user-plans';
@@ -32,6 +46,7 @@ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/us
 import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
 import { championForBranch } from '@/domain/battle-rpg/champions';
 import { substitutesFor } from '@/domain/exercise-library';
+import { sessionCoins } from '@/domain/coin-claims';
 import { nextEvolutionInfo } from '@/domain/next-evolution';
 import { gradeMission, sessionPace, sessionVolumeKg } from '@/domain/progression/mission-grade';
 import { applyEditsToDay, diffDayEdits, mergeDayIntoCustomPlan } from '@/domain/plan-edits';
@@ -55,6 +70,7 @@ import { computeStreak } from '@/domain/streak';
 import { normaliseWorkoutLog } from '@/domain/summary';
 import { todayIso as calendarToday } from '@/domain/today';
 import { XP_PER_SET } from '@/domain/xp';
+import { trialEligibility } from '@/domain/forge-trial';
 import { adhocOf, overridesFor, useSessionStore } from '@/state/session-store';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
@@ -64,11 +80,14 @@ import { ExerciseCard } from '@/lab/variants/workout/baseline-exercise-logger';
 import { ExercisePicker } from '@/ui/train/exercise-picker';
 import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
 import { ReorderableList } from '@/ui/train/reorderable-list';
+import { ForgeLoader } from '@/ui/core/forge-loader';
 import { NeonButton } from '@/ui/core/neon-button';
-import { FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
+import { clearRest, FloatingRestTimer, RestTimerBar } from '@/ui/train/rest-timer';
 import { ScreenHeader } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet';
+import { socialFeatures } from '@/ui/social/social-features';
+import { useSharePromptStore } from '@/state/share-prompt-store';
 
 /**
  * THE WORKOUT PAGE (TRAIN_PAGE_V2).
@@ -92,7 +111,7 @@ import { SummarySheet, type WorkoutSummaryData } from '@/ui/train/summary-sheet'
  */
 export function WorkoutBaseline() {
   const colors = useThemeColors();
-  const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string }>();
+  const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string; coach?: string }>();
   const todayIso = calendarToday();
   const date = params.date ?? todayIso;
   const workoutName = params.workout ?? '';
@@ -118,11 +137,13 @@ export function WorkoutBaseline() {
   useActivationStep('workout_opened', { extra: { is_today: date === todayIso } });
 
   const workouts = useWorkoutLog();
+  const cardioLog = useCardioLog();
   const schedule = useWorkoutSchedule();
   const sessions = useWorkoutSessions();
   const finishWorkout = useFinishWorkout();
   const reopenWorkout = useReopenWorkout();
   const claimCoins = useClaimCoin();
+  const coinHistory = useCoinHistory();
   const saveRoutine = useSaveRoutine();
   const updateRoutine = useUpdateRoutine();
   const userPlans = useUserPlans();
@@ -135,7 +156,16 @@ export function WorkoutBaseline() {
   const { session } = useAuth();
   const publishGhost = usePublishGhost();
   const forge = useForgeProgression();
-  const { resolveDay, preferredSource: savedSource } = useDayPlan();
+  const {
+    resolveDay,
+    preferredSource: savedSource,
+    loading: planLoading,
+    error: planError,
+    refetch: refetchPlan,
+  } = useDayPlan();
+  /** The persisted session store arrives asynchronously; an ad-hoc workout's
+   *  exercises live in it, and so do this day's overrides. */
+  const storeHydrated = useSessionStore((st) => st._hydrated);
   // A deep link without ?source= follows the SAVED choice (035), so a
   // reload-restored or externally opened workout page agrees with Train.
   const preferredSource: SourceIndex =
@@ -155,6 +185,22 @@ export function WorkoutBaseline() {
   const seedSupersets = useSessionStore((s) => s.seedSupersets);
   const bumpSets = useSessionStore((s) => s.bumpSets);
   const reorderExercises = useSessionStore((s) => s.reorderExercises);
+
+  /**
+   * ── LIVE WORKOUT CALL OUTS ──
+   *
+   * Everything here is inert for an athlete who has not been revealed the
+   * feature or has switched it off: `available` gates the affordance, the tray
+   * and the floating layer together, so a pure logger runs exactly the code
+   * they ran yesterday. The ONE unconditional cost is `useMyCallouts`, and it
+   * stops polling the moment nothing is live.
+   */
+  const callouts = useMyCallouts();
+  const calloutsOn = useCalloutsAvailable();
+  const exercisePrefs = useExercisePrefs();
+  const [callFor, setCallFor] = useState<{ exercise: string; setNo: number } | null>(null);
+  // A draft is about ONE session on ONE device and must not outlive the page.
+  useEffect(() => () => clearSetDrafts(), []);
 
   const [sheet, setSheet] = useState<WorkoutSummaryData | null>(null);
   const [reordering, setReordering] = useState(false);
@@ -187,8 +233,16 @@ export function WorkoutBaseline() {
   const isToday = date === todayIso;
   /** Logging writes to the date in the URL, so only TODAY may log. */
   const editable = isToday && !finished;
+  // Tell friends this athlete is training, for as long as this screen is up on
+  // a live session. A boolean and a timestamp: never the workout's NAME — the
+  // presence channel is every online athlete, not just friends.
+  useTrainingPresence(editable);
 
   const allRows = normaliseWorkoutLog(workouts.data ?? []);
+  /* Onboarding sent them straight here and the log is empty: one hint, once.
+     `workouts.isPending` matters — an empty cache must not be read as "no
+     sets ever", which would flash the hint at a veteran on a cold start. */
+  const showCoachHint = params.coach === '1' && !workouts.isPending && allRows.length === 0;
   const dayRows = allRows.filter(
     (r) => String(r.date) === date && String(r.workout) === workoutName
   );
@@ -230,6 +284,7 @@ export function WorkoutBaseline() {
   const dayPct = totalTarget > 0 ? (totalDone / totalTarget) * 100 : 0;
 
   const forgeProgress = forgeProgressFromRow(forge.data ?? null);
+
   /**
    * THE MISSION GRADE (domain/progression/mission-grade.ts). Built at FINISH
    * from this session's own rows — nothing here is stored, sampled or guessed:
@@ -245,6 +300,11 @@ export function WorkoutBaseline() {
    * Read at build time rather than kept in state so a reopened workout that is
    * finished again re-grades against what is actually logged now.
    */
+  // The same evidence Home's streak reads (domain/session-stats.ts), so the
+  // number the completion screen celebrates is the number Home shows a second
+  // later. Two different streaks in two seconds is how a tracker loses trust.
+  const streakEvidence = { cardioRows: cardioLog.data ?? [], finishes: sessions.data ?? [] };
+
   const gradeForSession = () => {
     const counted = dayRows.filter((r) => isCountedSet(r.weight, r.reps));
     // The last date STRICTLY BEFORE this one that has counted sets of this
@@ -275,11 +335,45 @@ export function WorkoutBaseline() {
         previousVolumeKg: previousRows === null ? null : sessionVolumeKg(previousRows),
         medianGapSeconds: pace?.medianGapSeconds ?? null,
         prCount: prCountRef.current,
-        streakDays: computeStreak(workouts.data ?? [], todayIso).current,
+        streakDays: computeStreak(workouts.data ?? [], todayIso, streakEvidence).current,
       }),
       minutes: pace?.minutes ?? null,
     };
   };
+
+  /**
+   * OPEN THE TRAY FOR A SET — with the numbers that are ON SCREEN.
+   *
+   * The proposition comes from the draft registry (what the athlete has typed,
+   * or the prefill the row is showing), never from a re-derivation here. If
+   * there are no reps to call, say so instead of opening a tray that could only
+   * produce a bet the server would refuse.
+   */
+  const openCallOut = (exercise: string, setNo: number) => {
+    const draft = getSetDraft(date, workoutName, exercise, setNo);
+    if (!draft || (draft.reps ?? 0) <= 0) {
+      useToastStore.getState().push({
+        kind: 'info',
+        title: 'PUT YOUR NUMBERS IN FIRST',
+        subtitle: 'A call out is about the set you are about to do.',
+      });
+      return;
+    }
+    track('callout_opened', { set_no: setNo });
+    setCallFor({ exercise, setNo });
+  };
+
+  /** The tray's proposition, from the draft that opened it. */
+  const callTarget = (() => {
+    if (!callFor) return null;
+    const draft = getSetDraft(date, workoutName, callFor.exercise, callFor.setNo);
+    if (!draft || (draft.reps ?? 0) <= 0) return null;
+    return {
+      loadMode: draft.loadMode ?? defaultModeForModel(loadModelFor(callFor.exercise).model),
+      weightKg: draft.weightKg,
+      reps: draft.reps as number,
+    };
+  })();
 
   const buildSummary = (): WorkoutSummaryData => ({
     day: workoutName,
@@ -288,7 +382,7 @@ export function WorkoutBaseline() {
     xpBanked: totalDone * XP_PER_SET,
     prCount: prCountRef.current,
     prExercises: [...new Set(prNamesRef.current)],
-    streak: computeStreak(workouts.data ?? [], todayIso).current,
+    streak: computeStreak(workouts.data ?? [], todayIso, streakEvidence).current,
     ...gradeForSession(),
     // The ceremony's LEVEL PATH is the FORGE level now (earned XP only —
     // Tyson 2026-07-16); evolution below keeps its own legacy-level track.
@@ -303,9 +397,18 @@ export function WorkoutBaseline() {
       cardioMinutes: summary.cardioMinutes,
     }),
     nextSession: nextScheduledSession(schedule.data ?? [], todayIso),
-    // The lab harness has no coin history to read; the screen renders no coin
-    // row for null, which is the correct "we cannot say" state.
-    coins: null,
+    // COINS, from real coin_events against the 013 guard's own rules — the
+    // day's floor and the once-per-date claim. Null while the history loads,
+    // so the screen shows no number rather than a promise it cannot keep.
+    coins: sessionCoins({
+      date,
+      // The floor is a DAY's counted sets, not this workout's.
+      setsToday: normaliseWorkoutLog(workouts.data ?? []).filter(
+        (r) => String(r.date) === date && isCountedSet(r.weight, r.reps)
+      ).length,
+      prCount: prCountRef.current,
+      events: coinHistory.data ?? null,
+    }),
   });
 
   // The completion ceremony, once per workout — and never for one already
@@ -509,7 +612,24 @@ export function WorkoutBaseline() {
       .filter((e) => e.sets > 0);
 
   const finish = () => {
+    // THE ACTIVATION MEASURE THAT MATTERS (docs/ONBOARDING_V3_SPEC.md §9):
+    // "% completing a first workout within 7 days". Emitted once, before the
+    // mutation lands, because a session row appearing is what stops it being
+    // the first — reading `sessions` after the write would race it.
+    if (!sessions.isPending && (sessions.data ?? []).length === 0) {
+      track('first_workout_completed', {
+        sets: totals.done,
+        target: totals.target,
+        is_today: date === todayIso,
+        source: params.coach === '1' ? 'onboarding_reveal' : 'app',
+      });
+    }
     finishWorkout.mutate({ date, workout: workoutName });
+    // §14: "cancel or replace scheduled notifications when ... the workout
+    // ends". A rest between sets stops meaning anything the moment there are
+    // no more sets, and a buzz five minutes into the drive home is the kind
+    // of thing that gets notifications turned off for good.
+    clearRest();
     clearActive();
     // An ad-hoc workout is DONE — releasing it restores START AN EMPTY WORKOUT.
     // It used to survive forever, capping the athlete at one ad-hoc per day.
@@ -537,6 +657,53 @@ export function WorkoutBaseline() {
       <ScreenShell>
         <ScreenHeader kicker="WORKOUT" title="NOTHING TO TRAIN" onBack={back} />
         <Text className="text-2xs text-text-mute">This workout has no name. Go back and pick a day.</Text>
+      </ScreenShell>
+    );
+  }
+
+  /**
+   * NOT LOADED IS NOT EMPTY (2026-08-06).
+   *
+   * `resolveDay` answers from `user_plans` + the saved source + saved
+   * routines, and an ad-hoc day's exercises live in the persisted session
+   * store. Until all of those arrive, `plan` is `[]` — so for the two or
+   * three seconds after START FIRST WORKOUT the logger rendered
+   * "0/0 SETS", "Nothing in this workout yet" and a bare search box. A brand
+   * new athlete's first sight of their first workout was an empty one.
+   *
+   * The page holds instead. It costs nothing on a warm cache (every query is
+   * already in flight from Home) and it is the difference between a slow
+   * screen and a broken one.
+   *
+   * `workouts.isPending` is in here for the same reason at one remove: the
+   * SET COUNTS come off the log, so rendering before it lands shows a
+   * half-finished workout as untouched.
+   */
+  const notReady = planLoading || !storeHydrated || workouts.isPending;
+  if (planError && !notReady && plan.length === 0) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker="WORKOUT" title={workoutName.split(' - ')[0].toUpperCase()} titleLines={2} onBack={back} />
+        <GlowCard glow={colors.danger} padding={16}>
+          <Text className="text-sm text-text">Your plan could not be loaded.</Text>
+          <Text className="mt-s1 text-xs text-text-dim">
+            Nothing is lost — any set you have already logged is saved. Check your connection and
+            try again.
+          </Text>
+          <View className="mt-s3">
+            <NeonButton title="RETRY" onPress={refetchPlan} testID="workout-retry" />
+          </View>
+        </GlowCard>
+      </ScreenShell>
+    );
+  }
+  if (notReady) {
+    return (
+      <ScreenShell>
+        <ScreenHeader kicker={isToday ? 'TODAY' : date} title={workoutName.split(' - ')[0].toUpperCase()} titleLines={2} onBack={back} />
+        <View className="items-center py-s8" testID="workout-loading">
+          <ForgeLoader label="Forging your workout" />
+        </View>
       </ScreenShell>
     );
   }
@@ -704,6 +871,23 @@ export function WorkoutBaseline() {
         />
       ) : null}
 
+      {/* THE ONE TEACHING MOMENT (docs/ONBOARDING_V3_SPEC.md §2, step 6).
+          Shown only when onboarding handed the athlete straight here (coach=1)
+          AND they have never logged a set. It disappears the instant the first
+          set lands — after that we stop teaching, and everything else is
+          explained where it is encountered. */}
+      {showCoachHint ? (
+        <View
+          className="rounded-xl border px-s4 py-s3"
+          style={{ borderColor: `${colors.accent}59`, backgroundColor: 'rgba(34,211,238,0.07)' }}
+          testID="first-set-coach"
+        >
+          <Text className="text-xs text-text">
+            Enter your weight and reps, then tap the tick when the set is complete.
+          </Text>
+        </View>
+      ) : null}
+
       {reordering ? null : plan.map((entry, i) => {
         const { exercise, sets, reps, skipped } = entry;
         const facts = loggedFacts(exercise);
@@ -727,6 +911,42 @@ export function WorkoutBaseline() {
             }}
             onLogged={() => markActive(workoutName, preferredSource)}
             durable
+            /**
+             * THE GOLDEN DOT, GATED TO PROGRAMMED WORK (v5 §4).
+             *
+             * It used to appear on every exercise. Migration 163 refuses an
+             * ineligible pledge server-side, so nothing unsafe could be created —
+             * but the screen was offering something settlement would reject, which
+             * teaches an athlete the app is unreliable at the exact moment they are
+             * about to commit coins.
+             *
+             * `restDay: false` is honest rather than lazy: you are on this screen
+             * because you opened a workout, and the schedule is not read here. A
+             * rest-day pledge is caught by the server, and the tray shows
+             * `forge_trial_allowance`'s own message — which is why that function
+             * returns prose and not just a number.
+             */
+            onCallOut={
+              editable
+              && calloutsOn
+              && trialEligibility(entry, { restDay: false, setsDone: facts.validCount }).eligible
+                ? (setNo) => openCallOut(exercise, setNo)
+                : undefined
+            }
+            calloutFor={
+              calloutsOn
+                ? (setNo) =>
+                    (callouts.data ?? []).find(
+                      (c) =>
+                        c.i_am_athlete &&
+                        isAttachedToSet(c.status) &&
+                        c.workout_date === date &&
+                        c.workout_name === workoutName &&
+                        c.exercise === exercise &&
+                        c.set_no === setNo
+                    ) ?? null
+                : undefined
+            }
             // Read-only unless it is today and unfinished — the cards write to
             // the date in the URL.
             readOnly={!editable}
@@ -831,6 +1051,18 @@ export function WorkoutBaseline() {
             : undefined
         }
         defaultRoutineName={workoutName}
+        // SHARE WITH FRIENDS, as a choice. `offer` raises the share sheet the
+        // athlete asked for, instead of one appearing by itself the moment the
+        // finish marker landed (2026-08-06). Only when the feed is on — a
+        // button that opens nothing is worse than no button.
+        onShareFriends={
+          socialFeatures.feedEnabled
+            ? () => {
+                useSharePromptStore.getState().openComposer({ workout: workoutName, date });
+                setSheet(null);
+              }
+            : undefined
+        }
         // GHOST (migration 037): one tap publishes this session's combat
         // snapshot (numbers only) for friends to battle from the Arena.
         onShareGhost={() =>
@@ -1098,6 +1330,41 @@ export function WorkoutBaseline() {
         Outside the ScreenShell scroll on purpose; renders nothing when no
         rest is live, when collapsed via ▴, or on a locked (read-only) day. */}
     {editable ? <FloatingRestTimer /> : null}
+    {/* Opened only from the rest timer's DROP button, closed automatically
+        when rest ends. A sibling overlay: it shares nothing with the logger
+        but the screen, so opening it cannot disturb a set in progress. */}
+    {/* NOTHING FROM THE FORGE BETWEEN SETS (v5 §3). The rest timer used to
+        carry a playable board; a reveal is now granted silently and waits for the
+        summary, so the logger stays a logger. Do not reintroduce a chance surface
+        here — §3 names the rest timer explicitly. */}
+
+    {/* CALL THIS SET — a tray over the workout, never a screen. */}
+    {callFor && callTarget ? (
+      <CalloutTray
+        visible
+        onClose={() => setCallFor(null)}
+        date={date}
+        workout={workoutName}
+        exercise={callFor.exercise}
+        setNo={callFor.setNo}
+        target={callTarget}
+        unit={unitFor(exercisePrefs.data, callFor.exercise)}
+        rows={workouts.data ?? []}
+        todayIso={todayIso}
+        // "Do they run it back?" — the call's place in THIS workout, derived
+        // from the rows themselves so it survives a reload.
+        sessionSeq={
+          (callouts.data ?? []).filter(
+            (c) => c.i_am_athlete && c.workout_date === date && c.workout_name === workoutName
+          ).length + 1
+        }
+      />
+    ) : null}
+
+    {/* Incoming offers, verifications and payouts — floating, never blocking.
+        Outside the ScreenShell scroll, like the rest timer, and it renders
+        nothing at all when there is nothing to say. */}
+    <CalloutLayer />
     </View>
   );
 }

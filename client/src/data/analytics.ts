@@ -37,7 +37,7 @@ import { supabase } from './supabase';
  * carries no flag. Metro inlines the flag, so on a production build this
  * collapses to the path test.
  */
-function inPageLab(): boolean {
+export function inPageLab(): boolean {
   if (process.env.EXPO_PUBLIC_PAGE_LAB === '1') return true;
   if (typeof window === 'undefined') return false;
   try {

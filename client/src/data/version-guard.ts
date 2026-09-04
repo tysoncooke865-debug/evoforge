@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import { navBeaconExhausted, shouldReportStall } from '@/domain/nav-stall';
 
+import { inPageLab } from './analytics';
 import { VERSION_GUARD_AT_KEY } from './cache-keys';
 import { supabase } from './supabase';
 
@@ -60,6 +61,11 @@ export function initVersionGuard(): void {
   window.addEventListener('unhandledrejection', (e) => {
     if (early.length < 6) early.push('rej:' + String((e as PromiseRejectionEvent)?.reason ?? '').slice(0, 120));
   });
+  // LAB-SILENT (the 65e4c3e rule, at THIS emitter): the diag inserts rows
+  // under whatever real session sits beneath the lab — a developer comparing
+  // designs is not a boot cohort. The stale-shell RELOAD above still runs;
+  // only the telemetry is muted.
+  if (inPageLab()) return;
   setTimeout(() => {
     void (async () => {
       try {
@@ -105,6 +111,9 @@ export function initVersionGuard(): void {
  */
 export function initNavFreezeBeacon(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+  // LAB-SILENT, same reason as the boot diag above: this beacon exists only
+  // to emit, so on the lab it does not even start its heartbeat.
+  if (inPageLab()) return;
   let lastBeat = Date.now();
   let lastNavAt = Date.now();
   let lastPath = location.pathname;

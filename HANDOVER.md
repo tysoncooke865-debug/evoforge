@@ -754,6 +754,36 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB: the three rotted baselines re-forked, and the lab goes
+  network-silent (2026-09-04, no migration)** — `train/baseline` had drifted
+  65 hunks from `today.tsx` (workout ~250 lines, the logger fork ~270) while
+  its header still claimed diff-zero; nothing mechanical watches the anchors
+  yet (scripts/lab-sync.mjs, next commit, is that guard). Re-copied all three
+  from the live sources and re-wove the recipe. What the re-fork surfaced:
+  - **The workout page's completion coin claim joins the shims.** Live
+    `workout.tsx` now fires `claimCoins.mutate({kind:'workout_complete'})`
+    from an EFFECT the moment the last set lands — the mount-write class, so
+    the baseline swaps it for `useLabClaimCoin` (answers `duplicate`). The
+    workout recipe is five divergences now, not four.
+  - **New seeds:** `plan_session_claims: []` (TRAIN EARLY's claim index),
+    `coin_events: []` (the summary's coin lines), `friends: []`
+    (`useCalloutsAvailable` calls `useFriends` unconditionally — hooks
+    cannot be conditional — so the read fires even with callouts off).
+  - **The lab athlete's `callouts_enabled` is FALSE.** `useMyCallouts` polls
+    an RPC every 8s at `staleTime: 0`, so a seeded list would be refetched
+    away instantly (the leaderboard-teaser class); the setting is the one
+    lever that stops the read itself. Callouts-off is a real product state.
+  - **`pwa_boot_diag` / `pwa_nav_diag` were writing analytics from the lab.**
+    Both insert into `analytics_events` DIRECTLY, bypassing `track()`'s
+    guard — the 65e4c3e fix stopped the rail, not these two. `inPageLab()`
+    is exported from `data/analytics.ts` now and both beacons check it at
+    the emitter; the stale-shell RELOAD still runs on the lab deploy.
+  - Tour over the flagged export: all four baselines render; TRAIN's door
+    opens `/lab/workout/baseline?date&workout&source`, LOG SET banks +10 XP
+    into the seeded cache, FINISH ANYWAY → the C-grade summary sheet →
+    summary-done pops back to the gallery; **zero supabase requests** on
+    every lab page (the app_flag RPC is seeded away too).
+
 - **PAGE LAB v2: mock-only, culled to baselines, links that work
   (2026-08-28, no migration)** — the lab had stopped working as a lab. Its
   link painted the live Home page, the comparison machinery was invisible
