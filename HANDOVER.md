@@ -754,6 +754,18 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB README rewritten for the batch era (2026-09-04, no
+  migration)** — the authoring recipe (next number = `lastBatchNumber + 1`,
+  bump in the same edit; batch meta at the FRONT of `batches`; model from
+  `LAB_AUTHOR_MODELS`; appending takes to an existing batch keeps its
+  number), the deletion checklist (files + `batches` entry + `COMPONENTS`
+  lines + the counter reset when a page empties), the numbering contract,
+  the lab-sync rules, cull durability + its accepted asymmetry, and the
+  full testID table. **The first committed batch is still the true
+  end-to-end test of the batch UI** — everything shipped proven by vitest
+  pins and scratch-batch tours; the recipe is written so that session
+  needs no archaeology.
+
 - **PAGE LAB: culls sync across devices (2026-09-04, rides migration
   200)** — `src/lab/cull-sync.ts`, the durable layer over cull-store. The
   ONE RULE, load-bearing: **localStorage stays the synchronous source of
