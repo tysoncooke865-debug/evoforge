@@ -754,6 +754,31 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB: culls sync across devices (2026-09-04, rides migration
+  200)** — `src/lab/cull-sync.ts`, the durable layer over cull-store. The
+  ONE RULE, load-bearing: **localStorage stays the synchronous source of
+  truth for render** — `useCulled()` never touches the network; this module
+  only moves keys DB⟷local inside effects and fire-and-forget promises,
+  always through cull-store's single `write()` (so the identity-stable
+  snapshot survives). `useCullSync()` on gallery mount pulls `lab_culls`,
+  re-validates through `parseCulled` (never trust a wire shape you can
+  check for free), merges via the pure `mergeCulled` (union, order-stable;
+  `toPush` = local minus remote — a cull made signed-out becomes durable on
+  the next signed-in mount), and pushes with `ignoreDuplicates`. The
+  gallery's confirm/RESTORE call `cullBatchEverywhere`/
+  `uncullBatchEverywhere`: instant local write + fire-and-forget
+  insert/delete; every network failure is a `console.warn`, local state
+  stands. Signed out: the old per-device behavior + a quiet
+  `lab-cull-hint` line. The real client/session on purpose — the gallery
+  sits OUTSIDE LabDataProvider (the MockWriteWarning direction). Accepted
+  asymmetry (single-developer tool): a device still holding a key re-pushes
+  it after another device unculled — RESTORE is one tap; DB-authoritative
+  would lose signed-out culls, worse. Toured over the flagged export with
+  the scratch batch: signed out hint shows; signed in as ALPHA the cull
+  landed in `lab_culls` (checked via the management API), wiping the local
+  key and remounting re-hid the batch from the pull alone (the
+  cross-device path), RESTORE deleted the row (0 left). 2,536 tests.
+
 - **Migration 200 — `lab_culls`, the cull list's durable home
   (2026-09-04, applied + falsified)** — one row per (developer, culled
   batch), `cull_key` CHECK-pinned to the client's exact

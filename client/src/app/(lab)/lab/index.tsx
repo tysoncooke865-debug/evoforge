@@ -5,7 +5,8 @@ import { router } from 'expo-router';
 
 import { todayIso } from '@/domain/today';
 import { batchCullKey, isBatchCulled } from '@/lab/cull-model';
-import { cullBatch, uncullBatch, useCulled } from '@/lab/cull-store';
+import { useCulled } from '@/lab/cull-store';
+import { cullBatchEverywhere, uncullBatchEverywhere, useCullSync } from '@/lab/cull-sync';
 import { labVariantHref } from '@/lab/links';
 import { LAB_PAGES } from '@/lab/registry';
 import type { LabBatch, LabPage } from '@/lab/types';
@@ -40,6 +41,10 @@ import { GlowCard, ScreenShell } from '@/ui/core/shell';
 export default function LabGalleryScreen() {
   const colors = useThemeColors();
   const culled = useCulled();
+  // Pull-and-merge the durable cull list when a real session sits under the
+  // lab; `durable` drives the signed-out hint below. cull-sync.ts owns the
+  // rule that render never waits on this.
+  const { durable } = useCullSync();
 
   // Keys for batches that no longer exist (already deleted in a follow-up
   // commit) are ignored, never shown — the registry is the only truth about
@@ -59,6 +64,20 @@ export default function LabGalleryScreen() {
       >
         MOCK DATA ONLY — every variant runs on the seeded lab athlete.
       </Text>
+      {!durable ? (
+        <Text
+          testID="lab-cull-hint"
+          allowFontScaling={false}
+          style={{
+            fontSize: 10,
+            letterSpacing: 0.5,
+            color: colors['text-mute'],
+            ...pixelFont(false),
+          }}
+        >
+          CULLS STAY ON THIS DEVICE — SIGN IN TO SYNC THEM ACROSS DEVICES.
+        </Text>
+      ) : null}
 
       {LAB_PAGES.map((page) => {
         const live = page.batches.filter((b) => !isBatchCulled(culled, page.id, b.number));
@@ -186,7 +205,7 @@ function BatchCard({ page, batch }: { page: LabPage; batch: LabBatch }) {
                   pixel
                   onPress={() => {
                     setConfirming(false);
-                    cullBatch(page.id, batch.number);
+                    cullBatchEverywhere(page.id, batch.number);
                   }}
                   testID={`lab-cull-confirm-${page.id}-batch-${batch.number}`}
                 />
@@ -248,7 +267,7 @@ function CulledRow({ page, batch }: { page: LabPage; batch: LabBatch }) {
         testID={`lab-uncull-${page.id}-batch-${batch.number}`}
         accessibilityRole="button"
         accessibilityLabel={`Restore redesign ${batch.number} of ${page.title}`}
-        onPress={() => uncullBatch(page.id, batch.number)}
+        onPress={() => uncullBatchEverywhere(page.id, batch.number)}
         style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 12 }}
       >
         <Text

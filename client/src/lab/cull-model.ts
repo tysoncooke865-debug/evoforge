@@ -88,3 +88,23 @@ export function isBatchCulled(
 ): boolean {
   return keys.includes(batchCullKey(page, batchNumber));
 }
+
+/**
+ * The durable layer's pure core (cull-sync.ts is the impure shell): merge
+ * the device's list with the database's. Union, order-stable — local order
+ * first (the developer's own recent decisions stay where they were), then
+ * remote-only keys in remote order. `toPush` is what the device knows that
+ * the database does not; pushing it is what makes a cull made offline (or
+ * signed out) durable on the next signed-in gallery mount.
+ */
+export function mergeCulled(
+  local: readonly string[],
+  remote: readonly string[]
+): { merged: string[]; toPush: string[] } {
+  const localSet = new Set(local);
+  const remoteSet = new Set(remote);
+  return {
+    merged: [...local, ...remote.filter((k) => !localSet.has(k))],
+    toPush: local.filter((k) => !remoteSet.has(k)),
+  };
+}

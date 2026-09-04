@@ -19,6 +19,7 @@ import {
   LAB_CULL_STORAGE_KEY,
   batchCullKey,
   isBatchCulled,
+  mergeCulled,
   parseCulled,
   serializeCulled,
   withCulledBatch,
@@ -431,5 +432,32 @@ describe('cull model', () => {
     expect(parseCulled(JSON.stringify(['home/batch-1', 42, null, 'a/b/c']))).toEqual([
       'home/batch-1',
     ]);
+  });
+});
+
+describe('cull sync merge (the durable layer, pure core)', () => {
+  it('unions order-stably: local first, then remote-only in remote order', () => {
+    const { merged } = mergeCulled(['home/batch-2', 'fuel/batch-1'], ['train/batch-3', 'home/batch-2']);
+    expect(merged).toEqual(['home/batch-2', 'fuel/batch-1', 'train/batch-3']);
+  });
+
+  it('pushes exactly what the database does not know', () => {
+    const { toPush } = mergeCulled(['home/batch-2', 'fuel/batch-1'], ['home/batch-2']);
+    expect(toPush).toEqual(['fuel/batch-1']);
+  });
+
+  it('is quiet when both sides agree', () => {
+    const { merged, toPush } = mergeCulled(['home/batch-1'], ['home/batch-1']);
+    expect(merged).toEqual(['home/batch-1']);
+    expect(toPush).toEqual([]);
+  });
+
+  it('handles the empty cases without inventing keys', () => {
+    expect(mergeCulled([], [])).toEqual({ merged: [], toPush: [] });
+    expect(mergeCulled([], ['home/batch-1'])).toEqual({ merged: ['home/batch-1'], toPush: [] });
+    expect(mergeCulled(['home/batch-1'], [])).toEqual({
+      merged: ['home/batch-1'],
+      toPush: ['home/batch-1'],
+    });
   });
 });
