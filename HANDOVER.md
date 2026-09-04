@@ -754,6 +754,30 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB: the BATCH model (2026-09-04, no migration)** — the unit of
+  review is now a batch: one session's takes on one page, numbered per page.
+  `registry-meta.ts` restructured: each page = `baseline` (CURRENT, never in
+  a batch, never cullable) + `lastBatchNumber` + `batches[]` (newest first),
+  each batch `{number, dateIso, model, description, variants}` with `model`
+  from `LAB_AUTHOR_MODELS` (never freehand) and
+  `LAB_BATCH_DEFAULT_DESCRIPTION` = 'testing massive redesigns' as the
+  honest shrug. **The counter contract, vitest-pinned:** numbers are
+  per-page, 1-based, monotonic, REMEMBERED across culls/deletions (8 and 9
+  culled → next is 10); `lastBatchNumber === 0` exactly when `batches` is
+  empty, so the deletion commit that empties a page must zero the counter
+  in the same edit — the pin fails the commit that forgets either half.
+  The joined `LabPage` keeps a derived flat `variants` (baseline first) so
+  `findLabVariant`/the host route on slugs alone; new helpers
+  `findLabBatch`/`batchOfVariant`. **The strip is batch-scoped** (v3):
+  tabs = [CURRENT, …that batch's takes] — CURRENT always first, other
+  batches never share a bar; scope rides the URL as `?batch=<n>` (now in
+  `LAB_RESERVED_PARAMS` — the `data` lesson), resolved by MEMBERSHIP for a
+  codename (the registry is the truth) and by the param only for
+  `baseline`; garbage/stale `?batch` → null → the strip degrades to
+  [← LAB | CURRENT] (every pre-batch bookmark's behavior). The strip
+  stopped consulting the cull store — cull goes batch-level next commit.
+  34 lab tests; scratch-batch tour folded into the gallery commit's.
+
 - **LAB-SYNC: CURRENT is mechanically pinned to the deployed app
   (2026-09-04, no migration)** — `scripts/lab-sync.mjs` + five recorded
   fork-recipe patches (`scripts/lab-sync/*.patch`, `.gitattributes`-pinned

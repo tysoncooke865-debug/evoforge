@@ -38,26 +38,41 @@ import {
   labNutritionTargets,
   labNutritionTriple,
 } from '../fixtures/nutrition';
-import { LAB_PAGE_META } from '../registry-meta';
-import { LAB_RESERVED_PARAMS, switcherExtras, switcherHref } from '../switcher-model';
+import { LAB_AUTHOR_MODELS, LAB_PAGE_META } from '../registry-meta';
+import {
+  LAB_RESERVED_PARAMS,
+  resolveBatchNumber,
+  switcherExtras,
+  switcherHref,
+} from '../switcher-model';
 
 describe('lab registry metadata', () => {
+  const allVariants = (page: (typeof LAB_PAGE_META)[number]) => [
+    page.baseline,
+    ...page.batches.flatMap((b) => b.variants),
+  ];
+
   it('page ids and variant slugs are unique and URL-safe', () => {
     const pageIds = LAB_PAGE_META.map((p) => p.id);
     expect(new Set(pageIds).size).toBe(pageIds.length);
     for (const page of LAB_PAGE_META) {
-      const slugs = page.variants.map((v) => v.id);
+      const slugs = allVariants(page).map((v) => v.id);
       expect(new Set(slugs).size).toBe(slugs.length);
       for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9-]+$/);
     }
   });
 
-  it('every page keeps a baseline — the diff-anchor a round forks from', () => {
-    // A page whose baseline was culled has nothing to compare a new take
-    // AGAINST, and the next fork starts from whatever design won last time
-    // rather than from the live screen.
+  it('every page keeps its baseline as CURRENT, outside every batch', () => {
+    // CURRENT is the comparison anchor: always present, never cullable,
+    // never a member of a batch. A batch variant named `baseline` would
+    // shadow it in the URL space.
     for (const page of LAB_PAGE_META) {
-      expect(page.variants.map((v) => v.id), page.id).toContain('baseline');
+      expect(page.baseline.id, page.id).toBe('baseline');
+      for (const batch of page.batches) {
+        expect(batch.variants.map((v) => v.id), `${page.id} batch ${batch.number}`).not.toContain(
+          'baseline'
+        );
+      }
     }
   });
 
@@ -65,10 +80,51 @@ describe('lab registry metadata', () => {
     // The naming doctrine: only `baseline` repeats (it is namespaced by page
     // and means the same thing on each). Every other slug is a codename, so
     // "the compact one" names exactly one design in a review.
-    const codenames = LAB_PAGE_META.flatMap((p) => p.variants.map((v) => v.id)).filter(
-      (id) => id !== 'baseline'
+    const codenames = LAB_PAGE_META.flatMap((p) =>
+      p.batches.flatMap((b) => b.variants.map((v) => v.id))
     );
     expect(new Set(codenames).size).toBe(codenames.length);
+  });
+
+  it('the batch counter contract holds on every page', () => {
+    // Numbers are per-page, 1-based, unique, and never exceed the counter;
+    // the counter is 0 EXACTLY when the page holds no batches — that is the
+    // mechanical form of the reset rule: the deletion commit that empties a
+    // page must zero lastBatchNumber in the same edit, and no commit may
+    // zero it any earlier.
+    for (const page of LAB_PAGE_META) {
+      const numbers = page.batches.map((b) => b.number);
+      expect(new Set(numbers).size, page.id).toBe(numbers.length);
+      for (const n of numbers) {
+        expect(Number.isInteger(n), `${page.id} batch ${n}`).toBe(true);
+        expect(n, page.id).toBeGreaterThanOrEqual(1);
+        expect(n, page.id).toBeLessThanOrEqual(page.lastBatchNumber);
+      }
+      if (page.batches.length === 0) {
+        expect(page.lastBatchNumber, page.id).toBe(0);
+      } else {
+        expect(page.lastBatchNumber, page.id).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it('batches list newest first and carry honest authorship', () => {
+    const models = new Set<string>(Object.values(LAB_AUTHOR_MODELS));
+    for (const page of LAB_PAGE_META) {
+      for (let i = 1; i < page.batches.length; i += 1) {
+        // Strictly descending: the gallery renders registry order verbatim.
+        expect(page.batches[i].number, page.id).toBeLessThan(page.batches[i - 1].number);
+      }
+      for (const batch of page.batches) {
+        const label = `${page.id} batch ${batch.number}`;
+        expect(batch.dateIso, label).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(models.has(batch.model), `${label}: model must come from LAB_AUTHOR_MODELS`).toBe(
+          true
+        );
+        expect(batch.description.length, label).toBeGreaterThan(0);
+        expect(batch.variants.length, label).toBeGreaterThan(0);
+      }
+    }
   });
 });
 
@@ -263,11 +319,45 @@ describe('switcher model', () => {
     });
   });
 
-  it('reserves exactly the routing triple', () => {
-    // Reserving MORE than the triple would silently eat a page-contract
-    // param; reserving less would duplicate routing state onto the query.
-    // `data` is retired but still reserved — see switcher-model.ts.
-    expect([...LAB_RESERVED_PARAMS].sort()).toEqual(['data', 'page', 'variant']);
+  it('reserves exactly the routing quadruple', () => {
+    // Reserving MORE would silently eat a page-contract param; reserving
+    // less would duplicate routing state onto the query. `data` is retired
+    // but still reserved; `batch` is the strip's scope — both documented in
+    // switcher-model.ts.
+    expect([...LAB_RESERVED_PARAMS].sort()).toEqual(['batch', 'data', 'page', 'variant']);
+  });
+
+  it('re-appends the batch scope and never forwards a raw ?batch as an extra', () => {
+    // The scope must survive the hop onto CURRENT and back, and a stale
+    // ?batch from the URL must never ride as a page-contract param when the
+    // strip has no scope.
+    expect(
+      switcherHref('home', 'baseline', { page: 'home', variant: 'glass', batch: '3' }, 3)
+    ).toBe('/lab/home/baseline?batch=3');
+    expect(switcherHref('home', 'baseline', { page: 'home', variant: 'glass', batch: '3' })).toBe(
+      '/lab/home/baseline'
+    );
+  });
+
+  it('resolveBatchNumber: membership wins, baseline trusts a valid param, garbage is null', () => {
+    const page = {
+      batches: [
+        { number: 2, variants: [{ id: 'glass' }] },
+        { number: 1, variants: [{ id: 'ember' }] },
+      ],
+    };
+    // A codename's owning batch is the truth, whatever the URL claims.
+    expect(resolveBatchNumber(page, 'glass', '1')).toBe(2);
+    expect(resolveBatchNumber(page, 'ember', undefined)).toBe(1);
+    // CURRENT belongs to no batch: the param decides, when it names a real one.
+    expect(resolveBatchNumber(page, 'baseline', '2')).toBe(2);
+    expect(resolveBatchNumber(page, 'baseline', ['1', '2'])).toBe(1);
+    // TOTAL over garbage — this runs during the host's render.
+    expect(resolveBatchNumber(page, 'baseline', undefined)).toBeNull();
+    expect(resolveBatchNumber(page, 'baseline', '9')).toBeNull();
+    expect(resolveBatchNumber(page, 'baseline', '0')).toBeNull();
+    expect(resolveBatchNumber(page, 'baseline', '-1')).toBeNull();
+    expect(resolveBatchNumber(page, 'baseline', 'x')).toBeNull();
   });
 });
 
