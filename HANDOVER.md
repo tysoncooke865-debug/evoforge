@@ -754,6 +754,22 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **LAB-SYNC: CURRENT is mechanically pinned to the deployed app
+  (2026-09-04, no migration)** — `scripts/lab-sync.mjs` + five recorded
+  fork-recipe patches (`scripts/lab-sync/*.patch`, `.gitattributes`-pinned
+  LF). Contract: baseline = live source + recorded patch, byte-equal after
+  LF normalization; CI runs `--check` on every push (client.yml, after
+  verify-motion). A commit that touches `(main)/index.tsx`, `today.tsx`,
+  `workout.tsx`, `fuel.tsx` or `ui/train/exercise-logger.tsx` now fails CI
+  unless it runs `--write` in the same commit — that IS the feature; rot
+  becomes a red build, not a discovery. `--record` is for deliberate recipe
+  changes (it refuses an empty diff: a fork with no recipe still carries
+  the live default export). All git work happens over LF-normalized temp
+  trees (`-c core.autocrlf=false`), and `--write` writes the baseline back
+  in the LIVE file's on-disk style so the manual `git diff --no-index`
+  eyeball keeps working on Windows checkouts. Falsified both directions
+  (live-page edit → red; recipe-hunk edit → red; restore → green).
+
 - **PAGE LAB: the three rotted baselines re-forked, and the lab goes
   network-silent (2026-09-04, no migration)** — `train/baseline` had drifted
   65 hunks from `today.tsx` (workout ~250 lines, the logger fork ~270) while

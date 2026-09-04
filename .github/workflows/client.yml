@@ -120,6 +120,14 @@ jobs:
       - name: verify-motion — every ambient loop honours reduced motion
         run: node scripts/verify-motion.mjs
 
+      # PAGE LAB: every CURRENT baseline must equal its live source + the
+      # recorded fork-recipe patch (scripts/lab-sync/). By 2026-09-04 the
+      # train baseline had silently drifted 65 hunks; this makes rot a red
+      # build instead of a discovery. Touched a live page? `--write` in the
+      # same commit. Changed a recipe? `--record`.
+      - name: lab-sync — committed baselines equal regeneration from live sources
+        run: node scripts/lab-sync.mjs --check
+
       # Premium program P2: the arena's deterministic engine must stay pure
       # TS (no react/react-native/expo/zustand imports) — rendering derives
       # from engine state, never the other way round. Falsified 2026-07-23.

@@ -14,3 +14,13 @@ contracts/fixtures/*.json text eol=lf
 # CRLF checkout (Windows autocrlf) fails that test while git reports the file
 # clean. Pin LF in the working copy on every platform.
 client/scripts/gen-exercise-ids.mjs text eol=lf
+
+# The lab-sync fork-recipe patches are byte-sensitive the same way: git apply
+# needs patch and target to agree, and the target is LF-normalized in memory.
+# A CRLF checkout would fail every hunk while git reports the files clean.
+client/scripts/lab-sync/*.patch text eol=lf
+
+# The lab-sync fork-recipe patches are byte-sensitive the same way: git apply
+# needs patch and target to agree, and the target is LF-normalized in memory.
+# A CRLF checkout would fail every hunk while git reports the files clean.
+client/scripts/lab-sync/*.patch text eol=lf

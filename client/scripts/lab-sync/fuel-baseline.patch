@@ -1,0 +1,118 @@
+--- a/src/lab/variants/fuel/baseline.tsx
++++ b/src/lab/variants/fuel/baseline.tsx
+@@ -1,15 +1,36 @@
++/**
++ * PAGE LAB FORK of src/app/(main)/fuel.tsx — the diff-zero baseline.
++ * Diverges from the live screen in exactly four ways (the fork recipe,
++ * src/lab/README.md):
++ *   1. this docblock;
++ *   2. named export (FuelBaseline, not the default FuelScreen);
++ *   3. the write hooks this file imports — useSaveTarget and useDeleteEntry
++ *      — come from the mock-safe shims (@/lab/mock/mutations) instead of
++ *      @/data/nutrition; every read and every other import is untouched.
++ *      (useLogCalories lives inside QuickLogCard, not here, so there is
++ *      nothing to swap for it in this file.)
++ *   4. THE AI INTAKE GUARD: NutritionIntake fires a REAL `ai-nutrition`
++ *      edge call on mount — under the lab's fake session that burns the real
++ *      AI budget (the activation-step class of un-shimmed side effect). The
++ *      lab is mock-only, so the sheet is not mounted here at ALL: every
++ *      setIntakeOpen(true) call site goes through openIntake(), which always
++ *      shows an info toast pointing at SET TARGET MANUALLY instead.
++ * Everything else is verbatim; diff against fuel.tsx to review a variant.
++ */
+ import { useState } from 'react';
+ import { Modal, Pressable, Text, View } from 'react-native';
+ 
+ import {
+   targetInForce,
+   useCaloriesBurned,
+-  useDeleteEntry,
+   useNutritionDates,
+   useNutritionLog,
+   useNutritionTargets,
+-  useSaveTarget,
+ } from '@/data/nutrition';
++import {
++  useLabDeleteEntry as useDeleteEntry,
++  useLabSaveTarget as useSaveTarget,
++} from '@/lab/mock/mutations';
+ import { NumberField } from '@/ui/core/number-field';
+ import {
+   GOAL_LABEL,
+@@ -29,7 +50,6 @@ import { useToastStore } from '@/state/toast-store';
+ import { pixelFont } from '@/theme/fonts';
+ import { useThemeColors } from '@/theme/use-theme';
+ import { Chip, NeonButton } from '@/ui/core/neon-button';
+-import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
+ import { SectionLabel } from '@/ui/core/screen-header';
+ import { GlowCard, ScreenShell } from '@/ui/core/shell';
+ import { AiNotice } from '@/ui/legal/ai-badge';
+@@ -70,7 +90,7 @@ const METER_COLOUR = {
+   over_cut: 'warn',
+ } as const;
+ 
+-export default function FuelScreen() {
++export function FuelBaseline() {
+   const colors = useThemeColors();
+   const todayIso = calendarToday();
+ 
+@@ -97,7 +117,16 @@ export default function FuelScreen() {
+   // The target modals — the AI intake asks, the manual sheet is the escape
+   // hatch; both save through the same mutation.
+   const [targetOpen, setTargetOpen] = useState(false);
+-  const [intakeOpen, setIntakeOpen] = useState(false);
++  /** THE AI INTAKE GUARD (fork divergence #4): the intake would fire a real
++   *  ai-nutrition edge call on mount, so the lab never opens it — a toast
++   *  points at the manual sheet, which saves through the same shim. */
++  const openIntake = () => {
++    useToastStore.getState().push({
++      kind: 'info',
++      title: 'AI INTAKE IS LIVE-APP ONLY',
++      subtitle: 'The lab is mock-only — use SET TARGET MANUALLY for a local target.',
++    });
++  };
+   /** The first-run explainer, collapsed by default (brief §9: "move longer
+    *  explanations into Learn more"). */
+   const [learnMore, setLearnMore] = useState(false);
+@@ -119,7 +148,7 @@ export default function FuelScreen() {
+         title: 'RECALCULATE FIRST',
+         subtitle: 'This target predates goal switching — run the calculator once.',
+       });
+-      setIntakeOpen(true);
++      openIntake();
+       return;
+     }
+     // A plain effective-dated upsert — no AI anywhere on this path. The
+@@ -170,7 +199,7 @@ export default function FuelScreen() {
+           triple={resolvedTriple}
+           goalBusy={saveTarget.isPending}
+           onSelectGoal={switchGoal}
+-          onRecalculate={() => setIntakeOpen(true)}
++          onRecalculate={() => openIntake()}
+           onEdit={() => setTargetOpen(true)}
+         />
+       ) : (
+@@ -187,7 +216,7 @@ export default function FuelScreen() {
+             </Text>
+             <NeonButton
+               title="CALCULATE MY TARGET"
+-              onPress={() => setIntakeOpen(true)}
++              onPress={() => openIntake()}
+               testID="fuel-ai-target"
+             />
+             <View className="mt-s2">
+@@ -350,14 +379,6 @@ export default function FuelScreen() {
+         ) : null}
+       </GlowCard>
+ 
+-      {intakeOpen ? (
+-        <NutritionIntake
+-          onClose={() => setIntakeOpen(false)}
+-          onManual={() => setTargetOpen(true)}
+-          previous={target?.inputs ?? null}
+-        />
+-      ) : null}
+-
+       {targetOpen ? (
+         <ManualTargetSheet
+           initialKcal={target?.daily_kcal ?? null}

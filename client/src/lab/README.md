@@ -162,7 +162,13 @@ Promoting a variant = replacing the live screen's content with the fork's
 - Culls are **per device**: localStorage, not a repo file. That is the point —
   it is a scratch decision until the deletion commit makes it real. On native
   the whole mechanism degrades to "nothing is culled" (no localStorage).
-- Variants rot toward their source screens as the live pages evolve. The
-  baselines are diff-anchors: `git diff --no-index src/app/\(main\)/today.tsx
-  src/lab/variants/train/baseline.tsx` should show ONLY the fork recipe
-  (same for `(main)/index.tsx` ⟷ `variants/home/baseline.tsx`).
+- Non-baseline variants rot toward their source screens as the live pages
+  evolve — that is accepted; they are photographs of a design round. The
+  BASELINES are not allowed to: `scripts/lab-sync.mjs` pins every CURRENT
+  fork to `live source + recorded recipe patch` (`scripts/lab-sync/`), and
+  CI runs `--check` on every push. Touched a live page? Run
+  `node scripts/lab-sync.mjs --write` in the same commit. Deliberately
+  changed a baseline (the recipe itself)? `--record` instead. The manual
+  diff (`git diff --no-index src/app/\(main\)/today.tsx
+  src/lab/variants/train/baseline.tsx`) still works for eyeballing a hunk,
+  but the script is the guard.

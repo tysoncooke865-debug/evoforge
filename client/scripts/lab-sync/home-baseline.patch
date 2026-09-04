@@ -1,0 +1,47 @@
+--- a/src/lab/variants/home/baseline.tsx
++++ b/src/lab/variants/home/baseline.tsx
+@@ -1,10 +1,24 @@
++/**
++ * PAGE LAB FORK of src/app/(main)/index.tsx — the diff-zero baseline.
++ * Diverges from the live screen in exactly three ways (the fork recipe,
++ * src/lab/README.md): named export, the mission's workout door opens the LAB
++ * workout variant instead of /workout, and the two writes Home fires ON MOUNT
++ * — the activation step and the retroactive coin claim — go through the
++ * mock-safe shims. Everything else is verbatim; diff against index.tsx to
++ * review a variant. (Re-synced 2026-08-21 after the 2026-08-07 live
++ * restructure: mission-first for everyone, the week card absorbed the
++ * overview + last session, ProgressHub/EvoPillars below the fold.)
++ */
+ import { useEffect, useRef } from 'react';
+ import { Text, View } from 'react-native';
+ 
+ import { router } from 'expo-router';
+ 
+-import { useActivationStep } from '@/data/activation';
+-import { useClaimCoin } from '@/data/coins';
++import {
++  useLabActivationStep as useActivationStep,
++  useLabClaimCoin as useClaimCoin,
++} from '@/lab/mock/mutations';
++import { labWorkoutHref } from '@/lab/links';
+ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+ import { useExercisePrefs, unitFor } from '@/data/exercise-prefs';
+ import { useUserExercises } from '@/data/exercises';
+@@ -146,7 +160,7 @@ function DriftWarning({ drift, source }: { drift: number; source: string }) {
+   );
+ }
+ 
+-export default function HomeScreen() {
++export function HomeBaseline() {
+   const colors = useThemeColors();
+   const { summary, stats, bfMid, ready } = useAvatarData();
+   const workouts = useWorkoutLog();
+@@ -328,7 +342,7 @@ export default function HomeScreen() {
+   };
+   const openWorkout = (name: string) => {
+     router.push(
+-      `/workout?date=${encodeURIComponent(todayIso)}&workout=${encodeURIComponent(name)}&source=${source}` as never
++      labWorkoutHref('baseline', { date: todayIso, workout: name, source }) as never
+     );
+   };
+   const openMission = () => {

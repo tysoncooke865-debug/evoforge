@@ -1,0 +1,22 @@
+--- a/src/lab/variants/workout/baseline-exercise-logger.tsx
++++ b/src/lab/variants/workout/baseline-exercise-logger.tsx
+@@ -1,10 +1,18 @@
++/**
++ * PAGE LAB FORK of src/ui/train/exercise-logger.tsx, for the workout
++ * baseline. ONE divergence: useSaveSet comes from the lab shim, so LOG SET
++ * writes the seeded cache instead of the durable queue + Supabase
++ * (src/lab/mock/mutations.ts explains why faking auth alone is not
++ * enough). Everything else is verbatim; diff against exercise-logger.tsx
++ * to review it (scripts/lab-sync.mjs --check pins it).
++ */
+ import * as Haptics from 'expo-haptics';
+ import { useEffect, useMemo, useState } from 'react';
+ import { ActivityIndicator, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
+ 
+ import { useExercisePrefs, unitFor, useSetExerciseUnit } from '@/data/exercise-prefs';
+ import { useUserExercises } from '@/data/exercises';
+-import { useSaveSet } from '@/data/mutations';
++import { useLabSaveSet as useSaveSet } from '@/lab/mock/mutations';
+ import {
+   defaultModeForModel,
+   loadFieldLabel,

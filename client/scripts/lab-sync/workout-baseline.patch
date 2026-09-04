@@ -1,0 +1,77 @@
+--- a/src/lab/variants/workout/baseline.tsx
++++ b/src/lab/variants/workout/baseline.tsx
+@@ -1,10 +1,26 @@
++/**
++ * PAGE LAB FORK of src/app/(main)/workout.tsx — the diff-zero baseline.
++ * Diverges from the live screen in exactly five ways (the fork recipe,
++ * src/lab/README.md): named export, back pops the LAB stack, finish/reopen
++ * and the activation step go through the mock-safe shims, the COMPLETION
++ * coin claim is shimmed too (it fires from an effect the moment the last
++ * set lands — the mount-write class, the developer never asked for it),
++ * and ExerciseCard comes from the local fork whose useSaveSet is shimmed.
++ * Everything else is verbatim; diff against workout.tsx to review a
++ * variant (scripts/lab-sync.mjs --check pins it).
++ */
+ import { router, useLocalSearchParams } from 'expo-router';
+ import { isCountedSet } from '@/domain/workouts';
+ import { useEffect, useRef, useState } from 'react';
+ import { Modal, Platform, Pressable, Text, View } from 'react-native';
+ import * as Haptics from 'expo-haptics';
+ 
+-import { useActivationStep } from '@/data/activation';
++import {
++  useLabActivationStep as useActivationStep,
++  useLabClaimCoin as useClaimCoin,
++  useLabFinishWorkout as useFinishWorkout,
++  useLabReopenWorkout as useReopenWorkout,
++} from '@/lab/mock/mutations';
+ import { track } from '@/data/analytics';
+ import { useAuth } from '@/data/auth-context';
+ import { useCalloutsAvailable, useMyCallouts } from '@/data/callouts';
+@@ -16,7 +32,7 @@ import { CalloutLayer } from '@/ui/callouts/callout-layer';
+ import { CalloutTray } from '@/ui/callouts/callout-tray';
+ import { loadModelFor } from '@/domain/exercise-load-models';
+ import { defaultModeForModel } from '@/domain/exercise-load';
+-import { useClaimCoin, useCoinHistory } from '@/data/coins';
++import { useCoinHistory } from '@/data/coins';
+ import { useOriginStatus } from '@/data/origin';
+ import { originAsBranch } from '@/domain/customise';
+ import { usePublishGhost } from '@/data/ghosts';
+@@ -24,7 +40,7 @@ import { useCardioLog, useWorkoutLog } from '@/data/hooks';
+ import { useRoutines, useSaveRoutine, useUpdateRoutine } from '@/data/routines';
+ import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
+ import { useSaveUserPlan, useUserPlans } from '@/data/user-plans';
+-import { useFinishWorkout, useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
++import { useWorkoutSessions } from '@/data/sessions';
+ import { useAvatarData } from '@/data/use-avatar-data';
+ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+ import { SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
+@@ -60,7 +76,7 @@ import { useToastStore } from '@/state/toast-store';
+ import { pixelFont } from '@/theme/fonts';
+ import { useThemeColors } from '@/theme/use-theme';
+ import { playComplete } from '@/ui/core/sound';
+-import { ExerciseCard } from '@/ui/train/exercise-logger';
++import { ExerciseCard } from '@/lab/variants/workout/baseline-exercise-logger';
+ import { ExercisePicker } from '@/ui/train/exercise-picker';
+ import { ExerciseSearchBar } from '@/ui/train/exercise-search-bar';
+ import { ReorderableList } from '@/ui/train/reorderable-list';
+@@ -93,7 +109,7 @@ import { useSharePromptStore } from '@/state/share-prompt-store';
+  * would paint a day green with no training in it, and `past + no sets = MISSED`
+  * is load-bearing in week-status.
+  */
+-export default function WorkoutScreen() {
++export function WorkoutBaseline() {
+   const colors = useThemeColors();
+   const params = useLocalSearchParams<{ date?: string; workout?: string; source?: string; coach?: string }>();
+   const todayIso = calendarToday();
+@@ -111,7 +127,9 @@ export default function WorkoutScreen() {
+    * where the green bar they just earned is. The workout page is only ever
+    * entered from Train, so Train is where leaving it means.
+    */
+-  const back = () => router.replace('/today' as never);
++  // LAB: back pops the lab Stack (a real pop here, not the tab trap the
++  // live page dodges) and falls back to the gallery on a cold deep link.
++  const back = () => (router.canGoBack() ? router.back() : router.replace('/lab' as never));
+ 
+   // ACTIVATION FUNNEL step 3 (docs/ACTIVATION_ANALYTICS.md) — the athlete
+   // opened a workout. The gap between this and step 4 is the one that says

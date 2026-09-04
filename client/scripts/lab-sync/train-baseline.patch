@@ -1,0 +1,61 @@
+--- a/src/lab/variants/train/baseline.tsx
++++ b/src/lab/variants/train/baseline.tsx
+@@ -1,3 +1,12 @@
++/**
++ * PAGE LAB FORK of src/app/(main)/today.tsx — the diff-zero baseline.
++ * Diverges from the live screen in exactly three ways (the fork recipe,
++ * src/lab/README.md): named export, the workout door opens the LAB workout
++ * variant instead of /workout, and the two writes that are not the
++ * developer's own act — the activation step and REOPEN — go through the
++ * mock-safe shims. Everything else is verbatim; diff against today.tsx to
++ * review a variant (scripts/lab-sync.mjs --check pins it).
++ */
+ import * as Haptics from 'expo-haptics';
+ import { Link, router, useFocusEffect } from 'expo-router';
+ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+@@ -10,7 +19,11 @@ import {
+   withTiming,
+ } from 'react-native-reanimated';
+ 
+-import { useActivationStep } from '@/data/activation';
++import {
++  useLabActivationStep as useActivationStep,
++  useLabReopenWorkout as useReopenWorkout,
++} from '@/lab/mock/mutations';
++import { labWorkoutHref } from '@/lab/links';
+ import { useBodyweightLog, useCardioLog, useProfile, useWorkoutIndex, useWorkoutLog } from '@/data/hooks';
+ import { useUserExercises } from '@/data/exercises';
+ import { useExercisePrefs } from '@/data/exercise-prefs';
+@@ -24,7 +37,7 @@ import {
+ } from '@/data/plan-claims';
+ import { canTrainEarly, EARLY_REFUSAL_MESSAGE, indexClaims } from '@/domain/plan-claims';
+ import { useSaveSchedule, useWorkoutSchedule } from '@/data/schedule';
+-import { useReopenWorkout, useWorkoutSessions } from '@/data/sessions';
++import { useWorkoutSessions } from '@/data/sessions';
+ import { forgeProgressFromRow, useForgeProgression } from '@/data/progression/use-forge';
+ import { BUILT_IN_DAYS, SOURCE_LABEL, useDayPlan } from '@/data/use-day-plan';
+ import { useSavePlanSourcePref } from '@/data/plan-source-pref';
+@@ -172,7 +185,7 @@ const datesAround = (todayIso: string): string[] => {
+   return datesCache.dates;
+ };
+ 
+-export default function TodayScreen() {
++export function TrainBaseline() {
+   const colors = useThemeColors();
+   const todayIso = calendarToday();
+   const scale = useTrainScale();
+@@ -635,9 +648,11 @@ export default function TodayScreen() {
+    *  same way every time (whichever plan held the day name). */
+   const open = (date: string, workout: string, sourceOverride?: SourceIndex) =>
+     router.push(
+-      `/workout?date=${encodeURIComponent(date)}&workout=${encodeURIComponent(
+-        workout
+-      )}&source=${sourceOverride ?? sourceForDate(date)}` as never
++      labWorkoutHref('baseline', {
++        date,
++        workout,
++        source: sourceOverride ?? sourceForDate(date),
++      }) as never
+     );
+ 
+   /**
