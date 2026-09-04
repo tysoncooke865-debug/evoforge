@@ -2,29 +2,41 @@
  * CULL — the pure half (the registry-meta / switcher-model split, same
  * reason: vitest pins the whole contract with no browser and no RN graph).
  *
- * A design that lost its round should stop competing for attention the
- * moment the call is made, but deleting source files is a commit, not a
- * button — the lab is a static export and cannot rewrite the repo it was
- * built from. So CULL is a two-step: this model hides the variant on the
- * spot (per device, localStorage), and the gallery lists what is hidden
- * under PENDING REMOVAL so the follow-up deletion commit has a work list.
+ * Culling is BATCH-LEVEL (2026-09-04): a round that lost should stop
+ * competing for attention as one decision, not seven. CURRENT is never
+ * cullable — it has no cull affordance at all — so the stored grammar only
+ * admits batch keys, and every variant-scoped key from the pre-batch era
+ * (`home/clarity`, even a hand-typed `home/baseline`) is silently dropped
+ * by the parser. That IS the migration: nothing legitimate was stored in
+ * the old grammar (batches did not exist; baselines were never meant to be
+ * culled), so tightening the shape retires the old keys with no storage
+ * versioning.
  *
- * A culled variant is hidden, NOT forgotten: RESTORE brings it back, and
+ * Deleting source files is a commit, not a button — the lab is a static
+ * export and cannot rewrite the repo it was built from. So CULL hides the
+ * batch on the spot and the gallery lists it under PENDING REMOVAL, the
+ * work list for the deletion commit (which also resets the page's
+ * lastBatchNumber to 0 when it empties the list — registry-meta.ts).
+ *
+ * A culled batch is hidden, NOT forgotten: RESTORE brings it back, and
  * nothing here touches the registry. The registry stays the only truth
- * about what exists.
+ * about what exists — a stored key whose batch was deleted is ignored.
  */
 
-/** The localStorage key. One entry, a JSON array of 'page/variant' keys. */
+/** The localStorage key. One entry, a JSON array of 'page/batch-<n>' keys.
+ *  Unchanged from the variant-cull era: the value grammar migrated, the
+ *  address did not (a rename would strand every device's culls). */
 export const LAB_CULL_STORAGE_KEY = 'evoforge-lab-culled';
 
-/** The stored identity of one variant. */
-export function cullKey(page: string, variant: string): string {
-  return `${page}/${variant}`;
+/** The stored identity of one batch. */
+export function batchCullKey(page: string, batchNumber: number): string {
+  return `${page}/batch-${batchNumber}`;
 }
 
-/** Shape of a stored key: exactly the slug grammar the registry pins, so a
- *  hand-edited or half-written entry can never widen into a match. */
-const KEY_SHAPE = /^[a-z0-9-]+\/[a-z0-9-]+$/;
+/** Shape of a stored key: page slug + a 1-based batch number, exactly. The
+ *  tight grammar is what silently retires every pre-batch variant key, and
+ *  what keeps a hand-edited entry from widening into a match. */
+const KEY_SHAPE = /^[a-z0-9-]+\/batch-[1-9][0-9]*$/;
 
 /**
  * Stored string → the culled list. TOTAL: every failure answers "nothing is
@@ -48,19 +60,31 @@ export function serializeCulled(keys: readonly string[]): string {
   return JSON.stringify(keys);
 }
 
-/** Cull one variant. Idempotent, and append-order stable so the PENDING
+/** Cull one batch. Idempotent, and append-order stable so the PENDING
  *  REMOVAL list reads in the order the calls were made. */
-export function withCulled(keys: readonly string[], page: string, variant: string): string[] {
-  const key = cullKey(page, variant);
+export function withCulledBatch(
+  keys: readonly string[],
+  page: string,
+  batchNumber: number
+): string[] {
+  const key = batchCullKey(page, batchNumber);
   return keys.includes(key) ? [...keys] : [...keys, key];
 }
 
-/** Restore one variant, leaving every other cull untouched. */
-export function withoutCulled(keys: readonly string[], page: string, variant: string): string[] {
-  const key = cullKey(page, variant);
+/** Restore one batch, leaving every other cull untouched. */
+export function withoutCulledBatch(
+  keys: readonly string[],
+  page: string,
+  batchNumber: number
+): string[] {
+  const key = batchCullKey(page, batchNumber);
   return keys.filter((k) => k !== key);
 }
 
-export function isCulled(keys: readonly string[], page: string, variant: string): boolean {
-  return keys.includes(cullKey(page, variant));
+export function isBatchCulled(
+  keys: readonly string[],
+  page: string,
+  batchNumber: number
+): boolean {
+  return keys.includes(batchCullKey(page, batchNumber));
 }

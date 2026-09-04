@@ -754,6 +754,35 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **PAGE LAB: gallery regrouped, batch-level cull with a confirm
+  (2026-09-04, no migration)** — the gallery is page-first now: one 24pt
+  heading per app page, a CURRENT box under each (NO cull affordance — the
+  comparison anchor was never a legitimate cull), then the batch boxes
+  newest-first: "REDESIGN <n> FROM <date>", "Made with <model>", the
+  round's one-line goal, OPEN (lands on the batch's first take,
+  `?batch=<n>` riding), and a quiet CULL that swaps the card's foot for an
+  inline ARE YOU SURE block — the callout-tray `confirmAbove` idiom
+  (static, no Modal, no motion, nothing for the hydration gate to trip
+  on): KEEP IT / CULL IT. **Cull is batch-level**: keys are
+  `<page>/batch-<n>` and `parseCulled`'s tightened grammar silently drops
+  every pre-batch variant key — that IS the migration, no storage version
+  bump (nothing legitimate lived in the old shape). Storage key unchanged.
+  `cull-store` writers are `cullBatch`/`uncullBatch` + `replaceAllCulled`
+  (the durable layer's merge lands through the same `write()` path, so the
+  identity-stable snapshot survives). CULLED · PENDING REMOVAL rows are
+  batches; the copy names the full deletion checklist including the
+  `lastBatchNumber → 0` reset. testIDs: `lab-open-<page>-baseline`,
+  `lab-open-<page>-batch-<n>`, `lab-cull-<page>-batch-<n>`,
+  `lab-cull-confirm-…`, `lab-cull-cancel-…`, `lab-uncull-<page>-batch-<n>`.
+  Toured with a scratch batch (working-tree only, reverted before the
+  commit): headings + CURRENT-only quiet state; batch OPEN →
+  `/lab/home/scratch?batch=1`, strip [← LAB | CURRENT | SCRATCH] with the
+  scope surviving the hop onto CURRENT; CULL → confirm → KEEP IT keeps;
+  CULL IT hides + culled row + `["home/batch-1"]` in storage; survives
+  refresh; RESTORE empties it. **The first committed batch is the true
+  end-to-end test** — the batch UI ships proven by pins and this scratch
+  tour only.
+
 - **PAGE LAB: the BATCH model (2026-09-04, no migration)** — the unit of
   review is now a batch: one session's takes on one page, numbered per page.
   `registry-meta.ts` restructured: each page = `baseline` (CURRENT, never in

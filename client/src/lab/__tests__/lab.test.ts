@@ -17,11 +17,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   LAB_CULL_STORAGE_KEY,
-  isCulled,
+  batchCullKey,
+  isBatchCulled,
   parseCulled,
   serializeCulled,
-  withCulled,
-  withoutCulled,
+  withCulledBatch,
+  withoutCulledBatch,
 } from '../cull-model';
 import { todayIso } from '../../domain/today';
 import { LAB_SEEDED_KEYS, LAB_SEEDED_PARAM_KEYS, seedLabCache } from '../fixtures';
@@ -368,27 +369,55 @@ describe('cull model', () => {
   });
 
   it('reads back what it wrote', () => {
-    const keys = withCulled(withCulled([], 'home', 'clarity'), 'fuel', 'calculator');
-    expect(parseCulled(serializeCulled(keys))).toEqual(['home/clarity', 'fuel/calculator']);
+    const keys = withCulledBatch(withCulledBatch([], 'home', 3), 'fuel', 1);
+    expect(parseCulled(serializeCulled(keys))).toEqual(['home/batch-3', 'fuel/batch-1']);
   });
 
   it('culling twice is idempotent', () => {
-    const once = withCulled([], 'home', 'clarity');
-    expect(withCulled(once, 'home', 'clarity')).toEqual(['home/clarity']);
+    const once = withCulledBatch([], 'home', 3);
+    expect(withCulledBatch(once, 'home', 3)).toEqual(['home/batch-3']);
   });
 
   it('restoring removes only its own key', () => {
-    const keys = withCulled(withCulled([], 'home', 'clarity'), 'home', 'saga');
-    expect(withoutCulled(keys, 'home', 'clarity')).toEqual(['home/saga']);
-    expect(isCulled(withoutCulled(keys, 'home', 'clarity'), 'home', 'saga')).toBe(true);
+    const keys = withCulledBatch(withCulledBatch([], 'home', 3), 'home', 4);
+    expect(withoutCulledBatch(keys, 'home', 3)).toEqual(['home/batch-4']);
+    expect(isBatchCulled(withoutCulledBatch(keys, 'home', 3), 'home', 4)).toBe(true);
   });
 
-  it('a same-named variant on another page is a different design', () => {
-    // The keys are page-scoped: culling home/baseline must not hide the
-    // workout page's own baseline.
-    const keys = withCulled([], 'home', 'baseline');
-    expect(isCulled(keys, 'home', 'baseline')).toBe(true);
-    expect(isCulled(keys, 'workout', 'baseline')).toBe(false);
+  it('a same-numbered batch on another page is a different round', () => {
+    // The keys are page-scoped: culling HOME's batch 1 must not hide
+    // FUEL's batch 1.
+    const keys = withCulledBatch([], 'home', 1);
+    expect(isBatchCulled(keys, 'home', 1)).toBe(true);
+    expect(isBatchCulled(keys, 'fuel', 1)).toBe(false);
+  });
+
+  it('the key grammar is exactly page/batch-<n>', () => {
+    expect(batchCullKey('home', 12)).toBe('home/batch-12');
+  });
+
+  it('silently retires every pre-batch variant-scoped key', () => {
+    // The 2026-09-04 grammar migration: the old era stored 'page/variant'
+    // keys ('home/clarity'; even a hand-typed 'workout/baseline'). Nothing
+    // legitimate lives in that shape any more — batches did not exist, and
+    // baselines were never meant to be culled — so the parser drops them
+    // without a storage version bump.
+    const legacy = JSON.stringify(['home/clarity', 'workout/baseline', 'home/batch-2']);
+    expect(parseCulled(legacy)).toEqual(['home/batch-2']);
+  });
+
+  it('rejects malformed batch keys individually', () => {
+    // batch-0 (numbers are 1-based), a bare 'batch-', zero-padded and
+    // non-numeric tails are all hand-edit shapes that must never widen
+    // into a match.
+    const raw = JSON.stringify([
+      'home/batch-0',
+      'home/batch-',
+      'home/batch-01',
+      'home/batch-x',
+      'home/batch-3',
+    ]);
+    expect(parseCulled(raw)).toEqual(['home/batch-3']);
   });
 
   it('survives every shape of corrupt storage without throwing', () => {
@@ -398,13 +427,9 @@ describe('cull model', () => {
     expect(parseCulled('')).toEqual([]);
     expect(parseCulled('not json')).toEqual([]);
     expect(parseCulled('{"page":"home"}')).toEqual([]);
-    expect(parseCulled('"home/clarity"')).toEqual([]);
-  });
-
-  it('drops individual malformed entries, keeping the good ones', () => {
-    // One hand-edited key must not discard the rest of the list.
-    expect(parseCulled(JSON.stringify(['home/clarity', 42, 'nope', 'a/b/c', null, 'fuel/x']))).toEqual(
-      ['home/clarity', 'fuel/x']
-    );
+    expect(parseCulled('"home/batch-1"')).toEqual([]);
+    expect(parseCulled(JSON.stringify(['home/batch-1', 42, null, 'a/b/c']))).toEqual([
+      'home/batch-1',
+    ]);
   });
 });

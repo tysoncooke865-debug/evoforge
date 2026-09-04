@@ -1,12 +1,14 @@
-import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { router } from 'expo-router';
+
 import { todayIso } from '@/domain/today';
-import { cullKey, isCulled } from '@/lab/cull-model';
-import { cull, uncull, useCulled } from '@/lab/cull-store';
+import { batchCullKey, isBatchCulled } from '@/lab/cull-model';
+import { cullBatch, uncullBatch, useCulled } from '@/lab/cull-store';
 import { labVariantHref } from '@/lab/links';
 import { LAB_PAGES } from '@/lab/registry';
-import type { LabPage, LabVariant } from '@/lab/types';
+import type { LabBatch, LabPage } from '@/lab/types';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
 import { NeonButton } from '@/ui/core/neon-button';
@@ -14,28 +16,38 @@ import { ScreenHeader, SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
 
 /**
- * PAGE LAB — the gallery, and the lab's front door. One section per page,
- * one card per live design: what it is, OPEN, and CULL when it loses.
+ * PAGE LAB — the gallery, and the lab's front door.
  *
- * The index is deliberately an INDEX. You land here, you pick a page, you
- * click into that page's batch of takes and compare them with the tab strip.
- * (The (lab) layout is the gate; by the time this renders, the lab is on.)
+ * One large heading per app page. Under it, CURRENT first — the pinned fork
+ * of the deployed design, always present, with NO cull affordance (culling
+ * the comparison anchor was never a decision anyone meant to offer) — then
+ * the REDESIGN batches, newest first: "REDESIGN <n> FROM <date>", made-with
+ * line, one OPEN that lands on the batch's first take with CURRENT one tab
+ * away. With no batches pending, a page is exactly its CURRENT box — the
+ * quiet state is the healthy state.
+ *
+ * CULL is batch-level and CONFIRMED: the quiet CULL under a batch swaps the
+ * card's foot for an inline are-you-sure block (the callout-tray idiom —
+ * static, no Modal, no motion, nothing for the hydration gate to trip on).
+ * Confirming hides the batch and lists it under CULLED · PENDING REMOVAL,
+ * the work list for the deletion commit. RESTORE undoes it.
  *
  * testID contract (the Playwright tour drives these):
- *   lab-open-<page>-<variant>, lab-cull-<page>-<variant>,
- *   lab-uncull-<page>-<variant>
+ *   lab-open-<page>-baseline, lab-open-<page>-batch-<n>,
+ *   lab-cull-<page>-batch-<n>, lab-cull-confirm-<page>-batch-<n>,
+ *   lab-cull-cancel-<page>-batch-<n>, lab-uncull-<page>-batch-<n>
  */
 export default function LabGalleryScreen() {
   const colors = useThemeColors();
   const culled = useCulled();
 
-  // Keys for designs that no longer exist (already deleted in a follow-up
+  // Keys for batches that no longer exist (already deleted in a follow-up
   // commit) are ignored, never shown — the registry is the only truth about
-  // what exists, and a stale key must not outlive its variant on screen.
+  // what exists, and a stale key must not outlive its batch on screen.
   const pending = LAB_PAGES.flatMap((page) =>
-    page.variants
-      .filter((variant) => isCulled(culled, page.id, variant.id))
-      .map((variant) => ({ page, variant }))
+    page.batches
+      .filter((batch) => isBatchCulled(culled, page.id, batch.number))
+      .map((batch) => ({ page, batch }))
   );
 
   return (
@@ -49,19 +61,24 @@ export default function LabGalleryScreen() {
       </Text>
 
       {LAB_PAGES.map((page) => {
-        const live = page.variants.filter((v) => !isCulled(culled, page.id, v.id));
+        const live = page.batches.filter((b) => !isBatchCulled(culled, page.id, b.number));
         return (
           <View key={page.id} className="w-full gap-s3">
-            <SectionLabel size="lg">{`${page.title} · ${live.length}`}</SectionLabel>
-            {live.length === 0 ? (
-              <Text className="text-xs text-text-dim">
-                Every take on this page is culled. Restore one below, or fork a new one.
+            {/* The page heading — large on purpose: the gallery's first job
+                is "which page am I looking at takes OF". */}
+            <View className="w-full gap-s1">
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 24, letterSpacing: 2, color: colors.text, ...pixelFont() }}
+              >
+                {page.title}
               </Text>
-            ) : (
-              live.map((variant) => (
-                <VariantCard key={variant.id} page={page} variant={variant} />
-              ))
-            )}
+              <View style={{ height: 2, width: 48, backgroundColor: colors.accent }} />
+            </View>
+            <CurrentCard page={page} />
+            {live.map((batch) => (
+              <BatchCard key={batch.number} page={page} batch={batch} />
+            ))}
           </View>
         );
       })}
@@ -70,11 +87,12 @@ export default function LabGalleryScreen() {
         <View className="w-full gap-s3">
           <SectionLabel size="lg">CULLED · PENDING REMOVAL</SectionLabel>
           <Text className="text-xs text-text-dim">
-            Hidden on this device only. Deleting them for good is a commit: the variant files, its
-            registry-meta entry, its COMPONENTS line.
+            Hidden, not deleted. Deleting a batch for good is a commit: its variant files, its
+            batches entry, its COMPONENTS lines — and when that empties the page,
+            lastBatchNumber resets to 0 in the same edit (lab.test.ts enforces it).
           </Text>
-          {pending.map(({ page, variant }) => (
-            <CulledRow key={cullKey(page.id, variant.id)} page={page} variant={variant} />
+          {pending.map(({ page, batch }) => (
+            <CulledRow key={batchCullKey(page.id, batch.number)} page={page} batch={batch} />
           ))}
         </View>
       ) : null}
@@ -82,47 +100,128 @@ export default function LabGalleryScreen() {
   );
 }
 
-function VariantCard({ page, variant }: { page: LabPage; variant: LabVariant }) {
+/** CURRENT — the deployed design. No cull affordance, ever. */
+function CurrentCard({ page }: { page: LabPage }) {
   const colors = useThemeColors();
-
   const open = () =>
-    router.push(labVariantHref(page.id, variant.id, page.exampleParams?.(todayIso())) as never);
+    router.push(labVariantHref(page.id, 'baseline', page.exampleParams?.(todayIso())) as never);
 
   return (
     <GlowCard>
       <View className="gap-s3">
         <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.text, ...pixelFont() }}>
-          {variant.title}
+          CURRENT
         </Text>
-        <Text className="text-xs text-text-dim">{variant.description}</Text>
-        <NeonButton title="OPEN" onPress={open} testID={`lab-open-${page.id}-${variant.id}`} />
-        {/* Quiet on purpose: culling is a decision, not a convenience, and
-            it must never sit at the same weight as OPEN. */}
-        <Pressable
-          testID={`lab-cull-${page.id}-${variant.id}`}
-          accessibilityRole="button"
-          accessibilityLabel={`Cull the ${variant.title} design`}
-          onPress={() => cull(page.id, variant.id)}
-          style={{ minHeight: 44, justifyContent: 'center' }}
-        >
-          <Text
-            allowFontScaling={false}
-            style={{
-              fontSize: 10,
-              letterSpacing: 1,
-              color: colors['text-mute'],
-              ...pixelFont(false),
-            }}
-          >
-            CULL
-          </Text>
-        </Pressable>
+        <Text className="text-xs text-text-dim">{page.baseline.description}</Text>
+        <NeonButton title="OPEN" onPress={open} testID={`lab-open-${page.id}-baseline`} />
       </View>
     </GlowCard>
   );
 }
 
-function CulledRow({ page, variant }: { page: LabPage; variant: LabVariant }) {
+function BatchCard({ page, batch }: { page: LabPage; batch: LabBatch }) {
+  const colors = useThemeColors();
+  const [confirming, setConfirming] = useState(false);
+
+  const first = batch.variants[0];
+  const open = () =>
+    router.push(
+      labVariantHref(page.id, first.id, {
+        ...page.exampleParams?.(todayIso()),
+        batch: String(batch.number),
+      }) as never
+    );
+
+  return (
+    <GlowCard>
+      <View className="gap-s3">
+        <Text allowFontScaling={false} style={{ fontSize: 17, color: colors.text, ...pixelFont() }}>
+          {`REDESIGN ${batch.number} FROM ${batch.dateIso}`}
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={{ fontSize: 10, letterSpacing: 0.5, color: colors['text-dim'], ...pixelFont(false) }}
+        >
+          {`Made with ${batch.model}`}
+        </Text>
+        <Text className="text-xs text-text-dim">{batch.description}</Text>
+        <NeonButton
+          title="OPEN"
+          onPress={open}
+          testID={`lab-open-${page.id}-batch-${batch.number}`}
+        />
+        {confirming ? (
+          /* The callout-tray confirm idiom: swap the card's foot in place for
+             a warn-tinted statement + two buttons. Static styles only — no
+             Modal, no animation, nothing for verify-motion or the hydration
+             gate to trip on. */
+          <View
+            className="rounded-md border p-s3"
+            style={{ borderColor: `${colors.warn}66`, backgroundColor: `${colors.warn}10` }}
+          >
+            <Text
+              allowFontScaling={false}
+              className="text-2xs"
+              style={{ color: colors.warn, letterSpacing: 1 }}
+            >
+              ARE YOU SURE?
+            </Text>
+            <Text className="mt-s1 text-2xs text-text-dim">
+              This hides REDESIGN {batch.number} everywhere the cull list reaches and queues it
+              for the deletion commit. RESTORE undoes it until then.
+            </Text>
+            <View className="mt-s2 flex-row" style={{ gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <NeonButton
+                  title="KEEP IT"
+                  variant="ghost"
+                  pixel
+                  onPress={() => setConfirming(false)}
+                  testID={`lab-cull-cancel-${page.id}-batch-${batch.number}`}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <NeonButton
+                  title="CULL IT"
+                  pixel
+                  onPress={() => {
+                    setConfirming(false);
+                    cullBatch(page.id, batch.number);
+                  }}
+                  testID={`lab-cull-confirm-${page.id}-batch-${batch.number}`}
+                />
+              </View>
+            </View>
+          </View>
+        ) : (
+          /* Quiet on purpose: culling is a decision, not a convenience, and
+             it must never sit at the same weight as OPEN. */
+          <Pressable
+            testID={`lab-cull-${page.id}-batch-${batch.number}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Cull redesign ${batch.number} of ${page.title}`}
+            onPress={() => setConfirming(true)}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text
+              allowFontScaling={false}
+              style={{
+                fontSize: 10,
+                letterSpacing: 1,
+                color: colors['text-mute'],
+                ...pixelFont(false),
+              }}
+            >
+              CULL
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </GlowCard>
+  );
+}
+
+function CulledRow({ page, batch }: { page: LabPage; batch: LabBatch }) {
   const colors = useThemeColors();
   return (
     <View
@@ -143,13 +242,13 @@ function CulledRow({ page, variant }: { page: LabPage; variant: LabVariant }) {
           ...pixelFont(false),
         }}
       >
-        {`${page.title} / ${variant.title}`}
+        {`${page.title} / REDESIGN ${batch.number}`}
       </Text>
       <Pressable
-        testID={`lab-uncull-${page.id}-${variant.id}`}
+        testID={`lab-uncull-${page.id}-batch-${batch.number}`}
         accessibilityRole="button"
-        accessibilityLabel={`Restore the ${variant.title} design`}
-        onPress={() => uncull(page.id, variant.id)}
+        accessibilityLabel={`Restore redesign ${batch.number} of ${page.title}`}
+        onPress={() => uncullBatch(page.id, batch.number)}
         style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 12 }}
       >
         <Text
