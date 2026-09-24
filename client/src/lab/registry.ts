@@ -7,6 +7,7 @@ import type { LabBatch, LabPage, LabPageId, LabVariant } from './types';
 import { HomeBaseline } from './variants/home/baseline';
 import { TrainBaseline } from './variants/train/baseline';
 import { FuelBaseline } from './variants/fuel/baseline';
+import { FuelCounterweight } from './variants/fuel/counterweight';
 import { WorkoutBaseline } from './variants/workout/baseline';
 
 /**
@@ -28,6 +29,7 @@ const COMPONENTS: Record<string, ComponentType> = {
   'train/baseline': TrainBaseline,
   'workout/baseline': WorkoutBaseline,
   'fuel/baseline': FuelBaseline,
+  'fuel/counterweight': FuelCounterweight,
 };
 
 /** Query params the gallery appends per page — the workout page's ONE-door

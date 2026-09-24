@@ -118,7 +118,23 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
       description:
         'Verbatim fork of the live Fuel page — target/log/delete writes shimmed; the AI intake is disabled in the lab.',
     },
-    lastBatchNumber: 0,
-    batches: [],
+    lastBatchNumber: 1,
+    batches: [
+      {
+        number: 1,
+        dateIso: '2026-09-24',
+        model: LAB_AUTHOR_MODELS.fable5,
+        description:
+          'The calorie box rework: an editable local RECALCULATE, goal + maintain twin boxes instead of the 3-chip switcher, SET MANUALLY without goal chips, zero AI on the path.',
+        variants: [
+          {
+            id: 'counterweight',
+            title: 'COUNTERWEIGHT',
+            description:
+              'RECALCULATE opens a fully editable local calculator (dual cut/bulk rates persist); the hero shows the goal box beside a MAINTAIN reference; the manual sheet is one kcal input carrying the goal forward.',
+          },
+        ],
+      },
+    ],
   },
 ];

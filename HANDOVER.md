@@ -754,6 +754,63 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **FUEL LAB batch 1 — `counterweight`, the calorie box rework
+  (2026-09-24, no migration)** — the first real batch of the batch era
+  (fuel `lastBatchNumber` 0→1). Tyson's four asks, built lab-first at
+  `/lab/fuel/counterweight`:
+  1. **RECALCULATE works again.** The live button opens the AI intake,
+     which short-circuits to a read-only review (the 2026-08-21 diagnosis,
+     above). The variant's `✦ RECALCULATE` opens
+     `variants/fuel/counterweight/recalculate-sheet.tsx` — the culled
+     d120681 sheet resurrected: fully editable sex/weight/height/age,
+     activity, GOAL chips (CUT/MAINTAIN/BULK), ONE visible rate row that
+     follows the chosen goal (hidden for maintain; BOTH rates held in
+     state and persisted — the dual-rate model, asymmetric by design).
+     Local Mifflin–St Jeor only; zero AI on the whole path.
+  2. **The 3-chip goal switcher is gone.** Nobody toggles from −1 kg/wk to
+     +1 kg/wk between meals. The hero fork shows two DISPLAY boxes: the
+     goal in force LEFT (CUT/BULK heading + kcal + rate line), MAINTAIN
+     RIGHT for reference (`—` + RECALCULATE TO FILL on manual rows); a
+     maintain goal collapses to ONE full-width box. Goal changes happen
+     inside RECALCULATE.
+  3. **EDIT → SET MANUALLY**: one kcal input, goal chips deleted — the
+     in-force goal carries forward (default maintain), `triple: null`
+     stays doctrine, and the ONE input that survives is a plausible
+     stored `weightKg` so `macroTargetsFor` keeps 2 g/kg protein instead
+     of degrading to the 150 g fallback.
+  4. **"since {date}" joins its row's pixel font** (it was the only
+     system-sans element in the actions row).
+  The save payloads are pure and pinned
+  (`counterweight/model.ts::buildSavePayload`/`manualSavePayload`, 17
+  tests): recalc writes daily_kcal = the chosen leg, both rates in the
+  `inputs` jsonb (`ratePerWeekKg` cut / `rateGainKgPerWeek` bulk — rides
+  jsonb, NO migration), the asymmetric triple in the 081 columns; every
+  consumer hangs off `['nutrition_targets', userId]`, so the existing
+  single invalidation propagates globally (traced: fuel.tsx and this fork
+  are the only readers).
+
+  **THE AI AUDIT (Tyson's ask 5 — accuracy of the calorie AI):**
+  `ai-nutrition` never computes calories — its prompt forbids it; all
+  numbers are client-side Mifflin–St Jeor, deterministic and pinned. The
+  regression is purely the short-circuit (index.ts L140-144) + fuel.tsx
+  passing `previous=target.inputs`. Found while auditing: completed
+  intakes call `storeCache(sb,'nutrition',…)` but `ai_scan_cache`'s kind
+  CHECK (027) excludes `'nutrition'` — the insert fails silently, so
+  intakes never counted toward the 10/hr AI budget. **Recommendation,
+  pending Tyson's lab verdict: retire the intake at promotion** (its only
+  mount is fuel.tsx L354; the editable sheet supersedes it and moots the
+  CHECK gap). Promotion also folds the dual-rate model into
+  `domain/nutrition.ts` (moving the pinned symmetric-triple tests) and
+  runs `lab-sync --write` with the fuel.tsx/fuel-hero.tsx edits.
+
+  Toured over the flagged export (`serve dist --single`, visible=true
+  nodes): prefill from the seeded row (82/180/28, cut 0.5); BULK 0.25 →
+  APPLY → hero BULK 3,081+burned, since = today; SET MANUALLY (no chips)
+  → goal heading carried, maintain box `—`; recalc-after-manual gates on
+  the blank age ("a birthday is never invented"), MAINTAIN apply →
+  single full-width box; **zero non-static network requests the whole
+  tour**. 2,554 tests.
+
 - **PAGE LAB README rewritten for the batch era (2026-09-04, no
   migration)** — the authoring recipe (next number = `lastBatchNumber + 1`,
   bump in the same edit; batch meta at the FRONT of `batches`; model from
