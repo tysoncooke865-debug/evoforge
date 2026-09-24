@@ -125,7 +125,7 @@ export const LAB_PAGE_META: readonly LabPageMeta[] = [
         dateIso: '2026-09-24',
         model: LAB_AUTHOR_MODELS.fable5,
         description:
-          'The calorie box rework: an editable local RECALCULATE, goal + maintain twin boxes instead of the 3-chip switcher, SET MANUALLY without goal chips, zero AI on the path.',
+          'The calorie box rework: an editable local RECALCULATE, goal + maintain twin boxes instead of the three-way switcher, SET MANUALLY reduced to one calorie input, zero AI on the path.',
         variants: [
           {
             id: 'counterweight',
