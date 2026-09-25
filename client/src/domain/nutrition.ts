@@ -2,11 +2,13 @@
  * FUEL — the calorie arithmetic (nutrition branch).
  *
  * THE RULE THAT SHAPES THIS FILE: the AI asks; the domain computes — never the
- * reverse. The intake assistant (ai-nutrition edge function) only ever extracts
- * structured fields (age, activity, goal, rate); the number that becomes the
- * athlete's daily target comes from the pure functions below. A hallucinated
- * calorie count can therefore never reach nutrition_targets: it has no code
- * path. Same contract shape as ai-plan (AI proposes, the validator disposes).
+ * reverse. (Since 2026-09-25 the target path asks NOTHING of the AI either:
+ * the retired ai-nutrition intake only ever extracted structured fields, and
+ * the recalculate sheet now collects them as a plain form.) The number that
+ * becomes the athlete's daily target comes from the pure functions below. A
+ * hallucinated calorie count can therefore never reach nutrition_targets: it
+ * has no code path. Same contract shape as ai-plan (AI proposes, the
+ * validator disposes).
  *
  * Pure by doctrine: no react, no supabase, no dates-from-the-wall-clock. That
  * is what makes the safety floor a TESTED rule instead of a hope.

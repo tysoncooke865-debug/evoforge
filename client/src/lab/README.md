@@ -167,9 +167,10 @@ or junk in the durable queue (signed out). Hence:
   included), cardio logging, unit prefs, ghost publish, and any coin claim
   that should LAND. The orange banner appears whenever a real session exists
   underneath the fake one — heed it, or sign out;
-- the FUEL AI intake is not mounted in the lab at all: `NutritionIntake`
-  fires a real `ai-nutrition` edge call on mount, which would burn the real
-  AI budget. `openIntake()` toasts toward SET TARGET MANUALLY instead;
+- the FUEL AI intake is GONE (retired 2026-09-25 with the counterweight
+  promotion): RECALCULATE is a local editable sheet whose APPLY hands its
+  payload to the screen's `useSaveTarget` — the shim covers it, no fork of
+  the sheet needed;
 - the lab athlete's `callouts_enabled` is FALSE (2026-09-04): the setting
   gates everything about call outs including the read — `useMyCallouts`
   polls an RPC every 8s at `staleTime: 0`, so seeding its list would be
