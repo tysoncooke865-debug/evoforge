@@ -754,6 +754,39 @@ Owner: Tyson. He works through other Claude sessions too â€” **always
 
 - **HOME DESIGN LAB, phase A â€” baseline re-synced, fixture gap closed
   (2026-08-18, no migration)** â€” Tyson: analyse Home with the Impeccable
+- **FUEL: the calorie box rework PROMOTED (2026-09-25, no migration)** —
+  Tyson approved the `counterweight` lab batch ("this is great! apply it to
+  the live fuel page"); the batch (entry below) is now the live page.
+  - **Domain**: the dual-rate model folded into `domain/nutrition.ts`
+    (`dualRateTargets`, `dualIntakeError`, `dualRateInputsFromStored`,
+    `dualTripleFromStored` over a structural `StoredTargetTriple` so domain
+    never imports data/, `legWithinDb`, `buildSavePayload`,
+    `manualSavePayload`, both rate defaults). Its 17 pins moved to
+    `domain/__tests__/nutrition.test.ts`; the symmetric `goalTargets` +
+    its 081 pins STAY as the legacy reference (the equal-rates test proves
+    the dual model reproduces it). `lab/fixtures/nutrition-model.ts` and
+    `variants/fuel/counterweight/model.ts` are now re-export shims.
+  - **UI**: `ui/fuel/recalculate-sheet.tsx` is the promoted sheet with ONE
+    deliberate architecture change from the lab take: it holds NO mutation —
+    APPLY hands the finished `SaveTargetPayload` to `onApply`, and the
+    SCREEN owns `useSaveTarget`. That is what keeps the lab baseline fork
+    mock-safe by swapping one screen import, without ever forking the
+    sheet. `fuel-hero.tsx` carries the goal + MAINTAIN boxes, SET MANUALLY,
+    and the pixel-font since-line; `fuel.tsx` mounts the sheet, resolves
+    the triple through `dualTripleFromStored`, and its ManualTargetSheet
+    uses `manualSavePayload`. The old `fuel-goal-switch-*` testIDs are gone
+    (`fuel-goal-box` / `fuel-maintain-box` / `fuel-since` replace them);
+    `fuel-ai-target` → `fuel-calc-target`.
+  - **Lab**: fuel's recipe patch no longer applied (the intake-guard hunk
+    died with the intake) — baseline re-woven by hand to the THREE-
+    divergence recipe (docblock, named export, shim imports) and
+    `lab-sync --record` run in the same commit. The `counterweight` batch
+    stays in the gallery until Tyson culls it.
+  - The AI intake (`ui/fuel/nutrition-intake.tsx` + the `ai-nutrition`
+    edge function) retired in the follow-up commit per the audit below —
+    nothing mounts or calls either. The deployed edge function can be
+    deleted from the Supabase dashboard at leisure; no client references it.
+
 - **FUEL LAB batch 1 — `counterweight`, the calorie box rework
   (2026-09-24, no migration)** — the first real batch of the batch era
   (fuel `lastBatchNumber` 0→1). Tyson's four asks, built lab-first at

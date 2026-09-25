@@ -15,11 +15,15 @@
  *   NUTRITION SCORE — a real 0–100 adherence-to-target read
  *   (domain/nutrition.ts::nutritionScore), null (hidden) until something is
  *   logged — never a fabricated starting grade
- *   the CUT/MAINTAIN/BULK goal switcher + ✦ RECALCULATE / EDIT
+ *   the GOAL + MAINTAIN boxes + ✦ RECALCULATE / SET MANUALLY
  *
- * Every number is real: the meter colour rules, the goal switcher's stored
- * kcal quotes, and the target's own controls are BYTE-FOR-BYTE what
- * NutritionSummaryCard did — this file only changes where they live.
+ * 2026-09-25 (promoted from the page lab's COUNTERWEIGHT batch): the
+ * CUT/MAINTAIN/BULK switcher is GONE — nobody toggles from losing 1 kg/wk
+ * to gaining 1 kg/wk between meals. Two DISPLAY boxes replace it: the goal
+ * in force on the LEFT (CUT/BULK heading, kcal, rate), MAINTAIN on the
+ * RIGHT for reference (one full-width box when the goal IS maintain). Goal
+ * changes happen inside RECALCULATE. EDIT became SET MANUALLY (same
+ * pencil, honest name), and the since-date joined its row's pixel font.
  */
 
 import { router } from 'expo-router';
@@ -49,8 +53,6 @@ import {
 } from '@/ui/core/pixel-icons';
 import { GlowCard } from '@/ui/core/shell';
 import { ThinBar } from '@/ui/fuel/progress-bar';
-
-const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
 
 /** One macro row: pixel icon · name · current/target · thin bar.
  *  `emphasis` (protein): bigger label/value/bar — weight, not a new colour. */
@@ -118,10 +120,9 @@ export function FuelHero({
   streakCapped = false,
   sinceDate,
   triple,
-  goalBusy = false,
-  onSelectGoal,
+  rateLine,
   onRecalculate,
-  onEdit,
+  onSetManually,
 }: {
   progress: IntakeProgress;
   /** The effective ceiling shown after the "/" — base target + burned. */
@@ -143,11 +144,11 @@ export function FuelHero({
   sinceDate: string;
   /** The stored/derived goal triple; null = unknowable (manual target). */
   triple: GoalTargets | null;
-  /** Dim the switcher while the goal write is in flight. */
-  goalBusy?: boolean;
-  onSelectGoal: (g: Goal) => void;
+  /** The goal box's rate caption ("−0.5 KG/WK"); null when the stored row
+   *  carries no rate (manual targets). */
+  rateLine?: string | null;
   onRecalculate: () => void;
-  onEdit: () => void;
+  onSetManually: () => void;
 }) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -231,53 +232,94 @@ export function FuelHero({
     </View>
   );
 
-  // THE GOAL SWITCHER: the current goal is the filled chip; the other two
-  // quote their STORED kcal when the triple is known. Tapping writes a new
-  // effective-dated target — never an AI call.
-  const goalSwitcher = (
-    <View className="flex-row" style={{ gap: 8, opacity: goalBusy ? 0.5 : 1 }}>
-      {GOALS.map((g) => {
-        const active = g === goal;
-        return (
-          <Pressable
-            key={g}
-            onPress={() => !goalBusy && !active && onSelectGoal(g)}
-            disabled={goalBusy || active}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active, disabled: goalBusy }}
-            testID={`fuel-goal-switch-${g}`}
-            className="flex-1 items-center justify-center rounded-md border px-s1"
-            style={{
-              minHeight: 40,
-              borderColor: active ? colors.accent : colors.border,
-              backgroundColor: active ? 'rgba(34,211,238,0.12)' : 'rgba(13,21,36,0.6)',
-            }}
+  // THE GOAL BOXES: display, not controls. The goal in force reads on the
+  // LEFT with its effective kcal and rate; MAINTAIN sits on the RIGHT for
+  // reference — or one full-width box when the goal IS maintain. Changing
+  // either number goes through ✦ RECALCULATE — never an AI call.
+  const goalBox = (
+    <View
+      className="flex-1 items-center justify-center rounded-md border px-s1"
+      style={{
+        minHeight: 52,
+        paddingVertical: 8,
+        borderColor: colors.accent,
+        backgroundColor: 'rgba(34,211,238,0.12)',
+      }}
+      testID="fuel-goal-box"
+    >
+      <Text
+        className="text-accent"
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+      >
+        {GOAL_SHORT[goal]}
+      </Text>
+      <Text
+        className="text-accent"
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontSize: 12, marginTop: 3, ...pixelFont() }}
+      >
+        {targetKcal.toLocaleString()} kcal
+      </Text>
+      {rateLine ? (
+        <Text
+          className="text-text-dim"
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={{ fontSize: 9, marginTop: 2, ...pixelFont(false) }}
+        >
+          {rateLine}
+        </Text>
+      ) : null}
+    </View>
+  );
+  const goalBoxes =
+    goal === 'maintain' ? (
+      <View className="flex-row">{goalBox}</View>
+    ) : (
+      <View className="flex-row" style={{ gap: 8 }}>
+        {goalBox}
+        <View
+          className="flex-1 items-center justify-center rounded-md border px-s1"
+          style={{
+            minHeight: 52,
+            paddingVertical: 8,
+            borderColor: colors.border,
+            backgroundColor: 'rgba(13,21,36,0.6)',
+          }}
+          testID="fuel-maintain-box"
+        >
+          <Text
+            className="text-text-dim"
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
           >
+            MAINTAIN
+          </Text>
+          <Text
+            className={triple ? 'text-text' : 'text-text-mute'}
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ fontSize: 12, marginTop: 3, ...pixelFont() }}
+          >
+            {triple ? `${triple.maintain.toLocaleString()} kcal` : '—'}
+          </Text>
+          {!triple ? (
             <Text
-              className={active ? 'text-accent' : 'text-text-dim'}
-              allowFontScaling={false}
-              numberOfLines={1}
-              style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
-            >
-              {GOAL_SHORT[g]}
-            </Text>
-            <Text
-              className={active ? 'text-accent' : 'text-text-mute'}
+              className="text-text-dim"
               allowFontScaling={false}
               numberOfLines={1}
               style={{ fontSize: 9, marginTop: 2, ...pixelFont(false) }}
             >
-              {active
-                ? `${targetKcal.toLocaleString()} kcal`
-                : triple
-                  ? `${triple[g].toLocaleString()} kcal`
-                  : '—'}
+              RECALCULATE TO FILL
             </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+          ) : null}
+        </View>
+      </View>
+    );
 
   const targetActions = (
     <View className="flex-row items-center">
@@ -298,7 +340,7 @@ export function FuelHero({
       </Pressable>
       <View style={{ width: 1, height: 16, backgroundColor: colors['border-soft'] }} />
       <Pressable
-        onPress={onEdit}
+        onPress={onSetManually}
         accessibilityRole="button"
         testID="fuel-edit-target"
         className="flex-row items-center justify-center px-s2"
@@ -310,15 +352,19 @@ export function FuelHero({
           allowFontScaling={false}
           style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
         >
-          EDIT
+          SET MANUALLY
         </Text>
       </Pressable>
+      {/* The provenance line joins its row's pixel type instead of standing
+          out in the system sans. */}
       <Text
-        className="ml-auto text-2xs text-text-mute"
+        className="ml-auto text-text-mute"
         numberOfLines={1}
         allowFontScaling={false}
+        style={{ fontSize: 9, letterSpacing: 1, ...pixelFont(false) }}
+        testID="fuel-since"
       >
-        since {sinceDate}
+        SINCE {sinceDate}
       </Text>
     </View>
   );
@@ -376,7 +422,7 @@ export function FuelHero({
             {macroRows}
           </View>
         )}
-        <View className="mt-s3">{goalSwitcher}</View>
+        <View className="mt-s3">{goalBoxes}</View>
         <View className="mt-s2 border-t border-border-soft pt-s1">{targetActions}</View>
       </View>
     </GlowCard>

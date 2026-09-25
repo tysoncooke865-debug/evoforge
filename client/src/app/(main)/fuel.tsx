@@ -9,58 +9,57 @@ import {
   useNutritionLog,
   useNutritionTargets,
   useSaveTarget,
+  type NutritionTargetRow,
 } from '@/data/nutrition';
 import { NumberField } from '@/ui/core/number-field';
 import {
-  GOAL_LABEL,
+  dualTripleFromStored,
   evalEnergyExpression,
-  goalTargetsFromInputs,
   intakeProgress,
   kjToKcal,
   macroProgress,
   macroTargetsFor,
+  manualSavePayload,
   meterState,
   streakDays,
-  type Goal,
 } from '@/domain/nutrition';
 import { pyFloat } from '@/domain/py';
 import { todayIso as calendarToday } from '@/domain/today';
 import { useToastStore } from '@/state/toast-store';
 import { pixelFont } from '@/theme/fonts';
 import { useThemeColors } from '@/theme/use-theme';
-import { Chip, NeonButton } from '@/ui/core/neon-button';
-import { NutritionIntake } from '@/ui/fuel/nutrition-intake';
+import { NeonButton } from '@/ui/core/neon-button';
 import { SectionLabel } from '@/ui/core/screen-header';
 import { GlowCard, ScreenShell } from '@/ui/core/shell';
-import { AiNotice } from '@/ui/legal/ai-badge';
 import { FuelHero, FuelMasthead } from '@/ui/fuel/fuel-hero';
 import { AIMealScanCard } from '@/ui/fuel/meal-scan-card';
 import { MealsSection } from '@/ui/fuel/meals-section';
 import { QuickLogCard } from '@/ui/fuel/quick-log-card';
+import { RecalculateSheet } from '@/ui/fuel/recalculate-sheet';
 import { SavedMealsCard } from '@/ui/fuel/saved-meals-card';
 
 /**
  * FUEL — the calorie day (FUEL_REDESIGN 2026-07-18; FUEL v2, 2026-07-21;
- * CONSISTENCY PASS 2026-08-05). The page is a composition; each card owns
- * its own state and mutations, this file owns the day's derived numbers,
- * the two target modals, and the goal switch. One query, one rulebook.
+ * CONSISTENCY PASS 2026-08-05; CALORIE BOX REWORK 2026-09-25). The page is
+ * a composition; each card owns its own state and mutations, this file owns
+ * the day's derived numbers and the two target modals. One query, one
+ * rulebook.
  *
- * 2026-08-05: `FuelHeader` and `NutritionSummaryCard` — a masthead and a
- * "command centre" card stacked beneath it — merged into ONE dominant hero
- * (`ui/fuel/fuel-hero.tsx`), the same merge the Oracle pass made
- * (ui/oracle/oracle-hero.tsx): title, champion, the counting-up calories
- * figure, macros and the goal switcher now live in one card. The KJ⇄KCAL
- * CONVERTER — real but low-retention, and the brief calls it out by name —
- * moved out of the main flow into a collapsed UNIT CONVERTER disclosure
- * near the foot of the page; SAVED MEALS (real favourite-meal data, not a
- * new widget) moved up to sit right under the scanner instead.
+ * 2026-09-25 (promoted from the page lab's COUNTERWEIGHT batch, Tyson's
+ * lab verdict): ✦ RECALCULATE opens ui/fuel/recalculate-sheet.tsx — a
+ * LOCAL, fully editable calculator (sex, weight, height, age, activity,
+ * goal, rate; dual cut/bulk rates persist; Mifflin–St Jeor on device). The
+ * AI intake it replaces short-circuited to a read-only review and is
+ * retired. The hero's three-goal switcher became the goal + MAINTAIN
+ * display boxes (goal changes live in RECALCULATE), the triple resolves
+ * through the DUAL-RATE model (columns win, else asymmetric derivation),
+ * and SET MANUALLY is one kcal input — the in-force goal carries forward
+ * (domain/nutrition.ts::manualSavePayload).
  *
  * Order (top to bottom): hero · AI meal scan + barcode · saved meals ·
  * quick log · quick-adds · today's meals (the day's record reads last) ·
  * the unit converter, collapsed.
  */
-
-const GOALS: readonly Goal[] = ['lose', 'maintain', 'gain'];
 
 /** Meter colour per state (token KEYS, resolved through the theme at
  *  render) — the colour must not lie about the goal. */
@@ -94,44 +93,34 @@ export default function FuelScreen() {
   // reads "Day 45+ streak" — a visible ceiling, never a silently stuck one.
   const streakCapped = streak > 45;
 
-  // The target modals — the AI intake asks, the manual sheet is the escape
-  // hatch; both save through the same mutation.
+  // The target modals — the recalculate sheet asks (locally), the manual
+  // sheet is the escape hatch; both save through the same mutation.
+  const saveTarget = useSaveTarget();
   const [targetOpen, setTargetOpen] = useState(false);
-  const [intakeOpen, setIntakeOpen] = useState(false);
+  const [recalcOpen, setRecalcOpen] = useState(false);
   /** The first-run explainer, collapsed by default (brief §9: "move longer
    *  explanations into Learn more"). */
   const [learnMore, setLearnMore] = useState(false);
 
-  // THE GOAL SWITCH (081): stored columns first, else derive from the saved
-  // intake inputs (pre-081 rows). Manual targets ({} inputs) resolve to null —
-  // switching then explains and opens the intake instead of guessing.
-  const saveTarget = useSaveTarget();
-  const resolvedTriple = target
-    ? target.kcal_lose != null && target.kcal_maintain != null && target.kcal_gain != null
-      ? { lose: target.kcal_lose, maintain: target.kcal_maintain, gain: target.kcal_gain }
-      : goalTargetsFromInputs(target.inputs)
-    : null;
-  const switchGoal = (g: Goal) => {
-    if (!target || g === target.goal) return;
-    if (!resolvedTriple) {
-      useToastStore.getState().push({
-        kind: 'info',
-        title: 'RECALCULATE FIRST',
-        subtitle: 'This target predates goal switching — run the calculator once.',
-      });
-      setIntakeOpen(true);
-      return;
-    }
-    // A plain effective-dated upsert — no AI anywhere on this path. The
-    // triple rides along so every future switch stays instant.
-    saveTarget.mutate({
-      effectiveFrom: todayIso,
-      dailyKcal: resolvedTriple[g],
-      goal: g,
-      inputs: target.inputs,
-      triple: resolvedTriple,
-    });
-  };
+  // THE TRIPLE, dual-rate resolved: stored columns first (081's contract),
+  // else derive asymmetrically. Manual targets ({} inputs) resolve to null —
+  // the maintain box says RECALCULATE TO FILL.
+  const resolvedTriple = dualTripleFromStored(target);
+
+  // The goal box's rate caption, read from the stored inputs — never
+  // invented (manual rows and pre-dual gain rows have no honest rate).
+  const storedNum = (k: string): number =>
+    Number((target?.inputs as Record<string, unknown> | null | undefined)?.[k]);
+  const rateLine =
+    !target || target.goal === 'maintain'
+      ? null
+      : target.goal === 'lose'
+        ? Number.isFinite(storedNum('ratePerWeekKg')) && storedNum('ratePerWeekKg') > 0
+          ? `−${storedNum('ratePerWeekKg')} KG/WK`
+          : null
+        : Number.isFinite(storedNum('rateGainKgPerWeek')) && storedNum('rateGainKgPerWeek') > 0
+          ? `+${storedNum('rateGainKgPerWeek')} KG/WK`
+          : null;
 
   // Converter state — self-contained, persists nothing. Collapsed by
   // default (2026-08-05): real, but low-retention next to the hero's own
@@ -151,8 +140,8 @@ export default function FuelScreen() {
   return (
     <ScreenShell>
       {/* THE HERO — title, champion, the counting-up calories figure, macros,
-          the goal switcher and the target's own controls, all one card
-          (FUEL v2 / consistency pass). */}
+          the goal + maintain boxes and the target's own controls, all one
+          card. */}
       {target ? (
         <FuelHero
           progress={progress}
@@ -168,27 +157,25 @@ export default function FuelScreen() {
           streakCapped={streakCapped}
           sinceDate={target.effective_from}
           triple={resolvedTriple}
-          goalBusy={saveTarget.isPending}
-          onSelectGoal={switchGoal}
-          onRecalculate={() => setIntakeOpen(true)}
-          onEdit={() => setTargetOpen(true)}
+          rateLine={rateLine}
+          onRecalculate={() => setRecalcOpen(true)}
+          onSetManually={() => setTargetOpen(true)}
         />
       ) : (
         <GlowCard>
           <FuelMasthead anim="idle" />
           <View className="mt-s4 border-t border-border-soft pt-s4">
             {/* TWO CLEAR OPTIONS, and one sentence on the difference between
-                them (Tyson, 2026-08-06). It read "SET MANUALLY" under
-                "CALCULATE WITH AI" with nothing to say which an athlete
-                should pick or what changes if they do. */}
+                them (Tyson, 2026-08-06) — reworded now that the calculator
+                is local maths, not an AI conversation. */}
             <SectionLabel>NO TARGET YET</SectionLabel>
             <Text className="mb-s3 text-sm text-text-dim">
               Set a daily calorie budget and the meter fills as you log.
             </Text>
             <NeonButton
               title="CALCULATE MY TARGET"
-              onPress={() => setIntakeOpen(true)}
-              testID="fuel-ai-target"
+              onPress={() => setRecalcOpen(true)}
+              testID="fuel-calc-target"
             />
             <View className="mt-s2">
               <NeonButton
@@ -199,14 +186,9 @@ export default function FuelScreen() {
               />
             </View>
             <Text className="mt-s3 text-2xs text-text-dim" testID="fuel-target-choice-help">
-              AI gives you a starting estimate from your stats. Manual setup gives you complete
-              control.
+              The calculator estimates from your stats — the maths runs on your device. Manual
+              setup gives you complete control.
             </Text>
-            <View className="mt-s2">
-              {/* The health disclaimer stays put; the longer explanation is
-                  behind LEARN MORE so it does not bury the choice. */}
-              <AiNotice text="AI estimates are a starting point, not medical advice." />
-            </View>
             <Pressable
               onPress={() => setLearnMore((v) => !v)}
               accessibilityRole="button"
@@ -350,51 +332,56 @@ export default function FuelScreen() {
         ) : null}
       </GlowCard>
 
-      {intakeOpen ? (
-        <NutritionIntake
-          onClose={() => setIntakeOpen(false)}
-          onManual={() => setTargetOpen(true)}
-          previous={target?.inputs ?? null}
-        />
-      ) : null}
+      {/* THE RECALCULATE SHEET — pure UI + local maths; THIS screen owns the
+          save, so the lab fork stays mock-safe by swapping one import. */}
+      <RecalculateSheet
+        open={recalcOpen}
+        stored={target?.inputs ?? null}
+        currentGoal={target?.goal ?? 'maintain'}
+        todayIso={todayIso}
+        busy={saveTarget.isPending}
+        onApply={(payload) =>
+          saveTarget.mutate(payload, { onSuccess: () => setRecalcOpen(false) })
+        }
+        onClose={() => setRecalcOpen(false)}
+      />
 
       {targetOpen ? (
-        <ManualTargetSheet
-          initialKcal={target?.daily_kcal ?? null}
-          initialGoal={target?.goal ?? 'maintain'}
-          todayIso={todayIso}
-          onClose={() => setTargetOpen(false)}
-        />
+        <ManualTargetSheet target={target} todayIso={todayIso} onClose={() => setTargetOpen(false)} />
       ) : null}
     </ScreenShell>
   );
 }
 
 /**
- * The manual target sheet — the no-AI path, and the escape hatch. The AI
- * intake SAVES THROUGH THE SAME MUTATION; this sheet is why a network-less
- * athlete can still have a budget.
+ * SET MANUALLY — one number, no questions. The goal buttons are gone: a
+ * manual number changes the budget, not the plan, so the in-force goal
+ * carries forward (maintain when none exists yet). The payload — triple
+ * cleared, weightKg carried for the protein target — is built and pinned in
+ * domain/nutrition.ts::manualSavePayload.
  */
 function ManualTargetSheet({
-  initialKcal,
-  initialGoal,
+  target,
   todayIso,
   onClose,
 }: {
-  initialKcal: number | null;
-  initialGoal: Goal;
+  target: NutritionTargetRow | null;
   todayIso: string;
   onClose: () => void;
 }) {
   const colors = useThemeColors();
-  const [kcal, setKcal] = useState(initialKcal === null ? '' : String(initialKcal));
-  const [goal, setGoal] = useState<Goal>(initialGoal);
+  const [kcal, setKcal] = useState(target === null ? '' : String(target.daily_kcal));
   const saveTarget = useSaveTarget();
 
   const save = () => {
-    const v = pyFloat(kcal);
+    const payload = manualSavePayload(
+      pyFloat(kcal),
+      target?.goal ?? null,
+      target?.inputs ?? null,
+      todayIso
+    );
     // Mirrors 037's check constraint — reject here so the toast can explain.
-    if (v === null || v < 1000 || v > 6000) {
+    if (payload === null) {
       useToastStore.getState().push({
         kind: 'error',
         title: 'PICK A REAL TARGET',
@@ -402,13 +389,7 @@ function ManualTargetSheet({
       });
       return;
     }
-    // A manual number is the athlete overriding the model: `triple: null`
-    // EXPLICITLY clears any stored goal triple, so the switcher can never
-    // quote calories the hand-typed target contradicts.
-    saveTarget.mutate(
-      { effectiveFrom: todayIso, dailyKcal: Math.round(v), goal, inputs: {}, triple: null },
-      { onSuccess: onClose }
-    );
+    saveTarget.mutate(payload, { onSuccess: onClose });
   };
 
   return (
@@ -419,19 +400,9 @@ function ManualTargetSheet({
           className="rounded-t-xl border-t p-s4"
           style={{ borderColor: `${colors.accent}40`, backgroundColor: colors.surface }}
         >
-          {/* NUMBERED, so the manual flow reads as one connected sequence
-              rather than two unlabelled controls (Tyson, 2026-08-06). */}
           <SectionLabel>SET MY OWN TARGET</SectionLabel>
           <Text className="mb-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
-            1 · YOUR GOAL
-          </Text>
-          <View className="mb-s3 flex-row flex-wrap gap-s2">
-            {GOALS.map((g) => (
-              <Chip key={g} label={GOAL_LABEL[g]} active={g === goal} onPress={() => setGoal(g)} testID={`fuel-goal-${g}`} />
-            ))}
-          </View>
-          <Text className="mb-s2 text-2xs text-text-mute" style={{ letterSpacing: 1 }}>
-            2 · DAILY CALORIES
+            DAILY CALORIES
           </Text>
           <View className="items-center">
             <NumberField
@@ -446,7 +417,8 @@ function ManualTargetSheet({
             />
           </View>
           <Text className="mt-s1 text-center text-2xs text-text-mute">
-            Calories (kcal) per day. Daily targets run 1,000–6,000.
+            Calories (kcal) per day. Daily targets run 1,000–6,000. Your goal stays as it is —
+            change it with ✦ RECALCULATE.
           </Text>
           <View className="mt-s3">
             {/* The button says what it will save, so nobody has to guess what
